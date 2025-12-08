@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use super::transaction_tracker::TrackedTransactionStatus;
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use async_trait::async_trait;
 use futures::channel::mpsc::Receiver;
@@ -239,6 +240,17 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let validated_transactions =
 			self.verify(at, xts, CheckBannedBeforeVerify::Yes, validation_priority).await;
+
+		// Track pending transactions
+		for (tx_hash, validated_tx) in &validated_transactions {
+			if let ValidatedTransaction::Valid(_) = validated_tx {
+				self.validated_pool
+					.transaction_tracker()
+					.add_pending_transaction(*tx_hash)
+					.await;
+			}
+		}
+
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
 
@@ -453,6 +465,21 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 
+		// Track transactions that were included in blocks
+		for tx in &prune_status.pruned {
+			// Use the block hash from the at parameter
+			let block_hash = at.hash;
+			self.validated_pool
+				.transaction_tracker()
+				.transaction_in_block(
+					tx.hash,
+					block_hash,
+					at.number.saturated_into(),
+					0, // We'll need to get the actual index
+				)
+				.await;
+		}
+
 		// Make sure that we don't revalidate extrinsics that were part of the recently
 		// imported block. This is especially important for UTXO-like chains cause the
 		// inputs are pruned so such transaction would go to future again.
@@ -583,6 +610,47 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	/// Clears the recently pruned transactions in validated pool.
 	pub fn clear_recently_pruned(&mut self) {
 		self.validated_pool.pool.write().clear_recently_pruned();
+	}
+
+	/// Notify when block is finalized
+	pub async fn on_block_finalized(&self, block_hash: BlockHash<B>, block_number: NumberFor<B>) {
+		self.validated_pool.on_block_finalized(block_hash, block_number).await;
+	}
+
+	/// Get transaction receipt for RPC
+	pub fn get_transaction_receipt(
+		&self,
+		tx_hash: &ExtrinsicHash<B>,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<B>, ExtrinsicHash<B>>> {
+		self.validated_pool.get_transaction_receipt(tx_hash)
+	}
+
+	/// Get transaction status
+	pub fn get_transaction_status(
+		&self,
+		tx_hash: &ExtrinsicHash<B>,
+	) -> Option<TrackedTransactionStatus<BlockHash<B>>> {
+		self.validated_pool.get_transaction_status(tx_hash)
+	}
+
+	/// Notify when transactions are included in a block
+	pub async fn on_block_imported(
+		&self,
+		block_hash: BlockHash<B>,
+		block_number: NumberFor<B>,
+		included_txs: Vec<(ExtrinsicHash<B>, usize)>, // (tx_hash, index_in_block)
+	) {
+		self.validated_pool
+			.on_block_imported(block_hash, block_number, included_txs)
+			.await;
+	}
+
+	/// Get all transactions in a block
+	pub fn get_transactions_in_block(
+		&self,
+		block_hash: &BlockHash<B>,
+	) -> Option<Vec<ExtrinsicHash<B>>> {
+		self.validated_pool.get_transactions_in_block(block_hash)
 	}
 }
 

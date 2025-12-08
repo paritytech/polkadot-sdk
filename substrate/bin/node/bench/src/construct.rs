@@ -30,8 +30,8 @@ use async_trait::async_trait;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
-	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	BlockHash, ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, ProposeArgs, Proposer};
 use sp_inherents::InherentDataProvider;
@@ -312,5 +312,12 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		_timeout: std::time::Duration,
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
+	}
+
+	async fn get_transaction_receipt(
+		&self,
+		_hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		None
 	}
 }

@@ -630,6 +630,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 
 		let hashof0 = client.info().genesis_hash;
@@ -684,6 +685,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 
 		let mut proposer_factory =
@@ -723,6 +725,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 
 		let genesis_hash = client.info().best_hash;
@@ -780,6 +783,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 
 		let medium = |nonce| {
@@ -890,6 +894,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
@@ -990,6 +995,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 		let genesis_hash = client.info().genesis_hash;
 
@@ -1060,6 +1066,7 @@ mod tests {
 			None,
 			spawner.clone(),
 			client.clone(),
+			None,
 		));
 		let genesis_hash = client.info().genesis_hash;
 

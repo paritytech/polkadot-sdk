@@ -606,6 +606,8 @@ where
 		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
 		.transpose()?;
 
+	let receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>> = None;
+
 	let gen_rpc_module = || {
 		gen_rpc_module(GenRpcModuleParams {
 			spawn_handle: task_manager.spawn_handle(),
@@ -622,6 +624,7 @@ where
 			rpc_builder: &*rpc_builder,
 			metrics: rpc_v2_metrics.clone(),
 			tracing_execute_block: execute_block.clone(),
+			receipt_db: receipt_db.clone(),
 		})
 	};
 
@@ -787,6 +790,8 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	///
 	/// Will be used by the `trace_block` RPC to execute the actual block.
 	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
+	/// Transaction receipt database for persistent storage
+	pub receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>>,
 }
 
 /// Generate RPC module using provided configuration
@@ -806,6 +811,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 		rpc_builder,
 		metrics,
 		tracing_execute_block: execute_block,
+		receipt_db,
 	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
 where
@@ -907,6 +913,7 @@ where
 		transaction_pool,
 		keystore,
 		task_executor.clone(),
+		receipt_db,
 	)
 	.into_rpc();
 

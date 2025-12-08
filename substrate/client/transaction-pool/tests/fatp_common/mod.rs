@@ -162,6 +162,7 @@ impl TestPoolBuilder {
 				self.future_limits,
 				self.mempool_max_transactions_count,
 				self.finality_timeout_threshold,
+				None,
 			)
 		};
 

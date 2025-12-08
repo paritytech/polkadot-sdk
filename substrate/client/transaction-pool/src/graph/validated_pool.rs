@@ -20,7 +20,8 @@ use crate::{
 	common::{
 		sliding_stat::SyncDurationSlidingStats, tracing_log_xt::log_xt_trace, STAT_SLIDING_WINDOW,
 	},
-	insert_and_log_throttled_sync, LOG_TARGET,
+	graph::TrackedTransactionStatus,
+	insert_and_log_throttled_sync, TransactionReceiptDb, LOG_TARGET,
 };
 use futures::channel::mpsc::{channel, Sender};
 use indexmap::IndexMap;
@@ -45,8 +46,10 @@ use super::{
 		BlockHash, ChainApi, EventStream, ExtrinsicFor, ExtrinsicHash, Options, TransactionFor,
 	},
 	rotator::PoolRotator,
+	transaction_tracker::TransactionTracker,
 	watcher::Watcher,
 };
+use sp_runtime::traits::NumberFor;
 
 /// Pre-validated transaction. Validated pool only accepts transactions wrapped in this enum.
 #[derive(Debug)]
@@ -170,6 +173,8 @@ pub struct ValidatedPool<B: ChainApi, L: EventHandler<B>> {
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
 	enforce_limits_stats: SyncDurationSlidingStats,
+	transaction_tracker: Arc<TransactionTracker<B::Block>>,
+	receipt_db: Option<Arc<TransactionReceiptDb>>,
 }
 
 impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
@@ -183,6 +188,8 @@ impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
 			import_notification_sinks: Default::default(),
 			rotator: self.rotator.clone(),
 			enforce_limits_stats: self.enforce_limits_stats.clone(),
+			transaction_tracker: self.transaction_tracker.clone(),
+			receipt_db: self.receipt_db.clone(),
 		}
 	}
 }
@@ -204,7 +211,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		api: Arc<B>,
 	) -> Self {
 		let ban_time = options.ban_time;
-		Self::new_with_rotator(options, is_validator, api, PoolRotator::new(ban_time), None)
+		Self::new_with_rotator(options, is_validator, api, PoolRotator::new(ban_time), None, None)
 	}
 
 	/// Create a new transaction pool.
@@ -216,6 +223,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			is_validator,
 			api,
 			PoolRotator::new_with_expected_size(ban_time, total_count),
+			None,
 			None,
 		)
 	}
@@ -235,6 +243,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			api,
 			PoolRotator::new_with_expected_size(ban_time, total_count),
 			Some(event_handler),
+			None,
 		)
 	}
 
@@ -244,6 +253,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		api: Arc<B>,
 		rotator: PoolRotator<ExtrinsicHash<B>>,
 		event_handler: Option<L>,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
 		let base_pool = base::BasePool::new(options.reject_future_transactions);
 		Self {
@@ -257,7 +267,81 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			enforce_limits_stats: SyncDurationSlidingStats::new(Duration::from_secs(
 				STAT_SLIDING_WINDOW,
 			)),
+			transaction_tracker: Arc::new(TransactionTracker::new(receipt_db.clone())),
+			receipt_db,
 		}
+	}
+
+	/// Get transaction tracker
+	pub fn transaction_tracker(&self) -> &Arc<TransactionTracker<B::Block>> {
+		&self.transaction_tracker
+	}
+
+	/// Get transaction receipt
+	pub fn get_transaction_receipt(
+		&self,
+		tx_hash: &ExtrinsicHash<B>,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<B>, ExtrinsicHash<B>>> {
+		futures::executor::block_on(self.transaction_tracker.get_transaction_receipt(tx_hash))
+	}
+
+	/// Get transaction status
+	pub fn get_transaction_status(
+		&self,
+		tx_hash: &ExtrinsicHash<B>,
+	) -> Option<TrackedTransactionStatus<BlockHash<B>>> {
+		futures::executor::block_on(self.transaction_tracker.get_transaction_status(tx_hash))
+	}
+
+	/// Get all transactions in a block
+	pub fn get_transactions_in_block(
+		&self,
+		block_hash: &BlockHash<B>,
+	) -> Option<Vec<ExtrinsicHash<B>>> {
+		futures::executor::block_on(self.transaction_tracker.get_transactions_in_block(block_hash))
+	}
+
+	/// Mark transaction as dropped
+	pub async fn mark_transaction_dropped(&self, tx_hash: &ExtrinsicHash<B>) {
+		self.transaction_tracker.transaction_dropped(*tx_hash).await;
+	}
+
+	/// Notify when transactions are included in a block
+	pub async fn on_block_imported(
+		&self,
+		block_hash: BlockHash<B>,
+		block_number: NumberFor<B::Block>,
+		included_txs: Vec<(ExtrinsicHash<B>, usize)>, // (tx_hash, index_in_block)
+	) {
+		let block_number_u64 = block_number.saturated_into();
+		for (tx_hash, index) in included_txs {
+			self.transaction_tracker
+				.transaction_in_block(tx_hash, block_hash, block_number_u64, index)
+				.await;
+		}
+	}
+
+	/// Notify when block is finalized
+	pub async fn on_block_finalized(
+		&self,
+		block_hash: BlockHash<B>,
+		block_number: NumberFor<B::Block>,
+	) {
+		if let Some(tx_hashes) =
+			self.transaction_tracker.get_transactions_in_block(&block_hash).await
+		{
+			let block_number_u64 = block_number.saturated_into();
+			for (index, tx_hash) in tx_hashes.into_iter().enumerate() {
+				self.transaction_tracker
+					.transaction_finalized(tx_hash, block_hash, block_number_u64, index)
+					.await;
+			}
+		}
+	}
+
+	/// Remove transaction from tracking when it's removed from pool
+	pub async fn remove_tracked_transaction(&self, tx_hash: &ExtrinsicHash<B>) {
+		self.transaction_tracker.remove_transaction(tx_hash).await;
 	}
 
 	/// Bans given set of hashes.
@@ -338,6 +422,17 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					tx_hash = ?tx.hash,
 					"ValidatedPool::submit_one"
 				);
+
+				// Track pending transaction
+				if let Some(_) = &self.receipt_db {
+					let tracker = self.transaction_tracker.clone();
+					let hash = tx.hash;
+					// Spawn async task to track the transaction
+					tokio::spawn(async move {
+						tracker.add_pending_transaction(hash).await;
+					});
+				}
+
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
 				}
@@ -429,6 +524,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			// run notifications
 			let mut event_dispatcher = self.event_dispatcher.write();
 			for h in &removed {
+				futures::executor::block_on(self.transaction_tracker.transaction_dropped(*h));
 				event_dispatcher.limits_enforced(h);
 			}
 
@@ -781,6 +877,11 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			listener.invalid(&removed_tx_hash);
 		});
 
+		// Track dropped transactions
+		for tx in &invalid {
+			futures::executor::block_on(self.transaction_tracker.transaction_dropped(tx.hash));
+		}
+
 		trace!(
 			target: LOG_TARGET,
 			removed_count = hashes.len(),
@@ -808,7 +909,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	}
 
 	/// Notify all watchers that transactions in the block with hash have been finalized
-	pub async fn on_block_finalized(&self, block_hash: BlockHash<B>) -> Result<(), B::Error> {
+	pub async fn on_block_finalized_async(&self, block_hash: BlockHash<B>) -> Result<(), B::Error> {
 		trace!(
 			target: LOG_TARGET,
 			?block_hash,

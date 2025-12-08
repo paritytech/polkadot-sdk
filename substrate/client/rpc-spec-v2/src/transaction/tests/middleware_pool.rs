@@ -16,16 +16,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::hex_string;
 use async_trait::async_trait;
 use codec::Encode;
+use futures::StreamExt;
 use sc_transaction_pool::BasicPool;
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
-	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	BlockHash, ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor,
+	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
-
-use crate::hex_string;
-use futures::StreamExt;
 
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, pin::Pin, sync::Arc};
@@ -186,5 +185,12 @@ impl TransactionPool for MiddlewarePool {
 		_timeout: std::time::Duration,
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		self.inner_pool.ready_at(at).await
+	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		self.inner_pool.get_transaction_receipt(hash).await
 	}
 }

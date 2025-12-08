@@ -23,7 +23,7 @@ pub mod hash;
 
 use error::Error;
 use jsonrpsee::proc_macros::rpc;
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{TransactionReceipt, TransactionStatus};
 use sp_core::Bytes;
 
 /// Substrate authoring RPC API
@@ -76,4 +76,11 @@ pub trait AuthorApi<Hash, BlockHash> {
 		item = TransactionStatus<Hash, BlockHash>,
 	)]
 	fn watch_extrinsic(&self, bytes: Bytes);
+
+	/// Get transaction receipt by hash
+	#[method(name = "author_transactionReceipt")]
+	async fn transaction_receipt(
+		&self,
+		hash: Hash,
+	) -> Result<Option<TransactionReceipt<BlockHash, Hash>>, Error>;
 }

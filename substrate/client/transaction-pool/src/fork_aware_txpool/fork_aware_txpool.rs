@@ -44,8 +44,8 @@ use crate::{
 		base_pool::{TimedTransactionSource, Transaction},
 		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
-	LOG_TARGET_STAT,
+	insert_and_log_throttled, ReadyIteratorFor, TransactionReceiptDb, ValidateTransactionPriority,
+	LOG_TARGET, LOG_TARGET_STAT,
 };
 use async_trait::async_trait;
 use futures::{
@@ -65,6 +65,7 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
+	traits,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
 	Saturating,
@@ -75,6 +76,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
+
 use tokio::select;
 use tracing::{debug, instrument, trace, warn, Level};
 
@@ -200,6 +202,9 @@ where
 
 	/// Stats for submit_and_watch call durations
 	submit_and_watch_stats: DurationSlidingStats,
+
+	/// Transaction receipt database for persistent storage
+	receipt_db: Arc<Mutex<Option<Arc<TransactionReceiptDb>>>>,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -241,6 +246,7 @@ where
 			Options::default().future,
 			usize::MAX,
 			finality_timeout_threshold,
+			None,
 		)
 	}
 
@@ -254,6 +260,7 @@ where
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
 		finality_timeout_threshold: Option<usize>,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> (Self, [ForkAwareTxPoolTask; 2]) {
 		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
@@ -321,6 +328,7 @@ where
 				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
 					STAT_SLIDING_WINDOW,
 				)),
+				receipt_db: Arc::new(Mutex::new(receipt_db)),
 			}
 			.inject_initial_view(best_block_hash),
 			[combined_tasks, mempool_task],
@@ -399,6 +407,7 @@ where
 		spawner: impl SpawnEssentialNamed,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
 		let metrics = PrometheusMetrics::new(prometheus);
 		let (events_metrics_collector, event_metrics_task) =
@@ -478,6 +487,7 @@ where
 			submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
 				STAT_SLIDING_WINDOW,
 			)),
+			receipt_db: Arc::new(Mutex::new(receipt_db)),
 		}
 		.inject_initial_view(best_block_hash)
 	}
@@ -883,6 +893,31 @@ where
 	pub fn import_notification_sink_len(&self) -> usize {
 		self.import_notification_sink.notified_items_len()
 	}
+
+	/// Sets the transaction receipt database for persistent transaction tracking.
+	pub fn set_receipt_db(&self, receipt_db: Arc<TransactionReceiptDb>) {
+		*self.receipt_db.lock() = Some(receipt_db);
+	}
+
+	/// Get transaction receipt
+	pub async fn get_transaction_receipt(
+		&self,
+		tx_hash: &graph::ExtrinsicHash<ChainApi>,
+	) -> Option<
+		sc_transaction_pool_api::TransactionReceipt<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
+	> {
+		// Delegate to the most recent view
+		if let Some(most_recent_view) = self.view_store.most_recent_view.read().as_ref() {
+			most_recent_view.pool.validated_pool().get_transaction_receipt(tx_hash)
+		} else {
+			None
+		}
+	}
+
+	/// Get access to the receipt database for transaction tracking
+	pub fn receipt_db(&self) -> Option<Arc<TransactionReceiptDb>> {
+		self.receipt_db.lock().clone()
+	}
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.
@@ -1142,6 +1177,23 @@ where
 		timeout: std::time::Duration,
 	) -> ReadyIteratorFor<ChainApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
+	}
+
+	/// Retrieves a transaction receipt for the given transaction hash.
+	///
+	/// Returns a transaction receipt containing status, block information, and events
+	/// if the transaction is known to the pool.
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		// Delegate to the view store or most recent view
+		if let Some(most_recent_view) = self.view_store.most_recent_view.read().as_ref() {
+			// Use the validated pool's method to get receipt
+			most_recent_view.pool.validated_pool().get_transaction_receipt(hash)
+		} else {
+			None
+		}
 	}
 }
 
@@ -2085,6 +2137,7 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
 		let pool = Self::new_with_background_worker(
@@ -2095,9 +2148,80 @@ where
 			spawner,
 			client.usage_info().chain.best_hash,
 			client.usage_info().chain.finalized_hash,
+			receipt_db,
 		);
 
 		pool
+	}
+}
+
+#[async_trait]
+impl<ChainApi, Block> graph::ChainApi for ForkAwareTxPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
+{
+	type Block = ChainApi::Block;
+	type Error = ChainApi::Error;
+
+	async fn validate_transaction(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+		validation_priority: ValidateTransactionPriority,
+	) -> Result<sp_runtime::transaction_validity::TransactionValidity, Self::Error> {
+		self.api.validate_transaction(at, source, uxt, validation_priority).await
+	}
+
+	fn validate_transaction_blocking(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+	) -> Result<sp_runtime::transaction_validity::TransactionValidity, Self::Error> {
+		self.api.validate_transaction_blocking(at, source, uxt)
+	}
+
+	fn block_id_to_number(
+		&self,
+		at: &BlockId<Self::Block>,
+	) -> Result<Option<NumberFor<Self::Block>>, Self::Error> {
+		self.api.block_id_to_number(at)
+	}
+
+	fn block_id_to_hash(
+		&self,
+		at: &BlockId<Self::Block>,
+	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error> {
+		self.api.block_id_to_hash(at)
+	}
+
+	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize) {
+		self.api.hash_and_length(uxt)
+	}
+
+	async fn block_body(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error> {
+		self.api.block_body(at).await
+	}
+
+	fn block_header(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error> {
+		self.api.block_header(at)
+	}
+
+	fn tree_route(
+		&self,
+		from: <Self::Block as BlockT>::Hash,
+		to: <Self::Block as BlockT>::Hash,
+	) -> Result<TreeRoute<Self::Block>, Self::Error> {
+		self.api.tree_route(from, to)
 	}
 }
 

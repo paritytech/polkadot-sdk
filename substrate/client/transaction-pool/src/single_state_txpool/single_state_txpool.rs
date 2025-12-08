@@ -33,16 +33,16 @@ use crate::{
 		self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator,
 		RawExtrinsicFor,
 	},
-	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
+	ReadyIteratorFor, TransactionReceiptDb, ValidateTransactionPriority, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
-	TxHash, TxInvalidityReportMap,
+	error::Error as TxPoolError, BlockHash, ChainEvent, ImportNotificationStream,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -75,6 +75,7 @@ where
 	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
 	metrics: PrometheusMetrics,
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
+	receipt_db: Arc<Mutex<Option<Arc<TransactionReceiptDb>>>>,
 }
 
 struct ReadyPoll<T, Block: BlockT> {
@@ -174,6 +175,7 @@ where
 					best_block_hash,
 					finalized_hash,
 				))),
+				receipt_db: Arc::new(Mutex::new(None)),
 			},
 			background_task,
 		)
@@ -229,6 +231,7 @@ where
 				best_block_hash,
 				finalized_hash,
 			))),
+			receipt_db: Arc::new(Mutex::new(None)),
 		}
 	}
 
@@ -251,6 +254,21 @@ where
 			ready = self.ready_at(at)=> ready,
 			_ = futures_timer::Delay::new(timeout)=> self.ready()
 		}
+	}
+
+	/// Get transaction receipt for RPC
+	pub async fn get_transaction_receipt(
+		&self,
+		tx_hash: &graph::ExtrinsicHash<PoolApi>,
+	) -> Option<
+		sc_transaction_pool_api::TransactionReceipt<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
+	> {
+		self.pool.get_transaction_receipt(tx_hash)
+	}
+
+	/// Get access to the receipt database for transaction tracking
+	pub fn receipt_db(&self) -> Option<Arc<TransactionReceiptDb>> {
+		self.receipt_db.lock().clone()
 	}
 }
 
@@ -416,6 +434,13 @@ where
 	) -> ReadyIteratorFor<PoolApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		self.pool.get_transaction_receipt(hash)
+	}
 }
 
 impl<Block, Client> BasicPool<FullChainApi<Client, Block>, Block>
@@ -440,8 +465,10 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
+
 		let pool = Self::with_revalidation_type(
 			options,
 			is_validator,
@@ -454,7 +481,17 @@ where
 			client.usage_info().chain.finalized_hash,
 		);
 
+		// Set receipt database
+		if let Some(db) = receipt_db {
+			pool.set_receipt_db(db);
+		}
+
 		pool
+	}
+
+	/// Set the receipt database for transaction tracking
+	pub fn set_receipt_db(&self, receipt_db: Arc<TransactionReceiptDb>) {
+		*self.receipt_db.lock() = Some(receipt_db);
 	}
 }
 
@@ -661,6 +698,33 @@ where
 			},
 		};
 
+		// Track transactions that were included in enacted blocks
+		for enacted_block in tree_route.enacted() {
+			if let Some(block_body) = api.block_body(enacted_block.hash).await.unwrap_or(None) {
+				let included_txs: Vec<_> = block_body
+					.into_iter()
+					.enumerate()
+					.filter_map(|(index, ext)| {
+						let tx_hash = pool.hash_of(&ext);
+						// Check if this transaction was in our pool
+						if self.ready_transaction(&tx_hash).is_some() {
+							Some((tx_hash, index))
+						} else {
+							None
+						}
+					})
+					.collect();
+
+				if !included_txs.is_empty() {
+					futures::executor::block_on(pool.on_block_imported(
+						enacted_block.hash,
+						enacted_block.number,
+						included_txs,
+					));
+				}
+			}
+		}
+
 		let next_action = self.revalidation_strategy.lock().next(
 			hash_and_number.number,
 			Some(std::time::Duration::from_secs(60)),
@@ -811,14 +875,13 @@ where
 				"on-finalized enacted"
 			);
 
+			// Notify about finalized blocks
 			for hash in tree_route.iter().chain(std::iter::once(&hash)) {
-				if let Err(error) = self.pool.validated_pool().on_block_finalized(*hash).await {
-					warn!(
-						target: LOG_TARGET,
-						?hash,
-						?error,
-						"Error occurred while attempting to notify watchers about finalization"
-					);
+				if let Ok(Some(header)) = self.api.block_header(*hash) {
+					let block_number = *header.number();
+					futures::executor::block_on(self.pool.on_block_finalized(*hash, block_number));
+
+					self.pool.validated_pool().on_block_finalized(*hash, block_number).await;
 				}
 			}
 		}

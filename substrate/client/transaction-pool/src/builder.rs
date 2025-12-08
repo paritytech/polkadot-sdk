@@ -23,7 +23,7 @@ use crate::{
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
 	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
-	TransactionPoolWrapper, LOG_TARGET,
+	TransactionPoolWrapper, TransactionReceiptDb, LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
@@ -175,6 +175,7 @@ pub struct Builder<'a, Block, Client> {
 	prometheus: Option<&'a PrometheusRegistry>,
 	client: Arc<Client>,
 	spawner: Box<dyn SpawnEssentialNamed>,
+	receipt_db: Option<Arc<TransactionReceiptDb>>,
 	_phantom: PhantomData<(Client, Block)>,
 }
 
@@ -207,6 +208,7 @@ where
 			client,
 			is_validator,
 			prometheus: None,
+			receipt_db: None,
 		}
 	}
 
@@ -222,6 +224,12 @@ where
 		self
 	}
 
+	/// Sets the transaction receipt database for persistent transaction tracking.
+	pub fn with_receipt_db(mut self, receipt_db: Option<Arc<TransactionReceiptDb>>) -> Self {
+		self.receipt_db = receipt_db;
+		self
+	}
+
 	/// Creates an instance of transaction pool.
 	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
 		tracing::info!(
@@ -231,6 +239,7 @@ where
 			future = ?self.options.options.future,
 			"Creating transaction pool"
 		);
+
 		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
 			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
 				self.options.options,
@@ -238,6 +247,7 @@ where
 				self.prometheus,
 				self.spawner,
 				self.client,
+				self.receipt_db.clone(),
 			)),
 			TransactionPoolType::ForkAware => Box::new(ForkAwareFullPool::new_full(
 				self.options.options,
@@ -245,6 +255,7 @@ where
 				self.prometheus,
 				self.spawner,
 				self.client,
+				self.receipt_db,
 			)),
 		})
 	}

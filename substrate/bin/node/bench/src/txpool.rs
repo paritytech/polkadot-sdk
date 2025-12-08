@@ -76,6 +76,7 @@ impl core::Benchmark for PoolBenchmark {
 			None,
 			executor,
 			context.client.clone(),
+			None,
 		);
 
 		let generated_transactions = self

@@ -72,6 +72,7 @@ impl Default for TestSetup {
 			None,
 			spawner,
 			client.clone(),
+			None,
 		));
 		TestSetup { client, keystore, pool }
 	}
@@ -84,6 +85,7 @@ impl TestSetup {
 			pool: self.pool.clone(),
 			keystore: self.keystore.clone(),
 			executor: test_executor(),
+			None,
 		}
 		.into_rpc();
 		module.extensions_mut().insert(DenyUnsafe::No);

@@ -26,6 +26,7 @@ mod builder;
 mod common;
 mod fork_aware_txpool;
 mod graph;
+mod receipt_db;
 mod single_state_txpool;
 mod transaction_pool_wrapper;
 
@@ -43,6 +44,8 @@ pub use graph::{
 use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::{BasicPool, RevalidationType};
 pub use transaction_pool_wrapper::TransactionPoolWrapper;
+
+pub use receipt_db::TransactionReceiptDb;
 
 type BoxedReadyIterator<Hash, Data> = Box<
 	dyn sc_transaction_pool_api::ReadyTransactions<
