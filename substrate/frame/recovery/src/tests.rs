@@ -19,6 +19,7 @@
 
 use crate::{frame_system::Origin, mock::*, *};
 use frame::{deps::sp_runtime::bounded_vec, testing_prelude::*};
+use pallet_balances::Call as BalancesCall;
 
 use Test as T;
 
@@ -66,5 +67,16 @@ fn basic_flow_works() {
 
 		// Eve finishes the attempt and Ferdie should be the inheritor
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
+
+		// Ferdie can control the lost account
+		assert_ok!(Recovery::control_inherited_account(
+			signed(FERDIE),
+			ALICE,
+			Box::new(BalancesCall::transfer_all { dest: FERDIE, keep_alive: false }.into())
+		));
+
+		// Alice has 0 balance and Ferdie has 200
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 200);
 	});
 }
