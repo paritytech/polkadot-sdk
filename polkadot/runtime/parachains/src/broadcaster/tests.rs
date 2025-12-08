@@ -25,18 +25,14 @@ use polkadot_primitives::Id as ParaId;
 const ALICE: u64 = 1;
 const BOB: u64 = 2;
 
-// Helper function to set up an account with balance
 fn setup_account(who: u64, balance: u128) {
 	let _ = Balances::mint_into(&who, balance);
 }
 
-// Helper function to register a publisher for testing
 fn register_test_publisher(para_id: ParaId) {
 	setup_account(ALICE, 10000);
 	assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 }
-
-// ========== Registration Tests ==========
 
 #[test]
 fn register_publisher_works() {
@@ -44,15 +40,12 @@ fn register_publisher_works() {
 		let para_id = ParaId::from(2000);
 		setup_account(ALICE, 1000);
 
-		// Register publisher
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 
-		// Verify registration
 		let info = RegisteredPublishers::<Test>::get(para_id).unwrap();
 		assert_eq!(info.manager, ALICE);
 		assert_eq!(info.deposit, 100);
 
-		// Verify deposit is held
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 100);
 		assert_eq!(Balances::balance(&ALICE), 900);
 	});
@@ -64,7 +57,6 @@ fn force_register_system_chain_works() {
 		let para_id = ParaId::from(1000); // System chain
 		setup_account(ALICE, 1000);
 
-		// Force register with zero deposit
 		assert_ok!(Broadcaster::force_register_publisher(
 			RuntimeOrigin::root(),
 			ALICE,
@@ -72,12 +64,10 @@ fn force_register_system_chain_works() {
 			para_id
 		));
 
-		// Verify registration
 		let info = RegisteredPublishers::<Test>::get(para_id).unwrap();
 		assert_eq!(info.manager, ALICE);
 		assert_eq!(info.deposit, 0);
 
-		// Verify no deposit held
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 0);
 		assert_eq!(Balances::balance(&ALICE), 1000);
 	});
@@ -89,7 +79,6 @@ fn force_register_with_custom_deposit_works() {
 		let para_id = ParaId::from(2000);
 		setup_account(BOB, 1000);
 
-		// Force register with custom deposit
 		assert_ok!(Broadcaster::force_register_publisher(
 			RuntimeOrigin::root(),
 			BOB,
@@ -97,12 +86,10 @@ fn force_register_with_custom_deposit_works() {
 			para_id
 		));
 
-		// Verify registration
 		let info = RegisteredPublishers::<Test>::get(para_id).unwrap();
 		assert_eq!(info.manager, BOB);
 		assert_eq!(info.deposit, 500);
 
-		// Verify custom deposit held
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &BOB), 500);
 		assert_eq!(Balances::balance(&BOB), 500);
 	});
@@ -115,22 +102,18 @@ fn cannot_register_twice() {
 		setup_account(ALICE, 1000);
 		setup_account(BOB, 1000);
 
-		// First registration succeeds
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 
-		// Second registration by same account fails
 		assert_err!(
 			Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id),
 			Error::<Test>::AlreadyRegistered
 		);
 
-		// Second registration by different account also fails
 		assert_err!(
 			Broadcaster::register_publisher(RuntimeOrigin::signed(BOB), para_id),
 			Error::<Test>::AlreadyRegistered
 		);
 
-		// Only one deposit held
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 100);
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &BOB), 0);
 	});
@@ -142,13 +125,11 @@ fn force_register_requires_root() {
 		let para_id = ParaId::from(1000);
 		setup_account(ALICE, 1000);
 
-		// Non-root origin fails
 		assert_err!(
 			Broadcaster::force_register_publisher(RuntimeOrigin::signed(ALICE), ALICE, 0, para_id),
 			sp_runtime::DispatchError::BadOrigin
 		);
 
-		// Para not registered
 		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
 	});
 }
@@ -159,11 +140,9 @@ fn register_publisher_requires_sufficient_balance() {
 		let para_id = ParaId::from(2000);
 		setup_account(ALICE, 50); // Less than required deposit
 
-		// Registration fails due to insufficient funds
 		let result = Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id);
 		assert!(result.is_err());
 
-		// Para not registered
 		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
 	});
 }
@@ -174,13 +153,11 @@ fn publish_requires_registration() {
 		let para_id = ParaId::from(2000);
 		let data = vec![(b"key".to_vec(), b"value".to_vec())];
 
-		// Publish without registration fails
 		assert_err!(
 			Broadcaster::handle_publish(para_id, data),
 			Error::<Test>::PublishNotAuthorized
 		);
 
-		// No data stored
 		assert!(!PublisherExists::<Test>::get(para_id));
 	});
 }
@@ -191,19 +168,14 @@ fn registered_publisher_can_publish() {
 		let para_id = ParaId::from(2000);
 		setup_account(ALICE, 1000);
 
-		// Register first
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 
-		// Now publish works
 		let data = vec![(b"key".to_vec(), b"value".to_vec())];
 		assert_ok!(Broadcaster::handle_publish(para_id, data));
 
-		// Verify data stored
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key"), Some(b"value".to_vec()));
 	});
 }
-
-// ========== Existing Tests (updated to register first) ==========
 
 #[test]
 fn publish_store_retrieve_and_update_data() {
@@ -211,44 +183,34 @@ fn publish_store_retrieve_and_update_data() {
 		let para_id = ParaId::from(2000);
 		setup_account(ALICE, 1000);
 
-		// Register publisher first
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 
-		// Initial state: publisher doesn't exist, no child root
 		assert!(!PublisherExists::<Test>::get(para_id));
 		assert!(Broadcaster::get_publisher_child_root(para_id).is_none());
 
-		// Publish initial data
 		let initial_data =
 			vec![(b"key1".to_vec(), b"value1".to_vec()), (b"key2".to_vec(), b"value2".to_vec())];
 		Broadcaster::handle_publish(para_id, initial_data.clone()).unwrap();
 
-		// Verify publisher exists and has a child root
 		assert!(PublisherExists::<Test>::get(para_id));
 		let root_after_initial = Broadcaster::get_publisher_child_root(para_id);
 		assert!(root_after_initial.is_some());
 		assert!(!root_after_initial.as_ref().unwrap().is_empty());
 
-		// Verify the actual stored data matches what was published
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), Some(b"value1".to_vec()));
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), Some(b"value2".to_vec()));
-
-		// Non-existent key should return None
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key3"), None);
 
-		// Update existing key and add new key
 		let update_data = vec![
 			(b"key1".to_vec(), b"updated_value1".to_vec()),
 			(b"key3".to_vec(), b"value3".to_vec()),
 		];
 		Broadcaster::handle_publish(para_id, update_data).unwrap();
 
-		// Verify child root changed after update
 		let root_after_update = Broadcaster::get_publisher_child_root(para_id);
 		assert!(root_after_update.is_some());
 		assert_ne!(root_after_initial.unwrap(), root_after_update.unwrap());
 
-		// Verify the data was correctly updated
 		assert_eq!(
 			Broadcaster::get_published_value(para_id, b"key1"),
 			Some(b"updated_value1".to_vec())
@@ -481,5 +443,273 @@ fn max_publishers_limit_enforced() {
 			Broadcaster::get_published_value(existing_para, b"key"),
 			Some(b"updated".to_vec())
 		);
+	});
+}
+
+#[test]
+fn cleanup_published_data_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		let data = vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+			(b"key2".to_vec(), b"value2".to_vec()),
+		];
+		assert_ok!(Broadcaster::handle_publish(para_id, data));
+
+		assert!(PublisherExists::<Test>::get(para_id));
+		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 2);
+		assert!(PublishedDataRoots::<Test>::get(para_id).is_some());
+
+		assert_ok!(Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert!(!PublisherExists::<Test>::get(para_id));
+		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
+		assert!(PublishedDataRoots::<Test>::get(para_id).is_none());
+		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), None);
+		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), None);
+		assert!(RegisteredPublishers::<Test>::get(para_id).is_some());
+	});
+}
+
+#[test]
+fn cleanup_requires_manager() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+		setup_account(BOB, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+
+		assert_err!(
+			Broadcaster::cleanup_published_data(RuntimeOrigin::signed(BOB), para_id),
+			Error::<Test>::NotAuthorized
+		);
+
+		assert!(PublisherExists::<Test>::get(para_id));
+	});
+}
+
+#[test]
+fn cleanup_fails_if_no_data() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert_err!(
+			Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id),
+			Error::<Test>::NoDataToCleanup
+		);
+	});
+}
+
+#[test]
+fn cleanup_fails_if_not_registered() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_err!(
+			Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id),
+			Error::<Test>::NotRegistered
+		);
+	});
+}
+
+#[test]
+fn deregister_publisher_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 100);
+		assert_eq!(Balances::balance(&ALICE), 9900);
+
+		assert_ok!(Broadcaster::deregister_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 0);
+		assert_eq!(Balances::balance(&ALICE), 10000);
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
+	});
+}
+
+#[test]
+fn deregister_fails_if_data_exists() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+
+		assert_err!(
+			Broadcaster::deregister_publisher(RuntimeOrigin::signed(ALICE), para_id),
+			Error::<Test>::MustCleanupDataFirst
+		);
+
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 100);
+	});
+}
+
+#[test]
+fn deregister_requires_manager() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+		setup_account(BOB, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert_err!(
+			Broadcaster::deregister_publisher(RuntimeOrigin::signed(BOB), para_id),
+			Error::<Test>::NotAuthorized
+		);
+	});
+}
+
+#[test]
+fn two_phase_cleanup_and_deregister_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		let data = vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+			(b"key2".to_vec(), b"value2".to_vec()),
+			(b"key3".to_vec(), b"value3".to_vec()),
+		];
+		assert_ok!(Broadcaster::handle_publish(para_id, data));
+
+		// Phase 1: Cleanup data
+		assert_ok!(Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id));
+		assert!(!PublisherExists::<Test>::get(para_id));
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 100);
+
+		// Phase 2: Deregister
+		assert_ok!(Broadcaster::deregister_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 0);
+		assert_eq!(Balances::balance(&ALICE), 10000);
+	});
+}
+
+#[test]
+fn force_deregister_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		let data = vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+			(b"key2".to_vec(), b"value2".to_vec()),
+		];
+		assert_ok!(Broadcaster::handle_publish(para_id, data));
+
+		assert_ok!(Broadcaster::force_deregister_publisher(RuntimeOrigin::root(), para_id));
+
+		assert!(!PublisherExists::<Test>::get(para_id));
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
+		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
+		assert!(PublishedDataRoots::<Test>::get(para_id).is_none());
+		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 0);
+		assert_eq!(Balances::balance(&ALICE), 10000);
+	});
+}
+
+#[test]
+fn force_deregister_works_without_data() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		assert_ok!(Broadcaster::force_deregister_publisher(RuntimeOrigin::root(), para_id));
+
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
+		assert_eq!(Balances::balance(&ALICE), 10000);
+	});
+}
+
+#[test]
+fn force_deregister_requires_root() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+
+		assert_err!(
+			Broadcaster::force_deregister_publisher(RuntimeOrigin::signed(ALICE), para_id),
+			sp_runtime::DispatchError::BadOrigin
+		);
+
+		assert!(PublisherExists::<Test>::get(para_id));
+		assert!(RegisteredPublishers::<Test>::contains_key(para_id));
+	});
+}
+
+#[test]
+fn cleanup_removes_all_keys_from_child_trie() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
+
+		// Publish multiple batches to fill up keys
+		for batch in 0..5 {
+			let mut data = Vec::new();
+			for i in 0..10 {
+				let key = format!("key_{}_{}", batch, i);
+				data.push((key.as_bytes().to_vec(), b"value".to_vec()));
+			}
+			assert_ok!(Broadcaster::handle_publish(para_id, data));
+		}
+
+		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 50);
+
+		assert_ok!(Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id));
+
+		for batch in 0..5 {
+			for i in 0..10 {
+				let key = format!("key_{}_{}", batch, i);
+				assert_eq!(Broadcaster::get_published_value(para_id, key.as_bytes()), None);
+			}
+		}
+
+		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
+	});
+}
+
+#[test]
+fn force_deregister_with_zero_deposit() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(1000); // System chain
+		setup_account(ALICE, 10000);
+
+		assert_ok!(Broadcaster::force_register_publisher(
+			RuntimeOrigin::root(),
+			ALICE,
+			0,
+			para_id
+		));
+
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+
+		assert_ok!(Broadcaster::force_deregister_publisher(RuntimeOrigin::root(), para_id));
+
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
+		assert_eq!(Balances::balance(&ALICE), 10000); // No deposit change
 	});
 }

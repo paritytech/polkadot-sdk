@@ -37,11 +37,15 @@
 //!
 //! ## Storage Lifecycle
 //!
-//! Note: This pallet does not currently implement publisher removal or cleanup mechanisms.
-//! Once a parachain publishes data, it remains in storage. Publishers can update their data
-//! by publishing again, but there is no explicit removal path.
+//! Publishers can deregister to reclaim their deposit and remove their data:
+//!
+//! 1. Call `cleanup_published_data` to remove all published key-value pairs from the child trie
+//! 2. Call `deregister_publisher` to release the deposit and complete deregistration
+//!
+//! Root can force deregistration with `force_deregister_publisher`, which removes all data
+//! and releases the deposit in a single call.
 
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
@@ -57,7 +61,6 @@ use frame_support::{
 	},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
-use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, RuntimeDebug};
@@ -157,6 +160,8 @@ pub mod pallet {
 		PublisherRegistered { para_id: ParaId, manager: T::AccountId },
 		/// A publisher has been deregistered.
 		PublisherDeregistered { para_id: ParaId },
+		/// Published data has been cleaned up.
+		DataCleanedUp { para_id: ParaId },
 	}
 
 	/// Registered publishers and their deposit information.
@@ -227,6 +232,12 @@ pub mod pallet {
 		AlreadyRegistered,
 		/// Cannot publish without being registered first.
 		PublishNotAuthorized,
+		/// Caller is not authorized to perform this action.
+		NotAuthorized,
+		/// Cannot deregister while published data exists. Call cleanup_published_data first.
+		MustCleanupDataFirst,
+		/// No published data to cleanup.
+		NoDataToCleanup,
 	}
 
 	#[pallet::hooks]
@@ -249,16 +260,20 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Register a parachain as a publisher.
+		/// Register a parachain as a publisher with the calling account as manager.
 		///
-		/// The calling account will be set as the manager and must hold a deposit.
-		/// The deposit is held using the `PublisherDeposit` hold reason until the publisher is
-		/// deregistered.
+		/// Requires `PublisherDeposit` to be held from the caller's account.
 		///
-		/// - `origin`: Must be `Signed`.
-		/// - `para_id`: The parachain ID to register as a publisher.
+		/// Parameters:
+		/// - `origin`: Signed origin that will become the publisher manager and pay the deposit.
+		/// - `para_id`: The parachain to register as a publisher.
 		///
-		/// Emits `PublisherRegistered` on success.
+		/// Errors:
+		/// - `AlreadyRegistered`
+		/// - `InsufficientBalance` (from Currency trait)
+		///
+		/// Events:
+		/// - `PublisherRegistered`
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn register_publisher(
@@ -269,20 +284,22 @@ pub mod pallet {
 			Self::do_register_publisher(who, para_id, T::PublisherDeposit::get())
 		}
 
-		/// Force register a parachain as a publisher.
+		/// Register a parachain as a publisher with a custom deposit amount.
 		///
-		/// This function must be called by a Root origin.
+		/// Allows Root to register system parachains with zero or reduced deposits.
 		///
-		/// Allows registration of any `ParaId`, including system parachains, with a custom deposit
-		/// amount. This is typically used for system chains which can be registered with zero
-		/// deposit.
+		/// Parameters:
+		/// - `origin`: Root origin.
+		/// - `manager`: Account that will manage the publisher.
+		/// - `deposit`: Custom deposit amount to hold (typically zero for system parachains).
+		/// - `para_id`: The parachain to register as a publisher.
 		///
-		/// - `origin`: Must be `Root`.
-		/// - `manager`: The account that will manage this publisher.
-		/// - `deposit`: The deposit amount to hold (can be zero for system chains).
-		/// - `para_id`: The parachain ID to register as a publisher.
+		/// Errors:
+		/// - `AlreadyRegistered`
+		/// - `InsufficientBalance` (from Currency trait if deposit is non-zero)
 		///
-		/// Emits `PublisherRegistered` on success.
+		/// Events:
+		/// - `PublisherRegistered`
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn force_register_publisher(
@@ -293,6 +310,121 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_register_publisher(manager, para_id, deposit)
+		}
+
+		/// Remove all published data for a parachain.
+		///
+		/// Must be called before `deregister_publisher`. Only callable by the publisher manager.
+		///
+		/// Parameters:
+		/// - `origin`: Signed origin, must be the publisher manager.
+		/// - `para_id`: The parachain to clean up.
+		///
+		/// Errors:
+		/// - `NotRegistered`
+		/// - `NotAuthorized`
+		/// - `NoDataToCleanup`
+		///
+		/// Events:
+		/// - `DataCleanedUp`
+		#[pallet::call_index(2)]
+		#[pallet::weight(
+			T::DbWeight::get().reads(2)
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(Weight::from_parts(567_000, 0).saturating_mul(T::MaxStoredKeys::get().into()))
+		)]
+		pub fn cleanup_published_data(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let info = RegisteredPublishers::<T>::get(para_id)
+				.ok_or(Error::<T>::NotRegistered)?;
+
+			ensure!(who == info.manager, Error::<T>::NotAuthorized);
+			ensure!(PublisherExists::<T>::get(para_id), Error::<T>::NoDataToCleanup);
+
+			Self::do_cleanup_publisher(para_id)?;
+
+			Self::deposit_event(Event::DataCleanedUp { para_id });
+			Ok(())
+		}
+
+		/// Deregister a publisher and release their deposit.
+		///
+		/// All published data must be cleaned up first via `cleanup_published_data`.
+		///
+		/// Parameters:
+		/// - `origin`: Signed origin, must be the publisher manager.
+		/// - `para_id`: The parachain to deregister.
+		///
+		/// Errors:
+		/// - `NotRegistered`
+		/// - `NotAuthorized`
+		/// - `MustCleanupDataFirst`
+		///
+		/// Events:
+		/// - `PublisherDeregistered`
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		pub fn deregister_publisher(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let info = RegisteredPublishers::<T>::get(para_id)
+				.ok_or(Error::<T>::NotRegistered)?;
+
+			ensure!(who == info.manager, Error::<T>::NotAuthorized);
+			ensure!(!PublisherExists::<T>::get(para_id), Error::<T>::MustCleanupDataFirst);
+
+			Self::do_deregister(para_id, info)?;
+
+			Self::deposit_event(Event::PublisherDeregistered { para_id });
+			Ok(())
+		}
+
+		/// Force deregister a publisher, cleaning up data if necessary.
+		///
+		/// Combines cleanup and deregistration in a single call. Only callable by Root.
+		///
+		/// Parameters:
+		/// - `origin`: Root origin.
+		/// - `para_id`: The parachain to force deregister.
+		///
+		/// Errors:
+		/// - `NotRegistered`
+		///
+		/// Events:
+		/// - `DataCleanedUp` (if data existed)
+		/// - `PublisherDeregistered`
+		#[pallet::call_index(4)]
+		#[pallet::weight(
+			T::DbWeight::get().reads(2)
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(Weight::from_parts(567_000, 0).saturating_mul(T::MaxStoredKeys::get().into()))
+		)]
+		pub fn force_deregister_publisher(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let info = RegisteredPublishers::<T>::get(para_id)
+				.ok_or(Error::<T>::NotRegistered)?;
+
+			// Clean up data if it exists
+			if PublisherExists::<T>::get(para_id) {
+				Self::do_cleanup_publisher(para_id)?;
+				Self::deposit_event(Event::DataCleanedUp { para_id });
+			}
+
+			Self::do_deregister(para_id, info)?;
+
+			Self::deposit_event(Event::PublisherDeregistered { para_id });
+			Ok(())
 		}
 	}
 
@@ -322,6 +454,49 @@ pub mod pallet {
 
 			RegisteredPublishers::<T>::insert(para_id, info);
 			Self::deposit_event(Event::PublisherRegistered { para_id, manager });
+
+			Ok(())
+		}
+
+		fn do_cleanup_publisher(para_id: ParaId) -> DispatchResult {
+			let child_info = Self::derive_child_info(para_id);
+			let published_keys = PublishedKeys::<T>::get(para_id);
+
+			// Remove all key-value pairs from the child trie
+			for bounded_key in published_keys.iter() {
+				let key: Vec<u8> = bounded_key.clone().into();
+				frame_support::storage::child::kill(&child_info, &key);
+			}
+
+			// Clean up tracking storage
+			PublishedKeys::<T>::remove(para_id);
+			PublishedDataRoots::<T>::remove(para_id);
+			PublisherExists::<T>::remove(para_id);
+
+			Ok(())
+		}
+
+		fn do_deregister(
+			para_id: ParaId,
+			info: PublisherInfo<T::AccountId, BalanceOf<T>>,
+		) -> DispatchResult {
+			// Release deposit if non-zero
+			if !info.deposit.is_zero() {
+				let released = <T as Config>::Currency::release(
+					&HoldReason::PublisherDeposit.into(),
+					&info.manager,
+					info.deposit,
+					Exact,
+				)?;
+
+				defensive_assert!(
+					released == info.deposit,
+					"deposit should be fully released"
+				);
+			}
+
+			// Remove registration
+			RegisteredPublishers::<T>::remove(para_id);
 
 			Ok(())
 		}
@@ -361,14 +536,12 @@ pub mod pallet {
 				);
 			}
 
-			// All validation passed, now get or create child trie info for this publisher
+			// Get or create child trie. This checks MaxPublishers limit on first publish.
 			let child_info = Self::get_or_create_publisher_child_info(origin_para_id)?;
 
-			// Get current published keys set for tracking
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
 
-			// Check if adding new keys would exceed MaxStoredKeys limit
-			// Count how many unique new keys we're adding
+			// Count new unique keys to prevent exceeding MaxStoredKeys
 			let mut new_keys_count = 0u32;
 			for (key, _) in &data {
 				if let Ok(bounded_key) = BoundedVec::try_from(key.clone()) {
@@ -378,32 +551,27 @@ pub mod pallet {
 				}
 			}
 
-			// Ensure we won't exceed the total stored keys limit
 			let current_keys_count = published_keys.len() as u32;
 			ensure!(
 				current_keys_count.saturating_add(new_keys_count) <= T::MaxStoredKeys::get(),
 				Error::<T>::TooManyStoredKeys
 			);
 
-			// Store each key-value pair in the child trie and track the key
+			// Write to child trie and track keys for enumeration
 			for (key, value) in data {
 				frame_support::storage::child::put(&child_info, &key, &value);
 
-				// Track the key for enumeration (convert to BoundedVec)
 				if let Ok(bounded_key) = BoundedVec::try_from(key) {
-					// This should never fail now since we checked the limit above
 					published_keys.try_insert(bounded_key).defensive_ok();
 				}
 			}
 
-			// Update the published keys storage
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
 
-			// Calculate and update the child trie root for this publisher
+			// Update child trie root for storage proof verification
 			let child_root = frame_support::storage::child::root(&child_info,
 				sp_runtime::StateVersion::V1);
 
-			// Store the root in the map (fixed 32-byte array)
 			let root_array: [u8; 32] = child_root.try_into()
 				.defensive_unwrap_or([0u8; 32]);
 			PublishedDataRoots::<T>::insert(origin_para_id, root_array);
