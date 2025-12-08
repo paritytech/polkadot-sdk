@@ -1,0 +1,10 @@
+title: Bump trie-db to 0.31.0
+
+doc:
+  - audience: Node Dev
+    description: |
+      Bumps `trie-db` to 0.31.0 and `trie-bench` to 0.42.1.
+
+crates:
+  - name: sp-trie
+    bump: minor
