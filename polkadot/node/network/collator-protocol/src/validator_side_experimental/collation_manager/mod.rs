@@ -23,7 +23,7 @@ use crate::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
 			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY_IN_MILLIS, UNDER_THRESHOLD_FETCH_DELAY,
+			INSTANT_FETCH_REP_THRESHOLD, UNDER_THRESHOLD_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 	},
