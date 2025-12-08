@@ -1401,6 +1401,91 @@ fn try_schedule_retry_respects_weight_limits() {
 	});
 }
 
+fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
+	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
+	let retry_period = 3;
+	let task_name = [42u8; 32];
+
+	new_test_ext().execute_with(|| {
+		// Task will fail until block 100 (effectively always fails in this test).
+		Threshold::<Test>::put((100, 200));
+
+		// Fill block 7 (4 + retry_period) to capacity with dummy tasks.
+		let filler_call =
+			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
+		let filler_bound = Preimage::bound(filler_call).unwrap();
+		for _ in 0..max {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4 + retry_period),
+				None,
+				127,
+				root(),
+				filler_bound.clone(),
+			));
+		}
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+
+		// Schedule a task at block 4 that will fail.
+		let failing_call =
+			RuntimeCall::Logger(LoggerCall::timed_log { i: 42, weight: Weight::from_parts(10, 0) });
+		if named {
+			assert_ok!(Scheduler::do_schedule_named(
+				task_name,
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for named task.
+			assert_ok!(Scheduler::set_retry_named(root().into(), task_name, 10, retry_period));
+		} else {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for anonymous task.
+			assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, retry_period));
+		}
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+
+		// Run to block 4: task fails and tries to schedule retry at block 7, but it's full.
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The retry config should be removed since scheduling failed.
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		// Task at block 4 should be gone.
+		assert!(Agenda::<Test>::get(4).is_empty());
+		// Block 7 should still have exactly `max` tasks (the fillers, no retry added).
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+		// Task 42 never executed.
+		assert!(!logger::log().iter().any(|(_, i)| *i == 42));
+
+		// Verify `RetryFailed` event was emitted.
+		// Note: `id` is always `None` because `as_retry()` clears the task name.
+		let events = frame_system::Pallet::<Test>::events();
+		let retry_failed_event: <Test as frame_system::Config>::RuntimeEvent =
+			Event::RetryFailed { task: (4, 0), id: None }.into();
+		assert!(
+			events.iter().any(|record| record.event == retry_failed_event),
+			"Expected RetryFailed event not found"
+		);
+	});
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_anon() {
+	schedule_retry_fails_when_retry_target_block_is_full(false);
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_named() {
+	schedule_retry_fails_when_retry_target_block_is_full(true);
+}
+
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
@@ -1639,7 +1724,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 1;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(42), // BN unused
+			Scheduler::on_initialize(42), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
@@ -1653,7 +1738,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 2;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(123), // BN unused
+			Scheduler::on_initialize(123), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1670,7 +1755,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 3;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(555), // BN unused
+			Scheduler::on_initialize(555), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
@@ -1686,12 +1771,20 @@ fn on_initialize_weight_is_correct() {
 		// Will contain none
 		let now = 4;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
-		let actual_weight = Scheduler::on_initialize(444); // BN unused
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
 		);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		frame_system::Pallet::<Test>::register_extra_weight_unchecked(
+			BlockWeights::get().max_block,
+			frame_support::dispatch::DispatchClass::Mandatory,
+		);
+
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
+		assert!(actual_weight.is_zero());
 	});
 }
 
@@ -2713,6 +2806,8 @@ fn scheduler_v3_named_cancel_named_works() {
 		.unwrap();
 		// Cancel the call by name.
 		assert_ok!(<Scheduler as Named<_, _, _>>::cancel_named(name));
+		// Lookup storage should be empty.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());
@@ -2743,6 +2838,8 @@ fn scheduler_v3_named_cancel_without_name_works() {
 		.unwrap();
 		// Cancel the call by address.
 		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		// Address-cancellation of named task should still clear the lookup storage.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());

@@ -1751,7 +1751,7 @@ impl<T: Config> Pallet<T> {
 			if i == 0 {
 				last_score = indice.0
 			} else {
-				if last_score.strict_threshold_better(indice.0, Perbill::zero()) {
+				if last_score.strict_better(indice.0) {
 					return Err(
 						"Signed submission indices vector must be ordered by election score".into()
 					)
@@ -1841,13 +1841,14 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		let has_queued = QueuedSolution::<T>::exists();
 		let phase = CurrentPhase::<T>::get();
 		match (phase, has_queued) {
-			(Phase::Unsigned(_), true) => Ok(true),
+			// This pallet is not advanced enough to report any weight, ergo `Default::default()`.
+			(Phase::Unsigned(_), true) => Ok(Some(Default::default())),
 			(Phase::Off, _) => Err(()),
-			_ => Ok(false),
+			_ => Ok(None),
 		}
 	}
 

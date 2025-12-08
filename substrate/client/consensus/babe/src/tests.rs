@@ -28,10 +28,10 @@ use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network_test::{Block as TestBlock, *};
 use sc_transaction_pool_api::RejectAllTxPool;
 use sp_application_crypto::key_types::BABE;
-use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
+use sp_consensus::{NoNetwork as DummyOracle, Proposal, ProposeArgs};
 use sp_consensus_babe::{
-	inherents::InherentDataProvider, make_vrf_sign_data, AllowedSlots, AuthorityId, AuthorityPair,
-	Slot,
+	inherents::{BabeCreateInherentDataProviders, InherentDataProvider},
+	make_vrf_sign_data, AllowedSlots, AuthorityId, AuthorityPair, Slot,
 };
 use sp_consensus_slots::SlotDuration;
 use sp_core::crypto::Pair;
@@ -41,8 +41,8 @@ use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 };
-use sp_timestamp::Timestamp;
-use std::{cell::RefCell, task::Poll, time::Duration};
+use std::{cell::RefCell, task::Poll};
+use substrate_test_runtime_client::DefaultTestClientBuilderExt;
 
 type Item = DigestItem;
 
@@ -63,8 +63,15 @@ enum Stage {
 
 type Mutator = Arc<dyn Fn(&mut TestHeader, Stage) + Send + Sync>;
 
-type BabeBlockImport =
-	PanickingBlockImport<crate::BabeBlockImport<TestBlock, TestClient, Arc<TestClient>>>;
+type BabeBlockImport = PanickingBlockImport<
+	crate::BabeBlockImport<
+		TestBlock,
+		TestClient,
+		Arc<TestClient>,
+		BabeCreateInherentDataProviders<TestBlock>,
+		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, Block>,
+	>,
+>;
 
 const SLOT_DURATION_MS: u64 = 1000;
 
@@ -97,7 +104,7 @@ impl DummyProposer {
 	fn propose_with(
 		&mut self,
 		pre_digests: Digest,
-	) -> future::Ready<Result<Proposal<TestBlock, ()>, Error>> {
+	) -> future::Ready<Result<Proposal<TestBlock>, Error>> {
 		let block_builder = BlockBuilderBuilder::new(&*self.factory.client)
 			.on_parent_block(self.parent_hash)
 			.fetch_parent_block_number(&*self.factory.client)
@@ -114,24 +121,16 @@ impl DummyProposer {
 		// mutate the block header according to the mutator.
 		(self.factory.mutator)(&mut block.header, Stage::PreSeal);
 
-		future::ready(Ok(Proposal { block, proof: (), storage_changes: Default::default() }))
+		future::ready(Ok(Proposal { block, storage_changes: Default::default() }))
 	}
 }
 
 impl Proposer<TestBlock> for DummyProposer {
 	type Error = Error;
-	type Proposal = future::Ready<Result<Proposal<TestBlock, ()>, Error>>;
-	type ProofRecording = DisableProofRecording;
-	type Proof = ();
+	type Proposal = future::Ready<Result<Proposal<TestBlock>, Error>>;
 
-	fn propose(
-		mut self,
-		_: InherentData,
-		pre_digests: Digest,
-		_: Duration,
-		_: Option<usize>,
-	) -> Self::Proposal {
-		self.propose_with(pre_digests)
+	fn propose(mut self, args: ProposeArgs<TestBlock>) -> Self::Proposal {
+		self.propose_with(args.inherent_digests)
 	}
 }
 
@@ -173,22 +172,8 @@ pub struct BabeTestNet {
 
 type TestHeader = <TestBlock as BlockT>::Header;
 
-type TestSelectChain =
-	substrate_test_runtime_client::LongestChain<substrate_test_runtime_client::Backend, TestBlock>;
-
 pub struct TestVerifier {
-	inner: BabeVerifier<
-		TestBlock,
-		PeersFullClient,
-		TestSelectChain,
-		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
-	>,
+	inner: BabeVerifier<TestBlock, PeersFullClient>,
 	mutator: Mutator,
 }
 
@@ -228,8 +213,23 @@ impl TestNetFactory for BabeTestNet {
 		let client = client.as_client();
 
 		let config = crate::configuration(&*client).expect("config available");
-		let (block_import, link) = crate::block_import(config, client.clone(), client.clone())
-			.expect("can initialize block-import");
+		let (_, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
+		let (block_import, link) = crate::block_import(
+			config,
+			client.clone(),
+			client.clone(),
+			Arc::new(move |_, _| async {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					SlotDuration::from_millis(SLOT_DURATION_MS),
+				);
+				Ok((slot, timestamp))
+			}) as BabeCreateInherentDataProviders<TestBlock>,
+			longest_chain,
+			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		)
+		.expect("can initialize block-import");
 
 		let block_import = PanickingBlockImport(block_import);
 
@@ -243,8 +243,6 @@ impl TestNetFactory for BabeTestNet {
 	}
 
 	fn make_verifier(&self, client: PeersClient, maybe_link: &Option<PeerData>) -> Self::Verifier {
-		use substrate_test_runtime_client::DefaultTestClientBuilderExt;
-
 		let client = client.as_client();
 		trace!(target: LOG_TARGET, "Creating a verifier");
 
@@ -253,25 +251,13 @@ impl TestNetFactory for BabeTestNet {
 			.as_ref()
 			.expect("babe link always provided to verifier instantiation");
 
-		let (_, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
-
 		TestVerifier {
 			inner: BabeVerifier {
 				client: client.clone(),
-				select_chain: longest_chain,
-				create_inherent_data_providers: Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
-				}),
+				slot_duration: SlotDuration::from_millis(SLOT_DURATION_MS),
 				config: data.link.config.clone(),
 				epoch_changes: data.link.epoch_changes.clone(),
 				telemetry: None,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-					RejectAllTxPool::default(),
-				),
 			},
 			mutator: MUTATOR.with(|m| m.borrow().clone()),
 		}
@@ -430,7 +416,7 @@ async fn authoring_blocks() {
 }
 
 #[tokio::test]
-#[should_panic(expected = "valid babe headers must contain a predigest")]
+#[should_panic(expected = "importing block failed: Other(NoPreRuntimeDigest)")]
 async fn rejects_missing_inherent_digest() {
 	run_one_test(|header: &mut TestHeader, stage| {
 		let v = std::mem::take(&mut header.digest_mut().logs);

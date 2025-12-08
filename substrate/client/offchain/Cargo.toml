@@ -49,7 +49,6 @@ async-trait = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-db = { default-features = true, workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }

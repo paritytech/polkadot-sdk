@@ -12,8 +12,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Bridge dependencies
 bp-header-chain = { workspace = true }
@@ -35,13 +35,11 @@ sp-runtime = { workspace = true }
 [dev-dependencies]
 bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
-bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-utility = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -57,7 +55,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -68,6 +65,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

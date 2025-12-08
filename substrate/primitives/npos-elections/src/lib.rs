@@ -183,8 +183,29 @@ pub struct ElectionScore {
 	pub sum_stake: ExtendedBalance,
 	/// The sum squared of the total backing of all winners, aka. the variance.
 	///
-	/// Ths parameter should be minimized.
+	/// This parameter should be minimized.
 	pub sum_stake_squared: ExtendedBalance,
+}
+
+#[cfg(feature = "std")]
+impl ElectionScore {
+	/// format the election score in a pretty way with the given `token` symbol and `decimals`.
+	pub fn pretty(&self, token: &str, decimals: u32) -> String {
+		format!(
+			"ElectionScore (minimal_stake: {}, sum_stake: {}, sum_stake_squared: {})",
+			pretty_balance(self.minimal_stake, token, decimals),
+			pretty_balance(self.sum_stake, token, decimals),
+			pretty_balance(self.sum_stake_squared, token, decimals),
+		)
+	}
+}
+
+/// Format a single [`ExtendedBalance`] into a pretty string with the given `token` symbol and
+/// `decimals`.
+#[cfg(feature = "std")]
+pub fn pretty_balance<B: Into<u128>>(b: B, token: &str, decimals: u32) -> String {
+	let b: u128 = b.into();
+	format!("{} {}", b / 10u128.pow(decimals), token)
 }
 
 impl ElectionScore {
@@ -195,7 +216,7 @@ impl ElectionScore {
 
 	/// Compares two sets of election scores based on desirability, returning true if `self` is
 	/// strictly `threshold` better than `other`. In other words, each element of `self` must be
-	/// `self * threshold` better than `other`.
+	/// better than `other` relative to the given `threshold`.
 	///
 	/// Evaluation is done based on the order of significance of the fields of [`ElectionScore`].
 	pub fn strict_threshold_better(self, other: Self, threshold: impl PerThing) -> bool {
@@ -223,6 +244,12 @@ impl ElectionScore {
 			// anything else is not a good score.
 			_ => false,
 		}
+	}
+
+	/// Compares two sets of election scores based on desirability, returning true if `self` is
+	/// strictly better than `other`.
+	pub fn strict_better(self, other: Self) -> bool {
+		self.strict_threshold_better(other, sp_runtime::Perbill::zero())
 	}
 }
 

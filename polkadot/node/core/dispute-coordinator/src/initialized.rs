@@ -44,10 +44,9 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -852,9 +851,7 @@ impl Initialized {
 				};
 				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
-				let _ = tx.send(
-					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
-				);
+				let _ = tx.send(recent_disputes);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
@@ -866,10 +863,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {

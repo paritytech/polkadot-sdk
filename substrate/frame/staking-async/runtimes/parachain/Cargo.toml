@@ -7,6 +7,7 @@ description = "A parachain runtime for staking-async"
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
+publish = false
 
 [lints]
 workspace = true
@@ -50,13 +51,13 @@ pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
-pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking-async = { workspace = true }
+pallet-staking-async-preset-store = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-async-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
@@ -131,8 +132,13 @@ pallet-xcm-bridge-hub-router = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
+frame-try-runtime = { workspace = true, default-features = true }
+pallet-bags-list-remote-tests = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+remote-externalities = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -172,11 +178,11 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
@@ -203,6 +209,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-test-utils/try-runtime",
 	"assets-common/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -236,7 +243,6 @@ try-runtime = [
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",
-	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-referenda/try-runtime",
@@ -310,12 +316,12 @@ std = [
 	"pallet-nfts/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
-	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-referenda/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
+	"pallet-staking-async-preset-store/std",
 	"pallet-staking-async-rc-client/std",
 	"pallet-staking-async-runtime-api/std",
 	"pallet-staking-async/std",

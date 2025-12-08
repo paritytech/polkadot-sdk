@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	subxt_client::{self, runtime_types::pallet_revive::storage::ContractInfo, SrcChainConfig},
+	subxt_client::{
+		self,
+		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+		SrcChainConfig,
+	},
 	ClientError, H160,
 };
 use subxt::{storage::Storage, OnlineClient};
@@ -39,12 +43,16 @@ impl StorageApi {
 		// TODO: remove once subxt is updated
 		let contract_address: subxt::utils::H160 = contract_address.0.into();
 
-		let query = subxt_client::storage().revive().contract_info_of(contract_address);
+		let query = subxt_client::storage().revive().account_info_of(contract_address);
 		let Some(info) = self.0.fetch(&query).await? else {
 			return Err(ClientError::ContractNotFound);
 		};
 
-		Ok(info)
+		let AccountType::Contract(contract_info) = info.account_type else {
+			return Err(ClientError::ContractNotFound);
+		};
+
+		Ok(contract_info)
 	}
 
 	/// Get the contract trie id for the given contract address.

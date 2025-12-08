@@ -35,7 +35,6 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 bp-header-chain = { workspace = true }
-bp-runtime = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }

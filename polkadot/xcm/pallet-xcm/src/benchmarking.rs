@@ -603,11 +603,18 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(who.clone());
 		let origin_location: VersionedLocation =
 			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+				.map_err(|_| {
+					tracing::error!(
+						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+						?origin,
+						"try_origin failed",
+					);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?
 				.into();
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
@@ -620,8 +627,17 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+		})?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
@@ -642,17 +658,31 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(who.clone());
 		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
 		let origin_location =
-			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| error.clone())?;
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin,
+					"try_origin failed",
+				);
+				error.clone()
+			})?;
 		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
 		// Location conversions.
 		let origin_location: VersionedLocation = match origin_location.unpack() {
 			(0, [AccountId32 { network: _, id }]) =>
 				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
-			_ => return Err(error.clone()),
+			_ => {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin_location,
+					"unexpected origin failed",
+				);
+				return Err(error.clone())
+			},
 		};
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
@@ -665,8 +695,17 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
-			.map_err(|_| error)?;
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			error
+		})?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 

@@ -9,14 +9,20 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
+asset-hub-westend-runtime = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }
+ethabi = { workspace = true }
+futures = { workspace = true }
 log = { workspace = true }
+pallet-revive = { workspace = true, features = ["std"] }
 polkadot-primitives = { workspace = true, default-features = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-subxt = { version = "0.38.1", default-features = false }
+sp-core = { workspace = true }
+subxt = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
 zombienet-orchestrator = { workspace = true }
@@ -27,5 +33,7 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
+sc-executor = { workspace = true, default-features = true }
+sc-runtime-utilities = { workspace = true, default-features = true }
+sp-io = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
-subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

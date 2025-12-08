@@ -180,23 +180,57 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 }
 
 fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
+	type Runtime = <PenpalA as Chain>::Runtime;
+	let remote_fee_id: AssetId = t
+		.args
+		.assets
+		.clone()
+		.into_inner()
+		.get(t.args.fee_asset_item as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		bx!(TransferType::Teleport),
+		bx!(remote_fee_id.into()),
+		bx!(TransferType::DestinationReserve),
+		bx!(VersionedXcm::from(
+			Xcm::<()>::builder_unsafe()
+				.deposit_asset(AllCounted(2), t.args.beneficiary)
+				.build()
+		)),
 		t.args.weight_limit,
 	)
 }
 
 fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets(
+	type Runtime = <AssetHubRococo as Chain>::Runtime;
+	let remote_fee_id: AssetId = t
+		.args
+		.assets
+		.clone()
+		.into_inner()
+		.get(t.args.fee_asset_item as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
+	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		bx!(TransferType::Teleport),
+		bx!(remote_fee_id.into()),
+		bx!(TransferType::LocalReserve),
+		bx!(VersionedXcm::from(
+			Xcm::<()>::builder_unsafe()
+				.deposit_asset(AllCounted(2), t.args.beneficiary)
+				.build()
+		)),
 		t.args.weight_limit,
 	)
 }
@@ -318,7 +352,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 ) {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 10000;
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+	let asset_location_on_penpal =
+		PenpalA::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
 	let asset_id_on_penpal = match asset_location_on_penpal.last() {
 		Some(Junction::GeneralIndex(id)) => *id as u32,
 		_ => unreachable!(),

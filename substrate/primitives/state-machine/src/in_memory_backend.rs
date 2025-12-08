@@ -25,7 +25,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Codec;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
-use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB};
+use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB, RandomState};
 
 #[cfg(feature = "std")]
 use std::collections::HashMap as MapType;
@@ -40,7 +40,11 @@ where
 	H::Out: Codec + Ord,
 {
 	// V1 is same as V0 for an empty trie.
-	TrieBackendBuilder::new(Default::default(), empty_trie_root::<LayoutV1<H>>()).build()
+	TrieBackendBuilder::new(
+		PrefixedMemoryDB::with_hasher(RandomState::default()),
+		empty_trie_root::<LayoutV1<H>>(),
+	)
+	.build()
 }
 
 impl<H: Hasher> TrieBackend<PrefixedMemoryDB<H>, H>

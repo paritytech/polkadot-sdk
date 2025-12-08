@@ -43,8 +43,8 @@ use frame_support::{
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
-	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
-	INHERENT_IDENTIFIER,
+	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
+	CHUNK_SIZE, INHERENT_IDENTIFIER,
 };
 
 /// A type alias for the balance type from this pallet's point of view.
@@ -60,6 +60,9 @@ pub use weights::WeightInfo;
 // Setting higher limit also requires raising the allocator limit.
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
+
+/// Hash of a stored blob of data.
+type ContentHash = [u8; 32];
 
 /// State data for a stored transaction.
 #[derive(
@@ -80,12 +83,20 @@ pub struct TransactionInfo {
 	/// Size of indexed data in bytes.
 	size: u32,
 	/// Total number of chunks added in the block with this transaction. This
-	/// is used find transaction info by block chunk index using binary search.
-	block_chunks: u32,
+	/// is used to find transaction info by block chunk index using binary search.
+	///
+	/// Cumulative value of all previous transactions in the block; the last transaction holds the
+	/// total chunks value.
+	block_chunks: ChunkIndex,
 }
 
-fn num_chunks(bytes: u32) -> u32 {
-	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
+impl TransactionInfo {
+	/// Get the number of total chunks.
+	///
+	/// See the `block_chunks` field of [`TransactionInfo`] for details.
+	pub fn total_chunks(txs: &[TransactionInfo]) -> ChunkIndex {
+		txs.last().map_or(0, |t| t.block_chunks)
+	}
 }
 
 #[frame_support::pallet]
@@ -129,11 +140,17 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Attempted to call `store`/`renew` outside of block execution.
+		BadContext,
+		/// Data size is not in the allowed range.
+		BadDataSize,
+		/// Too many transactions in the block.
+		TooManyTransactions,
 		/// Invalid configuration.
 		NotConfigured,
 		/// Renewed extrinsic is not found.
 		RenewedNotFound,
-		/// Attempting to store empty transaction
+		/// Attempting to store an empty transaction
 		EmptyTransaction,
 		/// Proof was not expected in this block.
 		UnexpectedProof,
@@ -149,10 +166,10 @@ pub mod pallet {
 		ProofNotChecked,
 		/// Transaction is too large.
 		TransactionTooLarge,
-		/// Too many transactions in the block.
-		TooManyTransactions,
-		/// Attempted to call `store` outside of block execution.
-		BadContext,
+		/// Authorization was not found.
+		AuthorizationNotFound,
+		/// Authorization has not expired.
+		AuthorizationNotExpired,
 	}
 
 	#[pallet::pallet]
@@ -161,16 +178,23 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with benchmarked weights.
+			let mut weight = Weight::zero();
+			let db_weight = T::DbWeight::get();
+
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
+			weight.saturating_accrue(db_weight.reads(1));
 			let period = StoragePeriod::<T>::get();
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
+				weight.saturating_accrue(db_weight.writes(1));
 				Transactions::<T>::remove(obsolete);
-				ChunkCount::<T>::remove(obsolete);
 			}
-			// 2 writes in `on_initialize` and 2 writes + 2 reads in `on_finalize`
-			T::DbWeight::get().reads_writes(2, 4)
+
+			// For `on_finalize`
+			weight.saturating_accrue(db_weight.reads_writes(3, 1));
+			weight
 		}
 
 		fn on_finalize(n: BlockNumberFor<T>) {
@@ -180,15 +204,19 @@ pub mod pallet {
 					let number = frame_system::Pallet::<T>::block_number();
 					let period = StoragePeriod::<T>::get();
 					let target_number = number.saturating_sub(period);
-					target_number.is_zero() || ChunkCount::<T>::get(target_number) == 0
+
+					target_number.is_zero() || {
+						// An empty block means no transactions were stored, relying on the fact
+						// below that we store transactions only if they contain chunks.
+						!Transactions::<T>::contains_key(target_number)
+					}
 				},
 				"Storage proof must be checked once in the block"
 			);
-			// Insert new transactions
+			// Insert new transactions, iff they have chunks.
 			let transactions = BlockTransactions::<T>::take();
-			let total_chunks = transactions.last().map_or(0, |t| t.block_chunks);
+			let total_chunks = TransactionInfo::total_chunks(&transactions);
 			if total_chunks != 0 {
-				ChunkCount::<T>::insert(n, total_chunks);
 				Transactions::<T>::insert(n, transactions);
 			}
 		}
@@ -225,9 +253,9 @@ pub mod pallet {
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
-				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunk_count;
+				let total_chunks = TransactionInfo::total_chunks(&transactions) + chunk_count;
 				index = transactions.len() as u32;
 				transactions
 					.try_push(TransactionInfo {
@@ -239,7 +267,7 @@ pub mod pallet {
 					.map_err(|_| Error::<T>::TooManyTransactions)?;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::Stored { index });
+			Self::deposit_event(Event::Stored { index, content_hash });
 			Ok(())
 		}
 
@@ -263,16 +291,16 @@ pub mod pallet {
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 
 			Self::apply_fee(sender, info.size)?;
-
-			sp_io::transaction_index::renew(extrinsic_index, info.content_hash.into());
+			let content_hash = info.content_hash.into();
+			sp_io::transaction_index::renew(extrinsic_index, content_hash);
 
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
 				let chunks = num_chunks(info.size);
-				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunks;
+				let total_chunks = TransactionInfo::total_chunks(&transactions) + chunks;
 				index = transactions.len() as u32;
 				transactions
 					.try_push(TransactionInfo {
@@ -283,12 +311,13 @@ pub mod pallet {
 					})
 					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Renewed { index });
+			Self::deposit_event(Event::Renewed { index, content_hash });
 			Ok(().into())
 		}
 
 		/// Check storage proof for block number `block_number() - StoragePeriod`.
-		/// If such block does not exist the proof is expected to be `None`.
+		/// If such a block does not exist, the proof is expected to be `None`.
+		///
 		/// ## Complexity
 		/// - Linear w.r.t the number of indexed transactions in the proved block for random
 		///   probing.
@@ -301,39 +330,18 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			ensure!(!ProofChecked::<T>::get(), Error::<T>::DoubleCheck);
+
+			// Get the target block metadata.
 			let number = frame_system::Pallet::<T>::block_number();
 			let period = StoragePeriod::<T>::get();
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
-			let total_chunks = ChunkCount::<T>::get(target_number);
-			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
+			let transactions =
+				Transactions::<T>::get(target_number).ok_or(Error::<T>::MissingStateData)?;
+
+			// Verify the proof with a "random" chunk (randomness is based on the parent hash).
 			let parent_hash = frame_system::Pallet::<T>::parent_hash();
-			let selected_chunk_index = random_chunk(parent_hash.as_ref(), total_chunks);
-			let (info, chunk_index) = match Transactions::<T>::get(target_number) {
-				Some(infos) => {
-					let index = match infos
-						.binary_search_by_key(&selected_chunk_index, |info| info.block_chunks)
-					{
-						Ok(index) => index,
-						Err(index) => index,
-					};
-					let info = infos.get(index).ok_or(Error::<T>::MissingStateData)?.clone();
-					let chunks = num_chunks(info.size);
-					let prev_chunks = info.block_chunks - chunks;
-					(info, selected_chunk_index - prev_chunks)
-				},
-				None => return Err(Error::<T>::MissingStateData.into()),
-			};
-			ensure!(
-				sp_io::trie::blake2_256_verify_proof(
-					info.chunk_root,
-					&proof.proof,
-					&encode_index(chunk_index),
-					&proof.chunk,
-					sp_runtime::StateVersion::V1,
-				),
-				Error::<T>::InvalidProof
-			);
+			Self::verify_chunk_proof(proof, parent_hash.as_ref(), transactions.to_vec())?;
 			ProofChecked::<T>::put(true);
 			Self::deposit_event(Event::ProofChecked);
 			Ok(().into())
@@ -344,11 +352,24 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data under specified index.
-		Stored { index: u32 },
+		Stored { index: u32, content_hash: ContentHash },
 		/// Renewed data under specified index.
-		Renewed { index: u32 },
+		Renewed { index: u32, content_hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
+		/// An account `who` was authorized to store `bytes` bytes in `transactions` transactions.
+		AccountAuthorized { who: T::AccountId, transactions: u32, bytes: u64 },
+		/// An authorization for account `who` was refreshed.
+		AccountAuthorizationRefreshed { who: T::AccountId },
+		/// Authorization was given for a preimage of `content_hash` (not exceeding `max_size`) to
+		/// be stored by anyone.
+		PreimageAuthorized { content_hash: ContentHash, max_size: u64 },
+		/// An authorization for a preimage of `content_hash` was refreshed.
+		PreimageAuthorizationRefreshed { content_hash: ContentHash },
+		/// An expired account authorization was removed.
+		ExpiredAccountAuthorizationRemoved { who: T::AccountId },
+		/// An expired preimage authorization was removed.
+		ExpiredPreimageAuthorizationRemoved { content_hash: ContentHash },
 	}
 
 	/// Collection of transaction metadata by block number.
@@ -360,11 +381,6 @@ pub mod pallet {
 		BoundedVec<TransactionInfo, T::MaxBlockTransactions>,
 		OptionQuery,
 	>;
-
-	/// Count indexed chunks for each block.
-	#[pallet::storage]
-	pub type ChunkCount<T: Config> =
-		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
 	/// Storage fee per byte.
@@ -464,6 +480,61 @@ pub mod pallet {
 				T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
 			debug_assert!(_remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
+			Ok(())
+		}
+
+		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
+		/// transactions.
+		pub(crate) fn verify_chunk_proof(
+			proof: TransactionStorageProof,
+			random_hash: &[u8],
+			infos: Vec<TransactionInfo>,
+		) -> Result<(), Error<T>> {
+			// Get the random chunk index - from all transactions in the block = [0..total_chunks).
+			let total_chunks: ChunkIndex = TransactionInfo::total_chunks(&infos);
+			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
+			let selected_block_chunk_index = random_chunk(random_hash, total_chunks as _);
+
+			// Let's find the corresponding transaction and its "local" chunk index for "global"
+			// `selected_block_chunk_index`.
+			let (tx_info, tx_chunk_index) = {
+				// Binary search for the transaction that owns this `selected_block_chunk_index`
+				// chunk.
+				let tx_index = infos
+					.binary_search_by_key(&selected_block_chunk_index, |info| {
+						// Each `info.block_chunks` is cumulative count,
+						// so last chunk index = count - 1.
+						info.block_chunks.saturating_sub(1)
+					})
+					.unwrap_or_else(|tx_index| tx_index);
+
+				// Get the transaction and its local chunk index.
+				let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?;
+				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow
+				// empty transactions. Without this check, it would fail anyway below with
+				// `InvalidProof`.
+				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::EmptyTransaction);
+
+				// Convert a global chunk index into a transaction-local one.
+				let tx_chunks = num_chunks(tx_info.size);
+				let prev_chunks = tx_info.block_chunks - tx_chunks;
+				let tx_chunk_index = selected_block_chunk_index - prev_chunks;
+
+				(tx_info, tx_chunk_index)
+			};
+
+			// Verify the tx chunk proof.
+			ensure!(
+				sp_io::trie::blake2_256_verify_proof(
+					tx_info.chunk_root,
+					&proof.proof,
+					&encode_index(tx_chunk_index),
+					&proof.chunk,
+					sp_runtime::StateVersion::V1,
+				),
+				Error::<T>::InvalidProof
+			);
+
 			Ok(())
 		}
 	}

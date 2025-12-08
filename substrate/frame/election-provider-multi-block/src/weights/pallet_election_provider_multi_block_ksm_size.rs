@@ -22,7 +22,7 @@
 // ! we don't want to generate the `trait WeightInfo`.
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-10-08, STEPS: `10`, REPEAT: `10`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
@@ -41,15 +41,15 @@
 // --steps
 // 10
 // --repeat
-// 20
+// 10
 // --genesis-builder-preset
-// ksm_size
+// fake-ksm
 // --template
 // ../../../../../substrate/frame/election-provider-multi-block/src/template.hbs
 // --heap-pages
 // 65000
 // --output
-// ./pallet_election_provider_multi_block_ksm_size.rs
+// ./pallet_election_provider_multi_block_fake-ksm.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -63,62 +63,56 @@ use core::marker::PhantomData;
 /// Weights for `pallet_election_provider_multi_block`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block::WeightInfo for WeightInfo<T> {
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	fn on_initialize_nothing() -> Weight {
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	fn per_block_nothing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `184`
-		//  Estimated: `3649`
-		// Minimum execution time: 25_161_000 picoseconds.
-		Weight::from_parts(25_770_000, 3649)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+		//  Measured:  `118`
+		//  Estimated: `1603`
+		// Minimum execution time: 11_830_000 picoseconds.
+		Weight::from_parts(12_020_000, 1603)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `Staking::ValidatorCount` (r:1 w:0)
 	/// Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
 	/// Storage: `Staking::CounterForValidators` (r:1 w:0)
 	/// Proof: `Staking::CounterForValidators` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:1001 w:0)
+	/// Storage: `Staking::Validators` (r:2501 w:0)
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlock::DesiredTargets` (r:0 w:1)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedTargetSnapshotHash` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedTargetSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	fn on_initialize_into_snapshot_msp() -> Weight {
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:0 w:1)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshotHash` (r:0 w:1)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:0 w:1)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(80026), added: 82501, mode: `Measured`)
+	fn per_block_snapshot_msp() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `49030`
-		//  Estimated: `2527495`
-		// Minimum execution time: 9_043_136_000 picoseconds.
-		Weight::from_parts(9_165_817_000, 2527495)
-			.saturating_add(T::DbWeight::get().reads(1009_u64))
+		//  Measured:  `119137`
+		//  Estimated: `6310102`
+		// Minimum execution time: 21_947_065_000 picoseconds.
+		Weight::from_parts(22_112_625_000, 6310102)
+			.saturating_add(T::DbWeight::get().reads(2508_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Storage: `Staking::VoterSnapshotStatus` (r:1 w:1)
@@ -135,213 +129,180 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(753), added: 3228, mode: `Measured`)
 	/// Storage: `Staking::Nominators` (r:781 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:395 w:0)
+	/// Storage: `Staking::Validators` (r:455 w:0)
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshotHash` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `Staking::MinimumActiveStake` (r:0 w:1)
 	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
 	/// Storage: `VoterList::Lock` (r:0 w:1)
 	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `Measured`)
-	fn on_initialize_into_snapshot_rest() -> Weight {
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:0 w:1)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshotHash` (r:0 w:1)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
+	fn per_block_snapshot_rest() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1460572`
-		//  Estimated: `3399487`
-		// Minimum execution time: 50_470_803_000 picoseconds.
-		Weight::from_parts(50_673_355_000, 3399487)
-			.saturating_add(T::DbWeight::get().reads(3531_u64))
+		//  Measured:  `1370373`
+		//  Estimated: `3309288`
+		// Minimum execution time: 50_135_617_000 picoseconds.
+		Weight::from_parts(50_591_808_000, 3309288)
+			.saturating_add(T::DbWeight::get().reads(3589_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `Staking::VoterSnapshotStatus` (r:1 w:1)
-	/// Proof: `Staking::VoterSnapshotStatus` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `Measured`)
-	/// Storage: `VoterList::CounterForListNodes` (r:1 w:0)
-	/// Proof: `VoterList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `VoterList::ListNodes` (r:783 w:0)
-	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
-	/// Storage: `Staking::Bonded` (r:782 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `Measured`)
-	/// Storage: `Staking::Ledger` (r:782 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(753), added: 3228, mode: `Measured`)
-	/// Storage: `Staking::Nominators` (r:781 w:0)
-	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x6358acd2035ec4bb863fa981e0c177b9` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x6358acd2035ec4bb863fa981e0c177b9` (r:1 w:0)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshotHash` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
-	/// Storage: `Staking::MinimumActiveStake` (r:0 w:1)
-	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
-	/// Storage: `VoterList::Lock` (r:0 w:1)
-	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `Measured`)
-	fn on_initialize_into_signed() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1586117`
-		//  Estimated: `3525032`
-		// Minimum execution time: 49_951_253_000 picoseconds.
-		Weight::from_parts(51_478_904_000, 3525032)
-			.saturating_add(T::DbWeight::get().reads(3138_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
-	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:0)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	fn on_initialize_into_signed_validation() -> Weight {
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	fn per_block_start_signed_validation() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `382`
-		//  Estimated: `3847`
-		// Minimum execution time: 1_786_985_000 picoseconds.
-		Weight::from_parts(2_471_230_000, 3847)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
+		//  Measured:  `586`
+		//  Estimated: `4051`
+		// Minimum execution time: 84_170_000 picoseconds.
+		Weight::from_parts(88_100_000, 4051)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	fn on_initialize_into_unsigned() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `378`
-		//  Estimated: `3843`
-		// Minimum execution time: 505_464_000 picoseconds.
-		Weight::from_parts(2_392_569_000, 3843)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(37538026), added: 37540501, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(37538026), added: 37540501, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `Staking::ElectableStashes` (r:1 w:1)
 	/// Proof: `Staking::ElectableStashes` (`max_values`: Some(1), `max_size`: Some(32002), added: 32497, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersOverview` (r:829 w:829)
+	/// Storage: `Staking::ErasStakersOverview` (r:773 w:773)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
 	/// Storage: `Staking::ErasTotalStake` (r:1 w:1)
 	/// Proof: `Staking::ErasTotalStake` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:829 w:0)
+	/// Storage: `Staking::Validators` (r:773 w:0)
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorPrefs` (r:0 w:829)
+	/// Storage: `Staking::ErasValidatorPrefs` (r:0 w:773)
 	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersPaged` (r:0 w:806)
-	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(3152), added: 5627, mode: `Measured`)
+	/// Storage: `Staking::ErasStakersPaged` (r:0 w:723)
+	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(24656), added: 27131, mode: `Measured`)
 	fn export_non_terminal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `168580`
-		//  Estimated: `2221345`
-		// Minimum execution time: 22_613_149_000 picoseconds.
-		Weight::from_parts(23_424_133_000, 2221345)
-			.saturating_add(T::DbWeight::get().reads(1667_u64))
-			.saturating_add(T::DbWeight::get().writes(2467_u64))
+		//  Measured:  `195526`
+		//  Estimated: `2109691`
+		// Minimum execution time: 22_310_257_000 picoseconds.
+		Weight::from_parts(22_452_856_000, 2109691)
+			.saturating_add(T::DbWeight::get().reads(1555_u64))
+			.saturating_add(T::DbWeight::get().writes(2272_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:1)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:16 w:16)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(37538026), added: 37540501, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:1)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:16 w:16)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(37538026), added: 37540501, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:16 w:16)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshotHash` (r:16 w:16)
-	/// Proof: `MultiBlock::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:1)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedTargetSnapshotHash` (r:1 w:1)
-	/// Proof: `MultiBlock::PagedTargetSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:16 w:16)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshotHash` (r:16 w:16)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:1)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(80026), added: 82501, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshotHash` (r:1 w:1)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshotHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `Measured`)
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `Staking::ElectableStashes` (r:1 w:1)
 	/// Proof: `Staking::ElectableStashes` (`max_values`: Some(1), `max_size`: Some(32002), added: 32497, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersOverview` (r:955 w:955)
+	/// Storage: `Staking::ErasStakersOverview` (r:571 w:571)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersPaged` (r:955 w:956)
-	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(3152), added: 5627, mode: `Measured`)
+	/// Storage: `Staking::ErasStakersPaged` (r:571 w:571)
+	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(24656), added: 27131, mode: `Measured`)
 	/// Storage: `Staking::ErasTotalStake` (r:1 w:1)
 	/// Proof: `Staking::ErasTotalStake` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:955 w:0)
+	/// Storage: `Staking::Validators` (r:571 w:0)
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
-	/// Storage: `MultiBlock::DesiredTargets` (r:0 w:1)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorPrefs` (r:0 w:955)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `Staking::ErasValidatorPrefs` (r:0 w:571)
 	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionScore` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:0 w:1)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
 	fn export_terminal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1918340`
-		//  Estimated: `4282955`
-		// Minimum execution time: 50_064_025_000 picoseconds.
-		Weight::from_parts(50_383_919_000, 4282955)
-			.saturating_add(T::DbWeight::get().reads(2923_u64))
-			.saturating_add(T::DbWeight::get().writes(2924_u64))
+		//  Measured:  `1079027`
+		//  Estimated: `2493242`
+		// Minimum execution time: 29_991_252_000 picoseconds.
+		Weight::from_parts(30_181_686_000, 2493242)
+			.saturating_add(T::DbWeight::get().reads(1771_u64))
+			.saturating_add(T::DbWeight::get().writes(1771_u64))
 	}
-	fn manage() -> Weight {
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(64026), added: 66501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionY` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn manage_fallback() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 290_000 picoseconds.
-		Weight::from_parts(340_000, 0)
+		//  Measured:  `328713`
+		//  Estimated: `332178`
+		// Minimum execution time: 538_906_259_000 picoseconds.
+		Weight::from_parts(539_733_270_000, 332178)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionY` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn admin_set() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `308`
+		//  Estimated: `3773`
+		// Minimum execution time: 399_531_000 picoseconds.
+		Weight::from_parts(497_971_000, 3773)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 }

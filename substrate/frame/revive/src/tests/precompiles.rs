@@ -18,9 +18,9 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	exec::{ErrorOrigin, ExecError},
+	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, Origin, Weight,
+	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, Weight, U256,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -44,6 +44,8 @@ sol! {
 		function errors() external;
 		function consumeMaxGas() external;
 		function callRuntime(bytes memory call) external;
+		function passData(uint32 inputLen) external;
+		function returnData(uint32 returnLen) external returns (bytes);
 	}
 }
 
@@ -88,7 +90,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
 				Err(Error::Error(DispatchError::Other("precompile failed").into())),
 			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
-				env.gas_meter_mut().charge(MaxGasToken)?;
+				env.frame_meter_mut().charge_weight_token(MaxGasToken)?;
 				Ok(Vec::new())
 			},
 			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
@@ -105,6 +107,19 @@ impl<T: Config> Precompile for NoInfo<T> {
 						Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller })),
 				}
 			},
+			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
+				env.call(
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
+					&env.address(),
+					0.into(),
+					vec![42; *inputLen as usize],
+					ReentrancyProtection::AllowReentry,
+					false,
+				)?;
+				Ok(Vec::new())
+			},
+			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) =>
+				Ok(vec![42; *returnLen as usize]),
 		}
 	}
 }

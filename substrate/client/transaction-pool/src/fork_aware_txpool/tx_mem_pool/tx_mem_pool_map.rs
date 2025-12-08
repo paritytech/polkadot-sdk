@@ -138,7 +138,7 @@ where
 	}
 
 	/// Returns an iterator over the values in the map.
-	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
+	pub fn values(&self) -> std::collections::hash_map::Values<'_, K, V> {
 		self.items_by_hashes.values()
 	}
 
@@ -309,12 +309,12 @@ where
 	}
 
 	/// Lock map for read.
-	pub async fn read(&self) -> SizeTrackedStoreReadAccess<K, S, V> {
+	pub async fn read(&self) -> SizeTrackedStoreReadAccess<'_, K, S, V> {
 		SizeTrackedStoreReadAccess { inner_guard: self.index.read().await }
 	}
 
 	/// Lock map for write.
-	pub async fn write(&self) -> SizeTrackedStoreWriteAccess<K, S, V> {
+	pub async fn write(&self) -> SizeTrackedStoreWriteAccess<'_, K, S, V> {
 		SizeTrackedStoreWriteAccess {
 			inner_guard: self.index.write().await,
 			bytes: &self.bytes,
@@ -347,7 +347,7 @@ where
 	}
 
 	/// Returns an iterator over all values.
-	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
+	pub fn values(&self) -> std::collections::hash_map::Values<'_, K, V> {
 		self.inner_guard.values()
 	}
 

@@ -8,10 +8,14 @@ compressionLevel = 3
 jobNameVariable = "CI_JOB_NAME"
 jobsBlackList = []
 logLevel = "warn"
-threadsCount = 6
+threadsCount = 4
 
 [cache]
 extraEnv = ["RUNTIME_METADATA_HASH"]
+
+[cache.extraMetadata]
+github_run_id = "$GITHUB_RUN_ID"
+github_job = "$GITHUB_JOB"
 
 [metrics]
 enabled = true
@@ -19,8 +23,8 @@ pushEndpoint = "placeholder"
 
 [metrics.extraLabels]
 environment = "production"
-job_name = "$CI_JOB_NAME"
-project_name = "$CI_PROJECT_PATH"
+job_name = "$GITHUB_JOB"
+project_name = "$GITHUB_REPOSITORY"
 
 [storage]
 type = "gcs"

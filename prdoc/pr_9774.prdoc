@@ -1,0 +1,8 @@
+title: Fix executor param fetching session index
+doc:
+- audience: Node Dev
+  description: |-
+    Fix executor environment parameters fetching inconsistency
+crates:
+- name: polkadot-node-core-approval-voting
+  bump: patch

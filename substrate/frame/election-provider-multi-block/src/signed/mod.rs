@@ -44,14 +44,11 @@
 //!
 //! ## Future Plans:
 //!
-//! **Lazy deletion**:
-//! Overall, this pallet can avoid the need to delete any storage item, by:
-//! 1. outsource the storage of solution data to some other pallet.
-//! 2. keep it here, but make everything be also a map of the round number, so that we can keep old
-//!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
-//!    for more or less free by the submitter itself, and by anyone else as well, in which case they
-//!    get a share of the the sum deposit. The share increases as times goes on.
+//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone
+//! is ejected from the list, we still remove their data in sync.
+//!
 //! **Metadata update**: imagine you mis-computed your score.
+//!
 //! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
 //! of their deposit.
 
@@ -114,6 +111,12 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
+impl<T: Config> crate::types::SignedInterface for Pallet<T> {
+	fn has_leader(round: u32) -> bool {
+		Submissions::<T>::has_leader(round)
+	}
+}
+
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
@@ -127,7 +130,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"returning page {} of {:?}'s submission as leader.",
 					page,
@@ -455,13 +458,13 @@ pub mod pallet {
 		) -> Result<bool, DispatchError> {
 			let mut sorted_scores = SortedScores::<T>::get(round);
 
-			let discarded = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
+			let did_eject = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
 				return Err(Error::<T>::Duplicate.into());
 			} else {
 				// must be new.
 				debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
 
-				let pos = match sorted_scores
+				let insert_idx = match sorted_scores
 					.binary_search_by_key(&metadata.claimed_score, |(_, y)| *y)
 				{
 					// an equal score exists, unlikely, but could very well happen. We just put them
@@ -471,10 +474,23 @@ pub mod pallet {
 					Err(pos) => pos,
 				};
 
-				let record = (who.clone(), metadata.claimed_score);
-				match sorted_scores.force_insert_keep_right(pos, record) {
-					Ok(None) => false,
-					Ok(Some((discarded, _score))) => {
+				let mut record = (who.clone(), metadata.claimed_score);
+				if sorted_scores.is_full() {
+					let remove_idx = sorted_scores
+						.iter()
+						.position(|(x, _)| !Pallet::<T>::is_invulnerable(x))
+						.ok_or(Error::<T>::QueueFull)?;
+					if insert_idx > remove_idx {
+						// we have a better solution
+						sp_std::mem::swap(&mut sorted_scores[remove_idx], &mut record);
+						// slicing safety note:
+						// - `insert_idx` is at most `sorted_scores.len()`, obtained from
+						//   `binary_search_by_key`, valid for the upper bound of slicing.
+						// - `remove_idx` is a valid index, less then `insert_idx`, obtained from
+						//   `.iter().position()`
+						sorted_scores[remove_idx..insert_idx].rotate_left(1);
+
+						let discarded = record.0;
 						let maybe_metadata =
 							SubmissionMetadataStorage::<T>::take(round, &discarded).defensive();
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
@@ -489,24 +505,27 @@ pub mod pallet {
 							Pallet::<T>::settle_deposit(
 								&discarded,
 								metadata.deposit,
-								if Pallet::<T>::is_invulnerable(&discarded) {
-									One::one()
-								} else {
-									T::EjectGraceRatio::get()
-								},
+								T::EjectGraceRatio::get(),
 							);
 						}
 
 						Pallet::<T>::deposit_event(Event::<T>::Ejected(round, discarded));
 						true
-					},
-					Err(_) => return Err(Error::<T>::QueueFull.into()),
+					} else {
+						// we don't have a better solution
+						return Err(Error::<T>::QueueFull.into())
+					}
+				} else {
+					sorted_scores
+						.try_insert(insert_idx, record)
+						.expect("length checked above; qed");
+					false
 				}
 			};
 
 			SortedScores::<T>::insert(round, sorted_scores);
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
-			Ok(discarded)
+			Ok(did_eject)
 		}
 
 		/// Submit a page of `solution` to the `page` index of `who`'s submission.
@@ -843,7 +862,7 @@ pub mod pallet {
 
 		/// Retract a submission.
 		///
-		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
+		/// A portion of the deposit may be returned, based on the [`Config::EjectGraceRatio`].
 		///
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(SignedWeightsOf::<T>::bail())]
@@ -937,31 +956,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			// this code is only called when at the boundary of phase transition, which is already
-			// captured by the parent pallet. No need for weight.
-			let weight_taken_into_account: Weight = Default::default();
-
-			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
-				let maybe_leader = Submissions::<T>::leader(Self::current_round());
-				sublog!(
-					debug,
-					"signed",
-					"signed validation started, sending validation start signal? {:?}",
-					maybe_leader.is_some()
-				);
-
-				// start an attempt to verify our best thing.
-				if maybe_leader.is_some() {
-					// defensive: signed phase has just began, verifier should be in a clear state
-					// and ready to accept a solution.
-					let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
-				}
-			}
-
-			weight_taken_into_account
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(n)
@@ -1012,7 +1006,11 @@ impl<T: Config> Pallet<T> {
 		if let Some((loser, metadata)) =
 			Submissions::<T>::take_leader_with_data(current_round).defensive()
 		{
-			// Slash the deposit
+			// Slash the deposit.
+			// Note that an invulnerable is not expelled from the list despite the slashing.
+			// Removal should occur only through governance, not automatically. An operational or
+			// network issue that leads to an incomplete submission is much more likely than a bad
+			// faith action from an invulnerable.
 			let slash = metadata.deposit;
 			let _res = T::Currency::burn_held(
 				&HoldReason::SignedSubmission.into(),
@@ -1030,8 +1028,7 @@ impl<T: Config> Pallet<T> {
 			{
 				// Only start verification if there are sufficient blocks remaining
 				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
-				let actual_blocks_remaining = remaining_blocks.saturating_add(One::one());
-				if actual_blocks_remaining >= T::Pages::get().into() {
+				if remaining_blocks >= T::Pages::get().into() {
 					if Submissions::<T>::has_leader(current_round) {
 						// defensive: verifier just reported back a result, it must be in clear
 						// state.
@@ -1042,7 +1039,7 @@ impl<T: Config> Pallet<T> {
 						warn,
 						"signed",
 						"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
-						actual_blocks_remaining,
+						remaining_blocks,
 						T::Pages::get()
 					);
 				}

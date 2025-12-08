@@ -35,7 +35,6 @@ rand_core = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-async-trait = { workspace = true }
 kvdb-memorydb = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true }
 schnorrkel = { workspace = true, default-features = true }

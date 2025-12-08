@@ -74,7 +74,6 @@ cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
@@ -91,12 +90,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
 futures = { workspace = true }
-
-# Polkadot dependencies
-polkadot-test-service = { workspace = true }
-
-# Substrate dependencies
-sc-cli = { workspace = true, default-features = true }
 
 [features]
 runtime-benchmarks = [

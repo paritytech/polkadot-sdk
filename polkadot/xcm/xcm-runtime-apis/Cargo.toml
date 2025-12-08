@@ -30,7 +30,6 @@ sp-io = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 tracing = { workspace = true }
 xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
 
 [features]

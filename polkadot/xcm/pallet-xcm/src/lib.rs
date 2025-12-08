@@ -22,9 +22,9 @@
 pub mod benchmarking;
 #[cfg(test)]
 mod mock;
-pub mod precompiles;
 #[cfg(test)]
 mod tests;
+mod transfer_assets_validation;
 
 pub mod migration;
 #[cfg(any(test, feature = "test-utils"))]
@@ -971,11 +971,17 @@ pub mod pallet {
 		pub _config: core::marker::PhantomData<T>,
 		/// The default version to encode outgoing XCM messages with.
 		pub safe_xcm_version: Option<XcmVersion>,
+		/// The default versioned locations to support at genesis.
+		pub supported_version: Vec<(Location, XcmVersion)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { safe_xcm_version: Some(XCM_VERSION), _config: Default::default() }
+			Self {
+				_config: Default::default(),
+				safe_xcm_version: Some(XCM_VERSION),
+				supported_version: Vec::new(),
+			}
 		}
 	}
 
@@ -983,6 +989,14 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			SafeXcmVersion::<T>::set(self.safe_xcm_version);
+			// Set versioned locations to support at genesis.
+			self.supported_version.iter().for_each(|(location, version)| {
+				SupportedVersion::<T>::insert(
+					XCM_VERSION,
+					LatestVersionedLocation(location),
+					version,
+				);
+			});
 		}
 	}
 
@@ -1488,6 +1502,16 @@ pub mod pallet {
 			// Find transfer types for fee and non-fee assets.
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
+
+			// We check for network native asset reserve transfers in preparation for the Asset Hub
+			// Migration. This check will be removed after the migration and the determined
+			// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+			Self::ensure_network_asset_reserve_transfer_allowed(
+				&assets,
+				fee_asset_item,
+				&assets_transfer_type,
+				&fees_transfer_type,
+			)?;
 
 			Self::do_transfer_assets(
 				origin,
@@ -2065,6 +2089,16 @@ impl<T: Config> Pallet<T> {
 		ensure!(assets_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 		// Ensure all assets (including fees) have same reserve location.
 		ensure!(assets_transfer_type == fees_transfer_type, Error::<T>::TooManyReserves);
+
+		// We check for network native asset reserve transfers in preparation for the Asset Hub
+		// Migration. This check will be removed after the migration and the determined
+		// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+		Self::ensure_network_asset_reserve_transfer_allowed(
+			&assets,
+			fee_asset_item,
+			&assets_transfer_type,
+			&fees_transfer_type,
+		)?;
 
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin.clone(),
@@ -3073,14 +3107,12 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
-	pub fn dry_run_xcm<Runtime, Router, RuntimeCall: Decode + GetDispatchInfo, XcmConfig>(
+	pub fn dry_run_xcm<Router>(
 		origin_location: VersionedLocation,
-		xcm: VersionedXcm<RuntimeCall>,
-	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+		xcm: VersionedXcm<<T as Config>::RuntimeCall>,
+	) -> Result<XcmDryRunEffects<<T as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
-		Runtime: frame_system::Config,
 		Router: InspectMessageQueues,
-		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
 	{
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			tracing::error!(
@@ -3090,7 +3122,7 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let xcm_version = xcm.identify_version();
-		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+		let xcm: Xcm<<T as Config>::RuntimeCall> = xcm.try_into().map_err(|error| {
 			tracing::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
 				?error, "Xcm version conversion failed with error"
@@ -3101,9 +3133,9 @@ impl<T: Config> Pallet<T> {
 
 		// To make sure we only record events from current call.
 		Router::clear_messages();
-		frame_system::Pallet::<Runtime>::reset_events();
+		frame_system::Pallet::<T>::reset_events();
 
-		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
+		let result = <T as Config>::XcmExecutor::prepare_and_execute(
 			origin_location,
 			xcm,
 			&mut hash,
@@ -3117,8 +3149,8 @@ impl<T: Config> Pallet<T> {
 					?error, "Forwarded xcms version conversion failed with error"
 				);
 			})?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+		let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<T>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
@@ -3241,9 +3273,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
-	pub fn query_delivery_fees(
+	///
+	/// Meant to be called by the `XcmPaymentApi`.
+	/// It's necessary to specify the asset in which fees are desired.
+	///
+	/// NOTE: Only use this if delivery fees consist of only 1 asset, else this function will error.
+	pub fn query_delivery_fees<AssetExchanger: xcm_executor::traits::AssetExchange>(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
+		versioned_asset_id: VersionedAssetId,
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
@@ -3266,12 +3304,43 @@ impl<T: Config> Pallet<T> {
 			XcmPaymentApiError::Unroutable
 		})?;
 
-		VersionedAssets::from(fees)
-			.into_version(result_version)
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?result_version, "Failed to convert fees into version");
-				XcmPaymentApiError::VersionedConversionFailed
-			})
+		// This helper only works for routers that return 1 and only 1 asset for delivery fees.
+		if fees.len() != 1 {
+			return Err(XcmPaymentApiError::Unimplemented);
+		}
+
+		let fee = fees.get(0).ok_or(XcmPaymentApiError::Unimplemented)?;
+
+		let asset_id = versioned_asset_id.clone().try_into().map_err(|()| {
+			tracing::trace!(
+				target: "xcm::xcm_runtime_apis::query_delivery_fees",
+				"Failed to convert asset id: {versioned_asset_id:?}!"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})?;
+
+		let assets_to_pay = if fee.id == asset_id {
+			// If the fee asset is the same as the desired one, just return that.
+			fees
+		} else {
+			// We get the fees in the desired asset.
+			AssetExchanger::quote_exchange_price(
+				&fees.into(),
+				&(asset_id, Fungible(1)).into(),
+				true, // Maximal.
+			)
+			.ok_or(XcmPaymentApiError::AssetNotFound)?
+		};
+
+		VersionedAssets::from(assets_to_pay).into_version(result_version).map_err(|e| {
+			tracing::trace!(
+				target: "xcm::pallet_xcm::query_delivery_fees",
+				?e,
+				?result_version,
+				"Failed to convert fees into desired version"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})
 	}
 
 	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
@@ -3708,7 +3777,6 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 		use xcm_executor::traits::LockError::*;
 		let sovereign_account = T::SovereignAccountOf::convert_location(&owner).ok_or(BadOwner)?;
 		let amount = T::CurrencyMatcher::matches_fungible(&asset).ok_or(UnknownAsset)?;
-		ensure!(T::Currency::free_balance(&sovereign_account) >= amount, AssetNotOwned);
 		let locks = LockedFungibles::<T>::get(&sovereign_account).unwrap_or_default();
 		let item_index =
 			locks.iter().position(|x| x.1.try_as::<_>() == Ok(&unlocker)).ok_or(NotLocked)?;
