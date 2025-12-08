@@ -365,6 +365,29 @@ mod benchmarks {
 		assert_last_event::<T>(Event::CandidateRemoved { account_id: leaving }.into());
 	}
 
+	#[benchmark]
+	fn withdraw_unbonded() {
+		let candidate_count = T::MaxCandidates::get();
+		let bond = T::Currency::minimum_balance();
+		CandidacyBond::<T>::put(bond);
+		DesiredCandidates::<T>::put(candidate_count);
+
+		register_validators::<T>(candidate_count);
+		register_candidates::<T>(candidate_count);
+
+		let leaving = CandidateList::<T>::get().iter().last().unwrap().who.clone();
+		CollatorSelection::<T>::leave_intent(RawOrigin::Signed(leaving.clone()).into()).unwrap();
+		let expiry = frame_system::Pallet::<T>::block_number() + T::UnbondingPeriod::get();
+		frame_system::Pallet::<T>::set_block_number(expiry);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(leaving.clone()));
+
+		assert_last_event::<T>(
+			Event::UnbondedWithdrawn { account_id: leaving, deposit: bond }.into(),
+		);
+	}
+
 	// worse case is paying a non-existing candidate account.
 	#[benchmark]
 	fn note_author() {
