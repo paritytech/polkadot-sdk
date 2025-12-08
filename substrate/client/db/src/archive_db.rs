@@ -64,7 +64,7 @@ fn make_child_storage_key(info: &ChildInfo, key: &[u8]) -> Vec<u8> {
 	prefixed_key
 }
 
-#[derive(Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct PendingDiffKey<Block: BlockT> {
 	hash: <Block::Header as Header>::Hash,
 	number: <Block::Header as Header>::Number,
@@ -156,45 +156,42 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		block_number: <Block::Header as Header>::Number,
 		block_hash: <Block::Header as Header>::Hash,
 	) {
+		// add_new_storage is currently not supposed to be used for anything but adding genesis
+		// block data
+		assert_eq!(block_number, 0u32.into());
 		for (key, value) in storage.top {
+			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
+
 			log::trace!(
-				"Archive pending storage new pair: {} is {:?}",
-				key.as_slice().hex("0x"),
+				"Archive pending storage new pair (full key {}): {} is {}",
+				full_key.as_ref().hex("0x"),
+				key.hex("0x"),
 				value.as_slice().hex("0x")
 			);
-			let full_key = PendingDiffKey::<Block> {
-				hash: block_hash,
-				number: block_number,
-				ty: StorageType::Main,
-				key,
-			};
 
-			transaction.set_from_vec(
-				columns::ARCHIVE_PENDING,
-				&full_key.encode(),
-				Some(value).encode(),
-			);
+			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
 		}
 
 		for (child_key, child_storage) in storage.children_default {
 			let info = ChildInfo::new_default_from_vec(child_key);
 			for (key, value) in child_storage.data {
-				let full_key = PendingDiffKey::<Block> {
-					hash: block_hash,
-					number: block_number,
-					ty: StorageType::Child,
-					key: make_child_storage_key(&info, &key),
-				};
+				let full_key = FullStorageKey::new(
+					&make_child_storage_key(&info, &key),
+					StorageType::Child,
+					block_number,
+				);
+
 				log::trace!(
-					"Archive child storage {} new pair: {} is {:?}",
+					"Archive child storage {} new pair (full key {}): {} is {:?}",
+					full_key.as_ref().hex("0x"),
 					info.storage_key().hex("0x"),
 					key.as_slice().hex("0x"),
 					value.as_slice().hex("0x")
 				);
 
 				transaction.set_from_vec(
-					columns::ARCHIVE_PENDING,
-					&full_key.encode(),
+					columns::ARCHIVE,
+					&full_key.as_ref(),
 					Some(value).encode(),
 				);
 			}
@@ -208,17 +205,23 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		block_hash: <Block::Header as Header>::Hash,
 	) {
 		for (key, value) in storage {
-			log::trace!(
-				"Archive storage updated pair: {} is {:?}",
-				key.as_slice().hex("0x"),
-				value.as_ref().map(|v| v.hex("0x"))
-			);
+			let key_hex = if log::log_enabled!(log::Level::Trace) {
+				key.as_slice().hex("0x")
+			} else {
+				"".to_string()
+			};
 			let full_key = PendingDiffKey::<Block> {
 				hash: block_hash,
 				number: block_number,
 				ty: StorageType::Main,
 				key,
 			};
+			log::trace!(
+				"Archive storage updated pair (full key {}): {} is {:?}",
+				full_key.encode().hex("0x"),
+				key_hex,
+				value.as_ref().map(|v| v.hex("0x"))
+			);
 			transaction.set_from_vec(columns::ARCHIVE_PENDING, &full_key.encode(), value.encode());
 		}
 	}
@@ -239,8 +242,9 @@ impl<Block: BlockT> ArchiveDb<Block> {
 					key: make_child_storage_key(&info, &key),
 				};
 				log::trace!(
-					"Archive child storage {} updated pair: {} is {:?}",
+					"Archive child storage {} updated pair (full key {}): {} is {:?}",
 					info.storage_key().hex("0x"),
+					full_key.encode().hex("0x"),
 					key.hex("0x"),
 					value.as_ref().map(|v| v.hex("0x"))
 				);
@@ -260,6 +264,8 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		block_number: <Block::Header as Header>::Number,
 		block_hash: <Block::Header as Header>::Hash,
 	) {
+		log::debug!("Finalize block #{block_number}-{block_hash} in archive diff storage");
+
 		let mut iter = db
 			.seekable_iter(columns::ARCHIVE_PENDING)
 			.expect("Database column family must exist");
@@ -272,6 +278,13 @@ impl<Block: BlockT> ArchiveDb<Block> {
 			if hash == block_hash {
 				assert_eq!(number, block_number);
 				let full_key = FullStorageKey::new(&key, ty, number);
+				log::trace!(
+					"Finalize key {} ({})->({}) from archive diff storage",
+					key.hex("0x"),
+					pending_key.hex("0x"),
+					full_key.as_ref().hex("0x")
+				);
+
 				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value);
 				transaction.remove(columns::ARCHIVE_PENDING, pending_key);
 			} else {
@@ -286,15 +299,21 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		transaction: &mut Transaction<DbHash>,
 		block_hash: <Block::Header as Header>::Hash,
 	) {
+		log::debug!("Discard block {block_hash} from archive diff storage");
 		let mut iter = db
 			.seekable_iter(columns::ARCHIVE_PENDING)
 			.expect("Database column family must exist");
 
 		iter.seek(block_hash.as_ref());
 		while let Some((key, _)) = iter.get() {
-			let PendingDiffKey { hash, .. } = PendingDiffKey::<Block>::decode(&mut &key[..])
+			let decoded_key = PendingDiffKey::<Block>::decode(&mut &key[..])
 				.expect("Database entries must be encoded correctly");
-			if hash == block_hash {
+			if decoded_key.hash == block_hash {
+				log::trace!(
+					"Discard key {} ({:?}) from archive diff storage",
+					key.hex("0x"),
+					decoded_key
+				);
 				transaction.remove(columns::ARCHIVE_PENDING, key);
 			} else {
 				break;
