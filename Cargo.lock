@@ -5332,7 +5332,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-statement-store",
- "substrate-txtesttool 0.8.0",
+ "substrate-txtesttool",
  "tokio",
  "tracing",
  "zombienet-configuration",
@@ -18125,7 +18125,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -21286,7 +21286,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "substrate-txtesttool 0.7.0",
+ "substrate-txtesttool",
  "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
@@ -24919,42 +24919,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda461f1ab3a919493e83cb54ed0de6220377c08df59fb60ba6a91de56e2005d"
-dependencies = [
- "async-trait",
- "average",
- "chrono",
- "clap",
- "clap_derive",
- "ctrlc",
- "futures",
- "futures-util",
- "hex",
- "jsonrpsee",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.9.0",
- "serde",
- "serde_json",
- "subxt 0.41.0",
- "subxt-core 0.41.0",
- "subxt-rpcs 0.41.0",
- "subxt-signer 0.41.0",
- "termplot",
- "thiserror 2.0.12",
- "time",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber 0.3.18",
-]
-
-[[package]]
-name = "substrate-txtesttool"
 version = "0.8.0"
-source = "git+https://github.com/michalkucharczyk/tx-test-tool?branch=mku-payload-builder#8f2ba617cb6d9d670153cdd9ae2afbcf87182070"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57ec45ef6eb845285f9828e2acba2d8e4fc25c83ee3ffcc318f89b7336f5eab9"
 dependencies = [
  "async-trait",
  "average",

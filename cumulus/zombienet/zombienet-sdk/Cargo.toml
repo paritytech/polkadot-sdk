@@ -27,7 +27,7 @@ sp-core = { workspace = true, default-features = true }
 codec = { workspace = true }
 rstest = { workspace = true }
 tracing = { workspace = true }
-txtesttool = { version = "0.8.0", package="substrate-txtesttool", git = "https://github.com/michalkucharczyk/tx-test-tool", branch = "mku-payload-builder" }
+txtesttool = { workspace = true }
 
 [features]
 zombie-ci = []
