@@ -855,9 +855,7 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
-# hash-db = { version = "0.16.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/hash-db" }
-# hash-db = { version = "0.16.0", default-features = false }
+hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
@@ -915,9 +913,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.34.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
-# memory-db = { version = "0.34.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/memory-db" }
-# memory-db = { version = "0.34.0", default-features = false }
+memory-db = { version = "0.34.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1459,14 +1455,9 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.0", git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
-# trie-bench = { version = "0.42.0" }
-trie-db = { version = "0.31.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
-# trie-db = { version = "0.31.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/trie-db" }
-# trie-db = { version = "0.30.0", default-features = false }
-trie-root = { version = "0.18.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
-# trie-root = { version = "0.18.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/trie-root" }
-# trie-root = { version = "0.18.0", default-features = false }
+trie-bench = { version = "0.42.1" }
+trie-db = { version = "0.31.0", default-features = false }
+trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
