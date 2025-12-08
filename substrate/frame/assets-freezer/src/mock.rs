@@ -86,6 +86,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();
+	type BurnDestination = ();
 }
 
 impl pallet_assets::Config for Test {

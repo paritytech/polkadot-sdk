@@ -72,6 +72,7 @@ impl pallet_balances::Config for MockRuntime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+	type BurnDestination = ();
 }
 
 impl pallet_assets::Config<Instance1> for MockRuntime {
