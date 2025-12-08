@@ -84,7 +84,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
-		tokens::{FundingSink, Preservation},
+		tokens::{Fortitude, FundingSink, Precision, Preservation},
 		Currency, Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -156,7 +156,17 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellit
 	) -> Result<(), DispatchError> {
 		let satellite = Pallet::<T>::satellite_account();
 
-		T::Currency::transfer(source, &satellite, amount, preservation)?;
+		// Similarly to pallet-dap, we use withdraw + resolve instead of transfer to avoid the ED
+		// requirement for the destination account.
+		let credit = T::Currency::withdraw(
+			source,
+			amount,
+			Precision::Exact,
+			preservation,
+			Fortitude::Polite,
+		)?;
+
+		let _ = T::Currency::resolve(&satellite, credit);
 
 		Pallet::<T>::deposit_event(Event::FundsAccumulated { from: source.clone(), amount });
 
