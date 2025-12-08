@@ -53,7 +53,6 @@ mod imports {
 		},
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
-			BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 		},
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{

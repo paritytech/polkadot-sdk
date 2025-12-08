@@ -205,6 +205,22 @@ where
 		(raw_key_values, *self.backend.root())
 	}
 
+	/// Return cloned underlying raw storage key/values and the root hash.
+	///
+	/// Useful for backing up the storage in a format that can be quickly re-loaded.
+	pub fn clone_raw_snapshot(&self) -> (Vec<(Vec<u8>, (Vec<u8>, i32))>, H::Out, StateVersion) {
+		let raw_key_values = self
+			.backend
+			.backend_storage()
+			.clone()
+			.drain()
+			.into_iter()
+			.filter(|(_, (_, r))| *r > 0)
+			.collect::<Vec<(Vec<u8>, (Vec<u8>, i32))>>();
+
+		(raw_key_values, *self.backend.root(), self.state_version)
+	}
+
 	/// Return a new backend with all pending changes.
 	///
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
@@ -475,6 +491,74 @@ mod tests {
 
 		// Ensure all have the correct ref count after importing
 		assert!(recovered_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
+	}
+
+	#[test]
+	fn raw_storage_clone_and_restore() {
+		// Create a TestExternalities with some data in it.
+		let mut original_ext =
+			TestExternalities::<BlakeTwo256>::from((Default::default(), Default::default()));
+		original_ext.insert(b"doe".to_vec(), b"reindeer".to_vec());
+		original_ext.insert(b"dog".to_vec(), b"puppy".to_vec());
+		original_ext.insert(b"dogglesworth".to_vec(), b"cat".to_vec());
+		let child_info = ChildInfo::new_default(&b"test_child"[..]);
+		original_ext.insert_child(child_info.clone(), b"cattytown".to_vec(), b"is_dark".to_vec());
+		original_ext.insert_child(child_info.clone(), b"doggytown".to_vec(), b"is_sunny".to_vec());
+
+		// Apply the backend to itself again to increase the ref count of all nodes.
+		original_ext.backend.apply_transaction(
+			*original_ext.backend.root(),
+			original_ext.backend.clone().into_storage(),
+		);
+
+		// Ensure all have the correct ref count
+		assert!(original_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
+
+		// Clone the raw storage
+		let (raw_storage, storage_root, state_version) = original_ext.clone_raw_snapshot();
+
+		// Load the raw storage and root into a new TestExternalities.
+		let recovered_ext = TestExternalities::<BlakeTwo256>::from_raw_snapshot(
+			raw_storage,
+			storage_root,
+			state_version,
+		);
+
+		let recovered_root = *recovered_ext.backend.root();
+
+		// Check the storage root is the same as the original
+		assert_eq!(*original_ext.backend.root(), recovered_root);
+
+		// Check the original storage key/values were recovered correctly
+		assert_eq!(recovered_ext.backend.storage(b"doe").unwrap(), Some(b"reindeer".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"dog").unwrap(), Some(b"puppy".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"dogglesworth").unwrap(), Some(b"cat".to_vec()));
+
+		// Check the original child storage key/values were recovered correctly
+		assert_eq!(
+			recovered_ext.backend.child_storage(&child_info, b"cattytown").unwrap(),
+			Some(b"is_dark".to_vec())
+		);
+		assert_eq!(
+			recovered_ext.backend.child_storage(&child_info, b"doggytown").unwrap(),
+			Some(b"is_sunny".to_vec())
+		);
+
+		// Ensure all have the correct ref count after importing
+		assert!(recovered_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
+
+		// Insert new element to the original; Do not change recovered
+		original_ext.insert(b"bird".to_vec(), b"sing".to_vec());
+
+		// Check new item is only inserted to the original, while recovered remains unchanged
+		assert_eq!(original_ext.backend.storage(b"bird").unwrap(), Some(b"sing".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"bird").unwrap(), None);
+
+		// Check recovered root is not affected by changes to original
+		assert_eq!(*recovered_ext.backend.root(), recovered_root);
+
+		// Check the storage root is now different between original and recovered
+		assert_ne!(*original_ext.backend.root(), *recovered_ext.backend.root());
 	}
 
 	#[test]

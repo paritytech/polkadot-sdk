@@ -165,6 +165,7 @@ pub trait TestExt {
 	fn reset_ext();
 	fn execute_with<R>(execute: impl FnOnce() -> R) -> R;
 	fn ext_wrapper<R>(func: impl FnOnce() -> R) -> R;
+	fn dry_execute_with<R>(func: impl FnOnce() -> R) -> R;
 }
 
 impl TestExt for () {
@@ -182,6 +183,9 @@ impl TestExt for () {
 	}
 	fn ext_wrapper<R>(func: impl FnOnce() -> R) -> R {
 		func()
+	}
+	fn dry_execute_with<R>(execute: impl FnOnce() -> R) -> R {
+		execute()
 	}
 }
 
@@ -605,6 +609,19 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					})
 				})
 			}
+
+			fn dry_execute_with<R>(func: impl FnOnce() -> R) -> R {
+				<$network>::init();
+				$local_ext.with(|v| {
+					let _ = v.borrow_mut().commit_all();
+					let (raw_storage, storage_root, state_version) = v.borrow().clone_raw_snapshot();
+					let mut cloned_ext = $crate::TestExternalities::from_raw_snapshot(raw_storage,
+						storage_root, state_version);
+					cloned_ext.execute_with(|| {
+						func()
+					})
+				})
+			}
 		}
 	};
 }
@@ -983,6 +1000,19 @@ macro_rules! __impl_test_ext_for_parachain {
 			fn ext_wrapper<R>(func: impl FnOnce() -> R) -> R {
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
+						func()
+					})
+				})
+			}
+
+			fn dry_execute_with<R>(func: impl FnOnce() -> R) -> R {
+				<$network>::init();
+				$local_ext.with(|v| {
+					let _ = v.borrow_mut().commit_all();
+					let (raw_storage, storage_root, state_version) = v.borrow().clone_raw_snapshot();
+					let mut cloned_ext = $crate::TestExternalities::from_raw_snapshot(raw_storage,
+						storage_root, state_version);
+					cloned_ext.execute_with(|| {
 						func()
 					})
 				})
