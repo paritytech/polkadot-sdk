@@ -851,7 +851,7 @@ mod test {
 		state.storage(b"timestamp_now").unwrap();
 		state.storage(b"balances_account").unwrap();
 
-		let (reads, repeat_reads, writes, _) = state.read_write_count();
+		let (reads, repeat_reads, _, _) = state.read_write_count();
 
 		// Only non-whitelisted keys should count toward reads
 		assert_eq!(reads, 1); // balances_account
