@@ -2234,6 +2234,8 @@ fn peer_gap_block_request<B: BlockT>(
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
+	// We want only headers for gap sync
+	let attrs = attrs & !BlockAttributes::BODY;
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,
