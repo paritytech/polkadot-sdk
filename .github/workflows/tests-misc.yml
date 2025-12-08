@@ -143,7 +143,7 @@ jobs:
         shell: bash
         run: |
           # Fail the step if any command in a pipeline errors out.
-          set -euo pipefail 
+          set -euo pipefail
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
@@ -424,7 +424,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
