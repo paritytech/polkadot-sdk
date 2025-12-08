@@ -242,8 +242,18 @@ where
 	P::Signature: Codec,
 {
 	let runtime_api = client.runtime_api();
-	let authorities = runtime_api.authorities(parent_hash).ok()?;
-	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
+	let authorities = runtime_api.authorities(parent_hash).ok();
+	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await;
+
+	tracing::trace!(
+		target: crate::LOG_TARGET,
+		?authorities,
+		author_pub?,
+		"in can_build_upon"
+	);
+
+	let authorities = authorities?;
+	let author_pub = author_pub?;
 
 	// This function is typically called when we want to build block N. At that point, the
 	// unincluded segment in the runtime is unaware of the hash of block N-1. If the unincluded
