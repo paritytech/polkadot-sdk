@@ -82,7 +82,7 @@ impl BackingGroupConnectionHelper {
 		if Some(current_slot) <= self.our_slot {
 			// Current slot or next slot is ours.
 			// We already sent pre-connect message, no need to proceed further.
-			return
+			return;
 		}
 
 		let next_slot = current_slot + 1;
@@ -133,7 +133,7 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
@@ -186,7 +186,7 @@ async fn scheduling_lookahead(
 	if parachain_host_runtime_api_version <
 		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
 	{
-		return None
+		return None;
 	}
 
 	match relay_client.scheduling_lookahead(relay_parent).await {
@@ -243,16 +243,19 @@ where
 {
 	let runtime_api = client.runtime_api();
 	let authorities = runtime_api.authorities(parent_hash).ok();
-	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await;
-
-	tracing::trace!(
+	tracing::debug!(
 		target: crate::LOG_TARGET,
-		?authorities,
-		author_pub?,
+		authorities_is_none=authorities.is_none(),
 		"in can_build_upon"
 	);
-
 	let authorities = authorities?;
+
+	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await;
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		author_pub_is_none=author_pub.is_none(),
+		"in can_build_upon"
+	);
 	let author_pub = author_pub?;
 
 	// This function is typically called when we want to build block N. At that point, the
@@ -316,7 +319,7 @@ where
 				"Could not fetch potential parents to build upon"
 			);
 
-			return None
+			return None;
 		},
 		Ok(x) => x,
 	};
@@ -709,7 +712,7 @@ impl RelayParentData {
 		let Self { relay_parent, mut descendants } = self;
 
 		if descendants.is_empty() {
-			return Default::default()
+			return Default::default();
 		}
 
 		let mut result = vec![relay_parent];
