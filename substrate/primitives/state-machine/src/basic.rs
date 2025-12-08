@@ -33,7 +33,7 @@ use sp_core::{
 	traits::Externalities,
 	Blake2Hasher,
 };
-use sp_externalities::{Extension, Extensions, MultiRemovalResults};
+use sp_externalities::{Extension, Extensions, MultiRemovalResults, StateLoad};
 use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 
 /// Simple Map-based Externalities impl.
@@ -184,9 +184,9 @@ impl Externalities for BasicExternalities {
 		self.overlay.storage(key).and_then(|v| v.map(|v| v.to_vec()))
 	}
 
-	fn storage_with_status(&mut self, key: &[u8]) -> sp_externalities::StateLoad<Option<StorageValue>> {
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
 		let data = self.overlay.storage(key).and_then(|v| v.map(|v| v.to_vec()));
-		sp_externalities::StateLoad { data, is_cold: true }
+		StateLoad { data, is_cold: true }
 	}
 
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
@@ -201,9 +201,9 @@ impl Externalities for BasicExternalities {
 		&mut self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> sp_externalities::StateLoad<Option<StorageValue>> {
+	) -> StateLoad<Option<StorageValue>> {
 		let data = self.overlay.child_storage(child_info, key).and_then(|v| v.map(|v| v.to_vec()));
-		sp_externalities::StateLoad { data, is_cold: true }
+		StateLoad { data, is_cold: true }
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {

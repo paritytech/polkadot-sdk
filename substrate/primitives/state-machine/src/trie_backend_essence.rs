@@ -32,6 +32,7 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
+use sp_externalities::StateLoad;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
@@ -506,18 +507,12 @@ where
 	///
 	/// Returns `is_cold: true` if the value was not in the cache (cache miss),
 	/// `is_cold: false` if the value was in the cache (cache hit).
-	pub fn storage_with_status(&self, key: &[u8]) -> Result<sp_externalities::StateLoad<Option<StorageValue>>> {
+	pub fn storage_with_status(&self, key: &[u8]) -> Result<StateLoad<Option<StorageValue>>> {
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			read_trie_value_with_status::<Layout<H>, _>(
-				self,
-				&self.root,
-				key,
-				recorder,
-				cache,
-			)
-			.map_err(map_e)
+			read_trie_value_with_status::<Layout<H>, _>(self, &self.root, key, recorder, cache)
+				.map_err(map_e)
 		})
 	}
 
@@ -577,10 +572,10 @@ where
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> Result<sp_externalities::StateLoad<Option<StorageValue>>> {
+	) -> Result<StateLoad<Option<StorageValue>>> {
 		let child_root = match self.child_root(child_info)? {
 			Some(root) => root,
-			None => return Ok(sp_externalities::StateLoad { is_cold: true, data: None }),
+			None => return Ok(StateLoad { data: None, is_cold: true }),
 		};
 
 		let map_e = |e| format!("Trie lookup error: {}", e);

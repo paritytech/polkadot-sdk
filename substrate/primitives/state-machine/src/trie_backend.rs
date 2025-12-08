@@ -30,6 +30,7 @@ use codec::Codec;
 use hash_db::HashDB;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion};
+use sp_externalities::StateLoad;
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
@@ -430,7 +431,10 @@ where
 		self.essence.storage(key)
 	}
 
-	fn storage_with_status(&self, key: &[u8]) -> Result<sp_externalities::StateLoad<Option<StorageValue>>, Self::Error> {
+	fn storage_with_status(
+		&self,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
 		self.essence.storage_with_status(key)
 	}
 
@@ -454,7 +458,7 @@ where
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> Result<sp_externalities::StateLoad<Option<StorageValue>>, Self::Error> {
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
 		self.essence.child_storage_with_status(child_info, key)
 	}
 
