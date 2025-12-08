@@ -314,22 +314,47 @@ pub trait Benchmarking {
 
 	// Add a new item to the DB whitelist.
 	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
-        let mut whitelist = self.get_whitelist();
+		let mut whitelist = self.get_whitelist();
 
-        whitelist.retain(|existing| !add.key.starts_with(&existing.key));
+		// Check if add.key is a prefix of any existing key (add covers existing)
+		let mut covered_existing = Vec::new();
+		for (i, existing) in whitelist.iter().enumerate() {
+			if existing.key.starts_with(&add.key) {
+				covered_existing.push(i);
+			}
+		}
 
-        if let Some(existing_prefix) = whitelist.iter_mut().find(|existing| add.key.starts_with(&existing.key)) {
-            // If our new key is already covered by an existing prefix,
-            // update the existing prefix with the new constraints
-            existing_prefix.reads += add.reads;
-            existing_prefix.writes += add.writes;
-            existing_prefix.whitelisted = existing_prefix.whitelisted || add.whitelisted;
-        } else {
-            // No existing prefix covers our new key, so add it
-            whitelist.push(add);
-        }
+		// Remove covered keys and accumulate their reads/writes
+		let mut total_reads = add.reads;
+		let mut total_writes = add.writes;
+		let mut total_whitelisted = add.whitelisted;
 
-        self.set_whitelist(whitelist);
+		for &i in covered_existing.iter().rev() {
+			let existing = whitelist.remove(i);
+			total_reads += existing.reads;
+			total_writes += existing.writes;
+			total_whitelisted = total_whitelisted || existing.whitelisted;
+		}
+
+		// Check if any existing key is a prefix of add.key (existing covers add)
+		if let Some(existing_prefix) =
+			whitelist.iter_mut().find(|existing| add.key.starts_with(&existing.key))
+		{
+			// Existing prefix covers our new key
+			existing_prefix.reads += add.reads;
+			existing_prefix.writes += add.writes;
+			existing_prefix.whitelisted = existing_prefix.whitelisted || add.whitelisted;
+		} else {
+			// No existing relationship, add as new
+			let new_key = TrackedStorageKey {
+				key: add.key,
+				reads: total_reads,
+				writes: total_writes,
+				whitelisted: total_whitelisted,
+			};
+			whitelist.push(new_key);
+		}
+		self.set_whitelist(whitelist);
 	}
 
 	// Remove an item from the DB whitelist.
@@ -508,4 +533,165 @@ macro_rules! whitelist_account {
 			frame_system::Account::<T>::hashed_key_for(&$acc).into(),
 		);
 	};
+}
+
+#[cfg(test)]
+mod tests {
+	use sc_client_db::BenchmarkingState;
+	use sp_core::storage::TrackedStorageKey;
+	use sp_runtime::traits::BlakeTwo256;
+
+	#[test]
+	fn test_add_to_whitelist_prefix_handling() {
+		let state =
+			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
+
+		let mut overlay = Default::default();
+		let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			// Add a prefix first
+			let prefix_key = TrackedStorageKey {
+				key: b"System::Account".to_vec(),
+				reads: 1,
+				writes: 0,
+				whitelisted: true,
+			};
+			crate::benchmarking::add_to_whitelist(prefix_key.clone());
+
+			// Now add a key that starts with the prefix
+			let specific_key = TrackedStorageKey {
+				key: b"System::Account::12345".to_vec(),
+				reads: 2,
+				writes: 1,
+				whitelisted: true,
+			};
+			crate::benchmarking::add_to_whitelist(specific_key);
+
+			// The prefix should now have combined reads/writes
+			let whitelist = crate::benchmarking::get_whitelist();
+			assert_eq!(whitelist.len(), 1);
+			assert_eq!(whitelist[0].key, b"System::Account".to_vec());
+			assert_eq!(whitelist[0].reads, 3); // 1 + 2
+			assert_eq!(whitelist[0].writes, 1); // 0 + 1
+			assert!(whitelist[0].whitelisted);
+		});
+	}
+
+	#[test]
+	fn test_add_prefix_that_covers_existing_specific_keys() {
+		let state =
+			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
+
+		let mut overlay = Default::default();
+		let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			// Add specific keys first
+			for i in 0..3 {
+				let specific_key = TrackedStorageKey {
+					key: format!("System::Account::{}", i).into_bytes(),
+					reads: 1,
+					writes: 1,
+					whitelisted: true,
+				};
+				crate::benchmarking::add_to_whitelist(specific_key);
+			}
+
+			// Initial whitelist should have 3 specific keys
+			let whitelist = crate::benchmarking::get_whitelist();
+			assert_eq!(whitelist.len(), 3);
+
+			// Now add a prefix that covers all of them
+			let prefix_key = TrackedStorageKey {
+				key: b"System::Account".to_vec(),
+				reads: 5,
+				writes: 2,
+				whitelisted: true,
+			};
+			crate::benchmarking::add_to_whitelist(prefix_key);
+
+			// The prefix should absorb all specific keys and have combined reads/writes
+			let whitelist = crate::benchmarking::get_whitelist();
+			assert_eq!(whitelist.len(), 1);
+			assert_eq!(whitelist[0].key, b"System::Account".to_vec());
+			assert_eq!(whitelist[0].reads, 8); // 5 + 1 + 1 + 1
+			assert_eq!(whitelist[0].writes, 5); // 2 + 1 + 1 + 1
+			assert!(whitelist[0].whitelisted);
+		});
+	}
+
+	#[test]
+	fn test_unrelated_keys() {
+		let state =
+			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
+
+		let mut overlay = Default::default();
+		let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			let key1 = TrackedStorageKey {
+				key: b"System::Account".to_vec(),
+				reads: 1,
+				writes: 0,
+				whitelisted: true,
+			};
+
+			let key2 = TrackedStorageKey {
+				key: b"Timestamp::Now".to_vec(),
+				reads: 2,
+				writes: 1,
+				whitelisted: true,
+			};
+
+			crate::benchmarking::add_to_whitelist(key1);
+			crate::benchmarking::add_to_whitelist(key2);
+
+			// Both should remain
+			let whitelist = crate::benchmarking::get_whitelist();
+			assert_eq!(whitelist.len(), 2);
+
+			// Verify both keys exist
+			assert!(whitelist.iter().any(|k| k.key == b"System::Account".to_vec()));
+			assert!(whitelist.iter().any(|k| k.key == b"Timestamp::Now".to_vec()));
+		});
+	}
+
+	#[test]
+	fn test_multiple_specifics_to_same_prefix() {
+		let state =
+			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
+
+		let mut overlay = Default::default();
+		let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			// Add prefix first
+			let prefix_key = TrackedStorageKey {
+				key: b"System::Account".to_vec(),
+				reads: 5,
+				writes: 2,
+				whitelisted: true,
+			};
+			crate::benchmarking::add_to_whitelist(prefix_key);
+
+			// Add multiple specific keys
+			for i in 0..5 {
+				let specific_key = TrackedStorageKey {
+					key: format!("System::Account::user{}", i).into_bytes(),
+					reads: 1,
+					writes: 1,
+					whitelisted: true,
+				};
+				crate::benchmarking::add_to_whitelist(specific_key);
+			}
+
+			// Should still have only the prefix with accumulated reads/writes
+			let whitelist = crate::benchmarking::get_whitelist();
+			assert_eq!(whitelist.len(), 1);
+			assert_eq!(whitelist[0].key, b"System::Account".to_vec());
+			assert_eq!(whitelist[0].reads, 10); // 5 + 1*5
+			assert_eq!(whitelist[0].writes, 7); // 2 + 1*5
+		});
+	}
 }

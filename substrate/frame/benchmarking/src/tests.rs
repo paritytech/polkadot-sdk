@@ -379,6 +379,92 @@ mod benchmarks {
 		});
 	}
 
+	#[test]
+	fn test_storage_info_to_whitelist_conversion() {
+		use frame_support::traits::StorageInfo;
+		use sp_core::storage::TrackedStorageKey;
+
+		// Create test storage info (simulating what #[pallet::whitelist_storage] generates)
+		let storage_info = vec![
+			StorageInfo {
+				pallet_name: b"System".to_vec(),
+				storage_name: b"Account".to_vec(),
+				prefix: b"System::Account".to_vec(),
+				max_values: None,
+				max_size: None,
+			},
+			StorageInfo {
+				pallet_name: b"Timestamp".to_vec(),
+				storage_name: b"Now".to_vec(),
+				prefix: b"Timestamp::Now".to_vec(),
+				max_values: None,
+				max_size: None,
+			},
+		];
+		// Convert to TrackedStorageKey
+		let whitelist: Vec<TrackedStorageKey> = storage_info
+			.iter()
+			.map(|info| TrackedStorageKey::new(info.prefix.clone()))
+			.collect();
+		assert_eq!(whitelist.len(), 2);
+		assert!(whitelist.iter().any(|k| k.key == b"System::Account".to_vec()));
+		assert!(whitelist.iter().any(|k| k.key == b"Timestamp::Now".to_vec()));
+	}
+
+	#[test]
+	fn test_benchmark_reset_behavior_with_whitelist() {
+		use crate::utils::Benchmarking;
+		use sc_client_db::BenchmarkingState;
+		use sp_core::storage::TrackedStorageKey;
+		use sp_runtime::traits::BlakeTwo256;
+		use sp_state_machine::Backend;
+		use std::io::Read;
+
+		let whitelist = vec![TrackedStorageKey::new(b"System".to_vec())];
+
+		let config = crate::BenchmarkConfig {
+			pallet: b"pallet_test".to_vec(),
+			instance: b"TestPallet".to_vec(),
+			benchmark: b"set_value".into(),
+			selected_components: vec![(crate::BenchmarkParameter::b, 1)],
+			verify: false,
+			internal_repeats: 1,
+		};
+
+		let state =
+			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
+
+		state.set_whitelist(whitelist.clone());
+
+		let mut overlay = Default::default();
+		let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			// Access some storage (should be tracked)
+			let _ = frame_system::Account::<Test>::get(&1u64);
+
+			// Check initial counts
+			let (reads_before, _, _, _) = crate::benchmarking::read_write_count();
+			assert!(reads_before > 0, "Should have some reads from setup");
+
+			// Reset benchmark
+			crate::benchmarking::reset_read_write_count();
+
+			// Verify reset worked
+			let (reads_after, _, _, _) = crate::benchmarking::read_write_count();
+			assert_eq!(reads_after, 0, "Reads should be reset");
+
+			// Verify whitelist persists through reset
+			let current_whitelist = crate::benchmarking::get_whitelist();
+
+			assert_eq!(
+				current_whitelist.len(),
+				whitelist.len(),
+				"Whitelist should persist through reset"
+			);
+		});
+	}
+
 	rusty_fork_test! {
 		/// Test that the benchmarking uses the correct values for each component and
 		/// that the number of components can be controlled with `VALUES_PER_COMPONENT`.
