@@ -1518,6 +1518,7 @@ mod benchmarks {
 			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
 			full_key.extend_from_slice(&key.hash());
 			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+			let _ = info.read(&key);
 		}
 
 		let result;
