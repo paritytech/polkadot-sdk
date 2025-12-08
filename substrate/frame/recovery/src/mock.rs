@@ -51,32 +51,36 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub static ConfigDepositBase: u64 = 10;
-	pub const FriendDepositFactor: u64 = 1;
-	pub static RecoveryDeposit: u64 = 10;
-	// Large number of friends for benchmarking.
-	pub const MaxFriends: u32 = 128;
+	pub const MaxFriendsPerConfig: u32 = 128;
+	pub const MaxConfigsPerAccount: u32 = 128;
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type MaxFriendsPerConfig = MaxFriendsPerConfig;
+	type MaxConfigsPerAccount = MaxConfigsPerAccount;
+	type WeightInfo = ();
 }
 
 pub type BalancesCall = pallet_balances::Call<Test>;
 pub type RecoveryCall = super::Call<Test>;
 
+pub const ALICE: u64 = 1;
+pub const BOB: u64 = 2;
+pub const CHARLIE: u64 = 3;
+pub const DAVE: u64 = 4;
+pub const EVE: u64 = 5;
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],
+		balances: vec![(ALICE, 100), (BOB, 100), (CHARLIE, 100), (DAVE, 100), (EVE, 100)],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)

@@ -17,20 +17,75 @@
 
 //! # Recovery Pallet
 //!
+//! Pallet Recovery allows you to have friends or family recover access to your account if you lose
+//! your seed phrase or private key.
+//!
 //! ## Terminology
 //!
 //! - `lost`: An account that has lost access to its private key and needs to be recovered.
-//! - `friend`: A befriended account that can vouch for a recovery process.
+//! - `friend`: A befriended account that can approve a recovery process.
 //! - `recoverer`: An account that is trying to recover a lost account.
-//! - `recovered`: An account that has been successfully recovered..
+//! - `recovered`: An account that has been successfully recovered.
 //! - `inheritor`: An account that is inheriting access to a lost account after recovery.
 //! - `attempt`: An attempt to recover a lost account by a recoverer.
-//! - `inheritance order`: The level of trust that an account has in a friend group.
+//! - `order`: The level of trust that an account has in a friend group.
 //! - `deposit`: The amount that a friends of this group needs to reserve to initiate an attempt.
 //! - `threshold`: The number of friends that need to approve an attempt.
 //! - `delay`: How long an attempt will be delayed before it can succeed.
+//! - `provided block`: The blocks that are *provided* by the `T::BlockNumberProvider`.
+//!
+//! ## Scenario: Recovering a lost account
+//!
+//! Story of how the user Alice user loses access and is recovered by her friends.
+//!
+//! 1. Alice uses the recovery pallet to configure one or more friends groups:
+//! 	 - Alice picks a suitable `inheritor` account that will inherit the access to her account for
+//!     each friend group. This could be a multisig.
+//!  - Alice configures all groups with via `set_friend_groups`.
+//! 2. Alice loses access to her account and becomes a `lost` account.
+//! 3. Any member (aka `recoverer`) of Alice's friend groups become aware of the situation and
+//!    starts a recovery `attempt` via `initiate_attempt`.
+//! 4. The friend group self-organizes and one-by-one approve the ongoing attempt via
+//!    `approve_attempt`.
+//! 5. Exactly `threshold` friends approve the attempt (further approvals will fail since they are
+//!    useless).
+//! 6. Any account finishes the attempt via `finish_attempt` after at least `delay` blocks since the
+//!    initiation have passed.
+//! 7. Alice's account is now officially `recovered` and accessible by the `inheritor` account.
+//! 8. The `inheritor` may call `control_inherited_account` at any point to transfer Alice's funds
+//!    to her new account.
+//!
+//! ## Scenario: Multiple friend group try to recover an account
+//!
+//! Alice may have configured multiple friend groups that all try to recover her account at the same
+//! time. This can lead to a conflict of which friend group should eventually inherit the access.
+//!
+//! 1. Alice configures groups *Family* (delay 10d, order 0) and *Friends* (delay 20d, order 1).
+//! 1. Day 0: Alice loses access to her account.
+//! 1. Day 6: *Friends* initiate a recovery attempt for Alice.
+//! 1. Day 15: *Family* finally understands Polkadot and initiates an attempt as well.
+//! 1. Day 25: *Family* inherits access to Alice account.
+//! 1. Day 26: *Friends* group gets nothing since inheritance order is higher the one from *Family*.
+//!
+//! In the case above you see how the *Friends* group is now unable to recover Alice account since
+//! the *Family* group already did it and has a higher inheritance order. Now, imagine the case that
+//! the *Friends* group would have started on day 4 and would have already recovered the account on
+//! day 24. Two days later, the *Family* group can take access back and will replace the inheritor
+//! account with their own. The *Friends* group had access for two days since they were faster. If
+//! Alice account has most balance locked in 28 day staking this would not make a big difference,
+//! since only the free balance would be immediately transferable.
+//!
+//! ## Data Structures
+//!
+//! The pallet has three storage items, see the in-code docs [`FriendGroups`], [`Attempts`] and
+//! [`Inheritor`]. Storage items may contain deposit "tickets" or similar noise and should therefore
+//! not be read directly but only through the API.
+//!
+//! ## API
+//!
+//! *Reading* data can be done through the view functions:
+//! -
 
-use alloc::{boxed::Box, vec::Vec};
 use frame::{
 	prelude::*,
 	traits::{
@@ -63,12 +118,19 @@ pub type HashOf<T> = <T as frame_system::Config>::Hash;
 pub type InheritanceOrder = u32;
 
 /// Configuration for recovering an account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 pub struct FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends> {
-	/// Minimum relay chain block delay before the account can be recovered.
-	///
-	/// Uses a provided block number to avoid possible clock skew of parachains.
-	pub delay_period: ProvidedBlockNumber,
 	/// Slashable deposit that the rescuer needs to reserve.
 	pub deposit: Balance,
 	/// List of friends that can initiate the recovery process. Always sorted.
@@ -77,27 +139,44 @@ pub struct FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends> {
 	pub friends_needed: u32,
 	/// The account that inherited full access to a lost account after successful recovery.
 	pub inheritor: AccountId,
+	/// Minimum time that a recovery attempt must stay active before it can be finished.
+	///
+	/// Uses a provided block number to avoid possible clock skew of parachains.
+	pub inheritance_delay: ProvidedBlockNumber,
+	/// Used to resolve inheritance conflicts when multiple friend groups finish a recovery.
+	///
+	/// Lower order friend groups can replace the inheritor of a higher order group. For example:
+	/// You can set your family group as order 0, your friends group as order 1 and co-workers as
+	/// group 2. This in combination with the `inheritance_delay` enables you to ensure that the
+	/// correct group receives the inheritance.
 	pub inheritance_order: InheritanceOrder,
 	/// The delay since the last approval of an attempt before the attempt can be aborted.
 	///
 	/// It ensures that a malicious recoverer does not abuse the `abort_attempt` call to doge an
 	/// incoming slash from the lost account. They could otherwise monitor the TX pool and abort
-	/// the attempt just in time for the slash transaction to fail.
+	/// the attempt just in time for the slash transaction to fail. Now instead, the lost account
+	/// has at least `abort_delay` provided blocks to slash the attempt.
 	pub abort_delay: ProvidedBlockNumber,
 }
-type FriendGroupOf<T> =
+
+pub type FriendGroupIndex = u32;
+
+/// A `FriendGroup` for a specific `Config`.
+pub type FriendGroupOf<T> =
 	FriendGroup<ProvidedBlockNumberOf<T>, AccountIdFor<T>, BalanceOf<T>, FriendsOf<T>>;
 
-type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, <T as Config>::MaxConfigsPerAccount>;
+pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, <T as Config>::MaxConfigsPerAccount>;
 
 /// Bitfield helper for tracking friend votes.
 ///
 /// Uses a vector of u128 values where each bit represents whether a friend at that index has voted.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxEntries))]
 pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u128, BitfieldLenOf<MaxEntries>>);
 
-pub type BitfieldLenOf<MaxEntries: Get<u32>> = ConstDivCeil<MaxEntries, ConstU32<128>, u32, u32>;
+pub type BitfieldLenOf<MaxEntries> = ConstDivCeil<MaxEntries, ConstU32<128>, u32, u32>;
 
 pub struct ConstDivCeil<Dividend, Divisor, R, T>(
 	pub core::marker::PhantomData<(Dividend, Divisor, R, T)>,
@@ -142,59 +221,82 @@ impl<MaxEntries: Get<u32>> Bitfield<MaxEntries> {
 	}
 }
 
-pub type ApprovalBitfield<MaxFriends: Get<u32>> = Bitfield<MaxFriends>;
+pub type ApprovalBitfield<MaxFriends> = Bitfield<MaxFriends>;
 pub type ApprovalBitfieldOf<T> = ApprovalBitfield<<T as Config>::MaxFriendsPerConfig>;
 
-/// An active recovery process.
+/// An attempt to recover an account.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct RecoveryAttempt<ProvidedBlockNumber, FriendGroup, ApprovalBitfield> {
+pub struct Attempt<ProvidedBlockNumber, ApprovalBitfield> {
+	pub friend_group_index: FriendGroupIndex,
 	pub init_block: ProvidedBlockNumber,
 	pub last_approval_block: ProvidedBlockNumber,
-
-	/// The friend group snapshot at the time of recovery attempt initiation.
-	///
-	/// Contains all the parameters (friends, threshold, deposit, inheritor, etc.) at the time the
-	/// attempt was created.
-	pub friend_group: FriendGroup,
-
-	/// Bitfield tracking which friends have vouched.
+	/// Bitfield tracking which friends approved.
 	///
 	/// Each bit corresponds to a friend in the `friend_group.friends` list by index.
 	pub approvals: ApprovalBitfield,
 }
 
-impl<ProvidedBlockNumber, AccountId, Balance, Friends, ApprovalBitfield>
-	RecoveryAttempt<
-		ProvidedBlockNumber,
-		FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends>,
-		ApprovalBitfield,
-	>
+impl<ProvidedBlockNumber, ApprovalBitfield> Attempt<ProvidedBlockNumber, ApprovalBitfield>
 where
 	ProvidedBlockNumber: CheckedAdd,
 {
-	/// Calculate the block number when the recovery can be completed.
-	///
-	/// This is the initialization block plus the delay period from the friend group. Returns None
-	/// if overflow occurs.
-	pub fn unlock_at(&self) -> Option<ProvidedBlockNumber> {
-		self.init_block.checked_add(&self.friend_group.delay_period)
-	}
-
 	/// Calculate the earliest block when the attempt can be aborted.
 	///
 	/// This is the last approval block plus the abort delay from the friend group. Returns None if
 	/// overflow occurs.
-	pub fn abortable_at(&self) -> Option<ProvidedBlockNumber> {
-		self.last_approval_block.checked_add(&self.friend_group.abort_delay)
+	pub fn abortable_at<AccountId, Balance, Friends>(
+		&self,
+		friend_groups: &[FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends>],
+	) -> Option<ProvidedBlockNumber> {
+		let fg = friend_groups.get(self.friend_group_index as usize)?;
+		self.last_approval_block.checked_add(&fg.abort_delay)
 	}
 }
 
-type RecoveryAttemptOf<T> =
-	RecoveryAttempt<ProvidedBlockNumberOf<T>, FriendGroupOf<T>, ApprovalBitfieldOf<T>>;
-type RecoveryAttemptsOf<T> =
-	BoundedVec<RecoveryAttemptOf<T>, <T as Config>::MaxOngoingRecoveriesPerRecoverer>;
+pub type AttemptOf<T> = Attempt<ProvidedBlockNumberOf<T>, ApprovalBitfieldOf<T>>;
 
-type InheritorsOf<T> = BoundedVec<AccountIdFor<T>, <T as Config>::MaxInheritorsPerAccount>;
+/// A `Consideration`-like type that tracks who paid for it.
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
+pub struct IdentifiedConsideration<AccountId, Footprint, C> {
+	pub depositor: AccountId,
+	pub ticket: C,
+	pub _phantom: PhantomData<Footprint>,
+}
+
+impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
+	IdentifiedConsideration<AccountId, Footprint, C>
+{
+	fn new(depositor: &AccountId, fp: Footprint) -> Result<Self, DispatchError> {
+		let ticket = Consideration::<AccountId, Footprint>::new(depositor, fp)?;
+
+		Ok(Self { depositor: depositor.clone(), ticket, _phantom: Default::default() })
+	}
+
+	fn update(self, new_depositor: &AccountId, fp: Footprint) -> Result<Self, DispatchError> {
+		//let old_depositor = self.depositor.clone();
+
+		if *new_depositor != self.depositor {
+			self.ticket.drop(&self.depositor)?;
+		}
+
+		Consideration::<AccountId, Footprint>::new(new_depositor, fp)
+	}
+
+	fn drop(self) -> Result<(), DispatchError> {
+		self.ticket.drop(&self.depositor);
+	}
+}
 
 #[frame::pallet]
 pub mod pallet {
@@ -205,9 +307,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
-
 		/// The overarching call type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -247,7 +346,7 @@ pub mod pallet {
 		/// Storage consideration for holding friend group configs.
 		type FriendGroupsConsideration: Consideration<Self::AccountId, Footprint>;
 
-		type AttemptsConsideration: Consideration<Self::AccountId, Footprint>;
+		type AttemptConsideration: Consideration<Self::AccountId, Footprint>;
 
 		type InheritorConsideration: Consideration<Self::AccountId, Footprint>;
 
@@ -263,16 +362,42 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxConfigsPerAccount: Get<u32>;
 
-		/// DO NOT REDUCE THIS VALUE. Maximum number of ongoing recoveries per recoverer.
-		///
-		/// Reducing this value can cause decoding errors in the bounded vectors. This value should
-		/// generally be be no less than `MaxConfigsPerAccount`.
-		#[pallet::constant]
-		type MaxOngoingRecoveriesPerRecoverer: Get<u32>;
-
-		#[pallet::constant]
-		type MaxInheritorsPerAccount: Get<u32>;
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
+
+	/// The friend groups of an that can conduct recovery attempts.
+	///
+	/// Modifying this storage does not impact ongoing recovery attempts.
+	#[pallet::storage]
+	pub type FriendGroups<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(FriendGroupsOf<T>, T::FriendGroupsConsideration),
+	>;
+
+	/// Ongoing recovery attempts of a lost account indexed by `(lost, friend_group)`.
+	#[pallet::storage]
+	pub type Attempt<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Blake2_128Concat,
+		FriendGroupIndex,
+		(AttemptOf<T>, T::AttemptConsideration),
+	>;
+
+	/// The account that inherited full access to a lost account after successful recovery.
+	///
+	/// NOTE: This could be a multisig or proxy account
+	#[pallet::storage]
+	pub type Inheritor<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(InheritanceOrder, T::AccountId, T::InheritorConsideration),
+	>;
 
 	/// Events type.
 	#[pallet::event]
@@ -290,34 +415,22 @@ pub mod pallet {
 		},
 		AttemptInitiated {
 			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
 			recoverer: T::AccountId,
-			attempt_index: u32,
 		},
 		AttemptApproved {
 			lost: T::AccountId,
-			recoverer: T::AccountId,
-			attempt_index: u32,
+			friend_group_index: FriendGroupIndex,
 			friend: T::AccountId,
-		},
-		AttemptFinished {
-			lost: T::AccountId,
-			recoverer: T::AccountId,
-			attempt_index: u32,
-		},
-		AttemptAborted {
-			lost: T::AccountId,
-			recoverer: T::AccountId,
-			attempt_index: u32,
-		},
-		AttemptSlashed {
-			lost: T::AccountId,
-			recoverer: T::AccountId,
-			attempt_index: u32,
 		},
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The lost account has ongoing recovery attempts.
+		HasOngoingAttempts,
+		/// The recovery attempt has already been initiated.
+		AlreadyInitiated,
 		/// This account does not have any friend groups.
 		NoFriendGroups,
 		/// A specific referenced friend group was not found.
@@ -326,65 +439,48 @@ pub mod pallet {
 		NotFriend,
 		/// The referenced recovery attempt was not found.
 		NotAttempt,
-		/// The friend has already vouched for this attempt.
-		AlreadyVouched,
+		/// This attempt is already fully approved and does not need any more votes.
+		AlreadyApproved,
+		/// The friend already voted for this attempt.
+		AlreadyVoted,
 		/// The lost account does not have any inheritor.
 		NoInheritor,
 		/// The caller is not the inheritor of the lost account.
 		NotInheritor,
-		/// Not enough friends have vouched for this attempt.
-		NotEnoughVouches,
+		/// Not enough friends approved this attempt.
+		NotEnoughApprovals,
 		/// The recovery attempt is not yet unlocked.
 		NotUnlocked,
 		/// The recovery attempt cannot be aborted yet.
 		NotAbortable,
 		/// Too many concurrent recovery attempts for this recoverer.
 		TooManyAttempts,
+		/// The inheritance delay of this attempt has not yet passed.
+		NotYetInheritable,
 	}
 
-	/// The friend groups of an that can initiate and vouch for recovery attempts.
-	#[pallet::storage]
-	pub type FriendGroups<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		(FriendGroupsOf<T>, T::FriendGroupsConsideration),
-		OptionQuery,
-	>;
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// The friend groups of an account that can conduct recovery attempts.
+		pub fn friend_groups(lost: T::AccountId) -> Vec<FriendGroupOf<T>> {
+			FriendGroups::<T>::get(lost).map(|(g, _t)| g.into_inner()).unwrap_or_default()
+		}
 
-	/// Ongoing recovery attempts of an account indexed by `(lost, recoverer)`.
-	///
-	/// A *recoverer* can initiate multiple recovery attempts for the same lost account if they are
-	/// part of multiple account configs. For example: A friend could be part of the *family* group
-	/// but also the *friends* group. In this case, they can initiate both recovery attempts at
-	/// once, as long as it are not more than `MaxOngoingRecoveriesPerRecoverer` at a time.
-	#[pallet::storage]
-	pub type Attempts<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		Blake2_128Concat,
-		T::AccountId,
-		(RecoveryAttemptsOf<T>, T::AttemptsConsideration),
-	>;
+		/*pub fn attempt(lost: T::AccountId, friend_group_index: u32) -> Option<AttemptOf<T>> {
+			Attempts::<T>::get(lost, friend_group_index).map(|(ass, _t)| ass.get(0 as usize).cloned()).flatten()
+		}*/
 
-	/// The account that inherited full access to a lost account after successful recovery.
-	///
-	/// NOTE: This could be a multisig or proxy account
-	#[pallet::storage]
-	pub type Inheritor<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		(InheritanceOrder, T::AccountId, T::InheritorConsideration),
-	>;
+		pub fn provided_block_number() -> ProvidedBlockNumberOf<T> {
+			T::BlockNumberProvider::current_block_number()
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		// todo bin search todo event todo copy call filters
 		#[pallet::call_index(0)]
 		#[pallet::weight(0)]
-		pub fn control_lost_account(
+		pub fn control_inherited_account(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -426,20 +522,19 @@ pub mod pallet {
 		) -> DispatchResult {
 			let lost = ensure_signed(origin)?;
 
-			let (old_friend_groups, old_ticket) = Self::friend_groups(&lost)?;
+			if Attempt::<T>::iter_prefix(&lost).next().is_some() {
+				return Err(Error::<T>::HasOngoingAttempts.into());
+			}
+
+			let (old_friend_groups, old_ticket) = match FriendGroups::<T>::get(&lost) {
+				Some((g, t)) => (g, Some(t)),
+				None => Default::default(),
+			};
 			let new_friend_groups: FriendGroupsOf<T> =
 				friend_groups.try_into().map_err(|_| "Too many friend groups")?;
 			let new_footprint = Self::friend_group_footprint(&new_friend_groups);
 
-			let new_ticket = match old_ticket {
-				Some(old_ticket) => {
-					// We always update the consideration, this implicitly acts as a "poke" if the
-					// storage prices changed.
-					old_ticket.update(&lost, new_footprint)
-				},
-				None => T::FriendGroupsConsideration::new(&lost, new_footprint),
-			}?;
-
+			let new_ticket = Self::update_ticket(&lost, old_ticket, new_footprint)?;
 			FriendGroups::<T>::insert(&lost, (&new_friend_groups, &new_ticket));
 
 			if new_friend_groups != old_friend_groups {
@@ -460,39 +555,36 @@ pub mod pallet {
 		pub fn initiate_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			friend_group_index: u32,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
-			let maybe_friend = ensure_signed(origin)?;
+			let recoverer = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
 
-			let (friend_groups, ticket) = Self::friend_groups(&lost)?;
-			let friend_group = friend_groups
-				.get(friend_group_index as usize)
-				.ok_or(Error::<T>::NotFriendGroup)?;
+			if Self::attempt_of(&lost, friend_group_index).is_ok() {
+				return Err(Error::<T>::AlreadyInitiated.into());
+			}
 
-			ensure!(friend_group.friends.contains(&maybe_friend), Error::<T>::NotFriend);
-			// TODO: There is currently no protection that the same recoverer initiates multiple
-			// attempts for the same group.
+			let friend_group = Self::friend_group_of(&lost, friend_group_index)?;
+			ensure!(friend_group.friends.contains(&recoverer), Error::<T>::NotFriend);
 
 			// Construct the attempt
 			let now = T::BlockNumberProvider::current_block_number();
-			let attempt = RecoveryAttemptOf::<T> {
+			let attempt = AttemptOf::<T> {
+				friend_group_index,
 				init_block: now,
 				last_approval_block: now,
-				friend_group: *friend_group,
 				approvals: ApprovalBitfield::default(),
 			};
 
-			let (mut attempts, old_ticket) = Self::attempts(&lost, &maybe_friend)?;
-			attempts.try_push(attempt).map_err(|_| Error::<T>::TooManyAttempts)?;
+			let footprint =
+				T::AttemptConsideration::new(&recoverer, Self::attempt_footprint(&attempt))?;
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &footprint));
 
-			let new_footprint = Sasdfasdfelf::attempt_footprint(&attempts);
-			let new_ticket = match old_ticket {
-				Some(old_ticket) => old_ticket.update(&lost, new_footprint),
-				None => T::AttemptsConsideration::new(&lost, new_footprint),
-			}?;
-
-			Attempts::<T>::insert(&lost, &maybe_friend, (&attempts, &new_ticket));
+			Self::deposit_event(Event::<T>::AttemptInitiated {
+				lost,
+				friend_group_index,
+				recoverer,
+			});
 
 			Ok(())
 		}
@@ -502,35 +594,33 @@ pub mod pallet {
 		pub fn approve_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			recoverer: AccountIdLookupOf<T>,
-			attempt_index: u32,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
-			let maybe_friend = ensure_signed(origin)?;
+			let friend = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
-			let recoverer = T::Lookup::lookup(recoverer)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
-			// We ignore the ticket, since approving will not change the footprint.
-			let (mut attempts, ticket) =
-				Attempts::<T>::get(&lost, &recoverer).ok_or(Error::<T>::NotAttempt)?;
-			let attempt = attempts.get_mut(attempt_index as usize).ok_or(Error::<T>::NotAttempt)?;
+			let (mut attempt, old_ticket) = Self::attempt_of(&lost, friend_group_index)?;
+			let friend_group = Self::friend_group_of(&lost, friend_group_index).defensive()?;
 
-			// Find the friend's index in the friend group
-			let friend_index = attempt
-				.friend_group
+			let friends_voted = attempt.approvals.count_ones();
+			ensure!(friends_voted < friend_group.friends_needed, Error::<T>::AlreadyApproved);
+
+			let friend_index = friend_group
 				.friends
-				.binary_search(&maybe_friend)
-				.map_err(|_| Error::<T>::NotFriend)?;
-
+				.iter()
+				.position(|f| f == &friend)
+				.ok_or(Error::<T>::NotFriend)?;
 			attempt
 				.approvals
-				.set_if_not_set(friend_index as usize)
-				.map_err(|_| Error::<T>::AlreadyVouched)?;
+				.set_if_not_set(friend_index)
+				.map_err(|_| Error::<T>::AlreadyVoted)?;
 
-			// Update the last approval block to reset the abort delay
-			attempt.last_approval_block = now;
+			let footprint = Self::attempt_footprint(&attempt);
+			let new_ticket = old_ticket.update(&friend, footprint)?;
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &new_ticket));
 
-			Attempts::<T>::insert(&lost, &recoverer, (&attempts, &ticket));
+			Self::deposit_event(Event::<T>::AttemptApproved { lost, friend_group_index, friend });
 
 			Ok(())
 		}
@@ -540,48 +630,62 @@ pub mod pallet {
 		pub fn finish_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			recoverer: AccountIdLookupOf<T>,
 			attempt_index: u32,
 		) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
-			let recoverer = T::Lookup::lookup(recoverer)?;
-
 			let now = T::BlockNumberProvider::current_block_number();
-			let mut attempts =
-				Attempts::<T>::get(&lost, &recoverer).ok_or(Error::<T>::NotAttempt)?;
-			let attempt = attempts.get(attempt_index as usize).ok_or(Error::<T>::NotAttempt)?;
+
+			let (attempt, attempts_ticket) =
+				Attempts::<T>::get(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+
+			// AUDIT: attempt_index == friend_group_index
+			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
 
 			// Check if the attempt is now complete
 			let approvals = attempt.approvals.count_ones();
-			ensure!(approvals >= attempt.friend_group.friends_needed, Error::<T>::NotEnoughVouches);
-			let unlock_at = attempt.unlock_at().ok_or(ArithmeticError::Overflow)?;
-			ensure!(now >= unlock_at, Error::<T>::NotUnlocked);
+			ensure!(
+				// We use >= defensively, but it should be at most ==
+				approvals >= friend_group.friends_needed,
+				Error::<T>::NotEnoughApprovals
+			);
+
+			let inheritable_at = attempt
+				.init_block
+				.checked_add(friend_group.inheritance_delay)
+				.ok_or(ArithmeticError::Overflow)?;
+			ensure!(now >= inheritable_at, Error::<T>::NotYetInheritable);
 			// NOTE: We dont need to check the abort delay, since enough friends voted and we dont
 			// assume fully malicious behavior.
 
-			let inheritance_order = attempt.friend_group.inheritance_order;
-			attempts.remove(attempt_index as usize);
+			let inheritor = attempt.inheritor;
+			let inheritance_order = friend_group.inheritance_order;
 
 			// todo event
 			match Inheritor::<T>::get(&lost) {
-				None => Inheritor::<T>::insert(&lost, (inheritance_order, &recoverer)),
-				Some((old_order, _)) if inheritance_order < old_order => {
-					// new recovery has a lower inheritance order, we therefore replace the existing
-					// inheritor
-					Inheritor::<T>::insert(&lost, (inheritance_order, &recoverer));
+				None => {
+					let ticket = Self::inheritor_ticket(&caller)?;
+					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket))
+				},
+				// new recovery has a lower inheritance order, we therefore replace the existing
+				// inheritor
+				Some((old_order, _, ticket)) if inheritance_order < old_order => {
+					// We have to update the ticket since we don't know who created it:
+					let ticket = ticket.update(&caller, Self::inheritor_footprint());
+					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
 				},
 				Some(_) => {
-					// the existing inheritor stays since an equal or worse inheritor contested TODO
-					// event
+					// The existing inheritor stays since an equal or worse inheritor contested.
+					// We do not treat this as a poke but just do nothing.
 				},
 			}
 
-			Self::write_attempts(&lost, &recoverer, &attempts);
+			//Self::write_attempts(&lost, &recoverer, &attempts, aticket)?;
 
 			Ok(())
 		}
 
+		/*
 		/// The recoverer or the lost account can abort an attempt at any moment.
 		///
 		/// This will release the deposit of the attempt back to the recoverer.
@@ -598,7 +702,7 @@ pub mod pallet {
 			let recoverer = T::Lookup::lookup(recoverer)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
-			let mut attempts =
+			let (mut attempts, ticket) =
 				Attempts::<T>::get(&lost, &recoverer).ok_or(Error::<T>::NotAttempt)?;
 			let attempt = attempts.get(attempt_index as usize).ok_or(Error::<T>::NotAttempt)?;
 
@@ -608,7 +712,7 @@ pub mod pallet {
 			// delay, we ensure that every friend had enough time to call `finish_attempt`.
 			attempts.remove(attempt_index as usize);
 
-			Self::write_attempts(&lost, &recoverer, &attempts);
+			Self::write_attempts(&lost, &recoverer, &attempts, ticket)?;
 
 			// TODO currency stuff
 
@@ -625,19 +729,19 @@ pub mod pallet {
 			let lost = ensure_signed(origin)?;
 			let recoverer = T::Lookup::lookup(recoverer)?;
 
-			let mut attempts =
+			let (mut attempts, ticket) =
 				Attempts::<T>::get(&lost, &recoverer).ok_or(Error::<T>::NotAttempt)?;
 			let _attempt = attempts.get(attempt_index as usize).ok_or(Error::<T>::NotAttempt)?;
 
 			attempts.remove(attempt_index as usize);
 			// TODO slash
 
-			Self::write_attempts(&lost, &recoverer, &attempts);
+			Self::write_attempts(&lost, &recoverer, &attempts, ticket)?;
 
 			// TODO currency stuff
 
 			Ok(())
-		}
+		}*/
 	}
 }
 
@@ -647,37 +751,50 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_encodable(friend_groups)
 	}
 
-	pub fn attempt_footprint(attempts: &RecoveryAttemptsOf<T>) -> Footprint {
+	pub fn attempt_footprint(attempt: &AttemptOf<T>) -> Footprint {
 		// TODO think about this. maybe we just use items_count * item_mel
-		Footprint::from_encodable(attempts)
+		Footprint::from_encodable(attempt)
 	}
 
-	pub fn friend_groups(
-		lost: &T::AccountId,
-	) -> Result<(FriendGroupsOf<T>, Option<T::FriendGroupsConsideration>), Error<T>> {
-		FriendGroups::<T>::get(lost)
-			.map(|(fg, t)| (fg, Some(t)))
-			.ok_or(Error::<T>::NoFriendGroups)
+	pub fn inheritor_footprint() -> Footprint {
+		Footprint::from_mel::<(InheritanceOrder, T::AccountId)>()
 	}
 
-	pub fn attempts(
-		lost: &T::AccountId,
-		recoverer: &T::AccountId,
-	) -> Result<(RecoveryAttemptsOf<T>, Option<T::AttemptsConsideration>), Error<T>> {
-		Attempts::<T>::get(lost, recoverer)
-			.map(|(a, t)| (a, Some(t)))
-			.ok_or(Error::<T>::NotAttempt)
+	pub fn inheritor_ticket(
+		who: &T::AccountId,
+	) -> Result<T::InheritorConsideration, DispatchError> {
+		T::InheritorConsideration::new(&who, Self::inheritor_footprint())
 	}
 
-	fn write_attempts(
+	pub fn friend_group_of(
 		lost: &T::AccountId,
-		recoverer: &T::AccountId,
-		attempts: &RecoveryAttemptsOf<T>,
-	) {
-		if attempts.is_empty() {
-			Attempts::<T>::remove(lost, recoverer);
-		} else {
-			Attempts::<T>::insert(lost, recoverer, attempts);
+		friend_group_index: u32,
+	) -> Result<FriendGroupOf<T>, Error<T>> {
+		let friend_groups = match FriendGroups::<T>::get(lost) {
+			Some((g, _t)) => g,
+			None => return Err(Error::<T>::NoFriendGroups),
+		};
+		friend_groups
+			.get(friend_group_index as usize)
+			.cloned()
+			.ok_or(Error::<T>::NotFriendGroup)
+	}
+
+	pub fn attempt_of(
+		lost: &T::AccountId,
+		friend_group_index: u32,
+	) -> Result<(AttemptOf<T>, T::AttemptConsideration), Error<T>> {
+		Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
+	}
+
+	fn update_ticket<C: Consideration<T::AccountId, Footprint>>(
+		who: &T::AccountId,
+		old_ticket: Option<C>,
+		new_footprint: Footprint,
+	) -> Result<C, DispatchError> {
+		match old_ticket {
+			Some(old_ticket) => old_ticket.update(who, new_footprint),
+			None => C::new(who, new_footprint),
 		}
 	}
 }
