@@ -17,6 +17,9 @@ doc:
     - On Coretime, revenues that would be transferred daily to XCM and burned, are now redirected to the DAP satellite instead.
     - On other system chains (People, BridgeHub, Collective), DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the staking pot is preserved.
 
+    Events: `FundsReturned` (pallet-dap) and `FundsAccumulated` (pallet-dap-satellite) are emitted only for explicit user actions (e.g., `burn` extrinsic via `FundingSink`).
+    Automatic system operations like fee handling and slashes via `OnUnbalanced` do NOT emit events to avoid bloating blocks with tons of events per block.
+
     [Breaking change]: all runtimes must now explicitly configure `BurnDestination`:
       - Non-DAP runtimes should use `pallet_balances::DirectBurn<Runtime>` for direct burning.
       - DAP-integrated runtimes use `pallet_dap::ReturnToDap<Runtime>` (on AssetHub) or `pallet_dap_satellite::AccumulateInSatellite<Runtime>` (on other system chains).
@@ -31,7 +34,7 @@ crates:
 - name: frame-support
   bump: minor
 - name: pallet-assets-freezer
-  bump: major
+  bump: patch
 - name: pallet-asset-rewards
   bump: patch
 - name: pallet-balances
@@ -87,10 +90,10 @@ crates:
 - name: pallet-staking-async-parachain-runtime
   bump: major
 - name: staging-xcm-builder
-  bump: major
+  bump: patch
 - name: pallet-nis
-  bump: major
+  bump: patch
 - name: pallet-contracts-mock-network
-  bump: major
+  bump: minor
 - name: yet-another-parachain-runtime
-  bump: major
+  bump: minor
