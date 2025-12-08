@@ -100,19 +100,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
 			},
-			ISystemCalls::setCodeHash(ISystem::setCodeHashCall { codeHash }) => {
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
-				let code_hash = crate::H256::from_slice(codeHash.as_slice());
-				if matches!(env.set_code_hash_of_caller(code_hash)?, crate::CodeRemoved::No) {
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::SetCodeHash { old_code_removed: false },
-					);
-				}
-				Ok(Vec::new())
-			},
 		}
 	}
 }

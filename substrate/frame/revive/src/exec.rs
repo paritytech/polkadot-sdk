@@ -548,12 +548,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
-
-	/// Sets new code hash and immutable data for an existing contract.
-	/// Returns whether the old code was removed as a result of this operation.
-	///
-	/// Should only be called from System::set_code_hash precompile.
-	fn set_code_hash_of_caller(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2496,47 +2490,6 @@ where
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().frame_meter.record_contract_storage_changes(diff)
-	}
-
-	/// TODO: This should be changed to run the constructor of the supplied `hash`.
-	///
-	/// Because the immutable data is attached to a contract and not a code,
-	/// we need to update the immutable data too.
-	///
-	/// Otherwise we open a massive footgun:
-	/// If the immutables changed in the new code, the contract will brick.
-	///
-	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
-	/// so that `fn run()` will roll back any changes if this flag is set.
-	///
-	/// After running the constructor, the new immutable data is already stored in
-	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
-	///
-	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash_of_caller(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
-		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
-		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
-		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
-
-		let info = parent.contract_info();
-
-		let prev_hash = info.code_hash;
-		info.code_hash = hash;
-
-		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
-
-		let old_base_deposit = info.storage_base_deposit();
-		let new_base_deposit = info.update_base_deposit(code_info.deposit());
-		let deposit = StorageDeposit::Charge(new_base_deposit)
-			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
-
-		parent
-			.frame_meter
-			.charge_contract_deposit_and_transfer(parent.account_id.clone(), deposit)?;
-
-		<CodeInfo<T>>::increment_refcount(hash)?;
-		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(removed)
 	}
 }
 

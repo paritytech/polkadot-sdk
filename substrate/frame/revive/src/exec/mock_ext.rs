@@ -256,10 +256,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn set_code_hash_of_caller(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::set_code_hash_of_caller")
-	}
-
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}
