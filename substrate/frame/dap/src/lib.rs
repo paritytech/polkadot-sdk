@@ -84,8 +84,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// FundingSource not yet implemented.
 		NotImplemented,
-		/// Failed to deposit funds to DAP buffer.
-		ResolveFailed,
 	}
 }
 
@@ -128,16 +126,18 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 			Fortitude::Polite,
 		)?;
 
-		if let Err(remaining) = T::Currency::resolve(&buffer, credit) {
-			let remaining_amount = remaining.peek();
-			if !remaining_amount.is_zero() {
-				log::error!(
-					target: LOG_TARGET,
-					"💸 Failed to resolve {remaining_amount:?} to DAP buffer - funds will be burned!"
-				);
-				return Err(Error::<T>::ResolveFailed.into());
-			}
-		}
+		// Following the same pattern as `ResolveTo` used by StakingPot: if resolve fails
+		// (e.g., buffer account doesn't exist or amount < ED), the credit is dropped which
+		// burns the funds.
+		let _ = T::Currency::resolve(&buffer, credit).map_err(|c| {
+			log::warn!(
+				target: LOG_TARGET,
+				"💸 Failed to resolve {:?} to DAP buffer (account may not exist or amount < ED) \
+				- funds will be burned instead",
+				c.peek()
+			);
+			drop(c);
+		});
 
 		Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount });
 

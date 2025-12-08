@@ -132,12 +132,6 @@ pub mod pallet {
 		/// Funds accumulated in satellite account.
 		FundsAccumulated { from: T::AccountId, amount: BalanceOf<T> },
 	}
-
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Failed to deposit funds to satellite account.
-		ResolveFailed,
-	}
 }
 
 /// Implementation of `FundingSink` that accumulates funds in the satellite account.
@@ -172,17 +166,17 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellit
 			Fortitude::Polite,
 		)?;
 
-		// Handle resolve failure: if it fails, the credit is dropped and funds are burned
-		if let Err(remaining) = T::Currency::resolve(&satellite, credit) {
-			let remaining_amount = remaining.peek();
-			if !remaining_amount.is_zero() {
-				log::error!(
-					target: LOG_TARGET,
-					"💸 Failed to resolve {remaining_amount:?} to satellite account - funds will be burned!"
-				);
-				return Err(Error::<T>::ResolveFailed.into());
-			}
-		}
+		// Following the same pattern as pallet-dap: if resolve fails (e.g., satellite account
+		// doesn't exist or amount < ED), the credit is dropped which burns the funds.
+		let _ = T::Currency::resolve(&satellite, credit).map_err(|c| {
+			log::warn!(
+				target: LOG_TARGET,
+				"💸 Failed to resolve {:?} to satellite account (account may not exist or amount < ED) \
+				- funds will be burned instead",
+				c.peek()
+			);
+			drop(c);
+		});
 
 		Pallet::<T>::deposit_event(Event::FundsAccumulated { from: source.clone(), amount });
 
