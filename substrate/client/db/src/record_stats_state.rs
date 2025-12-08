@@ -20,6 +20,7 @@
 
 use crate::stats::StateUsageStats;
 use sp_core::storage::ChildInfo;
+use sp_externalities::StateLoad;
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	StateVersion,
@@ -119,6 +120,12 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		Ok(value)
 	}
 
+	fn storage_with_status(&self, key: &[u8]) -> Result<StateLoad<Option<Vec<u8>>>, Self::Error> {
+		let result = self.state.storage_with_status(key)?;
+		self.usage.tally_key_read(key, result.data.as_ref(), false);
+		Ok(result)
+	}
+
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
 		self.state.storage_hash(key)
 	}
@@ -135,6 +142,20 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		let value = self.usage.tally_child_key_read(&key, value, false);
 
 		Ok(value)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<StateLoad<Option<Vec<u8>>>, Self::Error> {
+		let key_tuple = (child_info.storage_key().to_vec(), key.to_vec());
+		let result = self.state.child_storage_with_status(child_info, &key_tuple.1)?;
+
+		// just pass it through the usage counter
+		let value = self.usage.tally_child_key_read(&key_tuple, result.data, false);
+
+		Ok(StateLoad { is_cold: result.is_cold, data: value })
 	}
 
 	fn child_storage_hash(

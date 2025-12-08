@@ -31,7 +31,7 @@ use sp_core::storage::{
 };
 #[cfg(feature = "std")]
 use sp_externalities::TransactionType;
-use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults, StateLoad};
 
 use crate::{trace, warn};
 use alloc::{boxed::Box, vec::Vec};
@@ -160,25 +160,31 @@ where
 		result
 	}
 
-	fn storage_with_status(&mut self, key: &[u8]) -> sp_externalities::StateLoad<Option<StorageValue>> {
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
-		let overlay_result = self.overlay.storage(key);
-		let (data, is_cold) = if let Some(value) = overlay_result {
-			(value.map(|x| x.to_vec()), false)
-		} else {
-			(self.backend.storage(key).expect(EXT_NOT_ALLOWED_TO_FAIL), true)
-		};
+		let result = self.overlay.storage(key).map(|x| x.map(|x| x.to_vec())).map_or_else(
+			|| self.backend.storage_with_status(key).expect(EXT_NOT_ALLOWED_TO_FAIL),
+			|data| StateLoad { is_cold: false, data },
+		);
 
+		// NOTE: be careful about touching the key names – used outside substrate!
 		trace!(
 			target: "state",
 			method = "GetWithStatus",
 			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
 			key = %HexDisplay::from(&key),
-			result = ?data.as_ref().map(HexDisplay::from),
-			is_cold = %is_cold,
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
+			result_encoded = %HexDisplay::from(
+				&result
+					.data.as_ref()
+					.map(|v| EncodeOpaqueValue(v.clone()))
+					.encode()
+			),
 		);
 
-		sp_externalities::StateLoad { data, is_cold }
+		log::debug!(target: "runtim::revive", "storage_with_status key={:?} is_cold={}", sp_core::hexdisplay::HexDisplay::from(&key), result.is_cold);
+		result
 	}
 
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
@@ -225,14 +231,25 @@ where
 		&mut self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> sp_externalities::StateLoad<Option<StorageValue>> {
+	) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
 		let overlay_result = self.overlay.child_storage(child_info, key);
-		let (data, is_cold) = if let Some(value) = overlay_result {
-			(value.map(|x| x.to_vec()), false)
-		} else {
-			(self.backend.child_storage(child_info, key).expect(EXT_NOT_ALLOWED_TO_FAIL), true)
-		};
+		log::debug!(target: "runtime::revive", "ext.child_storage_with_status: overlay returned {:?}", overlay_result.is_some());
+
+		let result = overlay_result
+			.map(|x| x.map(|x| x.to_vec()))
+			.map_or_else(
+				|| {
+					log::debug!(target: "runtime::revive", "ext.child_storage_with_status: calling backend");
+					self.backend
+						.child_storage_with_status(child_info, key)
+						.expect(EXT_NOT_ALLOWED_TO_FAIL)
+				},
+				|data| {
+					log::debug!(target: "runtime::revive", "ext.child_storage_with_status: using overlay data, returning is_cold=false");
+					StateLoad { is_cold: false, data }
+				},
+			);
 
 		trace!(
 			target: "state",
@@ -240,11 +257,12 @@ where
 			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
 			child_info = %HexDisplay::from(&child_info.storage_key()),
 			key = %HexDisplay::from(&key),
-			result = ?data.as_ref().map(HexDisplay::from),
-			is_cold = %is_cold,
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
 		);
 
-		sp_externalities::StateLoad { data, is_cold }
+		log::debug!(target: "runtime::revive", "child_storage_with_status key={:?} is_cold={}", sp_core::hexdisplay::HexDisplay::from(&child_info.storage_key()), result.is_cold);
+		result
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
