@@ -704,11 +704,11 @@ impl CollationManager {
 		}
 
 		let Some((advertisement, peer_rep, fetch_delay)) = maybe_best_adv else {
-			return return Either::Left(None);
+			return Either::Left(None);
 		};
 
 		if peer_rep >= instant_fetch_rep || fetch_delay.is_zero() {
-			return return Either::Left(Some(*advertisement));
+			return Either::Left(Some(*advertisement));
 		}
 
 		gum::debug!(
