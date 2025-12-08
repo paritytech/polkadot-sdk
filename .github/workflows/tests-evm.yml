@@ -34,7 +34,7 @@ jobs:
           ["revive-dev-node-revm-solc", "revive-dev-node-polkavm-resolc"]
     steps:
       - name: Checkout the Polkadot SDK
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
       - name: Installing the Latest Resolc
@@ -48,7 +48,7 @@ jobs:
       - name: Building the dependencies from the Polkadot SDK
         run: forklift cargo build --locked --profile release -p pallet-revive-eth-rpc -p revive-dev-node
       - name: Checkout the Differential Tests Repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: paritytech/revive-differential-tests
           ref: 66feb36b4ef2c79415ca8ea765d8235d48dfa8f8
@@ -114,7 +114,7 @@ jobs:
         platform: ["test:pvm", "test:evm"]
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: script
         run: |
@@ -122,7 +122,7 @@ jobs:
           forklift cargo build --locked --release -p revive-dev-node --bin revive-dev-node
 
       - name: Checkout evm-tests
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: paritytech/evm-test-suite
           ref: f3a2e98620adfc233166728230247d479a159e76

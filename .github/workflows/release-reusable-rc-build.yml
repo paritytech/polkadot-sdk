@@ -49,7 +49,7 @@ jobs:
       RUNNER: ${{ steps.set_image.outputs.RUNNER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - id: set_image
         run: |
@@ -89,7 +89,7 @@ jobs:
           which pgpkms
 
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -154,7 +154,7 @@ jobs:
        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
      steps:
        - name: Checkout sources
-         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
          with:
            ref: ${{ inputs.release_tag }}
            fetch-depth: 0
@@ -176,7 +176,7 @@ jobs:
          run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
        - name: Install rust ${{ env.RUST_VERSION }}
-         uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+         uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
          with:
            cache: false
            toolchain: ${{ env.RUST_VERSION }}
@@ -248,7 +248,7 @@ jobs:
            ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
        - name: Generate artifact attestation
-         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
          with:
            subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -275,7 +275,7 @@ jobs:
            check_gpg  ${{ matrix.binaries }}
 
        - name: Upload ${{ matrix.binaries }} artifacts
-         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
          with:
            name: ${{ matrix.binaries }}_${{ inputs.target }}
            path: ${{ env.ARTIFACTS_PATH }}
@@ -287,7 +287,7 @@ jobs:
 
     steps:
     - name: Checkout sources
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
