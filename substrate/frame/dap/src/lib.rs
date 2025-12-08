@@ -84,11 +84,13 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// FundingSource not yet implemented.
 		NotImplemented,
+		/// Failed to deposit funds to DAP buffer.
+		ResolveFailed,
 	}
 }
 
 /// Implementation of FundingSource - NOT YET IMPLEMENTED.
-/// Will panic if called.
+/// Returns `Error::NotImplemented` if called.
 pub struct PullFromDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> FundingSource<T::AccountId, BalanceOf<T>> for PullFromDap<T> {
@@ -96,7 +98,7 @@ impl<T: Config> FundingSource<T::AccountId, BalanceOf<T>> for PullFromDap<T> {
 		_beneficiary: &T::AccountId,
 		_amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		unimplemented!("PullFromDap::request_funds not yet implemented")
+		Err(Error::<T>::NotImplemented.into())
 	}
 }
 
@@ -126,7 +128,16 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 			Fortitude::Polite,
 		)?;
 
-		let _ = T::Currency::resolve(&buffer, credit);
+		if let Err(remaining) = T::Currency::resolve(&buffer, credit) {
+			let remaining_amount = remaining.peek();
+			if !remaining_amount.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"💸 Failed to resolve {remaining_amount:?} to DAP buffer - funds will be burned!"
+				);
+				return Err(Error::<T>::ResolveFailed.into());
+			}
+		}
 
 		Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount });
 
@@ -153,7 +164,15 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 		let numeric_amount = amount.peek();
 
 		// Resolve the imbalance by depositing into the buffer account
-		let _ = T::Currency::resolve(&buffer, amount);
+		if let Err(remaining) = T::Currency::resolve(&buffer, amount) {
+			let remaining_amount = remaining.peek();
+			if !remaining_amount.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"💸 Failed to deposit slash to DAP buffer - {remaining_amount:?} will be burned!"
+				);
+			}
+		}
 
 		log::debug!(
 			target: LOG_TARGET,
@@ -426,10 +445,11 @@ mod tests {
 	// ===== request_funds tests =====
 
 	#[test]
-	#[should_panic(expected = "not yet implemented")]
-	fn pull_from_dap_panics() {
+	fn pull_from_dap_returns_not_implemented_error() {
 		new_test_ext().execute_with(|| {
-			let _ = PullFromDap::<Test>::request_funds(&1, 10);
+			// When: request_funds is called
+			// Then: returns NotImplemented error
+			assert_noop!(PullFromDap::<Test>::request_funds(&1, 10), Error::<Test>::NotImplemented);
 		});
 	}
 }

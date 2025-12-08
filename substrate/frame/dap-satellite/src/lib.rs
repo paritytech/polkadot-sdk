@@ -132,6 +132,12 @@ pub mod pallet {
 		/// Funds accumulated in satellite account.
 		FundsAccumulated { from: T::AccountId, amount: BalanceOf<T> },
 	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Failed to deposit funds to satellite account.
+		ResolveFailed,
+	}
 }
 
 /// Implementation of `FundingSink` that accumulates funds in the satellite account.
@@ -166,7 +172,17 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellit
 			Fortitude::Polite,
 		)?;
 
-		let _ = T::Currency::resolve(&satellite, credit);
+		// Handle resolve failure: if it fails, the credit is dropped and funds are burned
+		if let Err(remaining) = T::Currency::resolve(&satellite, credit) {
+			let remaining_amount = remaining.peek();
+			if !remaining_amount.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"💸 Failed to resolve {remaining_amount:?} to satellite account - funds will be burned!"
+				);
+				return Err(Error::<T>::ResolveFailed.into());
+			}
+		}
 
 		Pallet::<T>::deposit_event(Event::FundsAccumulated { from: source.clone(), amount });
 
@@ -203,7 +219,15 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToSatellite<T> {
 		let numeric_amount = amount.peek();
 
 		// Resolve the imbalance by depositing into the satellite account
-		let _ = T::Currency::resolve(&satellite, amount);
+		if let Err(remaining) = T::Currency::resolve(&satellite, amount) {
+			let remaining_amount = remaining.peek();
+			if !remaining_amount.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"💸 Failed to deposit to satellite account - {remaining_amount:?} will be burned!"
+				);
+			}
+		}
 
 		log::debug!(
 			target: LOG_TARGET,
