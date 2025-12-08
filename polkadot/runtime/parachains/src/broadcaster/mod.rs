@@ -70,6 +70,9 @@ pub use pallet::*;
 mod traits;
 pub use traits::Publish;
 
+pub mod weights;
+pub use weights::WeightInfo;
+
 #[cfg(test)]
 mod tests;
 
@@ -117,6 +120,9 @@ pub mod pallet {
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
+
+		/// Weight information for extrinsics and operations.
+		type WeightInfo: WeightInfo;
 
 		/// Maximum number of items that can be published in a single operation.
 		///
@@ -505,26 +511,39 @@ pub mod pallet {
 		pub(crate) fn initializer_on_new_session(
 			_notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,
 			outgoing_paras: &[ParaId],
-		) {
-			Self::cleanup_outgoing_publishers(outgoing_paras);
+		) -> Weight {
+			Self::cleanup_outgoing_publishers(outgoing_paras)
 		}
 
 		/// Remove all storage for offboarded parachains.
-		fn cleanup_outgoing_publishers(outgoing: &[ParaId]) {
+		fn cleanup_outgoing_publishers(outgoing: &[ParaId]) -> Weight {
+			let mut total_weight = Weight::zero();
 			for outgoing_para in outgoing {
-				Self::cleanup_outgoing_publisher(outgoing_para);
+				total_weight = total_weight.saturating_add(Self::cleanup_outgoing_publisher(outgoing_para));
 			}
+			total_weight
 		}
 
 		/// Remove all relevant storage items for an outgoing parachain.
-		fn cleanup_outgoing_publisher(outgoing_para: &ParaId) {
+		fn cleanup_outgoing_publisher(outgoing_para: &ParaId) -> Weight {
 			if let Some(info) = RegisteredPublishers::<T>::get(outgoing_para) {
-				if PublisherExists::<T>::get(outgoing_para) {
+				let weight = if PublisherExists::<T>::get(outgoing_para) {
+					let published_keys = PublishedKeys::<T>::get(outgoing_para);
+					let key_count = published_keys.len() as u32;
 					let _ = Self::do_cleanup_publisher(*outgoing_para);
-				}
+					T::WeightInfo::do_cleanup_publisher(key_count)
+				} else {
+					Weight::zero()
+				};
 
 				let _ = Self::do_deregister(*outgoing_para, info);
+
+				// Account for reads (RegisteredPublishers, PublisherExists) and writes (deregister)
+				return weight
+					.saturating_add(T::DbWeight::get().reads(2))
+					.saturating_add(T::DbWeight::get().writes(1));
 			}
+			T::DbWeight::get().reads(1) // Just the RegisteredPublishers read
 		}
 
 		/// Processes a publish operation from a parachain.

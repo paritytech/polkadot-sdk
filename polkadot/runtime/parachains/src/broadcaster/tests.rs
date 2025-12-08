@@ -713,3 +713,37 @@ fn force_deregister_with_zero_deposit() {
 		assert_eq!(Balances::balance(&ALICE), 10000); // No deposit change
 	});
 }
+
+#[test]
+fn cleanup_outgoing_publishers_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_a = ParaId::from(2000);
+		let para_b = ParaId::from(2001);
+		let para_c = ParaId::from(2002);
+
+		setup_account(ALICE, 10000);
+
+		// Register and publish data for A, B, C
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_a));
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_b));
+		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_c));
+
+		assert_ok!(Broadcaster::handle_publish(para_a, vec![(b"key1".to_vec(), b"value1".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_b, vec![(b"key2".to_vec(), b"value2".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_c, vec![(b"key3".to_vec(), b"value3".to_vec())]));
+
+		let notification = crate::initializer::SessionChangeNotification::default();
+		let outgoing_paras = vec![para_a, para_b];
+		Broadcaster::initializer_on_new_session(&notification, &outgoing_paras);
+
+		// A and B cleaned up
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_a));
+		assert!(!RegisteredPublishers::<Test>::contains_key(para_b));
+		assert!(!PublisherExists::<Test>::get(para_a));
+		assert!(!PublisherExists::<Test>::get(para_b));
+
+		// C unaffected
+		assert!(RegisteredPublishers::<Test>::contains_key(para_c));
+		assert!(PublisherExists::<Test>::get(para_c));
+	});
+}
