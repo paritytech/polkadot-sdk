@@ -126,9 +126,16 @@ thread_local! {
 mod benchmarks {
 	use super::{new_test_ext, pallet_test::Value, Test, VALUES_PER_COMPONENT};
 	use crate::{account, BenchmarkError, BenchmarkParameter, BenchmarkResult, BenchmarkingSetup};
-	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
+	use frame_support::{
+		assert_err, assert_ok, ensure,
+		traits::{Get, StorageInfo},
+	};
 	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
+	use sc_client_db::BenchmarkingState;
+	use sp_core::storage::TrackedStorageKey;
+	use sp_runtime::traits::BlakeTwo256;
+	use sp_state_machine::Backend;
 
 	// Additional used internally by the benchmark macro.
 	use super::pallet_test::{Call, Config, Pallet};
@@ -381,9 +388,6 @@ mod benchmarks {
 
 	#[test]
 	fn test_storage_info_to_whitelist_conversion() {
-		use frame_support::traits::StorageInfo;
-		use sp_core::storage::TrackedStorageKey;
-
 		// Create test storage info (simulating what #[pallet::whitelist_storage] generates)
 		let storage_info = vec![
 			StorageInfo {
@@ -413,23 +417,7 @@ mod benchmarks {
 
 	#[test]
 	fn test_benchmark_reset_behavior_with_whitelist() {
-		use crate::utils::Benchmarking;
-		use sc_client_db::BenchmarkingState;
-		use sp_core::storage::TrackedStorageKey;
-		use sp_runtime::traits::BlakeTwo256;
-		use sp_state_machine::Backend;
-		use std::io::Read;
-
 		let whitelist = vec![TrackedStorageKey::new(b"System".to_vec())];
-
-		let config = crate::BenchmarkConfig {
-			pallet: b"pallet_test".to_vec(),
-			instance: b"TestPallet".to_vec(),
-			benchmark: b"set_value".into(),
-			selected_components: vec![(crate::BenchmarkParameter::b, 1)],
-			verify: false,
-			internal_repeats: 1,
-		};
 
 		let state =
 			BenchmarkingState::<BlakeTwo256>::new(Default::default(), None, false, true).unwrap();
