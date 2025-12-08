@@ -3778,24 +3778,6 @@ fn unknown_syscall_rejected() {
 }
 
 #[test]
-fn unstable_interface_rejected() {
-	let (code, _) = compile_module("unstable_interface").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		Test::set_unstable_interface(false);
-		assert_err!(
-			builder::bare_instantiate(Code::Upload(code.clone())).build().result,
-			<Error<Test>>::CodeRejected,
-		);
-
-		Test::set_unstable_interface(true);
-		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
-	});
-}
-
-#[test]
 fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);

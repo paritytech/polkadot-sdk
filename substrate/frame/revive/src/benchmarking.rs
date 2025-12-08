@@ -2488,35 +2488,6 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
-	/// Benchmark the cost of setting the code hash of a contract.
-	///
-	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
-	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let delete_old_code = r == 1;
-		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
-		let old_code_hash = instance.info()?.code_hash;
-
-		// Increment the refcount of the code hash so that it does not get deleted
-		if !delete_old_code {
-			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
-		Ok(())
-	}
-
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
