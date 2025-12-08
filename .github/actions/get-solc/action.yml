@@ -34,3 +34,4 @@ runs:
       run: |
         echo "$(pwd)/solc" >> $GITHUB_PATH
         chmod +x solc/solc
+        xattr -x solc/solc

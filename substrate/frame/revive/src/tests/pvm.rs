@@ -5182,3 +5182,78 @@ fn existential_deposit_shall_not_be_charged_twice() {
 		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }
+
+#[test]
+fn delegate_call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_evm").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_with_gas").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.data((callee_addr, 1u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		// succeeds, not enough gas but call stipend will be added
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100u64).encode())
+			.build());
+
+		// succeeds, enough gas
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
