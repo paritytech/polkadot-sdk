@@ -52,6 +52,7 @@ pub use pallet::*;
 pub mod pallet {
     use polkadot_parachain_primitives::primitives::ValidationCodeHash;
     use polkadot_primitives::v9::ParaId;
+    use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
     use super::*;
 
     use sp_runtime::transaction_validity::{
@@ -81,7 +82,7 @@ pub mod pallet {
     /// became outdated.
     #[pallet::storage]
     pub(super) type ApprovalsTallies<T: Config> =
-        StorageMap<_, Twox64Concat, (SessionIndex, ValidatorIndex), ValidationCodeHash>;
+        StorageMap<_, Twox64Concat, (SessionIndex, ValidatorIndex), Vec<ApprovalStatisticsTallyLine>>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
