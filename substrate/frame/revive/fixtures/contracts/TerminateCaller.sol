@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import { Terminate } from "./Terminate.sol";
 import { TerminateDelegator } from "./TerminateDelegator.sol";
