@@ -140,6 +140,12 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Attempted to call `store`/`renew` outside of block execution.
+		BadContext,
+		/// Data size is not in the allowed range.
+		BadDataSize,
+		/// Too many transactions in the block.
+		TooManyTransactions,
 		/// Invalid configuration.
 		NotConfigured,
 		/// Renewed extrinsic is not found.
@@ -160,10 +166,10 @@ pub mod pallet {
 		ProofNotChecked,
 		/// Transaction is too large.
 		TransactionTooLarge,
-		/// Too many transactions in the block.
-		TooManyTransactions,
-		/// Attempted to call `store` outside of block execution.
-		BadContext,
+		/// Authorization was not found.
+		AuthorizationNotFound,
+		/// Authorization has not expired.
+		AuthorizationNotExpired,
 	}
 
 	#[pallet::pallet]
