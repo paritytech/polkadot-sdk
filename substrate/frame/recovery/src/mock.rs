@@ -20,7 +20,10 @@
 use super::*;
 
 use crate as recovery;
-use frame::{deps::sp_io, testing_prelude::*};
+use crate::HoldReason;
+use frame::{
+	deps::sp_io, testing_prelude::*, token::fungible::HoldConsideration, traits::LinearStoragePrice,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -53,6 +56,8 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const MaxFriendsPerConfig: u32 = 128;
 	pub const MaxConfigsPerAccount: u32 = 128;
+
+	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroups);
 }
 
 impl Config for Test {
@@ -60,7 +65,12 @@ impl Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
-	type FriendGroupsConsideration = ();
+	type FriendGroupsConsideration = HoldConsideration<
+		u64,
+		Balances,
+		FriendGroupsHoldReason,
+		LinearStoragePrice<ConstU128<5>, ConstU128<1>, u128>, // 5 + n
+	>;
 	type AttemptConsideration = ();
 	type InheritorConsideration = ();
 	type MaxFriendsPerConfig = MaxFriendsPerConfig;
@@ -78,16 +88,18 @@ pub const DAVE: u64 = 4;
 pub const EVE: u64 = 5;
 pub const FERDIE: u64 = 6;
 
+pub const START_BALANCE: u128 = 1000;
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(ALICE, 100),
-			(BOB, 100),
-			(CHARLIE, 100),
-			(DAVE, 100),
-			(EVE, 100),
-			(FERDIE, 100),
+			(ALICE, START_BALANCE),
+			(BOB, START_BALANCE),
+			(CHARLIE, START_BALANCE),
+			(DAVE, START_BALANCE),
+			(EVE, START_BALANCE),
+			(FERDIE, START_BALANCE),
 		],
 		..Default::default()
 	}

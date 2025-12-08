@@ -171,7 +171,14 @@ pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, <T as Config>::MaxConf
 ///
 /// Uses a vector of u128 values where each bit represents whether a friend at that index has voted.
 #[derive(
-	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxEntries))]
 pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u128, BitfieldLenOf<MaxEntries>>);
@@ -213,6 +220,15 @@ impl<MaxEntries: Get<u32>> Bitfield<MaxEntries> {
 		} else {
 			Err(())
 		}
+	}
+
+	#[cfg(test)]
+	pub fn with_bits(self, indices: impl IntoIterator<Item = usize>) -> Self {
+		let mut bitfield = self;
+		for index in indices {
+			bitfield.set_if_not_set(index).unwrap();
+		}
+		bitfield
 	}
 
 	/// Count the total number of set bits (total votes).
@@ -270,32 +286,54 @@ pub type AttemptOf<T> = Attempt<ProvidedBlockNumberOf<T>, ApprovalBitfieldOf<T>>
 )]
 pub struct IdentifiedConsideration<AccountId, Footprint, C> {
 	pub depositor: AccountId,
-	pub ticket: C,
+	pub ticket: Option<C>,
 	pub _phantom: PhantomData<Footprint>,
 }
 
 impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 	IdentifiedConsideration<AccountId, Footprint, C>
 {
-	fn new(depositor: &AccountId, fp: Footprint) -> Result<Self, DispatchError> {
-		let ticket = Consideration::<AccountId, Footprint>::new(depositor, fp)?;
+	fn new(depositor: &AccountId, fp: Option<Footprint>) -> Result<Self, DispatchError> {
+		let ticket = if let Some(fp) = fp {
+			Some(Consideration::<AccountId, Footprint>::new(depositor, fp)?)
+		} else {
+			None
+		};
 
 		Ok(Self { depositor: depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
-	fn update(self, new_depositor: &AccountId, fp: Footprint) -> Result<Self, DispatchError> {
-		if *new_depositor != self.depositor {
-			self.ticket.drop(&self.depositor)?;
+	fn update(
+		self,
+		new_depositor: &AccountId,
+		fp: Option<Footprint>,
+	) -> Result<Self, DispatchError> {
+		if *new_depositor != self.depositor || fp.is_none() {
+			if let Some(ticket) = self.ticket {
+				ticket.drop(&self.depositor)?;
+			}
 		}
 
-		let ticket = Consideration::<AccountId, Footprint>::new(&new_depositor, fp)?;
+		let ticket = if let Some(fp) = fp {
+			Some(Consideration::<AccountId, Footprint>::new(&new_depositor, fp)?)
+		} else {
+			None
+		};
 		Ok(Self { depositor: new_depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
 	fn drop(self) -> Result<(), DispatchError> {
-		self.ticket.drop(&self.depositor)
+		if let Some(ticket) = self.ticket {
+			ticket.drop(&self.depositor)?;
+		}
+		Ok(())
 	}
 }
+
+pub type AttemptTicketOf<T> =
+	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::AttemptConsideration>;
+pub type FriendGroupsTicketOf<T> =
+	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::FriendGroupsConsideration>;
 
 #[frame::pallet]
 pub mod pallet {
@@ -369,12 +407,8 @@ pub mod pallet {
 	///
 	/// Modifying this storage does not impact ongoing recovery attempts.
 	#[pallet::storage]
-	pub type FriendGroups<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		(FriendGroupsOf<T>, T::FriendGroupsConsideration),
-	>;
+	pub type FriendGroups<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, (FriendGroupsOf<T>, FriendGroupsTicketOf<T>)>;
 
 	/// Ongoing recovery attempts of a lost account indexed by `(lost, friend_group)`.
 	#[pallet::storage]
@@ -384,10 +418,12 @@ pub mod pallet {
 		T::AccountId,
 		Blake2_128Concat,
 		FriendGroupIndex,
-		(AttemptOf<T>, T::AttemptConsideration),
+		(AttemptOf<T>, AttemptTicketOf<T>),
 	>;
 
 	/// The account that inherited full access to a lost account after successful recovery.
+	///
+	/// The key is the lost account and the value is the inheritor account.
 	///
 	/// NOTE: This could be a multisig or proxy account
 	#[pallet::storage]
@@ -397,6 +433,16 @@ pub mod pallet {
 		T::AccountId,
 		(InheritanceOrder, T::AccountId, T::InheritorConsideration),
 	>;
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		#[codec(index = 0)]
+		FriendGroups,
+		#[codec(index = 1)]
+		Attempt,
+		#[codec(index = 2)]
+		Inheritor,
+	}
 
 	/// Events type.
 	#[pallet::event]
@@ -436,6 +482,8 @@ pub mod pallet {
 		NotFriendGroup,
 		/// The caller is not a friend of the lost account.
 		NotFriend,
+		/// The friend group has no friends.
+		NoFriends,
 		/// The referenced recovery attempt was not found.
 		NotAttempt,
 		/// This attempt is already fully approved and does not need any more votes.
@@ -447,7 +495,7 @@ pub mod pallet {
 		/// The caller is not the inheritor of the lost account.
 		NotInheritor,
 		/// Not enough friends approved this attempt.
-		NotEnoughApprovals,
+		NotApproved,
 		/// The recovery attempt is not yet unlocked.
 		NotUnlocked,
 		/// The recovery attempt cannot be aborted yet.
@@ -456,6 +504,14 @@ pub mod pallet {
 		TooManyAttempts,
 		/// The inheritance delay of this attempt has not yet passed.
 		NotYetInheritable,
+		/// The number of friends needed is greater than the number of friends.
+		TooManyFriendsNeeded,
+		/// Too many friend groups.
+		TooManyFriendGroups,
+		/// Duplicate friend groups.
+		DuplicateFriendGroup,
+		/// The lost account cannot be a friend of itself.
+		LostAccountInFriendGroup,
 	}
 
 	#[pallet::view_functions]
@@ -475,6 +531,36 @@ pub mod pallet {
 
 		pub fn inheritor(lost: T::AccountId) -> Option<T::AccountId> {
 			Inheritor::<T>::get(lost).map(|(_, inheritor, _)| inheritor)
+		}
+
+		/// All the recovered accounts that `heir` inherited access to.
+		// TODO: This could be a bit heavy on the node.
+		pub fn inheritance(heir: T::AccountId) -> Vec<T::AccountId> {
+			let mut inheritance = Vec::new();
+
+			for (recovered, (_, inheritor, _)) in Inheritor::<T>::iter() {
+				if inheritor != heir {
+					continue;
+				}
+				if let Err(pos) = inheritance.binary_search(&recovered) {
+					inheritance.insert(pos, recovered);
+				}
+			}
+
+			inheritance
+		}
+
+		pub fn attempts(lost: T::AccountId) -> Vec<(FriendGroupOf<T>, AttemptOf<T>)> {
+			let mut attempts = Vec::new();
+
+			for (friend_group_index, (attempt, _ticket)) in Attempt::<T>::iter_prefix(&lost) {
+				let Ok(friend_group) = Self::friend_group_of(&lost, friend_group_index) else {
+					continue
+				};
+				attempts.push((friend_group, attempt));
+			}
+
+			attempts
 		}
 	}
 
@@ -533,11 +619,25 @@ pub mod pallet {
 				Some((g, t)) => (g, Some(t)),
 				None => Default::default(),
 			};
-			let new_friend_groups: FriendGroupsOf<T> =
-				friend_groups.try_into().map_err(|_| "Too many friend groups")?;
+
+			// Easy case where all are removed:
+			if friend_groups.is_empty() {
+				if let Some(old_ticket) = old_ticket {
+					old_ticket.drop()?;
+				}
+				FriendGroups::<T>::remove(&lost);
+				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost, old_friend_groups });
+				return Ok(());
+			}
+
+			let new_friend_groups = Self::bound_friend_groups(&lost, friend_groups)?;
 			let new_footprint = Self::friend_group_footprint(&new_friend_groups);
 
-			let new_ticket = Self::update_ticket(&lost, old_ticket, new_footprint)?;
+			let new_ticket = if let Some(old_ticket) = old_ticket {
+				old_ticket.update(&lost, new_footprint)?
+			} else {
+				FriendGroupsTicketOf::<T>::new(&lost, new_footprint)?
+			};
 			FriendGroups::<T>::insert(&lost, (&new_friend_groups, &new_ticket));
 
 			if new_friend_groups != old_friend_groups {
@@ -579,9 +679,8 @@ pub mod pallet {
 				approvals: ApprovalBitfield::default(),
 			};
 
-			let footprint =
-				T::AttemptConsideration::new(&recoverer, Self::attempt_footprint(&attempt))?;
-			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &footprint));
+			let ticket = AttemptTicketOf::<T>::new(&recoverer, Self::attempt_footprint(&attempt))?;
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket));
 
 			Self::deposit_event(Event::<T>::AttemptInitiated {
 				lost,
@@ -603,25 +702,26 @@ pub mod pallet {
 			let lost = T::Lookup::lookup(lost)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
-			let (mut attempt, old_ticket) = Self::attempt_of(&lost, friend_group_index)?;
+			let (mut attempt, ticket) = Self::attempt_of(&lost, friend_group_index)?;
 			let friend_group = Self::friend_group_of(&lost, friend_group_index).defensive()?;
-
-			let friends_voted = attempt.approvals.count_ones();
-			ensure!(friends_voted < friend_group.friends_needed, Error::<T>::AlreadyApproved);
 
 			let friend_index = friend_group
 				.friends
 				.iter()
 				.position(|f| f == &friend)
 				.ok_or(Error::<T>::NotFriend)?;
+
+			let friends_voted = attempt.approvals.count_ones();
+			ensure!(friends_voted < friend_group.friends_needed, Error::<T>::AlreadyApproved);
+			attempt.last_approval_block = now;
+
 			attempt
 				.approvals
 				.set_if_not_set(friend_index)
 				.map_err(|_| Error::<T>::AlreadyVoted)?;
 
-			let footprint = Self::attempt_footprint(&attempt);
-			let new_ticket = old_ticket.update(&friend, footprint)?;
-			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &new_ticket));
+			// NOTE: We do not update the ticket since the attempt has static size.
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket));
 
 			Self::deposit_event(Event::<T>::AttemptApproved { lost, friend_group_index, friend });
 
@@ -640,7 +740,8 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let (attempt, attempts_ticket) =
-				Attempt::<T>::get(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+			attempts_ticket.drop()?;
 
 			// AUDIT: attempt_index == friend_group_index
 			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
@@ -650,7 +751,7 @@ pub mod pallet {
 			ensure!(
 				// We use >= defensively, but it should be at most ==
 				approvals >= friend_group.friends_needed,
-				Error::<T>::NotEnoughApprovals
+				Error::<T>::NotApproved
 			);
 
 			let inheritable_at = attempt
@@ -682,8 +783,6 @@ pub mod pallet {
 					// We do not treat this as a poke but just do nothing.
 				},
 			}
-
-			//Self::write_attempts(&lost, &recoverer, &attempts, aticket)?;
 
 			Ok(())
 		}
@@ -749,14 +848,17 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn friend_group_footprint(friend_groups: &FriendGroupsOf<T>) -> Footprint {
-		// TODO think about this. maybe we just use items_count * item_mel
-		Footprint::from_encodable(friend_groups)
+	pub fn friend_group_footprint(friend_groups: &FriendGroupsOf<T>) -> Option<Footprint> {
+		if friend_groups.is_empty() {
+			None
+		} else {
+			Some(Footprint::from_encodable(friend_groups))
+		}
 	}
 
-	pub fn attempt_footprint(attempt: &AttemptOf<T>) -> Footprint {
+	pub fn attempt_footprint(attempt: &AttemptOf<T>) -> Option<Footprint> {
 		// TODO think about this. maybe we just use items_count * item_mel
-		Footprint::from_encodable(attempt)
+		Some(Footprint::from_encodable(attempt))
 	}
 
 	pub fn inheritor_footprint() -> Footprint {
@@ -786,11 +888,11 @@ impl<T: Config> Pallet<T> {
 	pub fn attempt_of(
 		lost: &T::AccountId,
 		friend_group_index: u32,
-	) -> Result<(AttemptOf<T>, T::AttemptConsideration), Error<T>> {
+	) -> Result<(AttemptOf<T>, AttemptTicketOf<T>), Error<T>> {
 		pallet::Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
 	}
 
-	fn update_ticket<C: Consideration<T::AccountId, Footprint>>(
+	pub fn update_ticket<C: Consideration<T::AccountId, Footprint>>(
 		who: &T::AccountId,
 		old_ticket: Option<C>,
 		new_footprint: Footprint,
@@ -799,5 +901,28 @@ impl<T: Config> Pallet<T> {
 			Some(old_ticket) => old_ticket.update(who, new_footprint),
 			None => C::new(who, new_footprint),
 		}
+	}
+
+	/// Sanity check the friend groups and bound them into a bounded vector.
+	pub fn bound_friend_groups(
+		lost: &T::AccountId,
+		friend_groups: Vec<FriendGroupOf<T>>,
+	) -> Result<FriendGroupsOf<T>, Error<T>> {
+		for friend_group in &friend_groups {
+			ensure!(
+				friend_group.friends_needed as usize <= friend_group.friends.len(),
+				Error::<T>::TooManyFriendsNeeded
+			);
+			ensure!(!friend_group.friends.is_empty(), Error::<T>::NoFriends);
+			// cannot contain the lost account itself
+			ensure!(!friend_group.friends.contains(&lost), Error::<T>::LostAccountInFriendGroup);
+		}
+
+		// check that there are no duplicate friend groups
+		if friend_groups.windows(2).any(|window| window[0] == window[1]) {
+			return Err(Error::<T>::DuplicateFriendGroup);
+		}
+
+		friend_groups.try_into().map_err(|_| Error::<T>::TooManyFriendGroups)
 	}
 }
