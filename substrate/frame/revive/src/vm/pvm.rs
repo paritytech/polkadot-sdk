@@ -581,13 +581,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			(self.ext.get_transient_storage(&key), false)
 		} else {
 			let state_load = self.ext.get_storage(&key);
-			log::info!(
-				target: LOG_TARGET,
-				"get_storage: key={} is_cold={} has_data={}",
-				sp_core::hexdisplay::HexDisplay::from(&key.hash()),
-				state_load.is_cold,
-				state_load.data.is_some()
-			);
 			(state_load.data, state_load.is_cold)
 		};
 
