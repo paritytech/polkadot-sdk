@@ -501,6 +501,32 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Called by the initializer to note that a new session has started.
+		pub(crate) fn initializer_on_new_session(
+			_notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,
+			outgoing_paras: &[ParaId],
+		) {
+			Self::cleanup_outgoing_publishers(outgoing_paras);
+		}
+
+		/// Remove all storage for offboarded parachains.
+		fn cleanup_outgoing_publishers(outgoing: &[ParaId]) {
+			for outgoing_para in outgoing {
+				Self::cleanup_outgoing_publisher(outgoing_para);
+			}
+		}
+
+		/// Remove all relevant storage items for an outgoing parachain.
+		fn cleanup_outgoing_publisher(outgoing_para: &ParaId) {
+			if let Some(info) = RegisteredPublishers::<T>::get(outgoing_para) {
+				if PublisherExists::<T>::get(outgoing_para) {
+					let _ = Self::do_cleanup_publisher(*outgoing_para);
+				}
+
+				let _ = Self::do_deregister(*outgoing_para, info);
+			}
+		}
+
 		/// Processes a publish operation from a parachain.
 		///
 		/// Validates the publisher is registered, checks all bounds, and stores the provided
