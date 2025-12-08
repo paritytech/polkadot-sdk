@@ -16,14 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # Pubsub Consumer Pallet
-//!
-//! Minimal example consumer pallet for testing end-to-end pubsub functionality.
-//!
-//! This pallet:
-//! - Subscribes to ParaId 1000, key `0x1234`
-//! - Stores received data in `ReceivedData` storage
-//! - Emits `DataReceived` event on updates
+//! Test consumer for pubsub subscriptions.
 
 extern crate alloc;
 
@@ -34,26 +27,21 @@ use frame_system::pallet_prelude::*;
 
 pub use pallet::*;
 
-/// Test subscription handler that subscribes to ParaId 1000, key 0x1234
 pub struct TestSubscriptionHandler<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> cumulus_pallet_subscriber::SubscriptionHandler for TestSubscriptionHandler<T> {
 	fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)> {
-		// Subscribe to ParaId 1000, key 0x1234
 		alloc::vec![(ParaId::from(1000), alloc::vec![alloc::vec![0x12, 0x34]])]
 	}
 
 	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) {
-		// Convert to bounded vecs
 		let bounded_key: BoundedVec<u8, ConstU32<256>> =
 			key.clone().try_into().unwrap_or_default();
 		let bounded_value: BoundedVec<u8, ConstU32<1024>> =
 			value.clone().try_into().unwrap_or_default();
 
-		// Store the data
 		<ReceivedData<T>>::insert(&publisher, &bounded_key, &bounded_value);
 
-		// Emit event
 		Pallet::<T>::deposit_event(Event::DataReceived {
 			publisher,
 			key: bounded_key,
@@ -72,8 +60,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
 
-	/// Storage map for received data: (PublisherParaId, Key) => Value
-	/// Keys limited to 256 bytes, values to 1024 bytes
 	#[pallet::storage]
 	pub type ReceivedData<T: Config> = StorageDoubleMap<
 		_,
@@ -88,7 +74,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Data was received from a publisher
 		DataReceived {
 			publisher: ParaId,
 			key: BoundedVec<u8, ConstU32<256>>,
@@ -97,7 +82,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get received data for a publisher and key
 		pub fn get_data(publisher: ParaId, key: &[u8]) -> Option<Vec<u8>> {
 			let bounded_key: BoundedVec<u8, ConstU32<256>> = key.to_vec().try_into().ok()?;
 			ReceivedData::<T>::get(publisher, bounded_key).map(|v| v.into_inner())

@@ -16,61 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # Subscriber Pallet
-//!
-//! Extracts and processes published data from relay chain child tries.
-//!
-//! ## Overview
-//!
-//! This pallet provides infrastructure for subscribing to data published by other parachains
-//! via the relay chain broadcaster pallet. It:
-//!
-//! - Extracts child trie data from verified relay chain state proofs
-//! - Tracks child trie roots for change detection optimization
-//! - Delegates to consumer-defined handlers for processing received data
-//!
-//! The pallet is intentionally agnostic about:
-//! - Which parachains to subscribe to
-//! - Which keys to read
-//! - What to do with the data
-//!
-//! These decisions are delegated to the `SubscriptionHandler` implementation provided via Config.
-//!
-//! ## Usage Example
-//!
-//! ```rust,ignore
-//! // 1. Define your subscription handler
-//! pub struct MyPriceOracleHandler;
-//! impl cumulus_pallet_subscriber::SubscriptionHandler for MyPriceOracleHandler {
-//!     fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)> {
-//!         vec![(ParaId::from(2000), vec![b"btc_price".to_vec()])]
-//!     }
-//!
-//!     fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) {
-//!         // Store price in your pallet
-//!         PriceStorage::insert(key, value);
-//!     }
-//! }
-//!
-//! // 2. Configure pallet-subscriber
-//! impl cumulus_pallet_subscriber::Config for Runtime {
-//!     type SubscriptionHandler = MyPriceOracleHandler;
-//!     type WeightInfo = ();
-//! }
-//!
-//! // 3. Configure parachain-system to use subscriber
-//! impl cumulus_pallet_parachain_system::Config for Runtime {
-//!     // ... other config ...
-//!     type ChildTrieProcessor = Subscriber;
-//! }
-//!
-//! // 4. Implement runtime API
-//! impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
-//!     fn child_trie_keys_to_prove() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
-//!         Subscriber::get_child_trie_proof_requests()
-//!     }
-//! }
-//! ```
+//! Process child trie data from relay chain state proofs via configurable handler.
 
 extern crate alloc;
 
@@ -89,28 +35,14 @@ use sp_std::vec;
 
 pub use pallet::*;
 
-// Re-export the trait from parachain-system for convenience
 pub use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessChildTrieData;
 
-/// Trait for defining subscriptions and handling received data.
-///
-/// Consumer pallets implement this trait to specify:
-/// - Which parachains and keys to subscribe to
-/// - How to process received data
+/// Define subscriptions and handle received data.
 pub trait SubscriptionHandler {
-	/// Returns the list of subscriptions.
-	///
-	/// Each tuple contains:
-	/// - `ParaId`: The publisher parachain to subscribe to
-	/// - `Vec<Vec<u8>>`: The keys to subscribe to (empty means all keys)
+	/// List of subscriptions as (ParaId, keys) tuples.
 	fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)>;
 
 	/// Called when subscribed data is updated.
-	///
-	/// # Parameters
-	/// - `publisher`: The ParaId that published the data
-	/// - `key`: The storage key that was updated
-	/// - `value`: The new value (already decoded from SCALE)
 	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>);
 }
 
@@ -123,18 +55,11 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Handler that defines subscriptions and processes received data.
 		type SubscriptionHandler: SubscriptionHandler;
-
-		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Child trie root hashes from the previous block, used for change detection.
-	///
-	/// Maps publisher ParaId to their child trie root hash (32 bytes).
-	/// Only roots for subscribed publishers are tracked.
-	/// Limited to 100 publishers max.
+	/// Child trie roots from previous block for change detection.
 	#[pallet::storage]
 	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 		_,
@@ -143,10 +68,7 @@ pub mod pallet {
 	>;
 
 	impl<T: Config> Pallet<T> {
-		/// Get child trie proof requests for the collator.
-		///
-		/// This should be called from the runtime API `child_trie_keys_to_prove` implementation.
-		/// It queries the subscription handler to build proof requests.
+		/// Build child trie proof requests from subscriptions.
 		pub fn get_child_trie_proof_requests(
 		) -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
 			T::SubscriptionHandler::subscriptions()
@@ -160,19 +82,11 @@ pub mod pallet {
 				.collect()
 		}
 
-		/// Derives the child trie info for a publisher parachain.
-		///
-		/// Must match the broadcaster pallet's child trie structure.
-		/// Uses the pubsub convention: `encode(b"pubsub", ParaId)`
 		fn derive_child_info(publisher_para_id: ParaId) -> sp_storage::ChildInfo {
 			use codec::Encode;
 			sp_storage::ChildInfo::new_default(&(b"pubsub", publisher_para_id).encode())
 		}
 
-		/// Collects child trie root hashes for subscribed publishers from the relay chain state
-		/// proof.
-		///
-		/// Returns pairs of (ParaId, root_hash) for change detection optimization.
 		fn collect_publisher_roots(
 			relay_state_proof: &RelayChainStateProof,
 		) -> Vec<(ParaId, Vec<u8>)> {
@@ -193,12 +107,6 @@ pub mod pallet {
 				.collect()
 		}
 
-		/// Process published data from the broadcaster pallet.
-		///
-		/// Reads data from child tries in the relay chain storage proof for subscribed publishers
-		/// whose roots have changed. Uses child trie roots to detect changes between blocks.
-		///
-		/// Returns the weight consumed.
 		fn process_published_data(
 			relay_state_proof: &RelayChainStateProof,
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
@@ -261,7 +169,6 @@ pub mod pallet {
 				}
 			}
 
-			// Convert to BoundedBTreeMap with BoundedVec values
 			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, ConstU32<100>> =
 				current_roots_map
 					.into_iter()
@@ -285,19 +192,12 @@ pub mod pallet {
 	}
 }
 
-/// Weight functions needed for this pallet.
 pub trait WeightInfo {
 	fn process_published_data(p: u32, k: u32, v: u32) -> Weight;
 }
 
-/// Default weights implementation (placeholder).
 impl WeightInfo for () {
 	fn process_published_data(_p: u32, k: u32, v: u32) -> Weight {
-		// Rough estimate based on operations:
-		// - Reading previous roots: 1 read
-		// - Reading child storage: k reads
-		// - Writing updated roots: 1 write
-		// - Decoding and processing: computation based on value size
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(Weight::from_parts(5_000 * k as u64, 0))
 			.saturating_add(Weight::from_parts(100 * v as u64, 0))
