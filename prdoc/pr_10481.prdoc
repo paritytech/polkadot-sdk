@@ -33,7 +33,7 @@ crates:
 - name: pallet-assets-freezer
   bump: major
 - name: pallet-asset-rewards
-  bump: major
+  bump: patch
 - name: pallet-balances
   bump: major
 - name: pallet-dap
@@ -41,7 +41,7 @@ crates:
 - name: pallet-dap-satellite
   bump: patch
 - name: polkadot-sdk
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
   bump: major
 - name: pallet-staking-async
@@ -57,15 +57,15 @@ crates:
 - name: people-westend-runtime
   bump: major
 - name: rococo-runtime
-  bump: major
+  bump: minor
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: people-rococo-runtime
-  bump: major
+  bump: minor
 - name: coretime-rococo-runtime
-  bump: major
+  bump: minor
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: kitchensink-runtime
   bump: major
 - name: polkadot-test-runtime
@@ -73,9 +73,9 @@ crates:
 - name: cumulus-test-runtime
   bump: major
 - name: rococo-parachain-runtime
-  bump: major
+  bump: minor
 - name: penpal-runtime
-  bump: major
+  bump: minor
 - name: parachain-template-runtime
   bump: major
 - name: solochain-template-runtime
@@ -85,4 +85,12 @@ crates:
 - name: pallet-staking-async-rc-runtime
   bump: major
 - name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: pallet-nis
+  bump: major
+- name: pallet-contracts-mock-network
+  bump: major
+- name: yet-another-parachain-runtime
   bump: major

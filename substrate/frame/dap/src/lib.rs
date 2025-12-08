@@ -115,7 +115,7 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 		// We use withdraw + resolve instead of transfer to avoid the ED requirement for the
 		// destination account. This way, we can also avoid the migration on production and the
 		// genesis configuration's update for benchmark / tests to ensure the destination
-		// accounts pre-exists.
+		// account pre-exists.
 		// This imbalance-based approach is the same used e.g. for the StakingPot in system
 		// parachains.
 		let credit = T::Currency::withdraw(
