@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, num::NonZeroU16};
-
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2},
@@ -26,6 +24,7 @@ use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 	PersistedValidationData,
 };
+use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
 /// Maximum reputation score. Scores higher than this will be saturated to this value.
 pub const MAX_SCORE: u16 = 5000;
@@ -65,11 +64,11 @@ pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less
 pub const INSTANT_FETCH_REP_THRESHOLD: Score =
 	Score::new(1000).expect("1000 is less than MAX_SCORE");
 
-/// Maximum delay for fetching collations when the reputation score is below the threshold
+/// Delay for fetching collations when the reputation score is below the threshold
 /// defined by `INSTANT_FETCH_REP_THRESHOLD`.
 /// This gives us a chance to fetch collations from other peers with higher reputation
 /// before we try to fetch from this peer.
-pub const MAX_FETCH_DELAY_IN_MILLIS: u16 = 1000;
+pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(1000);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
