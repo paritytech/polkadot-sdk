@@ -391,7 +391,7 @@ pub fn read_trie_value_with_status<
 		.build()
 		.get(key)?;
 
-	Ok(StateLoad { is_cold, data })
+	Ok(StateLoad { data, is_cold })
 }
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
@@ -521,7 +521,7 @@ where
 		.get(key)?
 		.map(|val| val.to_vec());
 
-	Ok(StateLoad { is_cold, data })
+	Ok(StateLoad { data, is_cold })
 }
 
 /// Read a hash from the child trie.
