@@ -63,7 +63,7 @@ const SEED: u32 = 0;
 
 /// Re-export MockCredit for benchmarking.
 /// Used to create dummy `AssetsInHolding` without needing real asset transactors.
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub use xcm_executor::test_helpers::MockCredit;
 
 /// The XCM executor to use for doing stuff.
@@ -75,7 +75,7 @@ pub type AssetTransactorOf<T> = <<T as Config>::XcmConfig as XcmConfig>::AssetTr
 /// The call type of executor's config. Should eventually resolve to the same overarching call type.
 pub type XcmCallOf<T> = <<T as Config>::XcmConfig as XcmConfig>::RuntimeCall;
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn generate_holding_assets(max_assets: u32) -> AssetsInHolding {
 	use xcm_executor::AssetsInHolding;
 	let fungibles_amount: u128 = 100;
@@ -106,7 +106,7 @@ pub fn generate_holding_assets(max_assets: u32) -> AssetsInHolding {
 	holding
 }
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn asset_instance_from(x: u32) -> AssetInstance {
 	let bytes = x.encode();
 	let mut instance = [0u8; 4];
