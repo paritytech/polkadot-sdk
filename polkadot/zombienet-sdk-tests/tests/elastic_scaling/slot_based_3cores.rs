@@ -6,14 +6,11 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -93,18 +90,12 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let para_node_elastic_mvp = network.get_node("collator-elastic-mvp")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	let assign_cores_call = create_assign_core_call(&[(0, 2100), (1, 2100), (2, 2200), (3, 2200)]);
 	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("2 more cores assigned to each parachain");
+	// We need to execute both call one after another to ensure that the internal logic fetches the
+	// correct nonce.
+	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).
@@ -115,9 +106,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2100), 35..46), (ParaId::from(2200), 35..46)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2100), 35..46), (ParaId::from(2200), 35..46)],
 	)
 	.await?;
 
