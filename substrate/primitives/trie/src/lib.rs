@@ -382,8 +382,10 @@ pub fn read_trie_value_with_status<
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	mut cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
-	// Check if the value is in the cache before reading
-	let is_cold = cache.as_mut().and_then(|c| c.lookup_value_for_key(key)).is_none();
+	let is_cold = cache
+		.as_mut()
+		.map(|c| c.lookup_value_for_key(key).is_none())
+		.unwrap_or_else(|| true);
 
 	let data = TrieDBBuilder::<L>::new(db, root)
 		.with_optional_cache(cache)
@@ -510,8 +512,10 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	// Check if the value is in the cache before reading
-	let is_cold = cache.as_mut().and_then(|c| c.lookup_value_for_key(key)).is_none();
+	let is_cold = cache
+		.as_mut()
+		.map(|c| c.lookup_value_for_key(key).is_none())
+		.unwrap_or_else(|| true);
 
 	let db = KeySpacedDB::new(db, keyspace);
 	let data = TrieDBBuilder::<L>::new(&db, &root)
