@@ -525,4 +525,9 @@ impl HostFn for HostFnImpl {
 		};
 		ret_code.into()
 	}
+
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
+	}
 }

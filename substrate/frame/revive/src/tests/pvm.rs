@@ -35,9 +35,9 @@ use crate::{
 	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::{builder::Contract, WEIGHT_LIMIT},
 	tests::{
-		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
-		Contracts, DepositPerByte, DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall,
-		RuntimeEvent, RuntimeOrigin, System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
+		builder, initialize_block, test_utils::*, Balances, Contracts, DepositPerByte,
+		DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+		System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
 	},
 	tracing::trace,
 	weights::WeightInfo,
@@ -57,7 +57,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
+use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -1040,6 +1040,138 @@ fn self_destruct_by_precompile_works() {
 				},
 			],
 		);
+	});
+}
+
+#[test]
+fn self_destruct_by_syscall_does_not_delete_code() {
+	// Test EIP-6780 behavior where self-destruct does not delete the code.
+	let (binary, code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		let initial_contract_balance = 100_000;
+
+		// Instantiate the BOB contract.
+		let contract = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+
+		let hold_balance = contract_base_deposit(&contract.addr);
+
+		// Check that the BOB contract has been instantiated.
+		let _ = get_contract(&contract.addr);
+
+		// Drop all previous events
+		initialize_block(2);
+
+		let alice_balance_before_termination = <Test as Config>::Currency::total_balance(&ALICE);
+
+		// Call BOB without input data which triggers termination.
+		assert_matches!(builder::call(contract.addr).build(), Ok(_));
+
+		// Check that the code still exists
+		assert!(PristineCode::<Test>::get(&code_hash).is_some());
+
+		// Check that account still exists
+		assert!(get_contract_checked(&contract.addr).is_some());
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&contract.account_id),
+			min_balance + hold_balance
+		);
+		// Check that the beneficiary (django) got remaining balance.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
+			1_000_000 + initial_contract_balance
+		);
+
+		// Check that the Alice did not get a refund.
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&ALICE),
+			alice_balance_before_termination
+		);
+
+		pretty_assertions::assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: contract.account_id.clone(),
+					to: DJANGO_FALLBACK,
+					amount: initial_contract_balance,
+				}),
+				topics: vec![],
+			},],
+		);
+	});
+}
+
+#[test]
+fn self_destruct_by_syscall_works() {
+	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
+	let (selfdestruct_binary, selfdestruct_code_hash) =
+		compile_module("self_destruct_by_syscall").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let initial_contract_balance = 100_000;
+
+		// Upload both contracts
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(BOB),
+			selfdestruct_binary,
+			deposit_limit::<Test>(),
+		));
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(BOB),
+			factory_binary,
+			deposit_limit::<Test>(),
+		));
+
+		// Deploy factory
+		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
+			.origin(RuntimeOrigin::signed(BOB))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+
+		let mut input_data = Vec::new();
+		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
+
+		// Call factory
+		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
+		assert!(result.result.is_ok());
+		let returned_data = result.result.unwrap().data;
+		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
+		let mut contract_addr_bytes = [0u8; 20];
+		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
+		let contract_addr = H160::from(contract_addr_bytes);
+
+		initialize_block(System::block_number() + 1);
+
+		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
+
+		// min balance is taken from origin to fund DJANGO_FALLBACK
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
+			initial_contract_balance + min_balance,
+		);
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
+	});
+}
+
+#[test]
+fn can_self_destruct_in_constructor_by_syscall() {
+	let (binary, _) = compile_module("self_destructing_constructor_by_syscall").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Fail to instantiate the BOB because the constructor calls seal_terminate.
+		assert_ok!(builder::instantiate_with_code(binary).value(100_000).build(),);
 	});
 }
 
@@ -5093,6 +5225,196 @@ fn existential_deposit_shall_not_be_charged_twice() {
 		// check we charged ed only 1 time
 		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
+}
+
+#[test]
+fn self_destruct_by_syscall_tracing_works() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
+		Trace,
+	};
+
+	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+
+	struct TestCase {
+		description: &'static str,
+		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
+		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+	}
+
+	let test_cases = vec![
+		TestCase {
+			description: "CallTracer",
+			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
+			expected_trace_fn: Box::new(|addr, _binary| {
+				Trace::Call(CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					call_type: CallType::Call,
+					value: Some(U256::zero()),
+					gas: 0.into(),
+					gas_used: 0.into(),
+					calls: vec![CallTrace {
+						from: addr,
+						to: DJANGO_ADDR,
+						gas: 0.into(),
+
+						call_type: CallType::Selfdestruct,
+						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+						..Default::default()
+					}],
+					..Default::default()
+				})
+			}),
+			modify_trace_fn: Some(Box::new(|mut actual_trace| {
+				if let Trace::Call(trace) = &mut actual_trace {
+					trace.gas = 0.into();
+					trace.gas_used = 0.into();
+					trace.calls[0].gas = 0.into();
+				}
+				actual_trace
+			})),
+		},
+		TestCase {
+			description: "PrestateTracer (diff mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}",
+							"nonce": 1
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "{{CONTRACT_BALANCE}}",
+							"nonce": 1,
+							"code": "{{CONTRACT_CODE}}"
+						}
+					},
+					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}"
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE_POST}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0"
+						}
+					}
+				}"#;
+
+				let alice_balance_pre = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let alice_balance_post = alice_balance_pre - 50_000_000u64;
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance_post = contract_balance;
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+		TestCase {
+			description: "PrestateTracer (prestate mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "{{CONTRACT_BALANCE}}",
+						"nonce": 1,
+						"code": "{{CONTRACT_CODE}}"
+					},
+					"{{DJANGO_ADDR}}": {
+						"balance": "{{DJANGO_BALANCE}}"
+					}
+				}"#;
+
+				let alice_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{ALICE_BALANCE}}", &format!("{:#x}", alice_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+	];
+
+	for TestCase { description, create_tracer, expected_trace_fn, modify_trace_fn } in test_cases {
+		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+			get_contract(&addr);
+
+			let expected_trace = expected_trace_fn(addr, binary.clone());
+			let mut tracer = create_tracer();
+			trace(tracer.as_tracing(), || {
+				builder::call(addr).build().unwrap();
+			});
+
+			let mut trace = tracer.collect_trace().unwrap();
+
+			if let Some(modify_trace_fn) = modify_trace_fn {
+				trace = modify_trace_fn(trace);
+			}
+			let trace_wrapped = match trace {
+				crate::evm::Trace::Call(ct) => Trace::Call(ct),
+				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
+			};
+
+			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
+		});
+	}
 }
 
 #[test]
