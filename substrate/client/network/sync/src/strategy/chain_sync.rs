@@ -1195,6 +1195,14 @@ where
 												block_data.block.justification,
 											)
 										});
+
+									trace!(
+										target: LOG_TARGET,
+										"Draining gap block {} ({:?}) body: {}",
+										block_data.block.hash,
+										block_data.block.header.clone().map(|h| *h.number()),
+										block_data.block.body.is_some(),
+									);
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
