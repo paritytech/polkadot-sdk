@@ -161,7 +161,6 @@ pub trait WeightInfo {
 	fn bn128_pairing(n: u32, ) -> Weight;
 	fn blake2f(n: u32, ) -> Weight;
 	fn seal_ecdsa_to_eth_address() -> Weight;
-	fn seal_set_code_hash(r: u32, ) -> Weight;
 	fn evm_opcode(r: u32, ) -> Weight;
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
@@ -1287,29 +1286,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 13_180_000 picoseconds.
 		Weight::from_parts(13_387_000, 0)
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:2 w:2)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Revive::PristineCode` (r:0 w:1)
-	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `r` is `[0, 1]`.
-	fn seal_set_code_hash(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `424 + r * (434 ±0)`
-		//  Estimated: `6364 + r * (2162 ±0)`
-		// Minimum execution time: 14_799_000 picoseconds.
-		Weight::from_parts(15_922_167, 6364)
-			// Standard Error: 52_549
-			.saturating_add(Weight::from_parts(47_258_332, 0).saturating_mul(r.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(r.into())))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(r.into())))
-			.saturating_add(Weight::from_parts(0, 2162).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn evm_opcode(r: u32, ) -> Weight {
@@ -2599,29 +2575,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 13_180_000 picoseconds.
 		Weight::from_parts(13_387_000, 0)
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:2 w:2)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Revive::PristineCode` (r:0 w:1)
-	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `r` is `[0, 1]`.
-	fn seal_set_code_hash(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `424 + r * (434 ±0)`
-		//  Estimated: `6364 + r * (2162 ±0)`
-		// Minimum execution time: 14_799_000 picoseconds.
-		Weight::from_parts(15_922_167, 6364)
-			// Standard Error: 52_549
-			.saturating_add(Weight::from_parts(47_258_332, 0).saturating_mul(r.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(r.into())))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(r.into())))
-			.saturating_add(Weight::from_parts(0, 2162).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn evm_opcode(r: u32, ) -> Weight {
