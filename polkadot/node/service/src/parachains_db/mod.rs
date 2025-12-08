@@ -119,13 +119,11 @@ pub fn open_creating_rocksdb(
 	root: PathBuf,
 	cache_sizes: CacheSizes,
 ) -> io::Result<Arc<dyn Database>> {
-	use kvdb_rocksdb::{Database, DatabaseConfig, ColumnConfig};
+	use kvdb_rocksdb::{Database, DatabaseConfig};
 
 	let path = root.join("parachains").join("db");
 
-	let mut db_config = DatabaseConfig::with_columns(
-		(0..columns::v4::NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
-	);
+	let mut db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
 
 	db_config.columns[columns::v4::COL_AVAILABILITY_DATA as usize].memory_budget =
 		Some(cache_sizes.availability_data);

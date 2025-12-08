@@ -22,6 +22,8 @@ use ::kvdb::{DBTransaction, KeyValueDB};
 use crate::DatabaseWithSeekableIterator;
 use crate::{error, Change, ColumnId, Database, SeekableIterator, Transaction};
 
+struct DbAdapter<D: KeyValueDB + 'static>(D);
+
 fn handle_err<T>(result: std::io::Result<T>) -> T {
 	match result {
 		Ok(r) => r,
@@ -99,6 +101,7 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 	db.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 }
 
+
 #[cfg(feature = "rocksdb")]
 impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
 	fn seek(&mut self, key: &[u8]) {
@@ -120,6 +123,29 @@ impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
 
 	fn next(&mut self) {
 		kvdb_rocksdb::DBRawIterator::next(self)
+	}
+}
+
+/// Wrap generic kvdb-based database into a trait object that implements [`Database`].
+pub fn as_database<D, H>(db: D) -> std::sync::Arc<dyn Database<H>>
+where
+	D: KeyValueDB + 'static,
+	H: Clone + AsRef<[u8]>,
+{
+	std::sync::Arc::new(DbAdapter(db))
+}
+
+impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
+	fn commit(&self, transaction: Transaction<H>) -> error::Result<()> {
+		commit_impl(&self.0, transaction)
+	}
+
+	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+		handle_err(self.0.get(col, key))
+	}
+
+	fn contains(&self, col: ColumnId, key: &[u8]) -> bool {
+		handle_err(self.0.has_key(col, key))
 	}
 }
 

@@ -9290,7 +9290,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "git+https://github.com/Harrm/parity-common.git#bde41c722ea84ebb05753b1ad8ce4cbb32a5206b"
+source = "git+https://github.com/Harrm/parity-common.git#30f2db6534a424c638995e7f5a4f76ad5f020fcc"
 dependencies = [
  "smallvec",
 ]
@@ -9298,7 +9298,7 @@ dependencies = [
 [[package]]
 name = "kvdb-memorydb"
 version = "0.13.0"
-source = "git+https://github.com/Harrm/parity-common.git#bde41c722ea84ebb05753b1ad8ce4cbb32a5206b"
+source = "git+https://github.com/Harrm/parity-common.git#30f2db6534a424c638995e7f5a4f76ad5f020fcc"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.3",
@@ -9307,7 +9307,7 @@ dependencies = [
 [[package]]
 name = "kvdb-rocksdb"
 version = "0.21.0"
-source = "git+https://github.com/Harrm/parity-common.git#bde41c722ea84ebb05753b1ad8ce4cbb32a5206b"
+source = "git+https://github.com/Harrm/parity-common.git#30f2db6534a424c638995e7f5a4f76ad5f020fcc"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9319,7 +9319,7 @@ dependencies = [
 [[package]]
 name = "kvdb-shared-tests"
 version = "0.11.0"
-source = "git+https://github.com/Harrm/parity-common.git#bde41c722ea84ebb05753b1ad8ce4cbb32a5206b"
+source = "git+https://github.com/Harrm/parity-common.git#30f2db6534a424c638995e7f5a4f76ad5f020fcc"
 dependencies = [
  "kvdb",
 ]

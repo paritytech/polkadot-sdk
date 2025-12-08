@@ -114,9 +114,7 @@ pub fn upgrade_db<Block: BlockT>(db_path: &Path, db_type: DatabaseType) -> Upgra
 /// 1) the number of columns has changed from 11 to 12;
 /// 2) transactions column is added;
 fn migrate_1_to_2<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
-	let db_cfg = DatabaseConfig::with_columns(
-		(0..V1_NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
-	);
+	let db_cfg = DatabaseConfig::with_columns(V1_NUM_COLUMNS);
 	let mut db = Database::open(&db_cfg, db_path)?;
 	db.add_column().map_err(Into::into)
 }
@@ -124,9 +122,7 @@ fn migrate_1_to_2<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> Upgr
 /// Migration from version2 to version3:
 /// - The format of the stored Justification changed to support multiple Justifications.
 fn migrate_2_to_3<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
-	let db_cfg = DatabaseConfig::with_columns(
-		(0..V2_NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
-	);
+	let db_cfg = DatabaseConfig::with_columns(V2_NUM_COLUMNS);
 	let db = Database::open(&db_cfg, db_path)?;
 
 	// Get all the keys we need to update
@@ -158,9 +154,7 @@ fn migrate_2_to_3<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> Upgr
 /// 1) the number of columns has changed from 12 to 13;
 /// 2) BODY_INDEX column is added;
 fn migrate_3_to_4<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
-	let db_cfg = DatabaseConfig::with_columns(
-		(0..V3_NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
-	);
+	let db_cfg = DatabaseConfig::with_columns(V3_NUM_COLUMNS);
 	let mut db = Database::open(&db_cfg, db_path)?;
 	db.add_column().map_err(Into::into)
 }

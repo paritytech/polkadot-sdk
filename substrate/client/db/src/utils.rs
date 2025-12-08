@@ -320,9 +320,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	}
 
 	// and now open database assuming that it has the latest version
-	let mut db_config = kvdb_rocksdb::DatabaseConfig::with_columns(
-		(0..NUM_COLUMNS).map(|_| kvdb_rocksdb::ColumnConfig::default()).collect(),
-	);
+	let mut db_config = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
 	db_config.create_if_missing = create;
 
 	match db_type {
