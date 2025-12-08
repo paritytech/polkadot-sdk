@@ -446,6 +446,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type RewardRemainder = ();
 	type Slash = ();
+	type AreNominatorsSlashable = ConstBool<true>;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;

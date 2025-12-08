@@ -43,6 +43,7 @@ mod election_provider;
 mod era_rotation;
 mod force_unstake_kill_stash;
 mod ledger;
+mod nominators_no_slashing;
 mod payout_stakers;
 mod slashing;
 mod try_state;

@@ -90,6 +90,7 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
+	pub static AreNominatorsSlashable: bool = true;
 	// Session configs
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
@@ -434,7 +435,7 @@ impl crate::pallet::pallet::Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AreNominatorsSlashable = ConstBool<true>;
+	type AreNominatorsSlashable = AreNominatorsSlashable;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = OneTokenPerMillisecond;
 	type MaxExposurePageSize = MaxExposurePageSize;
