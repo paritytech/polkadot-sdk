@@ -309,6 +309,14 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 	type RelayParentOffset = ConstU32<0>;
+	type ChildTrieProcessor = Subscriber;
+}
+
+impl cumulus_pallet_pubsub_consumer::Config for Runtime {}
+
+impl cumulus_pallet_subscriber::Config for Runtime {
+	type SubscriptionHandler = cumulus_pallet_pubsub_consumer::TestSubscriptionHandler<Runtime>;
+	type WeightInfo = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -634,6 +642,8 @@ construct_runtime! {
 
 		ParachainSystem: cumulus_pallet_parachain_system = 20,
 		ParachainInfo: parachain_info = 21,
+		Subscriber: cumulus_pallet_subscriber = 22,
+		PubsubConsumer: cumulus_pallet_pubsub_consumer = 23,
 
 		Balances: pallet_balances = 30,
 		Assets: pallet_assets = 31,
@@ -890,7 +900,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
 		fn child_trie_keys_to_prove() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
-			ParachainSystem::get_child_trie_proof_requests()
+			Subscriber::get_child_trie_proof_requests()
 		}
 	}
 }

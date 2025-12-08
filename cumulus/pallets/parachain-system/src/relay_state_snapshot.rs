@@ -21,10 +21,32 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
+use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+
+/// Trait for processing verified relay chain state proofs to extract child trie data.
+///
+/// Implemented by external pallets (like pallet-subscriber) and called by parachain-system
+/// after proof verification.
+pub trait ProcessChildTrieData {
+	/// Process child trie data from a verified relay chain state proof.
+	///
+	/// This is called by parachain-system's `set_validation_data` inherent after the proof
+	/// has been verified. The proof is guaranteed to be valid at this point.
+	///
+	/// Returns the weight consumed by processing.
+	fn process_child_trie_data(verified_proof: &RelayChainStateProof) -> Weight;
+}
+
+/// No-op implementation for runtimes that don't use child trie processing.
+impl ProcessChildTrieData for () {
+	fn process_child_trie_data(_verified_proof: &RelayChainStateProof) -> Weight {
+		Weight::zero()
+	}
+}
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are

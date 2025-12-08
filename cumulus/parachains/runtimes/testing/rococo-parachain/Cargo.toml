@@ -15,6 +15,8 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 cumulus-pallet-aura-ext.workspace = true
 cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-pubsub-consumer.workspace = true
+cumulus-pallet-subscriber.workspace = true
 cumulus-pallet-weight-reclaim.workspace = true
 cumulus-pallet-xcm.workspace = true
 cumulus-pallet-xcmp-queue.workspace = true
@@ -67,6 +69,8 @@ std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-pubsub-consumer/std",
+	"cumulus-pallet-subscriber/std",
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",

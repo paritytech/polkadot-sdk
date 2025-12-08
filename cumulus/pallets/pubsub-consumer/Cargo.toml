@@ -1,0 +1,37 @@
+[package]
+name = "cumulus-pallet-pubsub-consumer"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Example consumer pallet for testing pubsub subscriptions"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+# Substrate
+frame-support.workspace = true
+frame-system.workspace = true
+sp-std.workspace = true
+
+# Cumulus
+cumulus-pallet-subscriber.workspace = true
+cumulus-primitives-core.workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-subscriber/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-std/std",
+]

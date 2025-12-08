@@ -1,0 +1,67 @@
+[package]
+name = "cumulus-pallet-subscriber"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Pallet for subscribing to relay chain child trie data"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+# Substrate
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+sp-storage.workspace = true
+
+# Cumulus
+cumulus-pallet-parachain-system.workspace = true
+cumulus-primitives-core.workspace = true
+
+# Polkadot
+polkadot-parachain-primitives.workspace = true
+
+[dev-dependencies]
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"polkadot-parachain-primitives/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-storage/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

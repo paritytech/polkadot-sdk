@@ -4613,6 +4613,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-pubsub-consumer"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-subscriber",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "cumulus-pallet-session-benchmarking"
 version = "22.0.0"
 dependencies = [
@@ -4636,6 +4649,25 @@ dependencies = [
  "polkadot-primitives",
  "scale-info",
  "sp-runtime 42.0.0",
+]
+
+[[package]]
+name = "cumulus-pallet-subscriber"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "scale-info",
+ "sp-core 37.0.0",
+ "sp-io 41.0.1",
+ "sp-runtime 42.0.0",
+ "sp-std 14.0.0",
+ "sp-storage 22.0.0",
 ]
 
 [[package]]
@@ -18523,6 +18555,8 @@ version = "0.21.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-pubsub-consumer",
+ "cumulus-pallet-subscriber",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",

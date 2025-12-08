@@ -191,6 +191,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 	type RelayParentOffset = ConstU32<0>;
+	type ChildTrieProcessor = ();
 }
 
 parameter_types! {

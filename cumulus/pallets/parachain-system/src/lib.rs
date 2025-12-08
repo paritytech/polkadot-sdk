@@ -84,6 +84,7 @@ use unincluded_segment::{
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
+pub use relay_state_snapshot::ProcessChildTrieData;
 /// Register the `validate_block` function that is used by parachains to validate blocks on a
 /// validator.
 ///
@@ -309,6 +310,12 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Processor for child trie data from relay chain state proofs.
+		///
+		/// This is called after the relay state proof has been verified, allowing external
+		/// pallets to extract and process child trie data.
+		type ChildTrieProcessor: relay_state_snapshot::ProcessChildTrieData;
 	}
 
 	#[pallet::hooks]
@@ -735,8 +742,7 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
-			let current_roots = Self::collect_publisher_roots(&relay_state_proof);
-			total_weight.saturating_accrue(Self::process_published_data(&relay_state_proof, &current_roots));
+			total_weight.saturating_accrue(T::ChildTrieProcessor::process_child_trie_data(&relay_state_proof));
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -769,54 +775,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Subscribe to published data from a specific parachain.
-		///
-		/// If `keys` is empty, subscribes to ALL data from that publisher.
-		/// If `keys` is non-empty, subscribes only to those specific keys.
-		///
-		/// The dispatch origin for this call must be `Root`.
-		#[pallet::call_index(4)]
-		#[pallet::weight((10_000, DispatchClass::Operational))]
-		pub fn subscribe(
-			origin: OriginFor<T>,
-			publisher: ParaId,
-			keys: Vec<Vec<u8>>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-
-			let bounded_keys: BoundedVec<BoundedVec<u8, ConstU32<256>>, ConstU32<100>> = keys
-				.into_iter()
-				.map(|k| BoundedVec::try_from(k).map_err(|_| Error::<T>::KeyTooLong))
-				.collect::<Result<Vec<_>, _>>()?
-				.try_into()
-				.map_err(|_| Error::<T>::TooManyKeys)?;
-
-			Subscriptions::<T>::insert(publisher, bounded_keys);
-			Ok(())
-		}
-
-		/// Unsubscribe from a publisher and clean up associated published data.
-		///
-		/// The dispatch origin for this call must be `Root`.
-		#[pallet::call_index(5)]
-		#[pallet::weight((10_000, DispatchClass::Operational))]
-		pub fn unsubscribe(
-			origin: OriginFor<T>,
-			publisher: ParaId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-
-			// Remove the subscription
-			Subscriptions::<T>::remove(publisher);
-
-			// Clean up all published data from this publisher
-			let _ = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
-
-			Ok(())
-		}
-
-		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
-		// again will require to bump the transaction version of runtimes using this pallet.
+		// WARNING: call indices 2, 3, 4, and 5 were used in a former version of this pallet.
+		// Using them again will require to bump the transaction version of runtimes using this pallet.
 	}
 
 	#[pallet::event]
@@ -851,10 +811,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// A subscription key exceeds the maximum allowed length.
-		KeyTooLong,
-		/// Too many keys provided for a single subscription.
-		TooManyKeys,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -1026,43 +982,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
-	/// Published data from parachains available through the broadcaster pallet.
-	/// Double map: Publisher ParaId -> Key -> Value
-	#[pallet::storage]
-	pub type PublishedData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		ParaId,           // Publisher
-		Blake2_128Concat,
-		Vec<u8>,          // Key
-		Vec<u8>,          // Value
-		OptionQuery,
-	>;
-
-	/// Child trie root hashes from the previous block, used for change detection.
-	///
-	/// Stored as BTreeMap for efficient lookups during comparison.
-	#[pallet::storage]
-	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
-		_,
-		BTreeMap<ParaId, Vec<u8>>,
-		ValueQuery,
-	>;
-
-	/// Local subscriptions to published data from other parachains.
-	///
-	/// Maps Publisher ParaId -> Vec of keys we're interested in from that publisher.
-	/// An empty vec means we want ALL keys from that publisher.
-	#[pallet::storage]
-	pub type Subscriptions<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		BoundedVec<BoundedVec<u8, ConstU32<256>>, ConstU32<100>>,
-		OptionQuery,
-	>;
-
-
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
@@ -1131,38 +1050,6 @@ impl<T: Config> Pallet<T> {
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
 	}
 
-	/// Get child trie proof requests for subscribed publishers.
-	///
-	/// This is pubsub-specific logic that constructs child trie identifiers
-	/// from ParaIds. Other pallets could construct identifiers differently.
-	///
-	/// Returns child trie proof requests where each request specifies:
-	/// - The child trie identifier (derived from ParaId using pubsub convention)
-	/// - The specific keys to read from that child trie
-	pub fn get_child_trie_proof_requests() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
-		Subscriptions::<T>::iter()
-			.map(|(para_id, keys)| {
-				cumulus_primitives_core::ChildTrieProofRequest {
-					// Pubsub-specific: derive child trie identifier from ParaId
-					child_trie_identifier: Self::derive_child_storage_key(para_id),
-
-					// Convert bounded keys to unbounded
-					data_keys: keys
-						.into_iter()
-						.map(|bounded_key| bounded_key.into_inner())
-						.collect(),
-				}
-			})
-			.collect()
-	}
-
-	/// Derive child trie identifier from ParaId.
-	///
-	/// This is pubsub-specific. The identifier format matches what the
-	/// broadcaster pallet uses: b"pubsub" + encoded ParaId.
-	fn derive_child_storage_key(para_id: ParaId) -> Vec<u8> {
-		Self::derive_child_info(para_id).storage_key().to_vec()
-	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -1424,120 +1311,6 @@ impl<T: Config> Pallet<T> {
 
 		weight_used
 	}
-
-	/// Derives the child trie info for a publisher parachain.
-	///
-	/// Must match the broadcaster pallet's child trie structure.
-	fn derive_child_info(publisher_para_id: ParaId) -> sp_storage::ChildInfo {
-		use codec::Encode;
-		sp_storage::ChildInfo::new_default(&(b"pubsub", publisher_para_id).encode())
-	}
-
-	/// Collects child trie root hashes for subscribed publishers from the relay chain state proof.
-	///
-	/// Returns pairs of (ParaId, root_hash) for change detection optimization.
-	fn collect_publisher_roots(
-		relay_state_proof: &RelayChainStateProof,
-	) -> Vec<(ParaId, Vec<u8>)> {
-		Subscriptions::<T>::iter()
-			.filter_map(|(publisher_para_id, _)| {
-				let child_info = Self::derive_child_info(publisher_para_id);
-				let prefixed_key = child_info.prefixed_storage_key();
-
-				relay_state_proof
-					.read_optional_entry::<[u8; 32]>(&*prefixed_key)
-					.ok()
-					.flatten()
-					.map(|root_hash| (publisher_para_id, root_hash.to_vec()))
-			})
-			.collect()
-	}
-
-	/// Process published data from the broadcaster pallet and store it in parachain storage.
-	///
-	/// Reads data from child tries in the relay chain storage proof for subscribed publishers
-	/// whose roots have changed. Uses child trie roots to detect changes between blocks.
-	fn process_published_data(
-		relay_state_proof: &RelayChainStateProof,
-		current_roots: &Vec<(ParaId, Vec<u8>)>,
-	) -> Weight {
-		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
-
-		if current_roots.is_empty() && previous_roots.is_empty() {
-			return T::DbWeight::get().reads(1);
-		}
-
-		let mut p = 0u32;
-		let mut k = 0u32;
-		let mut v = 0u32;
-
-		let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
-			current_roots.iter().map(|(para_id, root)| (*para_id, root.clone())).collect();
-
-		let subscriptions = Subscriptions::<T>::iter().collect::<Vec<_>>();
-
-		for (publisher, subscription_keys) in subscriptions {
-			let should_update = match previous_roots.get(&publisher) {
-				Some(prev_root) => match current_roots_map.get(&publisher) {
-					Some(curr_root) if prev_root == curr_root => false,
-					_ => true,
-				},
-				None => true,
-			};
-
-			if should_update && current_roots_map.contains_key(&publisher) {
-				let result = PublishedData::<T>::clear_prefix(&publisher, u32::MAX, None);
-				debug_assert!(result.maybe_cursor.is_none());
-
-				let child_info = Self::derive_child_info(publisher);
-
-				let mut data_entries = alloc::vec::Vec::new();
-				for bounded_key in subscription_keys.iter() {
-					let key = bounded_key.as_ref();
-
-					match relay_state_proof.read_child_storage(&child_info, key) {
-						Ok(Some(encoded_value)) => {
-							match Vec::<u8>::decode(&mut &encoded_value[..]) {
-								Ok(value) => {
-									data_entries.push((key.to_vec(), value.clone()));
-									v = v.max(value.len() as u32);
-								},
-								Err(_) => {
-									defensive!("Failed to decode published data value");
-								},
-							}
-						},
-						Ok(None) => {
-							// Key not published yet - expected
-						},
-						Err(_) => {
-							defensive!("Failed to read child storage from relay chain proof");
-						},
-					}
-				}
-
-				for (key, value) in data_entries.iter() {
-					PublishedData::<T>::insert(&publisher, key, value);
-				}
-
-				p += 1;
-				k = k.max(data_entries.len() as u32);
-			}
-		}
-
-		// Clear storage for removed publishers.
-		for (para_id, _) in previous_roots.iter() {
-			if !current_roots_map.contains_key(para_id) {
-				let result = PublishedData::<T>::clear_prefix(para_id, u32::MAX, None);
-				debug_assert!(result.maybe_cursor.is_none());
-			}
-		}
-
-		<PreviousPublishedDataRoots<T>>::put(current_roots_map);
-
-		T::WeightInfo::process_published_data(p, k, v)
-	}
-
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
 	fn maybe_drop_included_ancestors(
