@@ -65,7 +65,6 @@ pub mod error;
 mod metrics;
 
 use claim_queue_state::ClaimQueueState;
-#[cfg(feature = "experimental-collator-protocol")]
 pub(crate) use claim_queue_state::PerLeafClaimQueueState;
 pub use collation::BlockedCollationId;
 use collation::{

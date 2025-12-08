@@ -12,7 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = { workspace = true, optional = true }
+async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
@@ -51,7 +51,3 @@ polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []
-experimental-collator-protocol = [
-	"async-trait",
-]
-experimental = ["experimental-collator-protocol"]

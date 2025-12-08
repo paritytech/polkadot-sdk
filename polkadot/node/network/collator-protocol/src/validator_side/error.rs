@@ -19,9 +19,7 @@ use futures::channel::oneshot;
 
 use polkadot_node_subsystem::RuntimeApiError;
 use polkadot_node_subsystem_util::backing_implicit_view;
-use polkadot_primitives::CandidateDescriptorVersion;
-#[cfg(feature = "experimental-collator-protocol")]
-use polkadot_primitives::Hash;
+use polkadot_primitives::{CandidateDescriptorVersion, Hash};
 
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -93,11 +91,9 @@ pub enum SecondingError {
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[error("ParaId doesn't match the advertisement")]
 	ParaIdMismatch,
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[error("Collation seconding blocked on parent being seconded: {0}")]
 	BlockedOnParent(Hash),
 }
@@ -114,7 +110,6 @@ impl SecondingError {
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |
 			InvalidReceiptVersion(_) => true,
-			#[cfg(feature = "experimental-collator-protocol")]
 			ParaIdMismatch => true,
 			_ => false,
 		}

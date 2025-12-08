@@ -82,7 +82,3 @@ runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"polkadot-service/runtime-metrics",
 ]
-
-experimental-collator-protocol = [
-	"polkadot-service/experimental-collator-protocol",
-]
