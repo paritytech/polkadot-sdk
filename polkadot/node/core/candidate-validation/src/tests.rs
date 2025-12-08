@@ -557,6 +557,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
+		false,
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -779,7 +780,7 @@ fn invalid_session_or_ump_signals() {
 		assert_matches!(
 			result,
 			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::UMPSignalWithV1Decriptor
+				CommittedCandidateReceiptError::UMPSignalWithV1Descriptor
 			))
 		);
 	}

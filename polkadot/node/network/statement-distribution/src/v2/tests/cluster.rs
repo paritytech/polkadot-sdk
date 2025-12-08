@@ -20,12 +20,8 @@ use polkadot_primitives_test_helpers::make_candidate;
 
 #[test]
 fn share_seconded_circulated_to_cluster() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -120,12 +116,8 @@ fn share_seconded_circulated_to_cluster() {
 
 #[test]
 fn cluster_valid_statement_before_seconded_ignored() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -180,12 +172,8 @@ fn cluster_valid_statement_before_seconded_ignored() {
 
 #[test]
 fn cluster_statement_bad_signature() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -253,12 +241,8 @@ fn cluster_statement_bad_signature() {
 
 #[test]
 fn useful_cluster_statement_from_non_cluster_peer_rejected() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -315,12 +299,8 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 // Both validators in the test are part of backing groups assigned to same parachain
 #[test]
 fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -374,12 +354,8 @@ fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
 
 #[test]
 fn statement_from_non_cluster_originator_unexpected() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -429,12 +405,8 @@ fn statement_from_non_cluster_originator_unexpected() {
 #[test]
 fn seconded_statement_leads_to_request() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -517,12 +489,8 @@ fn seconded_statement_leads_to_request() {
 
 #[test]
 fn cluster_statements_shared_seconded_first() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -631,12 +599,8 @@ fn cluster_statements_shared_seconded_first() {
 
 #[test]
 fn cluster_accounts_for_implicit_view() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -766,12 +730,8 @@ fn cluster_accounts_for_implicit_view() {
 #[test]
 fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -889,12 +849,8 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 #[test]
 fn cluster_messages_imported_after_new_leaf_importable_check() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1023,12 +979,8 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 fn ensure_seconding_limit_is_respected() {
 	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
 	let scheduling_lookahead = 2;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 4,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 4, local_validator: LocalRole::Validator };
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 
@@ -1220,12 +1172,8 @@ fn ensure_seconding_limit_is_respected() {
 
 #[test]
 fn delayed_reputation_changes() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let keystore = test_helpers::mock::make_ferdie_keystore();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);

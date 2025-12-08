@@ -451,8 +451,14 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				// Only v2 receipts can contain UMP signals.
-				if receipt.descriptor.version() == CandidateDescriptorVersion::V2 {
+				// Only v2+ receipts can contain UMP signals.
+				// Assuming node feature set here is fine, misinterpretations are harmless in this
+				// context:
+				let has_ump_signals = match receipt.descriptor.version(true) {
+					CandidateDescriptorVersion::V1 => false,
+					_ => true,
+				};
+				if has_ump_signals {
 					v2_candidates_per_rp
 						.entry(parent_rp)
 						.or_default()
