@@ -332,8 +332,6 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 
 pub type AttemptTicketOf<T> =
 	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::AttemptConsideration>;
-pub type FriendGroupsTicketOf<T> =
-	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::FriendGroupsConsideration>;
 
 #[frame::pallet]
 pub mod pallet {
@@ -407,8 +405,12 @@ pub mod pallet {
 	///
 	/// Modifying this storage does not impact ongoing recovery attempts.
 	#[pallet::storage]
-	pub type FriendGroups<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, (FriendGroupsOf<T>, FriendGroupsTicketOf<T>)>;
+	pub type FriendGroups<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(FriendGroupsOf<T>, T::FriendGroupsConsideration),
+	>;
 
 	/// Ongoing recovery attempts of a lost account indexed by `(lost, friend_group)`.
 	#[pallet::storage]
@@ -448,8 +450,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		LostAccountControlled {
-			lost: T::AccountId,
+		RecoveredAccountControlled {
+			recovered: T::AccountId,
 			inheritor: T::AccountId,
 			call_hash: HashOf<T>,
 			call_result: DispatchResult,
@@ -512,23 +514,37 @@ pub mod pallet {
 		DuplicateFriendGroup,
 		/// The lost account cannot be a friend of itself.
 		LostAccountInFriendGroup,
+		/// The account was already recovered by a friend group with lower inheritance order.
+		LowerOrderRecovered,
 	}
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// The friend groups of an account that can conduct recovery attempts.
-		pub fn friend_groups(lost: T::AccountId) -> Vec<FriendGroupOf<T>> {
-			FriendGroups::<T>::get(lost).map(|(g, _t)| g.into_inner()).unwrap_or_default()
-		}
-
-		/*pub fn attempt(lost: T::AccountId, friend_group_index: u32) -> Option<AttemptOf<T>> {
-			Attempts::<T>::get(lost, friend_group_index).map(|(ass, _t)| ass.get(0 as usize).cloned()).flatten()
-		}*/
-
+		/// The provided block number that will be used to measure time.
 		pub fn provided_block_number() -> ProvidedBlockNumberOf<T> {
 			T::BlockNumberProvider::current_block_number()
 		}
 
+		/// The friend groups of an account that can initiate recovery attempts.
+		pub fn friend_groups(lost: T::AccountId) -> Vec<FriendGroupOf<T>> {
+			FriendGroups::<T>::get(lost).map(|(g, _t)| g.into_inner()).unwrap_or_default()
+		}
+
+		/// Ongoing recovery attempts for a lost account.
+		pub fn attempts(lost: T::AccountId) -> Vec<(FriendGroupOf<T>, AttemptOf<T>)> {
+			let mut attempts = Vec::new();
+
+			for (friend_group_index, (attempt, _ticket)) in Attempt::<T>::iter_prefix(&lost) {
+				let Ok(friend_group) = Self::friend_group_of(&lost, friend_group_index) else {
+					continue
+				};
+				attempts.push((friend_group, attempt));
+			}
+
+			attempts
+		}
+
+		/// The account that inherited full access to the lost account.
 		pub fn inheritor(lost: T::AccountId) -> Option<T::AccountId> {
 			Inheritor::<T>::get(lost).map(|(_, inheritor, _)| inheritor)
 		}
@@ -549,46 +565,33 @@ pub mod pallet {
 
 			inheritance
 		}
-
-		pub fn attempts(lost: T::AccountId) -> Vec<(FriendGroupOf<T>, AttemptOf<T>)> {
-			let mut attempts = Vec::new();
-
-			for (friend_group_index, (attempt, _ticket)) in Attempt::<T>::iter_prefix(&lost) {
-				let Ok(friend_group) = Self::friend_group_of(&lost, friend_group_index) else {
-					continue
-				};
-				attempts.push((friend_group, attempt));
-			}
-
-			attempts
-		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// todo bin search todo event todo copy call filters
+		// todo bin search todo copy call filters
 		#[pallet::call_index(0)]
 		#[pallet::weight(0)]
 		pub fn control_inherited_account(
 			origin: OriginFor<T>,
-			lost: AccountIdLookupOf<T>,
+			recovered: AccountIdLookupOf<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let maybe_inheritor = ensure_signed(origin)?;
-			let lost = T::Lookup::lookup(lost)?;
+			let recovered = T::Lookup::lookup(recovered)?;
 
-			let inheritor = Inheritor::<T>::get(&lost)
+			let inheritor = Inheritor::<T>::get(&recovered)
 				.map(|(_, inheritor, _ticket)| inheritor)
 				.ok_or(Error::<T>::NoInheritor)?;
 			ensure!(maybe_inheritor == inheritor, Error::<T>::NotInheritor);
 
 			// pretend to be the lost account
-			let origin = frame_system::RawOrigin::Signed(lost.clone()).into();
+			let origin = frame_system::RawOrigin::Signed(recovered.clone()).into();
 			let call_hash = call.using_encoded(&T::Hashing::hash);
 			let call_result = call.dispatch(origin).map(|_| ()).map_err(|r| r.error);
 
-			Self::deposit_event(Event::<T>::LostAccountControlled {
-				lost,
+			Self::deposit_event(Event::<T>::RecoveredAccountControlled {
+				recovered,
 				inheritor,
 				call_hash,
 				call_result,
@@ -620,23 +623,23 @@ pub mod pallet {
 				None => Default::default(),
 			};
 
+			let new_friend_groups = Self::bound_friend_groups(&lost, friend_groups)?;
+
 			// Easy case where all are removed:
-			if friend_groups.is_empty() {
+			if new_friend_groups.is_empty() {
 				if let Some(old_ticket) = old_ticket {
-					old_ticket.drop()?;
+					old_ticket.drop(&lost)?;
 				}
 				FriendGroups::<T>::remove(&lost);
 				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost, old_friend_groups });
 				return Ok(());
 			}
 
-			let new_friend_groups = Self::bound_friend_groups(&lost, friend_groups)?;
 			let new_footprint = Self::friend_group_footprint(&new_friend_groups);
-
 			let new_ticket = if let Some(old_ticket) = old_ticket {
 				old_ticket.update(&lost, new_footprint)?
 			} else {
-				FriendGroupsTicketOf::<T>::new(&lost, new_footprint)?
+				T::FriendGroupsConsideration::new(&lost, new_footprint)?
 			};
 			FriendGroups::<T>::insert(&lost, (&new_friend_groups, &new_ticket));
 
@@ -669,6 +672,13 @@ pub mod pallet {
 
 			let friend_group = Self::friend_group_of(&lost, friend_group_index)?;
 			ensure!(friend_group.friends.contains(&recoverer), Error::<T>::NotFriend);
+
+			if let Some((inheritance_order, _, _)) = Inheritor::<T>::get(&lost) {
+				ensure!(
+					friend_group.inheritance_order < inheritance_order,
+					Error::<T>::LowerOrderRecovered
+				);
+			}
 
 			// Construct the attempt
 			let now = T::BlockNumberProvider::current_block_number();
@@ -787,8 +797,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/*
-		/// The recoverer or the lost account can abort an attempt at any moment.
+		/*/// The recoverer or the lost account can abort an attempt at any moment.
 		///
 		/// This will release the deposit of the attempt back to the recoverer.
 		#[pallet::call_index(6)]
@@ -848,12 +857,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn friend_group_footprint(friend_groups: &FriendGroupsOf<T>) -> Option<Footprint> {
+	pub fn friend_group_footprint(friend_groups: &FriendGroupsOf<T>) -> Footprint {
 		if friend_groups.is_empty() {
-			None
-		} else {
-			Some(Footprint::from_encodable(friend_groups))
+			defensive!("Do not call with empty friend groups");
 		}
+
+		Footprint::from_encodable(friend_groups)
 	}
 
 	pub fn attempt_footprint(attempt: &AttemptOf<T>) -> Option<Footprint> {

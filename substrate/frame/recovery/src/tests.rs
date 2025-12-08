@@ -18,8 +18,9 @@
 //! Tests for the module.
 
 use crate::{frame_system::Origin, mock::*, Call as RecoveryCall, *};
-use frame::{deps::sp_runtime::bounded_vec, prelude::fungible::InspectHold, testing_prelude::*};
+use frame::{prelude::fungible::InspectHold, testing_prelude::*};
 use pallet_balances::Call as BalancesCall;
+use sp_runtime::{bounded_vec, DispatchError, ModuleError, TokenError};
 
 use Test as T;
 
@@ -55,6 +56,10 @@ fn assert_fg_deposit(who: u64, deposit: u128) {
 
 fn clear_events() {
 	frame_system::Pallet::<T>::reset_events();
+}
+
+fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 #[test]
@@ -209,7 +214,7 @@ fn set_friend_groups_no_friends_fails() {
 	});
 }
 
-/// Can remove all friend groups.
+/// Can remove all friend groups also with deposits.
 #[test]
 fn set_friend_groups_remove_works() {
 	new_test_ext().execute_with(|| {
@@ -224,9 +229,19 @@ fn set_friend_groups_remove_works() {
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
-		assert_eq!(Recovery::friend_groups(ALICE), vec![fg]);
+		assert_eq!(Recovery::friend_groups(ALICE), vec![fg.clone()]);
 		assert_fg_deposit(ALICE, 79);
 
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![]));
+		assert_eq!(Recovery::friend_groups(ALICE), vec![]);
+		assert_fg_deposit(ALICE, 0);
+
+		// re-add
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
+		assert_eq!(Recovery::friend_groups(ALICE), vec![fg.clone()]);
+		assert_fg_deposit(ALICE, 79);
+
+		// re-remove
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![]));
 		assert_eq!(Recovery::friend_groups(ALICE), vec![]);
 		assert_fg_deposit(ALICE, 0);
@@ -476,4 +491,92 @@ fn finish_attempt_works() {
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert_eq!(Recovery::inheritance(FERDIE), vec![ALICE]);
 	});
+}
+
+/// Lower inheritance order overwrites higher order inheritor
+#[test]
+fn inheritance_order_conflict_overwrite() {
+	new_test_ext().execute_with(|| {
+		// EVE is inheritor with order 1
+		let ticket =
+			<T as Config>::InheritorConsideration::new(&EVE, Pallet::<T>::inheritor_footprint())
+				.unwrap();
+		Inheritor::<T>::insert(ALICE, (1, &EVE, ticket));
+
+		// Add friend group with order 0
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
+		frame_system::Pallet::<T>::set_block_number(11);
+
+		// Eve is still inheritor
+		assert_eq!(Recovery::inheritor(ALICE), Some(EVE));
+		assert!(can_control_account(EVE, ALICE));
+
+		// But now Ferdie will kick Eve out
+		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
+		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
+		assert!(can_control_account(FERDIE, ALICE));
+		// Eve was kicked out
+		assert!(!can_control_account(EVE, ALICE));
+	});
+}
+
+/// Friend group with same or higher inheritance order gets prevented from initiating an attempt.
+#[test]
+fn higher_inheritance_order_gets_rejected() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		// A friend group with inheritance order 0 got it
+		let ticket =
+			<T as Config>::InheritorConsideration::new(&FERDIE, Pallet::<T>::inheritor_footprint())
+				.unwrap();
+		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
+
+		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
+		assert!(can_control_account(FERDIE, ALICE));
+
+		// Group 1 cannot initiate an attempt
+		assert_noop!(
+			Recovery::initiate_attempt(signed(BOB), ALICE, 0),
+			Error::<T>::LowerOrderRecovered
+		);
+	});
+}
+
+/// Controlling inherited account works
+#[test]
+fn control_inherited_account_works() {
+	new_test_ext().execute_with(|| {
+		// Mark FERDIE as the inheritor of ALICE
+		let ticket =
+			<T as Config>::InheritorConsideration::new(&FERDIE, Pallet::<T>::inheritor_footprint())
+				.unwrap();
+		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
+
+		let call: RuntimeCall =
+			BalancesCall::transfer_allow_death { value: 2000, dest: FERDIE }.into();
+		let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+
+		// Outer call works:
+		assert_ok!(Recovery::control_inherited_account(signed(FERDIE), ALICE, Box::new(call)));
+		// Inner call fails:
+		assert_last_event(Event::<T>::RecoveredAccountControlled {
+			recovered: ALICE,
+			inheritor: FERDIE,
+			call_hash,
+			call_result: Err(DispatchError::Token(TokenError::FundsUnavailable)),
+		});
+	});
+}
+
+/// Whether `inheritor` can control the `recovered` account.
+fn can_control_account(inheritor: AccountIdLookupOf<T>, recovered: AccountIdLookupOf<T>) -> bool {
+	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+	let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+
+	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
 }
