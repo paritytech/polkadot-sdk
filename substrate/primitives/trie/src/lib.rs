@@ -56,6 +56,7 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
+use sp_externalities::StateLoad;
 pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -367,6 +368,32 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
+/// Read a value from the trie with cache status tracking.
+///
+/// Returns a `StateLoad` containing the value and whether it was loaded
+/// from the database backend (cold) or cache (hot).
+pub fn read_trie_value_with_status<
+	L: TrieLayout,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+>(
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	mut cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
+	// Check if the value is in the cache before reading
+	let is_cold = cache.as_mut().and_then(|c| c.lookup_value_for_key(key)).is_none();
+
+	let data = TrieDBBuilder::<L>::new(db, root)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build()
+		.get(key)?;
+
+	Ok(StateLoad { is_cold, data })
+}
+
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
 pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
@@ -466,6 +493,35 @@ where
 		.build()
 		.get(key)
 		.map(|x| x.map(|val| val.to_vec()))
+}
+
+/// Read a value from a child trie with cache status tracking.
+///
+/// Returns a `StateLoad` containing the value and whether it was loaded
+/// from the database backend (cold) or cache (hot).
+pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
+	keyspace: &[u8],
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	mut cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	// Check if the value is in the cache before reading
+	let is_cold = cache.as_mut().and_then(|c| c.lookup_value_for_key(key)).is_none();
+
+	let db = KeySpacedDB::new(db, keyspace);
+	let data = TrieDBBuilder::<L>::new(&db, &root)
+		.with_optional_recorder(recorder)
+		.with_optional_cache(cache)
+		.build()
+		.get(key)?
+		.map(|val| val.to_vec());
+
+	Ok(StateLoad { is_cold, data })
 }
 
 /// Read a hash from the child trie.

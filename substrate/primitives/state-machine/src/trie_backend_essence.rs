@@ -35,7 +35,8 @@ use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value,
+	read_child_trie_value_with_status, read_trie_first_descendant_value, read_trie_value,
+	read_trie_value_with_status,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, RandomState, Trie, TrieCache,
 	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
@@ -501,6 +502,25 @@ where
 		})
 	}
 
+	/// Get the value of storage at given key with cache status tracking.
+	///
+	/// Returns `is_cold: true` if the value was not in the cache (cache miss),
+	/// `is_cold: false` if the value was in the cache (cache hit).
+	pub fn storage_with_status(&self, key: &[u8]) -> Result<sp_externalities::StateLoad<Option<StorageValue>>> {
+		let map_e = |e| format!("Trie lookup error: {}", e);
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
+			read_trie_value_with_status::<Layout<H>, _>(
+				self,
+				&self.root,
+				key,
+				recorder,
+				cache,
+			)
+			.map_err(map_e)
+		})
+	}
+
 	/// Returns the hash value
 	pub fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Result<Option<H::Out>> {
 		let child_root = match self.child_root(child_info)? {
@@ -538,6 +558,35 @@ where
 
 		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
 			read_child_trie_value::<Layout<H>, _>(
+				child_info.keyspace(),
+				self,
+				&child_root,
+				key,
+				recorder,
+				cache,
+			)
+			.map_err(map_e)
+		})
+	}
+
+	/// Get the value of child storage at given key with cache status tracking.
+	///
+	/// Returns `is_cold: true` if the value was not in the cache (cache miss),
+	/// `is_cold: false` if the value was in the cache (cache hit).
+	pub fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<sp_externalities::StateLoad<Option<StorageValue>>> {
+		let child_root = match self.child_root(child_info)? {
+			Some(root) => root,
+			None => return Ok(sp_externalities::StateLoad { is_cold: true, data: None }),
+		};
+
+		let map_e = |e| format!("Trie lookup error: {}", e);
+
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+			read_child_trie_value_with_status::<Layout<H>, _>(
 				child_info.keyspace(),
 				self,
 				&child_root,

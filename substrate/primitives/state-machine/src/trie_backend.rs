@@ -430,6 +430,10 @@ where
 		self.essence.storage(key)
 	}
 
+	fn storage_with_status(&self, key: &[u8]) -> Result<sp_externalities::StateLoad<Option<StorageValue>>, Self::Error> {
+		self.essence.storage_with_status(key)
+	}
+
 	fn child_storage_hash(
 		&self,
 		child_info: &ChildInfo,
@@ -444,6 +448,14 @@ where
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error> {
 		self.essence.child_storage(child_info, key)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<sp_externalities::StateLoad<Option<StorageValue>>, Self::Error> {
+		self.essence.child_storage_with_status(child_info, key)
 	}
 
 	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {

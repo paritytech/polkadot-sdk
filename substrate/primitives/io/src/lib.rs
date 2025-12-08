@@ -133,7 +133,7 @@ use secp256k1::{
 #[cfg(not(substrate_runtime))]
 use sp_externalities::{Externalities, ExternalitiesExt};
 
-pub use sp_externalities::MultiRemovalResults;
+pub use sp_externalities::{MultiRemovalResults, StateLoad};
 
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
@@ -147,9 +147,6 @@ mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
-
-/// Re-export StateLoad from sp_externalities
-pub use sp_externalities::StateLoad;
 
 /// Error verifying ECDSA signature
 #[derive(Encode, Decode)]
@@ -2150,7 +2147,8 @@ mod tests {
 			// This test mainly verifies the API works correctly.
 
 			// Read existing child value
-			let result = default_child_storage::get_with_status(b"child_storage_key", b"existing_child");
+			let result =
+				default_child_storage::get_with_status(b"child_storage_key", b"existing_child");
 			assert_eq!(result.data, Some(b"child_value".to_vec()));
 			assert_eq!(result.is_cold, true);
 
@@ -2158,13 +2156,15 @@ mod tests {
 			default_child_storage::set(b"child_storage_key", b"new_child_key", b"new_child_value");
 
 			// Read the newly written value
-			let result = default_child_storage::get_with_status(b"child_storage_key", b"new_child_key");
+			let result =
+				default_child_storage::get_with_status(b"child_storage_key", b"new_child_key");
 			assert_eq!(result.data, Some(b"new_child_value".to_vec()));
 			// BasicExternalities treats all reads as cold
 			assert_eq!(result.is_cold, true);
 
 			// Read non-existent child key
-			let result = default_child_storage::get_with_status(b"child_storage_key", b"non_existent_child");
+			let result =
+				default_child_storage::get_with_status(b"child_storage_key", b"non_existent_child");
 			assert_eq!(result.data, None);
 			assert_eq!(result.is_cold, true);
 		});
