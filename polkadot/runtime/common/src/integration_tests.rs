@@ -308,6 +308,7 @@ impl pallet_identity::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 impl identity_migrator::Config for Test {
