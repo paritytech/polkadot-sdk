@@ -104,9 +104,10 @@ impl GenericTransaction {
 				// For dry runs, we need to ensure that the RLP encoding length is at least the
 				// length of the encoding of the actual transaction submitted later
 				let mut maximized_tx = self.clone();
-				maximized_tx.gas = Some(U256::MAX);
-				maximized_tx.gas_price = Some(U256::MAX);
-				maximized_tx.max_priority_fee_per_gas = Some(U256::MAX);
+				let maximized_base_fee = base_fee.saturating_mul(256.into());
+				maximized_tx.gas = Some(u64::MAX.into());
+				maximized_tx.gas_price = Some(maximized_base_fee);
+				maximized_tx.max_priority_fee_per_gas = Some(maximized_base_fee);
 
 				let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Invalid transaction type.");

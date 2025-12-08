@@ -62,7 +62,7 @@ fn fee_estimation_for_teleport() {
 				(Here, 100u128).into(),
 				(Parent, 20u128).into(),
 			])),
-			fee_asset_id: Box::new(Parent.into()), // Fees are paid with the RelayToken
+			fee_asset_item: 1, // Fees are paid with the RelayToken
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -229,7 +229,7 @@ fn dry_run_reserve_asset_transfer_common(
 					.into_version(input_xcm_version)
 					.unwrap(),
 			),
-			fee_asset_id: Box::new(Parent.into()),
+			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -514,7 +514,7 @@ fn fee_estimation_for_usdt_reserve_transfer_in_usdt() {
 			assets: Box::new(VersionedAssets::from(vec![
 				(usdt_location.clone(), 100u128).into(), // Send 100 USDT
 			])),
-			fee_asset_id: Box::new(VersionedAssetId::from(AssetId(usdt_location.clone()))),
+			fee_asset_item: 0, // Fees are paid with USDT (the only asset)
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
