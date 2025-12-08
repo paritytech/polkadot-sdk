@@ -204,6 +204,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 /// Use this on system chains (not AssetHub) or Relay Chain to collect funds from
 /// imbalances (e.g., slashing) that would otherwise be burned.
 ///
+/// Note: This handler does NOT emit events because it can be called very frequently
+/// (e.g., for every fee-paying transaction via `DealWithFeesSplit`).
+///
 /// # Example
 ///
 /// ```ignore
@@ -292,6 +295,9 @@ where
 ///
 /// Use this on system chains (not AssetHub) or Relay Chain for pallets that still use
 /// the legacy `Currency` trait (e.g., fee handlers, treasury burns).
+///
+/// Note: This handler does NOT emit events because it can be called very frequently
+/// (e.g., for every fee-paying transaction).
 ///
 /// # Example
 ///

@@ -156,6 +156,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
 /// Use this as `type Slash = SlashToDap<Runtime>` in staking-async config.
+///
+/// Note: This handler does NOT emit events because it can be called very frequently
+/// (e.g., for every fee-paying transaction via fee splitting).
 pub struct SlashToDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
@@ -183,6 +186,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 
 /// Implementation of OnUnbalanced for the old Currency trait (still used by treasury).
 /// Use this as `type BurnDestination = BurnToDap<Runtime, Balances>` e.g. in treasury config.
+///
+/// Note: This handler does NOT emit events because it can be called very frequently
+/// (e.g., for every fee-paying transaction via fee splitting).
 pub struct BurnToDap<T, C>(core::marker::PhantomData<(T, C)>);
 
 impl<T, C> OnUnbalanced<C::NegativeImbalance> for BurnToDap<T, C>
