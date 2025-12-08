@@ -368,6 +368,7 @@
 
 mod dropped_watcher;
 pub(crate) mod fork_aware_txpool;
+pub mod histograms;
 mod import_notification_sink;
 mod metrics;
 mod multi_view_listener;

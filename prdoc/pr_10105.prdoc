@@ -1,0 +1,14 @@
+title: 'rpc-v2/metrics: Align RPC metrics with tx pool metrics'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR syncs the tx pool metrics with the RPC layer metrics.
+
+    The TX Pool metrics are re-exported under a `histogram` module, such that the RPC layer can reuse the same settings. This ensures that the RPC will be in sync with the Tx Pool metrics for the reliability dashboards.
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/10067
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sc-transaction-pool
+  bump: patch
