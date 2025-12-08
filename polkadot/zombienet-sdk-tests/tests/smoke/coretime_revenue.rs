@@ -25,7 +25,7 @@ use rococo::runtime_types::{
 		junctions::Junctions,
 		location::Location,
 	},
-	xcm::{VersionedAssetId, VersionedAssets, VersionedLocation},
+	xcm::{VersionedAssets, VersionedLocation},
 };
 
 use serde_json::json;
@@ -299,31 +299,30 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	// Teleport some Alice's tokens to the Coretime chain. Although her account is pre-funded on
 	// the PC, that is still neccessary to bootstrap RC's `CheckedAccount`.
-	// TODO: Uncomment the code below once finish testing (its failing due to a mismatch type)
-	// relay_client
-	// 	.tx()
-	// 	.sign_and_submit_default(
-	// 		&rococo::tx().xcm_pallet().teleport_assets(
-	// 			VersionedLocation::V4(Location {
-	// 				parents: 0,
-	// 				interior: Junctions::X1([Junction::Parachain(1005)]),
-	// 			}),
-	// 			VersionedLocation::V4(Location {
-	// 				parents: 0,
-	// 				interior: Junctions::X1([Junction::AccountId32 {
-	// 					network: None,
-	// 					id: alice.public_key().0,
-	// 				}]),
-	// 			}),
-	// 			VersionedAssets::V4(Assets(vec![Asset {
-	// 				id: AssetId(Location { parents: 0, interior: Junctions::Here }),
-	// 				fun: Fungibility::Fungible(1_500_000_000),
-	// 			}])),
-	// 			VersionedAssetId::V4(AssetId(Location { parents: 0, interior: Junctions::Here })),
-	// 		),
-	// 		&alice,
-	// 	)
-	// 	.await?;
+	relay_client
+		.tx()
+		.sign_and_submit_default(
+			&rococo::tx().xcm_pallet().teleport_assets(
+				VersionedLocation::V4(Location {
+					parents: 0,
+					interior: Junctions::X1([Junction::Parachain(1005)]),
+				}),
+				VersionedLocation::V4(Location {
+					parents: 0,
+					interior: Junctions::X1([Junction::AccountId32 {
+						network: None,
+						id: alice.public_key().0,
+					}]),
+				}),
+				VersionedAssets::V4(Assets(vec![Asset {
+					id: AssetId(Location { parents: 0, interior: Junctions::Here }),
+					fun: Fungibility::Fungible(1_500_000_000),
+				}])),
+				0,
+			),
+			&alice,
+		)
+		.await?;
 
 	wait_for_event(
 		para_events.clone(),
