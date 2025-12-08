@@ -106,7 +106,12 @@ pub mod pallet {
 	use super::*;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: frame_support::traits::StorageVersion =
+		frame_support::traits::StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -123,6 +128,47 @@ pub mod pallet {
 		/// This account accumulates funds locally before they are sent to AssetHub.
 		pub fn satellite_account() -> T::AccountId {
 			DAP_SATELLITE_PALLET_ID.into_account_truncating()
+		}
+
+		/// Ensure the satellite account exists by incrementing its provider count.
+		///
+		/// This is called at genesis and on runtime upgrade.
+		/// It's idempotent - calling it multiple times is safe.
+		pub fn ensure_satellite_account_exists() {
+			let satellite = Self::satellite_account();
+			if !frame_system::Pallet::<T>::account_exists(&satellite) {
+				frame_system::Pallet::<T>::inc_providers(&satellite);
+				log::info!(
+					target: LOG_TARGET,
+					"Created DAP satellite account: {satellite:?}"
+				);
+			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// Create the satellite account if it doesn't exist (for chains upgrading to DAP).
+			Self::ensure_satellite_account_exists();
+			// Weight: 1 read (account_exists) + potentially 1 write (inc_providers)
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	/// Genesis config for the DAP Satellite pallet.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(skip)]
+		_phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			// Create the satellite account at genesis so it can receive funds of any amount.
+			Pallet::<T>::ensure_satellite_account_exists();
 		}
 	}
 
@@ -156,8 +202,6 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellit
 	) -> Result<(), DispatchError> {
 		let satellite = Pallet::<T>::satellite_account();
 
-		// Similarly to pallet-dap, we use withdraw + resolve instead of transfer to avoid the ED
-		// requirement for the destination account.
 		let credit = T::Currency::withdraw(
 			source,
 			amount,
@@ -166,13 +210,12 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellit
 			Fortitude::Polite,
 		)?;
 
-		// Following the same pattern as pallet-dap: if resolve fails (e.g., satellite account
-		// doesn't exist or amount < ED), the credit is dropped which burns the funds.
+		// The satellite account is created at genesis or on_runtime_upgrade, so resolve should
+		// always succeed. If it somehow fails, log the error and let the credit drop (burn).
 		let _ = T::Currency::resolve(&satellite, credit).map_err(|c| {
-			log::warn!(
+			log::error!(
 				target: LOG_TARGET,
-				"💸 Failed to resolve {:?} to satellite account (account may not exist or amount < ED) \
-				- funds will be burned instead",
+				"💸 Failed to resolve {:?} to satellite account - funds will be burned instead",
 				c.peek()
 			);
 			drop(c);
@@ -215,7 +258,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToSatellite<T> {
 		let satellite = Pallet::<T>::satellite_account();
 		let numeric_amount = amount.peek();
 
-		// Resolve the imbalance by depositing into the satellite account
+		// The satellite account is created at genesis or on_runtime_upgrade, so resolve should
+		// always succeed. If it somehow fails, log the error.
 		if let Err(remaining) = T::Currency::resolve(&satellite, amount) {
 			let remaining_amount = remaining.peek();
 			if !remaining_amount.is_zero() {
@@ -386,6 +430,9 @@ mod tests {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+		crate::pallet::GenesisConfig::<Test>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
 		t.into()
 	}
 
@@ -395,6 +442,15 @@ mod tests {
 			let satellite = DapSatellite::satellite_account();
 			let expected: u64 = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 			assert_eq!(satellite, expected);
+		});
+	}
+
+	#[test]
+	fn genesis_creates_satellite_account() {
+		new_test_ext().execute_with(|| {
+			let satellite = DapSatellite::satellite_account();
+			// Satellite account should exist after genesis (created via inc_providers)
+			assert!(System::account_exists(&satellite));
 		});
 	}
 

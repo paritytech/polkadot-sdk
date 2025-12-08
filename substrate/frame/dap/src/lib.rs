@@ -55,7 +55,12 @@ pub mod pallet {
 	use super::*;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: frame_support::traits::StorageVersion =
+		frame_support::traits::StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -70,6 +75,47 @@ pub mod pallet {
 		/// Get the DAP buffer account derived from the pallet ID.
 		pub fn buffer_account() -> T::AccountId {
 			DAP_PALLET_ID.into_account_truncating()
+		}
+
+		/// Ensure the buffer account exists by incrementing its provider count.
+		///
+		/// This is called at genesis and on runtime upgrade.
+		/// It's idempotent - calling it multiple times is safe.
+		pub fn ensure_buffer_account_exists() {
+			let buffer = Self::buffer_account();
+			if !frame_system::Pallet::<T>::account_exists(&buffer) {
+				frame_system::Pallet::<T>::inc_providers(&buffer);
+				log::info!(
+					target: LOG_TARGET,
+					"Created DAP buffer account: {buffer:?}"
+				);
+			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// Create the buffer account if it doesn't exist (for chains upgrading to DAP).
+			Self::ensure_buffer_account_exists();
+			// Weight: 1 read (account_exists) + potentially 1 write (inc_providers)
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	/// Genesis config for the DAP pallet.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(skip)]
+		_phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			// Create the buffer account at genesis so it can receive funds of any amount.
+			Pallet::<T>::ensure_buffer_account_exists();
 		}
 	}
 
@@ -112,12 +158,6 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 	) -> Result<(), DispatchError> {
 		let buffer = Pallet::<T>::buffer_account();
 
-		// We use withdraw + resolve instead of transfer to avoid the ED requirement for the
-		// destination account. This way, we can also avoid the migration on production and the
-		// genesis configuration's update for benchmark / tests to ensure the destination
-		// account pre-exists.
-		// This imbalance-based approach is the same used e.g. for the StakingPot in system
-		// parachains.
 		let credit = T::Currency::withdraw(
 			source,
 			amount,
@@ -126,14 +166,12 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 			Fortitude::Polite,
 		)?;
 
-		// Following the same pattern as `ResolveTo` used by StakingPot: if resolve fails
-		// (e.g., buffer account doesn't exist or amount < ED), the credit is dropped which
-		// burns the funds.
+		// The buffer account is created at genesis or on_runtime_upgrade, so resolve should
+		// always succeed. If it somehow fails, log the error and let the credit drop (burn).
 		let _ = T::Currency::resolve(&buffer, credit).map_err(|c| {
-			log::warn!(
+			log::error!(
 				target: LOG_TARGET,
-				"💸 Failed to resolve {:?} to DAP buffer (account may not exist or amount < ED) \
-				- funds will be burned instead",
+				"💸 Failed to resolve {:?} to DAP buffer - funds will be burned instead",
 				c.peek()
 			);
 			drop(c);
@@ -166,7 +204,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 		let buffer = Pallet::<T>::buffer_account();
 		let numeric_amount = amount.peek();
 
-		// Resolve the imbalance by depositing into the buffer account
+		// The buffer account is created at genesis or on_runtime_upgrade, so resolve should
+		// always succeed. If it somehow fails, log the error.
 		if let Err(remaining) = T::Currency::resolve(&buffer, amount) {
 			let remaining_amount = remaining.peek();
 			if !remaining_amount.is_zero() {
@@ -256,6 +295,9 @@ mod tests {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+		crate::pallet::GenesisConfig::<Test>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
 		t.into()
 	}
 
@@ -265,6 +307,15 @@ mod tests {
 			let buffer = Dap::buffer_account();
 			let expected: u64 = DAP_PALLET_ID.into_account_truncating();
 			assert_eq!(buffer, expected);
+		});
+	}
+
+	#[test]
+	fn genesis_creates_buffer_account() {
+		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+			// Buffer account should exist after genesis (created via inc_providers)
+			assert!(System::account_exists(&buffer));
 		});
 	}
 
