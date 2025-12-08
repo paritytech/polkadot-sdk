@@ -349,6 +349,13 @@ pub(crate) fn set_up_eth_and_dot_pool() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			Location::parent(),
+			&ethereum_sovereign,
+			INITIAL_FUND,
+		));
+	});
 	create_pool_with_native_on!(AssetHubWestend, eth_location(), true, ethereum_sovereign.clone());
 }
 

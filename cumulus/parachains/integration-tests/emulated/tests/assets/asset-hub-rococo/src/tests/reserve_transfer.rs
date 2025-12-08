@@ -1565,6 +1565,13 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 			10_000_000_000_000, // For it to have more than enough.
 		));
 
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint(
+			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+			relay_asset.clone().into(),
+			PenpalBReceiver::get().into(),
+			10_000_000_000_000, // For it to have more than enough.
+		));
+
 		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::create_pool(
 			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBReceiver::get()),
 			Box::new(relay_asset.clone()),

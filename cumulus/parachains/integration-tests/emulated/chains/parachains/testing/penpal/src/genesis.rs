@@ -87,6 +87,7 @@ pub fn genesis(para_id: u32) -> Storage {
 				// USDT from AssetHub
 				(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), true, USDT_ED),
 			],
+			accounts: vec![(RelayLocation::get(), PenpalAssetOwner::get(), ED * 4096)],
 			..Default::default()
 		},
 		..Default::default()
