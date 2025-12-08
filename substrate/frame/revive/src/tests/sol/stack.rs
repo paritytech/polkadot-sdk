@@ -18,12 +18,10 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, U256,
 };
-use alloy_core::primitives::U256;
 use frame_support::traits::fungible::Mutate;
 use pretty_assertions::assert_eq;
-
 use revm::bytecode::opcode::*;
 
 #[test]
@@ -51,7 +49,7 @@ fn push_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -85,7 +83,7 @@ fn pop_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -119,7 +117,7 @@ fn dup_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -153,7 +151,7 @@ fn swap_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);

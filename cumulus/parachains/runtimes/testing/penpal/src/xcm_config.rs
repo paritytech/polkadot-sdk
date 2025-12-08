@@ -318,10 +318,6 @@ parameter_types! {
 	pub AssetsPalletLocation: Location =
 		Location::new(0, [PalletInstance(ASSETS_PALLET_ID)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub LocalTeleportableToAssetHub: Location = Location::new(
-		0,
-		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
-	);
 	pub LocalReservableFromAssetHub: Location = Location::new(
 		1,
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
@@ -337,6 +333,10 @@ parameter_types! {
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
+	pub storage LocalTeleportableToAssetHub: Location = Location::new(
+		0,
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+	);
 
 	pub const NativeAssetId: AssetId = AssetId(Location::here());
 	pub const NativeAssetFilter: AssetFilter = Wild(AllOf { fun: WildFungible, id: NativeAssetId::get() });
@@ -532,13 +532,4 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
-pub struct XcmBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<ForeignAssetsAssetId> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> ForeignAssetsAssetId {
-		Location::new(1, [Parachain(id)])
-	}
 }

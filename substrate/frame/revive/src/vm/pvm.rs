@@ -23,13 +23,12 @@ pub mod env;
 pub use env::SyscallDoc;
 
 use crate::{
-	evm::runtime::GAS_PRICE,
-	exec::{ExecError, ExecResult, Ext, Key},
-	gas::ChargedAmount,
+	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
+	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	BalanceOf, Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -271,7 +270,7 @@ impl fmt::Display for TrapReason {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge($costs)
+		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
 	}};
 }
 
@@ -357,7 +356,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
+		self.ext.frame_meter_mut().adjust_weight(charged, actual_costs);
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -503,8 +502,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			StorageValue::Value(data) => data.len() as u32,
 		};
 
-		let max_size = self.ext.max_value_size();
-		let charged = self.charge_gas(costs(value_len, self.ext.max_value_size()))?;
+		let max_size = limits::STORAGE_BYTES;
+		let charged = self.charge_gas(costs(value_len, max_size))?;
 		if value_len > max_size {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
@@ -541,7 +540,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				RuntimeCosts::ClearStorage(len)
 			}
 		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
@@ -569,7 +568,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				RuntimeCosts::GetStorage(len)
 			}
 		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let outcome = if transient {
 			self.ext.get_transient_storage(&key)
@@ -626,82 +625,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	fn contains_storage(
-		&mut self,
-		memory: &M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::ContainsTransientStorage(len)
-			} else {
-				RuntimeCosts::ContainsStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
-		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let outcome = if transient {
-			self.ext.get_transient_storage_size(&key)
-		} else {
-			self.ext.get_storage_size(&key)
-		};
-		self.adjust_gas(charged, costs(outcome.unwrap_or(0)));
-		Ok(outcome.unwrap_or(SENTINEL))
-	}
-
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::TakeTransientStorage(len)
-			} else {
-				RuntimeCosts::TakeStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
-		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let outcome = if transient {
-			self.ext.set_transient_storage(&key, None, true)?
-		} else {
-			self.ext.set_storage(&key, None, true)?
-		};
-
-		if let crate::storage::WriteOutcome::Taken(value) = outcome {
-			self.adjust_gas(charged, costs(value.len() as u32));
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&value,
-				false,
-				already_charged,
-			)?;
-			Ok(ReturnErrorCode::Success)
-		} else {
-			self.adjust_gas(charged, costs(0));
-			Ok(ReturnErrorCode::KeyNotFound)
-		}
-	}
-
 	fn call(
 		&mut self,
 		memory: &mut M,
 		flags: CallFlags,
 		call_type: CallType,
 		callee_ptr: u32,
-		deposit_ptr: u32,
-		weight: Weight,
+		resources: &CallResources<E::T>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -715,8 +645,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
-
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		// we do check this in exec.rs but we want to error out early
 		if input_data_len > limits::CALLDATA_BYTES {
@@ -755,21 +683,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
-				self.ext.call(
-					weight,
-					deposit_limit,
-					&callee,
-					value,
-					input_data,
-					flags.contains(CallFlags::ALLOW_REENTRY),
-					read_only,
-				)
+
+				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
+					ReentrancyProtection::AllowReentry
+				} else {
+					ReentrancyProtection::Strict
+				};
+
+				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
+				self.ext.delegate_call(resources, callee, input_data)
 			},
 		};
 
@@ -853,8 +780,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
-			weight,
-			deposit_limit,
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
@@ -894,11 +820,7 @@ pub struct PreparedCall<'a, E: Ext> {
 	runtime: Runtime<'a, E, polkavm::RawInstance>,
 }
 
-impl<'a, E: Ext> PreparedCall<'a, E>
-where
-	BalanceOf<E::T>: Into<U256>,
-	BalanceOf<E::T>: TryFrom<U256>,
-{
+impl<'a, E: Ext> PreparedCall<'a, E> {
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
@@ -908,7 +830,7 @@ where
 				break exec_result
 			}
 		};
-		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
+		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
 

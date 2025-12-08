@@ -17,7 +17,28 @@
 //! Utility impl for the RPC types.
 use super::*;
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use frame_support::DefaultNoBound;
+use scale_info::TypeInfo;
 use sp_core::{H160, U256};
+
+/// Configuration specific to a dry-run execution.
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, DefaultNoBound)]
+pub struct DryRunConfig<Moment> {
+	/// Optional timestamp override for dry-run in pending block.
+	pub timestamp_override: Option<Moment>,
+	/// Used for future extensions without breaking encoding.
+	pub reserved: Option<()>,
+}
+impl<Moment> DryRunConfig<Moment> {
+	/// Create a new `DryRunConfig` with an optional timestamp override.
+	pub fn new(timestamp_override: Option<Moment>) -> Self {
+		Self {
+			timestamp_override,
+			reserved: None, // default value
+		}
+	}
+}
 
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {
@@ -209,6 +230,20 @@ impl GenericTransaction {
 		Self::from_unsigned(tx.into(), base_gas_price, from)
 	}
 
+	/// The gas price that is actually paid (including priority fee).
+	pub fn effective_gas_price(&self, base_gas_price: U256) -> Option<U256> {
+		let effective_gas_price = if let Some(prio_price) = self.max_priority_fee_per_gas {
+			let max_price = self.max_fee_per_gas?;
+			Some(max_price.min(base_gas_price.saturating_add(prio_price)))
+		} else {
+			self.gas_price
+		};
+
+		// we do not implement priority fee as it does not map to tip well
+		// hence the effective gas price cannot be higher than the base price
+		effective_gas_price.map(|e| e.min(base_gas_price))
+	}
+
 	/// Create a new [`GenericTransaction`] from a unsigned transaction.
 	pub fn from_unsigned(
 		tx: TransactionUnsigned,
@@ -216,7 +251,7 @@ impl GenericTransaction {
 		from: Option<H160>,
 	) -> Self {
 		use TransactionUnsigned::*;
-		match tx {
+		let mut tx = match tx {
 			TransactionLegacyUnsigned(tx) => GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
@@ -238,11 +273,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_blob_gas),
-				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
 				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
@@ -259,11 +289,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
@@ -289,20 +314,17 @@ impl GenericTransaction {
 				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
-				to: tx.to,
+				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				authorization_list: tx.authorization_list,
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
 				..Default::default()
 			},
-		}
+		};
+		tx.gas_price = tx.effective_gas_price(base_gas_price);
+		tx
 	}
 
 	/// Convert to a [`TransactionUnsigned`].
@@ -366,7 +388,7 @@ impl GenericTransaction {
 				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
-				to: self.to,
+				to: self.to.unwrap_or_default(),
 				gas: self.gas.unwrap_or_default(),
 				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
@@ -390,12 +412,12 @@ fn from_unsigned_works_for_legacy() {
 		value: U256::from(1),
 		to: Some(H160::zero()),
 		gas: U256::from(1),
-		gas_price: U256::from(11),
+		gas_price: U256::from(10),
 		..Default::default()
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -418,7 +440,7 @@ fn from_unsigned_works_for_1559() {
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -432,7 +454,7 @@ fn from_unsigned_works_for_7702() {
 		input: Bytes::from(vec![1u8]),
 		nonce: U256::from(1),
 		value: U256::from(1),
-		to: Some(H160::zero()),
+		to: H160::zero(),
 		gas: U256::from(1),
 		gas_price: U256::from(20),
 		max_fee_per_gas: U256::from(20),
@@ -449,7 +471,7 @@ fn from_unsigned_works_for_7702() {
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);

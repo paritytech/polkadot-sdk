@@ -26,6 +26,11 @@ use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
+/// The ref time per core in seconds.
+///
+/// This is the execution time each PoV gets on a core on the relay chain.
+pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
+
 pub mod parachain_block_data;
 
 pub use parachain_block_data::ParachainBlockData;
@@ -284,7 +289,7 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
+	/// Returns the found [`CoreInfo`] and iff [`Self::CoreInfo`] exists at max once in the given
 	/// `digest`.
 	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
 		let mut core_info = None;
@@ -492,5 +497,20 @@ sp_api::decl_runtime_apis! {
 	pub trait RelayParentOffsetApi {
 		/// Fetch the slot offset that is expected from the relay chain.
 		fn relay_parent_offset() -> u32;
+	}
+
+	/// API for parachain target block rate.
+	///
+	/// This runtime API allows the parachain runtime to communicate the target block rate
+	/// to the node side. The target block rate is always valid for the next relay chain slot.
+	///
+	/// The runtime can not enforce this target block rate. It only acts as a maximum, but not more.
+	/// In the end it depends on the collator how many blocks will be produced. If there are no cores
+	/// available or the collator is offline, no blocks at all will be produced.
+	pub trait TargetBlockRate {
+		/// Get the target block rate for this parachain.
+		///
+		/// Returns the target number of blocks per relay chain slot.
+		fn target_block_rate() -> u32;
 	}
 }

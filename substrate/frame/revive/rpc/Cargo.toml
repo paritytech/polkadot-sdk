@@ -12,6 +12,9 @@ default-run = "eth-rpc"
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"
@@ -31,12 +34,14 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
@@ -48,8 +53,11 @@ tokio = { workspace = true, features = ["full"] }
 env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
-static_init = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
+revive-dev-node = { workspace = true }
+sp-io = { workspace = true, default-features = true }
 
 [build-dependencies]
 git2 = { workspace = true }
+revive-dev-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

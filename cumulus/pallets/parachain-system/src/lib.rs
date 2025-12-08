@@ -33,9 +33,10 @@ use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
-	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -55,7 +56,7 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
+	traits::{BlockNumberProvider, Hash},
 	FixedU128, RuntimeDebug, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
@@ -96,12 +97,10 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 ///     struct BlockExecutor;
 ///     struct Runtime;
-///     struct CheckInherents;
 ///
 ///     cumulus_pallet_parachain_system::register_validate_block! {
 ///         Runtime = Runtime,
 ///         BlockExecutor = Executive,
-///         CheckInherents = CheckInherents,
 ///     }
 ///
 /// # fn main() {}
@@ -363,10 +362,17 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the core selector UMP signal. This is experimental until relay chain
-				// validators are upgraded to handle ump signals.
-				#[cfg(feature = "experimental-ump-signals")]
-				Self::send_ump_signal();
+				if let Some(core_info) =
+					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+				{
+					PendingUpwardSignals::<T>::append(
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					);
+				}
+
+				// Send the pending UMP signals.
+				Self::send_ump_signals();
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -579,7 +585,7 @@ pub mod pallet {
 			// TODO: This is more than zero, but will need benchmarking to figure out what.
 			let mut total_weight = Weight::zero();
 
-			// NOTE: the inherent data is expected to be unique, even if this block is built
+			// NOTE: the inherent data is expected to be unique, even if this block is build
 			// in the context of the same relay parent as the previous one. In particular,
 			// the inherent shouldn't contain messages that were already processed by any of the
 			// ancestors.
@@ -589,7 +595,7 @@ pub mod pallet {
 				validation_data: vfp,
 				relay_chain_state,
 				relay_parent_descendants,
-				collator_peer_id: _,
+				collator_peer_id,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -637,7 +643,7 @@ pub mod pallet {
 				),
 			);
 
-			// initialization logic: we know that this runs exactly once every block,
+			// Initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			let upgrade_go_ahead_signal = relay_state_proof
@@ -696,6 +702,12 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
+
+			if let Some(collator_peer_id) = collator_peer_id {
+				PendingUpwardSignals::<T>::append(
+					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
+				);
+			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
@@ -798,8 +810,8 @@ pub mod pallet {
 	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
-	/// This value is expected to be set only once per block and it's never stored
-	/// in the trie.
+	///
+	/// This value is expected to be set only once by the [`Pallet::set_validation_data`] inherent.
 	#[pallet::storage]
 	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
@@ -909,13 +921,19 @@ pub mod pallet {
 
 	/// Upward messages that were sent in a block.
 	///
-	/// This will be cleared in `on_initialize` of each new block.
+	/// This will be cleared in `on_initialize` for each new block.
 	#[pallet::storage]
 	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Upward messages that are still pending and not yet send to the relay chain.
+	/// Upward messages that are still pending and not yet sent to the relay chain.
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// Upward signals that are still pending and not yet sent to the relay chain.
+	///
+	/// This will be cleared in `on_finalize` for each block.
+	#[pallet::storage]
+	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1511,24 +1529,13 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the ump signals
-	#[cfg(feature = "experimental-ump-signals")]
-	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
-
-		UpwardMessages::<T>::mutate(|up| {
-			if let Some(core_info) =
-				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-			{
-				up.push(UMP_SEPARATOR);
-
-				// Send the core selector signal.
-				up.push(
-					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-						.encode(),
-				);
-			}
-		});
+	/// Send the pending ump signals
+	fn send_ump_signals() {
+		let ump_signals = PendingUpwardSignals::<T>::take();
+		if !ump_signals.is_empty() {
+			UpwardMessages::<T>::append(UMP_SEPARATOR);
+			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
+		}
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
@@ -1749,34 +1756,6 @@ impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
 			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
 		}
-	}
-}
-
-/// Something that can check the inherents of a block.
-#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
-		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
-pub trait CheckInherents<Block: BlockT> {
-	/// Check all inherents of the block.
-	///
-	/// This function gets passed all the extrinsics of the block, so it is up to the callee to
-	/// identify the inherents. The `validation_data` can be used to access the
-	fn check_inherents(
-		block: &Block,
-		validation_data: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult;
-}
-
-/// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
-#[doc(hidden)]
-pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
-
-#[allow(deprecated)]
-impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
-	fn check_inherents(
-		_: &Block,
-		_: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult {
-		sp_inherents::CheckInherentsResult::new()
 	}
 }
 

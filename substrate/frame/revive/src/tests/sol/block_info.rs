@@ -20,176 +20,205 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::{U256Converter, BASE_FEE, DIFFICULTY},
-	Code, Config,
+	vm::evm::DIFFICULTY,
+	Code, Config, DryRunConfig, ExecConfig, Pallet,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
+use test_case::test_case;
 
 /// Tests that the blocknumber opcode works as expected.
-#[test]
-fn block_number_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn block_number_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			System::set_block_number(42);
+		System::set_block_number(42);
 
-			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {})
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(42u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(
+				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
+			)
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(42u64, decoded);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn block_number_dry_run_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		System::set_block_number(42);
+		let timestamp_override = Some(Timestamp::get() + 10_000);
+
+		let result = builder::bare_call(addr)
+			.data(
+				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
+			)
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig::new(timestamp_override)),
+			)
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(43u64, decoded);
+	});
 }
 
 /// Tests that the blockauthor opcode works as expected.
-#[test]
-fn block_author_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn block_author_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				Contracts::block_author().unwrap(),
-				// Padding is used into the 32 bytes
-				H160::from_slice(&result.data[12..])
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::coinbaseCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(Contracts::block_author(), H160::from_slice(decoded.as_slice()));
+	});
 }
 
 /// Tests that the chainid opcode works as expected.
-#[test]
-fn chainid_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn chainid_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(<Test as Config>::ChainId::get()),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::chainidCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(<Test as Config>::ChainId::get() as u64, decoded);
+	});
 }
 
 /// Tests that the timestamp opcode works as expected.
-#[test]
-fn timestamp_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			Timestamp::set_timestamp(2000);
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn timestamp_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Timestamp::set_timestamp(2000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
-				// milliseconds.
-				U256::from(Timestamp::get() / 1000),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
+			// milliseconds.
+			(Timestamp::get() / 1000) as u64,
+			decoded
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Timestamp::set_timestamp(2000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let timestamp_override = Timestamp::get() + 10_000;
+		let result: crate::ExecReturnValue = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
+			.exec_config(
+				ExecConfig::new_substrate_tx()
+					.with_dry_run(DryRunConfig::new(Some(timestamp_override))),
+			)
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
+			// milliseconds.
+			(timestamp_override / 1000) as u64,
+			decoded
+		);
+	});
 }
 
 /// Tests that the gaslimit opcode works as expected.
-#[test]
-fn gaslimit_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn gaslimit_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(
-					<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
-				),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::gaslimitCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(<Pallet<Test>>::evm_block_gas_limit(), decoded.into());
+	});
 }
 
 /// Tests that the basefee opcode works as expected.
-#[test]
-fn basefee_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn base_fee_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				BASE_FEE.into_revm_u256(),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::basefeeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(<crate::Pallet<Test>>::evm_base_fee().as_u64(), decoded);
+	});
 }
 
 /// Tests that the difficulty opcode works as expected.
-#[test]
-fn difficulty_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn difficulty_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {})
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				// Alligned with the value set for PVM
-				U256::from(DIFFICULTY),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::difficultyCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			// Aligned with the value set for PVM (truncated to u64)
+			DIFFICULTY as u64,
+			decoded
+		);
+	});
 }

@@ -1,0 +1,35 @@
+title: Fix termination
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR fixes up termination by changing the behavior to:
+
+    - The free balance (without ed) should be send away right away to the beneficiary and not be delayed like the contract deletion.
+    - The ed and storage deposit will be send away only when terminating but to the origin (delayed).
+    - The scheduling of the terminate needs to be reverted if the scheduling frame reverts.
+    - `SELFDESTRUCT` should be allowed inside the constructor. The issuing contract will exist as account without code for the remainder of the transaction.
+    - The `terminate` pre-compile should revert if delegate called or its caller was delegate called. This is just my opinion but if we are changing semantics we can might as well add some security. We are increasing the attack surface by allowing the destruction of any contract (not only created in the current tx).
+
+
+    ## Other fixes
+    - Storage refunds should no longer use `BestEffort`. This is necessary to fail refunds in case some other locks (due to participation in gov for example) prevent sending them away. This is in anticipation of new pre-compiles.
+    - Moved pre-compile interfaces to sol files and made them available to fixtures
+    - Added some Solidity written tests to exercise error cases
+
+
+    ## Further tests needed
+
+    Those should all be written in Solidity to test both backends at the same time. No more Rust fixtures.
+
+    @0xRVE can you take those over as I am ooo.
+
+    - Test that checks that scheduled deletions do properly roll back if a frame fails
+    - Test that value send to a contract after scheduling for deletion is send to the beneficiary (different from Eth where this balance is lost)
+    - Add tests that use `SELFDESTRUCT` to `Terminate.sol`. Need https://github.com/paritytech/devops/issues/4508 but can be tested locally with newest `resolc`.
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

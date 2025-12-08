@@ -40,6 +40,10 @@ struct MetricsInner {
 
 	/// The disputes fetched from the runtime.
 	fetched_onchain_disputes: prometheus::Counter<prometheus::U64>,
+
+	/// The difference between the number of backed candidates in a block and the number of
+	/// backable candidates on the node side.
+	backable_vs_in_block: prometheus::Histogram,
 }
 
 /// Provisioner metrics.
@@ -153,6 +157,10 @@ impl Metrics {
 			metrics.fetched_onchain_disputes.inc_by(onchain_count);
 		}
 	}
+
+	pub(crate) fn observe_backable_vs_in_block(&self, diff: isize) {
+		self.0.as_ref().map(|metrics| metrics.backable_vs_in_block.observe(diff as f64));
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -205,6 +213,15 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_provisioner_inherent_data_response_bitfields_sent",
 						"Number of inherent bitfields sent in response to `ProvisionerMessage::RequestInherentData`.",
 					).buckets(vec![0.0, 25.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 400.0, 500.0, 600.0]),
+				)?,
+				registry,
+			)?,
+			backable_vs_in_block: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_provisioner_backable_vs_in_block",
+						"Difference between number of backable blocks and number of backed candidates in block",
+					).buckets(vec![-100.0, -50.0, -40.0, -30.0, -20.0, -15.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 100.0]),
 				)?,
 				registry,
 			)?,
