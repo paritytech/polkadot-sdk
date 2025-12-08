@@ -241,7 +241,15 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		"before client.runtime_api()"
+	);
 	let runtime_api = client.runtime_api();
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		"after client.runtime_api()"
+	);
 	let authorities = runtime_api.authorities(parent_hash).ok();
 	tracing::debug!(
 		target: crate::LOG_TARGET,
