@@ -65,8 +65,14 @@ impl<T: Config> SignedGas<T> {
 
 		match deposit {
 			StorageDeposit::Charge(amount) => Positive(multiplier.saturating_mul_int(*amount)),
-			StorageDeposit::Refund(amount) if *amount == Default::default() => Positive(*amount),
-			StorageDeposit::Refund(amount) => Negative(multiplier.saturating_mul_int(*amount)),
+			StorageDeposit::Refund(amount) => {
+				let scaled_amount = multiplier.saturating_mul_int(*amount);
+				if scaled_amount == Default::default() {
+					Positive(scaled_amount)
+				} else {
+					Negative(scaled_amount)
+				}
+			},
 		}
 	}
 

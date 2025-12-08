@@ -43,6 +43,24 @@ enum Charge {
 	D(i64),
 }
 
+#[test]
+fn test_deposit_calculation() {
+	use super::SignedGas;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(2, 1))
+		.build()
+		.execute_with(|| {
+			let deposit1 = StorageDeposit::Refund(10);
+			let gas_result1 = SignedGas::<Test>::from_adjusted_deposit_charge(&deposit1);
+			assert_eq!(gas_result1, SignedGas::Negative(BalanceOf::<Test>::from(5u32)));
+
+			let deposit2 = StorageDeposit::Refund(1);
+			let gas_result2 = SignedGas::<Test>::from_adjusted_deposit_charge(&deposit2);
+			assert_eq!(gas_result2, SignedGas::Positive(BalanceOf::<Test>::from(0u32)));
+		});
+}
+
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
