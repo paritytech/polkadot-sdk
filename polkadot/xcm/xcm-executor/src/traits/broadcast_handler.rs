@@ -14,30 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{test_utils::*, *};
-use alloc::{vec, vec::Vec};
-use frame_support::{
-	assert_err,
-	traits::{ConstU32, ContainsPair, ProcessMessageError},
-	weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
-};
-use xcm_executor::{traits::prelude::*, Config, XcmExecutor};
+//! Traits for handling publish operations in XCM.
 
-mod mock;
-use mock::*;
+use xcm::latest::{Location, PublishData, Result as XcmResult};
 
-mod aliases;
-mod assets;
-mod barriers;
-mod basic;
-mod bridging;
-mod expecting;
-mod locking;
-mod origins;
-mod pay;
-mod publish;
-mod querying;
-mod routing;
-mod transacting;
-mod version_subscriptions;
-mod weight;
+/// Trait for handling publish operations on the relay chain.
+pub trait BroadcastHandler {
+	/// Handle publish operation from the given origin.
+	/// Should validate origin authorization and extract necessary data.
+	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult;
+}
+
+/// Implementation of `BroadcastHandler` for the unit type `()`.
+impl BroadcastHandler for () {
+	fn handle_publish(_origin: &Location, _data: PublishData) -> XcmResult {
+		// No-op implementation for unit type
+		Ok(())
+	}
+}
