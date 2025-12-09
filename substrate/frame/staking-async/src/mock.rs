@@ -111,8 +111,13 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {

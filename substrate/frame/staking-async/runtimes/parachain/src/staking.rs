@@ -470,8 +470,13 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ConstU32<4>;
 }
 
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {

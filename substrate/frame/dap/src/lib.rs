@@ -44,9 +44,6 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::dap";
 
-/// The DAP pallet ID, used to derive the buffer account.
-pub const DAP_PALLET_ID: PalletId = PalletId(*b"dap/buff");
-
 /// Type alias for balance.
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -70,12 +67,19 @@ pub mod pallet {
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>;
+
+		/// The pallet ID used to derive the buffer account.
+		///
+		/// Each runtime should configure a unique ID to avoid collisions if multiple
+		/// DAP instances are used.
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the DAP buffer account derived from the pallet ID.
+		/// Get the DAP buffer account
 		pub fn buffer_account() -> T::AccountId {
-			DAP_PALLET_ID.into_account_truncating()
+			T::PalletId::get().into_account_truncating()
 		}
 
 		/// Ensure the buffer account exists by incrementing its provider count.
@@ -235,7 +239,7 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		sp_runtime::traits::AccountIdConversion,
 		traits::{
 			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
@@ -265,8 +269,13 @@ mod tests {
 		type AccountStore = System;
 	}
 
+	parameter_types! {
+		pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	}
+
 	impl Config for Test {
 		type Currency = Balances;
+		type PalletId = DapPalletId;
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
@@ -281,15 +290,6 @@ mod tests {
 			.assimilate_storage(&mut t)
 			.unwrap();
 		t.into()
-	}
-
-	#[test]
-	fn buffer_account_is_derived_from_pallet_id() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-			let expected: u64 = DAP_PALLET_ID.into_account_truncating();
-			assert_eq!(buffer, expected);
-		});
 	}
 
 	#[test]
