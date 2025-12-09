@@ -1,0 +1,10 @@
+title: Fix the `CodeNotFound` issue in PolkaVM tests
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR bumps the commit hash of the revive-differential-tests framework to a version that contains a fix for the `CodeNotFound` issue we've been seeing with PolkaVM. The framework now uploads the code of all the contracts prior to running the tests.
+
+    When CI runs for this PR we should observe that there's either no more `CodeNotFound` errors in PolkaVM tests or that it's greatly reduced.
+crates: []

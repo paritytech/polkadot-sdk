@@ -86,7 +86,7 @@ jobs:
       - name: Upload artifacts for later jobs
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ inputs.package_type }}
           path: release-artifacts/polkadot/*.${{ inputs.package_type }}
 
   publish-package:
@@ -120,7 +120,7 @@ jobs:
       - name: Download artifacts from previous job
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ inputs.package_type }}
           path: release-artifacts
 
       - name: Setup local deb repo config
@@ -130,14 +130,12 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH/conf"
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
 
-      - name: Sync repo, import keys, sign, and update metadata
+      - name: Sync local repo
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
-          PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
-          # --- Sync Repo from S3 ---
+          # --- Sync Local Repo from S3 ---
           mkdir -p "$LOCAL_REPO_PATH"
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             aws s3 sync "$AWS_REPO_PATH/db" "$LOCAL_REPO_PATH/db" || true
@@ -147,6 +145,13 @@ jobs:
             aws s3 sync "$AWS_REPO_PATH" "$LOCAL_REPO_PATH" || true
           fi
 
+      - name: Add packages to local repo, sign, and update metadata
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+          PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+        run: |
           . ./.github/scripts/common/lib.sh
           import_gpg_keys
 

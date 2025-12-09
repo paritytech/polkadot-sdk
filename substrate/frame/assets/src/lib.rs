@@ -739,6 +739,14 @@ pub mod pallet {
 		TooManyReserves,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Issue a new class of fungible assets from a public origin.
@@ -1956,6 +1964,73 @@ pub mod pallet {
 		fn reserves(id: &T::AssetId) -> Vec<T::ReserveData> {
 			Reserves::<T, I>::get(id).into_inner()
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for asset_id in Reserves::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Reserves data found");
+		}
+
+		for asset_id in Metadata::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Metadata found");
+		}
+
+		for (asset_id, _, _) in Approvals::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Approval found");
+		}
+
+		for (asset_id, _) in Account::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Account found");
+		}
+
+		for (asset_id, details) in Asset::<T, I>::iter() {
+			if details.status == AssetStatus::Destroying {
+				continue;
+			}
+
+			let mut calculated_supply = T::Balance::zero();
+			let mut calculated_accounts = 0u32;
+			let mut calculated_sufficients = 0u32;
+
+			for (who, account) in Account::<T, I>::iter_prefix(&asset_id) {
+				let held = T::Holder::balance_on_hold(asset_id.clone(), &who).unwrap_or_default();
+				calculated_supply =
+					calculated_supply.saturating_add(account.balance).saturating_add(held);
+				calculated_accounts += 1;
+
+				if matches!(account.reason, ExistenceReason::Sufficient) {
+					calculated_sufficients += 1;
+				}
+
+				if account.balance < details.min_balance {
+					ensure!(
+						matches!(
+							account.reason,
+							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+						),
+						"Account below min_balance must have a deposit"
+					);
+				}
+			}
+
+			// Using >= instead of == because the provided `do_refund` implementation destroys
+			// the account balance without decrementing the asset supply. This causes the
+			// tracked supply to permanently exceed the actual sum of balances + holds
+			// whenever a refund occurs.
+			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
+			ensure!(details.accounts == calculated_accounts, "Asset account count mismatch");
+			ensure!(
+				details.sufficients == calculated_sufficients,
+				"Asset sufficients count mismatch"
+			);
+
+			let calculated_approvals = Approvals::<T, I>::iter_prefix((&asset_id,)).count() as u32;
+			ensure!(details.approvals == calculated_approvals, "Asset approvals count mismatch");
+		}
+		Ok(())
 	}
 }
 
