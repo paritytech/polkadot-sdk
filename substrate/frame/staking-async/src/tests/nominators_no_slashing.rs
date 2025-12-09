@@ -382,3 +382,43 @@ fn virtual_staker_unbonds_in_one_era() {
 		);
 	});
 }
+
+/// Test that `nominator_bonding_duration()` returns 1 when nominators are not slashable.
+///
+/// This is the method used by nomination-pools adapter to determine the unbonding period for
+/// pool members. When `AreNominatorsSlashable` is false, pool members should also unbond in 1 era.
+#[test]
+fn nominator_bonding_duration_returns_one_when_not_slashable() {
+	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
+		// When nominators are not slashable, nominator_bonding_duration should return 1
+		assert_eq!(
+			<Staking as StakingInterface>::nominator_bonding_duration(),
+			1,
+			"nominator_bonding_duration should be 1 when nominators are not slashable"
+		);
+
+		// But bonding_duration (for validators) should still be the full duration
+		assert_eq!(
+			<Staking as StakingInterface>::bonding_duration(),
+			BondingDuration::get(),
+			"bonding_duration should still be the full duration"
+		);
+
+		// Verify BondingDuration is greater than 1 to ensure test is meaningful
+		assert!(BondingDuration::get() > 1, "BondingDuration should be > 1 for this test");
+	});
+}
+
+/// Test that `nominator_bonding_duration()` returns full duration when nominators are slashable.
+#[test]
+fn nominator_bonding_duration_returns_full_when_slashable() {
+	// Default ExtBuilder has nominators_slashable = true
+	ExtBuilder::default().build_and_execute(|| {
+		// When nominators are slashable, nominator_bonding_duration should equal bonding_duration
+		assert_eq!(
+			<Staking as StakingInterface>::nominator_bonding_duration(),
+			<Staking as StakingInterface>::bonding_duration(),
+			"nominator_bonding_duration should equal bonding_duration when nominators are slashable"
+		);
+	});
+}
