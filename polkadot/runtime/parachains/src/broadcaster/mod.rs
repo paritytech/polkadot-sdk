@@ -49,7 +49,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
-	storage::{child::ChildInfo, types::CountedStorageMap},
+	storage::child::ChildInfo,
 	traits::{
 		defensive_prelude::*,
 		fungible::{
@@ -209,19 +209,6 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Child trie root for each publisher parachain.
-	///
-	/// Maps ParaId -> child_trie_root hash (32 bytes).
-	/// This allows selective inclusion in storage proofs - only roots for publishers
-	/// we're interested in need to be included.
-	#[pallet::storage]
-	pub type PublishedDataRoots<T: Config> = CountedStorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		[u8; 32],
-		OptionQuery,
-	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -471,7 +458,6 @@ pub mod pallet {
 
 			// Clean up tracking storage
 			PublishedKeys::<T>::remove(para_id);
-			PublishedDataRoots::<T>::remove(para_id);
 			PublisherExists::<T>::remove(para_id);
 
 			Ok(())
@@ -608,14 +594,6 @@ pub mod pallet {
 
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
 
-			// Update child trie root for storage proof verification
-			let child_root = frame_support::storage::child::root(&child_info,
-				sp_runtime::StateVersion::V1);
-
-			let root_array: [u8; 32] = child_root.try_into()
-				.defensive_unwrap_or([0u8; 32]);
-			PublishedDataRoots::<T>::insert(origin_para_id, root_array);
-
 			Self::deposit_event(Event::DataPublished { publisher: origin_para_id, items_count });
 
 			Ok(())
@@ -636,8 +614,9 @@ pub mod pallet {
 		/// Checks the maximum publishers limit before creating a new publisher entry.
 		fn get_or_create_publisher_child_info(para_id: ParaId) -> Result<ChildInfo, DispatchError> {
 			if !PublisherExists::<T>::contains_key(para_id) {
+				let current_publisher_count = PublisherExists::<T>::iter().count() as u32;
 				ensure!(
-					PublishedDataRoots::<T>::count() < T::MaxPublishers::get(),
+					current_publisher_count < T::MaxPublishers::get(),
 					Error::<T>::TooManyPublishers
 				);
 				PublisherExists::<T>::insert(para_id, true);

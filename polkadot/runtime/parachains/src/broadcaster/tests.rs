@@ -388,14 +388,6 @@ fn multiple_publishers_in_same_block() {
 		assert!(PublisherExists::<Test>::get(para2));
 		assert!(PublisherExists::<Test>::get(para3));
 
-		// Verify PublishedDataRoots contains all three
-		assert_eq!(PublishedDataRoots::<Test>::count(), 3);
-
-		// Verify each para has its root in the map
-		assert!(PublishedDataRoots::<Test>::contains_key(para1));
-		assert!(PublishedDataRoots::<Test>::contains_key(para2));
-		assert!(PublishedDataRoots::<Test>::contains_key(para3));
-
 		// Verify each para's data is independently accessible
 		assert_eq!(Broadcaster::get_published_value(para1, b"key1"), Some(b"value1".to_vec()));
 		assert_eq!(Broadcaster::get_published_value(para2, b"key2"), Some(b"value2".to_vec()));
@@ -423,7 +415,7 @@ fn max_publishers_limit_enforced() {
 			assert_ok!(Broadcaster::handle_publish(para_id, data));
 		}
 
-		assert_eq!(PublishedDataRoots::<Test>::count(), 1000);
+		assert_eq!(PublisherExists::<Test>::iter().count(), 1000);
 
 		// Cannot register new publisher when limit reached
 		let new_para = ParaId::from(3000);
@@ -461,13 +453,11 @@ fn cleanup_published_data_works() {
 
 		assert!(PublisherExists::<Test>::get(para_id));
 		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 2);
-		assert!(PublishedDataRoots::<Test>::get(para_id).is_some());
 
 		assert_ok!(Broadcaster::cleanup_published_data(RuntimeOrigin::signed(ALICE), para_id));
 
 		assert!(!PublisherExists::<Test>::get(para_id));
 		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
-		assert!(PublishedDataRoots::<Test>::get(para_id).is_none());
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), None);
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), None);
 		assert!(RegisteredPublishers::<Test>::get(para_id).is_some());
@@ -619,7 +609,6 @@ fn force_deregister_works() {
 		assert!(!PublisherExists::<Test>::get(para_id));
 		assert!(!RegisteredPublishers::<Test>::contains_key(para_id));
 		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
-		assert!(PublishedDataRoots::<Test>::get(para_id).is_none());
 		assert_eq!(Balances::balance_on_hold(&HoldReason::PublisherDeposit.into(), &ALICE), 0);
 		assert_eq!(Balances::balance(&ALICE), 10000);
 	});
