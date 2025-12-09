@@ -78,6 +78,8 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Get the DAP buffer account
+		/// NOTE: We may need more accounts in the future, for instance, to manage the strategic
+		/// reserve. We will add them as necessary, generating them with additional seed.
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
@@ -240,7 +242,6 @@ mod tests {
 	use super::*;
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, parameter_types,
-		sp_runtime::traits::AccountIdConversion,
 		traits::{
 			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
 			OnUnbalanced, WithdrawReasons,
