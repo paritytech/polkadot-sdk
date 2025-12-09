@@ -966,7 +966,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn apply_slash() -> Result<(), BenchmarkError> {
+	fn apply_slash(
+		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
@@ -981,8 +983,12 @@ mod benchmarks {
 		let slashed_balance = BalanceOf::<T>::from(10u32);
 
 		let slash_key = (validator.clone(), slash_fraction, page_index);
-		let slashed_nominators =
-			nominators.iter().map(|(n, _)| (n.clone(), slashed_balance)).collect::<Vec<_>>();
+		// Only include `n` nominators in the slash (to benchmark variable nominator counts)
+		let slashed_nominators = nominators
+			.iter()
+			.take(n as usize)
+			.map(|(nom, _)| (nom.clone(), slashed_balance))
+			.collect::<Vec<_>>();
 
 		let unapplied_slash = UnappliedSlash::<T> {
 			validator: validator.clone(),

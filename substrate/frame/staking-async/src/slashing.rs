@@ -263,8 +263,10 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offender,
 		);
 
+		let nominators_slashed = unapplied.others.len() as u32;
 		apply_slash::<T>(unapplied, offence_era);
-		T::WeightInfo::apply_slash().saturating_add(T::WeightInfo::process_offence_queue())
+		T::WeightInfo::apply_slash(nominators_slashed)
+			.saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
 		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
 		// slashes were applied at the start of the 28th era from `offence_era`.
@@ -406,8 +408,9 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 			offender,
 		);
 
+		// Validator-only slash, so no nominators (n=0).
 		apply_slash::<T>(unapplied, offence_era);
-		T::WeightInfo::apply_slash().saturating_add(T::WeightInfo::process_offence_queue())
+		T::WeightInfo::apply_slash(0).saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
 		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
 		// slashes were applied at the start of the 28th era from `offence_era`.

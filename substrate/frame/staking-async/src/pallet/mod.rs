@@ -1318,6 +1318,8 @@ pub mod pallet {
 					active_era,
 				);
 
+				let nominators_slashed = slash.others.len() as u32;
+
 				// Check if this slash has been cancelled
 				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
 					crate::log!(
@@ -1340,7 +1342,7 @@ pub mod pallet {
 					CancelledSlashes::<T>::remove(&active_era);
 				}
 
-				T::WeightInfo::apply_slash()
+				T::WeightInfo::apply_slash(nominators_slashed)
 			} else {
 				// No slashes found for this era
 				T::DbWeight::get().reads(1)
@@ -2669,7 +2671,7 @@ pub mod pallet {
 		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
 		///   is unused block space, improving efficiency.
 		#[pallet::call_index(31)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
+		#[pallet::weight(T::WeightInfo::apply_slash(T::MaxExposurePageSize::get()))]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			slash_era: EraIndex,
