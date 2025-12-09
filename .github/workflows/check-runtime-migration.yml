@@ -31,7 +31,7 @@ jobs:
     if: ${{ needs.preflight.outputs.changes_rust }}
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
