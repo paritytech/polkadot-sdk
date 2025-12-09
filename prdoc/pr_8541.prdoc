@@ -7,8 +7,7 @@ doc:
     This new collator protocol is still in development, it is not yet sufficiently tested, it has known issues,
     and it shouldn't be used in production.
 
-    It is guarded by a rust feature flag (experimental-collator-protocol) and a also by a CLI flag
-    (experimental-collator-protocol).
+    It is guarded by a by a CLI flag (experimental-collator-protocol).
 
 crates:
 - name: cumulus-relay-chain-inprocess-interface

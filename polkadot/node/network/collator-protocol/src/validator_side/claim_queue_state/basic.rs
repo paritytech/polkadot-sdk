@@ -102,7 +102,6 @@ impl ClaimQueueState {
 		}
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
 		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
 			// don't fork from the last block!
@@ -371,7 +370,6 @@ impl ClaimQueueState {
 
 	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
 	/// if the claim was successful. For a v1 advertisement.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -392,7 +390,6 @@ impl ClaimQueueState {
 	/// Sets the candidate hash for a pending claim. If no such claim is found - returns false.
 	/// Note that the candidate is set at first available `Pending(None)` claim. Tracking the exact
 	/// candidate order is not required here.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(crate) fn mark_pending_slot_with_candidate(
 		&mut self,
 		relay_parent: &Hash,
@@ -414,7 +411,6 @@ impl ClaimQueueState {
 
 	/// If there is a pending claim for the candidate at `relay_parent` it is upgraded to seconded.
 	/// Otherwise a new claim is made.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(crate) fn claim_seconded_at(
 		&mut self,
 		relay_parent: &Hash,
@@ -493,7 +489,6 @@ impl ClaimQueueState {
 	}
 
 	/// Returns the number of claims for a specific para id at a specific relay parent.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn count_all_for_para_at(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let window = self.get_window(relay_parent);
 		window.filter(|info| info.claim == Some(*para_id)).count()
@@ -505,7 +500,6 @@ impl ClaimQueueState {
 	///
 	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
 	/// removed. But if `targets` contains [B, C] then nothing will be removed.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
 		// All the blocks that should be pruned are in the front of `block_state`. Since
 		// `block_state` is not ordered - keep popping until the first element is not found in
@@ -540,13 +534,11 @@ impl ClaimQueueState {
 	}
 
 	/// Returns true if the path is empty
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn is_empty(&self) -> bool {
 		self.block_state.is_empty()
 	}
 
 	/// Releases a pending or seconded claim (sets it to free) for a candidate.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn release_claim(&mut self, candidate_hash: &CandidateHash) -> bool {
 		// Get the relay parent from candidates.
 		let mut maybe_relay_parent = None;
@@ -575,7 +567,6 @@ impl ClaimQueueState {
 	}
 
 	/// Explicitly clears a claim at a specific relay parent.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
 		for claim in self.block_state.iter_mut() {
 			if claim.hash.as_ref() != Some(relay_parent) {
@@ -594,19 +585,16 @@ impl ClaimQueueState {
 		false
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	fn get_full_path(&self) -> impl Iterator<Item = &ClaimInfo> {
 		self.block_state.iter().chain(self.future_blocks.iter())
 	}
 
 	/// Returns the claim queue entries for all known and future blocks.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn all_assignments(&self) -> impl Iterator<Item = &ParaId> {
 		self.get_full_path().filter_map(|claim_info| claim_info.claim.as_ref())
 	}
 
 	/// Returns the corresponding para ids for all unclaimed slots in the claim queue.
-	#[cfg(feature = "experimental-collator-protocol")]
 	pub(super) fn free_slots(&self) -> Vec<ParaId> {
 		self.get_full_path()
 			.filter_map(|claim_info| {
@@ -644,7 +632,6 @@ mod test {
 		assert!(!state.has_or_can_claim_at(&relay_parent, &para_id, Some(candidate)));
 		assert!(!state.claim_pending_at(&relay_parent, &para_id, Some(candidate)));
 		assert!(state.get_pending_at(&relay_parent).is_empty());
-		#[cfg(feature = "experimental-collator-protocol")]
 		assert!(state.is_empty());
 	}
 
@@ -751,16 +738,13 @@ mod test {
 		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
 		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
 
-		#[cfg(feature = "experimental-collator-protocol")]
-		{
-			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
+		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 
-			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
-			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
-			// Claiming the same slot again should return true
-			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
-			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
-		}
+		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
+		assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
+		// Claiming the same slot again should return true
+		assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
+		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
 	}
 
 	#[test]
@@ -1431,7 +1415,6 @@ mod test {
 		);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[test]
 	fn basic_remove_works() {
 		let mut state = ClaimQueueState::new();
@@ -1461,7 +1444,6 @@ mod test {
 		);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[test]
 	fn remove_non_first_does_nothing() {
 		let mut state = ClaimQueueState::new();
@@ -1493,7 +1475,6 @@ mod test {
 		);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[test]
 	fn remove_multiple_works() {
 		let mut state = ClaimQueueState::new();
@@ -1783,7 +1764,6 @@ mod test {
 		);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[test]
 	fn release_claim_works() {
 		let mut state = ClaimQueueState::new();
@@ -1866,7 +1846,6 @@ mod test {
 		);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	#[test]
 	fn claim_seconded_at_works() {
 		let mut state = ClaimQueueState::new();
@@ -1924,7 +1903,6 @@ mod test {
 		assert_eq!(state.get_pending_at(&relay_parent_b), vec![para_id_b, para_id_a]);
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	mod fork {
 		use super::*;
 

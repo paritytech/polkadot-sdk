@@ -17,17 +17,14 @@
 //! Helper structs used for tracking the state of the claim queue over a set of relay blocks.
 //! Refer to [`ClaimQueueState`] and [`PerLeafClaimQueueState`] for more details.
 
-#[cfg(feature = "experimental-collator-protocol")]
 use std::collections::HashSet;
 
 use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
 mod basic;
-#[cfg(feature = "experimental-collator-protocol")]
 mod per_leaf;
 
 pub(crate) use basic::ClaimQueueState;
-#[cfg(feature = "experimental-collator-protocol")]
 pub(crate) use per_leaf::PerLeafClaimQueueState;
 
 /// Represents the state of a claim.
@@ -40,7 +37,6 @@ enum ClaimState {
 	/// candidate hashes, but only about their number.
 	Pending(Option<CandidateHash>),
 	/// The candidate is seconded.
-	#[cfg(feature = "experimental-collator-protocol")]
 	Seconded(CandidateHash),
 }
 
@@ -48,13 +44,11 @@ impl ClaimState {
 	fn candidate_hash(&self) -> Option<&CandidateHash> {
 		match self {
 			ClaimState::Pending(Some(candidate)) => Some(candidate),
-			#[cfg(feature = "experimental-collator-protocol")]
 			ClaimState::Seconded(candidate) => Some(candidate),
 			_ => None,
 		}
 	}
 
-	#[cfg(feature = "experimental-collator-protocol")]
 	fn clone_or_default(&self, known_candidates: &HashSet<CandidateHash>) -> Self {
 		match self {
 			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
