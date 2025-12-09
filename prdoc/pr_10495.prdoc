@@ -8,5 +8,7 @@ doc:
 crates:
 - name: sc-client-db
   bump: patch
+  validate: false
 - name: sp-database
   bump: patch
+  validate: false
