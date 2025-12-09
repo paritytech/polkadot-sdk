@@ -97,6 +97,18 @@ impl<
 }
 
 impl<
+		A: AssetId + Default,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> Default for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn default() -> Self {
+		Self::zero(Default::default())
+	}
+}
+
+impl<
 		A: AssetId,
 		B: Balance,
 		OnDrop: HandleImbalanceDrop<A, B>,
