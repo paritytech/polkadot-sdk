@@ -150,8 +150,8 @@ pub enum Field {
 	AuthenticityProof(Proof) = 0,
 	/// An identifier for the key that `Data` field may be decrypted with.
 	DecryptionKey(DecryptionKey) = 1,
-	/// Priority when competing with other messages from the same sender.
-	Priority(u32) = 2,
+	/// Expiry of the statement.
+	Expiry(u64) = 2,
 	/// Account channel to use. Only one message per `(account, channel)` pair is allowed.
 	Channel(Channel) = 3,
 	/// First statement topic.
@@ -180,6 +180,7 @@ pub struct Statement {
 	/// Proof used for authorizing the statement.
 	proof: Option<Proof>,
 	/// An identifier for the key that `Data` field may be decrypted with.
+	#[deprecated(note = "Experimental feature, may be removed in future releases")]
 	decryption_key: Option<DecryptionKey>,
 	/// Used for identifying a distinct communication channel, only a message per channel is
 	/// stored.
@@ -192,16 +193,25 @@ pub struct Statement {
 	/// in the account quota. In that case, other statements from the same account with the lowest
 	/// priority might be removed.
 	channel: Option<Channel>,
-	/// Message priority, if any, used for determining which statements to keep when over quota.
-	/// Statements with higher priority are kept over those with lower priority.
-	priority: Option<u32>,
+	/// Message priority, used for determining which statements to keep.
+	///
+	/// The the most significant 32 bits represents the expiration timestamp (in seconds since
+	/// UNIX epoch) after which the statement gets removed. These ensure that statements with a
+	/// higher expiration time have a higher priority.
+	/// The lower 32 bits represents an arbitrary sequence number used to order statements with the
+	/// same expiration time.
+	///
+	/// Higher values indicate a higher priority.
+	/// This is used in two case:
+	/// 1) When an account exceeds its quota and some statements need to be removed. Statements
+	///    with the lowest priority are removed first.
+	/// 2) When multiple statements are submitted on the same channel, the one with the highest
+	///    priority replaces the one with the same channel.
+	expiry: u64,
 	/// Number of topics present.
 	num_topics: u8,
 	/// Topics, used for querying and filtering statements.
 	topics: [Topic; MAX_TOPICS],
-	/// A Unix timestamp (in milliseconds) after which the statement is considered expired and it
-	/// will be cleaned up from the store.
-	expires_at_ms: u64,
 	/// Statement data.
 	data: Option<Vec<u8>>,
 }
@@ -222,7 +232,7 @@ impl Decode for Statement {
 			match field {
 				Field::AuthenticityProof(p) => statement.set_proof(p),
 				Field::DecryptionKey(key) => statement.set_decryption_key(key),
-				Field::Priority(p) => statement.set_priority(p),
+				Field::Expiry(p) => statement.set_expiry(p),
 				Field::Channel(c) => statement.set_channel(c),
 				Field::Topic1(t) => statement.set_topic(0, t),
 				Field::Topic2(t) => statement.set_topic(1, t),
@@ -445,8 +455,8 @@ impl Statement {
 	}
 
 	/// Get priority, if any.
-	pub fn priority(&self) -> Option<u32> {
-		self.priority
+	pub fn expiry(&self) -> u64 {
+		self.expiry
 	}
 
 	/// Return encoded fields that can be signed to construct or verify a proof
@@ -464,9 +474,9 @@ impl Statement {
 		self.proof = Some(proof)
 	}
 
-	/// Set statement priority.
-	pub fn set_priority(&mut self, priority: u32) {
-		self.priority = Some(priority)
+	/// Set statement expiry.
+	pub fn set_expiry(&mut self, expiry: u64) {
+		self.expiry = expiry;
 	}
 
 	/// Set statement channel.
@@ -495,9 +505,9 @@ impl Statement {
 	fn encoded(&self, for_signing: bool) -> Vec<u8> {
 		// Encoding matches that of Vec<Field>. Basically this just means accepting that there
 		// will be a prefix of vector length.
-		let num_fields = if !for_signing && self.proof.is_some() { 1 } else { 0 } +
+		// Expiry field is always present.
+		let num_fields = if !for_signing && self.proof.is_some() { 2 } else { 1 } +
 			if self.decryption_key.is_some() { 1 } else { 0 } +
-			if self.priority.is_some() { 1 } else { 0 } +
 			if self.channel.is_some() { 1 } else { 0 } +
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
@@ -519,10 +529,10 @@ impl Statement {
 			1u8.encode_to(&mut output);
 			decryption_key.encode_to(&mut output);
 		}
-		if let Some(priority) = &self.priority {
-			2u8.encode_to(&mut output);
-			priority.encode_to(&mut output);
-		}
+
+		2u8.encode_to(&mut output);
+		self.expiry().encode_to(&mut output);
+
 		if let Some(channel) = &self.channel {
 			3u8.encode_to(&mut output);
 			channel.encode_to(&mut output);
@@ -594,7 +604,7 @@ mod test {
 		let fields = vec![
 			Field::AuthenticityProof(proof.clone()),
 			Field::DecryptionKey(decryption_key),
-			Field::Priority(priority),
+			Field::Expiry(priority),
 			Field::Channel(channel),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -616,7 +626,7 @@ mod test {
 		let priority = 999;
 
 		let fields = vec![
-			Field::Priority(priority),
+			Field::Expiry(priority),
 			Field::Topic1(topic1),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -626,7 +636,7 @@ mod test {
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 
 		let fields =
-			vec![Field::Topic1(topic1), Field::Priority(priority), Field::Topic2(topic2)].encode();
+			vec![Field::Topic1(topic1), Field::Expiry(priority), Field::Topic2(topic2)].encode();
 
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 	}
