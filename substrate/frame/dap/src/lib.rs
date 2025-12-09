@@ -134,12 +134,12 @@ pub mod pallet {
 	}
 }
 
-/// Implementation of FundingSink that returns funds to DAP buffer.
-/// When using this, returned funds are transferred to the buffer account instead of being burned.
+/// Implementation of FundingSink that fills the DAP buffer.
+/// Funds are transferred to the buffer account instead of being burned.
 pub struct ReturnToDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
-	fn return_funds(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
+	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
 		let buffer = Pallet::<T>::buffer_account();
 
 		// Withdraw from source, resolve to buffer, emit event. If withdraw fails, nothing happens.
@@ -280,10 +280,10 @@ mod tests {
 		});
 	}
 
-	// ===== return_funds tests =====
+	// ===== fill tests =====
 
 	#[test]
-	fn return_funds_accumulates_from_multiple_sources() {
+	fn fill_accumulates_from_multiple_sources() {
 		new_test_ext().execute_with(|| {
 			System::set_block_number(1);
 			let buffer = Dap::buffer_account();
@@ -294,12 +294,12 @@ mod tests {
 			assert_eq!(Balances::free_balance(3), 300);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// When: return funds from multiple accounts
-			ReturnToDap::<Test>::return_funds(&1, 20, Preservation::Preserve);
-			ReturnToDap::<Test>::return_funds(&2, 50, Preservation::Preserve);
-			ReturnToDap::<Test>::return_funds(&3, 100, Preservation::Preserve);
+			// When: fill buffer from multiple accounts
+			ReturnToDap::<Test>::fill(&1, 20, Preservation::Preserve);
+			ReturnToDap::<Test>::fill(&2, 50, Preservation::Preserve);
+			ReturnToDap::<Test>::fill(&3, 100, Preservation::Preserve);
 
-			// Then: buffer has accumulated all returns (20 + 50 + 100 = 170)
+			// Then: buffer has accumulated all fills (20 + 50 + 100 = 170)
 			assert_eq!(Balances::free_balance(buffer), 170);
 			assert_eq!(Balances::free_balance(1), 80);
 			assert_eq!(Balances::free_balance(2), 150);
@@ -313,7 +313,7 @@ mod tests {
 	}
 
 	#[test]
-	fn return_funds_with_insufficient_balance_is_noop() {
+	fn fill_with_insufficient_balance_is_noop() {
 		new_test_ext().execute_with(|| {
 			let buffer = Dap::buffer_account();
 
@@ -321,8 +321,8 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 100);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// When: try to return 150 (more than balance)
-			ReturnToDap::<Test>::return_funds(&1, 150, Preservation::Preserve);
+			// When: try to fill 150 (more than balance)
+			ReturnToDap::<Test>::fill(&1, 150, Preservation::Preserve);
 
 			// Then: balances unchanged (infallible no-op)
 			assert_eq!(Balances::free_balance(1), 100);
@@ -331,7 +331,7 @@ mod tests {
 	}
 
 	#[test]
-	fn return_funds_with_zero_amount_succeeds() {
+	fn fill_with_zero_amount_succeeds() {
 		new_test_ext().execute_with(|| {
 			let buffer = Dap::buffer_account();
 
@@ -339,8 +339,8 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 100);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// When: return 0 from account 1
-			ReturnToDap::<Test>::return_funds(&1, 0, Preservation::Preserve);
+			// When: fill 0 from account 1
+			ReturnToDap::<Test>::fill(&1, 0, Preservation::Preserve);
 
 			// Then: balances unchanged (no-op)
 			assert_eq!(Balances::free_balance(1), 100);
@@ -349,7 +349,7 @@ mod tests {
 	}
 
 	#[test]
-	fn return_funds_with_expendable_allows_full_drain() {
+	fn fill_with_expendable_allows_full_drain() {
 		new_test_ext().execute_with(|| {
 			System::set_block_number(1);
 			let buffer = Dap::buffer_account();
@@ -357,8 +357,8 @@ mod tests {
 			// Given: account 1 has 100
 			assert_eq!(Balances::free_balance(1), 100);
 
-			// When: return full balance with Expendable (allows going to 0)
-			ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Expendable);
+			// When: fill full balance with Expendable (allows going to 0)
+			ReturnToDap::<Test>::fill(&1, 100, Preservation::Expendable);
 
 			// Then: account 1 is empty, buffer has 100
 			assert_eq!(Balances::free_balance(1), 0);
@@ -367,7 +367,7 @@ mod tests {
 	}
 
 	#[test]
-	fn return_funds_with_preserve_respects_existential_deposit() {
+	fn fill_with_preserve_respects_existential_deposit() {
 		new_test_ext().execute_with(|| {
 			let buffer = Dap::buffer_account();
 
@@ -375,15 +375,15 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 100);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// When: try to return 100 with Preserve (would go below ED)
-			ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Preserve);
+			// When: try to fill 100 with Preserve (would go below ED)
+			ReturnToDap::<Test>::fill(&1, 100, Preservation::Preserve);
 
 			// Then: balances unchanged (infallible - would have killed account)
 			assert_eq!(Balances::free_balance(1), 100);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// But returning 99 works (leaves 1 for ED)
-			ReturnToDap::<Test>::return_funds(&1, 99, Preservation::Preserve);
+			// But filling 99 works (leaves 1 for ED)
+			ReturnToDap::<Test>::fill(&1, 99, Preservation::Preserve);
 			assert_eq!(Balances::free_balance(1), 1);
 			assert_eq!(Balances::free_balance(buffer), 99);
 		});

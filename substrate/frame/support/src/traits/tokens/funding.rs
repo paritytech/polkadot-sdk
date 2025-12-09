@@ -27,28 +27,30 @@
 use crate::traits::tokens::{fungible, Fortitude, Precision, Preservation};
 use core::marker::PhantomData;
 
-/// Trait for returning funds to an issuance system.
+/// Trait for moving funds into an issuance buffer or burning them.
 ///
-/// Implementations can either burn directly or return to a buffer for reuse.
+/// Implementations can either burn directly or transfer to a buffer for reuse.
 /// This trait is infallible - implementations must handle any errors internally.
+///
+/// Pairs with future `FundingSource::drain()` for withdrawing from the buffer.
 pub trait FundingSink<AccountId, Balance> {
-	/// Return funds from the given account back to the issuance system.
+	/// Fill the sink with funds from the given account.
 	///
 	/// This could mean burning the funds or transferring them to a buffer account.
 	/// The operation is infallible - any errors are handled internally.
 	///
 	/// # Parameters
 	/// - `from`: The account to take funds from
-	/// - `amount`: The amount to return
+	/// - `amount`: The amount to fill
 	/// - `preservation`: Whether to preserve the source account (Preserve = keep alive, Expendable
 	///   = allow death)
-	fn return_funds(from: &AccountId, amount: Balance, preservation: Preservation);
+	fn fill(from: &AccountId, amount: Balance, preservation: Preservation);
 }
 
 /// Direct burning implementation of `FundingSink`.
 ///
-/// This implementation burns tokens directly when funds are returned.
-/// Used for traditional burn-on-return systems (e.g., Kusama).
+/// This implementation burns tokens directly, reducing total issuance.
+/// Used for traditional burn systems (e.g., Kusama).
 ///
 /// # Type Parameters
 ///
@@ -62,7 +64,7 @@ where
 	Currency: fungible::Mutate<AccountId>,
 	AccountId: Eq,
 {
-	fn return_funds(from: &AccountId, amount: Currency::Balance, preservation: Preservation) {
+	fn fill(from: &AccountId, amount: Currency::Balance, preservation: Preservation) {
 		// Best-effort burn. If it fails (e.g., insufficient funds), the funds remain with the
 		// account.
 		let _ =
@@ -73,5 +75,5 @@ where
 /// No-op implementation of `FundingSink` for unit type.
 /// Used for testing or when no sink behavior is needed.
 impl<AccountId, Balance> FundingSink<AccountId, Balance> for () {
-	fn return_funds(_from: &AccountId, _amount: Balance, _preservation: Preservation) {}
+	fn fill(_from: &AccountId, _amount: Balance, _preservation: Preservation) {}
 }
