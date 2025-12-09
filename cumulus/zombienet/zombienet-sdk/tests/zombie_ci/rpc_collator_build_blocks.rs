@@ -31,12 +31,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&alice_client,
-		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 2..40)]).await?;
 
 	let dave = network.get_node("dave")?;
 	let eve = network.get_node("eve")?;

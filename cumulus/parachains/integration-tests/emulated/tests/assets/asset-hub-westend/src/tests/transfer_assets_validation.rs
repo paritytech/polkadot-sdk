@@ -48,14 +48,13 @@ fn transfer_assets_wnd_reserve_transfer_para_to_relay_fails() {
 	let sov_penpal_on_relay = Westend::sovereign_account_id_of(penpal_location_as_seen_by_relay);
 	Westend::fund_accounts(vec![(sov_penpal_on_relay.into(), amount_to_send * 2)]);
 
-	let fee_asset_id: AssetId = Parent.into();
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			bx!(fee_asset_id.into()),
+			0,
 			WeightLimit::Unlimited,
 		);
 
@@ -81,14 +80,13 @@ fn transfer_assets_wnd_reserve_transfer_relay_to_para_fails() {
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 	let assets: Assets = (Here, amount_to_send).into();
 
-	let fee_asset_id: AssetId = Here.into();
 	Westend::execute_with(|| {
 		let result = <Westend as WestendPallet>::XcmPallet::transfer_assets(
 			<Westend as Chain>::RuntimeOrigin::signed(WestendSender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			bx!(fee_asset_id.into()),
+			0,
 			WeightLimit::Unlimited,
 		);
 
@@ -125,14 +123,13 @@ fn transfer_assets_wnd_reserve_transfer_para_to_para_fails() {
 		amount_to_send * 2,
 	);
 
-	let fee_asset_id: AssetId = Parent.into();
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			bx!(fee_asset_id.into()),
+			0,
 			WeightLimit::Unlimited,
 		);
 
@@ -191,7 +188,7 @@ fn transfer_assets_wnd_as_fee_in_reserve_transfer_fails() {
 		(Parent, fee_amount).into(), // WND as fee.
 	]
 	.into();
-	let fee_asset_id: AssetId = Parent.into(); // WND is the fee asset.
+	let fee_asset_item = 1; // WND is the fee asset.
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
@@ -199,7 +196,7 @@ fn transfer_assets_wnd_as_fee_in_reserve_transfer_fails() {
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			bx!(fee_asset_id.into()),
+			fee_asset_item,
 			WeightLimit::Unlimited,
 		);
 
@@ -248,8 +245,8 @@ fn transfer_assets_non_native_assets_work() {
 	);
 
 	// Transfer non-native assets.
-	let assets: Assets = (asset_location.clone(), amount).into();
-	let fee_asset_id: AssetId = (asset_location).into();
+	let assets: Assets = (asset_location, amount).into();
+	let fee_asset_item = 0;
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
@@ -257,7 +254,7 @@ fn transfer_assets_non_native_assets_work() {
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			bx!(fee_asset_id.into()),
+			fee_asset_item,
 			WeightLimit::Unlimited,
 		);
 
