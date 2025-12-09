@@ -214,6 +214,14 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Deposits the `UseFullCore` digest item to signal that this block should use the full
+		/// core.
+		#[pallet::weight(0)]
+		pub fn set_use_full_core(_: OriginFor<T>) -> DispatchResult {
+			frame_system::Pallet::<T>::deposit_log(CumulusDigestItem::UseFullCore.to_digest_item());
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]

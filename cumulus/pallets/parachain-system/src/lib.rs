@@ -361,9 +361,9 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				if let Some(core_info) =
-					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-				{
+				let digest = frame_system::Pallet::<T>::digest();
+
+				if let Some(core_info) = CumulusDigestItem::find_core_info(&digest) {
 					PendingUpwardSignals::<T>::append(
 						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
 							.encode(),
@@ -375,8 +375,11 @@ pub mod pallet {
 					PreviousCoreCount::<T>::put(Compact(1u16));
 				}
 
-				// Send the pending UMP signals.
-				Self::send_ump_signals();
+				// Only send UMP signals on the last block of a bundle.
+				// For single-block PoVs (no BundleInfo), always send signals.
+				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
+					Self::send_ump_signals();
+				}
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.

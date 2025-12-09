@@ -19,7 +19,7 @@ use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
-	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, ParachainBlockData,
+	BundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector, ParachainBlockData,
 	PersistedValidationData,
 };
 use cumulus_test_client::{
@@ -833,4 +833,132 @@ fn validate_block_rejects_incomplete_bundle() {
 	)
 	.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+#[test]
+fn only_send_ump_signal_on_last_block_in_bundle() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build 4 blocks with BundleInfo and CoreInfo on all blocks
+	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		4,
+		|_| Vec::new(),
+		|i| {
+			vec![
+				BundleInfo { index: i as u8, maybe_last: i == 3 }.to_digest_item(),
+				CumulusDigestItem::CoreInfo(CoreInfo {
+					selector: CoreSelector(0),
+					claim_queue_offset: ClaimQueueOffset(0),
+					number_of_cores: 1.into(),
+				})
+				.to_digest_item(),
+			]
+		},
+	);
+
+	let blocks = block.blocks();
+
+	// Check CollectCollationInfo for each block
+	for (i, b) in blocks.iter().enumerate() {
+		let is_last = i == blocks.len() - 1;
+		let block_hash = b.header().hash();
+
+		let collation_info = client
+			.runtime_api()
+			.collect_collation_info(block_hash, b.header())
+			.expect("Failed to collect collation info");
+
+		let has_separator = collation_info.upward_messages.contains(&UMP_SEPARATOR);
+
+		if is_last {
+			assert!(
+				has_separator,
+				"Block {} (last) should have UMP_SEPARATOR, got: {:?}",
+				i,
+				collation_info.upward_messages
+			);
+		} else {
+			assert!(
+				!has_separator,
+				"Block {} should NOT have UMP_SEPARATOR, got: {:?}",
+				i,
+				collation_info.upward_messages
+			);
+		}
+	}
+}
+
+#[test]
+fn validate_block_accepts_single_block_with_use_full_core() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build a single block with BundleInfo (maybe_last=false) and UseFullCore set via extrinsic
+	// UseFullCore should make validation succeed even without maybe_last=true
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
+		parent_head.clone(),
+		Default::default(),
+		vec![BundleInfo { index: 0, maybe_last: false }.to_digest_item()],
+	);
+
+	// Validation should succeed because UseFullCore marks it as last block
+	let header = block.blocks()[0].header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
+}
+
+#[test]
+fn only_send_ump_signal_on_single_block_with_use_full_core() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build a single block with BundleInfo (maybe_last=false), CoreInfo, and UseFullCore set via
+	// extrinsic. UseFullCore makes this block the last block in the core.
+	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		1,
+		|_| vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
+		|_| {
+			vec![
+				BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+				CumulusDigestItem::CoreInfo(CoreInfo {
+					selector: CoreSelector(0),
+					claim_queue_offset: ClaimQueueOffset(0),
+					number_of_cores: 1.into(),
+				})
+				.to_digest_item(),
+			]
+		},
+	);
+
+	let b = &block.blocks()[0];
+	let block_hash = b.header().hash();
+
+	let collation_info = client
+		.runtime_api()
+		.collect_collation_info(block_hash, b.header())
+		.expect("Failed to collect collation info");
+
+	// Block with UseFullCore should have UMP_SEPARATOR (it's the last block)
+	assert!(
+		collation_info.upward_messages.contains(&UMP_SEPARATOR),
+		"Single block with UseFullCore should have UMP_SEPARATOR, got: {:?}",
+		collation_info.upward_messages
+	);
 }
