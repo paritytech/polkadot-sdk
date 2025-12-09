@@ -27,9 +27,9 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
-xcm = { default-features = true, path = "..", package = "staging-xcm" }
+pallet-balances = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+xcm = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

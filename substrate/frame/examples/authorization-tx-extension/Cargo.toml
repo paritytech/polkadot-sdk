@@ -27,9 +27,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-verify-signature = { default-features = false, path = "../../verify-signature" }
-sp-core = { default-features = false, path = "../../../primitives/core" }
-sp-keyring = { default-features = true, path = "../../../primitives/keyring" }
+pallet-verify-signature = { default-features = false, workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

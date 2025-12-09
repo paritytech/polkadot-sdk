@@ -29,9 +29,9 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-pallet-assets = { default-features = true, path = "../../assets" }
-pallet-authorship = { default-features = true, path = "../../authorship" }
-pallet-balances = { default-features = true, path = "../../balances" }
+pallet-assets = { default-features = true, workspace = true }
+pallet-authorship = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

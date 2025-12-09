@@ -27,13 +27,13 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-staking-reward-curve = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
 
-sp-io = { default-features = true, path = "../../primitives/io" }
+sp-io = { default-features = true, workspace = true }
 
-frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
+frame-election-provider-support = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

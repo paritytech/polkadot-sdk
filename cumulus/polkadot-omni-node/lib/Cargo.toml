@@ -156,7 +156,7 @@ subxt-metadata = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
-cumulus-test-runtime = { path = "../../test/runtime" }
+cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }

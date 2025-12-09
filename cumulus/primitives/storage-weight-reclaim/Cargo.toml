@@ -24,9 +24,9 @@ scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-cumulus-test-runtime = { path = "../../test/runtime" }
-sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
-sp-trie = { default-features = false, path = "../../../substrate/primitives/trie" }
+cumulus-test-runtime = { workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-trie = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

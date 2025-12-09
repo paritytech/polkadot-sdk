@@ -22,14 +22,14 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-frame-election-provider-support = { default-features = false, path = "../election-provider-support" }
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-nomination-pools = { default-features = true, path = "../nomination-pools" }
-pallet-staking = { default-features = true, path = "../staking" }
-pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+frame-election-provider-support = { default-features = false, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+pallet-nomination-pools = { default-features = true, workspace = true }
+pallet-staking = { default-features = true, workspace = true }
+pallet-staking-reward-curve = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

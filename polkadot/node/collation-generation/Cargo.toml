@@ -33,8 +33,8 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-keyring = { default-features = true, workspace = true }

@@ -50,4 +50,4 @@ sp-trie.workspace = true
 sp-trie.default-features = true
 
 [dev-dependencies]
-substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime = { workspace = true }

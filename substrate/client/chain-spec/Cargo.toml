@@ -52,7 +52,7 @@ sp-tracing.default-features = true
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
-sp-application-crypto = { features = ["serde"], default-features = false, path = "../../primitives/application-crypto" }
-sp-consensus-babe = { features = ["serde"], default-features = false, path = "../../primitives/consensus/babe" }
-sp-keyring = { default-features = true, path = "../../primitives/keyring" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
+sp-application-crypto = { features = ["serde"], default-features = false, workspace = true }
+sp-consensus-babe = { features = ["serde"], default-features = false, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+substrate-test-runtime = { workspace = true }

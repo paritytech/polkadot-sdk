@@ -49,7 +49,7 @@ xcm-simulator.workspace = true
 xcm-simulator.default-features = true
 
 [dev-dependencies]
-sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
+sp-tracing = { default-features = false, workspace = true }
 
 [features]
 default = []

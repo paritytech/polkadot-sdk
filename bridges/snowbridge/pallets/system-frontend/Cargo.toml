@@ -35,9 +35,9 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../../../../substrate/frame/balances" }
-snowbridge-test-utils = { path = "../../test-utils" }
-sp-keyring = { default-features = false, path = "../../../../substrate/primitives/keyring" }
+pallet-balances = { default-features = true, workspace = true }
+snowbridge-test-utils = { workspace = true }
+sp-keyring = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

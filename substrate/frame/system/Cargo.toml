@@ -35,8 +35,8 @@ sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-externalities = { default-features = true, path = "../../primitives/externalities" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-externalities = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["std"]

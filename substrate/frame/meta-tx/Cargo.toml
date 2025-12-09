@@ -25,11 +25,11 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-transaction-payment = { default-features = true, path = "../transaction-payment" }
-pallet-verify-signature = { default-features = true, path = "../verify-signature" }
-sp-keyring = { default-features = true, path = "../../primitives/keyring" }
-sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-transaction-payment = { default-features = true, workspace = true }
+pallet-verify-signature = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -25,9 +25,9 @@ sp-runtime.workspace = true
 sp-weights.workspace = true
 
 [dev-dependencies]
-pallet-preimage = { default-features = true, path = "../preimage" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-substrate-test-utils = { path = "../../test-utils" }
+pallet-preimage = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

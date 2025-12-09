@@ -30,8 +30,8 @@ sp-std.workspace = true
 
 [dev-dependencies]
 rand = { features = ["small_rng"], workspace = true, default-features = true }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
+sp-io = { default-features = true, workspace = true }
+sp-npos-elections = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

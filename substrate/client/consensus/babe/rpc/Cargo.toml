@@ -44,8 +44,8 @@ sp-runtime.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sc-consensus = { default-features = true, path = "../../common" }
-sc-transaction-pool-api = { default-features = true, path = "../../../transaction-pool/api" }
-sp-keyring = { default-features = true, path = "../../../../primitives/keyring" }
-substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
+sc-consensus = { default-features = true, workspace = true }
+sc-transaction-pool-api = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

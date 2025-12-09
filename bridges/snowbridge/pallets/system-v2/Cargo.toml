@@ -38,9 +38,9 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-pallet-balances = { default-features = true, path = "../../../../substrate/frame/balances" }
-snowbridge-test-utils = { path = "../../test-utils" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+pallet-balances = { default-features = true, workspace = true }
+snowbridge-test-utils = { workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
