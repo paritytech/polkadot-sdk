@@ -191,11 +191,11 @@ pub struct Statement {
 	/// If the new statement data is bigger than the old one, submitting a statement with the same
 	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
 	/// in the account quota. In that case, other statements from the same account with the lowest
-	/// priority might be removed.
+	/// expiry might be removed.
 	channel: Option<Channel>,
-	/// Message priority, used for determining which statements to keep.
+	/// Message expiry, used for determining which statements to keep.
 	///
-	/// The the most significant 32 bits represents the expiration timestamp (in seconds since
+	/// The most significant 32 bits represents the expiration timestamp (in seconds since
 	/// UNIX epoch) after which the statement gets removed. These ensure that statements with a
 	/// higher expiration time have a higher priority.
 	/// The lower 32 bits represents an arbitrary sequence number used to order statements with the
@@ -204,9 +204,9 @@ pub struct Statement {
 	/// Higher values indicate a higher priority.
 	/// This is used in two case:
 	/// 1) When an account exceeds its quota and some statements need to be removed. Statements
-	///    with the lowest priority are removed first.
+	///    with the lowest `expiry` are removed first.
 	/// 2) When multiple statements are submitted on the same channel, the one with the highest
-	///    priority replaces the one with the same channel.
+	///    expiry replaces the one with the same channel.
 	expiry: u64,
 	/// Number of topics present.
 	num_topics: u8,
