@@ -637,15 +637,10 @@ impl CollationManager {
 
 	/// Tries to find the best available advertisement for the provided parachain.
 	///
-	/// Computes a score combining the peer reputation and the delay since the advertisement was
-	/// received. Searches for the advertisement with the maximum score and returns it if it has a
-	/// score that is higher than the minimum required score.
-	///
 	/// If there are no advertisements, returns `Either::Left(None)`.
 	///
-	/// If no advertisement has a high enough score, returns `Either::Right(delay)`, where delay is
-	/// the minimum required delay (in milliseconds) in order for an advertisement to surpass
-	/// the minimum required score.
+	/// If no advertisement has a high enough peer rep, returns `Either::Right(delay)`, where
+	/// delay is the minimum required delay in order for an advertisement to be instantly fetched.
 	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
@@ -687,16 +682,23 @@ impl CollationManager {
 
 			min_delay = std::cmp::min(min_delay, fetch_delay);
 
-			match (
-				fetch_delay.is_zero(),
-				best_adv_fetch_delay.is_zero(),
-				*best_adv_peer_rep >= instant_fetch_rep,
-			) {
-				(true, true, _) | (false, false, _) | (_, _, true) =>
+			let can_fetch_best_adv =
+				best_adv_fetch_delay.is_zero() || *best_adv_peer_rep >= instant_fetch_rep;
+			let can_fetch_adv = fetch_delay.is_zero() || *peer_rep >= instant_fetch_rep;
+			// We look at 2 conditions:
+			// - if the best advertisement so far can be instantly fetched
+			// - if the current advertisement can be instantly fetched
+			match (can_fetch_best_adv, can_fetch_adv) {
+				// If both are `true` or both are `false`, we compare the peer reps to determine
+				// which one is better.
+				(true, true) | (false, false) =>
 					if peer_rep > *best_adv_peer_rep {
 						maybe_best_adv = Some(adv_tuple);
 					},
-				(true, false, false) => maybe_best_adv = Some(adv_tuple),
+				// If the best advertisement so far can't be instantly fetched,
+				// but the current advertisement can, the current one is better,
+				// no matter the peer rep.
+				(false, true) => maybe_best_adv = Some(adv_tuple),
 				_ => {},
 			}
 		}
@@ -705,7 +707,7 @@ impl CollationManager {
 			return Either::Left(None);
 		};
 
-		if peer_rep >= instant_fetch_rep || fetch_delay.is_zero() {
+		if fetch_delay.is_zero() || peer_rep >= instant_fetch_rep {
 			return Either::Left(Some(*advertisement));
 		}
 
