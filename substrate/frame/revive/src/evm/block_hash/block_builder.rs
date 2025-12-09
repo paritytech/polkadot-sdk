@@ -169,7 +169,14 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let block_author = Pallet::<T>::block_author();
 
 		let eth_block_num: U256 = block_number.into();
-		self.build_block_with_params(eth_block_num, parent_hash, timestamp, block_author)
+		self.build_block_with_params(
+			eth_block_num,
+			self.base_fee_per_gas,
+			parent_hash,
+			timestamp,
+			block_author,
+			self.block_gas_limit,
+		)
 	}
 
 	/// Build the ethereum block from provided parameters.
@@ -177,9 +184,11 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	fn build_block_with_params(
 		&mut self,
 		block_number: U256,
+		base_fee_per_gas: U256,
 		parent_hash: H256,
 		timestamp: U256,
 		block_author: H160,
+		block_gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::Build) {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
@@ -209,8 +218,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			transactions_root,
 			receipts_root,
 
-			gas_limit: self.block_gas_limit,
-			base_fee_per_gas: self.base_fee_per_gas,
+			gas_limit: block_gas_limit,
+			base_fee_per_gas,
 			gas_used: self.gas_used,
 
 			logs_bloom: self.logs_bloom.bloom.into(),
@@ -447,7 +456,8 @@ mod test {
 						tx_info.transaction_signed.signed_payload(),
 						logs,
 						receipt_info.status.unwrap_or_default() == 1.into(),
-						receipt_info.gas_used.as_u64(),
+						receipt_info.gas_used,
+						receipt_info.effective_gas_price,
 					)
 				})
 				.collect();
@@ -455,7 +465,7 @@ mod test {
 			ExtBuilder::default().build().execute_with(|| {
 				// Build the ethereum block incrementally.
 				let mut incremental_block = EthereumBlockBuilder::<Test>::default();
-				for (signed, logs, success, gas_used) in transaction_details {
+				for (signed, logs, success, gas_used, effective_gas_price) in transaction_details {
 					let mut log_size = 0;
 
 					let mut accumulate_receipt = AccumulateReceipt::new();
@@ -468,7 +478,7 @@ mod test {
 					incremental_block.process_transaction(
 						signed,
 						success,
-						gas_used.into(),
+						ReceiptGasInfo { gas_used, effective_gas_price },
 						accumulate_receipt.encoding,
 						accumulate_receipt.bloom,
 					);
@@ -482,13 +492,13 @@ mod test {
 				// the ommers and other fields from the substrate perspective.
 				// However, the state roots must be identical.
 				let built_block = incremental_block
-					.build(
+					.build_block_with_params(
 						block.number,
 						block.base_fee_per_gas,
 						block.parent_hash,
 						block.timestamp,
 						block.miner,
-						Default::default(),
+						block.gas_limit,
 					)
 					.0;
 
