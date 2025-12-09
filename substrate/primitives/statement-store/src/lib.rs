@@ -150,8 +150,8 @@ pub enum Field {
 	AuthenticityProof(Proof) = 0,
 	/// An identifier for the key that `Data` field may be decrypted with.
 	DecryptionKey(DecryptionKey) = 1,
-	/// Expiry of the statement.
-	Expiry(u64) = 2,
+	/// Priority when competing with other messages from the same sender.
+	Priority(u32) = 2,
 	/// Account channel to use. Only one message per `(account, channel)` pair is allowed.
 	Channel(Channel) = 3,
 	/// First statement topic.
@@ -232,7 +232,7 @@ impl Decode for Statement {
 			match field {
 				Field::AuthenticityProof(p) => statement.set_proof(p),
 				Field::DecryptionKey(key) => statement.set_decryption_key(key),
-				Field::Expiry(p) => statement.set_expiry(p),
+				Field::Priority(p) => statement.set_priority(p),
 				Field::Channel(c) => statement.set_channel(c),
 				Field::Topic1(t) => statement.set_topic(0, t),
 				Field::Topic2(t) => statement.set_topic(1, t),
@@ -454,7 +454,7 @@ impl Statement {
 		self.channel
 	}
 
-	/// Get priority, if any.
+	/// Get expiry.
 	pub fn expiry(&self) -> u64 {
 		self.expiry
 	}
@@ -505,9 +505,9 @@ impl Statement {
 	fn encoded(&self, for_signing: bool) -> Vec<u8> {
 		// Encoding matches that of Vec<Field>. Basically this just means accepting that there
 		// will be a prefix of vector length.
-		// Expiry field is always present.
-		let num_fields = if !for_signing && self.proof.is_some() { 2 } else { 1 } +
+		let num_fields = if !for_signing && self.proof.is_some() { 1 } else { 0 } +
 			if self.decryption_key.is_some() { 1 } else { 0 } +
+			if self.priority.is_some() { 1 } else { 0 } +
 			if self.channel.is_some() { 1 } else { 0 } +
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
@@ -529,10 +529,10 @@ impl Statement {
 			1u8.encode_to(&mut output);
 			decryption_key.encode_to(&mut output);
 		}
-
-		2u8.encode_to(&mut output);
-		self.expiry().encode_to(&mut output);
-
+		if let Some(priority) = &self.priority {
+			2u8.encode_to(&mut output);
+			priority.encode_to(&mut output);
+		}
 		if let Some(channel) = &self.channel {
 			3u8.encode_to(&mut output);
 			channel.encode_to(&mut output);
@@ -604,7 +604,7 @@ mod test {
 		let fields = vec![
 			Field::AuthenticityProof(proof.clone()),
 			Field::DecryptionKey(decryption_key),
-			Field::Expiry(priority),
+			Field::Priority(priority),
 			Field::Channel(channel),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -626,7 +626,7 @@ mod test {
 		let priority = 999;
 
 		let fields = vec![
-			Field::Expiry(priority),
+			Field::Priority(priority),
 			Field::Topic1(topic1),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -636,7 +636,7 @@ mod test {
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 
 		let fields =
-			vec![Field::Topic1(topic1), Field::Expiry(priority), Field::Topic2(topic2)].encode();
+			vec![Field::Topic1(topic1), Field::Priority(priority), Field::Topic2(topic2)].encode();
 
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 	}
