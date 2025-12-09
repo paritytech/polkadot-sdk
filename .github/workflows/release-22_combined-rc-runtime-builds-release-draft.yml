@@ -47,6 +47,11 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
         type: string
         required: true
+      no_runtimes:
+        description: If true, no runtime build will be triggered and release draft will be published without runtimes (⚠️ use it for the patch releases of the latest stable)
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   check-synchronization:
@@ -73,6 +78,7 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-runtimes-flow:
+    if: ${{ inputs.no_runtimes == false }}
     needs: [validate-inputs]
     uses: "./.github/workflows/release-21_build-runtimes.yml"
     with:
@@ -97,11 +103,25 @@ jobs:
       attestations: write
       contents: read
 
-  trigger-release-draft:
+  trigger-release-draft-with-runtimes:
+    if: ${{ inputs.no_runtimes == false }}
     needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
     uses: "./.github/workflows/release-30_publish_release_draft.yml"
     with:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       build_run_id: ${{ github.run_id }}
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
+      no_runtimes: ${{ inputs.no_runtimes }}
+      crates_only: false
+    secrets: inherit
+
+  trigger-release-draft-without-runtimes:
+    if: ${{ inputs.no_runtimes == true }}
+    needs: [build-rc-flow, validate-inputs]
+    uses: "./.github/workflows/release-30_publish_release_draft.yml"
+    with:
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      build_run_id: ${{ github.run_id }}
+      no_runtimes: ${{ inputs.no_runtimes }}
+      crates_only: false
     secrets: inherit
