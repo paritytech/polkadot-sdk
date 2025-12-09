@@ -27,4 +27,4 @@ doc:
     This PR removes that condition so that the `bestBlockChanged` notification is always emited. All tests are updated to this new behaviour
 crates:
 - name: sc-rpc-spec-v2
-  bump: major
+  bump: patch
