@@ -73,15 +73,6 @@ impl<Hasher: Hash> sp_state_machine::Storage<Hasher> for StorageDb<Hasher> {
 /// 2. **Child trie support**: Tracks storage in both main and child tries.
 /// 3. **Efficient tracking**: Minimizes overhead when tracking is disabled.
 /// 4. **Read/write aggregation**: Combines multiple accesses to the same key.
-///
-/// # Example
-///
-/// ```
-/// let mut tracker = KeyTracker::new(true);
-/// tracker.add_whitelist(&[TrackedStorageKey::new(b"System::")]);
-/// tracker.add_read_key(None, b"System::Account"); // Whitelisted
-/// tracker.add_read_key(None, b"Balances::Total"); // Not whitelisted
-/// ```
 struct KeyTracker {
 	enable_tracking: bool,
 	/// Key tracker for keys in the main trie.
