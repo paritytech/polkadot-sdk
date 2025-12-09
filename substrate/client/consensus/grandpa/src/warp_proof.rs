@@ -320,9 +320,11 @@ where
 				.verify(current_set_id, current_authorities, &self.hard_forks)
 				.map_err(Box::new)?;
 
-			state.set_id = next_set_id;
-			state.authorities = next_authorities;
-			state.next_proof_context = last_header.hash();
+			*state = VerifierState {
+				set_id: next_set_id,
+				authorities: next_authorities,
+				next_proof_context: last_header.hash(),
+			};
 		}
 
 		let justifications = proof
