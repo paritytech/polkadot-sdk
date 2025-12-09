@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     Use the update subxt macro to generate the metadata in OUT_DIR;
-    not doing so generate the following error when we try to publish the package
+    not doing so generates the following error when we try to publish the package:
 
 
     ```
