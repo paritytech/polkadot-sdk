@@ -277,7 +277,7 @@ pub fn convert_to_authority_weight_pair(
 }
 
 /// Add a BABE pre-digest to a generic header
-pub fn add_pre_digest<Header: sp_runtime::traits::Header>(
+pub fn add_babe_pre_digest<Header: sp_runtime::traits::Header>(
 	header: &mut Header,
 	authority_index: u32,
 	block_number: u64,
@@ -324,7 +324,7 @@ pub fn build_relay_parent_descendants(
 		let authority_index = block_number % (authorities.len() as u32);
 
 		// Add pre-digest
-		add_pre_digest(&mut header, authority_index, block_number as u64);
+		add_babe_pre_digest(&mut header, authority_index, block_number as u64);
 
 		// Sign and seal the header
 		let signature = authorities[authority_index as usize].sign(header.hash().as_bytes());
