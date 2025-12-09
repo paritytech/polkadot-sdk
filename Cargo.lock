@@ -14173,7 +14173,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
- "pallet-dap",
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",

@@ -11,26 +11,24 @@ doc:
        account instead of burning them. The buffer account is created via `inc_providers` at genesis
        or on runtime upgrade, ensuring it can receive any amount including those below ED.
 
-    3. **AssetHub Westend integration**: The runtime now uses pallet-dap to redirect:
-       - Treasury unspent funds to the DAP buffer (via `BurnDestination`)
-       - Staking slashes to the DAP buffer (via `SlashToDap`)
+    3. **AssetHub Westend integration**: The runtime now uses pallet-dap to redirect staking slashes
+       to the DAP buffer (via `SlashToDap`).
 
-    4. **staking-async parachain runtime**: Updated to use DAP for slash handling.
+    **Treasury burns are now disabled** so no need to integrate with DAP: treasury `Burn` parameter is set
+    to zero in Westend RC, AssetHub and  collective runtimes. This means no treasury funds are burned at
+    the end of spend periods, preserving total issuance.
 
-    NOTE: User-initiated burns (via pallet_balances::burn extrinsic) do NOT go through DAP currently but
-    they burn directly instead, reducing total issuance immediately.
-    This is because `pallet_balances::BurnDestination` in the related pallet's Config is commented out.
-    In the moment we uncomment it, we will introduce a breaking change forcing:
-    - Runtimes integrating with DAP to specify DAP as BurnDestination (this makes the burn extrinsic redirect to DAP).
-    - All other runtimes will use `BurnDestination = DirectBurn<Runtime>` (this makes the burn extrinsic actually burn tokens so same behavior as before).
-    This was not included in this PR to keep the scope limited, especially since user-initiated burns are rare events.
+    NOTE: User-initiated burns (via pallet_balances::burn extrinsic) do NOT go through DAP currently
+    but they burn directly instead, reducing total issuance immediately.
 
     This is the first deliverable of the DAP system. Future PRs will add:
-    - configurable destination for user-initiated burns
     - pallet-dap-satellite for system chains
     - Integration with other Westend system chains
     - XCM-based fund transfers from satellites to the DAP buffer
-    - FundingSource trait for pulling funds from DAP
+    - A FundingSource trait to pull funds from DAP, enabling the replacement of direct minting with requests for funds from the DAP buffer
+    - DAP's responsibility to mint according to the issuance curve defined for each chain
+    - The ability to configure the percentage of funds redirected from DAP to various destinations (validators, nominators, treasury, collators, etc)
+    - Support for multiple assets in DAP, including native tokens and stablecoins
 crates:
 - name: frame-support
   bump: minor
@@ -42,7 +40,11 @@ crates:
   bump: minor
 - name: asset-hub-westend-runtime
   bump: major
+- name: westend-runtime
+  bump: major
 - name: pallet-staking-async
   bump: patch
 - name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
   bump: major
