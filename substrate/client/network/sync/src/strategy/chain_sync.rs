@@ -44,6 +44,7 @@ use crate::{
 	LOG_TARGET,
 };
 
+use codec::Encode;
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
@@ -204,6 +205,14 @@ struct GapSync<B: BlockT> {
 	blocks: BlockCollection<B>,
 	best_queued_number: NumberFor<B>,
 	target: NumberFor<B>,
+	/// Total size of headers downloaded during gap sync (in bytes)
+	total_header_bytes: u64,
+	/// Total size of bodies downloaded during gap sync (in bytes)
+	total_body_bytes: u64,
+	/// Total size of justifications downloaded during gap sync (in bytes)
+	total_justification_bytes: u64,
+	/// Total block bytes recieived over the wire
+	total_block_bytes: u64,
 }
 
 /// Sync operation mode.
@@ -992,10 +1001,30 @@ where
 	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
 		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
 		if gap_sync_complete {
-			info!(
-				target: LOG_TARGET,
-				"Block history download is complete."
-			);
+			if let Some(gap_sync) = &self.gap_sync {
+				let total_bytes = gap_sync.total_header_bytes +
+					gap_sync.total_body_bytes +
+					gap_sync.total_justification_bytes;
+				info!(
+					target: LOG_TARGET,
+					"Block history download is complete. Total downloaded - headers: {} bytes ({:.2} MB), bodies: {} bytes ({:.2} MB), justifications: {} bytes ({:.2} MB), total: {} bytes ({:.2} MB), block: {} bytes ({:.2} MB)",
+					gap_sync.total_header_bytes,
+					gap_sync.total_header_bytes as f64 / (1024.0 * 1024.0),
+					gap_sync.total_body_bytes,
+					gap_sync.total_body_bytes as f64 / (1024.0 * 1024.0),
+					gap_sync.total_justification_bytes,
+					gap_sync.total_justification_bytes as f64 / (1024.0 * 1024.0),
+					total_bytes,
+					total_bytes as f64 / (1024.0 * 1024.0),
+					gap_sync.total_block_bytes,
+					gap_sync.total_block_bytes as f64 / (1024.0 * 1024.0),
+				);
+			} else {
+				info!(
+					target: LOG_TARGET,
+					"Block history download is complete."
+				);
+			}
 			self.gap_sync = None;
 		}
 	}
@@ -1184,11 +1213,17 @@ where
 								gap_sync.blocks.insert(start_block, blocks, *peer_id);
 							}
 							gap = true;
+							let mut batch_header_bytes = 0u64;
+							let mut batch_body_bytes = 0u64;
+							let mut batch_justification_bytes = 0u64;
+							let mut batch_block_bytes = 0u64;
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
 								.into_iter()
 								.map(|block_data| {
+									let block_data_size = block_data.block.encoded_size() as u64;
+
 									let justifications =
 										block_data.block.justifications.or_else(|| {
 											legacy_justification_mapping(
@@ -1196,13 +1231,40 @@ where
 											)
 										});
 
+									// Calculate sizes for each component
+									let header_size = block_data
+										.block
+										.header
+										.as_ref()
+										.map(|h| h.encoded_size() as u64)
+										.unwrap_or(0);
+									let body_size = block_data
+										.block
+										.body
+										.as_ref()
+										.map(|b| b.encoded_size() as u64)
+										.unwrap_or(0);
+									let justification_size = justifications
+										.as_ref()
+										.map(|j| j.encoded_size() as u64)
+										.unwrap_or(0);
+
+									batch_header_bytes += header_size;
+									batch_body_bytes += body_size;
+									batch_justification_bytes += justification_size;
+									batch_block_bytes += block_data_size;
+
 									trace!(
 										target: LOG_TARGET,
-										"Draining gap block {} ({:?}) body: {}",
+										"Draining gap block {} ({:?}) header: {} bytes, body: {} bytes, justification: {} bytes, block: {} bytes",
 										block_data.block.hash,
-										block_data.block.header.clone().map(|h| *h.number()),
-										block_data.block.body.is_some(),
+										block_data.block.header.as_ref().map(|h| *h.number()),
+										header_size,
+										body_size,
+										justification_size,
+										block_data_size
 									);
+
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
@@ -1217,11 +1279,21 @@ where
 									}
 								})
 								.collect();
+							// Accumulate totals
+							gap_sync.total_header_bytes += batch_header_bytes;
+							gap_sync.total_body_bytes += batch_body_bytes;
+							gap_sync.total_justification_bytes += batch_justification_bytes;
+							gap_sync.total_block_bytes += batch_block_bytes;
+
 							debug!(
 								target: LOG_TARGET,
-								"Drained {} gap blocks from {}",
+								"Drained {} gap blocks from {}, batch sizes - headers: {} bytes, bodies: {} bytes, justifications: {} bytes, block: {} bytes",
 								blocks.len(),
 								gap_sync.best_queued_number,
+								batch_header_bytes,
+								batch_body_bytes,
+								batch_justification_bytes,
+								batch_block_bytes,
 							);
 							blocks
 						} else {
@@ -1436,6 +1508,7 @@ where
 			(Some(first), Some(_)) => format!(" ({})", first),
 			_ => Default::default(),
 		};
+		//
 		trace!(
 			target: LOG_TARGET,
 			"BlockResponse {} from {} with {} blocks {}",
@@ -1734,6 +1807,10 @@ where
 				best_queued_number: start - One::one(),
 				target: end,
 				blocks: BlockCollection::new(),
+				total_header_bytes: 0,
+				total_body_bytes: 0,
+				total_justification_bytes: 0,
+				total_block_bytes: 0,
 			});
 		}
 		trace!(
