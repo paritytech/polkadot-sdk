@@ -9,13 +9,12 @@ use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Channel, Statement, Topic};
-use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
+use std::{cell::Cell, collections::HashMap, env, sync::Arc, time::Duration};
 use tokio::time::timeout;
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
-use std::env;
 
 const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
@@ -323,30 +322,26 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()]);
 
-
 			let r = match (&maybe_req_cpu, &maybe_req_mem) {
 				(Err(_), Err(_)) => r,
-				_ => {
-					r.with_default_resources(|resources| {
-						let resources = if let Ok(cpu_req) = &maybe_req_cpu {
-							resources.with_request_cpu(cpu_req.as_str())
-						} else {
-							resources
-						};
-
-						let resources = if let Ok(mem_req) = &maybe_req_mem {
-							resources.with_request_memory(mem_req.as_str())
-						} else {
-							resources
-						};
+				_ => r.with_default_resources(|resources| {
+					let resources = if let Ok(cpu_req) = &maybe_req_cpu {
+						resources.with_request_cpu(cpu_req.as_str())
+					} else {
 						resources
-					})
-				}
+					};
+
+					let resources = if let Ok(mem_req) = &maybe_req_mem {
+						resources.with_request_memory(mem_req.as_str())
+					} else {
+						resources
+					};
+					resources
+				}),
 			};
 
-			r
-			.with_node(|node| node.with_name("validator-0"))
-			.with_node(|node| node.with_name("validator-1"))
+			r.with_node(|node| node.with_name("validator-0"))
+				.with_node(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			let p = p
@@ -363,22 +358,20 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 
 			let p = match (&maybe_req_cpu, &maybe_req_mem) {
 				(Err(_), Err(_)) => p,
-				_ => {
-					p.with_default_resources(|resources| {
-						let resources = if let Ok(cpu_req) = maybe_req_cpu {
-							resources.with_request_cpu(cpu_req.as_str())
-						} else {
-							resources
-						};
-
-						let resources = if let Ok(mem_req) = maybe_req_mem {
-							resources.with_request_memory(mem_req.as_str())
-						} else {
-							resources
-						};
+				_ => p.with_default_resources(|resources| {
+					let resources = if let Ok(cpu_req) = maybe_req_cpu {
+						resources.with_request_cpu(cpu_req.as_str())
+					} else {
 						resources
-					})
-				}
+					};
+
+					let resources = if let Ok(mem_req) = maybe_req_mem {
+						resources.with_request_memory(mem_req.as_str())
+					} else {
+						resources
+					};
+					resources
+				}),
 			};
 
 			// Have to set outside of the loop below, so that `p` has the right type.
