@@ -26,26 +26,23 @@
 
 use crate::traits::tokens::{fungible, Fortitude, Precision, Preservation};
 use core::marker::PhantomData;
-use sp_runtime::DispatchResult;
 
 /// Trait for returning funds to an issuance system.
 ///
 /// Implementations can either burn directly or return to a buffer for reuse.
+/// This trait is infallible - implementations must handle any errors internally.
 pub trait FundingSink<AccountId, Balance> {
 	/// Return funds from the given account back to the issuance system.
 	///
 	/// This could mean burning the funds or transferring them to a buffer account.
+	/// The operation is infallible - any errors are handled internally.
 	///
 	/// # Parameters
 	/// - `from`: The account to take funds from
 	/// - `amount`: The amount to return
 	/// - `preservation`: Whether to preserve the source account (Preserve = keep alive, Expendable
 	///   = allow death)
-	fn return_funds(
-		from: &AccountId,
-		amount: Balance,
-		preservation: Preservation,
-	) -> DispatchResult;
+	fn return_funds(from: &AccountId, amount: Balance, preservation: Preservation);
 }
 
 /// Direct burning implementation of `FundingSink`.
@@ -65,24 +62,16 @@ where
 	Currency: fungible::Mutate<AccountId>,
 	AccountId: Eq,
 {
-	fn return_funds(
-		from: &AccountId,
-		amount: Currency::Balance,
-		preservation: Preservation,
-	) -> DispatchResult {
-		Currency::burn_from(from, amount, preservation, Precision::Exact, Fortitude::Polite)?;
-		Ok(())
+	fn return_funds(from: &AccountId, amount: Currency::Balance, preservation: Preservation) {
+		// Best-effort burn. If it fails (e.g., insufficient funds), the funds remain with the
+		// account.
+		let _ =
+			Currency::burn_from(from, amount, preservation, Precision::Exact, Fortitude::Polite);
 	}
 }
 
 /// No-op implementation of `FundingSink` for unit type.
 /// Used for testing or when no sink behavior is needed.
 impl<AccountId, Balance> FundingSink<AccountId, Balance> for () {
-	fn return_funds(
-		_from: &AccountId,
-		_amount: Balance,
-		_preservation: Preservation,
-	) -> DispatchResult {
-		Ok(())
-	}
+	fn return_funds(_from: &AccountId, _amount: Balance, _preservation: Preservation) {}
 }

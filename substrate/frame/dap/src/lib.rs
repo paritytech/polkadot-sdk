@@ -139,40 +139,18 @@ pub mod pallet {
 pub struct ReturnToDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
-	fn return_funds(
-		source: &T::AccountId,
-		amount: BalanceOf<T>,
-		preservation: Preservation,
-	) -> Result<(), DispatchError> {
+	fn return_funds(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
 		let buffer = Pallet::<T>::buffer_account();
 
-		let credit = T::Currency::withdraw(
-			source,
-			amount,
-			Precision::Exact,
-			preservation,
-			Fortitude::Polite,
-		)?;
-
-		// The buffer account is created at genesis or on_runtime_upgrade, so resolve should
-		// always succeed. If it somehow fails, log the error and let the credit drop (burn).
-		let _ = T::Currency::resolve(&buffer, credit).map_err(|c| {
-			log::error!(
-				target: LOG_TARGET,
-				"💸 Failed to resolve {:?} to DAP buffer - funds will be burned instead",
-				c.peek()
-			);
-			drop(c);
-		});
-
-		Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount });
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Returned {amount:?} from {source:?} to DAP buffer"
-		);
-
-		Ok(())
+		// Withdraw from source, resolve to buffer, emit event. If withdraw fails, nothing happens.
+		// If resolve fails (should never happen - buffer pre-created at genesis or via runtime
+		// upgrade), funds are burned.
+		T::Currency::withdraw(source, amount, Precision::Exact, preservation, Fortitude::Polite)
+			.ok()
+			.map(|credit| T::Currency::resolve(&buffer, credit))
+			.map(|_| {
+				Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount })
+			});
 	}
 }
 
@@ -241,7 +219,7 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, parameter_types,
+		derive_impl, parameter_types,
 		traits::{
 			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
 			OnUnbalanced, WithdrawReasons,
@@ -317,9 +295,9 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: return funds from multiple accounts
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 20, Preservation::Preserve));
-			assert_ok!(ReturnToDap::<Test>::return_funds(&2, 50, Preservation::Preserve));
-			assert_ok!(ReturnToDap::<Test>::return_funds(&3, 100, Preservation::Preserve));
+			ReturnToDap::<Test>::return_funds(&1, 20, Preservation::Preserve);
+			ReturnToDap::<Test>::return_funds(&2, 50, Preservation::Preserve);
+			ReturnToDap::<Test>::return_funds(&3, 100, Preservation::Preserve);
 
 			// Then: buffer has accumulated all returns (20 + 50 + 100 = 170)
 			assert_eq!(Balances::free_balance(buffer), 170);
@@ -335,17 +313,20 @@ mod tests {
 	}
 
 	#[test]
-	fn return_funds_fails_with_insufficient_balance() {
+	fn return_funds_with_insufficient_balance_is_noop() {
 		new_test_ext().execute_with(|| {
-			// Given: account 1 has 100
+			let buffer = Dap::buffer_account();
+
+			// Given: account 1 has 100, buffer has 0
 			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: try to return 150 (more than balance)
-			// Then: fails
-			assert_noop!(
-				ReturnToDap::<Test>::return_funds(&1, 150, Preservation::Preserve),
-				sp_runtime::TokenError::FundsUnavailable
-			);
+			ReturnToDap::<Test>::return_funds(&1, 150, Preservation::Preserve);
+
+			// Then: balances unchanged (infallible no-op)
+			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
 		});
 	}
 
@@ -359,7 +340,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: return 0 from account 1
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 0, Preservation::Preserve));
+			ReturnToDap::<Test>::return_funds(&1, 0, Preservation::Preserve);
 
 			// Then: balances unchanged (no-op)
 			assert_eq!(Balances::free_balance(1), 100);
@@ -377,7 +358,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 100);
 
 			// When: return full balance with Expendable (allows going to 0)
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Expendable));
+			ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Expendable);
 
 			// Then: account 1 is empty, buffer has 100
 			assert_eq!(Balances::free_balance(1), 0);
@@ -388,19 +369,23 @@ mod tests {
 	#[test]
 	fn return_funds_with_preserve_respects_existential_deposit() {
 		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+
 			// Given: account 1 has 100, ED is 1 (from TestDefaultConfig)
 			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: try to return 100 with Preserve (would go below ED)
-			// Then: fails because it would kill the account
-			assert_noop!(
-				ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Preserve),
-				sp_runtime::TokenError::FundsUnavailable
-			);
+			ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Preserve);
+
+			// Then: balances unchanged (infallible - would have killed account)
+			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// But returning 99 works (leaves 1 for ED)
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 99, Preservation::Preserve));
+			ReturnToDap::<Test>::return_funds(&1, 99, Preservation::Preserve);
 			assert_eq!(Balances::free_balance(1), 1);
+			assert_eq!(Balances::free_balance(buffer), 99);
 		});
 	}
 
