@@ -41,7 +41,7 @@ pub enum TopicFilter {
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
-pub trait StatementApi2 {
+pub trait StatementApi {
 	/// Subscribe to new statements that match the provided filters.
 	///
 	/// # Parameters
@@ -71,76 +71,4 @@ pub trait StatementApi2 {
 	/// Returns `SubmitResult` indicating success or failure reason.
 	#[method(name = "statement_submit")]
 	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
-}
-
-/// Substrate statement RPC API
-#[rpc(client, server)]
-#[deprecated(since = "0.0.0", note = "Please use StatementApi2 instead, will be removed soon.")]
-pub trait StatementApi {
-	/// Return all statements, SCALE-encoded.
-	#[method(name = "statement_dump", with_extensions)]
-	fn dump(&self) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
-	/// field.
-	///
-	/// To get the statement, and not just the data, use `statement_broadcastsStatement`.
-	#[method(name = "statement_broadcasts")]
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the data of all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
-	///
-	/// To get the statement, and not just the data, use `statement_postedStatement`.
-	#[method(name = "statement_posted")]
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the decrypted data of all known statements whose decryption key is identified as
-	/// `dest`. The key must be available to the client.
-	///
-	/// To get the statement, and not just the data, use `statement_postedClearStatement`.
-	#[method(name = "statement_postedClear")]
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>>;
-
-	/// Return all known statements which include all topics and have no `DecryptionKey`
-	/// field.
-	///
-	/// This returns the SCALE-encoded statements not just the data as in rpc
-	/// `statement_broadcasts`.
-	#[method(name = "statement_broadcastsStatement")]
-	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
-
-	/// Return all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
-	///
-	/// This returns the SCALE-encoded statements not just the data as in rpc `statement_posted`.
-	#[method(name = "statement_postedStatement")]
-	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32])
-		-> RpcResult<Vec<Bytes>>;
-
-	/// Return the statement and the decrypted data of all known statements whose decryption key is
-	/// identified as `dest`. The key must be available to the client.
-	///
-	/// This returns for each statement: the SCALE-encoded statement concatenated to the decrypted
-	/// data. Not just the data as in rpc `statement_postedClear`.
-	#[method(name = "statement_postedClearStatement")]
-	fn posted_clear_stmt(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>>;
-
-	/// Submit a pre-encoded statement.
-	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
-
-	/// Remove a statement from the store.
-	#[method(name = "statement_remove")]
-	fn remove(&self, statement_hash: [u8; 32]) -> RpcResult<()>;
 }
