@@ -160,18 +160,17 @@ From the forked Polkadot-sdk repository in the [paritytech-release org](https://
 
 1. Sync the forks before continuing with the release using
 [Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
-2. To build binaries trigger [Release - Build node release candidate](/.github/workflows/release-20_build-rc.yml)
-3. When an rc build is ready to trigger [Release - Publish draft](/.github/workflows/release-30_publish_release_draft.yml)
-to create a new release draft for the upcoming rc
+2. To build binaries or testnet runtimes and to create a release draft in the github
+trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml)
+3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch
 4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes
 to the release branch
-5. Repeat steps 1-3 to prepare the rc
-6. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
+5. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
 to have it as a final rc on the S3
-7. Publish deb package for the `polkadot` binary using
+6. Publish deb package for the `polkadot` binary using
 [Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
-8. Adjust the release draft and publish release on the GitHub.
-9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
+7. Adjust the release draft and publish release on GitHub.
+8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
 From the main Polkadot-sdk repository in the paritytech org:
 

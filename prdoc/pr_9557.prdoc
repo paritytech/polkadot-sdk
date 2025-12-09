@@ -1,0 +1,9 @@
+title: '[pallet-revive] Update genesis config'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update pallet-revive Genesis config
+    Make it possible to define accounts (contracts or EOA) that we want to setup at Genesis
+crates:
+- name: pallet-revive
+  bump: minor

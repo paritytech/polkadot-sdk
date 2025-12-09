@@ -1,0 +1,14 @@
+title: Move revive fixtures into release directory
+doc:
+- audience: Runtime Dev
+  description: |-
+    https://github.com/paritytech/polkadot-sdk/pull/8980 did fix the fellowship CI but it triggers a rebuild of the fixtures every single time you run tests. Annoying during development.
+
+    Instead of rebuilding, we just move the fixtures into the `target/release` directory where it should be cached by the fellowship CI.
+
+    Verifying that it works here: https://github.com/polkadot-fellows/runtimes/pull/891
+
+    Why: Re-running when the output dir changes will make it re-run every time. Since every run changes the output dir.
+crates:
+- name: pallet-revive-fixtures
+  bump: patch

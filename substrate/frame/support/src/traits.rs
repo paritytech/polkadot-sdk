@@ -98,8 +98,8 @@ mod storage;
 pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
-	LinearStoragePrice, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance,
-	TrackedStorageKey, WhitelistedStorageKeys,
+	LinearStoragePrice, NoDrop, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
+	StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
@@ -137,6 +137,9 @@ pub use tasks::Task;
 
 mod proving;
 pub use proving::*;
+
+mod rewards;
+pub use rewards::RewardsPool;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

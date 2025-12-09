@@ -945,6 +945,11 @@ fn full_parachain_cleanup_storage() {
 		run_to_block(7, None);
 		assert_eq!(frame_system::Pallet::<Test>::block_number(), 7);
 		Paras::note_new_head(para_id, Default::default(), expected_at);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((ValidationCode(vec![7]).hash(), 1000)),
+		);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_some());
 
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
 
@@ -968,6 +973,7 @@ fn full_parachain_cleanup_storage() {
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(Paras::current_code(&para_id).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_none());
 
 		// run to do the final cleanup
 		let cleaned_up_at = 8 + code_retention_period + 1;
@@ -2173,7 +2179,33 @@ fn authorize_force_set_current_code_hash_works() {
 			DispatchError::BadOrigin,
 		);
 
-		// root can authorize
+		// para not registered
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Onboarding);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::OffboardingParachain);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+
+		// root can authorize for registered para
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_a));
 		System::set_block_number(1);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2185,6 +2217,8 @@ fn authorize_force_set_current_code_hash_works() {
 			AuthorizedCodeHash::<Test>::get(&para_a),
 			Some((code_1_hash, 1 + valid_period).into())
 		);
+		ParaLifecycles::<Test>::insert(&para_b, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_b));
 		System::set_block_number(5);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),

@@ -22,7 +22,7 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
 	ValidatorIndex,
 };
 

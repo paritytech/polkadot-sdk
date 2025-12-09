@@ -77,6 +77,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 #[deprecated(
 	note = "`XcmFeeToAccount` will be removed in January 2025. Use `SendXcmFeeToAccount` instead."
 )]
+#[allow(dead_code)]
 pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 	PhantomData<(AssetTransactor, AccountId, ReceiverAccount)>,
 );

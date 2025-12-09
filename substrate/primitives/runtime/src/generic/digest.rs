@@ -224,7 +224,7 @@ pub enum OpaqueDigestItemId<'a> {
 
 impl DigestItem {
 	/// Returns a 'referencing view' for this digest item.
-	pub fn dref(&self) -> DigestItemRef {
+	pub fn dref(&self) -> DigestItemRef<'_> {
 		match *self {
 			Self::PreRuntime(ref v, ref s) => DigestItemRef::PreRuntime(v, s),
 			Self::Consensus(ref v, ref s) => DigestItemRef::Consensus(v, s),

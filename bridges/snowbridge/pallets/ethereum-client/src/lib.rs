@@ -42,8 +42,8 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError, CompactBeaconState,
-	ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
+	ForkVersions, PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -494,10 +494,10 @@ pub mod pallet {
 					<CurrentSyncCommittee<T>>::set(<NextSyncCommittee<T>>::get());
 					<NextSyncCommittee<T>>::set(sync_committee_prepared);
 				}
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
-					"💫 SyncCommitteeUpdated at period {}.",
-					update_finalized_period
+					period=%update_finalized_period,
+					"💫 SyncCommitteeUpdated."
 				);
 				<LatestSyncCommitteeUpdatePeriod<T>>::set(update_finalized_period);
 				Self::deposit_event(Event::SyncCommitteeUpdated {
@@ -548,11 +548,11 @@ pub mod pallet {
 			);
 			<LatestFinalizedBlockRoot<T>>::set(header_root);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 Updated latest finalized block root {} at slot {}.",
-				header_root,
-				slot
+				root=%header_root,
+				%slot,
+				"💫 Updated latest finalized block."
 			);
 
 			Self::deposit_event(Event::BeaconHeaderImported { block_hash: header_root, slot });
@@ -627,6 +627,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.fulu.epoch {
+				return fork_versions.fulu.version
+			}
 			if epoch >= fork_versions.electra.epoch {
 				return fork_versions.electra.version
 			}

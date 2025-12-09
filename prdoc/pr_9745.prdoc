@@ -1,0 +1,10 @@
+title: Avoid double counting PoV size when enqueing XCMP message
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to #9641
+
+    Avoid double counting PoV size when enqueing XCMP message
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: major

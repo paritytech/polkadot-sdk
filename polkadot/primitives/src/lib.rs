@@ -19,8 +19,10 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// `v11` is currently the latest stable version of the runtime API.
-pub mod v8;
+// `v13` is currently the latest stable version of the runtime API, the number below
+// should be incremented when a new version is released and is independent of the
+// released version of the Polkadot runtime.
+pub mod v9;
 
 // The 'staging' version is special - it contains primitives which are
 // still in development. Once they are considered stable, they will be
@@ -35,36 +37,42 @@ extern crate alloc;
 
 // Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
-pub use v8::{
-	async_backing, byzantine_threshold, check_candidate_backing, collator_signature_payload,
-	effective_minimum_backing_votes, executor_params, metric_definitions, node_features, slashing,
-	supermajority_threshold, well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel,
-	AccountId, AccountIndex, AccountPublic, ApprovalVote, ApprovalVoteMultipleCandidates,
-	ApprovalVotingParams, AssignmentId, AsyncBackingParams, AuthorityDiscoveryId,
-	AvailabilityBitfield, BackedCandidate, Balance, BlakeTwo256, Block, BlockId, BlockNumber,
-	CandidateCommitments, CandidateDescriptor, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, ChunkIndex,
-	CollatorId, CollatorSignature, CommittedCandidateReceipt, CompactStatement, ConsensusLog,
-	CoreIndex, CoreState, DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage,
-	EncodeAs, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
-	ExecutorParamsPrepHash, ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT,
-	HeadData, Header, HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage,
-	InboundHrmpMessage, IndexedVec, InherentData, InvalidDisputeStatementKind, Moment,
-	MultiDisputeStatementSet, NodeFeatures, Nonce, OccupiedCore, OccupiedCoreAssumption,
-	OutboundHrmpMessage, ParathreadClaim, ParathreadEntry, PersistedValidationData,
-	PvfCheckStatement, PvfExecKind, PvfPrepKind, RuntimeMetricLabel, RuntimeMetricLabelValue,
-	RuntimeMetricLabelValues, RuntimeMetricLabels, RuntimeMetricOp, RuntimeMetricUpdate,
-	ScheduledCore, SchedulerParams, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature,
-	Signed, SignedAvailabilityBitfield, SignedAvailabilityBitfields, SignedStatement,
-	SigningContext, Slot, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
+pub use v9::{
+	async_backing, byzantine_threshold, check_candidate_backing, effective_minimum_backing_votes,
+	executor_params, metric_definitions, node_features, skip_ump_signals, slashing,
+	supermajority_threshold, transpose_claim_queue, well_known_keys, AbridgedHostConfiguration,
+	AbridgedHrmpChannel, AccountId, AccountIndex, AccountPublic, ApprovalVote,
+	ApprovalVoteMultipleCandidates, ApprovalVotingParams, ApprovedPeerId, AssignmentId,
+	AsyncBackingParams, AuthorityDiscoveryId, AvailabilityBitfield, BackedCandidate, Balance,
+	BlakeTwo256, Block, BlockId, BlockNumber, CandidateCommitments, CandidateDescriptorV2,
+	CandidateDescriptorVersion, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, ChunkIndex, ClaimQueueOffset,
+	CollatorId, CollatorSignature, CommittedCandidateReceiptError, CommittedCandidateReceiptV2,
+	CompactStatement, ConsensusLog, CoreIndex, CoreSelector, CoreState, DisputeOffenceKind,
+	DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs, ExecutorParam,
+	ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
+	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
+	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
+	InherentData, InternalVersion, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet,
+	NodeFeatures, Nonce, OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage,
+	ParathreadClaim, ParathreadEntry, PersistedValidationData, PvfCheckStatement, PvfExecKind,
+	PvfPrepKind, RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues,
+	RuntimeMetricLabels, RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, SchedulerParams,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature, Signed, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, SignedStatement, SigningContext, Slot, TransposedClaimQueue,
+	UMPSignal, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields, UncheckedSignedStatement, UpgradeGoAhead,
 	UpgradeRestriction, UpwardMessage, ValidDisputeStatementKind, ValidationCode,
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
-	ValidityError, ASSIGNMENT_KEY_TYPE_ID, DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES,
-	LOWEST_PUBLIC_ID, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, MIN_CODE_SIZE,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE, PARACHAINS_INHERENT_IDENTIFIER,
-	PARACHAIN_KEY_TYPE_ID,
+	ValidityError, ASSIGNMENT_KEY_TYPE_ID, DEFAULT_CLAIM_QUEUE_OFFSET,
+	DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES, LOWEST_PUBLIC_ID, MAX_CODE_SIZE,
+	MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, MIN_CODE_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE, PARACHAINS_INHERENT_IDENTIFIER, PARACHAIN_KEY_TYPE_ID,
+	UMP_SEPARATOR,
 };
 
+#[cfg(feature = "test")]
+pub use v9::{AppVerify, MutateDescriptorV2};
+
 #[cfg(feature = "std")]
-pub use v8::{AssignmentPair, CollatorPair, ValidatorPair};
+pub use v9::{AssignmentPair, CollatorPair, ValidatorPair};

@@ -108,7 +108,7 @@ mod apis {
 			fn version() -> sp_version::RuntimeVersion {
 				unimplemented!()
 			}
-			fn execute_block(_: Block) {
+			fn execute_block(_: <Block as BlockT>::LazyBlock) {
 				unimplemented!()
 			}
 			fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
@@ -218,7 +218,7 @@ fn runtime_metadata() {
 					name: "execute_block",
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "block",
-						ty: meta_type::<Block>(),
+						ty: meta_type::<<Block as BlockT>::LazyBlock>(),
 					}],
 					output: meta_type::<()>(),
 					docs: maybe_docs(vec![" Execute the given block."]),

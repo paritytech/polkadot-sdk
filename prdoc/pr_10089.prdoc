@@ -1,0 +1,16 @@
+title: 'pallet_revive: Raise the MaxEthExtrinsicWeight'
+doc:
+- audience: Runtime User
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/194
+
+    Factory extrinsics do need more weight. It is fine to raise them to almost the full max extrinsic weight since this is still lower than the block weight.
+
+    Also improving the error reporting during the dry run in case an extrinsic hits this limit. No more `OutOfGas` but a more descriptive error of how much it is overweight.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major

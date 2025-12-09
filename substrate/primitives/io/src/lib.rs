@@ -1373,10 +1373,11 @@ pub trait Crypto {
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
+		owner: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bls381::ProofOfPossession>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key)
+			.bls381_generate_proof_of_possession(id, pub_key, owner)
 			.ok()
 			.flatten()
 	}
@@ -1485,7 +1486,7 @@ pub trait Hashing {
 /// Interface that provides transaction indexing API.
 #[runtime_interface]
 pub trait TransactionIndex {
-	/// Add transaction index. Returns indexed content hash.
+	/// Indexes the specified transaction for the given `extrinsic` and `context_hash`.
 	fn index(
 		&mut self,
 		extrinsic: u32,
@@ -1495,7 +1496,8 @@ pub trait TransactionIndex {
 		self.storage_index_transaction(extrinsic, &context_hash, size);
 	}
 
-	/// Conduct a 512-bit Keccak hash.
+	/// Renews the transaction index entry for the given `extrinsic` using the provided
+	/// `context_hash`.
 	fn renew(&mut self, extrinsic: u32, context_hash: PassPointerAndReadCopy<[u8; 32], 32>) {
 		self.storage_renew_transaction_index(extrinsic, &context_hash);
 	}

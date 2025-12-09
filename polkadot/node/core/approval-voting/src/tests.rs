@@ -42,10 +42,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, MutateDescriptorV2},
-	ApprovalVote, CandidateCommitments, CoreIndex, DisputeStatement, GroupIndex, Header,
-	Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
-	ValidatorSignature,
+	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
+	Header, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures, ValidDisputeStatementKind,
+	ValidationCode, ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 
@@ -1105,6 +1104,23 @@ async fn import_block(
 				}
 			);
 		}
+	}
+
+	match overseer.peek().timeout(Duration::from_millis(50)).await.flatten() {
+		Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionIndexForChild(_),
+		))) => {
+			let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(s_tx),
+			)) = overseer.recv().await
+			else {
+				panic!("Unexpected message");
+			};
+			s_tx.send(Ok(1u32.into())).unwrap();
+		},
+		_ => (),
 	}
 }
 
@@ -2947,6 +2963,13 @@ fn subsystem_validate_approvals_cache() {
 		assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
 		clock.inner.lock().wakeup_all(slot_to_tick(slot));
 
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+				rx.send(Ok(1u32.into())).unwrap();
+			}
+		);
+
 		futures_timer::Delay::new(Duration::from_millis(200)).await;
 
 		clock.inner.lock().wakeup_all(slot_to_tick(slot + 2));
@@ -3370,6 +3393,24 @@ where
 
 			clock.inner.lock().set_tick(tick);
 			futures_timer::Delay::new(Duration::from_millis(100)).await;
+
+			match virtual_overseer.peek().timeout(Duration::from_millis(50)).await.flatten() {
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionIndexForChild(_),
+				))) => {
+					let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionIndexForChild(rx),
+					)) = virtual_overseer.recv().await
+					else {
+						panic!("Unexpected message");
+					};
+					rx.send(Ok(1u32.into())).unwrap();
+					futures_timer::Delay::new(Duration::from_millis(100)).await;
+				},
+				_ => (),
+			}
 
 			// Assert that Alice's assignment is triggered at the correct tick.
 			let candidate_entry = store.load_candidate_entry(&candidate_hash).unwrap().unwrap();
@@ -4049,6 +4090,13 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 		assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
 		clock.inner.lock().wakeup_all(slot_to_tick(slot));
 
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+				rx.send(Ok(1u32.into())).unwrap();
+			}
+		);
+
 		futures_timer::Delay::new(Duration::from_millis(200)).await;
 
 		clock.inner.lock().wakeup_all(slot_to_tick(slot + 2));
@@ -4350,6 +4398,13 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 		assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
 		clock.inner.lock().wakeup_all(slot_to_tick(slot));
 
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+				rx.send(Ok(1u32.into())).unwrap();
+			}
+		);
+
 		futures_timer::Delay::new(Duration::from_millis(200)).await;
 
 		clock.inner.lock().wakeup_all(slot_to_tick(slot + 2));
@@ -4464,6 +4519,13 @@ async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 	assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
 	clock.inner.lock().wakeup_all(slot_to_tick(slot));
 
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+			rx.send(Ok(1u32.into())).unwrap();
+		}
+	);
+
 	futures_timer::Delay::new(Duration::from_millis(200)).await;
 
 	clock.inner.lock().wakeup_all(slot_to_tick(slot + 2));
@@ -4566,6 +4628,13 @@ async fn setup_overseer_with_blocks_with_two_assignments_triggered(
 
 	assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
 	clock.inner.lock().wakeup_all(slot_to_tick(slot));
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+			rx.send(Ok(1u32.into())).unwrap();
+		}
+	);
 
 	futures_timer::Delay::new(Duration::from_millis(200)).await;
 
@@ -5552,6 +5621,12 @@ fn subsystem_launches_missed_assignments_on_restart() {
 			}
 		);
 
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(rx), )) => {
+				rx.send(Ok(1u32.into())).unwrap();
+			}
+		);
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(

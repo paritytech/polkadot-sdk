@@ -997,9 +997,12 @@ fn test_multi_page_payout_stakers_by_page() {
 			Session::roll_until_active_era(i);
 		}
 
-		// verify we clean up history as we go
-		for era in 0..15 {
-			assert!(ClaimedRewards::<T>::get(era, &11).is_empty());
+		// With manual pruning, old eras are NOT automatically cleaned up
+		// ClaimedRewards for old eras will remain until manually pruned
+		// Check eras that had rewards claimed (2-14, based on test setup)
+		for era in 2..15 {
+			// These eras had rewards and should still have ClaimedRewards since pruning is manual
+			assert!(!ClaimedRewards::<T>::get(era, &11).is_empty());
 		}
 
 		// verify only page 0 is marked as claimed
@@ -1179,9 +1182,12 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Session::roll_until_active_era(i);
 		}
 
-		// verify we clean up history as we go
-		for era in 0..15 {
-			assert!(ClaimedRewards::<T>::get(era, &11).is_empty());
+		// With manual pruning, old eras are NOT automatically cleaned up
+		// ClaimedRewards for old eras will remain until manually pruned
+		// Check eras that had rewards claimed (2-14, based on test setup)
+		for era in 2..15 {
+			// These eras had rewards and should still have ClaimedRewards since pruning is manual
+			assert!(!ClaimedRewards::<T>::get(era, &11).is_empty());
 		}
 
 		// verify only page 0 is marked as claimed

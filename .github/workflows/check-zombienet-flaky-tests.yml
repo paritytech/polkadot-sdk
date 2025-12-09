@@ -1,0 +1,39 @@
+name: Check Zombienet Flaky Tests
+
+concurrency:
+  group: check-zombienet-flaky-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/zombienet-flaky-tests'
+      - '.github/scripts/check-zombienet-flaky-tests.sh'
+      - '.github/workflows/check-zombienet-flaky-tests.yml'
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  check-flaky-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Validate zombienet-flaky-tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          .github/scripts/check-zombienet-flaky-tests.sh .github/zombienet-flaky-tests
+
+      - name: Check results
+        if: failure()
+        run: |
+          echo "::error::Validation failed. Please ensure all entries in .github/zombienet-flaky-tests have valid format and reference existing GitHub issues."
+          echo "Format: <test-name>:<issue-number>"
+          echo "See .github/ZOMBIENET_FLAKY_TESTS.md for more information."
+          exit 1

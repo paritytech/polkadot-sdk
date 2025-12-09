@@ -288,6 +288,7 @@ mod benchmarks {
 		let code = ValidationCode(vec![0; 32]);
 		let new_code_hash = code.hash();
 		let valid_period = BlockNumberFor::<T>::from(1_000_000_u32);
+		ParaLifecycles::<T>::insert(&para_id, ParaLifecycle::Parachain);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_code_hash, valid_period);

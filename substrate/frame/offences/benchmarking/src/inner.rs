@@ -112,6 +112,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 		<T as SessionConfig>::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
 			.unwrap();
 	let proof: Vec<u8> = vec![0, 1, 2, 3];
+	Session::<T>::ensure_can_pay_key_deposit(&stash)?;
 	Session::<T>::set_keys(RawOrigin::Signed(stash.clone()).into(), keys, proof)?;
 
 	let mut individual_exposures = vec![];

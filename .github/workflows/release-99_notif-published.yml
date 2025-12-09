@@ -3,11 +3,47 @@ on:
   release:
     types:
       - published
-      - prereleased
 
 jobs:
+  check_if_release_is_latest:
+    runs-on: ubuntu-latest
+    outputs:
+      is_latest: ${{ steps.check_is_latest.outputs.is_latest }}
+    steps:
+      - name: Fetch latest release tag name
+        id: fetch_latest_release_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=$(curl -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+          | jq -r '.tag_name')
+
+          echo "Latest release tag: $TAG_NAME"
+          echo "latest_tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+      - name: Fetch  current release tag name
+        id: fetch_curent_release_tag
+        run: |
+          CURRENT_RELEASE_TAG_NAME=${{github.event.release.tag_name}}
+          echo "Current release tag: $CURRENT_RELEASE_TAG_NAME"
+          echo "current_tag_name=$CURRENT_RELEASE_TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Check if release is latest
+        id: check_is_latest
+        run: |
+          if [[ "${{ steps.fetch_latest_release_tag.outputs.latest_tag_name }}" == "${{ steps.fetch_curent_release_tag.outputs.current_tag_name }}" ]]; then
+            echo "Release is latest"
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release is not latest"
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
+
   ping_matrix:
     runs-on: ubuntu-latest
+    needs: [check_if_release_is_latest]
+    if: ${{ needs.check_if_release_is_latest.outputs.is_latest == 'true' }}
     environment: release
     strategy:
       matrix:
@@ -20,7 +56,7 @@ jobs:
          # External
           - name: 'Ledger <> Polkadot Coordination'
             room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
-            pre-release: true
+            pre-release: false
 
          # Public
           - name: '#polkadotvalidatorlounge:web3.foundation'
@@ -35,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.event.release.tag_name }}
 

@@ -43,7 +43,11 @@ use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_client_api::AuxStore;
 use sc_keystore::LocalKeystore;
 use sc_network::{NetworkStateInfo, NotificationService};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 
 pub use polkadot_approval_distribution::ApprovalDistribution as ApprovalDistributionSubsystem;
 pub use polkadot_availability_bitfield_distribution::BitfieldDistribution as BitfieldDistributionSubsystem;
@@ -139,6 +143,10 @@ pub struct ExtendedOverseerGenArgs {
 	/// than the value put in here we always try to recovery availability from backers.
 	/// The presence of this parameter here is needed to have different values per chain.
 	pub fetch_chunks_threshold: Option<usize>,
+	/// Set of invulnerable AH collator `PeerId`s
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
+	/// Override for `HOLD_OFF_DURATION` constant .
+	pub collator_protocol_hold_off: Option<Duration>,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -173,6 +181,8 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		dispute_coordinator_config,
 		chain_selection_config,
 		fetch_chunks_threshold,
+		invulnerable_ah_collators,
+		collator_protocol_hold_off,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -293,6 +303,8 @@ where
 					keystore: keystore.clone(),
 					eviction_policy: Default::default(),
 					metrics: Metrics::register(registry)?,
+					invulnerables: invulnerable_ah_collators,
+					collator_protocol_hold_off,
 				},
 			};
 			CollatorProtocolSubsystem::new(side)

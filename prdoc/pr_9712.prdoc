@@ -1,0 +1,22 @@
+title: 'Cumulus `aura-ext`: Harden slot check between relay-parent and parachain'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Before this PR, we were preventing parachains from authoring blocks that have a slot from the future. However, we permitted parachains to author on past slots, which is unnecessary relaxed. This PR enforces that only the author that owns the slot corresponding to the slot of the relay parent can author.
+    This should no impact on normal Parachain operation. Blocks are already produced on the correct slots, this increased strictness improves some edge-cases however.
+    Even before, the Parachains slot needed to strictly advance, so production on "older" slots was only possible if previous authors skipped production opportunities.
+
+    # Breaking Changes
+    Test breakage is expected. Users of polkadot-sdk who have integration tests or dev-nodes which rely on block production need to supply correct AURA digests. The simplest way to make block production work in test scenarios is to always supply a digest which contains the same slot as the relay parent.
+    In addition, the timestamp inherent passed to the blocks needs to match that slot in the digest.
+    - Users of xcm-emulator: Use a DigestProvider similar to `emulated_integration_tests_common::AuraDigestProvider`.
+    - Users of `MockValidationDataInherentDataProvider`: Use `sc-consensus-manual-seal::AuraConsensusDataProvider`.
+
+
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: minor
+- name: xcm-emulator
+  bump: minor

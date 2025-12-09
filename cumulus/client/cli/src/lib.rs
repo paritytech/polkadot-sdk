@@ -304,11 +304,6 @@ pub struct RunCmd {
 	)]
 	pub relay_chain_rpc_urls: Vec<Url>,
 
-	/// EXPERIMENTAL: Embed a light client for the relay chain. Only supported for full-nodes.
-	/// Will use the specified relay chain chainspec.
-	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
-	pub relay_chain_light_client: bool,
-
 	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
 	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
 	/// configuration of the relay-chain.
@@ -343,12 +338,11 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		let relay_chain_mode =
-			match (self.relay_chain_light_client, !self.relay_chain_rpc_urls.is_empty()) {
-				(true, _) => RelayChainMode::LightClient,
-				(_, true) => RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone()),
-				_ => RelayChainMode::Embedded,
-			};
+		let relay_chain_mode = if self.relay_chain_rpc_urls.is_empty() {
+			RelayChainMode::Embedded
+		} else {
+			RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone())
+		};
 
 		CollatorOptions {
 			relay_chain_mode,
@@ -365,8 +359,6 @@ pub enum RelayChainMode {
 	Embedded,
 	/// Connect to remote relay chain node via websocket RPC
 	ExternalRpc(Vec<Url>),
-	/// Spawn embedded relay chain light client
-	LightClient,
 }
 
 /// Options only relevant for collator/parachain nodes

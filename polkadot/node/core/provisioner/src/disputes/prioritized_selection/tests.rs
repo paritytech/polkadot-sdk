@@ -26,7 +26,7 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, DisputeState,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeState,
 	InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind, ValidatorSignature,
 };
 

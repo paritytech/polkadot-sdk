@@ -1,0 +1,13 @@
+title: 'pallet-salary: Fix unpayable registrations from previous cycles'
+
+doc:
+  - audience: Runtime User
+    description: |
+      Fixes a bug in fellowship salary where users who registered for payout in cycle N
+      but missed the payout window would be unable to claim payment in subsequent cycles.
+
+crates:
+  - name: pallet-salary
+    bump: patch
+  - name: pallet-multi-asset-bounties
+    bump: patch

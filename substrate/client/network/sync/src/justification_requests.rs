@@ -137,7 +137,7 @@ impl<B: BlockT> ExtraRequests<B> {
 
 	/// Returns an iterator-like struct that yields peers which extra
 	/// requests can be sent to.
-	pub(crate) fn matcher(&mut self) -> Matcher<B> {
+	pub(crate) fn matcher(&mut self) -> Matcher<'_, B> {
 		Matcher::new(self)
 	}
 

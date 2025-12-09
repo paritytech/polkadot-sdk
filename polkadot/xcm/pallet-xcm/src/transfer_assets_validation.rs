@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 				tracing::debug!(
 					target: "xcm::pallet_xcm::transfer_assets",
 					asset_id = ?asset.id, ?transfer_type,
-					"Network native asset reserve transfer blocked during Asset Hub Migration. Use `limited_reserve_transfer_assets` instead."
+					"Network native asset reserve transfer blocked in preparation for the Asset Hub Migration. Use `transfer_assets_using_type_and_then` instead and explicitly mention the reserve."
 				);
 				// It's error-prone to try to determine the reserve in this circumstances.
 				return Err(Error::<T>::InvalidAssetUnknownReserve);

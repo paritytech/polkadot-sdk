@@ -30,6 +30,7 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
 use sc_rpc_api::{check_if_safe, DenyUnsafe};
+use sc_tracing::block::TracingExecuteBlock;
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{
@@ -164,6 +165,7 @@ where
 pub fn new_full<BE, Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
+	execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
 ) -> (State<Block, Client>, ChildState<Block, Client>)
 where
 	Block: BlockT + 'static,
@@ -183,9 +185,13 @@ where
 		+ 'static,
 	Client::Api: Metadata<Block>,
 {
-	let child_backend =
-		Box::new(self::state_full::FullState::new(client.clone(), executor.clone()));
-	let backend = Box::new(self::state_full::FullState::new(client, executor));
+	let child_backend = Box::new(self::state_full::FullState::new(
+		client.clone(),
+		executor.clone(),
+		execute_block.clone(),
+	));
+	let backend =
+		Box::new(self::state_full::FullState::new(client, executor, execute_block.clone()));
 	(State { backend }, ChildState { backend: child_backend })
 }
 

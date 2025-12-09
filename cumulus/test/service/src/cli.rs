@@ -46,9 +46,6 @@ pub struct TestCollatorCli {
 	pub relaychain_args: Vec<String>,
 
 	#[arg(long)]
-	pub use_null_consensus: bool,
-
-	#[arg(long)]
 	pub disable_block_announcements: bool,
 
 	#[arg(long)]
@@ -318,6 +315,12 @@ impl SubstrateCli for TestCollatorCli {
 			"sync-backing" => {
 				tracing::info!("Using sync backing chain spec.");
 				Box::new(cumulus_test_service::get_sync_backing_chain_spec(Some(ParaId::from(
+					2500,
+				)))) as Box<_>
+			},
+			"async-backing" => {
+				tracing::info!("Using async backing chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_chain_spec(Some(ParaId::from(
 					2500,
 				)))) as Box<_>
 			},

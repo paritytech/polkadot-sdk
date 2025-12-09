@@ -581,7 +581,7 @@ impl Junctions {
 	}
 
 	/// Returns a reference iterator over the junctions.
-	pub fn iter(&self) -> JunctionsRefIterator {
+	pub fn iter(&self) -> JunctionsRefIterator<'_> {
 		JunctionsRefIterator { junctions: self, next: 0, back: 0 }
 	}
 

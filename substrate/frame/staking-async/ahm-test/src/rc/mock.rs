@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::shared;
 use ah_client::OperatingMode;
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
@@ -25,9 +26,8 @@ use frame_election_provider_support::{
 };
 use frame_support::traits::FindAuthor;
 use pallet_staking_async_ah_client as ah_client;
+use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
 use sp_staking::SessionIndex;
-
-use crate::shared;
 
 pub type T = Runtime;
 
@@ -41,8 +41,13 @@ construct_runtime! {
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
 		Staking: pallet_staking,
+		// NOTE: the session report is given by pallet-session to ah-client on-init, and ah-client
+		// will not send it immediately, but rather store it and sends it over on its own next
+		// on-init call. Yet, because session comes first here, its on-init is called before
+		// ah-client, so under normal conditions, the message is sent immediately.
 		StakingAhClient: pallet_staking_async_ah_client,
 		RootOffences: pallet_root_offences,
+		Offences: pallet_offences,
 	}
 }
 
@@ -244,19 +249,27 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = ConstU32<3>;
 }
 
+impl pallet_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type OnOffenceHandler = StakingAhClient;
+}
+
 impl pallet_root_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = StakingAhClient;
+	type ReportOffence = Offences;
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),
-	OffenceReport(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+	OffenceReportPaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
+	pub static MaximumValidatorsWithPoints: u32 = 32;
 	pub static MaxOffenceBatchSize: u32 = 50;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
@@ -285,42 +298,37 @@ impl ah_client::Config for Runtime {
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type MaximumValidatorsWithPoints = MaximumValidatorsWithPoints;
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Self;
-	type WeightInfo = ();
 	type Fallback = Staking;
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
-use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
+parameter_types! {
+	pub static NextAhDeliveryFails: bool = false;
+}
+
 pub struct DeliverToAH;
-impl ah_client::SendToAssetHub for DeliverToAH {
-	type AccountId = AccountId;
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		if let Some(mut local_queue) = LocalQueue::get() {
-			local_queue.push((
-				System::block_number(),
-				OutgoingMessages::OffenceReport(session_index, offences),
-			));
-			LocalQueue::set(Some(local_queue));
+impl DeliverToAH {
+	fn ensure_delivery_guard() -> Result<(), ()> {
+		// `::take` will set it back to the default value, `false`.
+		if NextAhDeliveryFails::take() {
+			Err(())
 		} else {
-			shared::CounterRCAHNewOffence::mutate(|x| *x += 1);
-			shared::in_ah(|| {
-				let origin = crate::ah::RuntimeOrigin::root();
-				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
-					origin,
-					session_index,
-					offences.clone(),
-				)
-				.unwrap();
-			});
+			Ok(())
 		}
 	}
+}
 
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+impl ah_client::SendToAssetHub for DeliverToAH {
+	type AccountId = AccountId;
+
+	fn relay_session_report(
+		session_report: rc_client::SessionReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue
 				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
@@ -336,6 +344,29 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.unwrap();
 			});
 		}
+		Ok(())
+	}
+
+	fn relay_new_offence_paged(
+		offences: Vec<(SessionIndex, pallet_staking_async_rc_client::Offence<Self::AccountId>)>,
+	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue
+				.push((System::block_number(), OutgoingMessages::OffenceReportPaged(offences)));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			shared::in_ah(|| {
+				crate::shared::CounterRCAHNewOffence::mutate(|x| *x += offences.len() as u32);
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_paged(
+					origin,
+					offences.clone(),
+				)
+				.unwrap();
+			});
+		}
+		Ok(())
 	}
 }
 
@@ -343,6 +374,7 @@ parameter_types! {
 	pub static SessionEventsIndex: usize = 0;
 	pub static HistoricalEventsIndex: usize = 0;
 	pub static AhClientEventsIndex: usize = 0;
+	pub static OffenceEventsIndex: usize = 0;
 }
 
 pub fn historical_events_since_last_call() -> Vec<pallet_session::historical::Event<Runtime>> {
@@ -351,6 +383,13 @@ pub fn historical_events_since_last_call() -> Vec<pallet_session::historical::Ev
 	>();
 	let seen = HistoricalEventsIndex::get();
 	HistoricalEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub fn offence_events_since_last_call() -> Vec<pallet_offences::Event> {
+	let all = frame_system::Pallet::<Runtime>::read_events_for_pallet::<pallet_offences::Event>();
+	let seen = OffenceEventsIndex::get();
+	OffenceEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
 }
 
@@ -542,4 +581,11 @@ pub(crate) fn receive_validator_set_at(
 		);
 		assert_eq!(pallet_session::Validators::<Runtime>::get(), new_validator_set);
 	}
+}
+
+/// The queued validator points in the ah-client sorted by account id.
+pub(crate) fn validator_points() -> Vec<(AccountId, u32)> {
+	let mut points = ah_client::ValidatorPoints::<Runtime>::iter().collect::<Vec<_>>();
+	points.sort_by(|a, b| a.0.cmp(&b.0));
+	points
 }

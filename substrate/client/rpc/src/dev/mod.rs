@@ -101,7 +101,7 @@ where
 		let mut runtime_api = self.client.runtime_api();
 		runtime_api.record_proof();
 		runtime_api
-			.execute_block(parent_header.hash(), block)
+			.execute_block(parent_header.hash(), block.into())
 			.map_err(|_| Error::BlockExecutionFailed)?;
 		let witness = runtime_api
 			.extract_proof()

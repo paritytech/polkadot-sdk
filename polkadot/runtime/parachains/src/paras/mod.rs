@@ -1299,11 +1299,13 @@ pub mod pallet {
 			valid_period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::AuthorizeCurrentCodeOrigin::ensure_origin(origin, &para)?;
+			// The requested para must be a valid para (neither onboarding nor offboarding).
+			ensure!(Self::is_valid_para(para), Error::<T>::NotRegistered);
 
 			let now = frame_system::Pallet::<T>::block_number();
 			let expire_at = now.saturating_add(valid_period);
 
-			// insert authorized code hash and make sure to overwrite existing one for a para.
+			// Insert the authorized code hash and ensure it overwrites the existing one for a para.
 			AuthorizedCodeHash::<T>::insert(
 				&para,
 				AuthorizedCodeHashAndExpiry::from((new_code_hash, expire_at)),
@@ -1326,7 +1328,7 @@ pub mod pallet {
 			para: ParaId,
 			new_code: ValidationCode,
 		) -> DispatchResultWithPostInfo {
-			// no need to ensure, anybody can do this
+			// no need to ensure anybody can do this
 
 			// Ensure `new_code` is authorized
 			let _ = Self::validate_code_is_authorized(&new_code, &para)?;
@@ -1588,6 +1590,7 @@ impl<T: Config> Pallet<T> {
 					UpgradeGoAheadSignal::<T>::remove(&para);
 					UpgradeRestrictionSignal::<T>::remove(&para);
 					ParaLifecycles::<T>::remove(&para);
+					AuthorizedCodeHash::<T>::remove(&para);
 					let removed_future_code_hash = FutureCodeHash::<T>::take(&para);
 					if let Some(removed_future_code_hash) = removed_future_code_hash {
 						Self::decrease_code_ref(&removed_future_code_hash);

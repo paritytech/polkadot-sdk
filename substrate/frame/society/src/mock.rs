@@ -48,6 +48,7 @@ parameter_types! {
 ord_parameter_types! {
 	pub const ChallengePeriod: u64 = 8;
 	pub const ClaimPeriod: u64 = 1;
+	pub const VotingPeriod: u64 = 3;
 	pub const FounderSetAccount: u128 = 1;
 	pub const SuspensionJudgementSetAccount: u128 = 2;
 	pub const MaxPayouts: u32 = 10;
@@ -75,7 +76,7 @@ impl Config for Test {
 	type Randomness = TestRandomness<Self>;
 	type GraceStrikes = ConstU32<1>;
 	type PeriodSpend = ConstU64<1000>;
-	type VotingPeriod = ConstU64<3>;
+	type VotingPeriod = VotingPeriod;
 	type ClaimPeriod = ClaimPeriod;
 	type MaxLockDuration = ConstU64<100>;
 	type FounderSetOrigin = EnsureSignedBy<FounderSetAccount, u128>;
@@ -231,6 +232,7 @@ pub fn next_intake() {
 		),
 		Period::Claim { more, .. } =>
 			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
+		Period::Intake { .. } => {},
 	}
 }
 

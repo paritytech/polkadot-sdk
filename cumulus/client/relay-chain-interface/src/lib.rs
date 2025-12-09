@@ -31,12 +31,12 @@ use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::{vstaging::CandidateEvent, BlockId, Hash as RelayHash};
+use cumulus_primitives_core::relay_chain::{BlockId, CandidateEvent, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		BlockNumber, CoreIndex, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

@@ -18,7 +18,7 @@
 use frame::testing_prelude::*;
 use test_log::test;
 use xcm::prelude::*;
-use xcm_executor::traits::ConvertLocation;
+use xcm_executor::traits::{ConvertLocation, TransferType};
 use xcm_simulator::TestExt;
 
 use super::{
@@ -64,12 +64,16 @@ fn reserve_asset_transfers_work() {
 		// If we don't specify anything, it will be a `u64`, which the conversion
 		// will turn into a non-fungible token instead of a fungible one.
 		let assets: Assets = (Here, 50u128 * CENTS as u128).into();
-		assert_ok!(relay_chain::XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(relay_chain::XcmPallet::transfer_assets_using_type_and_then(
 			relay_chain::RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedLocation::from(destination.clone())),
-			Box::new(VersionedLocation::from(beneficiary)),
 			Box::new(VersionedAssets::from(assets)),
-			0,
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedAssetId::from(AssetId(Location::here()))),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
+			)),
 			WeightLimit::Unlimited,
 		));
 
@@ -100,12 +104,16 @@ fn reserve_asset_transfers_work() {
 		// This chain doesn't have a token of its own, so we always refer to this token,
 		// and we do so by the Location of the Relay Chain.
 		let assets: Assets = (Parent, 25u128 * CENTS as u128).into();
-		assert_ok!(parachain::XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(parachain::XcmPallet::transfer_assets_using_type_and_then(
 			parachain::RuntimeOrigin::signed(BOB),
 			Box::new(VersionedLocation::from(destination)),
-			Box::new(VersionedLocation::from(beneficiary)),
 			Box::new(VersionedAssets::from(assets)),
-			0,
+			Box::new(TransferType::DestinationReserve),
+			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+			Box::new(TransferType::DestinationReserve),
+			Box::new(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
+			)),
 			WeightLimit::Unlimited,
 		));
 

@@ -17,7 +17,9 @@
 
 #![no_std]
 #![no_main]
+
 include!("../panic_handler.rs");
+include!("../sol_utils.rs");
 
 use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
@@ -40,7 +42,7 @@ pub extern "C" fn call() {
 
 	// Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we
 	// need to read its size first.
-	api::clear_storage(StorageFlags::empty(), b"");
+	clear_storage::<api>(StorageFlags::empty(), b"");
 
 	let exit_status = uapi::ReturnFlags::from_bits(exit_status[0] as u32).unwrap();
 	api::return_value(exit_status, output);

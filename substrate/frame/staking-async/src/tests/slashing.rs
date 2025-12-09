@@ -513,42 +513,6 @@ fn retroactive_deferred_slashes_one_before() {
 }
 
 #[test]
-fn invulnerables_are_not_slashed() {
-	// For invulnerable validators no slashing is performed.
-	ExtBuilder::default()
-		.invulnerables(vec![11])
-		.nominate(false)
-		.build_and_execute(|| {
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
-
-			let initial_balance = Staking::slashable_balance_of(&21);
-
-			// slash both
-			add_slash(11);
-			add_slash(21);
-			Session::roll_next();
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::OffenceReported {
-						offence_era: 1,
-						validator: 21,
-						fraction: Perbill::from_percent(10)
-					},
-					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
-					Event::Slashed { staker: 21, amount: 100 }
-				]
-			);
-
-			// The validator 11 hasn't been slashed, but 21 has been.
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			// 1000 - (0.1 * initial_balance)
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000 - (initial_balance / 10));
-		});
-}
-
-#[test]
 fn dont_slash_if_fraction_is_zero() {
 	// Don't slash if the fraction is zero.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
@@ -1295,6 +1259,59 @@ fn cancel_all_slashes_with_100_percent() {
 			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 0);
 			assert_eq!(CancelledSlashes::<T>::get(&3), vec![]);
 		})
+}
+
+#[test]
+fn apply_slash_rejects_cancelled_slashes() {
+	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+		// validator 11 has initial balance and is bonded
+		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+
+		// Add a slash for validator 11 in era 1 (will be deferred to era 3)
+		add_slash(11);
+		Session::roll_next();
+		let _ = staking_events_since_last_call();
+
+		// Check current era
+		assert_eq!(active_era(), 1);
+
+		// Verify the slash is scheduled for era 3
+		let slash_era = 3;
+		let slash_key = (11, Perbill::from_percent(10), 0);
+		assert!(UnappliedSlashes::<T>::contains_key(&slash_era, &slash_key));
+
+		// Governance cancels this slash
+		assert_ok!(Staking::cancel_deferred_slash(
+			RuntimeOrigin::root(),
+			slash_era,
+			vec![(11, Perbill::from_percent(10))],
+		));
+
+		// Verify the cancellation event was emitted
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::SlashCancelled { slash_era, validator: 11 }]
+		);
+
+		// Verify the slash is cancelled
+		let cancelled = CancelledSlashes::<T>::get(&slash_era);
+		assert_eq!(cancelled, vec![(11, Perbill::from_percent(10))]);
+
+		// Move to era 3 when the slash would be applied
+		Session::roll_until_active_era(3);
+
+		// Try to manually apply the cancelled slash - this should fail
+		assert_noop!(
+			Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key),
+			Error::<T>::CancelledSlash
+		);
+
+		// Verify the slash is still in UnappliedSlashes
+		assert!(UnappliedSlashes::<T>::contains_key(&slash_era, &slash_key));
+
+		// Verify no actual slash was applied (balance remains unchanged)
+		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+	})
 }
 
 #[test]

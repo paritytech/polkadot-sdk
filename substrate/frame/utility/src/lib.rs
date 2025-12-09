@@ -440,7 +440,7 @@ pub mod pallet {
 			} else {
 				Self::deposit_event(Event::BatchCompleted);
 			}
-			let base_weight = T::WeightInfo::batch(calls_len as u32);
+			let base_weight = T::WeightInfo::force_batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
 
@@ -609,6 +609,7 @@ pub mod pallet {
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[allow(dead_code)]
 struct IndexedUtilityPalletId(u16);
 
 impl TypeId for IndexedUtilityPalletId {

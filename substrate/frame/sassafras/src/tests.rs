@@ -65,6 +65,7 @@ fn post_genesis_randomness_initialization() {
 		let (id1, _) = make_ticket_bodies(1, Some(pair))[0];
 
 		// Reset what is relevant
+		System::set_block_number(0);
 		NextRandomness::<Test>::set([0; 32]);
 		RandomnessAccumulator::<Test>::set([0; 32]);
 
@@ -88,6 +89,7 @@ fn post_genesis_randomness_initialization() {
 		assert_ne!(id1, id2);
 
 		// Reset what is relevant
+		System::set_block_number(0);
 		NextRandomness::<Test>::set([0; 32]);
 		RandomnessAccumulator::<Test>::set([0; 32]);
 
@@ -666,6 +668,7 @@ fn block_allowed_to_skip_epochs() {
 
 		// We want to skip 3 epochs in this test.
 		let offset = 4 * epoch_length;
+		System::set_block_number(start_block + offset - 1);
 		go_to_block(start_block + offset, start_slot + offset, &pairs[0]);
 
 		// Post-initialization status
@@ -715,7 +718,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 		});
 
 		// Advance one epoch to enact the tickets
-		go_to_block(start_block + epoch_length, start_slot + epoch_length, pair);
+		progress_to_block(start_block + epoch_length, pair).unwrap();
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [0, 4]);
 
 		// Persist some tickets for next epoch (N+1)
@@ -736,7 +739,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 
 		// Advance to epoch 2 and check for cleanup
 
-		go_to_block(start_block + 2 * epoch_length, start_slot + 2 * epoch_length, pair);
+		progress_to_block(start_block + 2 * epoch_length, pair).unwrap();
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [6, 0]);
 
 		(0..epoch1_tickets.len()).into_iter().for_each(|i| {

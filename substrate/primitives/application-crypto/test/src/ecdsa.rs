@@ -27,7 +27,8 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
-	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	runtime::{TestAPI, TEST_OWNER},
+	DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
 
 #[test]
@@ -46,16 +47,21 @@ fn ecdsa_works_in_runtime() {
 	let supported_keys = keystore.keys(ECDSA).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 	assert!(AppPair::verify(&signature, "ecdsa", &public));
-	assert!(AppPair::verify_proof_of_possession(&proof_of_possession.into(), &public.into()));
+	assert!(AppPair::verify_proof_of_possession(
+		TEST_OWNER,
+		&proof_of_possession.into(),
+		&public.into()
+	));
 }
 
 #[test]
 fn ecdsa_client_generated_proof_of_possession_verified_by_runtime_public() {
 	let (mut test_pair, _) = ECDSAPair::generate();
 
-	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
+	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession(TEST_OWNER);
 	assert!(RuntimePublic::verify_proof_of_possession(
 		&test_pair.public(),
+		TEST_OWNER,
 		&client_generated_proof_of_possession
 	));
 }
