@@ -445,8 +445,8 @@ impl<
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
-			Box::new((AssetId(asset.clone()), amount).into()),
-			Box::new(AssetId(asset).into()),
+			Box::new((AssetId(asset), amount).into()),
+			0,
 			Unlimited,
 		)
 	}
