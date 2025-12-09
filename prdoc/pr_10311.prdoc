@@ -14,7 +14,10 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: minor
+  validate: false
 - name: pallet-staking-async-rc-client
   bump: minor
+  validate: false
 - name: asset-hub-westend-runtime
   bump: minor
+  validate: false
