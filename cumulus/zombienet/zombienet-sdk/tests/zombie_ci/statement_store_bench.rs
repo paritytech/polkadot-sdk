@@ -537,7 +537,7 @@ impl Participant {
 	fn create_session_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_channel(channel_public_key());
-		statement.set_priority(self.sent_count);
+		statement.set_expiry_from_parts(u32::MAX, self.sent_count);
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
 		statement.set_plain_data(self.session_key.public().to_vec());
@@ -566,7 +566,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
+		statement.set_expiry_from_parts(u32::MAX, self.sent_count);
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring);
 

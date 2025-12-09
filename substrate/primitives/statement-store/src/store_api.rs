@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sp_core::Bytes;
+
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{CheckedTopicFilter, Hash, Statement, Topic};
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -33,6 +35,56 @@ pub enum Error {
 	Runtime,
 }
 
+/// Filter for subscribing to statements with different topics.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum TopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
+	MatchAll(Vec<Bytes>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
+	MatchAny(Vec<Bytes>),
+}
+
+// Convert TopicFilter to CheckedTopicFilter, validating topic lengths.
+impl TryInto<CheckedTopicFilter> for TopicFilter {
+	type Error = Error;
+
+	fn try_into(self) -> Result<CheckedTopicFilter> {
+		match self {
+			TopicFilter::Any => Ok(CheckedTopicFilter::Any),
+			TopicFilter::MatchAll(topics) => {
+				let mut parsed_topics = Vec::with_capacity(topics.len());
+				for topic in topics {
+					if topic.0.len() != 32 {
+						return Err(Error::Decode("Invalid topic format".into()));
+					}
+					let mut arr = [0u8; 32];
+					arr.copy_from_slice(&topic.0);
+					parsed_topics.push(arr);
+				}
+				Ok(CheckedTopicFilter::MatchAll(parsed_topics))
+			},
+			TopicFilter::MatchAny(topics) => {
+				let mut parsed_topics = Vec::with_capacity(topics.len());
+				for topic in topics {
+					if topic.0.len() != 32 {
+						return Err(Error::Decode("Invalid topic format".into()));
+					}
+					let mut arr = [0u8; 32];
+					arr.copy_from_slice(&topic.0);
+					parsed_topics.push(arr);
+				}
+				Ok(CheckedTopicFilter::MatchAny(parsed_topics))
+			},
+		}
+	}
+}
+
 /// Reason why a statement was rejected from the store.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -45,19 +97,19 @@ pub enum RejectionReason {
 		/// Still available data size for the account.
 		available_size: usize,
 	},
-	/// Attempting to replace a channel message with lower or equal priority.
+	/// Attempting to replace a channel message with lower or equal expiry.
 	ChannelPriorityTooLow {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing channel message.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing channel message.
+		min_expiry: u64,
 	},
-	/// Account reached its statement limit and submitted priority is too low to evict existing.
+	/// Account reached its statement limit and submitted expiry is too low to evict existing.
 	AccountFull {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing statement.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing statement.
+		min_expiry: u64,
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
@@ -79,6 +131,8 @@ pub enum InvalidReason {
 		/// The maximum allowed size.
 		max_size: usize,
 	},
+	/// Statement has already expired.
+	AlreadyExpired,
 }
 
 /// Statement submission outcome
