@@ -341,7 +341,7 @@ where
 	}
 
 	fn next_proof_context(&self) -> Block::Hash {
-		self.state.lock().next_proof_context.clone()
+		self.state.lock().next_proof_context
 	}
 }
 
