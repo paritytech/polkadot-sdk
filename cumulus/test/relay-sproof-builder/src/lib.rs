@@ -264,7 +264,7 @@ pub fn generate_authority_pairs(num_authorities: u64) -> Vec<AuthorityPair> {
 }
 
 /// Convert AuthorityPair to (AuthorityId, BabeAuthorityWeight)
-pub fn convert_to_authority_weight_pair(
+fn convert_to_authority_weight_pair(
 	authorities: &[AuthorityPair],
 ) -> Vec<(AuthorityId, BabeAuthorityWeight)> {
 	authorities
@@ -274,7 +274,7 @@ pub fn convert_to_authority_weight_pair(
 }
 
 /// Add a BABE pre-digest to a generic header
-pub fn add_babe_pre_digest(header: &mut Header, authority_index: u32, block_number: u64) {
+fn add_babe_pre_digest(header: &mut Header, authority_index: u32, block_number: u64) {
 	/// This method generates some vrf data, but only to make the compiler happy
 	fn generate_testing_vrf() -> VrfSignature {
 		let vrf_proof_bytes = [0u8; 64];
