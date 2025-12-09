@@ -39,7 +39,7 @@ use sp_runtime::traits::Zero;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::{
-	traits::{MatchesFungibles, TransactAsset, WeightTrader},
+	traits::{MatchesFungibles, WeightTrader},
 	AssetsInHolding,
 };
 
@@ -48,7 +48,7 @@ mod tests;
 
 #[cfg(test)]
 mod test_helpers {
-	pub use xcm_executor::test_helpers::{mock_asset_to_holding as asset_to_holding, MockCredit};
+	pub use xcm_executor::test_helpers::mock_asset_to_holding as asset_to_holding;
 }
 
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
@@ -928,7 +928,10 @@ impl<
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
-		use xcm_executor::{traits::FeeManager, FeesMode};
+		use xcm_executor::{
+			traits::{FeeManager, TransactAsset},
+			FeesMode,
+		};
 
 		// check if the destination is relay/parent
 		if dest.ne(&Location::parent()) {
