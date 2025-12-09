@@ -186,7 +186,7 @@ pub struct Statement {
 	/// stored.
 	///
 	/// This can be used to implement message replacement, submitting a new message with a
-	/// different topic or data and the same channel replaces the previous one.
+	/// different topic/data and the same channel and a greater expiry replaces the previous one.
 	///
 	/// If the new statement data is bigger than the old one, submitting a statement with the same
 	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
