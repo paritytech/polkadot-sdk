@@ -306,18 +306,25 @@ where
 		let EncodedProof(proof) = proof;
 		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
 			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
-		let (current_set_id, current_authorities) = {
-			let state = self.state.lock();
-			(state.set_id, state.authorities.clone())
-		};
 		let last_header = proof
 			.proofs
 			.last()
 			.map(|p| p.header.clone())
 			.ok_or_else(|| "Empty proof".to_string())?;
-		let (next_set_id, next_authorities) = proof
-			.verify(current_set_id, current_authorities, &self.hard_forks)
-			.map_err(Box::new)?;
+
+		{
+			let mut state = self.state.lock();
+			let (current_set_id, current_authorities) = (state.set_id, state.authorities.clone());
+
+			let (next_set_id, next_authorities) = proof
+				.verify(current_set_id, current_authorities, &self.hard_forks)
+				.map_err(Box::new)?;
+
+			state.set_id = next_set_id;
+			state.authorities = next_authorities;
+			state.next_proof_context = last_header.hash();
+		}
+
 		let justifications = proof
 			.proofs
 			.into_iter()
@@ -327,12 +334,7 @@ where
 				(p.header, justifications)
 			})
 			.collect::<Vec<_>>();
-		{
-			let mut state = self.state.lock();
-			state.set_id = next_set_id;
-			state.authorities = next_authorities;
-			state.next_proof_context = last_header.hash();
-		}
+
 		if proof.is_finished {
 			Ok(VerificationResult::Complete(last_header, justifications))
 		} else {
