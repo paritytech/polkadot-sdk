@@ -50,9 +50,7 @@ use sp_runtime::{traits::Zero, Saturating};
 mod v14 {
 	use super::*;
 
-	#[derive(
-		Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ContractInfo<T: Config> {
 		pub trie_id: TrieId,

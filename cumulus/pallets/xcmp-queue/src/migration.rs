@@ -179,9 +179,7 @@ pub mod v3 {
 		pub message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
 	}
 
-	#[derive(
-		Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo,
-	)]
+	#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
 	pub enum InboundState {
 		Ok,
 		Suspended,

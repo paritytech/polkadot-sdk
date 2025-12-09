@@ -246,9 +246,7 @@ pub struct ItemHeader<Size> {
 impl<Size: ConstEncodedLen> ConstEncodedLen for ItemHeader<Size> {} // marker
 
 /// A page of messages. Pages always contain at least one item.
-#[derive(
-	CloneNoBound, Encode, Decode, DebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(CloneNoBound, Encode, Decode, DebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(HeapSize))]
 #[codec(mel_bound(Size: MaxEncodedLen))]
 pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> {

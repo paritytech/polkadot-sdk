@@ -54,7 +54,7 @@ use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
 
-use sp_core::{OpaqueMetadata};
+use sp_core::OpaqueMetadata;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
 	PrefixedMemoryDB, StorageProof,
@@ -275,9 +275,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-#[derive(
-	Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
 
 impl sp_runtime::traits::Printable for CheckSubstrateCall {

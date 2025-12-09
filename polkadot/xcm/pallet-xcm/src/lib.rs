@@ -55,7 +55,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	Either, Debug, SaturatedConversion,
+	Debug, Either, SaturatedConversion,
 };
 use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
@@ -636,15 +636,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Debug,
-		TypeInfo,
-		MaxEncodedLen,
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 	)]
 	pub enum Origin {
 		/// It comes from somewhere in the XCM space wanting to transact.

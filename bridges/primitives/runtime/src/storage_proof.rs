@@ -17,11 +17,11 @@
 //! Logic for working with storage proofs.
 
 use frame_support::PalletError;
-use Debug;
 use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
+use Debug;
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};

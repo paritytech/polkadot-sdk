@@ -27,7 +27,7 @@ pub use sp_application_crypto;
 use sp_application_crypto::sr25519;
 
 use alloc::vec::Vec;
-pub use sp_core::{hash::H256};
+pub use sp_core::hash::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, ExtrinsicLike, LazyExtrinsic, Verify},
 	OpaqueExtrinsic,

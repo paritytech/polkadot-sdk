@@ -269,7 +269,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, ModuleError, PerThing, Perbill, Debug, SaturatedConversion,
+	Debug, DispatchError, ModuleError, PerThing, Perbill, SaturatedConversion,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -427,16 +427,7 @@ impl Default for ElectionCompute {
 /// Such a solution should never become effective in anyway before being checked by the
 /// `Pallet::feasibility_check`.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Debug,
-	PartialOrd,
-	Ord,
-	TypeInfo,
+	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, PartialOrd, Ord, TypeInfo,
 )]
 pub struct RawSolution<S> {
 	/// the solution itself.
@@ -456,14 +447,7 @@ impl<C: Default> Default for RawSolution<C> {
 
 /// A checked solution, ready to be enacted.
 #[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	Clone,
-	Encode,
-	Decode,
-	Debug,
-	DefaultNoBound,
-	scale_info::TypeInfo,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, Debug, DefaultNoBound, scale_info::TypeInfo,
 )]
 #[scale_info(skip_type_params(AccountId, MaxWinners, MaxBackersPerWinner))]
 pub struct ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>

@@ -105,7 +105,7 @@ use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
-	BoundedVec, DispatchError, Debug,
+	BoundedVec, Debug, DispatchError,
 };
 
 pub use pallet::*;
@@ -158,15 +158,7 @@ struct ScheduledV1<Call, BlockNumber> {
 
 /// Information regarding an item to be executed in the future.
 #[derive(
-	Clone,
-	Debug,
-	PartialEq,
-	Eq,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.

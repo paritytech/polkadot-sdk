@@ -51,14 +51,14 @@ use frame_support::{
 		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
 		RankedMembersSwapHandler, VoteTally,
 	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
+	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
-	DispatchError, Perbill, Debug,
+	Debug, DispatchError, Perbill,
 };
 
 #[cfg(test)]

@@ -27,7 +27,7 @@ pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, Member},
-	DispatchError, Debug,
+	Debug, DispatchError,
 };
 
 /// An instance of a pallet in the storage.

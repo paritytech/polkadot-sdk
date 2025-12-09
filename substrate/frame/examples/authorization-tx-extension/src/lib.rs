@@ -98,15 +98,7 @@ pub mod pallet_coownership {
 	/// accounts that own something together.
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	pub enum Origin<T: Config> {
 		Coowners(T::AccountId, T::AccountId),

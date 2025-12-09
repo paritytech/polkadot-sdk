@@ -39,15 +39,7 @@ pub type ChunksOf<T> = BoundedVec<
 /// The overarching state of all people rings regarding the actions that are currently allowed to be
 /// performed on them.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub enum RingMembersState {
 	/// The rings can accept new people sequentially if the maximum capacity has not been reached
@@ -123,15 +115,7 @@ impl RingMembersState {
 /// For instance, if a person is suspended, then ring will get revised, the revised alias with the
 /// old revision shows that the alias may not be owned by a valid person anymore.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct RevisedContextualAlias {
 	pub revision: RevisionIndex,
@@ -162,9 +146,7 @@ pub struct RingRoot<T: Config> {
 	pub intermediate: IntermediateOf<T>,
 }
 
-#[derive(
-	PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, DefaultNoBound,
-)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, DefaultNoBound)]
 #[scale_info(skip_type_params(T))]
 /// Information about the current key inclusion status in a ring.
 pub struct RingStatus {

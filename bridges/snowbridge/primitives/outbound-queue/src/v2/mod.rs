@@ -11,8 +11,8 @@ pub use message::*;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use Debug;
 use sp_std::prelude::*;
+use Debug;
 
 /// The `XCM::Transact` payload for calling arbitrary smart contracts on Ethereum.
 /// On Ethereum, this call will be dispatched by the agent contract acting as a proxy

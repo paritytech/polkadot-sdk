@@ -25,7 +25,7 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::{StateVersion};
+use sp_runtime::StateVersion;
 
 /// BridgeHubWestend parachain.
 #[derive(Debug)]

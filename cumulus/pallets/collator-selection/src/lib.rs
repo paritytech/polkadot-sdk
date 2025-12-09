@@ -198,9 +198,7 @@ pub mod pallet {
 	}
 
 	/// Basic information about a collation candidate.
-	#[derive(
-		PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub struct CandidateInfo<AccountId, Balance> {
 		/// Account identifier.
 		pub who: AccountId,

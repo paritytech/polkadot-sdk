@@ -15,7 +15,7 @@
 //! Custom digest items
 
 use codec::{Decode, Encode};
-use sp_core::{H256};
+use sp_core::H256;
 use sp_runtime::generic::DigestItem;
 
 /// Custom header digest items, inserted as DigestItem::Other

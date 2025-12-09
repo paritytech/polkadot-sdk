@@ -31,7 +31,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
-use sp_runtime::{traits::Header as HeaderT};
+use sp_runtime::traits::Header as HeaderT;
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Block hash of the bridged relay chain.

@@ -56,7 +56,7 @@ use frame_support::{
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
 use sp_core::Get;
-use sp_runtime::{DispatchError};
+use sp_runtime::DispatchError;
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;

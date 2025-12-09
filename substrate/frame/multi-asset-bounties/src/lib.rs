@@ -99,7 +99,7 @@ use frame_system::pallet_prelude::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
-	Permill, Debug,
+	Debug, Permill,
 };
 
 pub type BalanceOf<T, I = ()> = <<T as Config<I>>::Paymaster as PayWithSource>::Balance;

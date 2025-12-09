@@ -23,13 +23,13 @@ use bp_header_chain::{
 	SubmitFinalityProofInfo,
 };
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
 	weights::Weight,
 };
 use sp_consensus_grandpa::SetId;
-use core::fmt::Debug;
 use sp_runtime::{
 	traits::{CheckedSub, Header, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},

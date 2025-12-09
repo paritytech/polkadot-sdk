@@ -22,16 +22,14 @@ use bp_messages::MessagesCallInfo;
 use bp_parachains::SubmitParachainHeadsInfo;
 use bp_runtime::StaticStrProvider;
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::CallableCallFor, traits::IsSubType, weights::Weight, DebugNoBound,
-};
+use core::fmt::Debug;
+use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight, DebugNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_utility::{Call as UtilityCall, Pallet as UtilityPallet};
 use sp_runtime::{
 	traits::Get,
 	transaction_validity::{TransactionPriority, TransactionValidityError},
 };
-use core::fmt::Debug;
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Type of the call that the signed extension recognizes.

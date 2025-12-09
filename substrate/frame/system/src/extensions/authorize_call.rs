@@ -22,7 +22,7 @@ use frame_support::{
 		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
 	},
 	traits::Authorize,
-	CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
+	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::{
 	traits::{

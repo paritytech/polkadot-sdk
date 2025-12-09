@@ -21,8 +21,8 @@ use crate::{MessageNonce, UnrewardedRelayersState};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
-use Debug;
 use sp_std::ops::RangeInclusive;
+use Debug;
 
 /// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]

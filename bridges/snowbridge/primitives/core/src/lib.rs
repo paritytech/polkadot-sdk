@@ -29,7 +29,7 @@ use hex_literal::hex;
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{traits::AccountIdConversion};
+use sp_runtime::traits::AccountIdConversion;
 use sp_std::prelude::*;
 use xcm::latest::{Asset, Junction::Parachain, Location, Result as XcmResult, XcmContext};
 use xcm_executor::traits::TransactAsset;

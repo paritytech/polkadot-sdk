@@ -36,7 +36,7 @@ use pallet_contracts_uapi::{CallFlags, ReturnFlags};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 use sp_runtime::{
 	traits::{Bounded, Zero},
-	DispatchError, Debug,
+	Debug, DispatchError,
 };
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 

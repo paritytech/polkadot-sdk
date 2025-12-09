@@ -92,9 +92,7 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 }
 
 /// Statement proof.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum Proof {
 	/// Sr25519 Signature.
 	Sr25519 {

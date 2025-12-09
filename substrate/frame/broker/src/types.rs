@@ -24,7 +24,7 @@ use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU32};
+use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
@@ -114,15 +114,7 @@ pub type RegionRecordOf<T> = RegionRecord<<T as SConfig>::AccountId, BalanceOf<T
 
 /// An distinct item which can be scheduled on a Polkadot Core.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ScheduleItem {
 	/// The regularity parts in which this Item will be scheduled on the Core.
@@ -226,9 +218,7 @@ pub struct StatusRecord {
 }
 
 /// A record of flux in the InstaPool.
-#[derive(
-	Encode, Decode, Clone, Copy, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Copy, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PoolIoRecord {
 	/// The total change of the portion of the pool supplied by purchased Bulk Coretime, measured
 	/// in Core Mask Bits.
@@ -292,15 +282,7 @@ pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 /// The blocknumber is the relay chain block height `until` which the original request
 /// for revenue was made.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
 	/// The height of the Relay-chain at the time the revenue request was made.
@@ -314,15 +296,7 @@ pub type OnDemandRevenueRecordOf<T> =
 
 /// Configuration of this pallet.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the

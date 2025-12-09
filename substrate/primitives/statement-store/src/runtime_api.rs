@@ -21,7 +21,6 @@ use crate::{Hash, Statement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use Debug;
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
@@ -29,6 +28,7 @@ use sp_runtime_interface::{
 	},
 	runtime_interface,
 };
+use Debug;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;

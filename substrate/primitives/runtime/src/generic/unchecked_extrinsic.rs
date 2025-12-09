@@ -27,7 +27,6 @@ use crate::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
 };
-use core::fmt::Debug;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
@@ -35,7 +34,9 @@ use codec::{
 	Compact, CountedInput, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeLike,
 	Input,
 };
-use core::fmt::{self};
+use core::fmt::{
+	Debug, {self},
+};
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
 use sp_weights::Weight;

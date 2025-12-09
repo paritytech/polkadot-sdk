@@ -66,15 +66,7 @@ pub use pallet::*;
 
 /// A type to note whether a preimage is owned by a user or the system.
 #[derive(
-	Clone,
-	Eq,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	Debug,
-	DecodeWithMemTracking,
+	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
 )]
 pub enum OldRequestStatus<AccountId, Balance> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
@@ -88,15 +80,7 @@ pub enum OldRequestStatus<AccountId, Balance> {
 
 /// A type to note whether a preimage is owned by a user or the system.
 #[derive(
-	Clone,
-	Eq,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	Debug,
-	DecodeWithMemTracking,
+	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
 )]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if

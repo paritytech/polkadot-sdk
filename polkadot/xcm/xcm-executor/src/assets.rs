@@ -19,7 +19,7 @@ use alloc::{
 	vec::Vec,
 };
 use core::mem;
-use sp_runtime::{traits::Saturating};
+use sp_runtime::traits::Saturating;
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},

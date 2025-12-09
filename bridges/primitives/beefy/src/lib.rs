@@ -42,7 +42,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
-	RuntimeAppPublic, Debug,
+	Debug, RuntimeAppPublic,
 };
 use sp_std::prelude::*;
 

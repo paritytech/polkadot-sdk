@@ -75,7 +75,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlockNumberProvider, CheckedSub, Saturating, StaticLookup,
 		Zero,
 	},
-	DispatchResult, Debug,
+	Debug, DispatchResult,
 };
 
 use frame_support::pallet_prelude::*;

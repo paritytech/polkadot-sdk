@@ -88,7 +88,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, Perbill, Permill, Debug,
+	ApplyExtrinsicResult, Debug, FixedU128, Perbill, Permill,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;

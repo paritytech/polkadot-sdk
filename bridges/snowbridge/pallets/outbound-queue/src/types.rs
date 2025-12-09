@@ -6,8 +6,8 @@ use frame_support::traits::ProcessMessage;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
 use sp_core::H256;
-use Debug;
 use sp_std::prelude::*;
+use Debug;
 
 use super::Pallet;
 

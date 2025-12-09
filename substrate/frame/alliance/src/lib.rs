@@ -102,7 +102,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
-	DispatchError, Debug,
+	Debug, DispatchError,
 };
 
 use frame_support::{
@@ -205,15 +205,7 @@ pub enum MemberRole {
 
 /// The type of item that may be deemed unscrupulous.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 pub enum UnscrupulousItem<AccountId, Url> {
 	AccountId(AccountId),

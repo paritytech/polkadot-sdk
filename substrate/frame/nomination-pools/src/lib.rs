@@ -423,14 +423,7 @@ pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
 /// Possible operations on the configuration values of this pallet.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	DebugNoBound,
-	PartialEq,
-	Clone,
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
 )]
 pub enum ConfigOp<T: Codec + Debug> {
 	/// Don't change.
@@ -2075,9 +2068,7 @@ pub mod pallet {
 		Restricted,
 	}
 
-	#[derive(
-		Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug,
-	)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug)]
 	pub enum DefensiveError {
 		/// There isn't enough space in the unbond pool.
 		NotEnoughSpaceInUnbondPool,

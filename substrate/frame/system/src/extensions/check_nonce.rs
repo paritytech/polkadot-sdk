@@ -21,9 +21,7 @@ use alloc::{vec, vec::Vec};
 
 use crate::Config;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{
-	dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound,
-};
+use frame_support::{dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{

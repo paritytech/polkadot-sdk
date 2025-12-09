@@ -22,8 +22,8 @@ use bp_polkadot_core::parachains::ParaHeadsProof;
 use bp_runtime::HeaderId;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use Debug;
 use sp_std::vec::Vec;
+use Debug;
 
 /// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]

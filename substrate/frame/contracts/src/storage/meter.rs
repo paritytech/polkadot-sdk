@@ -33,7 +33,7 @@ use frame_support::{
 		},
 		Get,
 	},
-	DefaultNoBound, DebugNoBound,
+	DebugNoBound, DefaultNoBound,
 };
 use sp_runtime::{
 	traits::{Saturating, Zero},

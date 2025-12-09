@@ -453,15 +453,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		MaxEncodedLen,
-		TypeInfo,
-		DecodeWithMemTracking,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 	)]
 	pub enum Origin {
 		PersonalIdentity(PersonalId),

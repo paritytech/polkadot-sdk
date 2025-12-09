@@ -21,7 +21,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::{FixedU128};
+use sp_runtime::FixedU128;
 use xcm::latest::prelude::Location;
 
 /// Minimal delivery fee factor.

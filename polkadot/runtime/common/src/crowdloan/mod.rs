@@ -76,7 +76,7 @@ use sp_runtime::{
 	traits::{
 		AccountIdConversion, CheckedAdd, Hash, IdentifyAccount, One, Saturating, Verify, Zero,
 	},
-	MultiSignature, MultiSigner, Debug,
+	Debug, MultiSignature, MultiSigner,
 };
 
 type CurrencyOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::Currency;

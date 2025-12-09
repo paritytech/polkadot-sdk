@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{ConsensusEngineId};
+use sp_runtime::ConsensusEngineId;
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
 

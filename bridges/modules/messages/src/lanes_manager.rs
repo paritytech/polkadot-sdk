@@ -31,9 +31,7 @@ use scale_info::TypeInfo;
 use sp_std::marker::PhantomData;
 
 /// Lanes manager errors.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum LanesManagerError {
 	/// Inbound lane already exists.
 	InboundLaneAlreadyExists,

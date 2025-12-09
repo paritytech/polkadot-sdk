@@ -87,13 +87,7 @@ pub mod v0 {
 
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	Debug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct ParachainInherentData {
 	pub validation_data: PersistedValidationData,
@@ -172,13 +166,7 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 
 /// An inbound message whose content was hashed.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	Debug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct HashedMessage {
 	pub sent_at: RelayChainBlockNumber,

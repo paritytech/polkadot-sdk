@@ -43,7 +43,6 @@ pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
 
@@ -365,15 +364,7 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
 #[derive(
-	Clone,
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum Void {}
 

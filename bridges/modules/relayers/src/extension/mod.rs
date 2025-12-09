@@ -36,7 +36,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	weights::Weight,
-	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{

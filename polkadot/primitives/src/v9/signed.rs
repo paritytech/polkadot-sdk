@@ -23,8 +23,8 @@ use sp_application_crypto::AppCrypto;
 #[cfg(feature = "std")]
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 
-use Debug;
 use sp_runtime::traits::AppVerify;
+use Debug;
 
 use super::{SigningContext, ValidatorId, ValidatorIndex, ValidatorSignature};
 

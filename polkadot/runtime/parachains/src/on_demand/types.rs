@@ -20,7 +20,7 @@ use super::{alloc, pallet::Config};
 use alloc::collections::BinaryHeap;
 use core::cmp::{Ord, Ordering, PartialOrd};
 use frame_support::{
-	pallet_prelude::{Decode, Encode, Debug, TypeInfo},
+	pallet_prelude::{Debug, Decode, Encode, TypeInfo},
 	traits::Currency,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};

@@ -75,7 +75,7 @@ use frame_support::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 		RankedMembersSwapHandler,
 	},
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 
 #[cfg(test)]

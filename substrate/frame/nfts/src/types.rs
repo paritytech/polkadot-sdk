@@ -143,9 +143,7 @@ impl<AccountId, DepositBalance> CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Witness data for items mint transactions.
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, Default, Eq, PartialEq, Debug, TypeInfo,
-)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, Default, Eq, PartialEq, Debug, TypeInfo)]
 pub struct MintWitness<ItemId, Balance> {
 	/// Provide the id of the item in a required collection.
 	pub owned_item: Option<ItemId>,
@@ -205,15 +203,7 @@ pub struct ItemMetadata<Deposit, StringLimit: Get<u32>> {
 
 /// Information about the tip.
 #[derive(
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ItemTip<CollectionId, ItemId, AccountId, Amount> {
 	/// The collection of the item.
@@ -259,15 +249,7 @@ pub struct ItemMetadataDeposit<DepositBalance, AccountId> {
 
 /// Specifies whether the tokens will be sent or received.
 #[derive(
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum PriceDirection {
 	/// Tokens will be sent.
@@ -278,15 +260,7 @@ pub enum PriceDirection {
 
 /// Holds the details about the price.
 #[derive(
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct PriceWithDirection<Amount> {
 	/// An amount.
@@ -430,15 +404,7 @@ pub struct CancelAttributesApprovalWitness {
 
 /// A list of possible pallet-level attributes.
 #[derive(
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum PalletAttributes<CollectionId> {
 	/// Marks an item as being used in order to claim another item.

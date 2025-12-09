@@ -7,7 +7,7 @@ use codec::Encode;
 use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
-	CloneNoBound, PartialEqNoBound, DebugNoBound,
+	CloneNoBound, DebugNoBound, PartialEqNoBound,
 };
 use frame_system::unique;
 use snowbridge_core::{ChannelId, PRIMARY_GOVERNANCE_CHANNEL};

@@ -20,8 +20,8 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
-use Debug;
 use sp_std::{marker::PhantomData, ops::Deref};
+use Debug;
 
 /// Error that is returned when the value size exceeds maximal configured size.
 #[derive(Debug)]

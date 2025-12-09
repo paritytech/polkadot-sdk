@@ -31,8 +31,8 @@ pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use source_chain::RelayersRewards;
-use Debug;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
+use Debug;
 
 pub use call_info::{
 	BaseMessagesProofInfo, BridgeMessagesCall, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo,
@@ -420,9 +420,7 @@ impl DeliveredMessages {
 }
 
 /// Gist of `InboundLaneData::relayers` field used by runtime APIs.
-#[derive(
-	Clone, Default, Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, TypeInfo,
-)]
+#[derive(Clone, Default, Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, TypeInfo)]
 pub struct UnrewardedRelayersState {
 	/// Number of entries in the `InboundLaneData::relayers` set.
 	pub unrewarded_relayer_entries: MessageNonce,
@@ -526,9 +524,7 @@ where
 }
 
 /// Error that happens during message verification.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum VerificationError {
 	/// The message proof is empty.
 	EmptyMessageProof,

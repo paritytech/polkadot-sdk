@@ -204,15 +204,14 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
-	WeakBoundedVec,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Perbill, Debug, Saturating,
+	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};

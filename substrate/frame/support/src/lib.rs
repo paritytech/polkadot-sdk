@@ -457,7 +457,7 @@ pub mod pallet_prelude {
 			TransactionTag, TransactionValidity, TransactionValidityError,
 			TransactionValidityWithRefund, UnknownTransaction, ValidTransaction,
 		},
-		DispatchError, Debug, MAX_MODULE_ERROR_ENCODED_SIZE,
+		Debug, DispatchError, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
 	pub use sp_weights::Weight;
 }

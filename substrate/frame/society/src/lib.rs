@@ -285,7 +285,7 @@ use sp_runtime::{
 		TrailingZeroInput, Zero,
 	},
 	ArithmeticError::Overflow,
-	Percent, Debug,
+	Debug, Percent,
 };
 
 pub use weights::WeightInfo;
@@ -322,9 +322,7 @@ pub enum Judgement {
 }
 
 /// Details of a payout given as a per-block linear "trickle".
-#[derive(
-	Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct Payout<Balance, BlockNumber> {
 	/// Total value of the payout.
 	pub value: Balance,
@@ -369,9 +367,7 @@ pub type Rank = u32;
 pub type VoteCount = u32;
 
 /// Tally of votes.
-#[derive(
-	Default, Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Default, Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Tally {
 	/// The approval votes.
 	pub approvals: VoteCount,

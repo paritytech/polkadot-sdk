@@ -131,15 +131,7 @@ pub mod module {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	pub struct Origin<T>(pub PhantomData<T>);
 

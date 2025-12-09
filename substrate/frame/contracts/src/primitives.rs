@@ -24,7 +24,7 @@ use pallet_contracts_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchError, Debug,
+	Debug, DispatchError,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -151,9 +151,7 @@ pub enum Code<Hash> {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///

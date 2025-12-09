@@ -40,7 +40,7 @@ use sp_arithmetic::{
 
 use bounded_collections::BoundedVec;
 use serde::{Deserialize, Serialize};
-use sp_core::{ConstU32};
+use sp_core::ConstU32;
 use sp_inherents::InherentIdentifier;
 
 // ==========
@@ -1813,9 +1813,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(
-	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy,
-)]
+#[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
 pub struct InternalVersion(pub u8);
 
 /// A type representing the version of the candidate descriptor.

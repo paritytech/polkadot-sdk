@@ -27,9 +27,7 @@ use sp_runtime::{
 };
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(
-	DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, Debug, MaxEncodedLen,
-)]
+#[derive(DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, Debug, MaxEncodedLen)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -186,15 +184,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 
 /// Information concerning the delegation of some voting power.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct Delegating<Balance, AccountId, BlockNumber> {
 	/// The amount of balance delegated.
@@ -212,15 +202,7 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 
 /// Information concerning the direct vote-casting of some voting power.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
@@ -238,15 +220,7 @@ where
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(

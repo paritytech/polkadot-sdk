@@ -132,7 +132,7 @@ mod v3 {
 	use super::*;
 	use codec::MaxEncodedLen;
 	use frame_support::{
-		pallet_prelude::{OptionQuery, Debug, TypeInfo},
+		pallet_prelude::{Debug, OptionQuery, TypeInfo},
 		storage_alias,
 	};
 	use frame_system::Pallet as System;

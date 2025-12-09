@@ -19,9 +19,7 @@
 
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{
-	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
-};
+use frame_support::{traits::VoteTally, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Saturating, Zero};
 

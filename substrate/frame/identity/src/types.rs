@@ -21,7 +21,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
-	BoundedVec, CloneNoBound, PartialEqNoBound, DebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, PartialEqNoBound,
 };
 use scale_info::{
 	build::{Fields, Variants},
@@ -262,9 +262,7 @@ pub trait IdentityInformationProvider:
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, DebugNoBound, TypeInfo,
-)]
+#[derive(CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, DebugNoBound, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<

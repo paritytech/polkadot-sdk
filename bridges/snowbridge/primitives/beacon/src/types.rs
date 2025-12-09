@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{CloneNoBound, PartialEqNoBound, DebugNoBound};
+use frame_support::{CloneNoBound, DebugNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
-use Debug;
 use sp_std::{boxed::Box, iter::repeat, prelude::*};
+use Debug;
 
 use crate::config::{PUBKEY_SIZE, SIGNATURE_SIZE};
 
@@ -257,13 +257,7 @@ impl BeaconHeader {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	CloneNoBound,
-	PartialEqNoBound,
-	DebugNoBound,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, DebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -372,15 +366,7 @@ impl ExecutionPayloadHeader {
 }
 
 #[derive(
-	Default,
-	Encode,
-	Decode,
-	Copy,
-	Clone,
-	PartialEqNoBound,
-	DebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
+	Default, Encode, Decode, Copy, Clone, PartialEqNoBound, DebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 pub struct CompactBeaconState {
 	#[codec(compact)]
@@ -390,13 +376,7 @@ pub struct CompactBeaconState {
 
 /// VersionedExecutionPayloadHeader
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	CloneNoBound,
-	PartialEqNoBound,
-	DebugNoBound,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, DebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -452,13 +432,7 @@ impl VersionedExecutionPayloadHeader {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	CloneNoBound,
-	PartialEqNoBound,
-	DebugNoBound,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, DebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -477,13 +451,7 @@ pub struct ExecutionProof {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	CloneNoBound,
-	PartialEqNoBound,
-	DebugNoBound,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, DebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -624,7 +592,7 @@ pub enum Mode {
 
 pub mod deneb {
 	use codec::{Decode, DecodeWithMemTracking, Encode};
-	use frame_support::{CloneNoBound, PartialEqNoBound, DebugNoBound};
+	use frame_support::{CloneNoBound, DebugNoBound, PartialEqNoBound};
 	use scale_info::TypeInfo;
 	#[cfg(feature = "std")]
 	use serde::{Deserialize, Serialize};

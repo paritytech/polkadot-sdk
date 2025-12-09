@@ -43,7 +43,7 @@ use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	DispatchError, Debug,
+	Debug, DispatchError,
 };
 
 use crate::metering::Diff;
@@ -57,15 +57,7 @@ pub enum AccountIdOrAddress<T: Config> {
 
 /// Represents the account information for a contract or an externally owned account (EOA).
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AccountInfo<T: Config> {
@@ -79,15 +71,7 @@ pub struct AccountInfo<T: Config> {
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub enum AccountType<T: Config> {

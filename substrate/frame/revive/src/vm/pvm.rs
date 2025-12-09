@@ -36,7 +36,7 @@ use core::{fmt, marker::PhantomData, mem};
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{DispatchError};
+use sp_runtime::DispatchError;
 
 /// Extracts the code and data from a given program blob.
 pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {

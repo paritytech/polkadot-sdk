@@ -27,7 +27,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{traits::Get, DefaultNoBound, DebugNoBound};
+use frame_support::{traits::Get, DebugNoBound, DefaultNoBound};
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,

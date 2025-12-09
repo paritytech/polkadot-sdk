@@ -35,7 +35,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, DebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
@@ -847,14 +847,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
 #[derive(
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	DebugNoBound,
+	Encode, Decode, MaxEncodedLen, TypeInfo, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]

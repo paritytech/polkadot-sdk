@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, Perbill, Debug, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
 pub mod offence;
@@ -369,16 +369,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Debug,
-	TypeInfo,
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.

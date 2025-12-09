@@ -38,7 +38,7 @@ use sp_core::Get;
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	BoundedBTreeMap, DispatchError, DispatchResult, Debug,
+	BoundedBTreeMap, Debug, DispatchError, DispatchResult,
 };
 
 use self::meter::Diff;

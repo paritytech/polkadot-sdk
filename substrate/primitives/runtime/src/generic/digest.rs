@@ -35,9 +35,7 @@ use crate::{
 use Debug;
 
 /// Generic header digest.
-#[derive(
-	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, Default,
-)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Digest {
 	/// A list of logs in the digest.

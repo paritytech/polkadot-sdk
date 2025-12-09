@@ -63,7 +63,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, Debug,
+	Debug, DispatchResult,
 };
 use sp_staking::{EraIndex, StakingInterface};
 

@@ -19,7 +19,7 @@
 
 use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
-use sp_core::{Get};
+use sp_core::Get;
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.

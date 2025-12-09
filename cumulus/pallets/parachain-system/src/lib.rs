@@ -57,7 +57,7 @@ use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},
-	FixedU128, Debug, SaturatedConversion,
+	Debug, FixedU128, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;

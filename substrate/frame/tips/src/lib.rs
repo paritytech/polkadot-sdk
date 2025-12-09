@@ -64,7 +64,7 @@ extern crate alloc;
 
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
-	Percent, Debug,
+	Debug, Percent,
 };
 
 use alloc::{vec, vec::Vec};

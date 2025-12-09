@@ -128,11 +128,11 @@ use polkadot_primitives::{
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
 use scale_info::{Type, TypeInfo};
-use Debug;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
+use Debug;
 
 use serde::{Deserialize, Serialize};
 

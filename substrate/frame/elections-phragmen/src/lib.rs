@@ -116,7 +116,7 @@ use scale_info::TypeInfo;
 use sp_npos_elections::{ElectionResult, ExtendedBalance};
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
-	DispatchError, Perbill, Debug,
+	Debug, DispatchError, Perbill,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 

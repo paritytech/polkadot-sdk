@@ -2,7 +2,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned, Zero};
 use sp_core::U256;
-use sp_runtime::{FixedU128};
+use sp_runtime::FixedU128;
 use sp_std::prelude::*;
 
 #[derive(

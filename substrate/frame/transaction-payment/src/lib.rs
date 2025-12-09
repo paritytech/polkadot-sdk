@@ -67,7 +67,7 @@ use sp_runtime::{
 		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
-	FixedPointNumber, FixedU128, Perbill, Perquintill, Debug,
+	Debug, FixedPointNumber, FixedU128, Perbill, Perquintill,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;

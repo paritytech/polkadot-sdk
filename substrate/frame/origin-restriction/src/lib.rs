@@ -58,7 +58,7 @@ use frame_support::{
 	pallet_prelude::{Pays, Zero},
 	traits::{ContainsPair, OriginTrait},
 	weights::WeightToFee,
-	Parameter, DebugNoBound,
+	DebugNoBound, Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -71,8 +71,9 @@ use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
+	Debug,
 	DispatchError::BadOrigin,
-	DispatchResult, Debug, SaturatedConversion, Saturating, Weight,
+	DispatchResult, SaturatedConversion, Saturating, Weight,
 };
 
 /// The allowance for an entity, defining its usage limit and recovery rate.
@@ -228,9 +229,7 @@ fn extrinsic_fee<T: Config>(weight: Weight, length: usize) -> BalanceOf<T> {
 /// The extension can be enabled or disabled with the inner boolean. When enabled, the restriction
 /// process executes. When disabled, only the `RestrictedOrigins` check is executed.
 /// You can always enable it, the only advantage of disabling it is have better pre-dispatch weight.
-#[derive(
-	Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound, DecodeWithMemTracking,
-)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound, DecodeWithMemTracking)]
 #[scale_info(skip_type_params(T))]
 pub struct RestrictOrigin<T>(bool, core::marker::PhantomData<T>);
 

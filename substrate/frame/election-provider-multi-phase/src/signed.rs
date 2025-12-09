@@ -40,7 +40,7 @@ use sp_core::bounded::BoundedVec;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
 	traits::{Convert, Saturating, Zero},
-	FixedPointNumber, FixedPointOperand, FixedU128, Percent, Debug,
+	Debug, FixedPointNumber, FixedPointOperand, FixedU128, Percent,
 };
 
 /// A raw, unchecked signed submission.

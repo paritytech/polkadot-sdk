@@ -26,7 +26,7 @@ use alloc::vec::Vec;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::{H256};
+use sp_core::H256;
 use sp_runtime::traits::Hash;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.

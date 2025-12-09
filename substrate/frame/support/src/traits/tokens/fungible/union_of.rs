@@ -33,9 +33,8 @@ use frame_support::traits::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::Convert,
-	DispatchError, DispatchResult, Either,
+	Debug, DispatchError, DispatchResult, Either,
 	Either::{Left, Right},
-	Debug,
 };
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an

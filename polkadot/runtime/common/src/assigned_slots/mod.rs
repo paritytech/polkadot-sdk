@@ -46,9 +46,7 @@ use sp_runtime::traits::{One, Saturating, Zero};
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
 /// Lease period an assigned slot should start from (current, or next one).
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo)]
 pub enum SlotLeasePeriodStart {
 	Current,
 	Next,

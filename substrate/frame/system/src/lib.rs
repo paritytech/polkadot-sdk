@@ -285,16 +285,7 @@ where
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
 #[derive(
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Default,
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
+	Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
 )]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.

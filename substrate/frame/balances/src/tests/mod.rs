@@ -41,7 +41,7 @@ use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
 	traits::{BadOrigin, Zero},
-	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, Debug,
+	ArithmeticError, BuildStorage, Debug, DispatchError, DispatchResult, FixedPointNumber,
 	TokenError,
 };
 use std::collections::BTreeSet;

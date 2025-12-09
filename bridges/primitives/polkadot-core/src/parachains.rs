@@ -26,8 +26,8 @@ use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
-use Debug;
 use sp_std::vec::Vec;
+use Debug;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

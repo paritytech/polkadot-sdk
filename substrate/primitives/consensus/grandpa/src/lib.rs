@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
-	ConsensusEngineId, OpaqueValue, Debug,
+	ConsensusEngineId, Debug, OpaqueValue,
 };
 
 /// The log target to be used by client code.

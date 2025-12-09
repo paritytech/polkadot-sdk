@@ -163,7 +163,7 @@ mod union_of;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound};
+use frame_support_procedural::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::Saturating;
@@ -199,14 +199,7 @@ use crate::{
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
 /// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	DebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
@@ -336,14 +329,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	DebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
@@ -381,14 +367,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	DebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]

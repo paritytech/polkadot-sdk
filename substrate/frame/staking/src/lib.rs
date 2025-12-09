@@ -319,13 +319,13 @@ use frame_support::{
 		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, Debug, Saturating,
+	Debug, Perbill, Perquintill, Rounding, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
@@ -375,15 +375,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 /// Information regarding the active era (era in used in session).
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
+	Encode, Decode, DecodeWithMemTracking, Clone, Debug, TypeInfo, MaxEncodedLen, PartialEq, Eq,
 )]
 pub struct ActiveEraInfo {
 	/// Index of era.
@@ -466,15 +458,7 @@ pub struct ValidatorPrefs {
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.

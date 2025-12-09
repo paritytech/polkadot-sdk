@@ -65,15 +65,7 @@ pub type JudgementContext = BoundedVec<u8, ConstU32<CONTEXT_SIZE>>;
 
 /// The [`Alias`] type enriched with the originating [`Context`].
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct ContextualAlias {
 	/// The alias of the person.
@@ -242,15 +234,7 @@ pub mod identity {
 
 	/// Social platforms that statement oracles support.
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		MaxEncodedLen,
-		TypeInfo,
-		DecodeWithMemTracking,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 	)]
 	pub enum Social {
 		Twitter { username: Data },

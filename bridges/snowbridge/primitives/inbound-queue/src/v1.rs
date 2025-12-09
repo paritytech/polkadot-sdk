@@ -121,9 +121,7 @@ pub struct MessageToXcm<
 }
 
 /// Reason why a message conversion failed.
-#[derive(
-	Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, Debug,
-)]
+#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, Debug)]
 pub enum ConvertMessageError {
 	/// The message version is not supported for conversion.
 	UnsupportedVersion,

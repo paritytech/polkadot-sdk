@@ -65,16 +65,7 @@ pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 type ContentHash = [u8; 32];
 
 /// State data for a stored transaction.
-#[derive(
-	Encode,
-	Decode,
-	Clone,
-	Debug,
-	PartialEq,
-	Eq,
-	scale_info::TypeInfo,
-	MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct TransactionInfo {
 	/// Chunk trie root.
 	chunk_root: <BlakeTwo256 as Hash>::Output,

@@ -16,9 +16,7 @@ use Debug;
 pub use snowbridge_verification_primitives::*;
 
 /// The operating mode of Channels and Gateway contract on Ethereum.
-#[derive(
-	Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo,
-)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum OperatingMode {
 	/// Normal operations. Allow sending and receiving messages.
 	Normal,
@@ -38,16 +36,7 @@ pub trait SendMessageFeeProvider {
 
 /// Reasons why sending to Ethereum could not be initiated
 #[derive(
-	Copy,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	PartialEq,
-	Eq,
-	Debug,
-	PalletError,
-	TypeInfo,
+	Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, PalletError, TypeInfo,
 )]
 pub enum SendError {
 	/// Message is too large to be safely executed on Ethereum

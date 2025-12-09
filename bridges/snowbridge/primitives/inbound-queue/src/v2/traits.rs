@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Snowfork <hello@snowfork.com>
 // SPDX-FileCopyrightText: 2021-2025 Parity Technologies (UK) Ltd.
 use super::Message;
-use Debug;
 use xcm::latest::Xcm;
+use Debug;
 
 /// Converts an inbound message from Ethereum to an XCM message that can be
 /// executed on a parachain.

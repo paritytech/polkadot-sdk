@@ -26,8 +26,8 @@ use bp_messages::{
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::{Type, TypeInfo};
-use Debug;
 use sp_std::prelude::PartialEq;
+use Debug;
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {

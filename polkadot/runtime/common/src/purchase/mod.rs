@@ -28,16 +28,14 @@ use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, Verify, Zero},
-	AnySignature, DispatchError, DispatchResult, Permill, Debug,
+	AnySignature, Debug, DispatchError, DispatchResult, Permill,
 };
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The kind of statement an account needs to make for a claim to be valid.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo)]
 pub enum AccountValidity {
 	/// Account is not valid.
 	Invalid,

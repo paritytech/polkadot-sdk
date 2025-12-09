@@ -36,7 +36,7 @@ use polkadot_runtime_metrics::get_current_time;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},
-	DispatchError, Debug, SaturatedConversion,
+	Debug, DispatchError, SaturatedConversion,
 };
 
 #[cfg(test)]

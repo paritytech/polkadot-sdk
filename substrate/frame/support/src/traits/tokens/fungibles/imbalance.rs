@@ -30,7 +30,7 @@ use crate::traits::{
 	},
 };
 use core::marker::PhantomData;
-use frame_support_procedural::{EqNoBound, PartialEqNoBound, DebugNoBound};
+use frame_support_procedural::{DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_runtime::traits::Zero;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or

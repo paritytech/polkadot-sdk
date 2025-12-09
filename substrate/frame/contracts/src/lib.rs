@@ -127,7 +127,7 @@ use frame_support::{
 		ConstU32, Contains, Get, Randomness, Time,
 	},
 	weights::{Weight, WeightMeter},
-	BoundedVec, DefaultNoBound, DebugNoBound,
+	BoundedVec, DebugNoBound, DefaultNoBound,
 };
 use frame_system::{
 	ensure_signed,
@@ -1383,9 +1383,7 @@ pub mod pallet {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound,
-)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),

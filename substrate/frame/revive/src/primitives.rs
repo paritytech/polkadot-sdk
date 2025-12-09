@@ -243,9 +243,7 @@ pub enum Code {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///

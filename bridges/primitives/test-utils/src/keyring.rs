@@ -21,8 +21,8 @@ use codec::Encode;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
-use Debug;
 use sp_std::prelude::*;
+use Debug;
 
 /// Set of test accounts with friendly names: Alice.
 pub const ALICE: Account = Account(0);

@@ -617,15 +617,7 @@ pub mod pallet {
 	}
 
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		MaxEncodedLen,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		TypeInfo,
-		Debug,
+		PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug,
 	)]
 	#[pallet::origin]
 	pub enum Origin<T: Config> {

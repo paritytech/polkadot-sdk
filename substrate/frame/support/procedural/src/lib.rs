@@ -316,7 +316,6 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
 }
 
-
 /// Derive [`PartialEq`] but do not bound any generic.
 ///
 /// Docs at `frame_support::PartialEqNoBound`.
