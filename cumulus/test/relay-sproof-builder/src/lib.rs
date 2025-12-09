@@ -94,7 +94,7 @@ impl Default for RelayStateSproofBuilder {
 			randomness: relay_chain::Hash::default(),
 			additional_key_values: vec![],
 			included_para_head: None,
-			num_authorities: 0,
+			num_authorities: 1,
 		}
 	}
 }
