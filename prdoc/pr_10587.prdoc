@@ -1,0 +1,10 @@
+title: Derive extra traits for fungibles::Imbalance
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds the same derived traits to `fungibles::Imbalance` that are already derived for `fungible::Imbalance`.
+
+    This is required so that the `OnChargeTransaction` configuration of `pallet_transaction_payment` can work for the `fungibles` version of types/traits (it already works for `fungible`).
+crates:
+- name: frame-support
+  bump: patch
