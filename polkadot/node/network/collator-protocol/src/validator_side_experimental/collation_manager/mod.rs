@@ -669,15 +669,13 @@ impl CollationManager {
 				if self.fetching.contains(&adv) {
 					return None;
 				}
-				Some((per_rp, adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id)?))
-			})
-			.filter_map(|(per_rp, adv, peer_rep)| {
+
 				let adv_timepstamp = per_rp.advertisement_timestamps.get(adv)?;
 				let duration_since_adv = now.duration_since(*adv_timepstamp);
 				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
 					.checked_sub(duration_since_adv)
 					.unwrap_or(Duration::ZERO);
-				Some((adv, peer_rep, fetch_delay))
+				Some((adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id)?, fetch_delay))
 			});
 
 		let mut maybe_best_adv = None;
