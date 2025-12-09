@@ -21,12 +21,15 @@
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use super::*;
-use crate::traits::{
-	fungible,
-	misc::{SameOrOther, TryDrop},
-	tokens::{
-		imbalance::{Imbalance as ImbalanceT, TryMerge},
-		AssetId, Balance,
+use crate::{
+	pallet_prelude::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo},
+	traits::{
+		fungible,
+		misc::{SameOrOther, TryDrop},
+		tokens::{
+			imbalance::{Imbalance as ImbalanceT, TryMerge},
+			AssetId, Balance,
+		},
 	},
 };
 use core::marker::PhantomData;
@@ -45,7 +48,16 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,
