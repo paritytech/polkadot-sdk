@@ -2031,7 +2031,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			if details.approvals != calculated_approvals {
 				log::error!(
-					"Asset (asset_id:?) approvals count mismatch: calculated {calculated_approvals} vs expected {}",
+					"Asset {asset_id:?} approvals count mismatch: calculated {calculated_approvals} vs expected {}",
 					details.approvals,
 				);
 
