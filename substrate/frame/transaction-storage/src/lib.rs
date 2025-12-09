@@ -35,13 +35,17 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
 use frame_support::{
 	dispatch::GetDispatchInfo,
+	pallet_prelude::InvalidTransaction,
 	traits::{
-		fungible::{hold::Balanced, Inspect, Mutate, MutateHold},
-		tokens::fungible::Credit,
+		fungible::{hold::Balanced, Credit, Inspect, Mutate, MutateHold},
 		OnUnbalanced,
 	},
 };
-use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
+use frame_system::pallet_prelude::BlockNumberFor;
+use sp_runtime::{
+	traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero},
+	RuntimeDebug,
+};
 use sp_transaction_storage_proof::{
 	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
 	CHUNK_SIZE, INHERENT_IDENTIFIER,
@@ -57,23 +61,61 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// Maximum bytes that can be stored in one transaction.
+// TODO: find out what is "allocator" and "allocator limit"
 // Setting higher limit also requires raising the allocator limit.
+// TODO: not used, can we remove or use?
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
+// TODO: not used, can we remove or use?
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
+
+/// Encountered an impossible situation, implies a bug.
+pub const IMPOSSIBLE: InvalidTransaction = InvalidTransaction::Custom(0);
+/// Data size is not in the allowed range.
+pub const BAD_DATA_SIZE: InvalidTransaction = InvalidTransaction::Custom(1);
+/// Renewed extrinsic not found.
+pub const RENEWED_NOT_FOUND: InvalidTransaction = InvalidTransaction::Custom(2);
+/// Authorization was not found.
+pub const AUTHORIZATION_NOT_FOUND: InvalidTransaction = InvalidTransaction::Custom(3);
+/// Authorization has not expired.
+pub const AUTHORIZATION_NOT_EXPIRED: InvalidTransaction = InvalidTransaction::Custom(4);
+
+/// Number of transactions and bytes covered by an authorization.
+#[derive(PartialEq, Eq, RuntimeDebug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+pub struct AuthorizationExtent {
+	/// Number of transactions.
+	pub transactions: u32,
+	/// Number of bytes.
+	pub bytes: u64,
+}
 
 /// Hash of a stored blob of data.
 type ContentHash = [u8; 32];
 
+/// The scope of an authorization.
+#[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+enum AuthorizationScope<AccountId> {
+	/// Authorization for the given account to store arbitrary data.
+	Account(AccountId),
+	/// Authorization for anyone to store data with a specific hash.
+	Preimage(ContentHash),
+}
+
+type AuthorizationScopeFor<T> = AuthorizationScope<<T as frame_system::Config>::AccountId>;
+
+/// An authorization to store data.
+#[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+struct Authorization<BlockNumber> {
+	/// Extent of the authorization (number of transactions/bytes).
+	extent: AuthorizationExtent,
+	/// The block at which this authorization expires.
+	expiration: BlockNumber,
+}
+
+type AuthorizationFor<T> = Authorization<BlockNumberFor<T>>;
+
 /// State data for a stored transaction.
 #[derive(
-	Encode,
-	Decode,
-	Clone,
-	sp_runtime::RuntimeDebug,
-	PartialEq,
-	Eq,
-	scale_info::TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen,
 )]
 pub struct TransactionInfo {
 	/// Chunk trie root.
@@ -86,7 +128,7 @@ pub struct TransactionInfo {
 	/// is used to find transaction info by block chunk index using binary search.
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the
-	/// total chunks value.
+	/// total chunks.
 	block_chunks: ChunkIndex,
 }
 
@@ -371,6 +413,11 @@ pub mod pallet {
 		/// An expired preimage authorization was removed.
 		ExpiredPreimageAuthorizationRemoved { content_hash: ContentHash },
 	}
+
+	/// Authorizations, keyed by scope.
+	#[pallet::storage]
+	pub(super) type Authorizations<T: Config> =
+		StorageMap<_, Blake2_128Concat, AuthorizationScopeFor<T>, AuthorizationFor<T>, OptionQuery>;
 
 	/// Collection of transaction metadata by block number.
 	#[pallet::storage]
