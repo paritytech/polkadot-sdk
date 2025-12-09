@@ -186,12 +186,12 @@ pub struct Statement {
 	/// stored.
 	///
 	/// This can be used to implement message replacement, submitting a new message with a
-	/// different topic/data and the same channel and a greater expiry replaces the previous one.
+	/// different topic/data on the same channel and a greater expiry replaces the previous one.
 	///
 	/// If the new statement data is bigger than the old one, submitting a statement with the same
 	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
 	/// in the account quota. In that case, other statements from the same account with the lowest
-	/// expiry might be removed.
+	/// expiry will be removed.
 	channel: Option<Channel>,
 	/// Message expiry, used for determining which statements to keep.
 	///
@@ -202,7 +202,7 @@ pub struct Statement {
 	/// same expiration time.
 	///
 	/// Higher values indicate a higher priority.
-	/// This is used in two case:
+	/// This is used in two cases:
 	/// 1) When an account exceeds its quota and some statements need to be removed. Statements
 	///    with the lowest `expiry` are removed first.
 	/// 2) When multiple statements are submitted on the same channel, the one with the highest
