@@ -1646,10 +1646,8 @@ pub mod pallet {
 				// Note: we used current era before, but that is meant to be used for only election.
 				// The right value to use here is the active era.
 
-				let bonding_duration = if is_nominator && !T::AreNominatorsSlashable::get() {
-					// if the staker is not slashable, we allow them to withdraw unbonded funds
-					// in the next era.
-					1
+				let bonding_duration = if is_nominator {
+					<Self as sp_staking::StakingInterface>::nominator_bonding_duration()
 				} else {
 					T::BondingDuration::get()
 				};

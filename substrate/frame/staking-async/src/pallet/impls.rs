@@ -1557,6 +1557,14 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
+	fn nominator_bonding_duration() -> EraIndex {
+		if T::AreNominatorsSlashable::get() {
+			T::BondingDuration::get()
+		} else {
+			1
+		}
+	}
+
 	fn current_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(Zero::zero())
 	}
