@@ -684,7 +684,7 @@ impl CollationManager {
 
 			let can_fetch_best_adv =
 				best_adv_fetch_delay.is_zero() || *best_adv_peer_rep >= instant_fetch_rep;
-			let can_fetch_adv = fetch_delay.is_zero() || *peer_rep >= instant_fetch_rep;
+			let can_fetch_adv = fetch_delay.is_zero() || peer_rep >= instant_fetch_rep;
 			// We look at 2 conditions:
 			// - if the best advertisement so far can be instantly fetched
 			// - if the current advertisement can be instantly fetched
