@@ -39,7 +39,7 @@ use sp_runtime::traits::Zero;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::{
-	traits::{MatchesFungibles, WeightTrader},
+	traits::{MatchesFungibles, TransactAsset, WeightTrader},
 	AssetsInHolding,
 };
 
