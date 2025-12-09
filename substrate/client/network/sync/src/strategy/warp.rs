@@ -201,9 +201,8 @@ pub struct WarpSyncResult<B: BlockT> {
 }
 
 /// Warp sync state machine. Accumulates warp proofs and state.
-pub struct WarpSync<B: BlockT, Client> {
+pub struct WarpSync<B: BlockT> {
 	phase: Phase<B>,
-	_client: Arc<Client>,
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
@@ -216,10 +215,9 @@ pub struct WarpSync<B: BlockT, Client> {
 	min_peers_to_start_warp_sync: usize,
 }
 
-impl<B, Client> WarpSync<B, Client>
+impl<B> WarpSync<B>
 where
 	B: BlockT,
-	Client: HeaderBackend<B> + 'static,
 {
 	/// Strategy key used by warp sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("Warp");
@@ -227,13 +225,16 @@ where
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	pub fn new(
+	pub fn new<Client>(
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
 		protocol_name: Option<ProtocolName>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		min_peers_to_start_warp_sync: Option<usize>,
-	) -> Self {
+	) -> Self
+	where
+		Client: HeaderBackend<B> + 'static,
+	{
 		let min_peers_to_start_warp_sync =
 			min_peers_to_start_warp_sync.unwrap_or(MIN_PEERS_TO_START_WARP_SYNC);
 		if client.info().finalized_state.is_some() {
@@ -242,7 +243,6 @@ where
 				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
 			);
 			return Self {
-				_client: client,
 				phase: Phase::Complete,
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
@@ -263,7 +263,6 @@ where
 		};
 
 		Self {
-			_client: client,
 			phase,
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
