@@ -26,7 +26,7 @@ doc:
     This was not included in this PR to keep the scope limited, especially since user-initiated burns are rare events.
 
     This is the first deliverable of the DAP system. Future PRs will add:
-    - Make user-initiated burn's destination configurable  
+    - configurable destination for user-initiated burns
     - pallet-dap-satellite for system chains
     - Integration with other Westend system chains
     - XCM-based fund transfers from satellites to the DAP buffer
