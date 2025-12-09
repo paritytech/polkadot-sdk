@@ -1192,6 +1192,28 @@ impl parachains_on_demand::Config for Runtime {
 
 impl parachains_assigner_coretime::Config for Runtime {}
 
+parameter_types! {
+	pub const MaxPublishItems: u32 = 16;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 100;
+	pub const MaxPublishers: u32 = 1000;
+	pub const PublisherDeposit: Balance = 100 * UNITS;
+}
+
+impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
+	type MaxPublishers = MaxPublishers;
+	type PublisherDeposit = PublisherDeposit;
+}
+
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -1221,27 +1243,6 @@ impl parachains_slashing::Config for Runtime {
 	>;
 	type WeightInfo = parachains_slashing::TestWeightInfo;
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
-}
-
-parameter_types! {
-	pub const MaxPublishItems: u32 = 16;
-	pub const MaxKeyLength: u32 = 256;
-	pub const MaxValueLength: u32 = 1024;
-	pub const MaxStoredKeys: u32 = 100;
-	pub const MaxPublishers: u32 = 1000;
-	pub const PublisherDeposit: Balance = 100 * UNITS;
-}
-
-impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxPublishItems = MaxPublishItems;
-	type MaxKeyLength = MaxKeyLength;
-	type MaxValueLength = MaxValueLength;
-	type MaxStoredKeys = MaxStoredKeys;
-	type MaxPublishers = MaxPublishers;
-	type PublisherDeposit = PublisherDeposit;
 }
 
 parameter_types! {

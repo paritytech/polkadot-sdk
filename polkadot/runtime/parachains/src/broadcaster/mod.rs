@@ -73,6 +73,9 @@ pub use traits::Publish;
 pub mod weights;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod tests;
 
@@ -281,7 +284,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherRegistered`
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		#[pallet::weight(T::WeightInfo::register_publisher())]
 		pub fn register_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -307,7 +310,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherRegistered`
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		#[pallet::weight(T::WeightInfo::force_register_publisher())]
 		pub fn force_register_publisher(
 			origin: OriginFor<T>,
 			manager: T::AccountId,
@@ -334,11 +337,7 @@ pub mod pallet {
 		/// Events:
 		/// - `DataCleanedUp`
 		#[pallet::call_index(2)]
-		#[pallet::weight(
-			T::DbWeight::get().reads(2)
-			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(Weight::from_parts(567_000, 0).saturating_mul(T::MaxStoredKeys::get().into()))
-		)]
+		#[pallet::weight(T::WeightInfo::cleanup_published_data(T::MaxStoredKeys::get()))]
 		pub fn cleanup_published_data(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -373,7 +372,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		#[pallet::weight(T::WeightInfo::deregister_publisher())]
 		pub fn deregister_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -407,11 +406,7 @@ pub mod pallet {
 		/// - `DataCleanedUp` (if data existed)
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(4)]
-		#[pallet::weight(
-			T::DbWeight::get().reads(2)
-			.saturating_add(T::DbWeight::get().writes(5))
-			.saturating_add(Weight::from_parts(567_000, 0).saturating_mul(T::MaxStoredKeys::get().into()))
-		)]
+		#[pallet::weight(T::WeightInfo::force_deregister_publisher(T::MaxStoredKeys::get()))]
 		pub fn force_deregister_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -464,7 +459,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_cleanup_publisher(para_id: ParaId) -> DispatchResult {
+		pub(crate) fn do_cleanup_publisher(para_id: ParaId) -> DispatchResult {
 			let child_info = Self::derive_child_info(para_id);
 			let published_keys = PublishedKeys::<T>::get(para_id);
 

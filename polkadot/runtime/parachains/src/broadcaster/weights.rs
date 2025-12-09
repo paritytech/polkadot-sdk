@@ -23,18 +23,44 @@ use frame_support::weights::Weight;
 
 /// Weight information for broadcaster operations.
 pub trait WeightInfo {
-	/// Weight for cleaning up a publisher's data.
-	///
-	/// Parameters:
-	/// - `k`: Number of keys to remove from child trie
+	fn register_publisher() -> Weight;
+	fn force_register_publisher() -> Weight;
+	fn cleanup_published_data(k: u32) -> Weight;
+	fn deregister_publisher() -> Weight;
+	fn force_deregister_publisher(k: u32) -> Weight;
 	fn do_cleanup_publisher(k: u32) -> Weight;
 }
 
 /// Placeholder weights (to be replaced with benchmarked values).
 impl WeightInfo for () {
+	fn register_publisher() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3000))
+	}
+
+	fn force_register_publisher() -> Weight {
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3000))
+	}
+
+	fn cleanup_published_data(k: u32) -> Weight {
+		Weight::from_parts(25_000_000, 0)
+			.saturating_add(Weight::from_parts(5_000_000, 0).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(0, 5000))
+	}
+
+	fn deregister_publisher() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3000))
+	}
+
+	fn force_deregister_publisher(k: u32) -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(Weight::from_parts(5_000_000, 0).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(0, 5000))
+	}
+
 	fn do_cleanup_publisher(k: u32) -> Weight {
-		// Conservative estimate until benchmarks are run:
-		// Base cost + per-key cost for child trie operations
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(Weight::from_parts(5_000_000, 0).saturating_mul(k.into()))
 	}
