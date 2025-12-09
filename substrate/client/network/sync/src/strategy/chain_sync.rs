@@ -1295,6 +1295,17 @@ where
 								batch_justification_bytes,
 								batch_block_bytes,
 							);
+							if blocks.len() > 0 {
+								debug!(
+									target: LOG_TARGET,
+									"gap sync stats - batch_block: {} bytes; total_block: {} bytes ({:.2} MB), total_header: {} bytes ({:.2} MB)",
+									batch_block_bytes,
+									gap_sync.total_block_bytes,
+									gap_sync.total_block_bytes as f64 / (1024.0 * 1024.0),
+									gap_sync.total_header_bytes,
+									gap_sync.total_header_bytes as f64 / (1024.0 * 1024.0),
+								);
+							}
 							blocks
 						} else {
 							debug!(target: LOG_TARGET, "Unexpected gap block response from {peer_id}");
