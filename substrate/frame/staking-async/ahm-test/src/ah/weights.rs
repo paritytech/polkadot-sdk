@@ -201,7 +201,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn migrate_currency() -> Weight {
 		unreachable!()
 	}
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32) -> Weight {
 		Default::default()
 	}
 	fn process_offence_queue() -> Weight {

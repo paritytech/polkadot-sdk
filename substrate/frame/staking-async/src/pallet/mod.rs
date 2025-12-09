@@ -69,7 +69,7 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{weights::WeightMeter, DefaultNoBound};
+	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -232,13 +232,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
-		/// Whether nominators are slashable or not.
-		///
-		/// - When set to  `true`, nominators are slashed along with validators and follow same
-		/// bonding duration.
-		/// When set `false`, nominators are not slashed, and can unbond at the end of active era.
-		type AreNominatorsSlashable: Get<bool>;
-
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
@@ -379,10 +372,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{
-			derive_impl, parameter_types,
-			traits::{ConstBool, ConstU32},
-		};
+		use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -409,7 +399,6 @@ pub mod pallet {
 			type BondingDuration = BondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
-			type AreNominatorsSlashable = ConstBool<true>;
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
@@ -449,6 +438,14 @@ pub mod pallet {
 	/// If set to `0`, no limit exists.
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// Whether nominators are slashable or not.
+	///
+	/// - When set to `true` (default), nominators are slashed along with validators and follow same
+	///   bonding duration.
+	/// - When set to `false`, nominators are not slashed, and can unbond at the end of active era.
+	#[pallet::storage]
+	pub type AreNominatorsSlashable<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
 
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 	///
@@ -1450,7 +1447,7 @@ pub mod pallet {
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// process our queue.
-			let mut consumed_weight = if T::AreNominatorsSlashable::get() {
+			let mut consumed_weight = if AreNominatorsSlashable::<T>::get() {
 				slashing::process_offence::<T>()
 			} else {
 				slashing::process_offence_validator_only::<T>()
@@ -2268,6 +2265,7 @@ pub mod pallet {
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
+			are_nominators_slashable: ConfigOp<bool>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -2288,6 +2286,7 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.

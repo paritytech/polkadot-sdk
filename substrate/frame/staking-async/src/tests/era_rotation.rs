@@ -569,6 +569,7 @@ mod inflation {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Set(Percent::from_percent(10)),
+				ConfigOp::Noop,
 			));
 
 			assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));

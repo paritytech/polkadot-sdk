@@ -23,18 +23,15 @@
 //! - Validators are still slashed and must wait full `BondingDuration` to withdraw.
 
 use super::*;
-use mock::AreNominatorsSlashable;
 use sp_staking::StakingUnchecked;
 
 /// When `AreNominatorsSlashable` is false, only validators are slashed, not nominators.
 #[test]
 fn nominators_are_not_slashed() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)
+		.set_nominators_slashable(false)
 		.build_and_execute(|| {
 			let initial_exposure = Staking::eras_stakers(active_era(), &11);
 			assert_eq!(
@@ -94,10 +91,7 @@ fn nominators_are_not_slashed() {
 /// When `AreNominatorsSlashable` is false, nominators can unbond and withdraw in the next era.
 #[test]
 fn nominators_can_unbond_in_next_era() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
 		// nominator 101 is bonded
 		assert_eq!(
 			Staking::ledger(101.into()).unwrap(),
@@ -162,10 +156,7 @@ fn nominators_can_unbond_in_next_era() {
 /// When `AreNominatorsSlashable` is false, validators still need to wait full BondingDuration.
 #[test]
 fn validators_still_have_full_bonding_duration() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
 		// validator 11 is bonded
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
@@ -237,13 +228,11 @@ fn validators_still_have_full_bonding_duration() {
 /// not slashed even when slashes are deferred.
 #[test]
 fn nominator_not_slashed_with_deferred_slash() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-	SlashDeferDuration::set(2);
-
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)
+		.set_nominators_slashable(false)
+		.slash_defer_duration(2)
 		.build_and_execute(|| {
 			let initial_exposure = Staking::eras_stakers(active_era(), &11);
 			assert_eq!(
@@ -298,12 +287,10 @@ fn nominator_not_slashed_with_deferred_slash() {
 /// Virtual stakers (pool accounts) are also NOT slashed when `AreNominatorsSlashable` is false.
 #[test]
 fn virtual_staker_not_slashed() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)
+		.set_nominators_slashable(false)
 		.build_and_execute(|| {
 			// Create a virtual staker (like a pool account) that nominates validator 11.
 			// Virtual stakers have no actual balance - they are keyless pool accounts.
@@ -347,10 +334,7 @@ fn virtual_staker_not_slashed() {
 /// Virtual stakers (pool accounts) can also unbond in 1 era when `AreNominatorsSlashable` is false.
 #[test]
 fn virtual_staker_unbonds_in_one_era() {
-	// Set nominators to not be slashable for this test.
-	AreNominatorsSlashable::set(false);
-
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
 		// Create a virtual staker (like a pool account).
 		let pool_account = 200;
 		let payee = 201;

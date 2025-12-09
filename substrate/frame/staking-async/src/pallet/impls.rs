@@ -1558,7 +1558,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn nominator_bonding_duration() -> EraIndex {
-		if T::AreNominatorsSlashable::get() {
+		if AreNominatorsSlashable::<T>::get() {
 			T::BondingDuration::get()
 		} else {
 			1

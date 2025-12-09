@@ -90,7 +90,6 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
-	pub static AreNominatorsSlashable: bool = true;
 	// Session configs
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
@@ -435,7 +434,6 @@ impl crate::pallet::pallet::Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AreNominatorsSlashable = AreNominatorsSlashable;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = OneTokenPerMillisecond;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -495,6 +493,7 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
+	nominators_slashable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -510,6 +509,7 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
+			nominators_slashable: true,
 		}
 	}
 }
@@ -554,6 +554,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
+		self
+	}
+	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
+		self.nominators_slashable = slashable;
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -699,8 +703,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {
