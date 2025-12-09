@@ -71,12 +71,12 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
 
-    - name: k8s_auth
-      if: env.ZOMBIE_PROVIDER == 'k8s'
-      shell: bash
-      run: |
-        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-        k8s_auth
+    # - name: k8s_auth
+    #   if: env.ZOMBIE_PROVIDER == 'k8s'
+    #   shell: bash
+    #   run: |
+    #     . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+    #     k8s_auth
 
     - name: zombie_test
       shell: bash
