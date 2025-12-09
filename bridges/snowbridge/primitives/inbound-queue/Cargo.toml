@@ -65,4 +65,5 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks"
 ]

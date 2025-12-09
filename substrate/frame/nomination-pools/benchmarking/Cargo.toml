@@ -54,6 +54,7 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"pallet-balances/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -66,4 +67,6 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
