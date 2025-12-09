@@ -670,7 +670,7 @@ impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
 		Ok(VerificationResult::Complete(header, Default::default()))
 	}
 
-	fn context(&self) -> B::Hash {
+	fn next_proof_context(&self) -> B::Hash {
 		self.genesis_hash
 	}
 }

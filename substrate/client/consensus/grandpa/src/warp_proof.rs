@@ -37,6 +37,8 @@ use sp_runtime::{
 
 use std::{collections::HashMap, sync::Arc};
 
+use parking_lot::Mutex;
+
 /// Warp proof processing error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -280,12 +282,17 @@ where
 	}
 }
 
-/// Verifier implementation for GRANDPA warp sync.
-struct GrandpaVerifier<Block: BlockT> {
+/// Verifier state for GRANDPA warp sync.
+struct VerifierState<Block: BlockT> {
 	set_id: SetId,
 	authorities: AuthorityList,
+	next_proof_context: Block::Hash,
+}
+
+/// Verifier implementation for GRANDPA warp sync.
+struct GrandpaVerifier<Block: BlockT> {
+	state: Mutex<VerifierState<Block>>,
 	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
-	genesis_hash: Block::Hash,
 }
 
 impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
@@ -299,13 +306,17 @@ where
 		let EncodedProof(proof) = proof;
 		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
 			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
+		let (current_set_id, current_authorities) = {
+			let state = self.state.lock();
+			(state.set_id, state.authorities.clone())
+		};
 		let last_header = proof
 			.proofs
 			.last()
 			.map(|p| p.header.clone())
 			.ok_or_else(|| "Empty proof".to_string())?;
-		let (_next_set_id, _next_authorities) = proof
-			.verify(self.set_id, self.authorities.clone(), &self.hard_forks)
+		let (next_set_id, next_authorities) = proof
+			.verify(current_set_id, current_authorities, &self.hard_forks)
 			.map_err(Box::new)?;
 		let justifications = proof
 			.proofs
@@ -316,15 +327,21 @@ where
 				(p.header, justifications)
 			})
 			.collect::<Vec<_>>();
+		{
+			let mut state = self.state.lock();
+			state.set_id = next_set_id;
+			state.authorities = next_authorities;
+			state.next_proof_context = last_header.hash();
+		}
 		if proof.is_finished {
 			Ok(VerificationResult::Complete(last_header, justifications))
 		} else {
-			Ok(VerificationResult::Partial(last_header.hash(), justifications))
+			Ok(VerificationResult::Partial(justifications))
 		}
 	}
 
-	fn context(&self) -> Block::Hash {
-		self.genesis_hash
+	fn next_proof_context(&self) -> Block::Hash {
+		self.state.lock().next_proof_context.clone()
 	}
 }
 
@@ -350,10 +367,12 @@ where
 		let authority_set = self.authority_set.inner();
 		let genesis_hash = self.backend.blockchain().info().genesis_hash;
 		Arc::new(GrandpaVerifier {
-			set_id: authority_set.set_id,
-			authorities: authority_set.current_authorities.clone(),
+			state: Mutex::new(VerifierState {
+				set_id: authority_set.set_id,
+				authorities: authority_set.current_authorities.clone(),
+				next_proof_context: genesis_hash,
+			}),
 			hard_forks: self.hard_forks.clone(),
-			genesis_hash,
 		})
 	}
 }

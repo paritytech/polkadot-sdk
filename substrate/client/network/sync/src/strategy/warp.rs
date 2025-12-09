@@ -66,14 +66,14 @@ pub trait Verifier<Block: BlockT>: Send + Sync {
 		&self,
 		proof: &EncodedProof,
 	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
-	/// Returns the context in which the verifier operates (e.g., genesis hash).
-	fn context(&self) -> Block::Hash;
+	/// Hash to be used as the starting point for the next proof request.
+	fn next_proof_context(&self) -> Block::Hash;
 }
 
 /// Proof verification result.
 pub enum VerificationResult<Block: BlockT> {
 	/// Proof is valid, but the target was not reached.
-	Partial(Block::Hash, Vec<(Block::Header, Justifications)>),
+	Partial(Vec<(Block::Header, Justifications)>),
 	/// Target finality is proved.
 	Complete(Block::Header, Vec<(Block::Header, Justifications)>),
 }
@@ -170,7 +170,7 @@ enum Phase<B: BlockT> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
 	/// Downloading warp proofs.
-	WarpProof { verifier: Arc<dyn Verifier<B>>, last_hash: B::Hash },
+	WarpProof { verifier: Arc<dyn Verifier<B>> },
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -327,8 +327,7 @@ where
 		}
 
 		let verifier = warp_sync_provider.create_verifier();
-		self.phase =
-			Phase::WarpProof { verifier: Arc::clone(&verifier), last_hash: verifier.context() };
+		self.phase = Phase::WarpProof { verifier };
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
@@ -390,7 +389,7 @@ where
 			peer.state = PeerState::Available;
 		}
 
-		let Phase::WarpProof { verifier, last_hash } = &mut self.phase else {
+		let Phase::WarpProof { verifier } = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected warp proof response");
 			self.actions
 				.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
@@ -422,9 +421,8 @@ where
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(new_last_hash, proofs)) => {
+			Ok(VerificationResult::Partial(proofs)) => {
 				debug!(target: LOG_TARGET, "Verified partial proof");
-				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
 					origin: BlockOrigin::NetworkInitialSync,
@@ -559,10 +557,10 @@ where
 
 	/// Produce warp proof request.
 	fn warp_proof_request(&mut self) -> Option<(PeerId, ProtocolName, WarpProofRequest<B>)> {
-		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
+		let Phase::WarpProof { verifier } = &self.phase else { return None };
 
-		// Copy `last_hash` early to cut the borrowing tie.
-		let begin = *last_hash;
+		// Copy verifier context early to cut the borrowing tie.
+		let begin = verifier.next_proof_context();
 
 		if self
 			.peers
@@ -810,7 +808,7 @@ mod test {
 				&self,
 				proof: &EncodedProof,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
-			fn context(&self) -> B::Hash;
+			fn next_proof_context(&self) -> B::Hash;
 		}
 	}
 
@@ -954,7 +952,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1011,7 +1009,7 @@ mod test {
 			let client = mock_client_without_state();
 			let mut provider = MockWarpSyncProvider::<Block>::new();
 			let mut verifier = MockVerifier::<Block>::new();
-			verifier.expect_context().returning(|| Hash::random());
+			verifier.expect_next_proof_context().returning(|| Hash::random());
 			verifier
 				.expect_verify()
 				.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1041,7 +1039,7 @@ mod test {
 			let client = mock_client_without_state();
 			let mut provider = MockWarpSyncProvider::<Block>::new();
 			let mut verifier = MockVerifier::<Block>::new();
-			verifier.expect_context().returning(|| Hash::random());
+			verifier.expect_next_proof_context().returning(|| Hash::random());
 			verifier
 				.expect_verify()
 				.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1070,7 +1068,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1123,7 +1121,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1161,7 +1159,8 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		let known_last_hash = Hash::random();
+		verifier.expect_next_proof_context().returning(move || known_last_hash);
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1182,16 +1181,6 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
-		let known_last_hash = Hash::random();
-
-		// Manually set last hash to known value.
-		match &mut warp_sync.phase {
-			Phase::WarpProof { last_hash, .. } => {
-				*last_hash = known_last_hash;
-			},
-			_ => panic!("Invalid phase."),
-		}
-
 		let (_peer_id, _protocol_name, request) = warp_sync.warp_proof_request().unwrap();
 		assert_eq!(request.begin, known_last_hash);
 	}
@@ -1201,7 +1190,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1233,7 +1222,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		// Warp proof verification fails.
 		verifier.expect_verify().return_once(|_proof| {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
@@ -1294,14 +1283,14 @@ mod test {
 		// Warp proof is partial.
 		let mut verifier = MockVerifier::<Block>::new();
 		let context = client.info().genesis_hash;
-		verifier.expect_context().returning(move || context);
+		verifier.expect_next_proof_context().returning(move || context);
 		let header_for_verify = target_header.clone();
 		let just_for_verify = justifications.clone();
 		verifier.expect_verify().return_once(move |_proof| {
-			Ok(VerificationResult::Partial(
-				header_for_verify.hash(),
-				vec![(header_for_verify.clone(), just_for_verify.clone())],
-			))
+			Ok(VerificationResult::Partial(vec![(
+				header_for_verify.clone(),
+				just_for_verify.clone(),
+			)]))
 		});
 		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
 		provider.expect_create_verifier().return_const(verifier_arc);
@@ -1375,7 +1364,7 @@ mod test {
 		// Warp proof is complete.
 		let mut verifier = MockVerifier::<Block>::new();
 		let context = client.info().genesis_hash;
-		verifier.expect_context().returning(move || context);
+		verifier.expect_next_proof_context().returning(move || context);
 		let header_for_verify = target_header.clone();
 		let just_for_verify = justifications.clone();
 		verifier.expect_verify().return_once(move |_proof| {
@@ -1446,7 +1435,7 @@ mod test {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
-		verifier.expect_context().returning(|| Hash::random());
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
@@ -1478,7 +1467,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1554,7 +1543,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1595,7 +1584,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1641,7 +1630,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1721,7 +1710,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1787,7 +1776,7 @@ mod test {
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		let mut verifier = MockVerifier::<Block>::new();
 		let header_for_ctx = client.info().genesis_hash;
-		verifier.expect_context().returning(move || header_for_ctx);
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let mut target_block_builder = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
