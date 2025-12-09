@@ -382,7 +382,6 @@ pub fn read_trie_value_with_status<
 	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
-	log::debug!(target: "revive::runtime", "has_recorder: {}", recorder.is_some());
 	let is_cold = recorder
 		.as_mut()
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
