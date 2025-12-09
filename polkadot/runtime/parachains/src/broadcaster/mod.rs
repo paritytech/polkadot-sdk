@@ -697,3 +697,13 @@ impl<T: Config> Publish for Pallet<T> {
 		Self::handle_publish(publisher, data)
 	}
 }
+
+// Implement OnNewSessionOutgoing for cleanup of offboarded parachains
+impl<T: Config> crate::initializer::OnNewSessionOutgoing<BlockNumberFor<T>> for Pallet<T> {
+	fn on_new_session_outgoing(
+		notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,
+		outgoing_paras: &[ParaId],
+	) {
+		let _ = Self::initializer_on_new_session(notification, outgoing_paras);
+	}
+}

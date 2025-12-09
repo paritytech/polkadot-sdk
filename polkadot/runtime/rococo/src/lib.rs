@@ -1219,6 +1219,7 @@ impl parachains_initializer::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::polkadot_runtime_parachains_initializer::WeightInfo<Runtime>;
 	type CoretimeOnNewSession = Coretime;
+	type OnNewSessionOutgoing = Broadcaster;
 }
 
 impl parachains_disputes::Config for Runtime {

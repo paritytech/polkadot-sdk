@@ -193,6 +193,7 @@ impl crate::initializer::Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type WeightInfo = ();
 	type CoretimeOnNewSession = Coretime;
+	type OnNewSessionOutgoing = ();
 }
 
 impl crate::configuration::Config for Test {

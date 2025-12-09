@@ -21,7 +21,6 @@
 //! initialization.
 
 use crate::{
-	broadcaster,
 	configuration::{self, HostConfiguration},
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
@@ -69,6 +68,23 @@ pub trait OnNewSession<N> {
 
 impl<N> OnNewSession<N> for () {
 	fn on_new_session(_: &SessionChangeNotification<N>) {}
+}
+
+/// Handler for session changes with offboarded parachains.
+pub trait OnNewSessionOutgoing<N> {
+	/// Called when a new session starts with parachains being offboarded.
+	fn on_new_session_outgoing(
+		notification: &SessionChangeNotification<N>,
+		outgoing_paras: &[polkadot_primitives::Id],
+	);
+}
+
+impl<N> OnNewSessionOutgoing<N> for () {
+	fn on_new_session_outgoing(
+		_: &SessionChangeNotification<N>,
+		_: &[polkadot_primitives::Id],
+	) {
+	}
 }
 
 /// Number of validators (not only parachain) in a session.
@@ -126,7 +142,6 @@ pub mod pallet {
 		+ disputes::Config
 		+ dmp::Config
 		+ hrmp::Config
-		+ broadcaster::Config
 	{
 		/// A randomness beacon.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -136,6 +151,9 @@ pub mod pallet {
 		/// to disable it on the ones that don't support it. Can be removed and replaced by a simple
 		/// bound to `coretime::Config` once all chains support it.
 		type CoretimeOnNewSession: OnNewSession<BlockNumberFor<Self>>;
+		/// Optional handler for outgoing parachains on new session.
+		/// Use `()` to disable, or configure a pallet that implements `OnNewSessionOutgoing`.
+		type OnNewSessionOutgoing: OnNewSessionOutgoing<BlockNumberFor<Self>>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -284,7 +302,7 @@ impl<T: Config> Pallet<T> {
 		T::SlashingHandler::initializer_on_new_session(session_index);
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
-		broadcaster::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
+		T::OnNewSessionOutgoing::on_new_session_outgoing(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
 	}
 
