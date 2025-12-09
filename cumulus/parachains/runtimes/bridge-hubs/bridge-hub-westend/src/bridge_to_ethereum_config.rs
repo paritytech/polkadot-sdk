@@ -23,6 +23,7 @@ use crate::{
 	Runtime, RuntimeEvent, TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
@@ -78,6 +79,7 @@ parameter_types! {
 
 parameter_types! {
 	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
+	pub const SetReservesCallIndex: [u8;2] = [53, 33];
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -89,7 +91,12 @@ parameter_types! {
 	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)].into();
 	pub InboundQueueV2Location: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
-	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateForeignAssetDeposit::get(),min_balance:1};
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo {
+		create_call: CreateAssetCallIndex::get(),
+		deposit: CreateForeignAssetDeposit::get(),
+		min_balance:1,
+		set_reserves_call: SetReservesCallIndex::get(),
+	};
 	pub SnowbridgeFrontendLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(FRONTEND_PALLET_INDEX)]);
 }
 
@@ -192,7 +199,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
-	// No consumers of this notifier on Bridge Hub.
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;

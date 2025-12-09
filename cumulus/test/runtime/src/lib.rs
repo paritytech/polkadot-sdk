@@ -51,6 +51,11 @@ pub mod elastic_scaling_multi_block_slot {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
 }
 
+pub mod elastic_scaling_12s_slot {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
+}
+
 pub mod sync_backing {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
@@ -99,6 +104,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+pub use frame_system::Call as SystemCall;
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -630,9 +636,9 @@ impl_runtime_apis! {
 
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			1
 		}
 	}
 }

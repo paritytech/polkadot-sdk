@@ -1,0 +1,17 @@
+title: 'weights: fix adding weights'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fixes potential integer overflow in `CheckWeight::check_extrinsic_weight()` by
+    adding saturating arithmetic methods to `Weight`:
+      - saturating_add_ref_time(),
+      - saturating_sub_ref_time(),
+      - saturating_add_proof_size(),
+      - saturating_sub_proof_size()
+    - Includes test cases for extreme values
+    - Improves debug logging.
+crates:
+- name: frame-system
+  bump: patch
+- name: sp-weights
+  bump: minor

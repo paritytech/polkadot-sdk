@@ -1,0 +1,8 @@
+title: Adding Retester to CI
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR adds differential tests as part of the CI of the polkadot SDK. Currently, a job will be started when pushing to master or when a PR is opened that runs the [differential testing framework](https://github.com/paritytech/revive-differential-tests) with the `revive-dev-node-revm-resolc` target.
+crates: []

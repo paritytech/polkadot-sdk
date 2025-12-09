@@ -262,6 +262,12 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The hash is the relay parent.
 	Seconded(Hash, SignedFullStatement),
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// pre-connect to backing groups at all allowed relay parents.
+	ConnectToBackingGroups,
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// disconnect from backing groups.
+	DisconnectFromBackingGroups,
 }
 
 impl Default for CollatorProtocolMessage {
@@ -739,7 +745,7 @@ pub enum RuntimeApiRequest {
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
 	/// `V5`
 	UnappliedSlashes(
-		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
 	),
 	/// Returns a merkle proof of a validator session key.
 	/// `V5`
@@ -784,6 +790,11 @@ pub enum RuntimeApiRequest {
 	/// Get the paraids at the relay parent.
 	/// `V14`
 	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	/// `V15`
+	UnappliedSlashesV2(
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -836,6 +847,9 @@ impl RuntimeApiRequest {
 
 	/// `ParaIds`
 	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
+
+	/// `UnappliedSlashesV2`
+	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 }
 
 /// A message to the Runtime API subsystem.

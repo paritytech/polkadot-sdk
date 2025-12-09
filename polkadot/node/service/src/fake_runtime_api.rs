@@ -218,7 +218,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
 			unimplemented!()
 		}
 
@@ -440,7 +440,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>, _: VersionedAssetId) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 	}

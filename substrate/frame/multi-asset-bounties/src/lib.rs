@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/substrate/frame/multi-asset-bounties) -
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/multi-asset-bounties) -
 //! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white

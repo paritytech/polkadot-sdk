@@ -78,9 +78,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)],
 	)
 	.await?;
 

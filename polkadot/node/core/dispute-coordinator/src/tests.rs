@@ -406,7 +406,7 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
-					RuntimeApiRequest::UnappliedSlashes(tx),
+					RuntimeApiRequest::UnappliedSlashesV2(tx),
 				)) => {
 					tx.send(Ok(Vec::new())).unwrap();
 				},

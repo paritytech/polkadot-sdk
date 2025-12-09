@@ -780,7 +780,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	/// Backend of the node.
 	pub backend: Arc<TBackend>,
 	/// RPC builder.
-	pub rpc_builder: &'a (dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	pub rpc_builder: &'a dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>,
 	/// Transaction metrics handle.
 	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
 	/// Optional [`TracingExecuteBlock`] handle.
