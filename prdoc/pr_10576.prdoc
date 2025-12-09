@@ -17,15 +17,20 @@ doc:
 
     4. **staking-async parachain runtime**: Updated to use DAP for slash handling.
 
+    NOTE: User-initiated burns (via pallet_balances::burn extrinsic) do NOT go through DAP currently but
+    they burn directly instead, reducing total issuance immediately.
+    This is because `pallet_balances::BurnDestination` in the related pallet's Config is commented out.
+    In the moment we uncomment it, we will introduce a breaking change forcing:
+    - Runtimes integrating with DAP to specify DAP as BurnDestination (this makes the burn extrinsic redirect to DAP).
+    - All other runtimes will use `BurnDestination = DirectBurn<Runtime>` (this makes the burn extrinsic actually burn tokens so same behavior as before).
+    This was not included in this PR to keep the scope limited, especially since user-initiated burns are rare events.
+
     This is the first deliverable of the DAP system. Future PRs will add:
+    - Make user-initiated burn's destination configurable  
     - pallet-dap-satellite for system chains
     - Integration with other Westend system chains
     - XCM-based fund transfers from satellites to the DAP buffer
     - FundingSource trait for pulling funds from DAP
-
-    The `BurnDestination` type in pallet-balances now uses the `FundingSink` trait.
-    Runtimes that don't integrate with DAP should use `DirectBurn<Runtime>` for the same behavior
-    as before.
 crates:
 - name: frame-support
   bump: minor

@@ -130,7 +130,6 @@ impl Config for Test {
 	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = VariantCountOf<TestId>;
-	type BurnDestination = pallet_balances::DirectBurn<Test>;
 }
 
 #[derive(Clone)]
