@@ -11414,6 +11414,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-dap",
  "pallet-election-provider-multi-block",
  "pallet-offences",
  "pallet-root-offences",
