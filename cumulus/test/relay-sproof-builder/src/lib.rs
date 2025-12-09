@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
-use polkadot_primitives::UpgradeGoAhead;
+use polkadot_primitives::{Header, UpgradeGoAhead};
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, PreDigest, PrimaryPreDigest},
 	AuthorityId, AuthorityPair, BabeAuthorityWeight,
@@ -31,7 +31,7 @@ use sp_core::{
 	Pair, H256,
 };
 use sp_runtime::{
-	traits::{HashingFor, Header},
+	traits::{HashingFor, Header as HeaderT},
 	Digest, DigestItem,
 };
 use sp_trie::PrefixedMemoryDB;
@@ -94,7 +94,7 @@ impl Default for RelayStateSproofBuilder {
 			randomness: relay_chain::Hash::default(),
 			additional_key_values: vec![],
 			included_para_head: None,
-			num_authorities: 0,
+			num_authorities: 1,
 		}
 	}
 }
@@ -148,12 +148,12 @@ impl RelayStateSproofBuilder {
 	/// Returns a tuple of (state_root, storage_proof, relay_parent_descendants).
 	pub fn into_state_root_proof_and_descendants(
 		self,
-		num_descendants: u64,
-	) -> (polkadot_primitives::Hash, sp_state_machine::StorageProof, Vec<TestHeader>) {
+		relay_parent_offset: u64,
+	) -> (polkadot_primitives::Hash, sp_state_machine::StorageProof, Vec<Header>) {
 		let authorities = generate_authority_pairs(self.num_authorities);
 		let (state_root, proof) = self.into_state_root_and_proof();
 		let descendants =
-			build_relay_parent_descendants(num_descendants, state_root.into(), authorities);
+			build_relay_parent_descendants(relay_parent_offset + 1, state_root.into(), authorities);
 		(state_root, proof, descendants)
 	}
 
@@ -258,9 +258,6 @@ impl RelayStateSproofBuilder {
 	}
 }
 
-/// Block Header type for testing
-pub type TestHeader = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
-
 /// Generate a vector of AuthorityPairs
 pub fn generate_authority_pairs(num_authorities: u64) -> Vec<AuthorityPair> {
 	(0..num_authorities).map(|i| AuthorityPair::from_seed(&[i as u8; 32])).collect()
@@ -277,11 +274,7 @@ pub fn convert_to_authority_weight_pair(
 }
 
 /// Add a BABE pre-digest to a generic header
-pub fn add_babe_pre_digest<Header: sp_runtime::traits::Header>(
-	header: &mut Header,
-	authority_index: u32,
-	block_number: u64,
-) {
+pub fn add_babe_pre_digest(header: &mut Header, authority_index: u32, block_number: u64) {
 	/// This method generates some vrf data, but only to make the compiler happy
 	fn generate_testing_vrf() -> VrfSignature {
 		let vrf_proof_bytes = [0u8; 64];
@@ -308,13 +301,13 @@ pub fn build_relay_parent_descendants(
 	num_headers: u64,
 	state_root: H256,
 	authorities: Vec<AuthorityPair>,
-) -> Vec<TestHeader> {
+) -> Vec<Header> {
 	let mut headers = Vec::with_capacity(num_headers as usize);
 
 	let mut previous_hash = None;
 
-	for block_number in 0..=num_headers as u32 - 1 {
-		let mut header = TestHeader {
+	for block_number in 0..=num_headers as u32 {
+		let mut header = Header {
 			number: block_number,
 			parent_hash: previous_hash.unwrap_or_default(),
 			state_root,

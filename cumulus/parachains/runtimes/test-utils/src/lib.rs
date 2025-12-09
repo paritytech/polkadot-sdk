@@ -333,20 +333,18 @@ where
 			let parent_head = HeadData(header.encode());
 
 			// Get RelayParentOffset from the parachain system pallet config.
-			let num_descendants = 1 +
+			let relay_parent_offset =
 				<Runtime as cumulus_pallet_parachain_system::Config>::RelayParentOffset::get()
 					.saturated_into::<u64>();
 
 			let sproof_builder = RelayStateSproofBuilder {
 				para_id: <Runtime>::SelfParaId::get(),
 				included_para_head: parent_head.clone().into(),
-				num_authorities: num_descendants,
 				..Default::default()
 			};
 
 			let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
-				sproof_builder.into_state_root_proof_and_descendants(num_descendants);
-
+				sproof_builder.into_state_root_proof_and_descendants(relay_parent_offset);
 			let inherent_data = ParachainInherentData {
 				validation_data: PersistedValidationData {
 					parent_head,
@@ -698,7 +696,7 @@ pub fn mock_open_hrmp_channel<
 	let relay_slot = Slot::from_timestamp(timestamp.into(), slot_durations.relay);
 
 	// Get RelayParentOffset from the parachain system pallet config.
-	let num_descendants = 1 + C::RelayParentOffset::get().saturated_into::<u64>();
+	let relay_parent_offset = C::RelayParentOffset::get().saturated_into::<u64>();
 
 	let n = 1_u32;
 	let mut sproof_builder = RelayStateSproofBuilder {
@@ -706,7 +704,6 @@ pub fn mock_open_hrmp_channel<
 		included_para_head: Some(HeadData(included_head.encode())),
 		hrmp_egress_channel_index: Some(vec![recipient]),
 		current_slot: relay_slot,
-		num_authorities: num_descendants,
 		..Default::default()
 	};
 	sproof_builder.hrmp_channels.insert(
@@ -722,7 +719,7 @@ pub fn mock_open_hrmp_channel<
 	);
 
 	let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
-		sproof_builder.into_state_root_proof_and_descendants(num_descendants);
+		sproof_builder.into_state_root_proof_and_descendants(relay_parent_offset);
 
 	let vfp = PersistedValidationData {
 		relay_parent_number: n as RelayChainBlockNumber,

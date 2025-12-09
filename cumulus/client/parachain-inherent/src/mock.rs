@@ -230,7 +230,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		sproof_builder.included_para_head = self.current_para_block_head.clone();
 		sproof_builder.num_authorities = 2;
 		let (relay_parent_storage_root, proof, relay_parent_descendants) =
-			sproof_builder.into_state_root_proof_and_descendants(2);
+			sproof_builder.into_state_root_proof_and_descendants(1);
 		let parachain_inherent_data = ParachainInherentData {
 			validation_data: PersistedValidationData {
 				parent_head: Default::default(),

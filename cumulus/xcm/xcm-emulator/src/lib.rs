@@ -733,7 +733,7 @@ macro_rules! decl_test_parachains {
 					);
 
 					// Get RelayParentOffset from the runtime
-					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as frame_support::traits::Get<u32>>::get();
+					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
 
 					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
@@ -1206,7 +1206,6 @@ macro_rules! decl_test_networks {
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 					sproof.host_config.max_upward_message_size = 1024 * 1024;
 					sproof.num_authorities = relay_parent_offset + 1;
-					let num_descendants = sproof.num_authorities;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1235,7 +1234,7 @@ macro_rules! decl_test_networks {
 					}
 
 					let (relay_storage_root, proof, relay_parent_descendants) =
-						sproof.into_state_root_proof_and_descendants(num_descendants);
+						sproof.into_state_root_proof_and_descendants(relay_parent_offset);
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
