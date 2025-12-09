@@ -15,6 +15,7 @@ use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
+use std::env;
 
 const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
@@ -312,14 +313,40 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(collators.len() >= 2);
 	let images = zombienet_sdk::environment::get_images_from_env();
+	let maybe_req_cpu = env::var("ZOMBIE_K8S_REQUEST_CPU");
+	let maybe_req_mem = env::var("ZOMBIE_K8S_REQUEST_MEM");
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
+			let r = r
+				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_node(|node| node.with_name("validator-0"))
-				.with_node(|node| node.with_name("validator-1"))
+				.with_default_args(vec!["-lparachain=debug".into()]);
+
+
+			let r = match (&maybe_req_cpu, &maybe_req_mem) {
+				(Err(_), Err(_)) => r,
+				_ => {
+					r.with_default_resources(|resources| {
+						let resources = if let Ok(cpu_req) = &maybe_req_cpu {
+							resources.with_request_cpu(cpu_req.as_str())
+						} else {
+							resources
+						};
+
+						let resources = if let Ok(mem_req) = &maybe_req_mem {
+							resources.with_request_memory(mem_req.as_str())
+						} else {
+							resources
+						};
+						resources
+					})
+				}
+			};
+
+			r
+			.with_node(|node| node.with_name("validator-0"))
+			.with_node(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			let p = p
@@ -332,9 +359,30 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"-lstatement-store=info,statement-gossip=info,error".into(),
 					"--enable-statement-store".into(),
 					"--rpc-max-connections=50000".into(),
-				])
-				// Have to set outside of the loop below, so that `p` has the right type.
-				.with_collator(|n| n.with_name(collators[0]));
+				]);
+
+			let p = match (&maybe_req_cpu, &maybe_req_mem) {
+				(Err(_), Err(_)) => p,
+				_ => {
+					p.with_default_resources(|resources| {
+						let resources = if let Ok(cpu_req) = maybe_req_cpu {
+							resources.with_request_cpu(cpu_req.as_str())
+						} else {
+							resources
+						};
+
+						let resources = if let Ok(mem_req) = maybe_req_mem {
+							resources.with_request_memory(mem_req.as_str())
+						} else {
+							resources
+						};
+						resources
+					})
+				}
+			};
+
+			// Have to set outside of the loop below, so that `p` has the right type.
+			let p = p.with_collator(|n| n.with_name(collators[0]));
 
 			collators[1..]
 				.iter()
