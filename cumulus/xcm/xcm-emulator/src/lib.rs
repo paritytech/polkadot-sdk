@@ -1199,6 +1199,7 @@ macro_rules! decl_test_networks {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
+					sproof.host_config.max_upward_message_size = 1024 * 1024;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1489,15 +1490,17 @@ where
 	}
 }
 
+pub type MessageOriginFor<T> =
+	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
+
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1509,7 +1512,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)).into(),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
@@ -1521,9 +1524,8 @@ impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 

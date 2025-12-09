@@ -24,7 +24,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
 		TransactionSigned, TransactionUnsigned,
 	},
-	exec::{Key, PrecompileExt},
+	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
@@ -38,7 +38,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions::host, Interpreter},
+		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
 		pvm,
 	},
 	Pallet as Contracts, *,
@@ -51,10 +51,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{
-		fungible::{InspectHold, UnbalancedHold},
-		Hooks,
-	},
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -71,10 +68,7 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{
-	generic::{Digest, DigestItem},
-	traits::Zero,
-};
+use sp_runtime::{generic::DigestItem, traits::Zero};
 
 /// How many runs we do per API benchmark.
 ///
@@ -137,7 +131,7 @@ mod benchmarks {
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		instance.info()?.queue_trie_for_deletion();
+		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
 
 		#[block]
 		{
@@ -287,10 +281,13 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
-	) {
-		let pallet_account = whitelisted_pallet_account::<T>();
+	) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -303,7 +300,6 @@ mod benchmarks {
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
-		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
@@ -316,36 +312,17 @@ mod benchmarks {
 			origin,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			code,
 			input,
 			TransactionSigned::default().signed_payload(),
-			0u32.into(),
+			effective_gas_price,
 			0,
-		);
-
-		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the pallet account
-		let code_deposit = T::Currency::balance_on_hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&pallet_account,
-		);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
-
-		assert_eq!(
-			<T as Config>::FeeInfo::remaining_txfee(),
-			caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
-		);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&deployer),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
-			) - dust,
 		);
 
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -451,11 +428,14 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -466,7 +446,6 @@ mod benchmarks {
 			<T as Config>::Currency::issue(caller_funding::<T>()),
 		);
 
-		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
 
@@ -476,31 +455,11 @@ mod benchmarks {
 			instance.address,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			data,
 			TransactionSigned::default().signed_payload(),
-			0u32.into(),
+			effective_gas_price,
 			0,
-		);
-		let deposit = T::Currency::balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-		);
-		let code_deposit = T::Currency::balance_on_hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&pallet_account,
-		);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
-		// value and value transferred via call should be removed from the caller
-		assert_eq!(
-			Pallet::<T>::evm_balance(&caller_addr),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
-			) - dust,
 		);
 
 		// contract should have received the value
@@ -508,6 +467,18 @@ mod benchmarks {
 		// contract should still exist
 		instance.info()?;
 
+		Ok(())
+	}
+
+	// `c`: Size of the RLP encoded Ethereum transaction in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = Origin::EthTransaction(caller);
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		#[extrinsic_call]
+		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);
 		Ok(())
 	}
 
@@ -812,7 +783,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().gas_left();
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -822,7 +793,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().gas_left();
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
@@ -1061,16 +1032,20 @@ mod benchmarks {
 	fn seal_block_author() {
 		build_runtime!(runtime, memory: [[123u8; 20], ]);
 
-		let mut digest = Digest::default();
-
 		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
 		// To get safe benchmark results despite that, populate it with a bunch of random logs to
 		// ensure iteration over many items (we just overestimate the cost of the API).
 		for i in 0..16 {
-			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Other(vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Other(vec![i; 128]));
 		}
 
 		// The content of the pre-runtime digest log depends on the configured consensus.
@@ -1081,19 +1056,22 @@ mod benchmarks {
 		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
 		let pre_digest =
 			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
-		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
-		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
 
 		// Construct a `Digest` log fixture returning some value in AURA
 		let slot = Slot::default();
-		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
-		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
-
-		frame_system::Pallet::<T>::initialize(
-			&BlockNumberFor::<T>::from(1u32),
-			&Default::default(),
-			&digest,
-		);
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			AURA_ENGINE_ID,
+			slot.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
 		let result;
 		#[block]
@@ -1119,7 +1097,7 @@ mod benchmarks {
 		let block_hash = H256::from([1; 32]);
 
 		// Store block hash in pallet-revive BlockHash mapping
-		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
+		crate::BlockHash::<T>::insert(crate::BlockNumberFor::<T>::from(0u32), block_hash);
 
 		let result;
 		#[block]
@@ -1240,29 +1218,42 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
-		// Set storage deposit to zero so terminate_logic can proceed.
-		T::Currency::set_balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-			0u32.into(),
-		)
-		.unwrap();
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
-		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let exec_config = ExecConfig::new_substrate_tx();
+		let contract_account = &instance.account_id;
+		let origin = &ExecOrigin::from_account_id(caller);
+		let beneficiary_clone = beneficiary.clone();
+		let trie_id = instance.info()?.trie_id.clone();
+		let code_hash = instance.info()?.code_hash;
+		let only_if_same_tx = false;
 
 		let result;
 		#[block]
 		{
-			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
-				&instance.account_id,
-				&beneficiary,
+			result = crate::exec::bench_do_terminate::<T>(
+				&mut transaction_meter,
+				&exec_config,
+				contract_account,
+				&origin,
+				beneficiary_clone,
+				trie_id,
+				code_hash,
+				only_if_same_tx,
 			);
 		}
 		result.unwrap();
@@ -1276,7 +1267,7 @@ mod benchmarks {
 
 		// Check that the beneficiary received the balance
 		let balance = <T as Config>::Currency::balance(&beneficiary);
-		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
+		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
 
 		Ok(())
 	}
@@ -2111,6 +2102,54 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the init code (max 49152 bytes per EIP-3860)
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::vm::evm::instructions::BENCH_INIT_CODE;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(caller_funding::<T>());
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		let value = {
+			let value: BalanceOf<T> = (1_000_000u32 * t).into();
+			let dust = 100u32 * d;
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
+		};
+
+		let init_code = vec![BENCH_INIT_CODE; i as usize];
+		let _ = interpreter.memory.resize(0, init_code.len());
+		let salt = U256::from(42u64);
+		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+
+		// Setup stack for create instruction [value, offset, size, salt]
+		let _ = interpreter.stack.push(salt);
+		let _ = interpreter.stack.push(U256::from(init_code.len()));
+		let _ = interpreter.stack.push(U256::zero());
+		let _ = interpreter.stack.push(value);
+
+		let result;
+		#[block]
+		{
+			result = instructions::contract::create::<true, _>(&mut interpreter);
+		}
+
+		assert!(result.is_continue());
+		let addr = interpreter.stack.top().unwrap().into_address();
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
+		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		Ok(())
+	}
+
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
@@ -2290,6 +2329,28 @@ mod benchmarks {
 		{
 			result =
 				run_builtin_precompile(&mut ext, H160::from_low_u64_be(1).as_fixed_bytes(), input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn p256_verify() {
+		use hex_literal::hex;
+		let input = hex!("4cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e").to_vec();
+		let expected = U256::one().to_big_endian();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(0x100).as_fixed_bytes(),
+				input,
+			);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -2577,7 +2638,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = host::extcodecopy(&mut interpreter);
+			result = instructions::host::extcodecopy(&mut interpreter);
 		}
 
 		assert!(result.is_continue());
@@ -2741,7 +2802,10 @@ mod benchmarks {
 
 			// Create input data of fixed size for consistent transaction payloads
 			let input_data = vec![0x42u8; fixed_payload_size];
-			let gas_used = Weight::from_parts(1_000_000, 1000);
+			let receipt_gas_info = ReceiptGasInfo {
+				gas_used: U256::from(1_000_000),
+				effective_gas_price: Pallet::<T>::evm_base_fee(),
+			};
 
 			for _ in 0..n {
 				// Create real signed transaction with fixed-size input data
@@ -2763,7 +2827,7 @@ mod benchmarks {
 					block_builder.process_transaction(
 						signed_transaction,
 						true,
-						gas_used,
+						receipt_gas_info.clone(),
 						encoded_logs,
 						bloom,
 					);
@@ -2814,7 +2878,10 @@ mod benchmarks {
 
 		// Create input data of variable size p for realistic transaction payloads
 		let input_data = vec![0x42u8; d as usize];
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
 
 		for _ in 0..fixed_tx_count {
 			// Create real signed transaction with variable-size input data
@@ -2836,7 +2903,7 @@ mod benchmarks {
 				block_builder.process_transaction(
 					signed_transaction,
 					true,
-					gas_used,
+					receipt_gas_info.clone(),
 					encoded_logs,
 					bloom,
 				);
@@ -2888,7 +2955,10 @@ mod benchmarks {
 			input_data.clone(),
 		);
 
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
@@ -2900,7 +2970,7 @@ mod benchmarks {
 			block_builder.process_transaction(
 				signed_transaction,
 				true,
-				gas_used,
+				receipt_gas_info.clone(),
 				encoded_logs,
 				bloom,
 			);
@@ -2950,7 +3020,10 @@ mod benchmarks {
 			input_data.clone(),
 		);
 
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
@@ -2962,7 +3035,7 @@ mod benchmarks {
 			block_builder.process_transaction(
 				signed_transaction,
 				true,
-				gas_used,
+				receipt_gas_info,
 				encoded_logs,
 				bloom,
 			);

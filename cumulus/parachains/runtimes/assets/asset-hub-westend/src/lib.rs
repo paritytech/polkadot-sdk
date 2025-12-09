@@ -32,12 +32,16 @@ pub mod xcm_config;
 // Configurations for next functionality.
 mod bag_thresholds;
 pub mod governance;
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod migrations;
 mod staking;
+
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
@@ -96,7 +100,7 @@ use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -115,6 +119,10 @@ use xcm::{
 		XcmVersion,
 	},
 };
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
@@ -123,11 +131,6 @@ use frame_support::traits::PalletInfoAccess;
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
-};
-
-use xcm_runtime_apis::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
-	fees::Error as XcmPaymentApiError,
 };
 
 impl_opaque_keys! {
@@ -295,6 +298,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -338,6 +342,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
@@ -574,6 +579,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = xcm::v5::Location;
 	type AssetIdParameter = xcm::v5::Location;
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
@@ -599,7 +605,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 // Allow Freezes for the `ForeignAssets` pallet
@@ -835,7 +841,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
-						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
 				)
 			},
@@ -1209,19 +1214,23 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
 }
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	pub FastUnstakeName: &'static str = "FastUnstake";
 }
 
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (
-		pallet_revive::migrations::v1::Migration<Runtime>,
-		pallet_revive::migrations::v2::Migration<Runtime>,
-	);
+	type Migrations =
+		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
+			Runtime,
+			ForeignAssetsInstance,
+			migrations::AssetHubWestendForeignAssetsReservesProvider,
+		>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1369,7 +1378,8 @@ construct_runtime!(
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		FastUnstake: pallet_fast_unstake = 82,
+		// decommissioned in AHs.
+		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1476,6 +1486,10 @@ pub type Migrations = (
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
+	frame_support::migrations::RemovePallet<
+		FastUnstakeName,
+		<Runtime as frame_system::Config>::DbWeight,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1679,12 +1693,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
-		// [pallet_election_provider_multi_block, MultiBlockElection]
-		// [pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
-		[pallet_fast_unstake, FastUnstake]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block::signed, MultiBlockElectionSigned]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
@@ -1744,9 +1756,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			1
 		}
 	}
 
@@ -1940,10 +1952,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			use crate::xcm_config::XcmConfig;
-
 			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
-
 			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
@@ -1951,8 +1960,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
@@ -2440,13 +2450,33 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					PeopleLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
-				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
-				pub TrustedReserve: Option<(Location, Asset)> = Some(
-					(
-						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
-						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
-					)
-				);
+				pub TrustedReserve: Option<(Location, Asset)> = Some({
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let roc_id = xcm_config::bridging::to_rococo::RocLocation::get();
+					let roc = Asset::from((roc_id.clone(), 1000000000000 as u128));
+					let reserve = xcm_config::bridging::to_rococo::AssetHubRococo::get();
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					// register foreign ROCs
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						roc_id.clone().into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let reserves = ForeignAssetReserveData { reserve, teleportable: false };
+					// set trusted reserve
+					assert_ok!(ForeignAssets::set_reserves(
+						RuntimeOrigin::signed(account),
+						roc_id.clone().into(),
+						vec![reserves.clone()],
+					));
+					(reserves.reserve, roc)
+				});
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -2668,4 +2698,21 @@ fn ensure_key_ss58() {
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
+}
+
+#[test]
+fn ensure_epmb_weights_sane() {
+	use sp_io::TestExternalities;
+	use sp_runtime::Percent;
+	sp_tracing::try_init_simple();
+	TestExternalities::default().execute_with(|| {
+		pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+			// of the max block weights..
+			<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+			// more than 75% is a hard stop..
+			Some(Percent::from_percent(75)),
+			// and more than 50% a warning.
+			Some(Percent::from_percent(50)),
+		)
+	});
 }

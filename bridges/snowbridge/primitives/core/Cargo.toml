@@ -17,9 +17,9 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
+tracing = { workspace = true }
 
 polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
@@ -43,7 +43,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"serde/std",
@@ -52,6 +51,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

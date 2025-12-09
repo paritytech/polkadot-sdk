@@ -3273,9 +3273,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
-	pub fn query_delivery_fees(
+	///
+	/// Meant to be called by the `XcmPaymentApi`.
+	/// It's necessary to specify the asset in which fees are desired.
+	///
+	/// NOTE: Only use this if delivery fees consist of only 1 asset, else this function will error.
+	pub fn query_delivery_fees<AssetExchanger: xcm_executor::traits::AssetExchange>(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
+		versioned_asset_id: VersionedAssetId,
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
@@ -3298,12 +3304,43 @@ impl<T: Config> Pallet<T> {
 			XcmPaymentApiError::Unroutable
 		})?;
 
-		VersionedAssets::from(fees)
-			.into_version(result_version)
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?result_version, "Failed to convert fees into version");
-				XcmPaymentApiError::VersionedConversionFailed
-			})
+		// This helper only works for routers that return 1 and only 1 asset for delivery fees.
+		if fees.len() != 1 {
+			return Err(XcmPaymentApiError::Unimplemented);
+		}
+
+		let fee = fees.get(0).ok_or(XcmPaymentApiError::Unimplemented)?;
+
+		let asset_id = versioned_asset_id.clone().try_into().map_err(|()| {
+			tracing::trace!(
+				target: "xcm::xcm_runtime_apis::query_delivery_fees",
+				"Failed to convert asset id: {versioned_asset_id:?}!"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})?;
+
+		let assets_to_pay = if fee.id == asset_id {
+			// If the fee asset is the same as the desired one, just return that.
+			fees
+		} else {
+			// We get the fees in the desired asset.
+			AssetExchanger::quote_exchange_price(
+				&fees.into(),
+				&(asset_id, Fungible(1)).into(),
+				true, // Maximal.
+			)
+			.ok_or(XcmPaymentApiError::AssetNotFound)?
+		};
+
+		VersionedAssets::from(assets_to_pay).into_version(result_version).map_err(|e| {
+			tracing::trace!(
+				target: "xcm::pallet_xcm::query_delivery_fees",
+				?e,
+				?result_version,
+				"Failed to convert fees into desired version"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})
 	}
 
 	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
