@@ -21,28 +21,28 @@ required-features = ["subsystem-benchmarks"]
 async-trait = { workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
-polkadot-erasure-coding.workspace = true
 polkadot-erasure-coding.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-erasure-coding.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-primitives.default-features = true
-sc-network.workspace = true
+polkadot-primitives.workspace = true
 sc-network.default-features = true
+sc-network.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }

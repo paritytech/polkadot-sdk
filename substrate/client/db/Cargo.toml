@@ -32,27 +32,27 @@ linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
+prometheus-endpoint.workspace = true
 sc-client-api.default-features = true
-sc-state-db.workspace = true
+sc-client-api.workspace = true
 sc-state-db.default-features = true
+sc-state-db.workspace = true
 schnellru = { workspace = true }
-sp-arithmetic.workspace = true
 sp-arithmetic.default-features = true
-sp-blockchain.workspace = true
+sp-arithmetic.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-database.workspace = true
+sp-core.workspace = true
 sp-database.default-features = true
-sp-runtime.workspace = true
+sp-database.workspace = true
 sp-runtime.default-features = true
-sp-state-machine.workspace = true
+sp-runtime.workspace = true
 sp-state-machine.default-features = true
-sp-trie.workspace = true
+sp-state-machine.workspace = true
 sp-trie.default-features = true
+sp-trie.workspace = true
 sysinfo = { workspace = true }
 
 [dev-dependencies]
@@ -69,7 +69,7 @@ tempfile = { workspace = true }
 default = []
 test-helpers = []
 runtime-benchmarks = [
+	"kitchensink-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"kitchensink-runtime/runtime-benchmarks"
 ]
 rocksdb = ["kvdb-rocksdb"]

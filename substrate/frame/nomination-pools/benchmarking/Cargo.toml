@@ -47,6 +47,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-bags-list/std",
+	"pallet-balances/std",
 	"pallet-delegated-staking/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
@@ -54,7 +55,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"pallet-balances/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -62,11 +62,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]

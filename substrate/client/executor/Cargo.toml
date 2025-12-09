@@ -26,30 +26,30 @@ schnellru = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 codec = { workspace = true, default-features = true }
-sc-executor-common.workspace = true
 sc-executor-common.default-features = true
-sc-executor-polkavm.workspace = true
+sc-executor-common.workspace = true
 sc-executor-polkavm.default-features = true
-sc-executor-wasmtime.workspace = true
+sc-executor-polkavm.workspace = true
 sc-executor-wasmtime.default-features = true
-sp-api.workspace = true
+sc-executor-wasmtime.workspace = true
 sp-api.default-features = true
-sp-core.workspace = true
+sp-api.workspace = true
 sp-core.default-features = true
-sp-externalities.workspace = true
+sp-core.workspace = true
 sp-externalities.default-features = true
-sp-io.workspace = true
+sp-externalities.workspace = true
 sp-io.default-features = true
-sp-panic-handler.workspace = true
+sp-io.workspace = true
 sp-panic-handler.default-features = true
-sp-runtime-interface.workspace = true
+sp-panic-handler.workspace = true
 sp-runtime-interface.default-features = true
-sp-trie.workspace = true
+sp-runtime-interface.workspace = true
 sp-trie.default-features = true
-sp-version.workspace = true
+sp-trie.workspace = true
 sp-version.default-features = true
-sp-wasm-interface.workspace = true
+sp-version.workspace = true
 sp-wasm-interface.default-features = true
+sp-wasm-interface.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

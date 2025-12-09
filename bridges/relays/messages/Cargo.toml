@@ -13,8 +13,8 @@ workspace = true
 [dependencies]
 async-std = { features = ["attributes"], workspace = true }
 async-trait = { workspace = true }
-bp-messages.workspace = true
 bp-messages.default-features = true
+bp-messages.workspace = true
 finality-relay.workspace = true
 futures = { workspace = true }
 hex = { workspace = true, default-features = true }
@@ -22,8 +22,8 @@ log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 relay-utils.workspace = true
-sp-arithmetic.workspace = true
 sp-arithmetic.default-features = true
+sp-arithmetic.workspace = true
 
 [dev-dependencies]
 sp-core = { default-features = false, workspace = true }

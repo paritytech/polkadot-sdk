@@ -14,35 +14,35 @@ workspace = true
 [dependencies]
 cpu-time = { workspace = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 libc = { workspace = true }
 nix = { features = ["resource", "sched"], workspace = true }
 thiserror = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }
-polkadot-node-primitives.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-parachain-primitives.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-parachain-primitives.default-features = true
-polkadot-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
 polkadot-primitives.default-features = true
-sc-executor.workspace = true
+polkadot-primitives.workspace = true
 sc-executor.default-features = true
-sc-executor-common.workspace = true
+sc-executor.workspace = true
 sc-executor-common.default-features = true
-sc-executor-wasmtime.workspace = true
+sc-executor-common.workspace = true
 sc-executor-wasmtime.default-features = true
-sp-core.workspace = true
+sc-executor-wasmtime.workspace = true
 sp-core.default-features = true
-sp-crypto-hashing.workspace = true
+sp-core.workspace = true
 sp-crypto-hashing.default-features = true
-sp-externalities.workspace = true
+sp-crypto-hashing.workspace = true
 sp-externalities.default-features = true
-sp-io.workspace = true
+sp-externalities.workspace = true
 sp-io.default-features = true
-sp-tracing.workspace = true
+sp-io.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { workspace = true }

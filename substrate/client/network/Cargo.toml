@@ -45,30 +45,30 @@ mockall = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
+prometheus-endpoint.workspace = true
 prost = { workspace = true }
 rand = { workspace = true, default-features = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-network-common.workspace = true
+sc-client-api.workspace = true
 sc-network-common.default-features = true
-sc-network-types.workspace = true
+sc-network-common.workspace = true
 sc-network-types.default-features = true
-sc-utils.workspace = true
+sc-network-types.workspace = true
 sc-utils.default-features = true
+sc-utils.workspace = true
 schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
-sp-arithmetic.workspace = true
 sp-arithmetic.default-features = true
-sp-blockchain.workspace = true
+sp-arithmetic.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }
 tokio = { features = ["macros", "sync"], workspace = true, default-features = true }
 tokio-stream = { workspace = true }

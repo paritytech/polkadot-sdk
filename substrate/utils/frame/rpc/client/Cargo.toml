@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = { workspace = true }
 jsonrpsee = { features = ["ws-client"], workspace = true }
 log = { workspace = true, default-features = true }
-sc-rpc-api.workspace = true
 sc-rpc-api.default-features = true
+sc-rpc-api.workspace = true
 serde = { workspace = true, default-features = true }
-sp-runtime.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 sp-core = { default-features = true, workspace = true }

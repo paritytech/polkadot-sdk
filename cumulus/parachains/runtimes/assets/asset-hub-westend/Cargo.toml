@@ -273,6 +273,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
+	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -385,7 +386,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"alloy-core/std"
 ]
 
 fast-runtime = []
