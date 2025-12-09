@@ -379,13 +379,14 @@ pub fn read_trie_value_with_status<
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
-	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
-	mut cache: Option<&mut dyn TrieCache<L::Codec>>,
+	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
-	let is_cold = cache
+	log::debug!(target: "revive::runtime", "has_recorder: {}", recorder.is_some());
+	let is_cold = recorder
 		.as_mut()
-		.map(|c| c.lookup_value_for_key(key).is_none())
-		.unwrap_or_else(|| true);
+		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
+		.unwrap_or(true);
 
 	let data = TrieDBBuilder::<L>::new(db, root)
 		.with_optional_cache(cache)
@@ -506,16 +507,17 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
-	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
-	mut cache: Option<&mut dyn TrieCache<L::Codec>>,
+	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	let is_cold = cache
+	log::debug!(target: "revive::runtime", "has_recorder: {}", recorder.is_some());
+	let is_cold = recorder
 		.as_mut()
-		.map(|c| c.lookup_value_for_key(key).is_none())
-		.unwrap_or_else(|| true);
+		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
+		.unwrap_or(true);
 
 	let db = KeySpacedDB::new(db, keyspace);
 	let data = TrieDBBuilder::<L>::new(&db, &root)
