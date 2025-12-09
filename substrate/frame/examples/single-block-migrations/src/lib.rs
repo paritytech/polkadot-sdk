@@ -167,7 +167,6 @@ extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
-use Debug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
