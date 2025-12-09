@@ -1844,7 +1844,10 @@ where
 		true
 	}
 
-	fn with_transient_storage_mut<R, F: FnOnce(&mut TransientStorage<T>) -> R>(&mut self, f: F) -> R {
+	fn with_transient_storage_mut<R, F: FnOnce(&mut TransientStorage<T>) -> R>(
+		&mut self,
+		f: F,
+	) -> R {
 		if let Some(transient) = &self.exec_config.transient_storage {
 			f(&mut transient.borrow_mut())
 		} else {
