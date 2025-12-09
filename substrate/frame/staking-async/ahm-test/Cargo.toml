@@ -53,6 +53,8 @@ std = [
 try-runtime = [
 	"pallet-balances/try-runtime",
 
+	"pallet-dap/try-runtime",
+
 	"pallet-staking/try-runtime",
 
 	"pallet-staking-async-rc-client/try-runtime",
