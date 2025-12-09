@@ -210,4 +210,4 @@ for BASE_DIR in $BASE_DIRS; do
 done
 
 # sleep for a minute to give alloy time to forward logs
-sleep 60
+sleep 240 # 4 minutes
