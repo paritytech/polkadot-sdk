@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "cumulus-ping"
-version = "0.22.0"
+version = "0.24.0"
 license = "Apache-2.0"
 description = "Ping Pallet for Cumulus XCM/UMP testing."
 homepage.workspace = true

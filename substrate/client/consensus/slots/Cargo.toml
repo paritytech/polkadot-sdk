@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-slots"
-version = "0.51.0"
+version = "0.53.0"
 authors.workspace = true
 description = "Generic slots-based utilities for consensus"
 edition.workspace = true

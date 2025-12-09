@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.9.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -59,10 +59,10 @@ sp-arithmetic.workspace = true
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-version = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-version.workspace = true
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 
 [dev-dependencies]
@@ -83,7 +83,7 @@ pallet-timestamp = { default-features = true, workspace = true }
 pallet-utility = { default-features = true, workspace = true }
 proptest = { workspace = true }
 sp-keystore = { default-features = true, workspace = true }
-sp-state-machine = { workspace = true }
+sp-state-machine = { workspace = true, default-features = false }
 sp-tracing = { default-features = true, workspace = true }
 
 [features]

@@ -1,6 +1,6 @@
 [package]
 name = "people-rococo-runtime"
-version = "0.18.0"
+version = "0.20.0"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo's People parachain runtime"

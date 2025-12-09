@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "cumulus-pallet-xcm"
-version = "0.21.0"
+version = "0.23.0"
 license = "Apache-2.0"
 description = "Pallet for stuff specific to parachains' usage of XCM"
 homepage.workspace = true

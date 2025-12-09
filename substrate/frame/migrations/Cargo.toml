@@ -1,6 +1,6 @@
 [package]
 name = "pallet-migrations"
-version = "12.0.0"
+version = "14.0.0"
 description = "FRAME pallet to execute multi-block migrations."
 authors.workspace = true
 edition.workspace = true
