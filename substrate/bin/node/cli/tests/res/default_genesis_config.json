@@ -40,7 +40,6 @@
 
   },
   "revive": {
-    "mappedAccounts": []
   },
   "democracy": {},
   "council": {
@@ -88,13 +87,15 @@
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "transactionStorage": {
     "byteFee": 10,

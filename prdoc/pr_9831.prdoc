@@ -1,0 +1,24 @@
+title: Allow unlimited contract size in debug mode.
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/167
+
+    The main changes in this PR are:
+
+    1. Added an associated type DebugEnabled
+    2. Introduced a DebugSettings struct with a single boolean field
+    3. Added a StorageValue: pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings<T>, ValueQuery>;
+    4. Included debug_settings in the GenesisConfig
+    5. Added a unit test to verify that large EVM contracts can be instantiated.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: revive-dev-runtime
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: major

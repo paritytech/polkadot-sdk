@@ -19,7 +19,6 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
@@ -31,23 +30,16 @@ sp-storage = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 tokio = { features = ["sync"], workspace = true, default-features = true }
-tokio-util = { features = ["compat"], workspace = true }
 
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
-either = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 jsonrpsee = { features = ["ws-client"], workspace = true }
-pin-project = { workspace = true }
 prometheus = { workspace = true }
-rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-smoldot = { default-features = false, features = ["std"], workspace = true }
-smoldot-light = { default-features = false, features = ["std"], workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }
 

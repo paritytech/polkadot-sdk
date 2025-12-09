@@ -35,6 +35,7 @@ wasmtime = { features = [
 	"gc-null",
 	"parallel-compilation",
 	"pooling-allocator",
+	"profiling",
 	"threads",
 ], workspace = true }
 

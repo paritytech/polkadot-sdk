@@ -147,12 +147,13 @@ impl LocalKeystore {
 			&self,
 			key_type: KeyTypeId,
 			public: &T::Public,
-		) -> std::result::Result<Option<T::Signature>, TraitError> {
+			owner: &[u8],
+		) -> std::result::Result<Option<T::ProofOfPossession>, TraitError> {
 			let proof_of_possession = self
 				.0
 				.read()
 				.key_pair_by_type::<T>(public, key_type)?
-				.map(|mut pair| pair.generate_proof_of_possession());
+				.map(|mut pair| pair.generate_proof_of_possession(owner));
 			Ok(proof_of_possession)
 		}
 	}
@@ -376,9 +377,10 @@ impl Keystore for LocalKeystore {
 		fn bls381_generate_proof_of_possession(
 			&self,
 			key_type: KeyTypeId,
-			public: &bls381::Public
-		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-			self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
+			public: &bls381::Public,
+			owner: &[u8],
+		) -> std::result::Result<Option<bls381::ProofOfPossession>, TraitError> {
+			self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
 		}
 
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {

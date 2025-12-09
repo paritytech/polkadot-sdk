@@ -69,9 +69,6 @@ use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
 
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
-
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -87,12 +84,15 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_core::H256;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	use snowbridge_inbound_queue_primitives::EventFixture;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+		fn initialize_storage() -> EventFixture;
 	}
 
 	#[pallet::config]
@@ -286,11 +286,11 @@ pub mod pallet {
 			// Decode message into XCM
 			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 xcm decoded as {:?} with fee {:?}",
-				xcm,
-				fee
+				?xcm,
+				?fee,
+				"💫 xcm decoded"
 			);
 
 			// Burning fees for teleport
@@ -354,17 +354,19 @@ pub mod pallet {
 			let dest = Location::new(1, [Parachain(para_id.into())]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset check out failed with error {:?}", error
+					?error,
+					"XCM asset check out failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;
 			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
 			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset withdraw failed with error {:?}", error
+					?error,
+					"XCM asset withdraw failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;

@@ -43,7 +43,7 @@ Usage: .github/scripts/dispatch-zombienet-workflow.sh -w <workflow-file> -b <bra
   -w: Workflow file (required)
   -b: Branch name (required)
   -m: Max triggers (optional, default: infinite)
-  -p: Test pattern (optional)
+  -p: Test pattern (optional, supports regex)
 ```
 
 The script automatically creates a CSV file (`workflow_results_YYYYMMDD_HHMMSS.csv`) containing job results with columns: job_id, job_name, conclusion, started_at, branch, job_url.
@@ -58,6 +58,11 @@ The script automatically creates a CSV file (`workflow_results_YYYYMMDD_HHMMSS.c
 **Run specific test infinitely (includes flaky tests):**
 ```bash
 .github/scripts/dispatch-zombienet-workflow.sh -w zombienet_substrate.yml -b "my-branch" -p zombienet-substrate-0000-block-building
+```
+
+**Run multiple specific tests using regex pattern:**
+```bash
+.github/scripts/dispatch-zombienet-workflow.sh -w zombienet_cumulus.yml -b "my-branch" -p "zombienet-cumulus-0002-pov_recovery|zombienet-cumulus-0006-rpc_collator_builds_blocks"
 ```
 
 ### Requirements

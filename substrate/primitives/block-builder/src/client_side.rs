@@ -64,7 +64,7 @@ where
 {
 	let res = client
 		.runtime_api()
-		.check_inherents(at_hash, block, inherent_data)
+		.check_inherents(at_hash, block.into(), inherent_data)
 		.map_err(CheckInherentsError::Client)?;
 
 	if !res.ok() {

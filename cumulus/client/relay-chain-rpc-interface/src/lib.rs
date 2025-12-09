@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::{CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
 		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
@@ -40,16 +40,11 @@ use std::{collections::btree_map::BTreeMap, pin::Pin};
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
-mod light_client_worker;
 mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
-mod tokio_platform;
 
-pub use rpc_client::{
-	create_client_and_start_light_client_worker, create_client_and_start_worker,
-	RelayChainRpcClient,
-};
+pub use rpc_client::{create_client_and_start_worker, RelayChainRpcClient};
 
 const TIMEOUT_IN_SECONDS: u64 = 6;
 

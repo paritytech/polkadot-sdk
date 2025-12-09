@@ -17,9 +17,8 @@
 use crate::{
 	evm::{CallTrace, Trace},
 	tracing::Tracing,
-	BalanceOf, Bounded, Config, MomentOf, Weight,
+	Config,
 };
-use sp_core::{H256, U256};
 
 mod call_tracing;
 pub use call_tracing::*;
@@ -31,16 +30,13 @@ pub use prestate_tracing::*;
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
 	/// A tracer that traces calls.
-	CallTracer(CallTracer<U256, fn(Weight) -> U256>),
+	CallTracer(CallTracer),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
 }
 
 impl<T: Config> Tracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	/// Returns an empty trace.
@@ -60,7 +56,7 @@ where
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<Trace> {
+	pub fn collect_trace(self) -> Option<Trace> {
 		match self {
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),

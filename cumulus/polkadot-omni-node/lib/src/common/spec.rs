@@ -16,6 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
+	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -27,11 +28,13 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -43,7 +46,9 @@ use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
+use sc_network::{
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
@@ -87,6 +92,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -299,6 +305,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
+	fn start_dev_node(
+		_config: Configuration,
+		_mode: DevSealMode,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
+	}
+
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -371,6 +384,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
+			let peer_id = network.local_peer_id();
 
 			let statement_store = statement_handler_proto
 				.map(|statement_handler_proto| {
@@ -435,6 +449,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
+
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
@@ -448,7 +464,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				system_rpc_tx,
 				tx_handler_controller,
 				telemetry: telemetry.as_mut(),
+				tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+					client.clone(),
+				))),
 			})?;
+
+			// Spawn the storage monitor
+			if let Some(database_path) = database_path {
+				sc_storage_monitor::StorageMonitorService::try_spawn(
+					node_extra_args.storage_monitor.clone(),
+					database_path,
+					&task_manager.spawn_essential_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			}
 
 			if let Some(hwbench) = hwbench {
 				sc_sysinfo::print_hwbench(&hwbench);
@@ -506,7 +535,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
 				parachain_public_addresses,
 			});
@@ -524,6 +553,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_slot_duration,
 					para_id,
 					collator_key.expect("Command line arguments do not allow this. qed"),
+					peer_id,
 					overseer_handle,
 					announce_block,
 					backend.clone(),
@@ -546,6 +576,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
+	/// Start node with manual or instant seal consensus.
+	fn start_dev_node(
+		self: Box<Self>,
+		config: Configuration,
+		mode: DevSealMode,
+	) -> sc_service::error::Result<TaskManager>;
+
+	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -560,6 +598,14 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
+	fn start_dev_node(
+		self: Box<Self>,
+		config: Configuration,
+		mode: DevSealMode,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_dev_node(config, mode)
+	}
+
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,

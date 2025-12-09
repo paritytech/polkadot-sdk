@@ -7,12 +7,13 @@ name = "alice"
 validator = true
 rpc_port = 9942
 
+
 [[relaychain.nodes]]
 name = "bob"
 validator = true
 rpc_port = 9943
 args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug",
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
 ]
 
 [[relaychain.nodes]]
@@ -30,6 +31,7 @@ id = 1100
 chain_spec_path = "./parachain.json"
 
 [parachains.collator]
+command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [

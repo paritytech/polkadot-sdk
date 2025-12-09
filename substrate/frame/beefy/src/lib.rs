@@ -201,6 +201,8 @@ pub mod pallet {
 		InvalidFutureBlockVotingProof,
 		/// The session of the equivocation proof is invalid
 		InvalidEquivocationProofSession,
+		/// The session of the equivocation proof is not in the mapping (anymore)
+		InvalidEquivocationProofSessionMember,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 		/// Submitted configuration is invalid.

@@ -134,18 +134,20 @@ fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> Vec<u8>
 	)
 }
 
+#[track_caller]
 fn finality_notification_check(
 	notifications: &mut FinalityNotifications<Block>,
 	finalized: &[Hash],
-	stale_heads: &[Hash],
+	stale_blocks: &[Hash],
 ) {
 	match notifications.try_recv() {
 		Ok(notif) => {
-			let stale_heads_expected: HashSet<_> = stale_heads.iter().collect();
-			let stale_heads: HashSet<_> = notif.stale_heads.iter().collect();
+			let stale_blocks_expected = HashSet::<H256>::from_iter(stale_blocks.iter().copied());
+			let stale_blocks = HashSet::from_iter(notif.stale_blocks.into_iter().map(|b| b.hash));
+
 			assert_eq!(notif.tree_route.as_ref(), &finalized[..finalized.len() - 1]);
 			assert_eq!(notif.hash, *finalized.last().unwrap());
-			assert_eq!(stale_heads, stale_heads_expected);
+			assert_eq!(stale_blocks, stale_blocks_expected);
 		},
 		Err(TryRecvError::Closed) => {
 			panic!("unexpected notification result, client send channel was closed")
@@ -1154,7 +1156,7 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 
 	assert_eq!(client.chain_info().finalized_hash, b1.hash());
 
-	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a1.hash(), a2.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1228,6 +1230,8 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 	// knowing about B2)
 	assert_eq!(client.chain_info().best_hash, b1.hash());
 
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a1.hash(), a2.hash()]);
+
 	// `SelectChain` should report B2 as best block though
 	assert_eq!(block_on(select_chain.best_chain()).unwrap().hash(), b2.hash());
 
@@ -1249,7 +1253,6 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	ClientExt::finalize_block(&client, b3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a2.hash()]);
 	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
@@ -1368,14 +1371,15 @@ fn finality_notifications_content() {
 
 	ClientExt::finalize_block(&client, a2.hash(), None).unwrap();
 
-	// Import and finalize D4
-	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
-
 	finality_notification_check(
 		&mut finality_notifications,
 		&[a1.hash(), a2.hash()],
-		&[c1.hash(), b2.hash()],
+		&[c1.hash(), b1.hash(), b2.hash()],
 	);
+
+	// Import and finalize D4
+	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
+
 	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[a3.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
@@ -1565,6 +1569,12 @@ fn doesnt_import_blocks_that_revert_finality() {
 	// B3 at the same height but that doesn't include it
 	ClientExt::finalize_block(&client, a2.hash(), None).unwrap();
 
+	finality_notification_check(
+		&mut finality_notifications,
+		&[a1.hash(), a2.hash()],
+		&[b1.hash(), b2.hash()],
+	);
+
 	let import_err = block_on(client.import(BlockOrigin::Own, b3)).err().unwrap();
 	let expected_err =
 		ConsensusError::ClientImport(sp_blockchain::Error::NotInFinalizedChain.to_string());
@@ -1605,8 +1615,6 @@ fn doesnt_import_blocks_that_revert_finality() {
 		.block;
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 	ClientExt::finalize_block(&client, a3.hash(), None).unwrap();
-
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[b2.hash()]);
 
 	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[]);
 

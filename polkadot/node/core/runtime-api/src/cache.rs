@@ -20,16 +20,13 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	async_backing::{self, Constraints},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -66,11 +63,14 @@ pub(crate) struct RequestResultCache {
 		LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCodeHash>>,
 	version: LruMap<Hash, u32>,
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
-	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	unapplied_slashes:
+		LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
+	unapplied_slashes_v2:
+		LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
-	para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::async_backing::BackingState>>,
+	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
@@ -108,6 +108,7 @@ impl Default for RequestResultCache {
 			version: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			disputes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			unapplied_slashes_v2: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			approval_voting_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -434,18 +435,32 @@ impl RequestResultCache {
 	pub(crate) fn unapplied_slashes(
 		&mut self,
 		relay_parent: &Hash,
-	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>> {
+	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>> {
 		self.unapplied_slashes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_unapplied_slashes(
 		&mut self,
 		relay_parent: Hash,
-		value: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
+		value: Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>,
 	) {
 		self.unapplied_slashes.insert(relay_parent, value);
 	}
 
+	pub(crate) fn unapplied_slashes_v2(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>> {
+		self.unapplied_slashes_v2.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_unapplied_slashes_v2(
+		&mut self,
+		relay_parent: Hash,
+		value: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
+	) {
+		self.unapplied_slashes_v2.insert(relay_parent, value);
+	}
 	pub(crate) fn key_ownership_proof(
 		&mut self,
 		key: (Hash, ValidatorId),
@@ -511,14 +526,14 @@ impl RequestResultCache {
 	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-	) -> Option<&Option<vstaging::async_backing::BackingState>> {
+	) -> Option<&Option<async_backing::BackingState>> {
 		self.para_backing_state.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-		value: Option<vstaging::async_backing::BackingState>,
+		value: Option<async_backing::BackingState>,
 	) {
 		self.para_backing_state.insert(key, value);
 	}
@@ -650,14 +665,14 @@ pub(crate) enum RequestResult {
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
-	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
+	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>),
 	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
 	#[allow(dead_code)]
 	SubmitReportDisputeLost(Option<()>),
 	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
-	ParaBackingState(Hash, ParaId, Option<vstaging::async_backing::BackingState>),
+	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
@@ -666,4 +681,5 @@ pub(crate) enum RequestResult {
 	SchedulingLookahead(SessionIndex, u32),
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
+	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 }

@@ -1,0 +1,7 @@
+title: '[pallet-revive] fix prestate tracer current address'
+doc:
+- audience: Runtime Dev
+  description: Fix prestate tracer not reporting the contract addresses properly.
+crates:
+- name: pallet-revive
+  bump: patch

@@ -20,39 +20,55 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf, PrecompileExt},
+	evm::{
+		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
+		TransactionSigned, TransactionUnsigned,
+	},
+	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
-		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+		self,
+		alloy::sol_types::{
+			sol_data::{Bool, Bytes, FixedBytes, Uint},
+			SolType,
+		},
+		run::builtin as run_builtin_precompile,
+		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
-	vm::pvm,
+	vm::{
+		evm,
+		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
+		pvm,
+	},
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
-use alloy_core::sol_types::SolInterface;
+use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::fungible::InspectHold,
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+use k256::ecdsa::SigningKey;
+use pallet_revive_uapi::{
+	pack_hi_lo,
+	precompiles::{storage::IStorage, system::ISystem},
+	CallFlags, ReturnErrorCode, StorageFlags,
+};
+use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{
-	generic::{Digest, DigestItem},
-	traits::Zero,
-};
+use sp_runtime::{generic::DigestItem, traits::Zero};
 
 /// How many runs we do per API benchmark.
 ///
@@ -84,14 +100,20 @@ macro_rules! build_runtime(
 	};
 );
 
+/// Get the pallet account and whitelist it for benchmarking.
+/// The account is warmed up `on_initialize` so read should not impact the PoV.
+fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
+	let pallet_account = Pallet::<T>::account_id();
+	whitelist_account!(pallet_account);
+	pallet_account
+}
+
 #[benchmarks(
 	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,
-		MomentOf<T>: Into<U256>,
-		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+		OriginFor<T>: From<Origin<T>>,
 )]
 mod benchmarks {
 	use super::*;
@@ -108,8 +130,8 @@ mod benchmarks {
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
-			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::PAYLOAD_BYTES)?;
-		instance.info()?.queue_trie_for_deletion();
+			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
+		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
 
 		#[block]
 		{
@@ -122,7 +144,7 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
@@ -131,9 +153,32 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[extrinsic_call]
+		call(
+			RawOrigin::Signed(instance.caller.clone()),
+			instance.address,
+			value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+		);
+
+		Ok(())
+	}
+
+	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
+	// the execution engine.
+	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -159,7 +204,7 @@ mod benchmarks {
 	// we will always charge one max sized block per contract call.
 	//
 	// We ignore the proof size component when using this benchmark as this is already accounted
-	// for in `call_with_code_per_byte`.
+	// for in `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
@@ -192,6 +237,7 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -209,9 +255,11 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		// uploading the code reserves some balance in the pallet's account
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
@@ -233,57 +281,65 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
-	) {
+	) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
-		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let origin = Origin::EthTransaction(caller.clone());
+		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
-		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
-
-		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
-
-		assert_eq!(
-			Pallet::<T>::evm_balance(&deployer),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
-			) - dust,
+		_(
+			origin,
+			evm_value,
+			Weight::MAX,
+			U256::MAX,
+			code,
+			input,
+			TransactionSigned::default().signed_payload(),
+			effective_gas_price,
+			0,
 		);
 
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn deposit_eth_extrinsic_revert_event() {
+		#[block]
+		{
+			Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert {
+				dispatch_error: crate::Error::<T>::BenchmarkingError.into(),
+			});
+		}
 	}
 
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -304,8 +360,10 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
 		// value was removed from the caller
@@ -328,9 +386,10 @@ mod benchmarks {
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
 	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
 	// part of this benchmark because we cannot know the size of the contract when issuing a call
-	// transaction. See `call_with_code_per_byte` for this.
+	// transaction. See `call_with_pvm_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -346,7 +405,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -373,37 +432,34 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
-		let caller_addr = T::AddressMapper::to_address(&instance.caller);
-		let origin = RawOrigin::Signed(instance.caller.clone());
+		// need to pass the overdraw check
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
-		let storage_deposit = default_deposit_limit::<T>();
+
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data);
-		let deposit = T::Currency::balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-		);
-		let code_deposit = T::Currency::balance_on_hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
-		);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
-		// value and value transferred via call should be removed from the caller
-		assert_eq!(
-			Pallet::<T>::evm_balance(&caller_addr),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
-			) - dust,
+		_(
+			origin,
+			instance.address,
+			evm_value,
+			Weight::MAX,
+			U256::MAX,
+			data,
+			TransactionSigned::default().signed_payload(),
+			effective_gas_price,
+			0,
 		);
 
 		// contract should have received the value
@@ -414,20 +470,33 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// `c`: Size of the RLP encoded Ethereum transaction in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = Origin::EthTransaction(caller);
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		#[extrinsic_call]
+		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);
+		Ok(())
+	}
+
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
 		_(origin, code, storage_deposit);
-		// uploading the code reserves some balance in the callers account
-		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		// uploading the code reserves some balance in the pallet's account
+		assert!(T::Currency::total_balance_on_hold(&pallet_account) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
@@ -437,6 +506,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -444,12 +514,12 @@ mod benchmarks {
 		let uploaded =
 			<Contracts<T>>::bare_upload_code(origin.clone().into(), code, storage_deposit)?;
 		assert_eq!(uploaded.code_hash, hash);
-		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&caller));
+		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&pallet_account));
 		assert!(<Contract<T>>::code_exists(&hash));
 		#[extrinsic_call]
 		_(origin, hash);
 		// removing the code should have unreserved the deposit
-		assert_eq!(T::Currency::total_balance_on_hold(&caller), 0u32.into());
+		assert_eq!(T::Currency::total_balance_on_hold(&pallet_account), 0u32.into());
 		assert!(<Contract<T>>::code_removed(&hash));
 		Ok(())
 	}
@@ -579,13 +649,14 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let data = result.unwrap().data;
+		let raw_data = result.unwrap().data;
+		let data = Bytes::abi_decode(&raw_data).expect("decoding failed");
 		assert_ne!(
-			data.as_slice()[20..32],
+			data.0.as_ref()[20..32],
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(T::AccountId::decode(&mut data.as_slice()), Ok(account_id),);
+		assert_eq!(T::AccountId::decode(&mut data.as_ref()), Ok(account_id),);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -608,20 +679,27 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_own_code_hash() {
-		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
+	fn own_code_hash() {
+		let input_bytes =
+			ISystem::ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}).abi_encode();
+		let mut call_setup = CallSetup::<T>::default();
+		let contract_acc = call_setup.contract().account_id.clone();
+		let caller = call_setup.contract().address;
+		call_setup.set_origin(ExecOrigin::from_account_id(contract_acc));
+		let (mut ext, _) = call_setup.ext();
+
 		let result;
 		#[block]
 		{
-			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-
-		assert_ok!(result);
-		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
-			contract.info().unwrap().code_hash
-		);
+		assert!(result.is_ok());
+		let caller_code_hash = ext.code_hash(&caller);
+		assert_eq!(caller_code_hash.0.to_vec(), result.unwrap().data);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -639,30 +717,48 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_origin() {
-		build_runtime!(runtime, memory: []);
+	fn caller_is_origin() {
+		let input_bytes =
+			ISystem::ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}).abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller_is_origin(memory.as_mut_slice());
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(result.unwrap(), 1u32);
+		let raw_data = result.unwrap().data;
+		let is_origin = Bool::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert!(is_origin);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root() {
+	fn caller_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}).abi_encode();
+
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::Root);
+		setup.set_origin(ExecOrigin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller_is_root([0u8; 0].as_mut_slice());
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(result.unwrap(), 1u32);
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -680,22 +776,31 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_left() {
-		// use correct max_encoded_len when new version of parity-scale-codec is released
-		let len = 18u32;
-		assert!(<Weight as MaxEncodedLen>::max_encoded_len() as u32 != len);
-		build_runtime!(runtime, memory: [32u32.to_le_bytes(), vec![0u8; len as _], ]);
+	fn weight_left() {
+		let input_bytes =
+			ISystem::ISystemCalls::weightLeft(ISystem::weightLeftCall {}).abi_encode();
 
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
-			result = runtime.bench_weight_left(memory.as_mut_slice(), 4, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_ok!(result);
-		assert_eq!(
-			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().gas_meter().gas_left()
-		);
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
+		assert_ne!(weight_left_after.ref_time(), 0);
+		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
+
+		let raw_data = result.unwrap().data;
+		type MyTy = (Uint<64>, Uint<64>);
+		let foo = MyTy::abi_decode(&raw_data[..]).unwrap();
+		assert_eq!(weight_left_after.ref_time(), foo.0);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -707,7 +812,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_ref_time_left(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
+		assert_eq!(result.unwrap(), runtime.ext().gas_left());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -737,7 +842,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::bench_map(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -819,15 +924,32 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_minimum_balance() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
+	fn minimum_balance() {
+		let input_bytes =
+			ISystem::ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}).abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
 		let result;
 		#[block]
 		{
-			result = runtime.bench_minimum_balance(memory.as_mut_slice(), 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
+		let min: U256 = crate::Pallet::<T>::convert_native_to_evm(T::Currency::minimum_balance());
+		let min =
+			crate::precompiles::alloy::primitives::aliases::U256::abi_decode(&min.to_big_endian())
+				.unwrap();
+
+		let raw_data = result.unwrap().data;
+		let returned_min =
+			crate::precompiles::alloy::primitives::aliases::U256::abi_decode(&raw_data)
+				.expect("decoding failed");
+		assert_eq!(returned_min, min);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -868,7 +990,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_limit(&mut memory);
 		}
-		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_block_gas_limit());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -879,7 +1001,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_price(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_base_fee());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -891,7 +1013,7 @@ mod benchmarks {
 			result = runtime.bench_base_fee(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), U256::zero());
+		assert_eq!(U256::from_little_endian(&memory[..]), <crate::Pallet<T>>::evm_base_fee());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -910,16 +1032,20 @@ mod benchmarks {
 	fn seal_block_author() {
 		build_runtime!(runtime, memory: [[123u8; 20], ]);
 
-		let mut digest = Digest::default();
-
 		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
 		// To get safe benchmark results despite that, populate it with a bunch of random logs to
 		// ensure iteration over many items (we just overestimate the cost of the API).
 		for i in 0..16 {
-			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Other(vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Other(vec![i; 128]));
 		}
 
 		// The content of the pre-runtime digest log depends on the configured consensus.
@@ -930,19 +1056,22 @@ mod benchmarks {
 		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
 		let pre_digest =
 			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
-		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
-		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
 
 		// Construct a `Digest` log fixture returning some value in AURA
 		let slot = Slot::default();
-		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
-		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
-
-		frame_system::Pallet::<T>::initialize(
-			&BlockNumberFor::<T>::from(1u32),
-			&Default::default(),
-			&digest,
-		);
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			AURA_ENGINE_ID,
+			slot.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
 		let result;
 		#[block]
@@ -951,7 +1080,7 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 
-		let block_author = runtime.ext().block_author().unwrap_or(H160::zero());
+		let block_author = runtime.ext().block_author();
 		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
@@ -966,10 +1095,9 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
-		frame_system::BlockHash::<T>::insert(
-			&BlockNumberFor::<T>::from(0u32),
-			T::Hash::from(block_hash),
-		);
+
+		// Store block hash in pallet-revive BlockHash mapping
+		crate::BlockHash::<T>::insert(crate::BlockNumberFor::<T>::from(0u32), block_hash);
 
 		let result;
 		#[block]
@@ -990,24 +1118,6 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().now());
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_to_fee() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
-		let weight = Weight::from_parts(500_000, 300_000);
-		let result;
-		#[block]
-		{
-			result = runtime.bench_weight_to_fee(
-				memory.as_mut_slice(),
-				weight.ref_time(),
-				weight.proof_size(),
-				0,
-			);
-		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1079,11 +1189,21 @@ mod benchmarks {
 		));
 	}
 
+	/// Benchmark the ocst of terminating a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate() -> Result<(), BenchmarkError> {
+	fn seal_terminate(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_code = r == 1;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(runtime, memory: [beneficiary.encode(),]);
+		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		let code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_code {
+			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -1096,13 +1216,69 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
+
+		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
+		let code_hash = instance.info()?.code_hash;
+
+		assert!(PristineCode::<T>::get(code_hash).is_some());
+
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
+
+		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let exec_config = ExecConfig::new_substrate_tx();
+		let contract_account = &instance.account_id;
+		let origin = &ExecOrigin::from_account_id(caller);
+		let beneficiary_clone = beneficiary.clone();
+		let trie_id = instance.info()?.trie_id.clone();
+		let code_hash = instance.info()?.code_hash;
+		let only_if_same_tx = false;
+
+		let result;
+		#[block]
+		{
+			result = crate::exec::bench_do_terminate::<T>(
+				&mut transaction_meter,
+				&exec_config,
+				contract_account,
+				&origin,
+				beneficiary_clone,
+				trie_id,
+				code_hash,
+				only_if_same_tx,
+			);
+		}
+		result.unwrap();
+
+		// Check that the contract is removed
+		assert!(PristineCode::<T>::get(code_hash).is_none());
+
+		// Check that the balance has been transferred away
+		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
+		assert_eq!(balance, 0u32.into());
+
+		// Check that the beneficiary received the balance
+		let balance = <T as Config>::Currency::balance(&beneficiary);
+		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
+
+		Ok(())
+	}
+
 	// Benchmark the overhead that topics generate.
 	// `t`: Number of topics
 	// `n`: Size of event payload in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_deposit_event(
 		t: Linear<0, { limits::NUM_EVENT_TOPICS as u32 }>,
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::EVENT_BYTES }>,
 	) {
 		let num_topic = t as u32;
 		let topics = (0..t).map(|i| H256::repeat_byte(i as u8)).collect::<Vec<_>>();
@@ -1137,7 +1313,7 @@ mod benchmarks {
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1160,7 +1336,7 @@ mod benchmarks {
 	fn get_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1183,7 +1359,7 @@ mod benchmarks {
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1208,7 +1384,7 @@ mod benchmarks {
 	fn set_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1233,8 +1409,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn seal_set_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1266,34 +1442,40 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_clear_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), ]);
-		let info = instance.info()?;
 
-		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_clear_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(info.read(&key).is_none());
+		assert!(ext.get_storage(&key).is_none());
+
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1323,62 +1505,67 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_contains_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), ]);
-		let info = instance.info()?;
+		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
 
-		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_contains_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_some());
 
-		assert_eq!(result.unwrap(), n);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_take_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
-		let info = instance.info()?;
 
-		let value = vec![42u8; n as usize];
-		info.write(&key, Some(value.clone()), None, false)
+		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![3u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		let out_ptr = max_key_len + 4;
 		let result;
 		#[block]
 		{
-			result = runtime.bench_take_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				out_ptr,     // out_ptr
-				max_key_len, // out_len_ptr
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(&info.read(&key).is_none());
-		assert_eq!(&value, &memory[out_ptr as usize..]);
+		assert!(ext.get_storage(&key).is_none());
+
 		Ok(())
 	}
 
@@ -1388,7 +1575,7 @@ mod benchmarks {
 	// complexity can introduce approximation errors.
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1410,7 +1597,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1433,7 +1620,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1458,7 +1645,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1485,7 +1672,7 @@ mod benchmarks {
 	// The weight of journal rollbacks should be taken into account when setting storage.
 	#[benchmark(pov_mode = Ignored)]
 	fn rollback_transient_storage() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1513,8 +1700,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1547,37 +1734,41 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_clear_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_clear_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(runtime.ext().get_transient_storage(&key).is_none());
+		assert!(ext.get_transient_storage(&key).is_none());
+
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_get_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1613,66 +1804,73 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_contains_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+
+		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_contains_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert!(result.is_ok());
+		assert!(ext.get_transient_storage(&key).is_some());
 
-		assert_eq!(result.unwrap(), n);
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_take_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
-		let n = limits::PAYLOAD_BYTES;
+		let n = limits::STORAGE_BYTES;
+		let value = vec![42u8; n as usize];
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		let value = vec![42u8; n as usize];
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(value.clone()), false)
+
+		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(value), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
-		let out_ptr = max_key_len + 4;
 		let result;
 		#[block]
 		{
-			result = runtime.bench_take_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				out_ptr,     // out_ptr
-				max_key_len, // out_len_ptr
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert!(result.is_ok());
+		assert!(ext.get_transient_storage(&key).is_none());
 
-		assert_ok!(result);
-		assert!(&runtime.ext().get_transient_storage(&key).is_none());
-		assert_eq!(&value, &memory[out_ptr as usize..]);
 		Ok(())
 	}
 
@@ -1702,7 +1900,7 @@ mod benchmarks {
 		// We benchmark the overhead of cloning the input. Not passing it to the contract.
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
@@ -1806,7 +2004,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1855,7 +2053,7 @@ mod benchmarks {
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 		let account_id = &setup.contract().account_id.clone();
@@ -1901,6 +2099,54 @@ mod benchmarks {
 			evm_value,
 			"{addr:?} balance should hold {evm_value:?}"
 		);
+		Ok(())
+	}
+
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the init code (max 49152 bytes per EIP-3860)
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::vm::evm::instructions::BENCH_INIT_CODE;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(caller_funding::<T>());
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		let value = {
+			let value: BalanceOf<T> = (1_000_000u32 * t).into();
+			let dust = 100u32 * d;
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
+		};
+
+		let init_code = vec![BENCH_INIT_CODE; i as usize];
+		let _ = interpreter.memory.resize(0, init_code.len());
+		let salt = U256::from(42u64);
+		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+
+		// Setup stack for create instruction [value, offset, size, salt]
+		let _ = interpreter.stack.push(salt);
+		let _ = interpreter.stack.push(U256::from(init_code.len()));
+		let _ = interpreter.stack.push(U256::zero());
+		let _ = interpreter.stack.push(value);
+
+		let result;
+		#[block]
+		{
+			result = instructions::contract::create::<true, _>(&mut interpreter);
+		}
+
+		assert!(result.is_continue());
+		let addr = interpreter.stack.top().unwrap().into_address();
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
+		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
 		Ok(())
 	}
 
@@ -1999,7 +2245,13 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
+		let truth: [u8; 32] = sp_io::hashing::blake2_256(&input);
+		let truth = FixedBytes::<32>::abi_encode(&truth);
+		let truth = FixedBytes::<32>::abi_decode(&truth[..]).expect("decoding failed");
+
+		let raw_data = result.unwrap().data;
+		let ret_hash = FixedBytes::<32>::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert_eq!(truth, ret_hash);
 	}
 
 	// `n`: Input to hash in bytes
@@ -2023,7 +2275,13 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(sp_io::hashing::blake2_128(&input).to_vec(), result.unwrap().data);
+		let truth: [u8; 16] = sp_io::hashing::blake2_128(&input);
+		let truth = FixedBytes::<16>::abi_encode(&truth);
+		let truth = FixedBytes::<16>::abi_decode(&truth[..]).expect("decoding failed");
+
+		let raw_data = result.unwrap().data;
+		let ret_hash = FixedBytes::<16>::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert_eq!(truth, ret_hash);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2071,6 +2329,28 @@ mod benchmarks {
 		{
 			result =
 				run_builtin_precompile(&mut ext, H160::from_low_u64_be(1).as_fixed_bytes(), input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn p256_verify() {
+		use hex_literal::hex;
+		let input = hex!("4cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e").to_vec();
+		let expected = U256::one().to_big_endian();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(0x100).as_fixed_bytes(),
+				input,
+			);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -2208,12 +2488,23 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
+	/// Benchmark the cost of setting the code hash of a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
-		let code_hash =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_old_code = r == 1;
+		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
+			.info()?
+			.code_hash;
 
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
+		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
+		let old_code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_old_code {
+			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -2222,6 +2513,27 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
+		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
+		Ok(())
+	}
+
+	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+		let module = VmBinaryModule::evm_noop(r);
+		let inputs = vec![];
+
+		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
+		let mut setup = CallSetup::<T>::new(module);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert!(result.is_ok());
 		Ok(())
 	}
 
@@ -2296,7 +2608,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn instr_empty_loop(r: Linear<0, 100_000>) {
+	fn instr_empty_loop(r: Linear<0, 10_000>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
@@ -2306,6 +2618,37 @@ mod benchmarks {
 		{
 			prepared.call().unwrap();
 		}
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
+		let module = VmBinaryModule::sized(n);
+		let mut setup = CallSetup::<T>::new(module);
+		let contract = setup.contract();
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
+		let _ = interpreter.stack.push(U256::from(n));
+		let _ = interpreter.stack.push(U256::from(0u32));
+		let _ = interpreter.stack.push(U256::from(0u32));
+		let _ = interpreter.stack.push(contract.address);
+
+		let result;
+		#[block]
+		{
+			result = instructions::host::extcodecopy(&mut interpreter);
+		}
+
+		assert!(result.is_continue());
+		assert_eq!(
+			*interpreter.memory.slice(0..n as usize),
+			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the contract's code after extcodecopy"
+		);
+
+		Ok(())
 	}
 
 	#[benchmark]
@@ -2328,6 +2671,416 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v2_migration_step() {
+		use crate::migrations::v2;
+		let code_hash = H256::from([0; 32]);
+		let old_code_info = v2::Migration::<T>::create_old_code_info(
+			whitelisted_caller(),
+			1000u32.into(),
+			1,
+			100,
+			0,
+		);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info.clone());
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v2::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		v2::Migration::<T>::assert_migrated_code_info(code_hash, &old_code_info);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
+	}
+
+	/// Helper function to create a test signer for finalize_block benchmark
+	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
+		use hex_literal::hex;
+		// dev::alith()
+		let signer_account_id = hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac");
+		let signer_priv_key =
+			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133");
+
+		let signer_key = SigningKey::from_bytes(&signer_priv_key.into()).expect("valid key");
+
+		let signer_address = H160::from_slice(&signer_account_id);
+		let signer_caller = T::AddressMapper::to_fallback_account_id(&signer_address);
+
+		(signer_caller, signer_key, signer_address)
+	}
+
+	/// Helper function to create and sign a transaction for finalize_block benchmark
+	fn create_signed_transaction<T: Config>(
+		signer_key: &SigningKey,
+		target_address: H160,
+		value: U256,
+		input_data: Vec<u8>,
+	) -> Vec<u8> {
+		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
+			to: Some(target_address),
+			value,
+			chain_id: Some(T::ChainId::get().into()),
+			input: input_data.into(),
+			..Default::default()
+		}
+		.into();
+
+		let hashed_payload = sp_io::hashing::keccak_256(&unsigned_tx.unsigned_payload());
+		let (signature, recovery_id) =
+			signer_key.sign_prehash_recoverable(&hashed_payload).expect("signing success");
+
+		let mut sig_bytes = [0u8; 65];
+		sig_bytes[..64].copy_from_slice(&signature.to_bytes());
+		sig_bytes[64] = recovery_id.to_byte();
+
+		let signed_tx = unsigned_tx.with_signature(sig_bytes);
+
+		signed_tx.signed_payload()
+	}
+
+	/// Helper function to generate common finalize_block benchmark setup
+	fn setup_finalize_block_benchmark<T>(
+	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
+	where
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		T: Config,
+		MomentOf<T>: Into<U256>,
+		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+	{
+		// Setup test signer
+		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
+		whitelist_account!(signer_caller);
+
+		// Setup contract instance
+		let instance =
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let storage_deposit = default_deposit_limit::<T>();
+		let value = Pallet::<T>::min_balance();
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+
+		// Setup block
+		let current_block = BlockNumberFor::<T>::from(1u32);
+		frame_system::Pallet::<T>::set_block_number(current_block);
+
+		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
+	}
+
+	/// Benchmark the `on_finalize` hook scaling with number of transactions.
+	///
+	/// This benchmark measures the marginal computational cost of adding transactions
+	/// to a block during finalization, with fixed payload size to isolate transaction
+	/// count scaling effects.
+	///
+	/// ## Parameters:
+	/// - `n`: Number of transactions in the block (0-200)
+	///
+	/// ## Test Setup:
+	/// - Creates `n` transactions with fixed 100-byte payloads
+	/// - Pre-populates block builder storage with test data
+	///
+	/// ## Usage:
+	/// Use this with `on_finalize_per_byte` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_transaction(n: Linear<0, 200>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Fixed payload size to isolate transaction count effects
+		let fixed_payload_size = 100usize;
+
+		// Pre-populate InflightTransactions with n transactions of fixed size
+		if n > 0 {
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Create input data of fixed size for consistent transaction payloads
+			let input_data = vec![0x42u8; fixed_payload_size];
+			let receipt_gas_info = ReceiptGasInfo {
+				gas_used: U256::from(1_000_000),
+				effective_gas_price: Pallet::<T>::evm_base_fee(),
+			};
+
+			for _ in 0..n {
+				// Create real signed transaction with fixed-size input data
+				let signed_transaction = create_signed_transaction::<T>(
+					&signer_key,
+					instance.address,
+					evm_value,
+					input_data.clone(),
+				);
+
+				// Store transaction
+				let _ = block_storage::bench_with_ethereum_context(|| {
+					let (encoded_logs, bloom) =
+						block_storage::get_receipt_details().unwrap_or_default();
+
+					let block_builder_ir = EthBlockBuilderIR::<T>::get();
+					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+					block_builder.process_transaction(
+						signed_transaction,
+						true,
+						receipt_gas_info.clone(),
+						encoded_logs,
+						bloom,
+					);
+
+					EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+				});
+			}
+		}
+
+		#[block]
+		{
+			// Measure only the finalization cost with n transactions of fixed size
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` hook scaling with transaction payload size.
+	///
+	/// This benchmark measures the marginal computational cost of processing
+	/// larger transaction payloads during finalization, with fixed transaction count
+	/// to isolate payload size scaling effects.
+	///
+	/// ## Parameters:
+	/// - `d`: Payload size per transaction in bytes (0-1000)
+	///
+	/// ## Test Setup:
+	/// - Creates 10 transactions with payload size `d`
+	/// - Pre-populates block builder storage with test data
+	///
+	/// ## Usage:
+	/// Use this with `on_finalize_per_transaction` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_transaction_data(d: Linear<0, 1000>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Fixed transaction count to isolate payload size effects
+		let fixed_tx_count = 10u32;
+
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Create input data of variable size p for realistic transaction payloads
+		let input_data = vec![0x42u8; d as usize];
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
+
+		for _ in 0..fixed_tx_count {
+			// Create real signed transaction with variable-size input data
+			let signed_transaction = create_signed_transaction::<T>(
+				&signer_key,
+				instance.address,
+				evm_value,
+				input_data.clone(),
+			);
+
+			// Store transaction
+			let _ = block_storage::bench_with_ethereum_context(|| {
+				let (encoded_logs, bloom) =
+					block_storage::get_receipt_details().unwrap_or_default();
+
+				let block_builder_ir = EthBlockBuilderIR::<T>::get();
+				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+				block_builder.process_transaction(
+					signed_transaction,
+					true,
+					receipt_gas_info.clone(),
+					encoded_logs,
+					bloom,
+				);
+
+				EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+			});
+		}
+
+		#[block]
+		{
+			// Measure only the finalization cost with fixed count, variable payload size
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), fixed_tx_count as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` per-event costs.
+	///
+	/// This benchmark measures the computational cost of processing events
+	/// within the finalization process, isolating the overhead of event count.
+	/// Uses a single transaction with varying numbers of minimal events.
+	///
+	/// ## Parameters:
+	/// - `e`: Number of events per transaction
+	///
+	/// ## Test Setup:
+	/// - Creates 1 transaction with `e` ContractEmitted events
+	/// - Each event contains minimal data (no topics, empty data field)
+	///
+	/// ## Usage:
+	/// Measures the per-event processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
+	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_event(e: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Create a single transaction with e events, each with minimal data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
+			instance.address,
+			evm_value,
+			input_data.clone(),
+		);
+
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
+
+		// Store transaction
+		let _ = block_storage::bench_with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info.clone(),
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
+
+		// Create e events with minimal data to isolate event count overhead
+		for _ in 0..e {
+			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
+		}
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Measure the finalization cost with e events
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// ## Test Setup:
+	/// - Creates 1 transaction with 1 ContractEmitted event
+	/// - Event contains `d` total bytes of data across data field and topics
+	///
+	/// ## Usage:
+	/// Measures the per-byte event data processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
+	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_event_data(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Create a single transaction with one event containing d bytes of data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
+			instance.address,
+			evm_value,
+			input_data.clone(),
+		);
+
+		let receipt_gas_info = ReceiptGasInfo {
+			gas_used: U256::from(1_000_000),
+			effective_gas_price: Pallet::<T>::evm_base_fee(),
+		};
+
+		// Store transaction
+		let _ = block_storage::bench_with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
+
+		// Create one event with d bytes of data distributed across topics and data field
+		let (event_data, topics) = if d < 32 {
+			// If total data is less than 32 bytes, put all in data field
+			(vec![0x42u8; d as usize], vec![])
+		} else {
+			// Fill topics first, then put remaining bytes in data field
+			let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
+			let topic_bytes_used = num_topics * 32;
+			let data_bytes_remaining = d - topic_bytes_used;
+
+			// Create topics filled with sequential data
+			let mut topics = Vec::new();
+			for topic_index in 0..num_topics {
+				let topic_data = [topic_index as u8; 32];
+				topics.push(H256::from(topic_data));
+			}
+
+			// Remaining bytes go to data field
+			let event_data = vec![0x42u8; data_bytes_remaining as usize];
+
+			(event_data, topics)
+		};
+
+		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Measure the finalization cost with d bytes of event data
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(

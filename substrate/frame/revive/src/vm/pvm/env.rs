@@ -19,22 +19,21 @@ use super::*;
 
 use crate::{
 	address::AddressMapper,
+	debug::DebugSettings,
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	storage::meter::Diff,
-	vm::{ExportedFunction, RuntimeCosts},
-	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
+	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
+	AccountIdOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
-use codec::{Encode, MaxEncodedLen};
 use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
-use sp_core::{H160, H256, U256};
+use sp_core::U256;
 use sp_io::hashing::keccak_256;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, SaturatedConversion};
 
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
@@ -49,6 +48,12 @@ impl<T: Config> ContractBlob<T> {
 		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
+		// Log filtering by level with log::enabled! returns always true,
+		// passing all logs through impacting performance \
+		// (more details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+		// By default, disable polkavm logging unless pvm_logs debug setting is enabled.
+		let pvm_logs_enabled = DebugSettings::is_pvm_logs_enabled::<T>();
+		config.set_imperfect_logger_filtering_workaround(!pvm_logs_enabled);
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
@@ -64,13 +69,12 @@ impl<T: Config> ContractBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_allow_sbrk(false);
 		module_config.set_aux_data_size(aux_data_size);
-		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
-			.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
+		let module =
+			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+				Error::<T>::CodeRejected
+			})?;
 
 		let entry_program_counter = module
 			.exports()
@@ -78,7 +82,7 @@ impl<T: Config> ContractBlob<T> {
 			.ok_or_else(|| <Error<T>>::CodeRejected)?
 			.program_counter();
 
-		let gas_limit_polkavm: polkavm::Gas = runtime.ext().gas_meter_mut().engine_fuel_left()?;
+		let gas_limit_polkavm: polkavm::Gas = runtime.ext().frame_meter_mut().sync_to_executor();
 
 		let mut instance = module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
@@ -100,10 +104,7 @@ impl<T: Config> ContractBlob<T> {
 	}
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
@@ -112,15 +113,14 @@ where
 		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
-		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
-			.update_contract::<T>(None)
-			.charge_or_zero();
+		let deposit = calculate_code_deposit::<T>(code_len);
+
 		let code_info = CodeInfo {
 			owner,
 			deposit,
 			refcount: 0,
 			code_len,
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
@@ -304,14 +304,55 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
 			callee_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Make a call to another contract.
+	/// See [`pallet_revive_uapi::HostFn::call_evm`].
+	#[stable]
+	fn call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		value_ptr: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+			let value = memory.read_u256(value_ptr)?;
+			// We also need to detect the 2300: We need to add something scaled.
+			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
+			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::Call { value_ptr },
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -335,14 +376,50 @@ pub mod env {
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall,
 			address_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Same as `delegate_call` but with EVM gas.
+	/// See [`pallet_revive_uapi::HostFn::delegate_call_evm`].
+	#[stable]
+	fn delegate_call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			CallResources::from_ethereum_gas(gas.into(), false)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::DelegateCall,
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -550,27 +627,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Stores the price for the specified amount of weight into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_to_fee`].
-	#[stable]
-	fn weight_to_fee(
-		&mut self,
-		memory: &mut M,
-		ref_time_limit: u64,
-		proof_size_limit: u64,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
-		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
-		self.charge_gas(RuntimeCosts::WeightToFee)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.get_weight_price(weight).encode(),
-			false,
-			already_charged,
-		)?)
-	}
-
 	/// Stores the immutable data into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
 	#[stable]
@@ -654,7 +710,7 @@ pub mod env {
 	#[stable]
 	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasLimit)?;
-		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
+		Ok(self.ext.gas_limit())
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
@@ -676,7 +732,7 @@ pub mod env {
 	#[stable]
 	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasPrice)?;
-		Ok(GAS_PRICE.into())
+		Ok(self.ext.effective_gas_price().saturated_into())
 	}
 
 	/// Returns the simulated ethereum `BASEFEE` value.
@@ -687,7 +743,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&U256::zero().to_little_endian(),
+			&Pallet::<E::T>::evm_base_fee().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -725,7 +781,7 @@ pub mod env {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
-		if data_len > self.ext.max_value_size() {
+		if data_len > limits::EVENT_BYTES {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
@@ -787,7 +843,7 @@ pub mod env {
 	#[stable]
 	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockAuthor)?;
-		let block_author = self.ext.block_author().unwrap_or(H160::zero());
+		let block_author = self.ext.block_author();
 
 		Ok(self.write_fixed_sandbox_output(
 			memory,
@@ -855,51 +911,28 @@ pub mod env {
 		Ok(result?)
 	}
 
-	/// Returns the amount of ref_time left.
-	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	/// Returns the amount of evm gas left.
+	///
+	/// The name is only for historical reasons as renaming functions
+	/// would be a breaking change.
+	///
+	/// See [`pallet_revive_uapi::HostFn::gas_left`].
 	#[stable]
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
-		Ok(self.ext.gas_meter().gas_left().ref_time())
+		Ok(self.ext.gas_left())
 	}
 
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_origin`].
-	fn caller_is_origin(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsOrigin)?;
-		Ok(self.ext.caller_is_origin() as u32)
-	}
-
-	/// Checks whether the caller of the current contract is root.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_root`].
-	fn caller_is_root(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsRoot)?;
-		Ok(self.ext.caller_is_root() as u32)
-	}
-
-	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[mutating]
-	fn clear_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.clear_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	fn contains_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.contains_storage(memory, flags, key_ptr, key_len)
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.frame_meter_mut().consume_all_weight();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
@@ -923,33 +956,6 @@ pub mod env {
 		}
 	}
 
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
-	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.minimum_balance().to_little_endian(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Retrieve the code hash of the currently executing contract.
-	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
-	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
-		let code_hash = *self.ext.own_code_hash();
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			code_hash.as_bytes(),
-			false,
-			already_charged,
-		)?)
-	}
-
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
 	///
@@ -957,9 +963,11 @@ pub mod env {
 	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::SetCodeHash)?;
+		let charged = self.charge_gas(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
 		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		self.ext.set_code_hash(code_hash)?;
+		if matches!(self.ext.set_code_hash(code_hash)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::SetCodeHash { old_code_removed: false });
+		}
 		Ok(())
 	}
 
@@ -990,48 +998,17 @@ pub mod env {
 		}
 	}
 
-	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[mutating]
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
-	}
-
-	/// Remove the calling account and transfer remaining **free** balance.
+	/// Remove the calling account and transfer remaining balance:
+	/// **total** balance if code is deleted from storage, else **free** balance only.
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
+	#[stable]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		self.ext.terminate(&beneficiary)?;
+		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
+		}
 		Err(TrapReason::Termination)
-	}
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_left`].
-	fn weight_left(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::WeightLeft)?;
-		let gas_left = &self.ext.gas_meter().gas_left().encode();
-		Ok(self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			gas_left,
-			false,
-			already_charged,
-		)?)
 	}
 }

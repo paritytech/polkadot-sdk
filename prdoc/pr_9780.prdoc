@@ -1,0 +1,20 @@
+title: '[pallet_transaction_payment]: Share withdrawn tx fee credit with other pallets'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces https://github.com/paritytech/polkadot-sdk/pull/9590.
+
+    The audit of #9590 showed that holding the txfee as held balance and especially playing around with `providers` causes a lot of troubles.
+
+    This PR is a much lighter change. It keeps the original withdraw/deposit pattern. It simply stores the withdrawn `Credit` and allows other pallets to withdraw from it.
+
+    It is also better in terms of performance since all tx signers share a single storage item (instead of a named hold per account).
+crates:
+- name: pallet-origin-restriction
+  bump: major
+- name: frame-support
+  bump: major
+- name: pallet-transaction-payment
+  bump: major
+- name: pallet-asset-tx-payment
+  bump: major

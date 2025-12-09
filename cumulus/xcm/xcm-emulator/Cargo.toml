@@ -16,15 +16,17 @@ array-bytes = { workspace = true }
 codec = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 paste = { workspace = true, default-features = true }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
+pallet-aura = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }

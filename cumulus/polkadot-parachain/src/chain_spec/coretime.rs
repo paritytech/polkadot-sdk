@@ -130,7 +130,7 @@ impl CoretimeRuntimeType {
 }
 
 /// Generate the name directly from the ChainType
-pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
+pub fn chain_type_name(chain_type: &ChainType) -> Cow<'_, str> {
 	match chain_type {
 		ChainType::Development => "Development",
 		ChainType::Local => "Local",

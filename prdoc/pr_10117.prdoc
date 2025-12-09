@@ -1,0 +1,10 @@
+title: Configure cross-chain delivery fees for parachain template
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds proper cross-chain delivery fees to the parachain template
+    for both UMP and HRMP.
+crates:
+  - name: parachain-template-runtime
+    bump: minor
+

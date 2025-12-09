@@ -15,7 +15,8 @@
 
 use crate::tests::snowbridge_common::{eth_location, set_up_eth_and_dot_pool};
 use bridge_hub_westend_runtime::bridge_common_config::{BridgeReward, BridgeRewardBeneficiaries};
-use pallet_bridge_relayers::RewardLedger;
+use emulated_integration_tests_common::snowbridge::ETHER_MIN_BALANCE;
+use pallet_bridge_relayers::{Error::FailedToPayReward, RewardLedger};
 
 use crate::imports::*;
 
@@ -38,7 +39,7 @@ fn claim_rewards_works() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
-		let reward_amount = 2_000_000_000u128;
+		let reward_amount = ETHER_MIN_BALANCE * 2; // Reward should be more than Ether min balance
 
 		type BridgeRelayers = <BridgeHubWestend as BridgeHubWestendPallet>::BridgeRelayers;
 		BridgeRelayers::register_reward(
@@ -98,5 +99,54 @@ fn claim_rewards_works() {
 				},
 			]
 		);
+	})
+}
+
+#[test]
+fn claim_snowbridge_rewards_to_local_account_fails() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	let relayer_account = BridgeHubWestendSender::get();
+	let reward_address = AssetHubWestendReceiver::get();
+
+	BridgeHubWestend::fund_accounts(vec![
+		(assethub_sovereign.clone(), INITIAL_FUND),
+		(relayer_account.clone(), INITIAL_FUND),
+	]);
+	set_up_eth_and_dot_pool();
+
+	BridgeHubWestend::execute_with(|| {
+		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+		let reward_amount = ETHER_MIN_BALANCE * 2; // Reward should be more than Ether min balance
+
+		type BridgeRelayers = <BridgeHubWestend as BridgeHubWestendPallet>::BridgeRelayers;
+		BridgeRelayers::register_reward(
+			&relayer_account.clone(),
+			BridgeReward::Snowbridge,
+			reward_amount,
+		);
+
+		// Check that the reward was registered.
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == reward_amount,
+				},
+			]
+		);
+
+		let reward_beneficiary = BridgeRewardBeneficiaries::LocalAccount(reward_address);
+		let result = BridgeRelayers::claim_rewards_to(
+			RuntimeOrigin::signed(relayer_account.clone()),
+			BridgeReward::Snowbridge,
+			reward_beneficiary.clone(),
+		);
+		assert_err!(result, FailedToPayReward::<Runtime, ()>);
 	})
 }

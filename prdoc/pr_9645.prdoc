@@ -1,0 +1,9 @@
+title: Extended AppSignature trait with Signature
+doc:
+- audience: Runtime User
+  description: |-
+    Extended `sp_application_crypto::AppSignature` trait with `sp_core::crypto::Signature`.
+
+crates:
+- name: sp-application-crypto
+  bump: major

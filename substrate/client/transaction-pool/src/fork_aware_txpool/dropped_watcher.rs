@@ -175,7 +175,7 @@ where
 	fn transaction_views(
 		&mut self,
 		tx_hash: ExtrinsicHash<C>,
-	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
+	) -> Option<OccupiedEntry<'_, ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
 		if let Entry::Occupied(views_keeping_tx_valid) = self.ready_transaction_views.entry(tx_hash)
 		{
 			return Some(views_keeping_tx_valid)

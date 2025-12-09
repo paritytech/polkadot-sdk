@@ -847,10 +847,34 @@ pub trait ExecuteBlock<Block: BlockT> {
 	/// This will execute all extrinsics in the block and check that the resulting header is
 	/// correct.
 	///
+	/// This function is a wrapper around [`Self::verify_and_remove_seal`] and
+	/// [`Self::execute_verified_block`].
+	///
+	/// # Panic
+	///
+	/// Panics when an extrinsics panics or the resulting header doesn't match the expected header
+	/// or the seal is invalid.
+	fn execute_block(mut block: Block::LazyBlock) {
+		Self::verify_and_remove_seal(&mut block);
+		Self::execute_verified_block(block);
+	}
+
+	/// Verify and remove seal.
+	///
+	/// Verifies any seal meant for the consensus logic represented by the implementation. An
+	/// implementation may also chooses to not verify anything.
+	///
+	/// # Panic
+	///
+	/// Panics if a seal is invalid or if a seal is required, but not present.
+	fn verify_and_remove_seal(block: &mut Block::LazyBlock);
+
+	/// Executes the given `block` after it was verified by `[Self::verify_and_remove_seal]`.
+	///
 	/// # Panic
 	///
 	/// Panics when an extrinsics panics or the resulting header doesn't match the expected header.
-	fn execute_block(block: Block);
+	fn execute_verified_block(block: Block::LazyBlock);
 }
 
 /// Something that can compare privileges of two origins.

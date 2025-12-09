@@ -132,7 +132,7 @@ fn main() {
 	// Ensure we have the needed metadata files in place to run zombienet tests
 	let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
 	const METADATA_DIR: &str = "metadata-files";
-	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
+	const CHAINS: [&str; 3] = ["rococo", "coretime-rococo", "asset-hub-westend"];
 
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 

@@ -1,0 +1,8 @@
+title: Enable async-backing on Penpal
+doc:
+- audience: Runtime Dev
+  description: |-
+    To enable async-backing on Penpal.
+crates:
+- name: penpal-runtime
+  bump: major

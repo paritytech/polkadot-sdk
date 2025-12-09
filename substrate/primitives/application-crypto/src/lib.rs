@@ -58,8 +58,8 @@ mod traits;
 
 pub use traits::*;
 
-/// Declares `Public`, `Pair` and `Signature` types which are functionally equivalent
-/// to the corresponding types defined by `$module` but are new application-specific
+/// Declares `Public`, `Pair`, `Signature` and `ProofOfPossession` types which are functionally
+/// equivalent to the corresponding types defined by `$module` but are new application-specific
 /// types whose identifier is `$key_type`.
 ///
 /// ```rust
@@ -85,6 +85,12 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
+		$crate::app_crypto_proof_of_possession_full_crypto!(
+			$module::ProofOfPossession,
+			$key_type,
+			$module::CRYPTO_ID
+		);
+		$crate::app_crypto_proof_of_possession_common!($module::ProofOfPossession, $key_type);
 		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
@@ -116,6 +122,12 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
+		$crate::app_crypto_proof_of_possession_not_full_crypto!(
+			$module::ProofOfPossession,
+			$key_type,
+			$module::CRYPTO_ID
+		);
+		$crate::app_crypto_proof_of_possession_common!($module::ProofOfPossession, $key_type);
 		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
@@ -140,6 +152,7 @@ macro_rules! app_crypto_pair_common {
 			type Public = Public;
 			type Seed = <$pair as $crate::Pair>::Seed;
 			type Signature = Signature;
+			type ProofOfPossession = <$pair as $crate::Pair>::ProofOfPossession;
 
 			$crate::app_crypto_pair_functions_if_std!($pair);
 			$crate::app_crypto_pair_functions_if_full_crypto!($pair);
@@ -180,11 +193,13 @@ macro_rules! app_crypto_pair_common {
 
 		impl $crate::ProofOfPossessionVerifier for Pair {
 			fn verify_proof_of_possession(
-				proof_of_possession: &Self::Signature,
+				owner: &[u8],
+				proof_of_possession: &Self::ProofOfPossession,
 				allegedly_possessed_pubkey: &Self::Public,
 			) -> bool {
 				<$pair>::verify_proof_of_possession(
-					&proof_of_possession.0,
+					owner,
+					&proof_of_possession,
 					allegedly_possessed_pubkey.as_ref(),
 				)
 			}
@@ -194,6 +209,7 @@ macro_rules! app_crypto_pair_common {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -281,6 +297,7 @@ macro_rules! app_crypto_public_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -317,6 +334,8 @@ macro_rules! app_crypto_public_not_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
+
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -463,6 +482,7 @@ macro_rules! app_crypto_signature_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -497,6 +517,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -557,6 +578,138 @@ macro_rules! app_crypto_signature_common {
 		}
 
 		impl Signature {
+			/// Convert into wrapped generic signature type.
+			pub fn into_inner(self) -> $sig {
+				self.0
+			}
+		}
+	};
+}
+
+/// Declares ProofOfPossession type which is functionally equivalent to `$sig`, but is new
+/// Application-specific type whose identifier is `$key_type`.
+/// For full functionality, `app_crypto_proof_of_possession_common` must be called too.
+/// Can only be used with `full_crypto` feature
+#[doc(hidden)]
+#[macro_export]
+macro_rules! app_crypto_proof_of_possession_full_crypto {
+	($sig:ty, $key_type:expr, $crypto_type:expr) => {
+		$crate::wrap! {
+			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
+			#[derive(Clone, Eq, PartialEq, Hash,
+				$crate::codec::Encode,
+				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
+				$crate::RuntimeDebug,
+				$crate::scale_info::TypeInfo,
+			)]
+			pub struct ProofOfPossession($sig);
+		}
+
+		impl $crate::CryptoType for ProofOfPossession {
+			type Pair = Pair;
+		}
+
+		impl $crate::AppCrypto for ProofOfPossession {
+			type Public = Public;
+			type Pair = Pair;
+			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
+			const ID: $crate::KeyTypeId = $key_type;
+			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
+		}
+	};
+}
+
+/// Declares `ProofOfPossession` type which is functionally equivalent to `$sig`, but is new
+/// application-specific type whose identifier is `$key_type`.
+/// For full functionality, `app_crypto_proof_of_possession_common` must be called too.
+/// Can only be used without `full_crypto` feature.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! app_crypto_proof_of_possession_not_full_crypto {
+	($sig:ty, $key_type:expr, $crypto_type:expr) => {
+		$crate::wrap! {
+			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
+			#[derive(Clone, Eq, PartialEq,
+				$crate::codec::Encode,
+				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
+				$crate::RuntimeDebug,
+				$crate::scale_info::TypeInfo,
+			)]
+			pub struct ProofOfPossession($sig);
+		}
+
+		impl $crate::CryptoType for ProofOfPossession {
+			type Pair = Pair;
+		}
+
+		impl $crate::AppCrypto for ProofOfPossession {
+			type Public = Public;
+			type Pair = Pair;
+			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
+			const ID: $crate::KeyTypeId = $key_type;
+			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
+		}
+	};
+}
+
+/// Declares `ProofOfPossession` type which is functionally equivalent to `$sig`, but is new
+/// application-specific type whose identifier is `$key_type`.
+/// For full functionality, app_crypto_proof_of_possession_(not)_full_crypto! must be called too.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! app_crypto_proof_of_possession_common {
+	($sig:ty, $key_type:expr) => {
+		impl $crate::Deref for ProofOfPossession {
+			type Target = [u8];
+
+			fn deref(&self) -> &Self::Target {
+				self.0.as_ref()
+			}
+		}
+
+		impl AsRef<[u8]> for ProofOfPossession {
+			fn as_ref(&self) -> &[u8] {
+				self.0.as_ref()
+			}
+		}
+
+		impl AsMut<[u8]> for ProofOfPossession {
+			fn as_mut(&mut self) -> &mut [u8] {
+				self.0.as_mut()
+			}
+		}
+
+		impl $crate::AppSignature for ProofOfPossession {
+			type Generic = $sig;
+		}
+
+		impl<'a> TryFrom<&'a [u8]> for ProofOfPossession {
+			type Error = ();
+
+			fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
+				<$sig>::try_from(data).map(Into::into)
+			}
+		}
+
+		impl TryFrom<$crate::Vec<u8>> for ProofOfPossession {
+			type Error = ();
+
+			fn try_from(data: $crate::Vec<u8>) -> Result<Self, Self::Error> {
+				Self::try_from(&data[..])
+			}
+		}
+
+		impl $crate::Signature for ProofOfPossession {}
+
+		impl $crate::ByteArray for ProofOfPossession {
+			const LEN: usize = <$sig>::LEN;
+		}
+
+		impl ProofOfPossession {
 			/// Convert into wrapped generic signature type.
 			pub fn into_inner(self) -> $sig {
 				self.0
