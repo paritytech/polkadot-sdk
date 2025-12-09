@@ -9,4 +9,4 @@ crates:
 - name: sc-network
   bump: minor
 - name: sc-network-types
-  bump: patch
+  bump: minor
