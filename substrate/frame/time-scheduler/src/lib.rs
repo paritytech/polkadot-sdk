@@ -96,7 +96,7 @@ use frame_support::{
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
 		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PalletInfoAccess,
-		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
+		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage, Time,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -360,6 +360,14 @@ pub mod pallet {
 		/// swap block number providers on the fly, then please at least ensure that you do not run
 		/// any pallet migration in the same runtime upgrade.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Provider for the current timestamp in milliseconds.
+		///
+		/// Used for time-based scheduling. Typically configured as `pallet_timestamp::Pallet<Self>`.
+		///
+		/// NOTE: The timestamp is read during `on_initialize`, so it will return the timestamp
+		/// from the previous block. This means there is a 1-block delay for time-based scheduling.
+		type TimestampProvider: Time;
 	}
 
 	/// Block number at which the agenda began incomplete execution.
