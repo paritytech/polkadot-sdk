@@ -1575,6 +1575,7 @@ impl parachains_initializer::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::polkadot_runtime_parachains_initializer::WeightInfo<Runtime>;
 	type CoretimeOnNewSession = Coretime;
+	type OnNewSessionOutgoing = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
