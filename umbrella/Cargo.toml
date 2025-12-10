@@ -1740,7 +1740,7 @@ version = "44.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/revive"
-version = "0.11.0"
+version = "0.11.1"
 
 [dependencies.pallet-revive-proc-macro]
 default-features = false
