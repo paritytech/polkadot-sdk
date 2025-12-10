@@ -495,12 +495,16 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
-		/// Execute the scheduled calls
+		/// Execute the scheduled calls (time-based)
 		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
-			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = frame_system::Pallet::<T>::remaining_block_weight()
 				.limit_to(T::MaximumWeight::get());
-			Self::service_agendas(&mut weight_counter, now, u32::MAX);
+
+			// Service time-based agendas
+			// Note: This reads the timestamp from the previous block (1-block delay)
+			let now_ms: u64 = T::TimestampProvider::now().saturated_into();
+			Self::service_time_agendas(&mut weight_counter, now_ms, u32::MAX);
+
 			weight_counter.consumed()
 		}
 
