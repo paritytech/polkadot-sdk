@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Broadcaster pallet for managing parachain data publishing and subscription.
+//! Broadcaster pallet for managing parachain data publishing.
 //!
-//! This pallet provides a publish-subscribe mechanism for parachains to efficiently share data
+//! This pallet provides a publishing mechanism for parachains to efficiently share data
 //! through the relay chain storage using child tries per publisher.
 //!
 //! ## Publisher Registration
@@ -32,7 +32,7 @@
 //! ## Storage Organization
 //!
 //! Each publisher gets a dedicated child trie identified by `(b"pubsub", ParaId)`. The child
-//! trie root is stored on-chain and can be included in storage proofs for subscribers to verify
+//! trie root is stored on-chain and can be included in storage proofs to verify
 //! published data.
 //!
 //! ## Storage Lifecycle
@@ -112,10 +112,7 @@ pub mod pallet {
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// Currency mechanism for managing publisher deposits.
 		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
@@ -324,7 +321,10 @@ pub mod pallet {
 		/// Events:
 		/// - `DataCleanedUp`
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::cleanup_published_data(T::MaxStoredKeys::get()))]
+		#[pallet::weight(
+			T::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
+				.saturating_add(T::DbWeight::get().reads(2))
+		)]
 		pub fn cleanup_published_data(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -359,7 +359,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::deregister_publisher())]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn deregister_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -393,7 +393,10 @@ pub mod pallet {
 		/// - `DataCleanedUp` (if data existed)
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::force_deregister_publisher(T::MaxStoredKeys::get()))]
+		#[pallet::weight(
+			T::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
+				.saturating_add(T::DbWeight::get().reads_writes(2, 1))
+		)]
 		pub fn force_deregister_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -428,6 +431,10 @@ pub mod pallet {
 				!RegisteredPublishers::<T>::contains_key(para_id),
 				Error::<T>::AlreadyRegistered
 			);
+
+			// Enforce MaxPublishers limit at registration time
+			let current_count = RegisteredPublishers::<T>::iter().count() as u32;
+			ensure!(current_count < T::MaxPublishers::get(), Error::<T>::TooManyPublishers);
 
 			// Hold the deposit if non-zero
 			if !deposit.is_zero() {
@@ -562,8 +569,8 @@ pub mod pallet {
 				);
 			}
 
-			// Get or create child trie. This checks MaxPublishers limit on first publish.
-			let child_info = Self::get_or_create_publisher_child_info(origin_para_id)?;
+			// Get or create child trie for this publisher
+			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
 
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
 
@@ -601,7 +608,7 @@ pub mod pallet {
 
 		/// Returns the child trie root hash for a specific publisher.
 		///
-		/// The root can be included in storage proofs for subscribers to verify published data.
+		/// The root can be included in storage proofs to verify published data.
 		pub fn get_publisher_child_root(para_id: ParaId) -> Option<Vec<u8>> {
 			PublisherExists::<T>::get(para_id).then(|| {
 				let child_info = Self::derive_child_info(para_id);
@@ -611,17 +618,13 @@ pub mod pallet {
 
 		/// Gets or creates the child trie info for a publisher.
 		///
-		/// Checks the maximum publishers limit before creating a new publisher entry.
-		fn get_or_create_publisher_child_info(para_id: ParaId) -> Result<ChildInfo, DispatchError> {
+		/// Creates the child trie entry on first publish. The MaxPublishers limit is enforced
+		/// at registration time, so we don't need to check it here.
+		fn get_or_create_publisher_child_info(para_id: ParaId) -> ChildInfo {
 			if !PublisherExists::<T>::contains_key(para_id) {
-				let current_publisher_count = PublisherExists::<T>::iter().count() as u32;
-				ensure!(
-					current_publisher_count < T::MaxPublishers::get(),
-					Error::<T>::TooManyPublishers
-				);
 				PublisherExists::<T>::insert(para_id, true);
 			}
-			Ok(Self::derive_child_info(para_id))
+			Self::derive_child_info(para_id)
 		}
 
 		/// Derives a deterministic child trie identifier from a parachain ID.

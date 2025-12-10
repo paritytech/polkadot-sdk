@@ -56,74 +56,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn cleanup_published_data(k: Linear<1, { T::MaxStoredKeys::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-		let para_id = ParaId::from(2000);
-		let deposit = T::PublisherDeposit::get();
-
-		T::Currency::set_balance(&caller, deposit * 2u32.into());
-		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller.clone()).into(), para_id)
-			.unwrap();
-
-		// Publish k keys
-		let mut data = Vec::new();
-		for i in 0..k {
-			let mut key = b"key_".to_vec();
-			key.extend_from_slice(&i.to_be_bytes());
-			data.push((key, b"value".to_vec()));
-		}
-		Broadcaster::<T>::handle_publish(para_id, data).unwrap();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), para_id);
-
-		assert!(!PublisherExists::<T>::get(para_id));
-	}
-
-	#[benchmark]
-	fn deregister_publisher() {
-		let caller: T::AccountId = whitelisted_caller();
-		let para_id = ParaId::from(2000);
-		let deposit = T::PublisherDeposit::get();
-
-		T::Currency::set_balance(&caller, deposit * 2u32.into());
-		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller.clone()).into(), para_id)
-			.unwrap();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), para_id);
-
-		assert!(!RegisteredPublishers::<T>::contains_key(para_id));
-	}
-
-	#[benchmark]
-	fn force_deregister_publisher(k: Linear<0, { T::MaxStoredKeys::get() }>) {
-		let manager: T::AccountId = whitelisted_caller();
-		let para_id = ParaId::from(2000);
-		let deposit = T::PublisherDeposit::get();
-
-		T::Currency::set_balance(&manager, deposit * 2u32.into());
-		Broadcaster::<T>::register_publisher(RawOrigin::Signed(manager).into(), para_id)
-			.unwrap();
-
-		// Publish k keys (if k > 0)
-		if k > 0 {
-			let mut data = Vec::new();
-			for i in 0..k {
-				let mut key = b"key_".to_vec();
-				key.extend_from_slice(&i.to_be_bytes());
-				data.push((key, b"value".to_vec()));
-			}
-			Broadcaster::<T>::handle_publish(para_id, data).unwrap();
-		}
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, para_id);
-
-		assert!(!RegisteredPublishers::<T>::contains_key(para_id));
-	}
-
-	#[benchmark]
 	fn do_cleanup_publisher(k: Linear<1, { T::MaxStoredKeys::get() }>) {
 		let caller: T::AccountId = whitelisted_caller();
 		let para_id = ParaId::from(2000);
@@ -133,14 +65,18 @@ mod benchmarks {
 		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller).into(), para_id)
 			.unwrap();
 
-		// Publish k keys
-		let mut data = Vec::new();
-		for i in 0..k {
-			let mut key = b"key_".to_vec();
-			key.extend_from_slice(&i.to_be_bytes());
-			data.push((key, b"value".to_vec()));
+		// Publish k keys in batches to respect MaxPublishItems limit
+		let max_items = T::MaxPublishItems::get();
+		for batch_start in (0..k).step_by(max_items as usize) {
+			let batch_end = (batch_start + max_items).min(k);
+			let mut data = Vec::new();
+			for i in batch_start..batch_end {
+				let mut key = b"key_".to_vec();
+				key.extend_from_slice(&i.to_be_bytes());
+				data.push((key, b"value".to_vec()));
+			}
+			Broadcaster::<T>::handle_publish(para_id, data).unwrap();
 		}
-		Broadcaster::<T>::handle_publish(para_id, data).unwrap();
 
 		#[block]
 		{

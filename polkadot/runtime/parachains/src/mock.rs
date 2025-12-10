@@ -230,7 +230,6 @@ parameter_types! {
 }
 
 impl crate::broadcaster::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
