@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.37.0"
+version = "0.38.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
@@ -46,7 +46,7 @@ pallet-asset-rate.workspace = true
 pallet-asset-rewards.workspace = true
 pallet-assets.workspace = true
 pallet-assets-freezer.workspace = true
-pallet-assets-precompiles = { workspace = true }
+pallet-assets-precompiles.workspace = true
 pallet-aura.workspace = true
 pallet-authorship.workspace = true
 pallet-bags-list.workspace = true
@@ -88,7 +88,7 @@ pallet-whitelist.workspace = true
 pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 pallet-xcm-bridge-hub-router.workspace = true
-pallet-xcm-precompiles = { workspace = true }
+pallet-xcm-precompiles.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 polkadot-parachain-primitives.workspace = true

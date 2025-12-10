@@ -41,9 +41,9 @@ pallet-session = { default-features = true, workspace = true }
 pallet-staking-async-ah-client = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
 # staking classic which will be replaced by ah-client
-pallet-offences = { workspace = true, default-features = true }
-pallet-root-offences = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
+pallet-offences = { default-features = true, workspace = true }
+pallet-root-offences = { default-features = true, workspace = true }
+pallet-staking = { default-features = true, workspace = true }
 
 [features]
 std = [

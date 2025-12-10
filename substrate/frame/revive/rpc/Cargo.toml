@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive-eth-rpc"
-version = "0.9.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -65,10 +65,13 @@ env_logger = { workspace = true }
 pallet-revive-fixtures = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }
-sp-io = { workspace = true, default-features = true }
+sp-io = { default-features = true, workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }
-revive-dev-runtime = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+revive-dev-runtime.default-features = true
+revive-dev-runtime.workspace = true
+sp-io.default-features = true
+sp-io.workspace = true
+sp-runtime.default-features = true
+sp-runtime.workspace = true

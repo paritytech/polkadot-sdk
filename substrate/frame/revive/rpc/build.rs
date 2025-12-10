@@ -18,7 +18,9 @@ use std::{fs, process::Command};
 
 fn main() {
 	generate_git_revision();
-	generate_metadata_file();
+	// skip to enable publishing to crate.io
+	//
+	// generate_metadata_file();
 }
 
 fn generate_git_revision() {
@@ -52,6 +54,7 @@ fn generate_git_revision() {
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
+#[allow(dead_code)]
 fn generate_metadata_file() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {

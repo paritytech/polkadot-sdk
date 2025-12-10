@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-inspect"
-version = "0.30.0"
+version = "0.32.0"
 authors.workspace = true
 description = "Substrate node block inspection tool."
 edition.workspace = true
