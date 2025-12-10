@@ -57,8 +57,7 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/10591 - Clarify purpose of allocator
-// limits and decide whether to remove or use these constants.
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/10591 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
 // Setting higher limit also requires raising the allocator limit.
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
@@ -214,8 +213,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with
-			// benchmarked weights.
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with benchmarked weights.
 			let mut weight = Weight::zero();
 			let db_weight = T::DbWeight::get();
 
