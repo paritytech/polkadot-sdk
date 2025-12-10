@@ -355,11 +355,13 @@ fn transfer_approved_all_funds() {
 		Balances::make_free_balance_be(&1, 2);
 		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 50));
 		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+		assert!(Approvals::<Test>::contains_key((0, 1, 2)));
 		assert_eq!(Balances::reserved_balance(&1), 1);
 
 		// transfer the full amount, which should trigger auto-cleanup
 		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 50));
 		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
 		assert_eq!(Assets::balance(0, 1), 50);
 		assert_eq!(Assets::balance(0, 3), 50);
 		assert_eq!(Balances::reserved_balance(&1), 0);
