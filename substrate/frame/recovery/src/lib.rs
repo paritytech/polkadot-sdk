@@ -397,11 +397,13 @@ pub mod pallet {
 		/// Storage consideration for holding friend group configs.
 		type FriendGroupsConsideration: Consideration<Self::AccountId, Footprint>;
 
+		/// Storage consideration for holding an attempt.
 		type AttemptConsideration: Consideration<Self::AccountId, Footprint>;
 
+		/// Storage consideration for holding an inheritor.
 		type InheritorConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// Security deposit taken for each attempt.
+		/// Security deposit taken for each attempt that the initiator needs to place.
 		#[pallet::constant]
 		type SecurityDeposit: Get<BalanceOf<Self>>;
 
@@ -459,11 +461,11 @@ pub mod pallet {
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		#[codec(index = 0)]
-		FriendGroups,
+		FriendGroupsStorage,
 		#[codec(index = 1)]
-		Attempt,
+		AttemptStorage,
 		#[codec(index = 2)]
-		Inheritor,
+		InheritorStorage,
 		#[codec(index = 3)]
 		SecurityDeposit,
 	}

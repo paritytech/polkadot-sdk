@@ -52,7 +52,7 @@ fn signed(account: u64) -> RuntimeOrigin {
 fn assert_fg_deposit(who: u64, deposit: u128) {
 	assert_eq!(
 		<T as crate::Config>::Currency::balance_on_hold(
-			&crate::HoldReason::FriendGroups.into(),
+			&crate::HoldReason::FriendGroupsStorage.into(),
 			&who
 		),
 		deposit
@@ -61,7 +61,7 @@ fn assert_fg_deposit(who: u64, deposit: u128) {
 
 fn assert_attempt_deposit(who: u64, deposit: u128) {
 	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(&crate::HoldReason::Attempt.into(), &who),
+		<T as crate::Config>::Currency::balance_on_hold(&crate::HoldReason::AttemptStorage.into(), &who),
 		deposit
 	);
 }
@@ -737,7 +737,7 @@ fn cancel_attempt_works_when_initiator_account_is_broken() {
 
 		// Force remove the deposit from bob
 		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
-			&crate::HoldReason::Attempt.into(),
+			&crate::HoldReason::AttemptStorage.into(),
 			&BOB,
 			0
 		));
@@ -804,7 +804,7 @@ fn slash_attempt_fails_when_initiator_is_missing_deposit() {
 
 		// Force remove the deposit from bob
 		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
-			&crate::HoldReason::Attempt.into(),
+			&crate::HoldReason::AttemptStorage.into(),
 			&BOB,
 			0
 		));

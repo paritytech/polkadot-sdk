@@ -57,9 +57,9 @@ parameter_types! {
 	pub const MaxFriendsPerConfig: u32 = 128;
 	pub const MaxConfigsPerAccount: u32 = 128;
 
-	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroups);
-	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::Attempt);
-	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::Inheritor);
+	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroupsStorage);
+	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::AttemptStorage);
+	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::InheritorStorage);
 }
 
 pub const SECURITY_DEPOSIT: u128 = 100;
