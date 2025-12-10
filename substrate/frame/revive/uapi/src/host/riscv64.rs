@@ -507,6 +507,11 @@ impl HostFn for HostFnImpl {
 		unreachable!("consume_all_gas does not return");
 	}
 
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
+	}
+
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
@@ -524,10 +529,5 @@ impl HostFn for HostFnImpl {
 			)
 		};
 		ret_code.into()
-	}
-
-	fn terminate(beneficiary: &[u8; 20]) -> ! {
-		unsafe { sys::terminate(beneficiary.as_ptr()) }
-		panic!("terminate does not return");
 	}
 }
