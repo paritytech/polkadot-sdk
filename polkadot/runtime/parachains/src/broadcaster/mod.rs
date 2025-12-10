@@ -569,9 +569,6 @@ pub mod pallet {
 				);
 			}
 
-			// Get or create child trie for this publisher
-			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
-
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
 
 			// Count new unique keys to prevent exceeding MaxStoredKeys
@@ -589,6 +586,9 @@ pub mod pallet {
 				current_keys_count.saturating_add(new_keys_count) <= T::MaxStoredKeys::get(),
 				Error::<T>::TooManyStoredKeys
 			);
+
+			// Get or create child trie for this publisher
+			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
 
 			// Write to child trie and track keys for enumeration
 			for (key, value) in data {
