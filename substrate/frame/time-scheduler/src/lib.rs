@@ -104,7 +104,7 @@ use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, SaturatedConversion, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
 
@@ -397,6 +397,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Minute at which the time agenda began incomplete execution.
+	#[pallet::storage]
+	pub type TimeIncompleteSince<T: Config> = StorageValue<_, u64>;
+
+	/// Lookup from a name to the minute and index of the time-scheduled task.
+	#[pallet::storage]
+	pub type TimeLookup<T: Config> = StorageMap<_, Twox64Concat, TaskName, (u64, u32)>;
+
 	/// Retry configurations for items to be executed, indexed by task address.
 	#[pallet::storage]
 	pub type Retries<T: Config> = StorageMap<
@@ -449,6 +457,24 @@ pub mod pallet {
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
 		AgendaIncomplete { when: BlockNumberFor<T> },
+		/// Scheduled some time-based task.
+		TimeScheduled { when: u64, index: u32 },
+		/// Canceled some time-based task.
+		TimeCanceled { when: u64, index: u32 },
+		/// Dispatched some time-based task.
+		TimeDispatched {
+			task: (u64, u32),
+			id: Option<TaskName>,
+			result: DispatchResult,
+		},
+		/// The call for the provided hash was not found so the time-based task has been aborted.
+		TimeCallUnavailable { task: (u64, u32), id: Option<TaskName> },
+		/// The given time-based task was unable to be renewed since the agenda is full.
+		TimePeriodicFailed { task: (u64, u32), id: Option<TaskName> },
+		/// The given time-based task can never be executed since it is overweight.
+		TimePermanentlyOverweight { task: (u64, u32), id: Option<TaskName> },
+		/// Time agenda is incomplete from `when` (minute).
+		TimeAgendaIncomplete { when: u64 },
 	}
 
 	#[pallet::error]
@@ -463,6 +489,8 @@ pub mod pallet {
 		RescheduleNoChange,
 		/// Attempt to use a non-named function on a named task.
 		Named,
+		/// Given target timestamp is in the past.
+		TargetTimestampInPast,
 	}
 
 	#[pallet::hooks]
@@ -714,6 +742,32 @@ pub mod pallet {
 			let task = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: Some(id) });
+			Ok(())
+		}
+
+		/// Schedule a task at a specific timestamp (in milliseconds since Unix epoch).
+		///
+		/// The task will be dispatched during the first block where the timestamp
+		/// is greater than or equal to `when`. Note that there is typically a 1-block
+		/// delay since the timestamp is read from the previous block.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn schedule_at_time(
+			origin: OriginFor<T>,
+			when: u64,
+			maybe_periodic: Option<(u64, u32)>,
+			priority: schedule::Priority,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			Self::do_schedule_at_time(
+				when,
+				maybe_periodic,
+				priority,
+				origin.caller().clone(),
+				T::Preimages::bound(*call)?,
+			)?;
 			Ok(())
 		}
 	}
@@ -1253,6 +1307,111 @@ impl<T: Config> Pallet<T> {
 		Self::ensure_privilege(origin, &scheduled.origin)?;
 		Retries::<T>::remove((when, index));
 		Ok(())
+	}
+
+	// ==================== Time-based scheduling functions ====================
+
+	/// Convert a timestamp in milliseconds to a minute key (timestamp / 60_000).
+	fn timestamp_to_minute(timestamp: u64) -> u64 {
+		timestamp / 60_000
+	}
+
+	/// Schedule a task at a specific timestamp.
+	fn do_schedule_at_time(
+		when: u64,
+		maybe_periodic: Option<(u64, u32)>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+	) -> Result<(u64, u32), DispatchError> {
+		// Get current timestamp from the timestamp provider
+		let now = T::TimestampProvider::now();
+		let now_ms: u64 = now.saturated_into();
+
+		// Ensure the target time is in the future
+		if when <= now_ms {
+			return Err(Error::<T>::TargetTimestampInPast.into());
+		}
+
+		let lookup_hash = call.lookup_hash();
+
+		// Sanitize maybe_periodic: period must be > 0 and count must be > 1
+		let maybe_periodic = maybe_periodic
+			.filter(|p| p.1 > 1 && p.0 > 0)
+			// Remove one from the number of repetitions since we will schedule one now.
+			.map(|(p, c)| (p, c - 1));
+
+		let task = Scheduled {
+			maybe_id: None,
+			priority,
+			call,
+			maybe_periodic,
+			origin,
+			_phantom: PhantomData,
+		};
+
+		let res = Self::place_time_task(when, task).map_err(|x| x.0)?;
+
+		if let Some(hash) = lookup_hash {
+			// Request the call to be made available.
+			T::Preimages::request(&hash);
+		}
+
+		Ok(res)
+	}
+
+	/// Place a time-based task in the agenda and update lookup if named.
+	fn place_time_task(
+		when: u64,
+		what: ScheduledTimeOf<T>,
+	) -> Result<(u64, u32), (DispatchError, ScheduledTimeOf<T>)> {
+		let maybe_name = what.maybe_id;
+		let minute = Self::timestamp_to_minute(when);
+		let index = Self::push_to_time_agenda(minute, what)?;
+		let address = (minute, index);
+		if let Some(name) = maybe_name {
+			TimeLookup::<T>::insert(name, address);
+		}
+		Self::deposit_event(Event::TimeScheduled { when: minute, index });
+		Ok(address)
+	}
+
+	/// Push a task to the time agenda for a given minute.
+	fn push_to_time_agenda(
+		minute: u64,
+		what: ScheduledTimeOf<T>,
+	) -> Result<u32, (DispatchError, ScheduledTimeOf<T>)> {
+		let mut agenda = TimeAgenda::<T>::get(minute);
+		let index = if (agenda.len() as u32) < T::MaxTimeScheduledPerMinute::get() {
+			// Will always succeed due to the above check.
+			let _ = agenda.try_push(Some(what));
+			agenda.len() as u32 - 1
+		} else {
+			if let Some(hole_index) = agenda.iter().position(|i| i.is_none()) {
+				agenda[hole_index] = Some(what);
+				hole_index as u32
+			} else {
+				return Err((DispatchError::Exhausted, what));
+			}
+		};
+		TimeAgenda::<T>::insert(minute, agenda);
+		Ok(index)
+	}
+
+	/// Remove trailing `None` items of a time agenda at `minute`. If all items are `None` remove
+	/// the agenda record entirely.
+	fn cleanup_time_agenda(minute: u64) {
+		let mut agenda = TimeAgenda::<T>::get(minute);
+		match agenda.iter().rposition(|i| i.is_some()) {
+			Some(i) if agenda.len() > i + 1 => {
+				agenda.truncate(i + 1);
+				TimeAgenda::<T>::insert(minute, agenda);
+			},
+			Some(_) => {},
+			None => {
+				TimeAgenda::<T>::remove(minute);
+			},
+		}
 	}
 }
 
