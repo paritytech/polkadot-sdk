@@ -186,7 +186,7 @@ where
 
 	/// Checks if the tree is empty.
 	pub fn is_empty(&self) -> bool {
-		self.iter().next().is_none()
+		self.roots.is_empty()
 	}
 
 	/// Map fork tree into values of new types.
