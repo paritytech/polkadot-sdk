@@ -5284,17 +5284,11 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
-<<<<<<< HEAD
+ "sp-consensus-babe",
+ "sp-core 38.0.1",
  "sp-runtime 43.0.0",
  "sp-state-machine 0.47.0",
  "sp-trie 41.0.0",
-=======
- "sp-consensus-babe",
- "sp-core 28.0.0",
- "sp-runtime",
- "sp-state-machine",
- "sp-trie",
->>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 ]
 
 [[package]]
