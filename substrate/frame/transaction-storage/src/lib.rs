@@ -32,7 +32,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::result;
+use core::{fmt::Debug, result};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::InvalidTransaction,
@@ -42,10 +42,7 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
 	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
 	CHUNK_SIZE, INHERENT_IDENTIFIER,
@@ -60,12 +57,11 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/10591 - Clarify purpose of allocator
+// limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
-// TODO: find out what is "allocator" and "allocator limit"
 // Setting higher limit also requires raising the allocator limit.
-// TODO: not used, can we remove or use?
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
-// TODO: not used, can we remove or use?
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 
 /// Encountered an impossible situation, implies a bug.
@@ -80,7 +76,7 @@ pub const AUTHORIZATION_NOT_FOUND: InvalidTransaction = InvalidTransaction::Cust
 pub const AUTHORIZATION_NOT_EXPIRED: InvalidTransaction = InvalidTransaction::Custom(4);
 
 /// Number of transactions and bytes covered by an authorization.
-#[derive(PartialEq, Eq, RuntimeDebug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Debug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct AuthorizationExtent {
 	/// Number of transactions.
 	pub transactions: u32,
@@ -114,9 +110,7 @@ struct Authorization<BlockNumber> {
 type AuthorizationFor<T> = Authorization<BlockNumberFor<T>>;
 
 /// State data for a stored transaction.
-#[derive(
-	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct TransactionInfo {
 	/// Chunk trie root.
 	chunk_root: <BlakeTwo256 as Hash>::Output,
@@ -220,7 +214,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with benchmarked weights.
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with
+			// benchmarked weights.
 			let mut weight = Weight::zero();
 			let db_weight = T::DbWeight::get();
 
