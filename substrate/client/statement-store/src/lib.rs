@@ -63,8 +63,8 @@ use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, NetworkPriority, Proof, Result, Statement,
-	SubmitResult, Topic,
+	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, Proof, RejectionReason,
+	Result, Statement, SubmitResult, Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -221,11 +221,6 @@ enum IndexQuery {
 	Unknown,
 	Exists,
 	Expired,
-}
-
-enum MaybeInserted {
-	Inserted(HashSet<Hash>),
-	Ignored,
 }
 
 impl Index {
@@ -387,7 +382,7 @@ impl Index {
 		account: &AccountId,
 		validation: &ValidStatement,
 		current_time: u64,
-	) -> MaybeInserted {
+	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -396,7 +391,10 @@ impl Index {
 				HexDisplay::from(&hash),
 				statement_len,
 			);
-			return MaybeInserted::Ignored
+			return Err(RejectionReason::DataTooLarge {
+				submitted_size: statement_len,
+				available_size: validation.max_size as usize,
+			});
 		}
 
 		let mut evicted = HashSet::new();
@@ -418,7 +416,10 @@ impl Index {
 							priority,
 							channel_record.priority,
 						);
-						return MaybeInserted::Ignored
+						return Err(RejectionReason::ChannelPriorityTooLow {
+							submitted_priority: priority.0,
+							min_priority: channel_record.priority.0,
+						});
 					} else {
 						// Would replace channel message. Still need to check for size constraints
 						// below.
@@ -461,7 +462,10 @@ impl Index {
 						priority,
 						entry.priority,
 					);
-					return MaybeInserted::Ignored
+					return Err(RejectionReason::AccountFull {
+						submitted_priority: priority.0,
+						min_priority: entry.priority.0,
+					});
 				}
 				evicted.insert(entry.hash);
 				would_free_size += len;
@@ -478,14 +482,14 @@ impl Index {
 				self.total_size,
 				self.entries.len(),
 			);
-			return MaybeInserted::Ignored
+			return Err(RejectionReason::StoreFull);
 		}
 
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
 		self.insert_new(hash, *account, statement);
-		MaybeInserted::Inserted(evicted)
+		Ok(evicted)
 	}
 }
 
@@ -903,7 +907,10 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			return SubmitResult::Ignored
+			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+				submitted_size: encoded_size,
+				max_size: MAX_STATEMENT_SIZE,
+			});
 		}
 
 		match self.index.read().query(&hash) {
@@ -925,7 +932,7 @@ impl StatementStore for Store {
 				HexDisplay::from(&hash),
 			);
 			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Bad("No statement proof")
+			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
 		// Validate.
@@ -944,7 +951,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Bad("Bad statement proof")
+				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},
 			Err(InvalidStatement::NoProof) => {
 				log::debug!(
@@ -953,7 +960,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Bad("Missing statement proof")
+				return SubmitResult::Invalid(InvalidReason::NoProof);
 			},
 			Err(InvalidStatement::InternalError) =>
 				return SubmitResult::InternalError(Error::Runtime),
@@ -966,8 +973,8 @@ impl StatementStore for Store {
 
 			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
-					MaybeInserted::Ignored => return SubmitResult::Ignored,
-					MaybeInserted::Inserted(evicted) => evicted,
+					Ok(evicted) => evicted,
+					Err(reason) => return SubmitResult::Rejected(reason),
 				};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
@@ -986,9 +993,8 @@ impl StatementStore for Store {
 			}
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
-		let network_priority = NetworkPriority::High;
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
-		SubmitResult::New(network_priority)
+		SubmitResult::New
 	}
 
 	/// Remove a statement by hash.
@@ -1050,8 +1056,8 @@ mod tests {
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
+		StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1217,15 +1223,9 @@ mod tests {
 	fn submit_one() {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
-		assert_eq!(
-			store.submit(statement0, StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		let unsigned = statement(0, 1, None, 0);
-		assert_eq!(
-			store.submit(unsigned, StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
 	}
 
 	#[test]
@@ -1234,18 +1234,9 @@ mod tests {
 		let statement0 = signed_statement(0);
 		let statement1 = signed_statement(1);
 		let statement2 = signed_statement(2);
-		assert_eq!(
-			store.submit(statement0.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
-		assert_eq!(
-			store.submit(statement1.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
-		assert_eq!(
-			store.submit(statement2.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(statement0.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement1.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement2.clone(), StatementSource::Network), SubmitResult::New);
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1.clone()));
@@ -1344,20 +1335,28 @@ mod tests {
 
 		store.index.write().options.max_total_size = 3000;
 		let source = StatementSource::Network;
-		let ok = SubmitResult::New(NetworkPriority::High);
-		let ignored = SubmitResult::Ignored;
+		let ok = SubmitResult::New;
 
 		// Account 1 (limit = 1 msg, 1000 bytes)
 
 		// Oversized statement is not allowed. Limit for account 1 is 1 msg, 1000 bytes
-		assert_eq!(store.submit(statement(1, 1, Some(1), 2000), source), ignored);
+		assert!(matches!(
+			store.submit(statement(1, 1, Some(1), 2000), source),
+			SubmitResult::Rejected(_)
+		));
 		assert_eq!(store.submit(statement(1, 1, Some(1), 500), source), ok);
 		// Would not replace channel message with same priority
-		assert_eq!(store.submit(statement(1, 1, Some(1), 200), source), ignored);
+		assert!(matches!(
+			store.submit(statement(1, 1, Some(1), 200), source),
+			SubmitResult::Rejected(_)
+		));
 		assert_eq!(store.submit(statement(1, 2, Some(1), 600), source), ok);
 		// Submit another message to another channel with lower priority. Should not be allowed
 		// because msg count limit is 1
-		assert_eq!(store.submit(statement(1, 1, Some(2), 100), source), ignored);
+		assert!(matches!(
+			store.submit(statement(1, 1, Some(2), 100), source),
+			SubmitResult::Rejected(_)
+		));
 		assert_eq!(store.index.read().expired.len(), 1);
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
@@ -1384,10 +1383,16 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 4);
 
 		// Should be over the global size limit
-		assert_eq!(store.submit(statement(1, 1, None, 700), source), ignored);
+		assert!(matches!(
+			store.submit(statement(1, 1, None, 700), source),
+			SubmitResult::Rejected(_)
+		));
 		// Should be over the global count limit
 		store.index.write().options.max_total_statements = 4;
-		assert_eq!(store.submit(statement(1, 1, None, 100), source), ignored);
+		assert!(matches!(
+			store.submit(statement(1, 1, None, 100), source),
+			SubmitResult::Rejected(_)
+		));
 
 		let mut expected_statements = vec![
 			statement(1, 2, Some(1), 600).hash(),
@@ -1412,16 +1417,16 @@ mod tests {
 				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
 				StatementSource::Local
 			),
-			SubmitResult::New(NetworkPriority::High)
+			SubmitResult::New
 		);
 
-		assert_eq!(
+		assert!(matches!(
 			store.submit(
 				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
 				StatementSource::Local
 			),
-			SubmitResult::Ignored
-		);
+			SubmitResult::Invalid(_)
+		));
 	}
 
 	#[test]
@@ -1673,10 +1678,7 @@ mod tests {
 
 		// Submit all statements.
 		for s in [&s_a1, &s_a2, &s_a3, &s_b1, &s_b2] {
-			assert!(matches!(
-				store.submit(s.clone(), StatementSource::Network),
-				SubmitResult::New(_)
-			));
+			assert_eq!(store.submit(s.clone(), StatementSource::Network), SubmitResult::New);
 		}
 
 		// --- Pre-conditions: everything is indexed as expected.
@@ -1748,6 +1750,6 @@ mod tests {
 
 		// --- Reuse: Account A can submit again after purge.
 		let s_new = statement(4, 40, None, 10);
-		assert!(matches!(store.submit(s_new, StatementSource::Network), SubmitResult::New(_)));
+		assert_eq!(store.submit(s_new, StatementSource::Network), SubmitResult::New);
 	}
 }

@@ -216,7 +216,7 @@ pub fn teleports_for_native_asset_works<
 				let delivery_fees =
 					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(native_asset_id.clone(), native_asset_to_teleport_away.into()).into(),
-						native_asset_id.clone().into(),
+						0,
 						Unlimited,
 						dest_beneficiary.clone(),
 						dest.clone(),
@@ -625,7 +625,7 @@ pub fn teleports_for_foreign_assets_works<
 				let delivery_fees =
 					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(foreign_asset_id_location.clone(), asset_to_teleport_away).into(),
-						foreign_asset_id_location.clone().into(),
+						0,
 						Unlimited,
 						dest_beneficiary.clone(),
 						dest.clone(),

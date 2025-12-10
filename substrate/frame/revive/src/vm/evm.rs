@@ -50,7 +50,7 @@ pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
 /// Cost  for a single unit of EVM gas.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-pub struct EVMGas(u64);
+pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {

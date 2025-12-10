@@ -119,6 +119,20 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
+	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
+	///
+	/// Adds the EVM gas stipend for non-zero value calls.
+	///
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	fn call_evm(
+		flags: CallFlags,
+		callee: &[u8; 20],
+		gas: u64,
+		value: &[u8; 32],
+		input_data: &[u8],
+		output: Option<&mut &mut [u8]>,
+	) -> Result;
+
 	/// Stores the address of the caller into the supplied buffer.
 	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
@@ -203,6 +217,17 @@ pub trait HostFn: private::Sealed {
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_limit: &[u8; 32],
+		input_data: &[u8],
+		output: Option<&mut &mut [u8]>,
+	) -> Result;
+
+	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
+	///
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	fn delegate_call_evm(
+		flags: CallFlags,
+		address: &[u8; 20],
+		gas: u64,
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;

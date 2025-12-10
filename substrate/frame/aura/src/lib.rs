@@ -264,6 +264,10 @@ impl<T: Config> Pallet<T> {
 	/// * The current authority cannot be disabled.
 	/// * The number of authorities must be less than or equal to `T::MaxAuthorities`. This however,
 	///   is guarded by the type system.
+	///
+	/// ## Timestamp Consistency
+	///
+	/// The timestamp divided by the slot duration must equal the current slot (after genesis).
 	#[cfg(any(test, feature = "try-runtime"))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// We don't have any guarantee that we are already after `on_initialize` and thus we have to
@@ -292,6 +296,19 @@ impl<T: Config> Pallet<T> {
 			!T::DisabledValidators::is_disabled(authority_index as u32),
 			"Current validator is disabled and should not be attempting to author blocks.",
 		);
+
+		// Check that the timestamp is consistent with the current slot.
+		let timestamp = pallet_timestamp::Pallet::<T>::get();
+
+		if !timestamp.is_zero() {
+			let slot_duration = Self::slot_duration();
+
+			let timestamp_slot = Slot::from((timestamp / slot_duration).saturated_into::<u64>());
+			frame_support::ensure!(
+				current_slot == timestamp_slot,
+				"Timestamp slot must match CurrentSlot.",
+			);
+		}
 
 		Ok(())
 	}

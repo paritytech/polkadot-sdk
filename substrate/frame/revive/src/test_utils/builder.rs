@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{deposit_limit, GAS_LIMIT};
+use super::{deposit_limit, ETH_GAS_LIMIT, WEIGHT_LIMIT};
 use crate::{
-	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, Code, Config,
-	ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
-	U256,
+	address::AddressMapper, evm::TransactionSigned, metering::TransactionLimits, AccountIdOf,
+	BalanceOf, Code, Config, ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue,
+	OriginFor, Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -79,7 +79,7 @@ builder!(
 	instantiate_with_code(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
@@ -91,7 +91,7 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
@@ -104,7 +104,7 @@ builder!(
 	instantiate(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		code_hash: sp_core::H256,
 		data: Vec<u8>,
@@ -116,7 +116,7 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
@@ -129,8 +129,7 @@ builder!(
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		transaction_limits: TransactionLimits<T>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
@@ -175,8 +174,10 @@ builder!(
 		Self {
 			origin,
 			evm_value: Default::default(),
-			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
+			transaction_limits: TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: deposit_limit::<T>()
+			},
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
@@ -190,7 +191,7 @@ builder!(
 		origin: OriginFor<T>,
 		dest: H160,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
@@ -201,7 +202,7 @@ builder!(
 			origin,
 			dest,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
 		}
@@ -213,8 +214,7 @@ builder!(
 		origin: OriginFor<T>,
 		dest: H160,
 		evm_value: U256,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		transaction_limits: TransactionLimits<T>,
 		data: Vec<u8>,
 		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
@@ -236,8 +236,10 @@ builder!(
 			origin,
 			dest,
 			evm_value: Default::default(),
-			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
+			transaction_limits: TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: deposit_limit::<T>()
+			},
 			data: vec![],
 			exec_config: ExecConfig::new_substrate_tx(),
 		}
@@ -249,7 +251,8 @@ builder!(
 		origin: OriginFor<T>,
 		dest: H160,
 		value: U256,
-		gas_limit: Weight,
+		weight_limit: Weight,
+		eth_gas_limit: U256,
 		data: Vec<u8>,
 		transaction_encoded: Vec<u8>,
 		effective_gas_price: U256,
@@ -262,7 +265,8 @@ builder!(
 			origin,
 			dest,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
 			data: vec![],
 			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
 			effective_gas_price: 0u32.into(),
@@ -276,6 +280,7 @@ builder!(
 			origin: OriginFor<T>,
 			value: U256,
 			gas_limit: Weight,
+			eth_gas_limit: U256,
 			code: Vec<u8>,
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
@@ -288,7 +293,8 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			gas_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
 			code,
 			data: vec![],
 			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
