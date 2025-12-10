@@ -712,10 +712,6 @@ macro_rules! decl_test_parachains {
 
 						// Process parachain inherents:
 
-<<<<<<< HEAD
-						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
-						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
-=======
 					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
 					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
 						// We need to satisfy `pallet_timestamp::on_finalize`.
@@ -731,7 +727,6 @@ macro_rules! decl_test_parachains {
 
 					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
->>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
 						let inbound_messages_data = $crate::InboundMessagesData::new(
@@ -746,14 +741,6 @@ macro_rules! decl_test_parachains {
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 
-						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
-						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-							// We need to satisfy `pallet_timestamp::on_finalize`.
-							now: Zero::zero(),
-						}.into();
-						$crate::assert_ok!(
-							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
-						);
 						$crate::assert_ok!(
 							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
@@ -1207,11 +1194,8 @@ macro_rules! decl_test_networks {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
-<<<<<<< HEAD
-=======
 					sproof.host_config.max_upward_message_size = 1024 * 1024;
 					sproof.num_authorities = relay_parent_offset + 1;
->>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
