@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_revive_proc_macro", 0, "Procedural macros used in <code>pallet-revive</code>.\nDefines a host functions set that can be imported by …")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COLLECTIVES_POLKADOT_ED"],"fn":["collectives_polkadot_development_config","collectives_polkadot_genesis","collectives_polkadot_local_config","collectives_polkadot_session_keys"],"type":["CollectivesPolkadotChainSpec"]};

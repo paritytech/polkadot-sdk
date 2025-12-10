@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BountyStatus","PaymentState"],"mod":["pallet","weights"],"struct":["Bounty","BountySourceFromPalletId","ChildBounty","ChildBountySourceFromPalletId","CuratorDepositAmount","PalletIdAsFundingSource"],"trait":["ArgumentsFactory"],"type":["AccountIdLookupOf","BeneficiaryLookupOf","BountyIndex","BountyOf","ChildBountyOf","PaymentIdOf"]};

@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Testing utils for staking. Provides some common functions to setup staking state, such as bonding validators, nominators, and generating different types of solutions."><title>yet_another_parachain_runtime::pallet_staking::testing_utils - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module testing_<wbr>utils</a></h2><h3><a href="#functions">Module Items</a></h3><ul class="block"><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>staking</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">pallet_staking</a></div><h1>Module <span>testing_utils</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/pallet_staking/lib.rs.html#293">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Testing utils for staking. Provides some common functions to setup staking state, such as
+bonding validators, nominators, and generating different types of solutions.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.clear_validators_and_nominators.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::clear_validators_and_nominators">clear_<wbr>validators_<wbr>and_<wbr>nominators</a></dt><dd>This function removes all validators and nominators from storage.</dd><dt><a class="fn" href="fn.create_funded_user.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_funded_user">create_<wbr>funded_<wbr>user</a></dt><dd>Grab a funded user.</dd><dt><a class="fn" href="fn.create_funded_user_with_balance.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_funded_user_with_balance">create_<wbr>funded_<wbr>user_<wbr>with_<wbr>balance</a></dt><dd>Grab a funded user with max Balance.</dd><dt><a class="fn" href="fn.create_stash_and_dead_payee.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_stash_and_dead_payee">create_<wbr>stash_<wbr>and_<wbr>dead_<wbr>payee</a></dt><dd>Create a stash and controller pair, where payouts go to a dead payee account. This is used to
+test worst case payout scenarios.</dd><dt><a class="fn" href="fn.create_stash_controller.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_stash_controller">create_<wbr>stash_<wbr>controller</a></dt><dd>Create a stash and controller pair.</dd><dt><a class="fn" href="fn.create_stash_controller_with_balance.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_stash_controller_with_balance">create_<wbr>stash_<wbr>controller_<wbr>with_<wbr>balance</a></dt><dd>Create a stash and controller pair with fixed balance.</dd><dt><a class="fn" href="fn.create_unique_stash_controller.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_unique_stash_controller">create_<wbr>unique_<wbr>stash_<wbr>controller</a></dt><dd>Create a unique stash and controller pair.</dd><dt><a class="fn" href="fn.create_validators.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_validators">create_<wbr>validators</a></dt><dd>create <code>max</code> validators.</dd><dt><a class="fn" href="fn.create_validators_with_nominators_for_era.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_validators_with_nominators_for_era">create_<wbr>validators_<wbr>with_<wbr>nominators_<wbr>for_<wbr>era</a></dt><dd>This function generates validators and nominators who are randomly nominating
+<code>edge_per_nominator</code> random validators (until <code>to_nominate</code> if provided).</dd><dt><a class="fn" href="fn.create_validators_with_seed.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::create_validators_with_seed">create_<wbr>validators_<wbr>with_<wbr>seed</a></dt><dd>create <code>max</code> validators, with a seed to help unintentional prevent account collisions.</dd><dt><a class="fn" href="fn.current_era.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::current_era">current_<wbr>era</a></dt><dd>get the current era.</dd><dt><a class="fn" href="fn.migrate_to_old_currency.html" title="fn yet_another_parachain_runtime::pallet_staking::testing_utils::migrate_to_old_currency">migrate_<wbr>to_<wbr>old_<wbr>currency</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

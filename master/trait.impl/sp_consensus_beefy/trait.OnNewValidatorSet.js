@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_beefy_mmr",[["impl&lt;T&gt; OnNewValidatorSet&lt;&lt;T as Config&gt;::BeefyId&gt; for <a class=\"struct\" href=\"pallet_beefy_mmr/pallet/struct.Pallet.html\" title=\"struct pallet_beefy_mmr::pallet::Pallet\">Pallet</a>&lt;T&gt;<div class=\"where\">where\n    T: <a class=\"trait\" href=\"pallet_beefy_mmr/pallet/trait.Config.html\" title=\"trait pallet_beefy_mmr::pallet::Config\">Config</a>,</div>"]]],["sp_consensus_beefy",[]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[411,26,37]}

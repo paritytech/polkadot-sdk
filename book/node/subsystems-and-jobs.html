@@ -1,0 +1,528 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Subsystems and Jobs - The Polkadot Parachain Host Implementers&#x27; Guide</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../last-changed.css">
+
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Preamble</a></li><li class="chapter-item expanded "><a href="../whence-parachains.html"><strong aria-hidden="true">1.</strong> Whence Parachains</a></li><li class="chapter-item expanded "><a href="../protocol-overview.html"><strong aria-hidden="true">2.</strong> Protocol Overview</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../protocol-approval.html"><strong aria-hidden="true">2.1.</strong> Approval Process</a></li><li class="chapter-item expanded "><a href="../protocol-disputes.html"><strong aria-hidden="true">2.2.</strong> Disputes Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../disputes-flow.html"><strong aria-hidden="true">2.2.1.</strong> Dispute Flow</a></li></ol></li><li class="chapter-item expanded "><a href="../protocol-chain-selection.html"><strong aria-hidden="true">2.3.</strong> Chain Selection and Finalization</a></li><li class="chapter-item expanded "><a href="../protocol-validator-disabling.html"><strong aria-hidden="true">2.4.</strong> Validator Disabling</a></li></ol></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">3.</strong> Architecture Overview</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../messaging.html"><strong aria-hidden="true">3.1.</strong> Messaging Overview</a></li><li class="chapter-item expanded "><a href="../pvf-prechecking.html"><strong aria-hidden="true">3.2.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="../runtime/index.html"><strong aria-hidden="true">4.</strong> Runtime Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../runtime/initializer.html"><strong aria-hidden="true">4.1.</strong> Initializer Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/configuration.html"><strong aria-hidden="true">4.2.</strong> Configuration Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/shared.html"><strong aria-hidden="true">4.3.</strong> Shared Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/disputes.html"><strong aria-hidden="true">4.4.</strong> Disputes Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/paras.html"><strong aria-hidden="true">4.5.</strong> Paras Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/scheduler.html"><strong aria-hidden="true">4.6.</strong> Scheduler Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/inclusion.html"><strong aria-hidden="true">4.7.</strong> Inclusion Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/parainherent.html"><strong aria-hidden="true">4.8.</strong> ParaInherent Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/dmp.html"><strong aria-hidden="true">4.9.</strong> DMP Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/hrmp.html"><strong aria-hidden="true">4.10.</strong> HRMP Pallet</a></li><li class="chapter-item expanded "><a href="../runtime/session_info.html"><strong aria-hidden="true">4.11.</strong> Session Info Pallet</a></li></ol></li><li class="chapter-item expanded "><a href="../runtime-api/index.html"><strong aria-hidden="true">5.</strong> Runtime APIs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../runtime-api/validators.html"><strong aria-hidden="true">5.1.</strong> Validators</a></li><li class="chapter-item expanded "><a href="../runtime-api/validator-groups.html"><strong aria-hidden="true">5.2.</strong> Validator Groups</a></li><li class="chapter-item expanded "><a href="../runtime-api/availability-cores.html"><strong aria-hidden="true">5.3.</strong> Availability Cores</a></li><li class="chapter-item expanded "><a href="../runtime-api/persisted-validation-data.html"><strong aria-hidden="true">5.4.</strong> Persisted Validation Data</a></li><li class="chapter-item expanded "><a href="../runtime-api/session-index.html"><strong aria-hidden="true">5.5.</strong> Session Index</a></li><li class="chapter-item expanded "><a href="../runtime-api/validation-code.html"><strong aria-hidden="true">5.6.</strong> Validation Code</a></li><li class="chapter-item expanded "><a href="../runtime-api/candidate-pending-availability.html"><strong aria-hidden="true">5.7.</strong> Candidate Pending Availability</a></li><li class="chapter-item expanded "><a href="../runtime-api/candidate-events.html"><strong aria-hidden="true">5.8.</strong> Candidate Events</a></li><li class="chapter-item expanded "><a href="../runtime-api/disputes-info.html"><strong aria-hidden="true">5.9.</strong> Disputes Info</a></li><li class="chapter-item expanded "><a href="../runtime-api/candidates-included.html"><strong aria-hidden="true">5.10.</strong> Candidates Included</a></li><li class="chapter-item expanded "><a href="../runtime-api/pvf-prechecking.html"><strong aria-hidden="true">5.11.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="../node/index.html"><strong aria-hidden="true">6.</strong> Node Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/subsystems-and-jobs.html" class="active"><strong aria-hidden="true">6.1.</strong> Subsystems and Jobs</a></li><li class="chapter-item expanded "><a href="../node/overseer.html"><strong aria-hidden="true">6.2.</strong> Overseer</a></li><li class="chapter-item expanded "><a href="../node/grandpa-voting-rule.html"><strong aria-hidden="true">6.3.</strong> GRANDPA Voting Rule</a></li><li class="chapter-item expanded "><a href="../node/collators/index.html"><strong aria-hidden="true">6.4.</strong> Collator Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/collators/collation-generation.html"><strong aria-hidden="true">6.4.1.</strong> Collation Generation</a></li><li class="chapter-item expanded "><a href="../node/collators/collator-protocol.html"><strong aria-hidden="true">6.4.2.</strong> Collator Protocol</a></li></ol></li><li class="chapter-item expanded "><a href="../node/backing/index.html"><strong aria-hidden="true">6.5.</strong> Backing Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/backing/candidate-backing.html"><strong aria-hidden="true">6.5.1.</strong> Candidate Backing</a></li><li class="chapter-item expanded "><a href="../node/backing/prospective-parachains.html"><strong aria-hidden="true">6.5.2.</strong> Prospective Parachains</a></li><li class="chapter-item expanded "><a href="../node/backing/statement-distribution.html"><strong aria-hidden="true">6.5.3.</strong> Statement Distribution</a></li><li class="chapter-item expanded "><a href="../node/backing/statement-distribution-legacy.html"><strong aria-hidden="true">6.5.4.</strong> Statement Distribution (Legacy)</a></li></ol></li><li class="chapter-item expanded "><a href="../node/availability/index.html"><strong aria-hidden="true">6.6.</strong> Availability Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/availability/availability-distribution.html"><strong aria-hidden="true">6.6.1.</strong> Availability Distribution</a></li><li class="chapter-item expanded "><a href="../node/availability/availability-recovery.html"><strong aria-hidden="true">6.6.2.</strong> Availability Recovery</a></li><li class="chapter-item expanded "><a href="../node/availability/bitfield-distribution.html"><strong aria-hidden="true">6.6.3.</strong> Bitfield Distribution</a></li><li class="chapter-item expanded "><a href="../node/availability/bitfield-signing.html"><strong aria-hidden="true">6.6.4.</strong> Bitfield Signing</a></li></ol></li><li class="chapter-item expanded "><a href="../node/approval/index.html"><strong aria-hidden="true">6.7.</strong> Approval Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/approval/approval-voting.html"><strong aria-hidden="true">6.7.1.</strong> Approval Voting</a></li><li class="chapter-item expanded "><a href="../node/approval/approval-distribution.html"><strong aria-hidden="true">6.7.2.</strong> Approval Distribution</a></li></ol></li><li class="chapter-item expanded "><a href="../node/disputes/index.html"><strong aria-hidden="true">6.8.</strong> Disputes Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/disputes/dispute-coordinator.html"><strong aria-hidden="true">6.8.1.</strong> Dispute Coordinator</a></li><li class="chapter-item expanded "><a href="../node/disputes/dispute-distribution.html"><strong aria-hidden="true">6.8.2.</strong> Dispute Distribution</a></li></ol></li><li class="chapter-item expanded "><a href="../node/utility/index.html"><strong aria-hidden="true">6.9.</strong> Utility Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/utility/availability-store.html"><strong aria-hidden="true">6.9.1.</strong> Availability Store</a></li><li class="chapter-item expanded "><a href="../node/utility/candidate-validation.html"><strong aria-hidden="true">6.9.2.</strong> Candidate Validation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../node/utility/pvf-host-and-workers.html"><strong aria-hidden="true">6.9.2.1.</strong> PVF Host and Workers</a></li></ol></li><li class="chapter-item expanded "><a href="../node/utility/provisioner.html"><strong aria-hidden="true">6.9.3.</strong> Provisioner</a></li><li class="chapter-item expanded "><a href="../node/utility/network-bridge.html"><strong aria-hidden="true">6.9.4.</strong> Network Bridge</a></li><li class="chapter-item expanded "><a href="../node/utility/gossip-support.html"><strong aria-hidden="true">6.9.5.</strong> Gossip Support</a></li><li class="chapter-item expanded "><a href="../node/utility/peer-set-manager.html"><strong aria-hidden="true">6.9.6.</strong> Peer Set Manager</a></li><li class="chapter-item expanded "><a href="../node/utility/runtime-api.html"><strong aria-hidden="true">6.9.7.</strong> Runtime API Requests</a></li><li class="chapter-item expanded "><a href="../node/utility/chain-api.html"><strong aria-hidden="true">6.9.8.</strong> Chain API Requests</a></li><li class="chapter-item expanded "><a href="../node/utility/chain-selection.html"><strong aria-hidden="true">6.9.9.</strong> Chain Selection Request</a></li><li class="chapter-item expanded "><a href="../node/utility/pvf-prechecker.html"><strong aria-hidden="true">6.9.10.</strong> PVF Pre-Checking</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../types/index.html"><strong aria-hidden="true">7.</strong> Data Structures and Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../types/candidate.html"><strong aria-hidden="true">7.1.</strong> Candidate</a></li><li class="chapter-item expanded "><a href="../types/backing.html"><strong aria-hidden="true">7.2.</strong> Backing</a></li><li class="chapter-item expanded "><a href="../types/availability.html"><strong aria-hidden="true">7.3.</strong> Availability</a></li><li class="chapter-item expanded "><a href="../types/overseer-protocol.html"><strong aria-hidden="true">7.4.</strong> Overseer and Subsystem Protocol</a></li><li class="chapter-item expanded "><a href="../types/runtime.html"><strong aria-hidden="true">7.5.</strong> Runtime</a></li><li class="chapter-item expanded "><a href="../types/messages.html"><strong aria-hidden="true">7.6.</strong> Messages</a></li><li class="chapter-item expanded "><a href="../types/network.html"><strong aria-hidden="true">7.7.</strong> Network</a></li><li class="chapter-item expanded "><a href="../types/approval.html"><strong aria-hidden="true">7.8.</strong> Approvals</a></li><li class="chapter-item expanded "><a href="../types/disputes.html"><strong aria-hidden="true">7.9.</strong> Disputes</a></li><li class="chapter-item expanded "><a href="../types/pvf-prechecking.html"><strong aria-hidden="true">7.10.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="../glossary.html">Glossary</a></li><li class="chapter-item expanded affix "><a href="../further-reading.html">Further Reading</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Polkadot Parachain Host Implementers&#x27; Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paritytech/polkadot-sdk" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="subsystems-and-jobs"><a class="header" href="#subsystems-and-jobs">Subsystems and Jobs</a></h1>
+<p>In this section we define the notions of Subsystems and Jobs. These are
+guidelines for how we will employ an architecture of hierarchical state
+machines. We'll have a top-level state machine which oversees the next level of
+state machines which oversee another layer of state machines and so on. The next
+sections will lay out these guidelines for what we've called subsystems and
+jobs, since this model applies to many of the tasks that the Node-side behavior
+needs to encompass, but these are only guidelines and some Subsystems may have
+deeper hierarchies internally.</p>
+<p>Subsystems are long-lived worker tasks that are in charge of performing some
+particular kind of work. All subsystems can communicate with each other via a
+well-defined protocol. Subsystems can't generally communicate directly, but must
+coordinate communication through an <a href="overseer.html">Overseer</a>, which is
+responsible for relaying messages, handling subsystem failures, and dispatching
+work signals.</p>
+<p>Most work that happens on the Node-side is related to building on top of a
+specific relay-chain block, which is contextually known as the &quot;relay parent&quot;.
+We call it the relay parent to explicitly denote that it is a block in the relay
+chain and not on a parachain. We refer to the parent because when we are in the
+process of building a new block, we don't know what that new block is going to
+be. The parent block is our only stable point of reference, even though it is
+usually only useful when it is not yet a parent but in fact a leaf of the
+block-DAG expected to soon become a parent (because validators are authoring on
+top of it). Furthermore, we are assuming a forkful blockchain-extension
+protocol, which means that there may be multiple possible children of the
+relay-parent. Even if the relay parent has multiple children blocks, the parent
+of those children is the same, and the context in which those children is
+authored should be the same. The parent block is the best and most stable
+reference to use for defining the scope of work items and messages, and is
+typically referred to by its cryptographic hash.</p>
+<p>Since this goal of determining when to start and conclude work relative to a
+specific relay-parent is common to most, if not all subsystems, it is logically
+the job of the Overseer to distribute those signals as opposed to each subsystem
+duplicating that effort, potentially being out of synchronization with each
+other. Subsystem A should be able to expect that subsystem B is working on the
+same relay-parents as it is. One of the Overseer's tasks is to provide this
+heartbeat, or synchronized rhythm, to the system.</p>
+<p>The work that subsystems spawn to be done on a specific relay-parent is known as
+a job. Subsystems should set up and tear down jobs according to the signals
+received from the overseer. Subsystems may share or cache state between jobs.</p>
+<p>Subsystems must be robust to spurious exits. The outputs of the set of
+subsystems as a whole comprises of signed messages and data committed to disk.
+Care must be taken to avoid issuing messages that are not substantiated. Since
+subsystems need to be safe under spurious exits, it is the expected behavior
+that an <code>OverseerSignal::Conclude</code> can just lead to breaking the loop and
+exiting directly as opposed to waiting for everything to shut down gracefully.</p>
+<h2 id="subsystem-message-traffic"><a class="header" href="#subsystem-message-traffic">Subsystem Message Traffic</a></h2>
+<p>Which subsystems send messages to which other subsystems.</p>
+<p><strong>Note</strong>: This diagram omits the overseer for simplicity. In fact, all messages
+are relayed via the overseer.</p>
+<p><strong>Note</strong>: Messages with a filled diamond arrowhead (&quot;♦&quot;) include a
+<code>oneshot::Sender</code> which communicates a response from the recipient. Messages
+with an open triangle arrowhead (&quot;Δ&quot;) do not include a return sender.</p>
+<div><!-- Generated by graphviz version 2.43.0 (0)
+ --><!-- Title: %3 Pages: 1 --><svg width="2645pt" height="1244pt"
+ viewBox="0.00 0.00 2645.01 1243.57" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 1239.57)"><title>%3</title><polygon fill="white" stroke="transparent" points="-4,4 -4,-1239.57 2641.01,-1239.57 2641.01,4 -4,4"/><!-- av_store --><g id="node1" class="node"><title>av_store</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-958.57" rx="90.98" ry="18"/><text text-anchor="middle" x="2069.92" y="-954.87" font-family="Times,serif" font-size="14.00">Availability Store</text></g><!-- chn_api --><g id="node9" class="node"><title>chn_api</title><ellipse fill="none" stroke="black" cx="2547.97" cy="-965.57" rx="56.59" ry="18"/><text text-anchor="middle" x="2547.97" y="-961.87" font-family="Times,serif" font-size="14.00">Chain API</text></g><!-- av_store&#45;&gt;chn_api --><g id="edge2" class="edge"><title>av_store&#45;&gt;chn_api</title><path fill="none" stroke="black" d="M2160.74,-959.89C2253.36,-961.25 2395.69,-963.34 2479.24,-964.57"/><polygon fill="black" stroke="black" points="2479.38,-964.57 2485.44,-960.66 2491.38,-964.75 2485.32,-968.66 2479.38,-964.57"/><text text-anchor="middle" x="2320.42" y="-967.37" font-family="Times,serif" font-size="14.00">BlockNumber</text></g><!-- av_store&#45;&gt;chn_api --><g id="edge3" class="edge"><title>av_store&#45;&gt;chn_api</title><path fill="none" stroke="black" d="M2142.07,-947.5C2160.83,-945.04 2181.1,-942.8 2199.92,-941.57 2306.81,-934.56 2334.48,-929.67 2440.92,-941.57 2458.13,-943.49 2476.62,-947.12 2493.27,-950.98"/><polygon fill="black" stroke="black" points="2493.35,-951 2500.12,-948.52 2505.02,-953.81 2498.25,-956.3 2493.35,-951"/><text text-anchor="middle" x="2320.42" y="-945.37" font-family="Times,serif" font-size="14.00">BlockHeader</text></g><!-- av_store&#45;&gt;chn_api --><g id="edge5" class="edge"><title>av_store&#45;&gt;chn_api</title><path fill="none" stroke="black" d="M2132.31,-971.79C2153.61,-975.77 2177.72,-979.6 2199.92,-981.57 2306.62,-991.01 2334.11,-989.58 2440.92,-981.57 2455.72,-980.46 2471.58,-978.49 2486.41,-976.3"/><polygon fill="black" stroke="black" points="2486.71,-976.26 2492.03,-971.39 2498.57,-974.43 2493.25,-979.3 2486.71,-976.26"/><text text-anchor="middle" x="2320.42" y="-991.37" font-family="Times,serif" font-size="14.00">FinalizedBlockHash</text></g><!-- runt_api --><g id="node15" class="node"><title>runt_api</title><ellipse fill="none" stroke="black" cx="2547.97" cy="-734.57" rx="69.59" ry="18"/><text text-anchor="middle" x="2547.97" y="-730.87" font-family="Times,serif" font-size="14.00">Runtime API</text></g><!-- av_store&#45;&gt;runt_api --><g id="edge1" class="edge"><title>av_store&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M2130.33,-945.07C2147.38,-940.24 2165.73,-934.08 2181.92,-926.57 2190.65,-922.52 2191.03,-918.23 2199.92,-914.57 2300.85,-873.05 2347.61,-924.16 2440.92,-867.57 2482.57,-842.31 2514.57,-794.4 2532.07,-763.5"/><polygon fill="black" stroke="black" points="2532.29,-763.1 2531.66,-755.91 2538.05,-752.57 2538.68,-759.76 2532.29,-763.1"/><text text-anchor="middle" x="2320.42" y="-918.37" font-family="Times,serif" font-size="14.00">Request::CandidateEvents</text></g><!-- av_store&#45;&gt;runt_api --><g id="edge4" class="edge"><title>av_store&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M2145.99,-948.68C2159.41,-943.87 2172.2,-936.83 2181.92,-926.57 2206.39,-900.74 2172.97,-871.8 2199.92,-848.57 2240.62,-813.5 2391.54,-850.72 2440.92,-829.57 2475.36,-814.82 2506.19,-784.23 2525.62,-761.73"/><polygon fill="black" stroke="black" points="2525.76,-761.56 2526.55,-754.39 2533.47,-752.35 2532.68,-759.52 2525.76,-761.56"/><text text-anchor="middle" x="2320.42" y="-852.37" font-family="Times,serif" font-size="14.00">Request::Validators</text></g><!-- avail_dist --><g id="node2" class="node"><title>avail_dist</title><ellipse fill="none" stroke="black" cx="122.19" cy="-1001.57" rx="122.38" ry="18"/><text text-anchor="middle" x="122.19" y="-997.87" font-family="Times,serif" font-size="14.00">Availability Distribution</text></g><!-- avail_dist&#45;&gt;av_store --><g id="edge9" class="edge"><title>avail_dist&#45;&gt;av_store</title><path fill="none" stroke="black" d="M839.16,-1126.57C886.72,-1135.72 893.96,-1097.92 941.66,-1089.57 1045.24,-1071.45 1074.12,-1074.93 1178.24,-1089.57 1237.31,-1097.87 1248.05,-1133.94 1307.24,-1126.57"/><path fill="none" stroke="black" d="M1309.24,-1126.57C1461.57,-1106.15 1497.33,-1086.42 1644.92,-1043.57 1714.91,-1023.25 1727.85,-998.21 1800.42,-991.57"/><text text-anchor="middle" x="1059.95" y="-1093.37" font-family="Times,serif" font-size="14.00">QueryDataAvailability</text></g><!-- avail_dist&#45;&gt;av_store --><g id="edge10" class="edge"><title>avail_dist&#45;&gt;av_store</title><path fill="none" stroke="black" d="M839.16,-1126.57C884.6,-1135.61 895.53,-1141.33 941.66,-1145.57 1046.37,-1155.19 1073.38,-1153.25 1178.24,-1145.57 1236.04,-1141.33 1249.71,-1133.57 1307.24,-1126.57"/><text text-anchor="middle" x="1059.95" y="-1155.37" font-family="Times,serif" font-size="14.00">QueryChunk</text></g><!-- avail_dist&#45;&gt;av_store --><g id="edge11" class="edge"><title>avail_dist&#45;&gt;av_store</title><path fill="none" stroke="black" d="M839.16,-1126.57C839.16,-1126.57 1307.24,-1126.57 1307.24,-1126.57"/><text text-anchor="middle" x="1059.95" y="-1130.37" font-family="Times,serif" font-size="14.00">StoreChunk</text></g><!-- avail_dist&#45;&gt;chn_api --><g id="edge13" class="edge"><title>avail_dist&#45;&gt;chn_api</title><path fill="none" stroke="black" d="M839.16,-1126.57C887.9,-1135.67 893.89,-1157.31 941.66,-1170.57 1099.68,-1214.42 1143.25,-1220.57 1307.24,-1220.57 1307.24,-1220.57 1307.24,-1220.57 2070.92,-1220.57 2263.89,-1220.57 2454.28,-1055.74 2521.51,-991.12"/><polygon fill="black" stroke="black" points="2521.56,-991.07 2523.07,-984.01 2530.16,-982.7 2528.65,-989.75 2521.56,-991.07"/><text text-anchor="middle" x="1308.24" y="-1224.37" font-family="Times,serif" font-size="14.00">Ancestors</text></g><!-- net_brdg --><g id="node12" class="node"><title>net_brdg</title><ellipse fill="none" stroke="black" cx="649.52" cy="-622.57" rx="85.29" ry="18"/><text text-anchor="middle" x="649.52" y="-618.87" font-family="Times,serif" font-size="14.00">Network Bridge</text></g><!-- avail_dist&#45;&gt;net_brdg --><g id="edge6" class="edge"><title>avail_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M151.2,-983.98C220.18,-940.33 403.06,-822.52 546.38,-711.57 572.98,-690.98 601.74,-665.62 621.94,-647.24"/><polygon fill="none" stroke="black" points="624.49,-649.65 629.51,-640.32 619.76,-644.49 624.49,-649.65"/><text text-anchor="middle" x="404.38" y="-912.37" font-family="Times,serif" font-size="14.00">Request::SendValidationMessages</text></g><!-- avail_dist&#45;&gt;net_brdg --><g id="edge8" class="edge"><title>avail_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M237.07,-1007.8C354.11,-1013.09 522.53,-1017.2 546.38,-998.57 571.69,-978.79 556.12,-959.61 564.38,-928.57 591.67,-825.99 625.54,-704.5 640.63,-650.66"/><polygon fill="none" stroke="black" points="644.06,-651.39 643.39,-640.82 637.32,-649.5 644.06,-651.39"/><text text-anchor="middle" x="404.38" y="-1015.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- avail_dist&#45;&gt;runt_api --><g id="edge7" class="edge"><title>avail_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M405.38,-1050.57C600.18,-1046.2 645.2,-1093.11 837.16,-1126.57"/><path fill="none" stroke="black" d="M839.16,-1126.57C890.42,-1131.49 892.59,-1088.17 941.66,-1072.57 1308.46,-955.91 1419.72,-1017.26 1800.42,-960.57"/><text text-anchor="middle" x="1308.24" y="-1013.37" font-family="Times,serif" font-size="14.00">Request::AvailabilityCores</text></g><!-- avail_dist&#45;&gt;runt_api --><g id="edge12" class="edge"><title>avail_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M839.16,-940.57C1264.01,-894.7 1375.45,-1005.27 1800.42,-960.57"/><path fill="none" stroke="black" d="M1802.42,-960.57C1864.03,-953.25 1879.41,-950.22 1939.92,-936.57 1948.02,-934.74 1949.82,-933.38 1957.92,-931.57 2006.77,-920.63 2019.69,-921.57 2068.92,-912.57"/><text text-anchor="middle" x="1308.24" y="-964.37" font-family="Times,serif" font-size="14.00">Request::Validators</text></g><!-- avail_dist&#45;&gt;runt_api --><g id="edge14" class="edge"><title>avail_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M180.9,-1017.37C237.19,-1031.42 325.48,-1049.86 403.38,-1050.57"/><path fill="none" stroke="black" d="M405.38,-1050.57C603.4,-1052.36 640.49,-963.73 837.16,-940.57"/><path fill="none" stroke="black" d="M839.16,-940.57C893.37,-926.79 889.84,-888.6 941.66,-867.57 1047.73,-824.53 1082.11,-837.26 1196.24,-828.57 1295.51,-821.01 1320.89,-822.16 1420.24,-828.57 1492.77,-833.24 1997.43,-925.63 2068.92,-912.57"/><path fill="none" stroke="black" d="M2070.92,-912.57C2124.01,-902.08 2141.49,-898.52 2181.92,-862.57 2193.54,-852.24 2186.86,-841 2199.92,-832.57 2244.84,-803.55 2267.32,-830.61 2319.42,-818.57"/><text text-anchor="middle" x="1308.24" y="-832.37" font-family="Times,serif" font-size="14.00">Request::SessionIndexForChild</text></g><!-- avail_rcov --><g id="node3" class="node"><title>avail_rcov</title><ellipse fill="none" stroke="black" cx="122.19" cy="-660.57" rx="108.58" ry="18"/><text text-anchor="middle" x="122.19" y="-656.87" font-family="Times,serif" font-size="14.00">Availability Recovery</text></g><!-- avail_rcov&#45;&gt;av_store --><g id="edge16" class="edge"><title>avail_rcov&#45;&gt;av_store</title><path fill="none" stroke="black" d="M126.33,-678.63C136.06,-728.54 170.77,-868.51 262.38,-927.57 309.32,-957.83 1513.64,-1018.92 1800.42,-991.57"/><text text-anchor="middle" x="1059.95" y="-993.37" font-family="Times,serif" font-size="14.00">QueryChunk</text></g><!-- avail_rcov&#45;&gt;net_brdg --><g id="edge15" class="edge"><title>avail_rcov&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M171.53,-644.44C198.02,-636.43 231.64,-627.62 262.38,-623.57 363.04,-610.29 479.74,-612.37 558.28,-616.29"/><polygon fill="none" stroke="black" points="558.45,-619.8 568.62,-616.82 558.82,-612.81 558.45,-619.8"/><text text-anchor="middle" x="404.38" y="-627.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- avail_rcov&#45;&gt;net_brdg --><g id="edge17" class="edge"><title>avail_rcov&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M150.64,-643.04C177.8,-626.81 221.15,-603.85 262.38,-594.57 385.52,-566.85 421.28,-577.73 546.38,-594.57 561.18,-596.56 576.88,-600.11 591.41,-604.02"/><polygon fill="black" stroke="black" points="591.75,-604.12 598.61,-601.9 603.3,-607.37 596.44,-609.6 591.75,-604.12"/><text text-anchor="middle" x="404.38" y="-598.37" font-family="Times,serif" font-size="14.00">ConnectToValidators</text></g><!-- avail_rcov&#45;&gt;net_brdg --><g id="edge18" class="edge"><title>avail_rcov&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M191.07,-674.57C275.66,-689.43 424,-706.93 546.38,-676.57 570.92,-670.48 596.05,-657.3 615.25,-645.48"/><polygon fill="none" stroke="black" points="617.32,-648.31 623.9,-640 613.57,-642.4 617.32,-648.31"/><text text-anchor="middle" x="404.38" y="-696.37" font-family="Times,serif" font-size="14.00">SendValidationMessage::Chunk</text></g><!-- avail_rcov&#45;&gt;net_brdg --><g id="edge19" class="edge"><title>avail_rcov&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M229.95,-658.07C315.66,-655.33 438.99,-649.74 546.38,-638.57 555,-637.67 564.01,-636.54 572.95,-635.3"/><polygon fill="none" stroke="black" points="573.59,-638.75 582.99,-633.86 572.59,-631.82 573.59,-638.75"/><text text-anchor="middle" x="404.38" y="-660.37" font-family="Times,serif" font-size="14.00">SendValidationMessage::RequestChunk</text></g><!-- bitf_dist --><g id="node4" class="node"><title>bitf_dist</title><ellipse fill="none" stroke="black" cx="1541.58" cy="-780.57" rx="103.18" ry="18"/><text text-anchor="middle" x="1541.58" y="-776.87" font-family="Times,serif" font-size="14.00">Bitfield Distribution</text></g><!-- bitf_dist&#45;&gt;net_brdg --><g id="edge20" class="edge"><title>bitf_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1307.24,-754.57C1249.38,-751.35 1236.04,-769.33 1178.24,-773.57 1073.38,-781.25 1046.37,-783.19 941.66,-773.57 895.53,-769.33 883.35,-768.49 839.16,-754.57"/><text text-anchor="middle" x="1059.95" y="-783.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- bitf_dist&#45;&gt;net_brdg --><g id="edge22" class="edge"><title>bitf_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1307.24,-754.57C1307.24,-754.57 839.16,-754.57 839.16,-754.57"/><text text-anchor="middle" x="1059.95" y="-758.37" font-family="Times,serif" font-size="14.00">SendValidationMessage</text></g><!-- bitf_dist&#45;&gt;net_brdg --><g id="edge23" class="edge"><title>bitf_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1461.01,-769.22C1419.44,-763.86 1367.36,-758.01 1319.41,-755.14"/><polygon fill="none" stroke="black" points="1319.42,-751.63 1309.24,-754.57 1319.03,-758.62 1319.42,-751.63"/><path fill="none" stroke="black" d="M1307.24,-754.57C1249.44,-750.35 1236.04,-739.8 1178.24,-735.57 1073.38,-727.89 1046.37,-725.95 941.66,-735.57 895.53,-739.81 883.62,-767.63 839.16,-754.57"/><path fill="none" stroke="black" d="M837.16,-754.57C765.19,-733.42 697.76,-671.55 667.39,-640.62"/><text text-anchor="middle" x="1059.95" y="-739.37" font-family="Times,serif" font-size="14.00">SendValidationMessage</text></g><!-- provisioner --><g id="node14" class="node"><title>provisioner</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-682.57" rx="63.89" ry="18"/><text text-anchor="middle" x="2069.92" y="-678.87" font-family="Times,serif" font-size="14.00">Provisioner</text></g><!-- bitf_dist&#45;&gt;provisioner --><g id="edge21" class="edge"><title>bitf_dist&#45;&gt;provisioner</title><path fill="none" stroke="black" d="M1614.2,-767.63C1625.5,-763.07 1636.28,-756.9 1644.92,-748.57 1662.23,-731.88 1643.56,-711.81 1662.92,-697.57 1689,-678.39 1886.46,-679 1996.09,-680.89"/><polygon fill="none" stroke="black" points="1996.36,-684.39 2006.42,-681.07 1996.48,-677.39 1996.36,-684.39"/><text text-anchor="middle" x="1801.42" y="-701.37" font-family="Times,serif" font-size="14.00">ProvisionableData::Bitfield</text></g><!-- bitf_dist&#45;&gt;runt_api --><g id="edge24" class="edge"><title>bitf_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M1802.42,-827.57C1871.18,-835.87 1888.71,-835.34 1957.92,-837.57 2057.43,-840.76 2083.28,-851.01 2181.92,-837.57 2190.15,-836.45 2191.78,-834.17 2199.92,-832.57 2252.4,-822.27 2267.31,-830.55 2319.42,-818.57"/><text text-anchor="middle" x="2069.92" y="-847.37" font-family="Times,serif" font-size="14.00">Request::Validatiors</text></g><!-- bitf_dist&#45;&gt;runt_api --><g id="edge25" class="edge"><title>bitf_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M1604.43,-794.87C1656.41,-806.16 1732.83,-821.06 1800.42,-827.57"/><path fill="none" stroke="black" d="M1802.42,-827.57C1871.33,-834.2 1888.73,-820.57 1957.92,-818.57 1957.92,-818.57 2319.42,-818.57 2319.42,-818.57"/><text text-anchor="middle" x="2069.92" y="-822.37" font-family="Times,serif" font-size="14.00">Request::SessionIndexForChild</text></g><!-- bitf_sign --><g id="node5" class="node"><title>bitf_sign</title><ellipse fill="none" stroke="black" cx="1059.95" cy="-894.57" rx="83.39" ry="18"/><text text-anchor="middle" x="1059.95" y="-890.87" font-family="Times,serif" font-size="14.00">Bitfield Signing</text></g><!-- bitf_sign&#45;&gt;av_store --><g id="edge26" class="edge"><title>bitf_sign&#45;&gt;av_store</title><path fill="none" stroke="black" d="M1309.24,-906.57C1358.96,-905.75 1371.12,-912.89 1420.24,-920.57 1520.61,-936.26 1550.83,-924.28 1644.92,-962.57 1653.83,-966.19 1653.91,-971.22 1662.92,-974.57 1720.65,-996 1738.95,-995.13 1800.42,-991.57"/><path fill="none" stroke="black" d="M1802.42,-991.57C1863.15,-986.01 1931.4,-977.52 1983.63,-970.54"/><polygon fill="black" stroke="black" points="1983.64,-970.54 1989.05,-965.77 1995.53,-968.94 1990.12,-973.7 1983.64,-970.54"/><text text-anchor="middle" x="1541.58" y="-966.37" font-family="Times,serif" font-size="14.00">QueryChunkAvailability</text></g><!-- bitf_sign&#45;&gt;bitf_dist --><g id="edge28" class="edge"><title>bitf_sign&#45;&gt;bitf_dist</title><path fill="none" stroke="black" d="M1132.38,-885.57C1235.21,-872.56 1413.46,-849.81 1420.24,-847.57 1451.45,-837.26 1483.83,-818.71 1507.14,-803.74"/><polygon fill="none" stroke="black" points="1509.15,-806.6 1515.6,-798.2 1505.32,-800.74 1509.15,-806.6"/><text text-anchor="middle" x="1308.24" y="-879.37" font-family="Times,serif" font-size="14.00">DistributeBitfield</text></g><!-- bitf_sign&#45;&gt;runt_api --><g id="edge27" class="edge"><title>bitf_sign&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M1140.8,-898.85C1188.99,-901.33 1251.63,-904.39 1307.24,-906.57"/><path fill="none" stroke="black" d="M1309.24,-906.57C1393.59,-909.87 1985.84,-927.48 2068.92,-912.57"/><text text-anchor="middle" x="1801.42" y="-921.37" font-family="Times,serif" font-size="14.00">Request::AvailabilityCores</text></g><!-- cand_back --><g id="node6" class="node"><title>cand_back</title><ellipse fill="none" stroke="black" cx="1541.58" cy="-544.57" rx="98.28" ry="18"/><text text-anchor="middle" x="1541.58" y="-540.87" font-family="Times,serif" font-size="14.00">Candidate Backing</text></g><!-- cand_back&#45;&gt;av_store --><g id="edge29" class="edge"><title>cand_back&#45;&gt;av_store</title><path fill="none" stroke="black" d="M1559.33,-562.51C1580.92,-584.32 1620.74,-620.23 1662.92,-636.57 1720.54,-658.89 1896.65,-616.47 1939.92,-660.57 1981.42,-702.86 1920.72,-880.46 1957.92,-926.57 1963.99,-934.09 1971.7,-939.91 1980.23,-944.41"/><polygon fill="black" stroke="black" points="1980.45,-944.51 1987.56,-943.32 1991.4,-949.42 1984.28,-950.61 1980.45,-944.51"/><text text-anchor="middle" x="1801.42" y="-664.37" font-family="Times,serif" font-size="14.00">StoreAvailableData</text></g><!-- cand_sel --><g id="node7" class="node"><title>cand_sel</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-411.57" rx="103.98" ry="18"/><text text-anchor="middle" x="2069.92" y="-407.87" font-family="Times,serif" font-size="14.00">Candidate Selection</text></g><!-- cand_back&#45;&gt;cand_sel --><g id="edge32" class="edge"><title>cand_back&#45;&gt;cand_sel</title><path fill="none" stroke="black" d="M1555.22,-526.38C1574.79,-499.94 1615.18,-451.84 1662.92,-431.57 1689.26,-420.38 1845.19,-415.34 1955.93,-413.15"/><polygon fill="none" stroke="black" points="1956.23,-416.65 1966.16,-412.95 1956.1,-409.65 1956.23,-416.65"/><text text-anchor="middle" x="1801.42" y="-435.37" font-family="Times,serif" font-size="14.00">Invalid</text></g><!-- cand_val --><g id="node8" class="node"><title>cand_val</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-628.57" rx="107.48" ry="18"/><text text-anchor="middle" x="2069.92" y="-624.87" font-family="Times,serif" font-size="14.00">Candidate Validation</text></g><!-- cand_back&#45;&gt;cand_val --><g id="edge31" class="edge"><title>cand_back&#45;&gt;cand_val</title><path fill="none" stroke="black" d="M1584.97,-528.39C1659.62,-502.52 1818.16,-459.4 1939.92,-507.57 1987.18,-526.26 2027.24,-571.35 2049.67,-600.9"/><polygon fill="black" stroke="black" points="2049.73,-600.97 2056.51,-603.43 2056.85,-610.63 2050.07,-608.18 2049.73,-600.97"/><text text-anchor="middle" x="1801.42" y="-511.37" font-family="Times,serif" font-size="14.00">ValidateFromChainState</text></g><!-- pov_dist --><g id="node13" class="node"><title>pov_dist</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-337.57" rx="87.18" ry="18"/><text text-anchor="middle" x="2069.92" y="-333.87" font-family="Times,serif" font-size="14.00">PoV Distribution</text></g><!-- cand_back&#45;&gt;pov_dist --><g id="edge30" class="edge"><title>cand_back&#45;&gt;pov_dist</title><path fill="none" stroke="black" d="M1547.86,-526.39C1560.36,-487.02 1595.9,-394.3 1662.92,-355.57 1688.83,-340.6 1858.68,-337.56 1970.33,-337.22"/><polygon fill="black" stroke="black" points="1970.63,-337.22 1976.62,-333.21 1982.63,-337.19 1976.64,-341.21 1970.63,-337.22"/><text text-anchor="middle" x="1801.42" y="-359.37" font-family="Times,serif" font-size="14.00">FetchPoV</text></g><!-- cand_back&#45;&gt;pov_dist --><g id="edge35" class="edge"><title>cand_back&#45;&gt;pov_dist</title><path fill="none" stroke="black" d="M1550.91,-526.54C1567.17,-493.68 1606.53,-424.69 1662.92,-394.57 1717.42,-365.46 1879.01,-380.93 1939.92,-370.57 1962.95,-366.65 1987.89,-360.69 2009.65,-354.9"/><polygon fill="none" stroke="black" points="2010.67,-358.25 2019.41,-352.26 2008.84,-351.5 2010.67,-358.25"/><text text-anchor="middle" x="1801.42" y="-398.37" font-family="Times,serif" font-size="14.00">DistributePoV</text></g><!-- cand_back&#45;&gt;provisioner --><g id="edge33" class="edge"><title>cand_back&#45;&gt;provisioner</title><path fill="none" stroke="black" d="M1620.2,-555.46C1634.4,-557.29 1649.09,-559.08 1662.92,-560.57 1693.63,-563.88 1916.39,-563.57 1939.92,-583.57 1965.06,-604.93 1934.53,-632.32 1957.92,-655.57 1968.55,-666.13 1982.58,-672.81 1997.07,-676.98"/><polygon fill="none" stroke="black" points="1996.59,-680.47 2007.14,-679.48 1998.28,-673.67 1996.59,-680.47"/><text text-anchor="middle" x="1801.42" y="-587.37" font-family="Times,serif" font-size="14.00">ProvisionableData::MisbehaviorReport</text></g><!-- cand_back&#45;&gt;provisioner --><g id="edge34" class="edge"><title>cand_back&#45;&gt;provisioner</title><path fill="none" stroke="black" d="M1632.7,-537.78C1742.75,-530.42 1917.18,-522.13 1939.92,-541.57 1978.92,-574.89 1923.17,-617.84 1957.92,-655.57 1968.13,-666.65 1982.06,-673.53 1996.59,-677.73"/><polygon fill="none" stroke="black" points="1996.17,-681.23 2006.72,-680.23 1997.85,-674.44 1996.17,-681.23"/><text text-anchor="middle" x="1801.42" y="-545.37" font-family="Times,serif" font-size="14.00">ProvisionableData::BackedCandidate</text></g><!-- stmt_dist --><g id="node16" class="node"><title>stmt_dist</title><ellipse fill="none" stroke="black" cx="1059.95" cy="-583.57" rx="118.08" ry="18"/><text text-anchor="middle" x="1059.95" y="-579.87" font-family="Times,serif" font-size="14.00">Statement Distribution</text></g><!-- cand_back&#45;&gt;stmt_dist --><g id="edge36" class="edge"><title>cand_back&#45;&gt;stmt_dist</title><path fill="none" stroke="black" d="M1465.91,-556.05C1450.82,-558.11 1435.04,-560.07 1420.24,-561.57 1342.02,-569.48 1253.9,-574.92 1184.51,-578.42"/><polygon fill="none" stroke="black" points="1184.23,-574.93 1174.41,-578.92 1184.57,-581.92 1184.23,-574.93"/><text text-anchor="middle" x="1308.24" y="-582.37" font-family="Times,serif" font-size="14.00">Share</text></g><!-- cand_sel&#45;&gt;cand_back --><g id="edge38" class="edge"><title>cand_sel&#45;&gt;cand_back</title><path fill="none" stroke="black" d="M2019.49,-427.34C1995.68,-434.33 1966.57,-441.99 1939.92,-446.57 1818.25,-467.49 1780.03,-428.45 1662.92,-467.57 1628.56,-479.05 1594.24,-502.49 1571.09,-520.52"/><polygon fill="none" stroke="black" points="1568.74,-517.91 1563.09,-526.88 1573.1,-523.39 1568.74,-517.91"/><text text-anchor="middle" x="1801.42" y="-471.37" font-family="Times,serif" font-size="14.00">Second</text></g><!-- coll_prot --><g id="node11" class="node"><title>coll_prot</title><ellipse fill="none" stroke="black" cx="2547.97" cy="-225.57" rx="89.08" ry="18"/><text text-anchor="middle" x="2547.97" y="-221.87" font-family="Times,serif" font-size="14.00">Collator Protocol</text></g><!-- cand_sel&#45;&gt;coll_prot --><g id="edge37" class="edge"><title>cand_sel&#45;&gt;coll_prot</title><path fill="none" stroke="black" d="M2145.18,-399.02C2222.11,-384.11 2344.36,-354.94 2440.92,-306.57 2470.07,-291.97 2499.21,-268.95 2519.55,-251.17"/><polygon fill="black" stroke="black" points="2519.56,-251.16 2521.38,-244.18 2528.52,-243.17 2526.7,-250.15 2519.56,-251.16"/><text text-anchor="middle" x="2320.42" y="-390.37" font-family="Times,serif" font-size="14.00">FetchCollation</text></g><!-- cand_val&#45;&gt;runt_api --><g id="edge39" class="edge"><title>cand_val&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M2155.54,-639.41C2170.33,-641.21 2185.57,-642.99 2199.92,-644.57 2306.88,-656.3 2339.11,-632.77 2440.92,-667.57 2468.47,-676.98 2496.17,-694.84 2516.35,-709.75"/><polygon fill="black" stroke="black" points="2516.62,-709.96 2523.81,-710.4 2526.17,-717.22 2518.97,-716.77 2516.62,-709.96"/><text text-anchor="middle" x="2320.42" y="-671.37" font-family="Times,serif" font-size="14.00">Request::PersistedValidationData</text></g><!-- cand_val&#45;&gt;runt_api --><g id="edge40" class="edge"><title>cand_val&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M2132.08,-613.8C2207.87,-598.62 2339.43,-582.71 2440.92,-625.57 2479.62,-641.91 2511.17,-680.03 2529.51,-706.55"/><polygon fill="black" stroke="black" points="2529.67,-706.79 2536.33,-709.56 2536.33,-716.77 2529.67,-714 2529.67,-706.79"/><text text-anchor="middle" x="2320.42" y="-629.37" font-family="Times,serif" font-size="14.00">Request::ValidationCode</text></g><!-- cand_val&#45;&gt;runt_api --><g id="edge41" class="edge"><title>cand_val&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M2151.08,-640.4C2162.02,-644.15 2172.66,-649.09 2181.92,-655.57 2193.74,-663.84 2187.55,-675.17 2199.92,-682.57 2246.1,-710.18 2388,-695.88 2440.92,-705.57 2457.38,-708.58 2475,-712.93 2491.06,-717.35"/><polygon fill="black" stroke="black" points="2491.44,-717.46 2498.3,-715.24 2502.99,-720.72 2496.12,-722.94 2491.44,-717.46"/><text text-anchor="middle" x="2320.42" y="-709.37" font-family="Times,serif" font-size="14.00">Request::CheckValidationOutputs</text></g><!-- coll_gen --><g id="node10" class="node"><title>coll_gen</title><ellipse fill="none" stroke="black" cx="2069.92" cy="-26.57" rx="106.68" ry="18"/><text text-anchor="middle" x="2069.92" y="-22.87" font-family="Times,serif" font-size="14.00">Collation Generation</text></g><!-- coll_gen&#45;&gt;coll_prot --><g id="edge42" class="edge"><title>coll_gen&#45;&gt;coll_prot</title><path fill="none" stroke="black" d="M2134.42,-12.23C2212.6,1.78 2346.6,13.56 2440.92,-43.57 2498.02,-78.15 2527.61,-155.94 2539.88,-197.75"/><polygon fill="none" stroke="black" points="2536.57,-198.87 2542.64,-207.55 2543.3,-196.98 2536.57,-198.87"/><text text-anchor="middle" x="2320.42" y="-47.37" font-family="Times,serif" font-size="14.00">DistributeCollation</text></g><!-- coll_prot&#45;&gt;cand_sel --><g id="edge48" class="edge"><title>coll_prot&#45;&gt;cand_sel</title><path fill="none" stroke="black" d="M2476.01,-236.21C2377.43,-251.29 2209.92,-278.09 2199.92,-287.57 2174.42,-311.75 2204.56,-337.69 2181.92,-364.57 2171.37,-377.09 2156.9,-386.35 2141.89,-393.17"/><polygon fill="none" stroke="black" points="2140.37,-390.02 2132.5,-397.11 2143.08,-396.47 2140.37,-390.02"/><text text-anchor="middle" x="2320.42" y="-291.37" font-family="Times,serif" font-size="14.00">Collation</text></g><!-- coll_prot&#45;&gt;net_brdg --><g id="edge43" class="edge"><title>coll_prot&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1800.42,-72.57C1724.63,-72.57 1719.03,-126.66 1644.92,-142.57 1555.11,-161.85 1527.28,-165.17 1438.24,-142.57 1375.02,-126.52 1374.47,-72.57 1309.24,-72.57"/><text text-anchor="middle" x="1541.58" y="-162.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- coll_prot&#45;&gt;net_brdg --><g id="edge44" class="edge"><title>coll_prot&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1800.42,-72.57C1730.8,-72.14 1714.42,-87.34 1644.92,-91.57 1553.24,-97.15 1529.86,-98.28 1438.24,-91.57 1380.45,-87.33 1367.19,-72.17 1309.24,-72.57"/><text text-anchor="middle" x="1541.58" y="-100.37" font-family="Times,serif" font-size="14.00">Declare</text></g><!-- coll_prot&#45;&gt;net_brdg --><g id="edge45" class="edge"><title>coll_prot&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1800.42,-72.57C1582.15,-68.96 1527.51,-68.55 1309.24,-72.57"/><text text-anchor="middle" x="1541.58" y="-74.37" font-family="Times,serif" font-size="14.00">AdvertiseCollation</text></g><!-- coll_prot&#45;&gt;net_brdg --><g id="edge46" class="edge"><title>coll_prot&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1800.42,-72.57C1730.7,-71.36 1714.51,-56.25 1644.92,-51.57 1553.27,-45.41 1529.8,-44.16 1438.24,-51.57 1380.34,-56.25 1367.32,-71.45 1309.24,-72.57"/><text text-anchor="middle" x="1541.58" y="-55.37" font-family="Times,serif" font-size="14.00">Collation</text></g><!-- coll_prot&#45;&gt;net_brdg --><g id="edge47" class="edge"><title>coll_prot&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M2503.96,-209.84C2392.14,-170.43 2082.23,-70.75 1812.8,-72.45"/><polygon fill="none" stroke="black" points="1812.38,-68.96 1802.42,-72.57 1812.46,-75.96 1812.38,-68.96"/><path fill="none" stroke="black" d="M1800.42,-72.57C1728.48,-72.15 1716.16,-37.67 1644.92,-27.57 1553.97,-14.67 1528.81,-12.22 1438.24,-27.57 1378.37,-37.71 1369.95,-71.44 1309.24,-72.57"/><path fill="none" stroke="black" d="M1307.24,-72.57C1053.14,-74.2 932.16,-31.71 752.66,-211.57 695.4,-268.94 661,-532.4 652.57,-604.36"/><text text-anchor="middle" x="1541.58" y="-31.37" font-family="Times,serif" font-size="14.00">RequestCollation</text></g><!-- net_brdg&#45;&gt;avail_dist --><g id="edge49" class="edge"><title>net_brdg&#45;&gt;avail_dist</title><path fill="none" stroke="black" d="M648.43,-640.78C647.12,-694.1 635.49,-850.91 546.38,-927.57 540.09,-932.98 337.96,-966.64 215.36,-986.65"/><polygon fill="none" stroke="black" points="214.53,-983.24 205.22,-988.31 215.65,-990.15 214.53,-983.24"/><text text-anchor="middle" x="404.38" y="-981.37" font-family="Times,serif" font-size="14.00">NetworkBridgeUpdate</text></g><!-- net_brdg&#45;&gt;bitf_dist --><g id="edge50" class="edge"><title>net_brdg&#45;&gt;bitf_dist</title><path fill="none" stroke="black" d="M724.1,-631.31C890.21,-651.46 1289.94,-702.37 1420.24,-740.57 1428.64,-743.03 1430.05,-745.48 1438.24,-748.57 1450.8,-753.31 1464.41,-757.91 1477.47,-762.09"/><polygon fill="none" stroke="black" points="1476.74,-765.53 1487.33,-765.19 1478.85,-758.85 1476.74,-765.53"/><text text-anchor="middle" x="1059.95" y="-695.37" font-family="Times,serif" font-size="14.00">NetworkBridgeUpdate</text></g><!-- net_brdg&#45;&gt;coll_prot --><g id="edge53" class="edge"><title>net_brdg&#45;&gt;coll_prot</title><path fill="none" stroke="black" d="M651.19,-604.31C654.1,-552.23 669.64,-401.51 752.66,-320.57 854.72,-221.07 916.43,-225.57 1058.95,-225.57 1058.95,-225.57 1058.95,-225.57 2070.92,-225.57 2201.63,-225.57 2352.53,-225.57 2448.78,-225.57"/><polygon fill="none" stroke="black" points="2448.79,-229.07 2458.79,-225.57 2448.79,-222.07 2448.79,-229.07"/><text text-anchor="middle" x="1541.58" y="-229.37" font-family="Times,serif" font-size="14.00">NetworkBridgeUpdate</text></g><!-- net_brdg&#45;&gt;pov_dist --><g id="edge51" class="edge"><title>net_brdg&#45;&gt;pov_dist</title><path fill="none" stroke="black" d="M667.2,-604.8C686.11,-585.74 718.74,-556.02 752.66,-539.57 1125.73,-358.7 1250.84,-381.18 1662.92,-335.57 1770.36,-323.68 1894.77,-326.75 1977.27,-331.13"/><polygon fill="none" stroke="black" points="1977.19,-334.63 1987.37,-331.68 1977.57,-327.64 1977.19,-334.63"/><text text-anchor="middle" x="1308.24" y="-390.37" font-family="Times,serif" font-size="14.00">NetworkBridgeUpdate</text></g><!-- net_brdg&#45;&gt;stmt_dist --><g id="edge52" class="edge"><title>net_brdg&#45;&gt;stmt_dist</title><path fill="none" stroke="black" d="M686.09,-606.29C705.36,-598.35 729.83,-589.65 752.66,-585.57 815.13,-574.39 885.91,-573.2 943.69,-575.11"/><polygon fill="none" stroke="black" points="943.83,-578.62 953.95,-575.49 944.08,-571.63 943.83,-578.62"/><text text-anchor="middle" x="838.16" y="-589.37" font-family="Times,serif" font-size="14.00">NetworkBridgeUpdate</text></g><!-- pov_dist&#45;&gt;net_brdg --><g id="edge54" class="edge"><title>pov_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1540.58,-296.57C1327.59,-287.91 1273.97,-288.43 1060.95,-296.57"/><text text-anchor="middle" x="1308.24" y="-296.37" font-family="Times,serif" font-size="14.00">SendValidationMessage</text></g><!-- pov_dist&#45;&gt;net_brdg --><g id="edge55" class="edge"><title>pov_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1993.6,-328.88C1976,-326.99 1957.32,-325.1 1939.92,-323.57 1767.05,-308.32 1721.27,-302.3 1552.8,-296.89"/><polygon fill="none" stroke="black" points="1552.69,-293.39 1542.58,-296.57 1552.47,-300.38 1552.69,-293.39"/><path fill="none" stroke="black" d="M1540.58,-296.57C1486.01,-294.12 1474.58,-277.15 1420.24,-271.57 1261.01,-255.2 1216.19,-257.52 1060.95,-296.57"/><path fill="none" stroke="black" d="M1058.95,-296.57C904.68,-303.08 865.65,-355.32 752.66,-460.57 706.32,-503.74 672.39,-572.37 658.06,-604.66"/><text text-anchor="middle" x="1308.24" y="-275.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- provisioner&#45;&gt;cand_back --><g id="edge56" class="edge"><title>provisioner&#45;&gt;cand_back</title><path fill="none" stroke="black" d="M2008.64,-677.38C1990.91,-673.48 1972.4,-666.83 1957.92,-655.57 1944.43,-645.07 1954.19,-630.99 1939.92,-621.57 1888.37,-587.54 1722.74,-613.99 1662.92,-598.57 1635.61,-591.53 1606.72,-578.76 1584.09,-567.4"/><polygon fill="black" stroke="black" points="1583.87,-567.29 1576.7,-568.11 1573.19,-561.81 1580.36,-560.99 1583.87,-567.29"/><text text-anchor="middle" x="1801.42" y="-625.37" font-family="Times,serif" font-size="14.00">GetBackedCandidates</text></g><!-- provisioner&#45;&gt;chn_api --><g id="edge57" class="edge"><title>provisioner&#45;&gt;chn_api</title><path fill="none" stroke="black" d="M2112.24,-696.09C2205.9,-726.84 2427.31,-800.18 2440.92,-810.57 2485.09,-844.28 2517.44,-901.79 2534.14,-936.48"/><polygon fill="black" stroke="black" points="2534.31,-936.85 2540.48,-940.59 2539.39,-947.72 2533.23,-943.98 2534.31,-936.85"/><text text-anchor="middle" x="2320.42" y="-814.37" font-family="Times,serif" font-size="14.00">BlockNumber</text></g><!-- stmt_dist&#45;&gt;cand_back --><g id="edge60" class="edge"><title>stmt_dist&#45;&gt;cand_back</title><path fill="none" stroke="black" d="M1104.38,-566.84C1130.55,-557.66 1164.8,-547.23 1196.24,-542.57 1278.82,-530.33 1373.76,-532.04 1443,-536.12"/><polygon fill="none" stroke="black" points="1442.83,-539.61 1453.03,-536.74 1443.26,-532.63 1442.83,-539.61"/><text text-anchor="middle" x="1308.24" y="-546.37" font-family="Times,serif" font-size="14.00">Statement</text></g><!-- stmt_dist&#45;&gt;net_brdg --><g id="edge58" class="edge"><title>stmt_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M1007.65,-567.34C945.86,-550.4 839.51,-529.63 752.66,-555.57 724.57,-563.96 697.03,-582.83 677.64,-598.41"/><polygon fill="none" stroke="black" points="675.33,-595.78 669.85,-604.85 679.79,-601.17 675.33,-595.78"/><text text-anchor="middle" x="838.16" y="-559.37" font-family="Times,serif" font-size="14.00">SendValidationMessage</text></g><!-- stmt_dist&#45;&gt;net_brdg --><g id="edge59" class="edge"><title>stmt_dist&#45;&gt;net_brdg</title><path fill="none" stroke="black" d="M969.87,-595.34C954.47,-597.21 938.62,-599.03 923.66,-600.57 862.76,-606.84 794.05,-612.37 740.78,-616.31"/><polygon fill="none" stroke="black" points="740.4,-612.83 730.68,-617.06 740.91,-619.81 740.4,-612.83"/><text text-anchor="middle" x="838.16" y="-619.37" font-family="Times,serif" font-size="14.00">ReportPeer</text></g><!-- stmt_dist&#45;&gt;runt_api --><g id="edge61" class="edge"><title>stmt_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M1542.58,-734.57C1672.4,-757.96 2263.07,-830.77 2319.42,-818.57"/><path fill="none" stroke="black" d="M2321.42,-818.57C2373.53,-806.53 2390.69,-822.91 2440.92,-804.57 2469.88,-794 2498.82,-774.11 2519.14,-758.22"/><polygon fill="none" stroke="black" points="2521.4,-760.9 2527.02,-751.92 2517.02,-755.43 2521.4,-760.9"/><text text-anchor="middle" x="1801.42" y="-789.37" font-family="Times,serif" font-size="14.00">Request::Validators</text></g><!-- stmt_dist&#45;&gt;runt_api --><g id="edge62" class="edge"><title>stmt_dist&#45;&gt;runt_api</title><path fill="none" stroke="black" d="M1115.96,-599.49C1186.64,-620.12 1313.03,-657.61 1420.24,-692.57 1474.1,-710.13 1484.96,-723.83 1540.58,-734.57"/><path fill="none" stroke="black" d="M1542.58,-734.57C1594.91,-745.63 1609.44,-733.79 1662.92,-733.57 1959.99,-732.33 2313.2,-733.54 2467.85,-734.2"/><polygon fill="none" stroke="black" points="2468.17,-737.7 2478.19,-734.24 2468.2,-730.7 2468.17,-737.7"/><text text-anchor="middle" x="1801.42" y="-737.37" font-family="Times,serif" font-size="14.00">Request::SessionIndexForChild</text></g></g></svg></div>
+<h2 id="the-path-to-inclusion-node-side"><a class="header" href="#the-path-to-inclusion-node-side">The Path to Inclusion (Node Side)</a></h2>
+<p>Let's contextualize that diagram a bit by following a parachain block from its
+creation through finalization. Parachains can use completely arbitrary processes
+to generate blocks. The relay chain doesn't know or care about the details; each
+parachain just needs to provide a <a href="collators/collation-generation.html">collator</a>.</p>
+<p><strong>Note</strong>: Inter-subsystem communications are relayed via the overseer, but that
+step is omitted here for brevity.</p>
+<p><strong>Note</strong>: Dashed lines indicate a request/response cycle, where the response is
+communicated asynchronously via a oneshot channel. Adjacent dashed lines may be
+processed in parallel.</p>
+<pre class="mermaid">sequenceDiagram
+    participant Overseer
+    participant CollationGeneration
+    participant RuntimeApi
+    participant CollatorProtocol
+
+    Overseer -&gt;&gt; CollationGeneration: ActiveLeavesUpdate
+    loop for each activated head
+        CollationGeneration --&gt;&gt; RuntimeApi: Request availability cores
+        CollationGeneration --&gt;&gt; RuntimeApi: Request validators
+
+        Note over CollationGeneration: Determine an appropriate ScheduledCore &lt;br/&gt;and OccupiedCoreAssumption
+
+        CollationGeneration --&gt;&gt; RuntimeApi: Request full validation data
+
+        Note over CollationGeneration: Build the collation
+
+        CollationGeneration -&gt;&gt; CollatorProtocol: DistributeCollation
+    end
+</pre>
+<p>The <code>DistributeCollation</code> messages that <code>CollationGeneration</code> sends to the
+<code>CollatorProtocol</code> contains two items: a <code>CandidateReceipt</code> and <code>PoV</code>. The
+<code>CollatorProtocol</code> is then responsible for distributing that collation to
+interested validators. However, not all potential collations are of interest.
+The <code>CandidateSelection</code> subsystem is responsible for determining which
+collations are interesting, before <code>CollatorProtocol</code> actually fetches the
+collation.</p>
+<pre class="mermaid">sequenceDiagram
+    participant CollationGeneration
+    participant CS as CollatorProtocol::CollatorSide
+    participant NB as NetworkBridge
+    participant VS as CollatorProtocol::ValidatorSide
+    participant CandidateSelection
+
+    CollationGeneration -&gt;&gt; CS: DistributeCollation
+    CS --&gt;&gt; NB: ConnectToValidators
+
+    Note over CS,NB: This connects to multiple validators.
+
+    CS -&gt;&gt; NB: Declare
+    NB -&gt;&gt; VS: Declare
+
+    Note over CS: Ensure that the connected validator is among&lt;br/&gt;the para's validator set. Otherwise, skip it.
+
+    CS -&gt;&gt; NB: AdvertiseCollation
+    NB -&gt;&gt; VS: AdvertiseCollation
+
+    VS -&gt;&gt; CandidateSelection: Collation
+
+    Note over CandidateSelection: Lots of other machinery in play here,&lt;br/&gt;but there are only two outcomes from the&lt;br/&gt;perspective of the `CollatorProtocol`:
+
+    alt happy path
+        CandidateSelection --&gt;&gt; VS: FetchCollation
+        Activate VS
+        VS -&gt;&gt; NB: RequestCollation
+        NB -&gt;&gt; CS: RequestCollation
+        CS -&gt;&gt; NB: Collation
+        NB -&gt;&gt; VS: Collation
+        Deactivate VS
+
+    else CandidateSelection already selected a different candidate
+        Note over CandidateSelection: silently drop
+    end
+</pre>
+<p>Assuming we hit the happy path, flow continues with <code>CandidateSelection</code>
+receiving a <code>(candidate_receipt, pov)</code> as the return value from its
+<code>FetchCollation</code> request. The only time <code>CandidateSelection</code> actively requests a
+collation is when it hasn't yet seconded one for some <code>relay_parent</code>, and is
+ready to second.</p>
+<pre class="mermaid">sequenceDiagram
+    participant CS as CandidateSelection
+    participant CB as CandidateBacking
+    participant CV as CandidateValidation
+    participant PV as Provisioner
+    participant SD as StatementDistribution
+    participant PD as PoVDistribution
+
+    CS -&gt;&gt; CB: Second
+    % fn validate_and_make_available
+    CB --&gt;&gt; CV: ValidateFromChainState
+
+    Note over CB,CV: There's some complication in the source, as&lt;br/&gt;candidates are actually validated in a separate task.
+
+    alt valid
+        Note over CB: This is where we transform the CandidateReceipt into a CommittedCandidateReceipt
+        % CandidateBackingJob::sign_import_and_distribute_statement
+        % CandidateBackingJob::import_statement
+        CB -&gt;&gt; PV: ProvisionableData::BackedCandidate
+        % CandidateBackingJob::issue_new_misbehaviors
+        opt if there is misbehavior to report
+            CB -&gt;&gt; PV: ProvisionableData::MisbehaviorReport
+        end
+        % CandidateBackingJob::distribute_signed_statement
+        CB -&gt;&gt; SD: Share
+        % CandidateBackingJob::distribute_pov
+        CB -&gt;&gt; PD: DistributePoV
+    else invalid
+        CB -&gt;&gt; CS: Invalid
+    end
+</pre>
+<p>At this point, you'll see that control flows in two directions: to
+<code>StatementDistribution</code> to distribute the <code>SignedStatement</code>, and to
+<code>PoVDistribution</code> to distribute the <code>PoV</code>. However, that's largely a mirage:
+while the initial implementation distributes <code>PoV</code>s by gossip, that's
+inefficient, and will be replaced with a system which fetches <code>PoV</code>s only when
+actually necessary.</p>
+<blockquote>
+<p>TODO: figure out more precisely the current status and plans; write them up</p>
+</blockquote>
+<p>Therefore, we'll follow the <code>SignedStatement</code>. The <code>StatementDistribution</code>
+subsystem is largely concerned with implementing a gossip protocol:</p>
+<pre class="mermaid">sequenceDiagram
+    participant SD as StatementDistribution
+    participant NB as NetworkBridge
+
+    alt On receipt of a&lt;br/&gt;SignedStatement from CandidateBacking
+        % fn circulate_statement_and_dependents
+        SD -&gt;&gt; NB: SendValidationMessage
+
+        Note right of NB: Bridge sends validation message to all appropriate peers
+    else On receipt of peer validation message
+        NB -&gt;&gt; SD: NetworkBridgeUpdate
+
+        % fn handle_incoming_message
+        alt if we aren't already aware of the relay parent for this statement
+            SD -&gt;&gt; NB: ReportPeer
+        end
+
+        % fn circulate_statement
+        opt if we know of peers who haven't seen this message, gossip it
+            SD -&gt;&gt; NB: SendValidationMessage
+        end
+    end
+</pre>
+<p>But who are these <code>Listener</code>s who've asked to be notified about incoming
+<code>SignedStatement</code>s? Nobody, as yet.</p>
+<p>Let's pick back up with the PoV Distribution subsystem.</p>
+<pre class="mermaid">sequenceDiagram
+    participant CB as CandidateBacking
+    participant PD as PoVDistribution
+    participant Listener
+    participant NB as NetworkBridge
+
+    CB -&gt;&gt; PD: DistributePoV
+
+    Note over PD,Listener: Various subsystems can register listeners for when PoVs arrive
+
+    loop for each Listener
+        PD -&gt;&gt; Listener: Arc&lt;PoV&gt;
+    end
+
+    Note over PD: Gossip to connected peers
+
+    PD -&gt;&gt; NB: SendPoV
+
+    Note over PD,NB: On receipt of a network PoV, PovDistribution forwards it to each Listener.&lt;br/&gt;It also penalizes bad gossipers.
+</pre>
+<p>Unlike in the case of <code>StatementDistribution</code>, there is another subsystem which
+in various circumstances already registers a listener to be notified when a new
+<code>PoV</code> arrives: <code>CandidateBacking</code>. Note that this is the second time that
+<code>CandidateBacking</code> has gotten involved. The first instance was from the
+perspective of the validator choosing to second a candidate via its
+<code>CandidateSelection</code> subsystem. This time, it's from the perspective of some
+other validator, being informed that this foreign <code>PoV</code> has been received.</p>
+<pre class="mermaid">sequenceDiagram
+    participant SD as StatementDistribution
+    participant CB as CandidateBacking
+    participant PD as PoVDistribution
+    participant AS as AvailabilityStore
+
+    SD -&gt;&gt; CB: Statement
+    % CB::maybe_validate_and_import =&gt; CB::kick_off_validation_work
+    CB --&gt;&gt; PD: FetchPoV
+    Note over CB,PD: This call creates the Listener from the previous diagram
+
+    CB -&gt;&gt; AS: StoreAvailableData
+</pre>
+<p>At this point, things have gone a bit nonlinear. Let's pick up the thread again
+with <code>BitfieldSigning</code>. As the <code>Overseer</code> activates each relay parent, it starts
+a <code>BitfieldSigningJob</code> which operates on an extremely simple metric: after
+creation, it immediately goes to sleep for 1.5 seconds. On waking, it records
+the state of the world pertaining to availability at that moment.</p>
+<pre class="mermaid">sequenceDiagram
+    participant OS as Overseer
+    participant BS as BitfieldSigning
+    participant RA as RuntimeApi
+    participant AS as AvailabilityStore
+    participant BD as BitfieldDistribution
+
+    OS -&gt;&gt; BS: ActiveLeavesUpdate
+    loop for each activated relay parent
+        Note over BS: Wait 1.5 seconds
+        BS --&gt;&gt; RA: Request::AvailabilityCores
+        loop for each availability core
+            BS --&gt;&gt; AS: QueryChunkAvailability
+        end
+        BS -&gt;&gt; BD: DistributeBitfield
+    end
+</pre>
+<p><code>BitfieldDistribution</code> is, like the other <code>*Distribution</code> subsystems, primarily
+interested in implementing a peer-to-peer gossip network propagating its
+particular messages. However, it also serves as an essential relay passing the
+message along.</p>
+<pre class="mermaid">sequenceDiagram
+    participant BS as BitfieldSigning
+    participant BD as BitfieldDistribution
+    participant NB as NetworkBridge
+    participant PV as Provisioner
+
+    BS -&gt;&gt; BD: DistributeBitfield
+    BD -&gt;&gt; PV: ProvisionableData::Bitfield
+    BD -&gt;&gt; NB: SendValidationMessage::BitfieldDistribution::Bitfield
+</pre>
+<p>We've now seen the message flow to the <code>Provisioner</code>: both <code>CandidateBacking</code>
+and <code>BitfieldDistribution</code> contribute provisionable data. Now, let's look at
+that subsystem.</p>
+<p>Much like the <code>BitfieldSigning</code> subsystem, the <code>Provisioner</code> creates a new job
+for each newly-activated leaf, and starts a timer. Unlike <code>BitfieldSigning</code>, we
+won't depict that part of the process, because the <code>Provisioner</code> also has other
+things going on.</p>
+<pre class="mermaid">sequenceDiagram
+    participant A as Arbitrary
+    participant PV as Provisioner
+    participant CB as CandidateBacking
+    participant BD as BitfieldDistribution
+    participant RA as RuntimeApi
+    participant PI as ParachainsInherentDataProvider
+
+    alt receive provisionable data
+        alt
+            CB -&gt;&gt; PV: ProvisionableData
+        else
+            BD -&gt;&gt; PV: ProvisionableData
+        end
+
+        loop over stored Senders
+            PV -&gt;&gt; A: ProvisionableData
+        end
+
+        Note over PV: store bitfields and backed candidates
+    else receive request for inherent data
+        PI -&gt;&gt; PV: RequestInherentData
+        alt we have already constructed the inherent data
+            PV -&gt;&gt; PI: send the inherent data
+        else we have not yet constructed the inherent data
+            Note over PV,PI: Store the return sender without sending immediately
+        end
+    else timer times out
+        note over PV: Waited 2 seconds
+        PV --&gt;&gt; RA: RuntimeApiRequest::AvailabilityCores
+        Note over PV: construct and store the inherent data
+        loop over stored inherent data requests
+            PV -&gt;&gt; PI: (SignedAvailabilityBitfields, BackedCandidates)
+        end
+    end
+</pre>
+<p>In principle, any arbitrary subsystem could send a <code>RequestInherentData</code> to the
+<code>Provisioner</code>. In practice, only the <code>ParachainsInherentDataProvider</code> does so.</p>
+<p>The tuple <code>(SignedAvailabilityBitfields, BackedCandidates, ParentHeader)</code> is
+injected by the <code>ParachainsInherentDataProvider</code> into the inherent data. From
+that point on, control passes from the node to the runtime.</p>
+<footer id="last-change">Last change: 2025-12-15, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7b99b02">7b99b02</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../node/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next" href="../node/overseer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../node/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next" href="../node/overseer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="../mermaid-init.js"></script>
+        <script type="text/javascript" src="../mermaid.min.js"></script>
+
+
+    </body>
+</html>

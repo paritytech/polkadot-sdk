@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"struct":["Pallet"],"trait":["Config"],"type":["BeefyAuthorities","BeefyNextAuthorities","Module"]};

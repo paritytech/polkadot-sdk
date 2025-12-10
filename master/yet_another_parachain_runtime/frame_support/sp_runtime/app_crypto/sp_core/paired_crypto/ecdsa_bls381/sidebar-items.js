@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","POP_LEN","PUBLIC_KEY_LEN","SIGNATURE_LEN"],"type":["Pair","ProofOfPossession","Public","Signature"]};

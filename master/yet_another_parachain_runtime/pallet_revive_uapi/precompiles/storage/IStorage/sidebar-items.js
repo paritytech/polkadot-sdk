@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IStorageCalls"],"struct":["clearStorageCall","clearStorageReturn","containsStorageCall","containsStorageReturn","takeStorageCall","takeStorageReturn"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HostCalls"],"struct":["balanceCall","balanceReturn","blockhashOpCall","blockhashOpReturn","extcodehashOpCall","extcodehashOpReturn","extcodesizeOpCall","extcodesizeOpReturn","logOpsCall","logOpsReturn","selfbalanceCall","selfbalanceReturn","sloadOpCall","sloadOpReturn","sstoreOpCall","sstoreOpReturn"]};

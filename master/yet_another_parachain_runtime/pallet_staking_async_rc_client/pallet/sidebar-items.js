@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Event","UnexpectedKind"],"struct":["Pallet"],"trait":["Config"],"type":["IncompleteSessionReport","LastSessionReportEndingIndex","Module","OutgoingValidatorSet"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"enum":["Call","Error","Event","HoldReason"],"macro":["log"],"mod":["migration","pallet","types"],"struct":["Pallet"],"trait":["Config"],"type":["Agents","BalanceOf","Delegators","Module"]};

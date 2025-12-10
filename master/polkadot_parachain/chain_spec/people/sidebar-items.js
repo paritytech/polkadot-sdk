@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PeopleRuntimeType"],"fn":["ensure_id"],"mod":["kusama","polkadot","rococo","westend"]};

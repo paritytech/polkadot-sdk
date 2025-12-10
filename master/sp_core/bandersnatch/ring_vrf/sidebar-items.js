@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RING_SIGNATURE_SERIALIZED_SIZE","RING_VERIFIER_KEY_SERIALIZED_SIZE"],"struct":["RingContext","RingVerifierKey","RingVrfSignature"],"type":["RingProver","RingVerifier"]};

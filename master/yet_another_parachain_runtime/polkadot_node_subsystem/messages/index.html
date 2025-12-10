@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Re-export of all messages type, including the wrapper type."><title>yet_another_parachain_runtime::polkadot_node_subsystem::messages - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module messages</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>node_<wbr>subsystem</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">polkadot_node_subsystem</a></div><h1>Module <span>messages</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_node_subsystem/lib.rs.html#32">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Re-export of all messages type, including the wrapper type.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="network_bridge_event/index.html" title="mod yet_another_parachain_runtime::polkadot_node_subsystem::messages::network_bridge_event">network_<wbr>bridge_<wbr>event</a></dt><dd>Network events as transmitted to other subsystems, wrapped in their message types.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockDescription.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::BlockDescription">Block<wbr>Description</a></dt><dd>Describes a relay-chain block by the para-chain candidates
+it includes.</dd><dt><a class="struct" href="struct.CanSecondRequest.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::CanSecondRequest">CanSecond<wbr>Request</a></dt><dd>A request to the candidate backing subsystem to check whether
+we can second this candidate.</dd><dt><a class="struct" href="struct.CheckedIndirectAssignment.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::CheckedIndirectAssignment">Checked<wbr>Indirect<wbr>Assignment</a></dt><dd>A checked indirect assignment, the crypto for the cert has been validated
+and the <code>candidate_bitfield</code> is correctly claimed at <code>delay_tranche</code>.</dd><dt><a class="struct" href="struct.CheckedIndirectSignedApprovalVote.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::CheckedIndirectSignedApprovalVote">Checked<wbr>Indirect<wbr>Signed<wbr>Approval<wbr>Vote</a></dt><dd>A checked indirect signed approval vote.</dd><dt><a class="struct" href="struct.HighestApprovedAncestorBlock.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::HighestApprovedAncestorBlock">Highest<wbr>Approved<wbr>Ancestor<wbr>Block</a></dt><dd>Response type to <code>ApprovalVotingMessage::ApprovedAncestor</code>.</dd><dt><a class="struct" href="struct.HypotheticalMembershipRequest.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::HypotheticalMembershipRequest">Hypothetical<wbr>Membership<wbr>Request</a></dt><dd>Request specifying which candidates are either already included
+or might become included in fragment chain under a given active leaf (or any active leaf if
+<code>fragment_chain_relay_parent</code> is <code>None</code>).</dd><dt><a class="struct" href="struct.IntroduceSecondedCandidateRequest.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::IntroduceSecondedCandidateRequest">Introduce<wbr>Seconded<wbr>Candidate<wbr>Request</a></dt><dd>Request introduction of a seconded candidate into the prospective parachains subsystem.</dd><dt><a class="struct" href="struct.ProspectiveValidationDataRequest.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::ProspectiveValidationDataRequest">Prospective<wbr>Validation<wbr>Data<wbr>Request</a></dt><dd>A request for the persisted validation data stored in the prospective
+parachains subsystem.</dd><dt><a class="struct" href="struct.ProvisionerInherentData.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::ProvisionerInherentData">Provisioner<wbr>Inherent<wbr>Data</a></dt><dd>Inherent data returned by the provisioner</dd><dt><a class="struct" href="struct.ValidationFailed.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::ValidationFailed">Validation<wbr>Failed</a></dt><dd>Blanket error for validation failing for internal reasons.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AllMessages.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AllMessages">AllMessages</a></dt><dd>Generated message type wrapper over all possible messages
+used by any subsystem.</dd><dt><a class="enum" href="enum.ApprovalCheckError.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalCheckError">Approval<wbr>Check<wbr>Error</a></dt><dd>The error result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportApproval" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingMessage::ImportApproval"><code>ApprovalVotingMessage::ImportApproval</code></a> request.</dd><dt><a class="enum" href="enum.ApprovalCheckResult.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalCheckResult">Approval<wbr>Check<wbr>Result</a></dt><dd>The result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportApproval" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingMessage::ImportApproval"><code>ApprovalVotingMessage::ImportApproval</code></a> request.</dd><dt><a class="enum" href="enum.ApprovalDistributionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalDistributionMessage">Approval<wbr>Distribution<wbr>Message</a></dt><dd>Message to the Approval Distribution subsystem.</dd><dt><a class="enum" href="enum.ApprovalVotingMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingMessage">Approval<wbr>Voting<wbr>Message</a></dt><dd>Message to the Approval Voting subsystem.</dd><dt><a class="enum" href="enum.ApprovalVotingParallelMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingParallelMessage">Approval<wbr>Voting<wbr>Parallel<wbr>Message</a></dt><dd>Message to the approval voting parallel subsystem running both approval-distribution and
+approval-voting logic in parallel. This is a combination of all the messages ApprovalVoting and
+ApprovalDistribution subsystems can receive.</dd><dt><a class="enum" href="enum.AssignmentCheckError.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AssignmentCheckError">Assignment<wbr>Check<wbr>Error</a></dt><dd>The error result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportAssignment" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingMessage::ImportAssignment"><code>ApprovalVotingMessage::ImportAssignment</code></a> request.</dd><dt><a class="enum" href="enum.AssignmentCheckResult.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AssignmentCheckResult">Assignment<wbr>Check<wbr>Result</a></dt><dd>The result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportAssignment" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::ApprovalVotingMessage::ImportAssignment"><code>ApprovalVotingMessage::ImportAssignment</code></a> request.</dd><dt><a class="enum" href="enum.AvailabilityDistributionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AvailabilityDistributionMessage">Availability<wbr>Distribution<wbr>Message</a></dt><dd>Availability Distribution Message.</dd><dt><a class="enum" href="enum.AvailabilityRecoveryMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AvailabilityRecoveryMessage">Availability<wbr>Recovery<wbr>Message</a></dt><dd>Availability Recovery Message.</dd><dt><a class="enum" href="enum.AvailabilityStoreMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::AvailabilityStoreMessage">Availability<wbr>Store<wbr>Message</a></dt><dd>Availability store subsystem message.</dd><dt><a class="enum" href="enum.BitfieldDistributionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::BitfieldDistributionMessage">Bitfield<wbr>Distribution<wbr>Message</a></dt><dd>Bitfield distribution message.</dd><dt><a class="enum" href="enum.BitfieldSigningMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::BitfieldSigningMessage">Bitfield<wbr>Signing<wbr>Message</a></dt><dd>A dummy implementation to satisfy the current internal structure
+and cannot be constructed delibarately, since it’s not meant to be sent or used at all</dd><dt><a class="enum" href="enum.CandidateBackingMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::CandidateBackingMessage">Candidate<wbr>Backing<wbr>Message</a></dt><dd>Messages received by the Candidate Backing subsystem.</dd><dt><a class="enum" href="enum.CandidateValidationMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::CandidateValidationMessage">Candidate<wbr>Validation<wbr>Message</a></dt><dd>Messages received by the Validation subsystem.</dd><dt><a class="enum" href="enum.ChainApiMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ChainApiMessage">Chain<wbr>ApiMessage</a></dt><dd>Chain API request subsystem message.</dd><dt><a class="enum" href="enum.ChainSelectionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ChainSelectionMessage">Chain<wbr>Selection<wbr>Message</a></dt><dd>Chain selection subsystem messages</dd><dt><a class="enum" href="enum.CollationGenerationMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollationGenerationMessage">Collation<wbr>Generation<wbr>Message</a></dt><dd>Message to the Collation Generation subsystem.</dd><dt><a class="enum" href="enum.CollatorProtocolMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollatorProtocolMessage">Collator<wbr>Protocol<wbr>Message</a></dt><dd>Messages received by the Collator Protocol subsystem.</dd><dt><a class="enum" href="enum.DisputeCoordinatorMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::DisputeCoordinatorMessage">Dispute<wbr>Coordinator<wbr>Message</a></dt><dd>Messages received by the dispute coordinator subsystem.</dd><dt><a class="enum" href="enum.DisputeDistributionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::DisputeDistributionMessage">Dispute<wbr>Distribution<wbr>Message</a></dt><dd>Messages going to the dispute distribution subsystem.</dd><dt><a class="enum" href="enum.GossipSupportMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::GossipSupportMessage">Gossip<wbr>Support<wbr>Message</a></dt><dd>Message to the Gossip Support subsystem.</dd><dt><a class="enum" href="enum.HypotheticalCandidate.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::HypotheticalCandidate">Hypothetical<wbr>Candidate</a></dt><dd>A hypothetical candidate to be evaluated for potential/actual membership
+in the prospective parachains subsystem.</dd><dt><a class="enum" href="enum.IfDisconnected.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::IfDisconnected">IfDisconnected</a></dt><dd>When sending a request, what to do on a disconnected recipient.</dd><dt><a class="enum" href="enum.ImportStatementsResult.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ImportStatementsResult">Import<wbr>Statements<wbr>Result</a></dt><dd>The result of <code>DisputeCoordinatorMessage::ImportStatements</code>.</dd><dt><a class="enum" href="enum.NetworkBridgeEvent.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::NetworkBridgeEvent">Network<wbr>Bridge<wbr>Event</a></dt><dd>Events from network.</dd><dt><a class="enum" href="enum.NetworkBridgeRxMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::NetworkBridgeRxMessage">Network<wbr>Bridge<wbr>RxMessage</a></dt><dd>Messages received from other subsystems.</dd><dt><a class="enum" href="enum.NetworkBridgeTxMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::NetworkBridgeTxMessage">Network<wbr>Bridge<wbr>TxMessage</a></dt><dd>Messages received from other subsystems by the network bridge subsystem.</dd><dt><a class="enum" href="enum.ParentHeadData.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ParentHeadData">Parent<wbr>Head<wbr>Data</a></dt><dd>The parent head-data hash with optional data itself.</dd><dt><a class="enum" href="enum.PreCheckOutcome.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::PreCheckOutcome">PreCheck<wbr>Outcome</a></dt><dd>The outcome of the candidate-validation’s PVF pre-check request.</dd><dt><a class="enum" href="enum.ProspectiveParachainsMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ProspectiveParachainsMessage">Prospective<wbr>Parachains<wbr>Message</a></dt><dd>Messages sent to the Prospective Parachains subsystem.</dd><dt><a class="enum" href="enum.ProvisionableData.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ProvisionableData">Provisionable<wbr>Data</a></dt><dd>This data becomes intrinsics or extrinsics which should be included in a future relay chain
+block.</dd><dt><a class="enum" href="enum.ProvisionerMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ProvisionerMessage">Provisioner<wbr>Message</a></dt><dd>Message to the Provisioner.</dd><dt><a class="enum" href="enum.PvfCheckerMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::PvfCheckerMessage">PvfChecker<wbr>Message</a></dt><dd>A dummy implementation to satisfy the current internal structure
+and cannot be constructed delibarately, since it’s not meant to be sent or used at all</dd><dt><a class="enum" href="enum.PvfExecKind.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::PvfExecKind">PvfExec<wbr>Kind</a></dt><dd>Extends primitives::PvfExecKind, which is a runtime parameter we don’t want to change,
+to separate and prioritize execution jobs by request type.</dd><dt><a class="enum" href="enum.ReportPeerMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::ReportPeerMessage">Report<wbr>Peer<wbr>Message</a></dt><dd>Type of peer reporting</dd><dt><a class="enum" href="enum.RuntimeApiMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::RuntimeApiMessage">Runtime<wbr>ApiMessage</a></dt><dd>A message to the Runtime API subsystem.</dd><dt><a class="enum" href="enum.RuntimeApiRequest.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::RuntimeApiRequest">Runtime<wbr>ApiRequest</a></dt><dd>A request to the Runtime API subsystem.</dd><dt><a class="enum" href="enum.StatementDistributionMessage.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::StatementDistributionMessage">Statement<wbr>Distribution<wbr>Message</a></dt><dd>Statement distribution message.</dd><dt><a class="enum" href="enum.StoreAvailableDataError.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::StoreAvailableDataError">Store<wbr>Available<wbr>Data<wbr>Error</a></dt><dd>The error result type of a <a href="enum.AvailabilityStoreMessage.html#variant.StoreAvailableData" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::AvailabilityStoreMessage::StoreAvailableData"><code>AvailabilityStoreMessage::StoreAvailableData</code></a> request.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Ancestors.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::messages::Ancestors">Ancestors</a></dt><dd>A collection of ancestor candidates of a parachain.</dd><dt><a class="type" href="type.ChainApiResponseChannel.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::messages::ChainApiResponseChannel">Chain<wbr>ApiResponse<wbr>Channel</a></dt><dd>A response channel for the result of a chain API request.</dd><dt><a class="type" href="type.HypotheticalMembership.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::messages::HypotheticalMembership">Hypothetical<wbr>Membership</a></dt><dd>Indicates the relay-parents whose fragment chain a candidate
+is present in or can be added in (right now or in the future).</dd><dt><a class="type" href="type.RuntimeApiSender.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::messages::RuntimeApiSender">Runtime<wbr>ApiSender</a></dt><dd>A sender for the result of a runtime API request.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

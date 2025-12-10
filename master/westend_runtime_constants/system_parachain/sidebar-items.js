@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASSET_HUB_ID","ASSET_HUB_NEXT_ID","BRIDGE_HUB_ID","BROKER_ID","COLLECTIVES_ID","ENCOINTER_ID","PEOPLE_ID"],"mod":["coretime"],"struct":["AssetHubParaId","PeopleParaId"],"type":["SystemParachains"]};

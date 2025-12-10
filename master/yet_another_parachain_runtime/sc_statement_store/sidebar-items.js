@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_TOTAL_SIZE","DEFAULT_MAX_TOTAL_STATEMENTS","DEFAULT_PURGE_AFTER_SEC","MAX_STATEMENT_SIZE","MAX_TOPICS"],"enum":["Error"],"struct":["Options","Store"],"trait":["StatementStore"]};

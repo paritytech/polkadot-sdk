@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["api","block_hash","tx_extension"]};

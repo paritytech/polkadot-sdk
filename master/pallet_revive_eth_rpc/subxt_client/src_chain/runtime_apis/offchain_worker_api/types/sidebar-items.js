@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["offchain_worker"],"struct":["OffchainWorker"]};

@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="How to parameterize parachain forking in relation to relay chain forking."><title>polkadot_sdk_docs::guides::handling_parachain_forks - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_<wbr>sdk_<wbr>docs</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module handling_<wbr>parachain_<wbr>forks</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#parachain-forks" title="Parachain forks">Parachain forks</a><ul><li><a href="#background" title="Background">Background</a></li><li><a href="#impact-of-forks" title="Impact of Forks">Impact of Forks</a></li></ul></li><li><a href="#building-on-older-pelay-parents" title="Building on Older Pelay Parents">Building on Older Pelay Parents</a><ul><li><a href="#tradeoffs" title="Tradeoffs">Tradeoffs</a></li><li><a href="#enabling-guide" title="Enabling Guide">Enabling Guide</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>docs::<wbr>guides</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a></div><h1>Module <span>handling_parachain_forks</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_sdk_docs/guides/handling_parachain_forks.rs.html#1-90">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>How to parameterize parachain forking in relation to relay chain forking.</p>
+<h2 id="parachain-forks"><a class="doc-anchor" href="#parachain-forks">§</a>Parachain forks</h2>
+<p>In this guide, we will examine how AURA-based parachains handle forks. AURA (Authority Round) is
+a consensus mechanism where block authors rotate at fixed time intervals. Each author gets a
+predetermined time slice during which they are allowed to author a block. On its own, this
+mechanism is fork-free.</p>
+<p>However, since the relay chain provides security and serves as the source of truth for
+parachains, the parachain is dependent on it. This relationship can introduce complexities that
+lead to forking scenarios.</p>
+<h3 id="background"><a class="doc-anchor" href="#background">§</a>Background</h3>
+<p>Each parachain block has a relay parent, which is a relay chain block that provides context to
+our parachain block. The constraints the relay chain imposes on our parachain can cause forks
+under certain conditions. With asynchronous-backing enabled chains, the node side is building
+blocks on all relay chain forks. This means that no matter which fork of the relay chain
+ultimately progressed, the parachain would have a block ready for that fork. The situation
+changes when parachains want to produce blocks at a faster cadence. In a scenario where a
+parachain might author on 3 cores with elastic scaling, it is not possible to author on all
+relay chain forks. The time constraints do not allow it. Building on two forks would result in 6
+blocks. The authoring of these blocks would consume more time than we have available before the
+next relay chain block arrives. This limitation requires a more fork-resistant approach to
+block-building.</p>
+<h3 id="impact-of-forks"><a class="doc-anchor" href="#impact-of-forks">§</a>Impact of Forks</h3>
+<p>When a relay chain fork occurs and the parachain builds on a fork that will not be extended in
+the future, the blocks built on that fork are lost and need to be rebuilt. This increases
+latency and reduces throughput, affecting the overall performance of the parachain.</p>
+<h2 id="building-on-older-pelay-parents"><a class="doc-anchor" href="#building-on-older-pelay-parents">§</a>Building on Older Pelay Parents</h2>
+<p>Cumulus offers a way to mitigate the occurence of forks. Instead of picking a block at the tip
+of the relay chain to build blocks, the node side can pick a relay chain block that is older. By
+building on 12s old relay chain blocks, forks will already have settled and the parachain can
+build fork-free.</p>
+<div class="example-wrap"><pre class="language-text"><code>Without offset:
+Relay Chain:    A --- B --- C --- D  --- E
+                             \
+                              --- D&#39; --- E&#39;
+Parachain:            X --- Y --- ? (builds on both D and D&#39;, wasting resources)
+
+With offset (2 blocks):
+Relay Chain:    A --- B --- C --- D  --- E
+                             \
+                              --- D&#39; --- E&#39;
+Parachain:            X(A) - Y (B) - Z (on C, fork already resolved)</code></pre></div>
+<p><strong>Note:</strong> It is possible that relay chain forks extend over more than 1-2 blocks. However, it is
+unlikely.</p>
+<h3 id="tradeoffs"><a class="doc-anchor" href="#tradeoffs">§</a>Tradeoffs</h3>
+<p>Fork-free parachains come with a few tradeoffs:</p>
+<ul>
+<li>The latency of incoming XCM messages will be delayed by <code>N * 6s</code>, where <code>N</code> is the number of
+relay chain blocks we want to offset by. For example, by building 2 relay chain blocks behind
+the tip, the XCM latency will be increased by 12 seconds.</li>
+<li>The available PoV space will be slightly reduced. Assuming a 10mb PoV, parachains need to be
+ready to sacrifice around 0.5% of PoV space.</li>
+</ul>
+<h3 id="enabling-guide"><a class="doc-anchor" href="#enabling-guide">§</a>Enabling Guide</h3>
+<p>The decision whether the parachain should build on older relay parents is embedded into the
+runtime. After the changes are implemented, the runtime will enforce that no author can build
+with an offset smaller than the desired offset. If you wish to keep your current parachain
+behaviour and do not want aforementioned tradeoffs, set the offset to 0.</p>
+<p><strong>Note:</strong> The APIs mentioned here are available in <code>polkadot-sdk</code> versions after <code>stable-2506</code>.</p>
+<ol>
+<li>Define the relay parent offset your parachain should respect in the runtime.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">const </span>RELAY_PARENT_OFFSET = <span class="number">2</span>;</code></pre></div>
+<ol start="2">
+<li>Pass this constant to the <code>parachain-system</code> pallet.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+	<span class="comment">// Other config items here
+    </span>...
+	<span class="kw">type </span>RelayParentOffset = ConstU32&lt;RELAY_PARENT_OFFSET&gt;;
+}</code></pre></div>
+<ol start="3">
+<li>Implement the <code>RelayParentOffsetApi</code> runtime API for your runtime.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>cumulus_primitives_core::RelayParentOffsetApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+    <span class="kw">fn </span>relay_parent_offset() -&gt; u32 {
+		RELAY_PARENT_OFFSET
+	}
+}</code></pre></div>
+<ol start="4">
+<li>Increase the <code>UNINCLUDED_SEGMENT_CAPICITY</code> for your runtime. It needs to be increased by
+<code>RELAY_PARENT_OFFSET * BLOCK_PROCESSING_VELOCITY</code>.</li>
+</ol>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

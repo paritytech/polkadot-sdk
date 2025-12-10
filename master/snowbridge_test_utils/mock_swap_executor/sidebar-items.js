@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TRIGGER_SWAP_ERROR_AMOUNT"],"struct":["SwapExecutor"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_SIGNALS_PER_PAGE","XCM_BATCH_SIZE"],"enum":["ChannelSignal","OutboundState"],"mod":["bridging","delivery_fee_constants","migration","pallet","weights","weights_ext"],"struct":["OutboundChannelDetails","QueueConfigData"],"type":["MaxXcmpMessageLenOf","OverweightIndex"]};

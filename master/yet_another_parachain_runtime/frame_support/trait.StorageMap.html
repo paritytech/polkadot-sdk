@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A strongly-typed map in storage."><title>StorageMap in yet_another_parachain_runtime::frame_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Storage<wbr>Map</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Query" title="Query">Query</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.append" title="append">append</a></li><li><a href="#tymethod.contains_key" title="contains_key">contains_key</a></li><li><a href="#tymethod.get" title="get">get</a></li><li><a href="#tymethod.hashed_key_for" title="hashed_key_for">hashed_key_for</a></li><li><a href="#tymethod.insert" title="insert">insert</a></li><li><a href="#tymethod.migrate_key" title="migrate_key">migrate_key</a></li><li><a href="#tymethod.mutate" title="mutate">mutate</a></li><li><a href="#tymethod.mutate_exists" title="mutate_exists">mutate_exists</a></li><li><a href="#tymethod.remove" title="remove">remove</a></li><li><a href="#tymethod.set" title="set">set</a></li><li><a href="#tymethod.swap" title="swap">swap</a></li><li><a href="#tymethod.take" title="take">take</a></li><li><a href="#tymethod.try_get" title="try_get">try_get</a></li><li><a href="#tymethod.try_mutate" title="try_mutate">try_mutate</a></li><li><a href="#tymethod.try_mutate_exists" title="try_mutate_exists">try_mutate_exists</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.decode_len" title="decode_len">decode_len</a></li><li><a href="#method.decode_non_dedup_len" title="decode_non_dedup_len">decode_non_dedup_len</a></li><li><a href="#method.migrate_key_from_blake" title="migrate_key_from_blake">migrate_key_from_blake</a></li><li><a href="#method.mutate_extant" title="mutate_extant">mutate_extant</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">frame_support</a></div><h1>Trait <span class="trait">StorageMap</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support/storage/mod.rs.html#271">Source</a> </span></div><pre class="rust item-decl"><code>pub trait StorageMap&lt;K, V&gt;<div class="where">where
+    K: FullEncode,
+    V: FullCodec,</div>{
+    type <a href="#associatedtype.Query" class="associatedtype">Query</a>;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 19 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.hashed_key_for" class="fn">hashed_key_for</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains_key" class="fn">contains_key</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get" class="fn">get</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set" class="fn">set</a>&lt;KeyArg&gt;(key: KeyArg, query: Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>)
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_get" class="fn">try_get</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;V, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.swap" class="fn">swap</a>&lt;KeyArg1, KeyArg2&gt;(key1: KeyArg1, key2: KeyArg2)
+       <span class="where">where KeyArg1: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             KeyArg2: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.insert" class="fn">insert</a>&lt;KeyArg, ValArg&gt;(key: KeyArg, val: ValArg)
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             ValArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;V&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove" class="fn">remove</a>&lt;KeyArg&gt;(key: KeyArg)
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mutate" class="fn">mutate</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>) -&gt; R</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_mutate" class="fn">try_mutate</a>&lt;KeyArg, R, E, F&gt;(key: KeyArg, f: F) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mutate_exists" class="fn">mutate_exists</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; R</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_mutate_exists" class="fn">try_mutate_exists</a>&lt;KeyArg, R, E, F&gt;(key: KeyArg, f: F) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.take" class="fn">take</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.append" class="fn">append</a>&lt;Item, EncodeLikeItem, EncodeLikeKey&gt;(
+        key: EncodeLikeKey,
+        item: EncodeLikeItem,
+    )
+       <span class="where">where EncodeLikeKey: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             Item: <a class="trait" href="../frame_election_provider_support/trait.Encode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Encode">Encode</a>,
+             EncodeLikeItem: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;Item&gt;,
+             V: <a class="trait" href="../../frame_support/storage/trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend">StorageAppend</a>&lt;Item&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_key" class="fn">migrate_key</a>&lt;OldHasher, KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;
+       <span class="where">where OldHasher: <a class="trait" href="trait.StorageHasher.html" title="trait yet_another_parachain_runtime::frame_support::StorageHasher">StorageHasher</a>,
+             KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span>;
+
+    // Provided methods
+    fn <a href="#method.mutate_extant" class="fn">mutate_extant</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             R: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;mut V</a>) -&gt; R</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.decode_len" class="fn">decode_len</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             V: <a class="trait" href="../../frame_support/storage/trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength">StorageDecodeLength</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.decode_non_dedup_len" class="fn">decode_non_dedup_len</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+             V: <a class="trait" href="../../frame_support/storage/trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength">StorageDecodeNonDedupLength</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.migrate_key_from_blake" class="fn">migrate_key_from_blake</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;
+       <span class="where">where KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;</span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A strongly-typed map in storage.</p>
+<p>Details on implementation can be found at [<code>generator::StorageMap</code>].</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Query" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#273">Source</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a></h4></section></summary><div class="docblock"><p>The type that get/take return.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.hashed_key_for" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#276">Source</a><h4 class="code-header">fn <a href="#tymethod.hashed_key_for" class="fn">hashed_key_for</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a><div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Get the storage key used to fetch a value corresponding to a specific key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains_key" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#279">Source</a><h4 class="code-header">fn <a href="#tymethod.contains_key" class="fn">contains_key</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a><div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Does the value (explicitly) exist in storage?</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#282">Source</a><h4 class="code-header">fn <a href="#tymethod.get" class="fn">get</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a><div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Load the value associated with the given key from the map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#285">Source</a><h4 class="code-header">fn <a href="#tymethod.set" class="fn">set</a>&lt;KeyArg&gt;(key: KeyArg, query: Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>)<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Store or remove the value to be associated with <code>key</code> so that <code>get</code> returns the <code>query</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_get" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#290">Source</a><h4 class="code-header">fn <a href="#tymethod.try_get" class="fn">try_get</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;V, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Try to get the value for the given key from the map.</p>
+<p>Returns <code>Ok</code> if it exists, <code>Err</code> if not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.swap" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#293">Source</a><h4 class="code-header">fn <a href="#tymethod.swap" class="fn">swap</a>&lt;KeyArg1, KeyArg2&gt;(key1: KeyArg1, key2: KeyArg2)<div class="where">where
+    KeyArg1: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    KeyArg2: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Swap the values of two keys.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.insert" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#296">Source</a><h4 class="code-header">fn <a href="#tymethod.insert" class="fn">insert</a>&lt;KeyArg, ValArg&gt;(key: KeyArg, val: ValArg)<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    ValArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;V&gt;,</div></h4></section></summary><div class="docblock"><p>Store a value to be associated with the given key from the map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#299">Source</a><h4 class="code-header">fn <a href="#tymethod.remove" class="fn">remove</a>&lt;KeyArg&gt;(key: KeyArg)<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Remove the value under a key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.mutate" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#302">Source</a><h4 class="code-header">fn <a href="#tymethod.mutate" class="fn">mutate</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>) -&gt; R,</div></h4></section></summary><div class="docblock"><p>Mutate the value under a key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_mutate" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#305-308">Source</a><h4 class="code-header">fn <a href="#tymethod.try_mutate" class="fn">try_mutate</a>&lt;KeyArg, R, E, F&gt;(key: KeyArg, f: F) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a>) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;,</div></h4></section></summary><div class="docblock"><p>Mutate the item, only if an <code>Ok</code> value is returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.mutate_exists" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#325-328">Source</a><h4 class="code-header">fn <a href="#tymethod.mutate_exists" class="fn">mutate_exists</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; R,</div></h4></section></summary><div class="docblock"><p>Mutate the value under a key.</p>
+<p>Deletes the item if mutated to a <code>None</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_mutate_exists" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#333-336">Source</a><h4 class="code-header">fn <a href="#tymethod.try_mutate_exists" class="fn">try_mutate_exists</a>&lt;KeyArg, R, E, F&gt;(key: KeyArg, f: F) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;R, E&gt;,</div></h4></section></summary><div class="docblock"><p>Mutate the item, only if an <code>Ok</code> value is returned. Deletes the item if mutated to a <code>None</code>.
+<code>f</code> will always be called with an option representing if the storage item exists (<code>Some&lt;V&gt;</code>)
+or if the storage item does not exist (<code>None</code>), independent of the <code>QueryType</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#339">Source</a><h4 class="code-header">fn <a href="#tymethod.take" class="fn">take</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; Self::<a class="associatedtype" href="trait.StorageMap.html#associatedtype.Query" title="type yet_another_parachain_runtime::frame_support::StorageMap::Query">Query</a><div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Take the value under a key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.append" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#350-355">Source</a><h4 class="code-header">fn <a href="#tymethod.append" class="fn">append</a>&lt;Item, EncodeLikeItem, EncodeLikeKey&gt;(
+    key: EncodeLikeKey,
+    item: EncodeLikeItem,
+)<div class="where">where
+    EncodeLikeKey: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    Item: <a class="trait" href="../frame_election_provider_support/trait.Encode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Encode">Encode</a>,
+    EncodeLikeItem: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;Item&gt;,
+    V: <a class="trait" href="../../frame_support/storage/trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend">StorageAppend</a>&lt;Item&gt;,</div></h4></section></summary><div class="docblock"><p>Append the given items to the value in the storage.</p>
+<p><code>V</code> is required to implement <code>codec::EncodeAppend</code>.</p>
+<h5 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h5>
+<p>If the storage item is not encoded properly, the storage will be overwritten
+and set to <code>[item]</code>. Any default value set for the storage item will be ignored
+on overwrite.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_key" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#401">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_key" class="fn">migrate_key</a>&lt;OldHasher, KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;<div class="where">where
+    OldHasher: <a class="trait" href="trait.StorageHasher.html" title="trait yet_another_parachain_runtime::frame_support::StorageHasher">StorageHasher</a>,
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Migrate an item with the given <code>key</code> from a defunct <code>OldHasher</code> to the current hasher.</p>
+<p>If the key doesn’t exist, then it’s a no-op. If it does, then it returns its value.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.mutate_extant" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#312-315">Source</a><h4 class="code-header">fn <a href="#method.mutate_extant" class="fn">mutate_extant</a>&lt;KeyArg, R, F&gt;(key: KeyArg, f: F) -&gt; R<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    R: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;mut V</a>) -&gt; R,</div></h4></section></summary><div class="docblock"><p>Mutate the value under a key if the value already exists. Do nothing and return the default
+value if not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.decode_len" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#369-371">Source</a><h4 class="code-header">fn <a href="#method.decode_len" class="fn">decode_len</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    V: <a class="trait" href="../../frame_support/storage/trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength">StorageDecodeLength</a>,</div></h4></section></summary><div class="docblock"><p>Read the length of the storage value without decoding the entire value under the
+given <code>key</code>.</p>
+<p><code>V</code> is required to implement <a href="../../frame_support/storage/trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength"><code>StorageDecodeLength</code></a>.</p>
+<p>If the value does not exists or it fails to decode the length, <code>None</code> is returned.
+Otherwise <code>Some(len)</code> is returned.</p>
+<h5 id="warning-1"><a class="doc-anchor" href="#warning-1">§</a>Warning</h5>
+<p><code>None</code> does not mean that <code>get()</code> does not return a value. The default value is completely
+ignored by this function.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.decode_non_dedup_len" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#391-393">Source</a><h4 class="code-header">fn <a href="#method.decode_non_dedup_len" class="fn">decode_non_dedup_len</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,
+    V: <a class="trait" href="../../frame_support/storage/trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength">StorageDecodeNonDedupLength</a>,</div></h4></section></summary><div class="docblock"><p>Read the length of the storage value without decoding the entire value.</p>
+<p><code>V</code> is required to implement <a href="../../frame_support/storage/trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength"><code>StorageDecodeNonDedupLength</code></a>.</p>
+<p>If the value does not exists or it fails to decode the length, <code>None</code> is returned.
+Otherwise <code>Some(len)</code> is returned.</p>
+<h5 id="warning-2"><a class="doc-anchor" href="#warning-2">§</a>Warning</h5>
+<ul>
+<li>
+<p><code>None</code> does not mean that <code>get()</code> does not return a value. The default value is
+completely
+ignored by this function.</p>
+</li>
+<li>
+<p>The value returned is the non-deduplicated length of the underlying Vector in storage.This
+means that any duplicate items are included.</p>
+</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_key_from_blake" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#406">Source</a><h4 class="code-header">fn <a href="#method.migrate_key_from_blake" class="fn">migrate_key_from_blake</a>&lt;KeyArg&gt;(key: KeyArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;<div class="where">where
+    KeyArg: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.EncodeLike.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::EncodeLike">EncodeLike</a>&lt;K&gt;,</div></h4></section></summary><div class="docblock"><p>Migrate an item with the given <code>key</code> from a <code>blake2_256</code> hasher to the current hasher.</p>
+<p>If the key doesn’t exist, then it’s a no-op. If it does, then it returns its value.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-StorageMap%3CK,+V%3E-for-G" class="impl"><a class="src rightside" href="../../src/frame_support/storage/generator/map.rs.html#186">Source</a><a href="#impl-StorageMap%3CK,+V%3E-for-G" class="anchor">§</a><h3 class="code-header">impl&lt;K, V, G&gt; <a class="trait" href="trait.StorageMap.html" title="trait yet_another_parachain_runtime::frame_support::StorageMap">StorageMap</a>&lt;K, V&gt; for G<div class="where">where
+    K: FullEncode,
+    V: FullCodec,
+    G: StorageMap&lt;K, V&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Query-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/frame_support/storage/generator/map.rs.html#187">Source</a><a href="#associatedtype.Query-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a> = &lt;G as StorageMap&lt;K, V&gt;&gt;::Query</h4></section></div></details></div><script src="../../trait.impl/frame_support/storage/trait.StorageMap.js" async></script><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"../pallet_referenda/struct.Vec.html\" title=\"struct yet_another_parachain_runtime::pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"../pallet_referenda/struct.Vec.html\" title=\"struct yet_another_parachain_runtime::pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"sp_runtime/app_crypto/sp_core/bounded/alloc/alloc/trait.Allocator.html\" title=\"trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

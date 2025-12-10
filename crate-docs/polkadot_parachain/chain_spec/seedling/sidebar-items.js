@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_seedling_chain_spec","seedling_testnet_genesis"],"type":["SeedlingChainSpec"]};

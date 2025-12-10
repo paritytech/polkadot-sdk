@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BalanceStatus","DepositConsequence","ExistenceRequirement","Fortitude","Precision","Preservation","Provenance","WithdrawConsequence"],"struct":["WithdrawReasons"],"trait":["AssetId","OnUnbalanced","Pay"]};

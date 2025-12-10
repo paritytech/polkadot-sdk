@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_revive",[["impl&lt;Address, Signature, E: <a class=\"trait\" href=\"pallet_revive/evm/runtime/trait.EthExtra.html\" title=\"trait pallet_revive::evm::runtime::EthExtra\">EthExtra</a>&gt; LazyExtrinsic for <a class=\"struct\" href=\"pallet_revive/evm/runtime/struct.UncheckedExtrinsic.html\" title=\"struct pallet_revive::evm::runtime::UncheckedExtrinsic\">UncheckedExtrinsic</a>&lt;Address, Signature, E&gt;<div class=\"where\">where\n    UncheckedExtrinsic&lt;Address, &lt;E::<a class=\"associatedtype\" href=\"pallet_revive/evm/runtime/trait.EthExtra.html#associatedtype.Config\" title=\"type pallet_revive::evm::runtime::EthExtra::Config\">Config</a> as <a class=\"trait\" href=\"pallet_revive/pallet/trait.Config.html\" title=\"trait pallet_revive::pallet::Config\">Config</a>&gt;::<a class=\"associatedtype\" href=\"pallet_revive/pallet/trait.Config.html#associatedtype.RuntimeCall\" title=\"type pallet_revive::pallet::Config::RuntimeCall\">RuntimeCall</a>, Signature, E::<a class=\"associatedtype\" href=\"pallet_revive/evm/runtime/trait.EthExtra.html#associatedtype.Extension\" title=\"type pallet_revive::evm::runtime::EthExtra::Extension\">Extension</a>&gt;: LazyExtrinsic,</div>"]]],["polkadot_sdk_frame",[]],["polkadot_service",[]],["sp_runtime",[]],["sp_test_primitives",[["impl LazyExtrinsic for <a class=\"enum\" href=\"sp_test_primitives/enum.Extrinsic.html\" title=\"enum sp_test_primitives::Extrinsic\">Extrinsic</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1202,26,24,18,177,37]}

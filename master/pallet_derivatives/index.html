@@ -1,0 +1,232 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The purpose of the `pallet-derivatives` is to cover the following derivative asset support scenarios:"><title>pallet_derivatives - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_derivatives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_derivatives/index.html">pallet_<wbr>derivatives</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#motivation" title="Motivation">Motivation</a><ul><li><a href="#the-first-scenario" title="The first scenario">The first scenario</a></li><li><a href="#the-second-scenario" title="The second scenario">The second scenario</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_derivatives</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_derivatives/lib.rs.html#18-419">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The purpose of the <code>pallet-derivatives</code> is to cover the following derivative asset support
+scenarios:</p>
+<ol>
+<li>The <code>pallet-derivatives</code> can serve as an API for creating and destroying derivatives.</li>
+<li>It can store a mapping between the foreign original ID (e.g., XCM <code>AssetId</code> or <code>(AssetId, AssetInstance)</code>) and the local derivative ID.</li>
+</ol>
+<p>The scenarios can be combined.</p>
+<h4 id="motivation"><a class="doc-anchor" href="#motivation">§</a>Motivation</h4>
+<p>The motivation differs depending on the scenario in question.</p>
+<h5 id="the-first-scenario"><a class="doc-anchor" href="#the-first-scenario">§</a>The first scenario</h5>
+<p>The <code>pallet-derivatives</code> can be helpful when another pallet, which hosts the derivative assets,
+doesn’t provide a good enough way to create new assets in the context of them being derivatives.</p>
+<p>For instance, the asset hosting pallet might have an asset class (NFT collection or fungible
+currency) creation extrinsic, but among its parameters, there could be things like some admin
+account, currency decimals, various permissions, etc. When creating a regular (i.e.,
+non-derivative) asset class via such an extrinsic, these parameters allow one to conveniently
+set all the needed data for the asset class.
+However, when creating a derivative asset class, we usually can’t allow an arbitrary user to
+influence such parameters since they should be set per the original asset class owner’s desires.
+Thus, we can either require a privileged origin for derivative asset classes (such as Root or
+some collective) or we could provide an alternative API where the sensitive parameters are
+omitted (and set by the chain runtime automatically).</p>
+<p>The first approach dominates in the ecosystem at the moment since:</p>
+<ol>
+<li>It is simple</li>
+<li>There was no pallet to make such an alternative API without rewriting individual
+asset-hosting pallets</li>
+<li>Only fungible derivatives were ever made (with rare exceptions like an NFT derivative
+collection on Karura).</li>
+</ol>
+<p>The fungible derivatives are one of the reasons because they almost always have at least
+decimals and symbol information that should be correct, so only a privileged origin is
+acceptable to do the registration, since there is no way (at the time of writing) to communicate
+asset data between chains directly (this will be fixed when Fellowship RFC 125 will be
+implemented).</p>
+<p>Derivative NFT collections and their tokens, on the other hand, just need to point to the
+originals. An NFT derivative is meant to participate in mechanisms unique to the given hosting
+chain, such as NFT fractionalization, nesting, etc., where only its ID is needed to do said
+interactions.</p>
+<p>In the future, there could be interactions where NFT data is needed. These interactions will be
+able to leverage XCM Asset Metadata instructions from Fellowship RFC 125. However, even with the
+IDs only, there are use cases (as mentioned above), and more could be discovered. Requiring a
+privileged origin where no sensitive parameters are needed for registering derivative NFT
+collections is raising an unreasonable barrier for NFT interoperability between chains. So,
+providing an API for unprivileged derivative registration is a preferable choice in this case.</p>
+<p>Moreover, the future data communication via XCM can benefit both fungible and non-fungible
+derivative collections registration.</p>
+<ol>
+<li>The <code>create_derivative</code> extrinsic of this pallet can be configured to initiate the
+registration process
+by sending the <code>ReportMetadata</code> instruction to the reserve chain. It can be configured such that
+this can be done by anyone.</li>
+<li>The reserve chain will decide whether to send the data or an error depending on its state.</li>
+<li>Our chain will handle the reserve chain’s response and decide whether it is okay to register
+the given asset.</li>
+</ol>
+<h5 id="the-second-scenario"><a class="doc-anchor" href="#the-second-scenario">§</a>The second scenario</h5>
+<p>Saving the mapping between the original ID and the derivative ID is needed when their types
+differ and the derivative ID value can’t be deterministically deduced from the original ID.</p>
+<p>This situation can arise in the following cases:</p>
+<ul>
+<li>The original ID type is incompatible with a derivative ID type.
+For example, let <code>pallet-nfts</code> instance host derivative NFT collections. We can’t set the
+<code>CollectionId</code> (the derivative ID type) to XCM <code>AssetId</code> (the original ID type)
+because <code>pallet-nfts</code> requires <code>CollectionId</code> to be incrementable.</li>
+<li>It is desired to have a continuous ID space for all objects, both derivative and local.
+For instance, one might want to reuse the existing pallet combinations (like <code>pallet-nfts</code>
+instance + <code>pallet-nfts-fractionalization</code> instance) without adding new pallet instances between
+the one hosting NFTs and many special logic pallets. In this case, the original ID type would be
+<code>(AssetId, AssetInstance)</code>, and the derivative ID type can be anything.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_derivatives::pallet">pallet</a>::*;</code></dt><dt><code>pub use <a class="mod" href="misc/index.html" title="mod pallet_derivatives::misc">misc</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod pallet_derivatives::benchmarking">benchmarking</a></dt><dt><a class="mod" href="misc/index.html" title="mod pallet_derivatives::misc">misc</a></dt><dd>Miscellaneous traits and types for working with unique instances derivatives.</dd><dt><a class="mod" href="pallet/index.html" title="mod pallet_derivatives::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.InvalidAssetError.html" title="struct pallet_derivatives::InvalidAssetError">Invalid<wbr>Asset<wbr>Error</a></dt><dd>Gets the <code>InvalidAsset</code> error from the given <code>pallet-derivatives</code> instance.</dd><dt><a class="struct" href="struct.NoStoredMapping.html" title="struct pallet_derivatives::NoStoredMapping">NoStored<wbr>Mapping</a></dt><dd>The <code>NoStoredMapping</code> adapter calls the <code>CreateOp</code> (which should take the <code>Original</code> value and
+return a <code>Derivative</code> one) and returns <code>None</code>, indicating that the mapping between the original
+and the derivative shouldn’t be saved.</dd><dt><a class="struct" href="struct.SaveMappingTo.html" title="struct pallet_derivatives::SaveMappingTo">Save<wbr>Mapping<wbr>To</a></dt><dd>A helper type representing the intention to store
+the mapping between the original and the given derivative.</dd><dt><a class="struct" href="struct.StoreMapping.html" title="struct pallet_derivatives::StoreMapping">Store<wbr>Mapping</a></dt><dd>The <code>StoreMapping</code> adapter obtains a <code>Derivative</code> value by calling the <code>CreateOp</code>
+(which should take the <code>Original</code> value and return a <code>Derivative</code> one),
+and returns <code>Some(SaveMappingTo(DERIVATIVE_VALUE))</code>, indicating that the mapping should be
+saved.</dd><dt><a class="struct" href="struct.TestWeightInfo.html" title="struct pallet_derivatives::TestWeightInfo">Test<wbr>Weight<wbr>Info</a></dt></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant pallet_derivatives::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The log target of this pallet.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.WeightInfo.html" title="trait pallet_derivatives::WeightInfo">Weight<wbr>Info</a></dt></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

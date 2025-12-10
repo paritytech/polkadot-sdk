@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["initialize_collator_subsystems"],"mod":["relay_chain_driven","service"]};

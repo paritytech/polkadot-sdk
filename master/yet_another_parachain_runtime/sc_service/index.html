@@ -1,0 +1,166 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate service. Starts a thread that spins up the network, client, and extrinsic pool. Manages communication between them."><title>yet_another_parachain_runtime::sc_service - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_service</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sc_service/lib.rs.html#19-620">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
+Manages communication between them.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="chain_ops/index.html" title="mod yet_another_parachain_runtime::sc_service::chain_ops">chain_<wbr>ops</a></dt><dd>Chain utilities.</dd><dt><a class="mod" href="client/index.html" title="mod yet_another_parachain_runtime::sc_service::client">client</a></dt><dd>Substrate Client and associated logic.</dd><dt><a class="mod" href="config/index.html" title="mod yet_another_parachain_runtime::sc_service::config">config</a></dt><dd>Service configuration.</dd><dt><a class="mod" href="error/index.html" title="mod yet_another_parachain_runtime::sc_service::error">error</a></dt><dd>Errors that can occur during the service operation.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Arc.html" title="struct yet_another_parachain_runtime::sc_service::Arc">Arc</a></dt><dd>A thread-safe reference-counting pointer. ‘Arc’ stands for ‘Atomically
+Reference Counted’.</dd><dt><a class="struct" href="struct.BasePath.html" title="struct yet_another_parachain_runtime::sc_service::BasePath">Base<wbr>Path</a></dt><dd>The base path that is used for everything that needs to be written on disk to run a node.</dd><dt><a class="struct" href="struct.BuildNetworkAdvancedParams.html" title="struct yet_another_parachain_runtime::sc_service::BuildNetworkAdvancedParams">Build<wbr>Network<wbr>Advanced<wbr>Params</a></dt><dd>Parameters to pass into <a href="fn.build_network_advanced.html" title="fn yet_another_parachain_runtime::sc_service::build_network_advanced"><code>build_network_advanced</code></a>.</dd><dt><a class="struct" href="struct.BuildNetworkParams.html" title="struct yet_another_parachain_runtime::sc_service::BuildNetworkParams">Build<wbr>Network<wbr>Params</a></dt><dd>Parameters to pass into <a href="fn.build_network.html" title="fn yet_another_parachain_runtime::sc_service::build_network"><code>build_network</code></a>.</dd><dt><a class="struct" href="struct.ClientConfig.html" title="struct yet_another_parachain_runtime::sc_service::ClientConfig">Client<wbr>Config</a></dt><dd>Client configuration items.</dd><dt><a class="struct" href="struct.Configuration.html" title="struct yet_another_parachain_runtime::sc_service::Configuration">Configuration</a></dt><dd>Service configuration.</dd><dt><a class="struct" href="struct.DefaultSyncingEngineConfig.html" title="struct yet_another_parachain_runtime::sc_service::DefaultSyncingEngineConfig">Default<wbr>Syncing<wbr>Engine<wbr>Config</a></dt><dd>Configuration for <a href="fn.build_default_syncing_engine.html" title="fn yet_another_parachain_runtime::sc_service::build_default_syncing_engine"><code>build_default_syncing_engine</code></a>.</dd><dt><a class="struct" href="struct.GenericChainSpec.html" title="struct yet_another_parachain_runtime::sc_service::GenericChainSpec">Generic<wbr>Chain<wbr>Spec</a></dt><dd>A configuration of a chain. Can be used to build a genesis block.</dd><dt><a class="struct" href="struct.GenesisBlockBuilder.html" title="struct yet_another_parachain_runtime::sc_service::GenesisBlockBuilder">Genesis<wbr>Block<wbr>Builder</a></dt><dd>Default genesis block builder in Substrate.</dd><dt><a class="struct" href="struct.KeystoreContainer.html" title="struct yet_another_parachain_runtime::sc_service::KeystoreContainer">Keystore<wbr>Container</a></dt><dd>Construct a local keystore shareable container</dd><dt><a class="struct" href="struct.LocalCallExecutor.html" title="struct yet_another_parachain_runtime::sc_service::LocalCallExecutor">Local<wbr>Call<wbr>Executor</a></dt><dd>Call executor that executes methods locally, querying all required
+data from local backend.</dd><dt><a class="struct" href="struct.MetricsService.html" title="struct yet_another_parachain_runtime::sc_service::MetricsService">Metrics<wbr>Service</a></dt><dd>A <code>MetricsService</code> periodically sends general client and
+network state to the telemetry as well as (optionally)
+a Prometheus endpoint.</dd><dt><a class="struct" href="struct.PartialComponents.html" title="struct yet_another_parachain_runtime::sc_service::PartialComponents">Partial<wbr>Components</a></dt><dd>An incomplete set of chain components, but enough to run the chain ops subcommands.</dd><dt><a class="struct" href="struct.RandomIntegerSubscriptionId.html" title="struct yet_another_parachain_runtime::sc_service::RandomIntegerSubscriptionId">Random<wbr>Integer<wbr>Subscription<wbr>Id</a></dt><dd>Generates random integers as subscription ID.</dd><dt><a class="struct" href="struct.RandomStringSubscriptionId.html" title="struct yet_another_parachain_runtime::sc_service::RandomStringSubscriptionId">Random<wbr>String<wbr>Subscription<wbr>Id</a></dt><dd>Generates random strings of length <code>len</code> as subscription ID.</dd><dt><a class="struct" href="struct.RpcHandlers.html" title="struct yet_another_parachain_runtime::sc_service::RpcHandlers">RpcHandlers</a></dt><dd>A running RPC service that can perform in-memory RPC queries.</dd><dt><a class="struct" href="struct.SpawnEssentialTaskHandle.html" title="struct yet_another_parachain_runtime::sc_service::SpawnEssentialTaskHandle">Spawn<wbr>Essential<wbr>Task<wbr>Handle</a></dt><dd>A wrapper over <code>SpawnTaskHandle</code> that will notify a receiver whenever any
+task spawned through it fails. The service should be on the receiver side
+and will shut itself down whenever it receives any message, i.e. an
+essential task has failed.</dd><dt><a class="struct" href="struct.SpawnTaskHandle.html" title="struct yet_another_parachain_runtime::sc_service::SpawnTaskHandle">Spawn<wbr>Task<wbr>Handle</a></dt><dd>An handle for spawning tasks in the service.</dd><dt><a class="struct" href="struct.SpawnTasksParams.html" title="struct yet_another_parachain_runtime::sc_service::SpawnTasksParams">Spawn<wbr>Tasks<wbr>Params</a></dt><dd>Parameters to pass into <code>build</code>.</dd><dt><a class="struct" href="struct.Task.html" title="struct yet_another_parachain_runtime::sc_service::Task">Task</a></dt><dd>Represents a running async task in the <a href="struct.TaskManager.html" title="struct yet_another_parachain_runtime::sc_service::TaskManager"><code>TaskManager</code></a>.</dd><dt><a class="struct" href="struct.TaskManager.html" title="struct yet_another_parachain_runtime::sc_service::TaskManager">Task<wbr>Manager</a></dt><dd>Helper struct to manage background/async tasks in Service.</dd><dt><a class="struct" href="struct.TaskRegistry.html" title="struct yet_another_parachain_runtime::sc_service::TaskRegistry">Task<wbr>Registry</a></dt><dd>Keeps track of all running <a href="struct.Task.html" title="struct yet_another_parachain_runtime::sc_service::Task"><code>Task</code></a>s in <a href="struct.TaskManager.html" title="struct yet_another_parachain_runtime::sc_service::TaskManager"><code>TaskManager</code></a>.</dd><dt><a class="struct" href="struct.TransactionPoolAdapter.html" title="struct yet_another_parachain_runtime::sc_service::TransactionPoolAdapter">Transaction<wbr>Pool<wbr>Adapter</a></dt><dd>Transaction pool adapter.</dd><dt><a class="struct" href="struct.TransactionPoolOptions.html" title="struct yet_another_parachain_runtime::sc_service::TransactionPoolOptions">Transaction<wbr>Pool<wbr>Options</a></dt><dd>Transaction pool options.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BlocksPruning.html" title="enum yet_another_parachain_runtime::sc_service::BlocksPruning">Blocks<wbr>Pruning</a></dt><dd>Block pruning settings.</dd><dt><a class="enum" href="enum.ChainType.html" title="enum yet_another_parachain_runtime::sc_service::ChainType">Chain<wbr>Type</a></dt><dd>The type of chain.</dd><dt><a class="enum" href="enum.DatabaseSource.html" title="enum yet_another_parachain_runtime::sc_service::DatabaseSource">Database<wbr>Source</a></dt><dd>Where to find the database..</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::sc_service::Error">Error</a></dt><dd>Service errors.</dd><dt><a class="enum" href="enum.PruningMode.html" title="enum yet_another_parachain_runtime::sc_service::PruningMode">Pruning<wbr>Mode</a></dt><dd>Pruning mode.</dd><dt><a class="enum" href="enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a></dt><dd><code>Result</code> is a type that represents either success (<a href="enum.Result.html#variant.Ok" title="variant yet_another_parachain_runtime::sc_service::Result::Ok"><code>Ok</code></a>) or failure (<a href="enum.Result.html#variant.Err" title="variant yet_another_parachain_runtime::sc_service::Result::Err"><code>Err</code></a>).</dd><dt><a class="enum" href="enum.Role.html" title="enum yet_another_parachain_runtime::sc_service::Role">Role</a></dt><dd>Role of the local node.</dd><dt><a class="enum" href="enum.RpcMethods.html" title="enum yet_another_parachain_runtime::sc_service::RpcMethods">RpcMethods</a></dt><dd>Available RPC methods.</dd><dt><a class="enum" href="enum.TaskType.html" title="enum yet_another_parachain_runtime::sc_service::TaskType">Task<wbr>Type</a></dt><dd>Type for tasks spawned by the executor.</dd><dt><a class="enum" href="enum.TracingReceiver.html" title="enum yet_another_parachain_runtime::sc_service::TracingReceiver">Tracing<wbr>Receiver</a></dt><dd>Used to configure how to receive the metrics</dd><dt><a class="enum" href="enum.TransactionImport.html" title="enum yet_another_parachain_runtime::sc_service::TransactionImport">Transaction<wbr>Import</a></dt><dd>Result of the transaction import.</dd><dt><a class="enum" href="enum.WarpSyncConfig.html" title="enum yet_another_parachain_runtime::sc_service::WarpSyncConfig">Warp<wbr>Sync<wbr>Config</a></dt><dd>Warp sync configuration as accepted by <a href="../sc_network_sync/strategy/warp/struct.WarpSync.html" title="struct yet_another_parachain_runtime::sc_network_sync::strategy::warp::WarpSync"><code>WarpSync</code></a>.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEFAULT_GROUP_NAME.html" title="constant yet_another_parachain_runtime::sc_service::DEFAULT_GROUP_NAME">DEFAULT_<wbr>GROUP_<wbr>NAME</a></dt><dd>Default task group name.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BuildGenesisBlock.html" title="trait yet_another_parachain_runtime::sc_service::BuildGenesisBlock">Build<wbr>Genesis<wbr>Block</a></dt><dd>Trait for building the genesis block.</dd><dt><a class="trait" href="trait.ChainSpec.html" title="trait yet_another_parachain_runtime::sc_service::ChainSpec">Chain<wbr>Spec</a></dt><dd>Common interface of a chain specification.</dd><dt><a class="trait" href="trait.ChainSpecExtension.html" title="trait yet_another_parachain_runtime::sc_service::ChainSpecExtension">Chain<wbr>Spec<wbr>Extension</a></dt><dd>A collection of <code>ChainSpec</code> extensions.</dd><dt><a class="trait" href="trait.Deref.html" title="trait yet_another_parachain_runtime::sc_service::Deref">Deref</a></dt><dd>Used for immutable dereferencing operations, like <code>*v</code>.</dd><dt><a class="trait" href="trait.ImportQueue.html" title="trait yet_another_parachain_runtime::sc_service::ImportQueue">Import<wbr>Queue</a></dt><dt><a class="trait" href="trait.InPoolTransaction.html" title="trait yet_another_parachain_runtime::sc_service::InPoolTransaction">InPool<wbr>Transaction</a></dt><dd>In-pool transaction interface.</dd><dt><a class="trait" href="trait.IntoPoolError.html" title="trait yet_another_parachain_runtime::sc_service::IntoPoolError">Into<wbr>Pool<wbr>Error</a></dt><dd>Transaction pool error conversion.</dd><dt><a class="trait" href="trait.NativeExecutionDispatch.html" title="trait yet_another_parachain_runtime::sc_service::NativeExecutionDispatch">Native<wbr>Execution<wbr>Dispatch</a></dt><dd>Delegate for dispatching a CodeExecutor call.</dd><dt><a class="trait" href="trait.TransactionPool.html" title="trait yet_another_parachain_runtime::sc_service::TransactionPool">Transaction<wbr>Pool</a></dt><dd>Transaction pool interface.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_default_block_downloader.html" title="fn yet_another_parachain_runtime::sc_service::build_default_block_downloader">build_<wbr>default_<wbr>block_<wbr>downloader</a></dt><dd>Build default block downloader</dd><dt><a class="fn" href="fn.build_default_syncing_engine.html" title="fn yet_another_parachain_runtime::sc_service::build_default_syncing_engine">build_<wbr>default_<wbr>syncing_<wbr>engine</a></dt><dd>Build default syncing engine using <a href="fn.build_default_block_downloader.html" title="fn yet_another_parachain_runtime::sc_service::build_default_block_downloader"><code>build_default_block_downloader</code></a> and
+<a href="fn.build_polkadot_syncing_strategy.html" title="fn yet_another_parachain_runtime::sc_service::build_polkadot_syncing_strategy"><code>build_polkadot_syncing_strategy</code></a> internally.</dd><dt><a class="fn" href="fn.build_network.html" title="fn yet_another_parachain_runtime::sc_service::build_network">build_<wbr>network</a></dt><dd>Build the network service, the network status sinks and an RPC sender.</dd><dt><a class="fn" href="fn.build_network_advanced.html" title="fn yet_another_parachain_runtime::sc_service::build_network_advanced">build_<wbr>network_<wbr>advanced</a></dt><dd>Build the network service, the network status sinks and an RPC sender, this is a lower-level
+version of <a href="fn.build_network.html" title="fn yet_another_parachain_runtime::sc_service::build_network"><code>build_network</code></a> for those needing more control.</dd><dt><a class="fn" href="fn.build_polkadot_syncing_strategy.html" title="fn yet_another_parachain_runtime::sc_service::build_polkadot_syncing_strategy">build_<wbr>polkadot_<wbr>syncing_<wbr>strategy</a></dt><dd>Build standard polkadot syncing strategy</dd><dt><a class="fn" href="fn.build_system_rpc_future.html" title="fn yet_another_parachain_runtime::sc_service::build_system_rpc_future">build_<wbr>system_<wbr>rpc_<wbr>future</a></dt><dd>Builds a future that processes system RPC requests.</dd><dt><a class="fn" href="fn.construct_genesis_block.html" title="fn yet_another_parachain_runtime::sc_service::construct_genesis_block">construct_<wbr>genesis_<wbr>block</a></dt><dd>Create a genesis block, given the initial storage.</dd><dt><a class="fn" href="fn.gen_rpc_module.html" title="fn yet_another_parachain_runtime::sc_service::gen_rpc_module">gen_<wbr>rpc_<wbr>module</a></dt><dd>Generate RPC module using provided configuration</dd><dt><a class="fn" href="fn.init_telemetry.html" title="fn yet_another_parachain_runtime::sc_service::init_telemetry">init_<wbr>telemetry</a></dt><dd>Initialize telemetry with provided configuration and return telemetry handle</dd><dt><a class="fn" href="fn.new_client.html" title="fn yet_another_parachain_runtime::sc_service::new_client">new_<wbr>client</a></dt><dd>Create an instance of client backed by given backend.</dd><dt><a class="fn" href="fn.new_db_backend.html" title="fn yet_another_parachain_runtime::sc_service::new_db_backend">new_<wbr>db_<wbr>backend</a></dt><dd>Create an instance of default DB-backend backend.</dd><dt><a class="fn" href="fn.new_full_client.html" title="fn yet_another_parachain_runtime::sc_service::new_full_client">new_<wbr>full_<wbr>client</a></dt><dd>Creates a new full client for the given config.</dd><dt><a class="fn" href="fn.new_full_parts.html" title="fn yet_another_parachain_runtime::sc_service::new_full_parts">new_<wbr>full_<wbr>parts</a></dt><dd>Create the initial parts of a full node with the default genesis block builder.</dd><dt><a class="fn" href="fn.new_full_parts_record_import.html" title="fn yet_another_parachain_runtime::sc_service::new_full_parts_record_import">new_<wbr>full_<wbr>parts_<wbr>record_<wbr>import</a></dt><dd>Create the initial parts of a full node with the default genesis block builder.</dd><dt><a class="fn" href="fn.new_full_parts_with_genesis_builder.html" title="fn yet_another_parachain_runtime::sc_service::new_full_parts_with_genesis_builder">new_<wbr>full_<wbr>parts_<wbr>with_<wbr>genesis_<wbr>builder</a></dt><dd>Create the initial parts of a full node.</dd><dt><a class="fn" href="fn.new_native_or_wasm_executor.html" title="fn yet_another_parachain_runtime::sc_service::new_native_or_wasm_executor">new_<wbr>native_<wbr>or_<wbr>wasm_<wbr>executor</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Creates a <a href="../sc_executor/struct.NativeElseWasmExecutor.html" title="struct yet_another_parachain_runtime::sc_executor::NativeElseWasmExecutor"><code>NativeElseWasmExecutor</code></a> according to
+<a href="struct.Configuration.html" title="struct yet_another_parachain_runtime::sc_service::Configuration"><code>Configuration</code></a>.</dd><dt><a class="fn" href="fn.new_wasm_executor.html" title="fn yet_another_parachain_runtime::sc_service::new_wasm_executor">new_<wbr>wasm_<wbr>executor</a></dt><dd>Creates a <a href="../sc_executor/struct.WasmExecutor.html" title="struct yet_another_parachain_runtime::sc_executor::WasmExecutor"><code>WasmExecutor</code></a> according to <a href="config/struct.ExecutorConfiguration.html" title="struct yet_another_parachain_runtime::sc_service::config::ExecutorConfiguration"><code>ExecutorConfiguration</code></a>.</dd><dt><a class="fn" href="fn.propagate_transaction_notifications.html" title="fn yet_another_parachain_runtime::sc_service::propagate_transaction_notifications">propagate_<wbr>transaction_<wbr>notifications</a></dt><dd>Returns a future that forwards imported transactions to the transaction networking protocol.</dd><dt><a class="fn" href="fn.resolve_state_version_from_wasm.html" title="fn yet_another_parachain_runtime::sc_service::resolve_state_version_from_wasm">resolve_<wbr>state_<wbr>version_<wbr>from_<wbr>wasm</a></dt><dd>Return the state version given the genesis storage and executor.</dd><dt><a class="fn" href="fn.spawn_tasks.html" title="fn yet_another_parachain_runtime::sc_service::spawn_tasks">spawn_<wbr>tasks</a></dt><dd>Spawn the tasks that are required to run a node.</dd><dt><a class="fn" href="fn.start_rpc_servers.html" title="fn yet_another_parachain_runtime::sc_service::start_rpc_servers">start_<wbr>rpc_<wbr>servers</a></dt><dd>Starts RPC servers.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.NoExtension.html" title="type yet_another_parachain_runtime::sc_service::NoExtension">NoExtension</a></dt><dd>A type denoting empty extensions.</dd><dt><a class="type" href="type.Properties.html" title="type yet_another_parachain_runtime::sc_service::Properties">Properties</a></dt><dd>Arbitrary properties defined in chain spec as a JSON object</dd><dt><a class="type" href="type.TFullBackend.html" title="type yet_another_parachain_runtime::sc_service::TFullBackend">TFull<wbr>Backend</a></dt><dd>Full client backend type.</dd><dt><a class="type" href="type.TFullCallExecutor.html" title="type yet_another_parachain_runtime::sc_service::TFullCallExecutor">TFull<wbr>Call<wbr>Executor</a></dt><dd>Full client call executor type.</dd><dt><a class="type" href="type.TFullClient.html" title="type yet_another_parachain_runtime::sc_service::TFullClient">TFull<wbr>Client</a></dt><dd>Full client type.</dd><dt><a class="type" href="type.TransactionImportFuture.html" title="type yet_another_parachain_runtime::sc_service::TransactionImportFuture">Transaction<wbr>Import<wbr>Future</a></dt><dd>Future resolving to transaction import result.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ConcatIncrementalExtra","DerivativeToOriginalConvert","EnsureNotDerivativeInstance","MatchDerivativeInstances","OriginalToDerivativeConvert","OwnerConvertedLocation","OwnerConvertedLocationDefaultErr","RegisterDerivative"],"trait":["DerivativesExtra","DerivativesRegistry","IterDerivativesRegistry"]};

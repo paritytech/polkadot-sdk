@@ -1,0 +1,198 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Map between the native chain account id `T` and an Ethereum `H160`."><title>AddressMapper in pallet_revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Address<wbr>Mapper</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.is_mapped" title="is_mapped">is_mapped</a></li><li><a href="#tymethod.map" title="map">map</a></li><li><a href="#tymethod.to_account_id" title="to_account_id">to_account_id</a></li><li><a href="#tymethod.to_address" title="to_address">to_address</a></li><li><a href="#tymethod.to_fallback_account_id" title="to_fallback_account_id">to_fallback_account_id</a></li><li><a href="#tymethod.unmap" title="unmap">unmap</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.map_no_deposit" title="map_no_deposit">map_no_deposit</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>revive</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">pallet_revive</a></div><h1>Trait <span class="trait">AddressMapper</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/address.rs.html#44-82">Source</a> </span></div><pre class="rust item-decl"><code>pub trait AddressMapper&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&gt;: Sealed {
+    // Required methods
+    fn <a href="#tymethod.to_address" class="fn">to_address</a>(account_id: &amp;T::AccountId) -&gt; <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.to_account_id" class="fn">to_account_id</a>(address: &amp;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>) -&gt; T::AccountId;
+<span class="item-spacer"></span>    fn <a href="#tymethod.to_fallback_account_id" class="fn">to_fallback_account_id</a>(address: &amp;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>) -&gt; T::AccountId;
+<span class="item-spacer"></span>    fn <a href="#tymethod.map" class="fn">map</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unmap" class="fn">unmap</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.is_mapped" class="fn">is_mapped</a>(account_id: &amp;T::AccountId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>;
+
+    // Provided method
+    fn <a href="#method.map_no_deposit" class="fn">map_no_deposit</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Map between the native chain account id <code>T</code> and an Ethereum <a href="struct.H160.html" title="struct pallet_revive::H160"><code>H160</code></a>.</p>
+<p>This trait exists only to emulate specialization for different concrete
+native account ids. <strong>Not</strong> to make the mapping user configurable. Hence
+the trait is <code>Sealed</code> and depending on your runtime configuration you need
+to pick either <a href="struct.AccountId32Mapper.html" title="struct pallet_revive::AccountId32Mapper"><code>AccountId32Mapper</code></a> or [<code>H160Mapper</code>]. Picking the wrong
+one will result in a compilation error. No footguns here.</p>
+<p>Please note that we assume that the native account is at least 20 bytes and
+only implement this type for a <code>T</code> where this is the case. Luckily, this is the
+case for all existing runtimes as of right now. Reasoning is that this will allow
+us to reverse an address -&gt; account_id mapping by just stripping the prefix.</p>
+<p>We require the mapping to be reversible. Since we are potentially dealing with types of
+different sizes one direction of the mapping is necessarily lossy. This requires the mapping to
+make use of the [<code>OriginalAccount</code>] storage item to reverse the mapping.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.to_address" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#46">Source</a><h4 class="code-header">fn <a href="#tymethod.to_address" class="fn">to_address</a>(account_id: &amp;T::AccountId) -&gt; <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a></h4></section></summary><div class="docblock"><p>Convert an account id to an ethereum address.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.to_account_id" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#49">Source</a><h4 class="code-header">fn <a href="#tymethod.to_account_id" class="fn">to_account_id</a>(address: &amp;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>) -&gt; T::AccountId</h4></section></summary><div class="docblock"><p>Convert an ethereum address to a native account id.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.to_fallback_account_id" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#57">Source</a><h4 class="code-header">fn <a href="#tymethod.to_fallback_account_id" class="fn">to_fallback_account_id</a>(address: &amp;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>) -&gt; T::AccountId</h4></section></summary><div class="docblock"><p>Same as <a href="trait.AddressMapper.html#tymethod.to_account_id"><code>Self::to_account_id</code></a> but always returns the fallback account.</p>
+<p>This skips the query into [<code>OriginalAccount</code>] and always returns the stateless
+fallback account. This is useful when we know for a fact that the <code>address</code>
+in question is originally a <code>H160</code>. This is usually only the case when we
+generated a new contract address.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.map" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#63">Source</a><h4 class="code-header">fn <a href="#tymethod.map" class="fn">map</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Create a stateful mapping for <code>account_id</code></p>
+<p>This will enable <code>to_account_id</code> to map back to the original
+<code>account_id</code> instead of the fallback account id.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unmap" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#75">Source</a><h4 class="code-header">fn <a href="#tymethod.unmap" class="fn">unmap</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Remove the mapping in order to reclaim the deposit.</p>
+<p>There is no reason why one would unmap their <code>account_id</code> except
+for reclaiming the deposit.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.is_mapped" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#81">Source</a><h4 class="code-header">fn <a href="#tymethod.is_mapped" class="fn">is_mapped</a>(account_id: &amp;T::AccountId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if the <code>account_id</code> is usable as an origin.</p>
+<p>This means either the <code>account_id</code> doesn’t require a stateful mapping
+or a stateful mapping exists.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.map_no_deposit" class="method"><a class="src rightside" href="../src/pallet_revive/address.rs.html#67-69">Source</a><h4 class="code-header">fn <a href="#method.map_no_deposit" class="fn">map_no_deposit</a>(account_id: &amp;T::AccountId) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Map an account id without taking any deposit.
+This is only useful for genesis configuration, or benchmarks.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AddressMapper%3CT%3E-for-AccountId32Mapper%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_revive/address.rs.html#108-171">Source</a><a href="#impl-AddressMapper%3CT%3E-for-AccountId32Mapper%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.AddressMapper.html" title="trait pallet_revive::AddressMapper">AddressMapper</a>&lt;T&gt; for <a class="struct" href="struct.AccountId32Mapper.html" title="struct pallet_revive::AccountId32Mapper">AccountId32Mapper</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&lt;AccountId = <a class="struct" href="test_utils/struct.AccountId32.html" title="struct pallet_revive::test_utils::AccountId32">AccountId32</a>&gt;,</div></h3></section><section id="impl-AddressMapper%3CT%3E-for-TestAccountMapper%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_revive/address.rs.html#173-202">Source</a><a href="#impl-AddressMapper%3CT%3E-for-TestAccountMapper%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.AddressMapper.html" title="trait pallet_revive::AddressMapper">AddressMapper</a>&lt;T&gt; for <a class="struct" href="struct.TestAccountMapper.html" title="struct pallet_revive::TestAccountMapper">TestAccountMapper</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&lt;AccountId = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a>&gt;,</div></h3></section></div><script src="../trait.impl/pallet_revive/address/trait.AddressMapper.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FollowEvent","MethodResponse","RuntimeEvent"],"struct":["BestBlockChanged","ChainHeadRuntimeVersion","ErrorEvent","Finalized","Initialized","MethodResponseStarted","NewBlock","OperationBodyDone","OperationCallDone","OperationError","OperationId","OperationStorageItems","RuntimeVersionEvent"]};

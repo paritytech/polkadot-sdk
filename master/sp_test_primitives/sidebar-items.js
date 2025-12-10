@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Extrinsic"],"struct":["H256"],"type":["AccountId","AccountSignature","Block","BlockNumber","Digest","DigestItem","Hash","Header","Nonce"]};

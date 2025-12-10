@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["start_approval_worker"],"mod":["approval_db","criteria"],"struct":["ApprovalVotingSubsystem","AssignmentConfig","Config","Metrics"],"trait":["ApprovalVotingWorkProvider","AssignmentCriteria"]};

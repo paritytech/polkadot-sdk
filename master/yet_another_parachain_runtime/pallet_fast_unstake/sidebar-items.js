@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"enum":["Call","Error","Event"],"macro":["log"],"mod":["migrations","pallet","types","weights"],"struct":["Pallet"],"trait":["Config","WeightInfo"],"type":["ErasToCheckPerBlock","Head","Module","Queue"]};

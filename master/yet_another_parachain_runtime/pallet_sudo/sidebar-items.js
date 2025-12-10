@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["pallet","weights"],"struct":["CheckOnlySudoAccount","GenesisConfig","Pallet"],"trait":["Config","DefaultConfig","WeightInfo"],"type":["Key","Module"]};

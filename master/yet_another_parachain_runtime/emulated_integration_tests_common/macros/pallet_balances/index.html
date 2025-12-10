@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Balances Pallet"><title>yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../crates.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#balances-pallet" title="Balances Pallet">Balances Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#genesis-config" title="Genesis config">Genesis config</a></li><li><a href="#assumptions" title="Assumptions">Assumptions</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>emulated_<wbr>integration_<wbr>tests_<wbr>common::<wbr>macros</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">emulated_integration_tests_common</a>::<wbr><a href="../index.html">macros</a></div><h1>Crate <span>pallet_balances</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_balances/lib.rs.html#18-1435">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="balances-pallet"><a class="doc-anchor" href="#balances-pallet">§</a>Balances Pallet</h2>
+<p>The Balances pallet provides functionality for handling accounts and balances for a single
+token.</p>
+<p>It makes heavy use of concepts such as Holds and Freezes from the
+<a href="../../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits, therefore you should read and understand those docs
+as a prerequisite to understanding this pallet.</p>
+<p>Also see the <a href="../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for higher level information regarding the
+place of this palet in FRAME.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The Balances pallet provides functions for:</p>
+<ul>
+<li>Getting and setting free balances.</li>
+<li>Retrieving total, reserved and unreserved balances.</li>
+<li>Repatriating a reserved balance to a beneficiary account that exists.</li>
+<li>Transferring a balance between accounts (when not reserved).</li>
+<li>Slashing an account balance.</li>
+<li>Account creation and removal.</li>
+<li>Managing total issuance.</li>
+<li>Setting and managing locks.</li>
+</ul>
+<h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4>
+<ul>
+<li><strong>Reaping an account:</strong> The act of removing an account by resetting its nonce. Happens after
+its total balance has become less than the Existential Deposit.</li>
+</ul>
+<h4 id="implementations-1"><a class="doc-anchor" href="#implementations-1">§</a>Implementations</h4>
+<p>The Balances pallet provides implementations for the following <a href="../../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a> traits. If these
+traits provide the functionality that you need, then you should avoid tight coupling with the
+Balances pallet.</p>
+<ul>
+<li><a href="../../../../frame_support/traits/tokens/fungible/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::regular::Inspect"><code>fungible::Inspect</code></a></li>
+<li><a href="../trait.Mutate.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Mutate"><code>fungible::Mutate</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/regular/trait.Unbalanced.html" title="trait frame_support::traits::tokens::fungible::regular::Unbalanced"><code>fungible::Unbalanced</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/regular/trait.Balanced.html" title="trait frame_support::traits::tokens::fungible::regular::Balanced"><code>fungible::Balanced</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/hold/trait.Balanced.html" title="trait frame_support::traits::tokens::fungible::hold::Balanced"><code>fungible::BalancedHold</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/hold/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::hold::Inspect"><code>fungible::InspectHold</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/hold/trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::hold::Mutate"><code>fungible::MutateHold</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/freeze/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::freeze::Inspect"><code>fungible::InspectFreeze</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/freeze/trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::freeze::Mutate"><code>fungible::MutateFreeze</code></a></li>
+<li><a href="../../../../frame_support/traits/tokens/fungible/imbalance/struct.Imbalance.html" title="struct frame_support::traits::tokens::fungible::imbalance::Imbalance"><code>fungible::Imbalance</code></a></li>
+</ul>
+<p>It also implements the following <a href="../trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency"><code>Currency</code></a> related traits, however they are deprecated and
+will eventually be removed.</p>
+<ul>
+<li><a href="../trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency"><code>Currency</code></a>: Functions for dealing with a fungible assets system.</li>
+<li><a href="../../../polkadot_sdk_frame/traits/trait.ReservableCurrency.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::ReservableCurrency"><code>ReservableCurrency</code></a></li>
+<li><a href="../../../polkadot_sdk_frame/traits/trait.NamedReservableCurrency.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
+Functions for dealing with assets that can be reserved from an account.</li>
+<li><a href="../../../polkadot_sdk_frame/traits/trait.LockableCurrency.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::LockableCurrency"><code>LockableCurrency</code></a>: Functions for
+dealing with accounts that allow liquidity restrictions.</li>
+<li><a href="../../../polkadot_sdk_frame/traits/trait.Imbalance.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::Imbalance"><code>Imbalance</code></a>: Functions for handling
+imbalances between total issuance in the system and account balances. Must be used when a
+function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).</li>
+</ul>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>The following examples show how to use the Balances pallet in your custom pallet.</p>
+<h4 id="examples-from-the-frame"><a class="doc-anchor" href="#examples-from-the-frame">§</a>Examples from the FRAME</h4>
+<p>The Contract pallet uses the <code>Currency</code> trait to handle gas payment, and its types inherit from
+<code>Currency</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>frame_support::traits::Currency;
+
+<span class="kw">pub type </span>BalanceOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+<span class="kw">pub type </span>NegativeImbalanceOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::NegativeImbalance;
+</code></pre></div>
+<p>The Staking pallet uses the <code>LockableCurrency</code> trait to lock a stash account’s funds:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>frame_support::traits::{WithdrawReasons, LockableCurrency};
+<span class="kw">use </span>sp_runtime::traits::Bounded;
+<span class="kw">pub trait </span>Config: frame_system::Config {
+    <span class="kw">type </span>Currency: LockableCurrency&lt;<span class="self">Self</span>::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
+}
+
+<span class="kw">fn </span>update_ledger&lt;T: Config&gt;(
+    controller: <span class="kw-2">&amp;</span>T::AccountId,
+    ledger: <span class="kw-2">&amp;</span>StakingLedger&lt;T&gt;
+) {
+    T::Currency::set_lock(
+        STAKING_ID,
+        <span class="kw-2">&amp;</span>ledger.stash,
+        ledger.total,
+        WithdrawReasons::all()
+    );
+    <span class="comment">// &lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
+</span>}</code></pre></div>
+<h3 id="genesis-config"><a class="doc-anchor" href="#genesis-config">§</a>Genesis config</h3>
+<p>The Balances pallet depends on the <a href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::GenesisConfig"><code>GenesisConfig</code></a>.</p>
+<h3 id="assumptions"><a class="doc-anchor" href="#assumptions">§</a>Assumptions</h3>
+<ul>
+<li>Total issued balanced of all accounts should be less than <code>Config::Balance::max_value()</code>.</li>
+<li>Existential Deposit is set to a value greater than zero.</li>
+</ul>
+<p>Note, you may find the Balances pallet still functions with an ED of zero when the
+<code>insecure_zero_ed</code> cargo feature is enabled. However this is not a configuration which is
+generally supported, nor will it be.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::migration">migration</a></dt><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_balances</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountData.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::AccountData">Account<wbr>Data</a></dt><dd>All balance information for an account.</dd><dt><a class="struct" href="struct.BalanceLock.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::BalanceLock">Balance<wbr>Lock</a></dt><dd>A single lock on a balance. There can be many of these on an account and they “overlap”, so the
+same balance is frozen by multiple locks.</dd><dt><a class="struct" href="struct.DustCleaner.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::DustCleaner">Dust<wbr>Cleaner</a></dt><dt><a class="struct" href="struct.ExtraFlags.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::ExtraFlags">Extra<wbr>Flags</a></dt><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../../../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.NegativeImbalance.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::NegativeImbalance">Negative<wbr>Imbalance</a></dt><dd>Opaque, move-only struct with private fields that serves as a token denoting that
+funds have been destroyed without any equal and opposite accounting.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.PositiveImbalance.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::PositiveImbalance">Positive<wbr>Imbalance</a></dt><dd>Opaque, move-only struct with private fields that serves as a token denoting that
+funds have been created without any equal and opposite accounting.</dd><dt><a class="struct" href="struct.ReserveData.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::ReserveData">Reserve<wbr>Data</a></dt><dd>Store named reserved balance.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AdjustmentDirection.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::AdjustmentDirection">Adjustment<wbr>Direction</a></dt><dd>Whether something should be interpreted as an increase or a decrease.</dd><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.Reasons.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Reasons">Reasons</a></dt><dd>Simplified reasons for withdrawing balance.</dd><dt><a class="enum" href="enum.UnexpectedKind.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::UnexpectedKind">Unexpected<wbr>Kind</a></dt><dd>Defensive/unexpected errors/events.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.DefaultConfig.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::DefaultConfig">Default<wbr>Config</a></dt><dd>Based on <a href="trait.Config.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Config"><code>Config</code></a>. Auto-generated by
+<a href="../../../frame_support_procedural/attr.config.html" title="attr yet_another_parachain_runtime::frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a>.
+Can be used in tandem with
+<a href="%60frame_support::register_default_config%60"><code>#[register_default_config]</code></a> and
+<a href="../../../attr.derive_impl.html" title="attr yet_another_parachain_runtime::derive_impl"><code>#[derive_impl]</code></a> to derive test config traits
+based on existing pallet config traits in a safe and developer-friendly way.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_balances</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Account.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Account">Account</a></dt><dd>The Balances pallet example of storing the balance of an account.</dd><dt><a class="type" href="type.CreditOf.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::CreditOf">Credit<wbr>Of</a></dt><dt><a class="type" href="type.Freezes.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Freezes">Freezes</a></dt><dd>Freeze locks on account balances.</dd><dt><a class="type" href="type.Holds.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Holds">Holds</a></dt><dd>Holds on account balances.</dd><dt><a class="type" href="type.InactiveIssuance.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::InactiveIssuance">Inactive<wbr>Issuance</a></dt><dd>The total units of outstanding deactivated balance in the system.</dd><dt><a class="type" href="type.Locks.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Locks">Locks</a></dt><dd>Any liquidity locks on some account balances.
+NOTE: Should only be accessed when setting, changing and freeing a lock.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.Reserves.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Reserves">Reserves</a></dt><dd>Named reserves on some account balances.</dd><dt><a class="type" href="type.TotalIssuance.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::TotalIssuance">Total<wbr>Issuance</a></dt><dd>The total units issued in the system.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

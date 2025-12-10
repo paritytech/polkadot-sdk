@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["opaque"],"type":["AccountId","AccountIndex","AssetHubPolkadotAuraId","AssetIdForTrustBackedAssets","AuraId","Balance","BlockNumber","CollectionId","DigestItem","Hash","ItemId","Nonce","Signature"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","CommonError","Error","Event"],"mod":["dispatchables","storage_types"],"struct":["Pallet"],"trait":["Config"],"type":["CurrentPhase","DesiredTargets","Module","PagedTargetSnapshot","PagedTargetSnapshotHash","PagedVoterSnapshot","PagedVoterSnapshotHash","Round"]};

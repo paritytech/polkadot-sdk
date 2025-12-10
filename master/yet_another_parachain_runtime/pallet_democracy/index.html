@@ -1,0 +1,285 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Democracy Pallet"><title>yet_another_parachain_runtime::pallet_democracy - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#democracy-pallet" title="Democracy Pallet">Democracy Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_democracy</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_democracy/lib.rs.html#18-1754">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="democracy-pallet"><a class="doc-anchor" href="#democracy-pallet">§</a>Democracy Pallet</h2>
+<ul>
+<li><a href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_democracy::Config"><code>Config</code></a></li>
+<li><a href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_democracy::Call"><code>Call</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The Democracy pallet handles the administration of general stakeholder voting.</p>
+<p>There are two different queues that a proposal can be added to before it
+becomes a referendum, 1) the proposal queue consisting of all public proposals
+and 2) the external queue consisting of a single proposal that originates
+from one of the <em>external</em> origins (such as a collective group).</p>
+<p>Every launch period - a length defined in the runtime - the Democracy pallet
+launches a referendum from a proposal that it takes from either the proposal
+queue or the external queue in turn. Any token holder in the system can vote
+on referenda. The voting system
+uses time-lock voting by allowing the token holder to set their <em>conviction</em>
+behind a vote. The conviction will dictate the length of time the tokens
+will be locked, as well as the multiplier that scales the vote power.</p>
+<h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4>
+<ul>
+<li><strong>Enactment Period:</strong> The minimum period of locking and the period between a proposal being
+approved and enacted.</li>
+<li><strong>Lock Period:</strong> A period of time after proposal enactment that the tokens of <em>winning</em> voters
+will be locked.</li>
+<li><strong>Conviction:</strong> An indication of a voter’s strength of belief in their vote. An increase
+of one in conviction indicates that a token holder is willing to lock their tokens for twice
+as many lock periods after enactment.</li>
+<li><strong>Vote:</strong> A value that can either be in approval (“Aye”) or rejection (“Nay”) of a particular
+referendum.</li>
+<li><strong>Proposal:</strong> A submission to the chain that represents an action that a proposer (either an
+account or an external origin) suggests that the system adopt.</li>
+<li><strong>Referendum:</strong> A proposal that is in the process of being voted on for either acceptance or
+rejection as a change to the system.</li>
+<li><strong>Delegation:</strong> The act of granting your voting power to the decisions of another account for
+up to a certain conviction.</li>
+</ul>
+<h4 id="adaptive-quorum-biasing"><a class="doc-anchor" href="#adaptive-quorum-biasing">§</a>Adaptive Quorum Biasing</h4>
+<p>A <em>referendum</em> can be either simple majority-carries in which 50%+1 of the
+votes decide the outcome or <em>adaptive quorum biased</em>. Adaptive quorum biasing
+makes the threshold for passing or rejecting a referendum higher or lower
+depending on how the referendum was originally proposed. There are two types of
+adaptive quorum biasing: 1) <em>positive turnout bias</em> makes a referendum
+require a super-majority to pass that decreases as turnout increases and
+2) <em>negative turnout bias</em> makes a referendum require a super-majority to
+reject that decreases as turnout increases. Another way to think about the
+quorum biasing is that <em>positive bias</em> referendums will be rejected by
+default and <em>negative bias</em> referendums get passed by default.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4><h5 id="public"><a class="doc-anchor" href="#public">§</a>Public</h5>
+<p>These calls can be made from any externally held account capable of creating
+a signed extrinsic.</p>
+<p>Basic actions:</p>
+<ul>
+<li><code>propose</code> - Submits a sensitive action, represented as a hash. Requires a deposit.</li>
+<li><code>second</code> - Signals agreement with a proposal, moves it higher on the proposal queue, and
+requires a matching deposit to the original.</li>
+<li><code>vote</code> - Votes in a referendum, either the vote is “Aye” to enact the proposal or “Nay” to
+keep the status quo.</li>
+<li><code>unvote</code> - Cancel a previous vote, this must be done by the voter before the vote ends.</li>
+<li><code>delegate</code> - Delegates the voting power (tokens * conviction) to another account.</li>
+<li><code>undelegate</code> - Stops the delegation of voting power to another account.</li>
+</ul>
+<p>Administration actions that can be done to any account:</p>
+<ul>
+<li><code>reap_vote</code> - Remove some account’s expired votes.</li>
+<li><code>unlock</code> - Redetermine the account’s balance lock, potentially making tokens available.</li>
+</ul>
+<p>Preimage actions:</p>
+<ul>
+<li><code>note_preimage</code> - Registers the preimage for an upcoming proposal, requires a deposit that is
+returned once the proposal is enacted.</li>
+<li><code>note_preimage_operational</code> - same but provided by <code>T::OperationalPreimageOrigin</code>.</li>
+<li><code>note_imminent_preimage</code> - Registers the preimage for an upcoming proposal. Does not require a
+deposit, but the proposal must be in the dispatch queue.</li>
+<li><code>note_imminent_preimage_operational</code> - same but provided by <code>T::OperationalPreimageOrigin</code>.</li>
+<li><code>reap_preimage</code> - Removes the preimage for an expired proposal. Will only work under the
+condition that it’s the same account that noted it and after the voting period, OR it’s a
+different account after the enactment period.</li>
+</ul>
+<h5 id="cancellation-origin"><a class="doc-anchor" href="#cancellation-origin">§</a>Cancellation Origin</h5>
+<p>This call can only be made by the <code>CancellationOrigin</code>.</p>
+<ul>
+<li><code>emergency_cancel</code> - Schedules an emergency cancellation of a referendum. Can only happen once
+to a specific referendum.</li>
+</ul>
+<h5 id="externalorigin"><a class="doc-anchor" href="#externalorigin">§</a>ExternalOrigin</h5>
+<p>This call can only be made by the <code>ExternalOrigin</code>.</p>
+<ul>
+<li><code>external_propose</code> - Schedules a proposal to become a referendum once it is legal for an
+externally proposed referendum.</li>
+</ul>
+<h5 id="external-majority-origin"><a class="doc-anchor" href="#external-majority-origin">§</a>External Majority Origin</h5>
+<p>This call can only be made by the <code>ExternalMajorityOrigin</code>.</p>
+<ul>
+<li><code>external_propose_majority</code> - Schedules a proposal to become a majority-carries referendum
+once it is legal for an externally proposed referendum.</li>
+</ul>
+<h5 id="external-default-origin"><a class="doc-anchor" href="#external-default-origin">§</a>External Default Origin</h5>
+<p>This call can only be made by the <code>ExternalDefaultOrigin</code>.</p>
+<ul>
+<li><code>external_propose_default</code> - Schedules a proposal to become a negative-turnout-bias referendum
+once it is legal for an externally proposed referendum.</li>
+</ul>
+<h5 id="fast-track-origin"><a class="doc-anchor" href="#fast-track-origin">§</a>Fast Track Origin</h5>
+<p>This call can only be made by the <code>FastTrackOrigin</code>.</p>
+<ul>
+<li><code>fast_track</code> - Schedules the current externally proposed proposal that is “majority-carries”
+to become a referendum immediately.</li>
+</ul>
+<h5 id="veto-origin"><a class="doc-anchor" href="#veto-origin">§</a>Veto Origin</h5>
+<p>This call can only be made by the <code>VetoOrigin</code>.</p>
+<ul>
+<li><code>veto_external</code> - Vetoes and blacklists the external proposal hash.</li>
+</ul>
+<h5 id="root"><a class="doc-anchor" href="#root">§</a>Root</h5>
+<ul>
+<li><code>cancel_referendum</code> - Removes a referendum.</li>
+<li><code>cancel_queued</code> - Cancels a proposal that is queued for enactment.</li>
+<li><code>clear_public_proposal</code> - Removes all public proposals.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod yet_another_parachain_runtime::pallet_democracy::benchmarking">benchmarking</a></dt><dd>Democracy pallet benchmarking.</dd><dt><a class="mod" href="migrations/index.html" title="mod yet_another_parachain_runtime::pallet_democracy::migrations">migrations</a></dt><dd>All migrations of this pallet.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_democracy::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_democracy::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_democracy</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Delegations.html" title="struct yet_another_parachain_runtime::pallet_democracy::Delegations">Delegations</a></dt><dd>Amount of votes and capital placed in delegation for an account.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::pallet_democracy::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_democracy::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.ReferendumStatus.html" title="struct yet_another_parachain_runtime::pallet_democracy::ReferendumStatus">Referendum<wbr>Status</a></dt><dd>Info regarding an ongoing referendum.</dd><dt><a class="struct" href="struct.Tally.html" title="struct yet_another_parachain_runtime::pallet_democracy::Tally">Tally</a></dt><dd>Info regarding an ongoing referendum.</dd><dt><a class="struct" href="struct.Vote.html" title="struct yet_another_parachain_runtime::pallet_democracy::Vote">Vote</a></dt><dd>A number of lock periods, plus a vote, one way or the other.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AccountVote.html" title="enum yet_another_parachain_runtime::pallet_democracy::AccountVote">Account<wbr>Vote</a></dt><dd>A vote for a referendum of a particular account.</dd><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_democracy::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Conviction.html" title="enum yet_another_parachain_runtime::pallet_democracy::Conviction">Conviction</a></dt><dd>A value denoting the strength of conviction of a vote.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_democracy::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_democracy::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.MetadataOwner.html" title="enum yet_another_parachain_runtime::pallet_democracy::MetadataOwner">Metadata<wbr>Owner</a></dt><dd>Identifies an owner of a metadata.</dd><dt><a class="enum" href="enum.ReferendumInfo.html" title="enum yet_another_parachain_runtime::pallet_democracy::ReferendumInfo">Referendum<wbr>Info</a></dt><dd>Info regarding a referendum, present or past.</dd><dt><a class="enum" href="enum.UnvoteScope.html" title="enum yet_another_parachain_runtime::pallet_democracy::UnvoteScope">Unvote<wbr>Scope</a></dt><dd>Whether an <code>unvote</code> operation is able to make actions that are not strictly always in the
+interest of an account.</dd><dt><a class="enum" href="enum.VoteThreshold.html" title="enum yet_another_parachain_runtime::pallet_democracy::VoteThreshold">Vote<wbr>Threshold</a></dt><dd>A means of determining if a vote is past pass threshold.</dd><dt><a class="enum" href="enum.Voting.html" title="enum yet_another_parachain_runtime::pallet_democracy::Voting">Voting</a></dt><dd>An indicator for what an account is doing; it can either be delegating or voting.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Approved.html" title="trait yet_another_parachain_runtime::pallet_democracy::Approved">Approved</a></dt><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_democracy::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.EncodeInto.html" title="trait yet_another_parachain_runtime::pallet_democracy::EncodeInto">Encode<wbr>Into</a></dt><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_democracy::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_democracy</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Blacklist.html" title="type yet_another_parachain_runtime::pallet_democracy::Blacklist">Blacklist</a></dt><dd>A record of who vetoed what. Maps proposal hash to a possible existent block number
+(until when it may not be resubmitted) and who vetoed it.</dd><dt><a class="type" href="type.BoundedCallOf.html" title="type yet_another_parachain_runtime::pallet_democracy::BoundedCallOf">Bounded<wbr>Call<wbr>Of</a></dt><dt><a class="type" href="type.CallOf.html" title="type yet_another_parachain_runtime::pallet_democracy::CallOf">CallOf</a></dt><dt><a class="type" href="type.Cancellations.html" title="type yet_another_parachain_runtime::pallet_democracy::Cancellations">Cancellations</a></dt><dd>Record of all proposals that have been subject to emergency cancellation.</dd><dt><a class="type" href="type.DepositOf.html" title="type yet_another_parachain_runtime::pallet_democracy::DepositOf">Deposit<wbr>Of</a></dt><dd>Those who have locked a deposit.</dd><dt><a class="type" href="type.LastTabledWasExternal.html" title="type yet_another_parachain_runtime::pallet_democracy::LastTabledWasExternal">Last<wbr>Tabled<wbr>WasExternal</a></dt><dd>True if the last referendum tabled was submitted externally. False if it was a public
+proposal.</dd><dt><a class="type" href="type.LowestUnbaked.html" title="type yet_another_parachain_runtime::pallet_democracy::LowestUnbaked">Lowest<wbr>Unbaked</a></dt><dd>The lowest referendum index representing an unbaked referendum. Equal to
+<code>ReferendumCount</code> if there isn’t a unbaked referendum.</dd><dt><a class="type" href="type.MetadataOf.html" title="type yet_another_parachain_runtime::pallet_democracy::MetadataOf">Metadata<wbr>Of</a></dt><dd>General information concerning any proposal or referendum.
+The <code>Hash</code> refers to the preimage of the <code>Preimages</code> provider which can be a JSON
+dump or IPFS hash of a JSON file.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_democracy::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NextExternal.html" title="type yet_another_parachain_runtime::pallet_democracy::NextExternal">Next<wbr>External</a></dt><dd>The referendum to be tabled whenever it would be valid to table an external proposal.
+This happens when a referendum needs to be tabled and one of two conditions are met:</dd><dt><a class="type" href="type.PropIndex.html" title="type yet_another_parachain_runtime::pallet_democracy::PropIndex">Prop<wbr>Index</a></dt><dd>A proposal index.</dd><dt><a class="type" href="type.PublicPropCount.html" title="type yet_another_parachain_runtime::pallet_democracy::PublicPropCount">Public<wbr>Prop<wbr>Count</a></dt><dd>The number of (public) proposals that have been made so far.</dd><dt><a class="type" href="type.PublicProps.html" title="type yet_another_parachain_runtime::pallet_democracy::PublicProps">Public<wbr>Props</a></dt><dd>The public proposals. Unsorted. The second item is the proposal.</dd><dt><a class="type" href="type.ReferendumCount.html" title="type yet_another_parachain_runtime::pallet_democracy::ReferendumCount">Referendum<wbr>Count</a></dt><dd>The next free referendum index, aka the number of referenda started so far.</dd><dt><a class="type" href="type.ReferendumIndex.html" title="type yet_another_parachain_runtime::pallet_democracy::ReferendumIndex">Referendum<wbr>Index</a></dt><dd>A referendum index.</dd><dt><a class="type" href="type.ReferendumInfoOf.html" title="type yet_another_parachain_runtime::pallet_democracy::ReferendumInfoOf">Referendum<wbr>Info<wbr>Of</a></dt><dd>Information concerning any given referendum.</dd><dt><a class="type" href="type.VotingOf.html" title="type yet_another_parachain_runtime::pallet_democracy::VotingOf">Voting<wbr>Of</a></dt><dd>All votes for a particular voter. We store the balance for the number of votes that we
+have recorded. The second item is the total amount of delegations, that will be added.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

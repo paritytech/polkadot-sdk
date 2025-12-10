@@ -1,0 +1,304 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/meta_contributing.rs`."><title>meta_contributing.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_sdk_docs/</div>meta_contributing.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # Contribution
+<a href=#2 id=2 data-nosnippet>2</a>//!
+<a href=#3 id=3 data-nosnippet>3</a>//! The following sections cover more detailed information about this crate and how it should be
+<a href=#4 id=4 data-nosnippet>4</a>//! maintained.
+<a href=#5 id=5 data-nosnippet>5</a>//!
+<a href=#6 id=6 data-nosnippet>6</a>//! ## Why Rust Docs?
+<a href=#7 id=7 data-nosnippet>7</a>//!
+<a href=#8 id=8 data-nosnippet>8</a>//! We acknowledge that blockchain based systems, particularly a cutting-edge one like Polkadot SDK
+<a href=#9 id=9 data-nosnippet>9</a>//! is a software artifact that is complex, and rapidly evolving. This makes the task of documenting
+<a href=#10 id=10 data-nosnippet>10</a>//! it externally extremely difficult, especially with regards to making sure it is up-to-date.
+<a href=#11 id=11 data-nosnippet>11</a>//!
+<a href=#12 id=12 data-nosnippet>12</a>//! Consequently, we argue that the best hedge against this is to move as much of the documentation
+<a href=#13 id=13 data-nosnippet>13</a>//! near the source code as possible. This would further incentivize developers to keep the
+<a href=#14 id=14 data-nosnippet>14</a>//! documentation up-to-date, as the overhead is reduced by making sure everything is in one
+<a href=#15 id=15 data-nosnippet>15</a>//! repository, and everything being in `.rs` files.
+<a href=#16 id=16 data-nosnippet>16</a>//!
+<a href=#17 id=17 data-nosnippet>17</a>//! &gt; This is not to say that a more visually appealing version of this crate (for example as an
+<a href=#18 id=18 data-nosnippet>18</a>//! &gt; `md-book`) cannot exist, but it would be outside the scope of this crate.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also
+<a href=#21 id=21 data-nosnippet>21</a>//! *outdated code*. For this, we commit to making sure no code-snippet in this crate is left as
+<a href=#22 id=22 data-nosnippet>22</a>//! `///ignore` or `///no_compile`, making sure all code snippets are self-contained, compile-able,
+<a href=#23 id=23 data-nosnippet>23</a>//! and correct at every single revision of the entire repository.
+<a href=#24 id=24 data-nosnippet>24</a>//!
+<a href=#25 id=25 data-nosnippet>25</a>//! &gt; This also allows us to have a clear versioning on the entire content of this crate. For every
+<a href=#26 id=26 data-nosnippet>26</a>//! commit of the Polkadot SDK, there would be one version of this crate that is guaranteed to be
+<a href=#27 id=27 data-nosnippet>27</a>//! correct.
+<a href=#28 id=28 data-nosnippet>28</a>//!
+<a href=#29 id=29 data-nosnippet>29</a>//! &gt; To achieve this, we often use [`docify`](https://github.com/sam0x17/docify), a nifty invention
+<a href=#30 id=30 data-nosnippet>30</a>//! &gt; of `@sam0x17`.
+<a href=#31 id=31 data-nosnippet>31</a>//!
+<a href=#32 id=32 data-nosnippet>32</a>//! Also see: &lt;https://github.com/paritytech/polkadot-sdk/issues/991&gt;.
+<a href=#33 id=33 data-nosnippet>33</a>//!
+<a href=#34 id=34 data-nosnippet>34</a>//! ## Scope
+<a href=#35 id=35 data-nosnippet>35</a>//!
+<a href=#36 id=36 data-nosnippet>36</a>//! The above would NOT be attainable if we don't acknowledge that the scope of this crate MUST be
+<a href=#37 id=37 data-nosnippet>37</a>//! limited, or else its maintenance burden would be infeasible or not worthwhile. In short, future
+<a href=#38 id=38 data-nosnippet>38</a>//! maintainers should always strive to keep the content of this repository as minimal as possible.
+<a href=#39 id=39 data-nosnippet>39</a>//! Some of the following principles are specifically there to be the guidance for this.
+<a href=#40 id=40 data-nosnippet>40</a>//!
+<a href=#41 id=41 data-nosnippet>41</a>//! ## Principles
+<a href=#42 id=42 data-nosnippet>42</a>//!
+<a href=#43 id=43 data-nosnippet>43</a>//! The following guidelines are meant to be the guiding torch of those who contribute to this
+<a href=#44 id=44 data-nosnippet>44</a>//! crate.
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//! 1. 🔺 Ground Up: Information should be laid out in the most ground-up fashion. The lowest level
+<a href=#47 id=47 data-nosnippet>47</a>//!    (i.e. "ground") is Rust-docs. The highest level (i.e. "up") is "outside of this crate". In
+<a href=#48 id=48 data-nosnippet>48</a>//!    between lies [`reference_docs`] and [`guides`], from low to high. The point of this principle
+<a href=#49 id=49 data-nosnippet>49</a>//!    is to document as much of the information as possible in the lower level media, as it is
+<a href=#50 id=50 data-nosnippet>50</a>//!    easier to maintain and more reachable. Then, use excessive linking to back-link when writing
+<a href=#51 id=51 data-nosnippet>51</a>//!    in a more high level.
+<a href=#52 id=52 data-nosnippet>52</a>//!
+<a href=#53 id=53 data-nosnippet>53</a>//! &gt; A prime example of this, the details of the FRAME storage APIs should NOT be explained in a
+<a href=#54 id=54 data-nosnippet>54</a>//! &gt; high level tutorial. They should be explained in the rust-doc of the corresponding type or
+<a href=#55 id=55 data-nosnippet>55</a>//! &gt; macro.
+<a href=#56 id=56 data-nosnippet>56</a>//!
+<a href=#57 id=57 data-nosnippet>57</a>//! 2. 🧘 Less is More: For reasons mentioned [above](#why-rust-docs), the more concise this crate
+<a href=#58 id=58 data-nosnippet>58</a>//!    is, the better.
+<a href=#59 id=59 data-nosnippet>59</a>//! 3. √ Don’t Repeat Yourself – DRY: A summary of the above two points. Authors should always
+<a href=#60 id=60 data-nosnippet>60</a>//!    strive to avoid any duplicate information. Every concept should ideally be documented in
+<a href=#61 id=61 data-nosnippet>61</a>//!    *ONE* place and one place only. This makes the task of maintaining topics significantly
+<a href=#62 id=62 data-nosnippet>62</a>//!    easier.
+<a href=#63 id=63 data-nosnippet>63</a>//!
+<a href=#64 id=64 data-nosnippet>64</a>//! &gt; A prime example of this, the list of CLI arguments of a particular binary should not be
+<a href=#65 id=65 data-nosnippet>65</a>//! &gt; documented in multiple places across this crate. It should be only be documented in the
+<a href=#66 id=66 data-nosnippet>66</a>//! &gt; corresponding crate (e.g. `sc_cli`).
+<a href=#67 id=67 data-nosnippet>67</a>//!
+<a href=#68 id=68 data-nosnippet>68</a>//! &gt; Moreover, this means that as a contributor, **it is your responsibility to have a grasp over
+<a href=#69 id=69 data-nosnippet>69</a>//! &gt; what topics are already covered in this crate, and how you can build on top of the information
+<a href=#70 id=70 data-nosnippet>70</a>//! &gt; that they already pose, rather than repeating yourself**.
+<a href=#71 id=71 data-nosnippet>71</a>//!
+<a href=#72 id=72 data-nosnippet>72</a>//! For more details see the [latest documenting
+<a href=#73 id=73 data-nosnippet>73</a>//! guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
+<a href=#74 id=74 data-nosnippet>74</a>//!
+<a href=#75 id=75 data-nosnippet>75</a>//! #### Example: Explaining `#[pallet::call]`
+<a href=#76 id=76 data-nosnippet>76</a>//!
+<a href=#77 id=77 data-nosnippet>77</a>//! &lt;details&gt;
+<a href=#78 id=78 data-nosnippet>78</a>//! &lt;summary&gt;
+<a href=#79 id=79 data-nosnippet>79</a>//! Let's consider the seemingly simple example of explaining to someone dead-simple code of a FRAME
+<a href=#80 id=80 data-nosnippet>80</a>//! call and see how we can use the above principles.
+<a href=#81 id=81 data-nosnippet>81</a>//! &lt;/summary&gt;
+<a href=#82 id=82 data-nosnippet>82</a>//!
+<a href=#83 id=83 data-nosnippet>83</a>//!
+<a href=#84 id=84 data-nosnippet>84</a>//! ```
+<a href=#85 id=85 data-nosnippet>85</a>//! #[frame::pallet(dev_mode)]
+<a href=#86 id=86 data-nosnippet>86</a>//! pub mod pallet {
+<a href=#87 id=87 data-nosnippet>87</a>//! #   use frame::prelude::*;
+<a href=#88 id=88 data-nosnippet>88</a>//! #   #[pallet::config]
+<a href=#89 id=89 data-nosnippet>89</a>//! #   pub trait Config: frame_system::Config {}
+<a href=#90 id=90 data-nosnippet>90</a>//! #   #[pallet::pallet]
+<a href=#91 id=91 data-nosnippet>91</a>//! #   pub struct Pallet&lt;T&gt;(_);
+<a href=#92 id=92 data-nosnippet>92</a>//!     #[pallet::call]
+<a href=#93 id=93 data-nosnippet>93</a>//!     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#94 id=94 data-nosnippet>94</a>//!         pub fn a_simple_call(origin: OriginFor&lt;T&gt;, data: u32) -&gt; DispatchResult {
+<a href=#95 id=95 data-nosnippet>95</a>//!             ensure!(data &gt; 10, "SomeStaticString");
+<a href=#96 id=96 data-nosnippet>96</a>//!             todo!();
+<a href=#97 id=97 data-nosnippet>97</a>//!         }
+<a href=#98 id=98 data-nosnippet>98</a>//!     }
+<a href=#99 id=99 data-nosnippet>99</a>//! }
+<a href=#100 id=100 data-nosnippet>100</a>//! ```
+<a href=#101 id=101 data-nosnippet>101</a>//!
+<a href=#102 id=102 data-nosnippet>102</a>//! * Before even getting started, what is with all of this `&lt;T: Config&gt;`? We link to
+<a href=#103 id=103 data-nosnippet>103</a>//! [`crate::reference_docs::trait_based_programming`].
+<a href=#104 id=104 data-nosnippet>104</a>//! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
+<a href=#105 id=105 data-nosnippet>105</a>//! explained in [`crate::reference_docs::frame_runtime_types`]. Build on top of this!
+<a href=#106 id=106 data-nosnippet>106</a>//! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
+<a href=#107 id=107 data-nosnippet>107</a>//! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
+<a href=#108 id=108 data-nosnippet>108</a>//! explained in the documentation of [`frame::prelude::DispatchResult`].
+<a href=#109 id=109 data-nosnippet>109</a>//! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
+<a href=#110 id=110 data-nosnippet>110</a>//!   see [here](frame::prelude::DispatchError#impl-From&lt;%26'static+str&gt;-for-DispatchError).
+<a href=#111 id=111 data-nosnippet>111</a>//!
+<a href=#112 id=112 data-nosnippet>112</a>//!
+<a href=#113 id=113 data-nosnippet>113</a>//! All of these are examples of underlying information that a contributor should:
+<a href=#114 id=114 data-nosnippet>114</a>//!
+<a href=#115 id=115 data-nosnippet>115</a>//! 1. Try and create and they are going along.
+<a href=#116 id=116 data-nosnippet>116</a>//! 2. Back-link to if they already exist.
+<a href=#117 id=117 data-nosnippet>117</a>//!
+<a href=#118 id=118 data-nosnippet>118</a>//! Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
+<a href=#119 id=119 data-nosnippet>119</a>//! rephrase a concept in a new context.
+<a href=#120 id=120 data-nosnippet>120</a>//!
+<a href=#121 id=121 data-nosnippet>121</a>//! &lt;/details&gt;
+<a href=#122 id=122 data-nosnippet>122</a>//!
+<a href=#123 id=123 data-nosnippet>123</a>//! ## `crates.io` and Publishing
+<a href=#124 id=124 data-nosnippet>124</a>//!
+<a href=#125 id=125 data-nosnippet>125</a>//! As it stands now, this crate cannot be published to crates.io because of its use of
+<a href=#126 id=126 data-nosnippet>126</a>//! [workspace-level `docify`](https://github.com/sam0x17/docify/issues/22). For now, we accept this
+<a href=#127 id=127 data-nosnippet>127</a>//! compromise, but in the long term, we should work towards finding a way to maintain different
+<a href=#128 id=128 data-nosnippet>128</a>//! revisions of this crate.
+<a href=#129 id=129 data-nosnippet>129</a>//!
+<a href=#130 id=130 data-nosnippet>130</a>//! ## Versioning
+<a href=#131 id=131 data-nosnippet>131</a>//!
+<a href=#132 id=132 data-nosnippet>132</a>//! So long as not deployed in `crates.io`, please notice that all of the information in this crate,
+<a href=#133 id=133 data-nosnippet>133</a>//! namely in [`crate::guides`] and such are compatible with the master branch of `polkadot-sdk`. A
+<a href=#134 id=134 data-nosnippet>134</a>//! few solutions have been proposed to improve this, please see
+<a href=#135 id=135 data-nosnippet>135</a>//! [here](https://github.com/paritytech/polkadot-sdk/issues/6191).
+<a href=#136 id=136 data-nosnippet>136</a>//!
+<a href=#137 id=137 data-nosnippet>137</a>//! ## How to Develop Locally
+<a href=#138 id=138 data-nosnippet>138</a>//!
+<a href=#139 id=139 data-nosnippet>139</a>//! To view the docs specific [`crate`] locally for development, including the correct HTML headers
+<a href=#140 id=140 data-nosnippet>140</a>//! injected, run:
+<a href=#141 id=141 data-nosnippet>141</a>//!
+<a href=#142 id=142 data-nosnippet>142</a>//! ```sh
+<a href=#143 id=143 data-nosnippet>143</a>//! SKIP_WASM_BUILD=1 \
+<a href=#144 id=144 data-nosnippet>144</a>//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu" \
+<a href=#145 id=145 data-nosnippet>145</a>//! cargo doc -p polkadot-sdk-docs --no-deps --open
+<a href=#146 id=146 data-nosnippet>146</a>//! ```
+<a href=#147 id=147 data-nosnippet>147</a>//!
+<a href=#148 id=148 data-nosnippet>148</a>//! If even faster build time for docs is needed, you can temporarily remove most of the
+<a href=#149 id=149 data-nosnippet>149</a>//! substrate/cumulus dependencies that are only used for linking purposes.
+<a href=#150 id=150 data-nosnippet>150</a>//!
+<a href=#151 id=151 data-nosnippet>151</a>//! For more on local development, see [`crate::reference_docs::development_environment_advice`].</span></code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

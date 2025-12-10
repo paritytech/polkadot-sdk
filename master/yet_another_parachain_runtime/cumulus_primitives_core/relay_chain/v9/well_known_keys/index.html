@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A declarations of storage keys where an external observer can find some interesting data."><title>yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module well_<wbr>known_<wbr>keys</a></h2><h3><a href="#constants">Module Items</a></h3><ul class="block"><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>cumulus_<wbr>primitives_<wbr>core::<wbr>relay_<wbr>chain::<wbr>v9</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../../index.html">cumulus_primitives_core</a>::<wbr><a href="../../index.html">relay_chain</a>::<wbr><a href="../index.html">v9</a></div><h1>Module <span>well_known_keys</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../src/polkadot_primitives/v9/mod.rs.html#197">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A declarations of storage keys where an external observer can find some interesting data.</p>
+</div></details><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.ACTIVE_CONFIG.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::ACTIVE_CONFIG">ACTIVE_<wbr>CONFIG</a></dt><dd>The currently active host configuration.</dd><dt><a class="constant" href="constant.AUTHORITIES.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::AUTHORITIES">AUTHORITIES</a></dt><dd>The authorities for the current epoch.</dd><dt><a class="constant" href="constant.CURRENT_BLOCK_RANDOMNESS.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::CURRENT_BLOCK_RANDOMNESS">CURRENT_<wbr>BLOCK_<wbr>RANDOMNESS</a></dt><dd>The current relay chain block randomness</dd><dt><a class="constant" href="constant.CURRENT_SLOT.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::CURRENT_SLOT">CURRENT_<wbr>SLOT</a></dt><dd>The current slot number.</dd><dt><a class="constant" href="constant.EPOCH_INDEX.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::EPOCH_INDEX">EPOCH_<wbr>INDEX</a></dt><dd>The current epoch index.</dd><dt><a class="constant" href="constant.NEXT_AUTHORITIES.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::NEXT_AUTHORITIES">NEXT_<wbr>AUTHORITIES</a></dt><dd>The authorities for the next epoch.</dd><dt><a class="constant" href="constant.ONE_EPOCH_AGO_RANDOMNESS.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS">ONE_<wbr>EPOCH_<wbr>AGO_<wbr>RANDOMNESS</a></dt><dd>The randomness for one epoch ago</dd><dt><a class="constant" href="constant.TWO_EPOCHS_AGO_RANDOMNESS.html" title="constant yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS">TWO_<wbr>EPOCHS_<wbr>AGO_<wbr>RANDOMNESS</a></dt><dd>The randomness for two epochs ago</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.dmq_mqc_head.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::dmq_mqc_head">dmq_<wbr>mqc_<wbr>head</a></dt><dd>The MQC head for the downward message queue of the given para. See more in the <code>Dmp</code> module.</dd><dt><a class="fn" href="fn.hrmp_channels.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::hrmp_channels">hrmp_<wbr>channels</a></dt><dd>The HRMP channel for the given identifier.</dd><dt><a class="fn" href="fn.hrmp_egress_channel_index.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::hrmp_egress_channel_index">hrmp_<wbr>egress_<wbr>channel_<wbr>index</a></dt><dd>The list of outbound channels for the given para.</dd><dt><a class="fn" href="fn.hrmp_ingress_channel_index.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::hrmp_ingress_channel_index">hrmp_<wbr>ingress_<wbr>channel_<wbr>index</a></dt><dd>The list of inbound channels for the given para.</dd><dt><a class="fn" href="fn.para_head.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::para_head">para_<wbr>head</a></dt><dd>Hash of the committed head data for a given registered para.</dd><dt><a class="fn" href="fn.relay_dispatch_queue_remaining_capacity.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::relay_dispatch_queue_remaining_capacity">relay_<wbr>dispatch_<wbr>queue_<wbr>remaining_<wbr>capacity</a></dt><dd>The upward message dispatch queue remaining capacity for the given para id.</dd><dt><a class="fn" href="fn.relay_dispatch_queue_size.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::relay_dispatch_queue_size">relay_<wbr>dispatch_<wbr>queue_<wbr>size</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>The upward message dispatch queue for the given para id.</dd><dt><a class="fn" href="fn.relay_dispatch_queue_size_typed.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::relay_dispatch_queue_size_typed">relay_<wbr>dispatch_<wbr>queue_<wbr>size_<wbr>typed</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type safe version of <code>relay_dispatch_queue_size</code>.</dd><dt><a class="fn" href="fn.upgrade_go_ahead_signal.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::upgrade_go_ahead_signal">upgrade_<wbr>go_<wbr>ahead_<wbr>signal</a></dt><dd>The signal that indicates whether the parachain should go-ahead with the proposed validation
+code upgrade.</dd><dt><a class="fn" href="fn.upgrade_restriction_signal.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::well_known_keys::upgrade_restriction_signal">upgrade_<wbr>restriction_<wbr>signal</a></dt><dd>The signal that indicates whether the parachain is disallowed to signal an upgrade at this
+relay-parent.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

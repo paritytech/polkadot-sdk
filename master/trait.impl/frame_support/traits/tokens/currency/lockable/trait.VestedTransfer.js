@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["frame_support",[]],["pallet_vesting",[["impl&lt;T: <a class=\"trait\" href=\"pallet_vesting/pallet/trait.Config.html\" title=\"trait pallet_vesting::pallet::Config\">Config</a>&gt; VestedTransfer&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_vesting/pallet/struct.Pallet.html\" title=\"struct pallet_vesting::pallet::Pallet\">Pallet</a>&lt;T&gt;<div class=\"where\">where\n    &lt;&lt;T as <a class=\"trait\" href=\"pallet_vesting/pallet/trait.Config.html\" title=\"trait pallet_vesting::pallet::Config\">Config</a>&gt;::<a class=\"associatedtype\" href=\"pallet_vesting/pallet/trait.Config.html#associatedtype.Currency\" title=\"type pallet_vesting::pallet::Config::Currency\">Currency</a> as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance: MaybeSerializeDeserialize + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a>,</div>"]]],["polkadot_sdk_frame",[]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[20,935,26,37]}

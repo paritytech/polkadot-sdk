@@ -1,0 +1,1 @@
+searchState.loadedDescShard("polkadot_node_core_chain_api", 0, "Implements the Chain API Subsystem\nThe Chain API Subsystem implementation.\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.\nCreate a new Chain API subsystem with the given client.")

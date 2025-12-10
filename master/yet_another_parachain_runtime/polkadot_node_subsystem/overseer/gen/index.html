@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Orchestra"><title>yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../crates.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#orchestra" title="Orchestra">Orchestra</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>node_<wbr>subsystem::<wbr>overseer</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">overseer</a></div><h1>Crate <span>gen</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="orchestra"><a class="doc-anchor" href="#orchestra">§</a>Orchestra</h2>
+<p><code>orchestra</code> provides a global information flow system in reference to system specifc
+process tokens.
+The token is arbitrary, but is used to notify all <code>Subsystem</code>s of what is relevant
+and what is not, leading to a so called <em>view</em> of active tokens.</p>
+<p>An <code>orchestra</code> is something that allows spawning/stopping and orchestrating
+asynchronous tasks as well as establishing a well-defined and easy to use
+protocol that the tasks can use to communicate with each other. It is desired
+that this protocol is the only way tasks - called <code>Subsystem</code>s in the orchestra
+scope - communicate with each other, but that is not enforced and is the responsibility
+of the developer.</p>
+<p>The <code>Orchestra</code> is instantiated with a pre-defined set of <code>Subsystems</code> that
+share the same behavior from <code>Orchestra</code>’s point of view.</p>
+<div class="example-wrap"><pre class="language-text"><code>                             +-----------------------------+
+                             |         Orchesta            |
+                             +-----------------------------+
+
+            ................|  Orchestra &quot;holds&quot; these and uses |.............
+            .                  them to (re)start things                      .
+            .                                                                .
+            .  +-------------------+                +---------------------+  .
+            .  |   Subsystem1      |                |   Subsystem2        |  .
+            .  +-------------------+                +---------------------+  .
+            .           |                                       |            .
+            ..................................................................
+                        |                                       |
+                      start()                                 start()
+                        |                                       |
+                        V                                       V
+            ..................| Orchestra &quot;runs&quot; these |......................
+            .                                                                .
+            .  +--------------------+               +---------------------+  .
+            .  | SubsystemInstance1 | &lt;-- bidir --&gt; | SubsystemInstance2  |  .
+            .  +--------------------+               +---------------------+  .
+            .                                                                .
+            ..................................................................</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="futures/index.html" title="mod yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::futures">futures</a></dt><dd>Abstractions for asynchronous programming.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.poll.html" title="macro yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::poll">poll</a></dt><dd>A macro which returns the result of polling a future once within the
+current <code>async</code> context.</dd><dt><a class="macro" href="macro.select.html" title="macro yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::select">select</a></dt><dd>Polls multiple futures and streams simultaneously, executing the branch
+for the future that finishes first. If multiple futures are ready,
+one will be pseudo-randomly selected at runtime. Futures directly
+passed to <code>select!</code> must be <code>Unpin</code> and implement <code>FusedFuture</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Context.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Context">Context</a></dt><dd>The context of an asynchronous task.</dd><dt><a class="struct" href="struct.Delay.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Delay">Delay</a></dt><dd>A future representing the notification that an elapsed duration has
+occurred.</dd><dt><a class="struct" href="struct.Duration.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Duration">Duration</a></dt><dd>A <code>Duration</code> type to represent a span of time, typically used for system
+timeouts.</dd><dt><a class="struct" href="struct.Fuse.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Fuse">Fuse</a></dt><dd>Future for the <a href="trait.FutureExt.html#method.fuse" title="method yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::FutureExt::fuse"><code>fuse</code></a> method.</dd><dt><a class="struct" href="struct.FuturesUnordered.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::FuturesUnordered">Futures<wbr>Unordered</a></dt><dd>A set of futures which may complete in any order.</dd><dt><a class="struct" href="struct.HighPriority.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::HighPriority">High<wbr>Priority</a></dt><dd>High priority.</dd><dt><a class="struct" href="struct.MessagePacket.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::MessagePacket">Message<wbr>Packet</a></dt><dd>A wrapping type for messages.</dd><dt><a class="struct" href="struct.NormalPriority.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::NormalPriority">Normal<wbr>Priority</a></dt><dd>Normal priority.</dd><dt><a class="struct" href="struct.Pin.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Pin">Pin</a></dt><dd>A pointer which pins its pointee in place.</dd><dt><a class="struct" href="struct.SignalsReceived.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SignalsReceived">Signals<wbr>Received</a></dt><dd>Watermark to track the received signals.</dd><dt><a class="struct" href="struct.SpawnedSubsystem.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SpawnedSubsystem">Spawned<wbr>Subsystem</a></dt><dd>An asynchronous subsystem task..</dd><dt><a class="struct" href="struct.SubsystemInstance.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemInstance">Subsystem<wbr>Instance</a></dt><dd>A running instance of some <a href="trait.Subsystem.html"><code>Subsystem</code></a>.</dd><dt><a class="struct" href="struct.SubsystemMeterReadouts.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemMeterReadouts">Subsystem<wbr>Meter<wbr>Readouts</a></dt><dd>Set of readouts of the <code>Meter</code>s of a subsystem.</dd><dt><a class="struct" href="struct.SubsystemMeters.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemMeters">Subsystem<wbr>Meters</a></dt><dd>Collection of meters related to a subsystem.</dd><dt><a class="struct" href="struct.Timeout.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Timeout">Timeout</a></dt><dd>A future that wraps another future with a <code>Delay</code> allowing for time-limited futures.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.FromOrchestra.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::FromOrchestra">From<wbr>Orchestra</a></dt><dd>A message type that a subsystem receives from an orchestra.
+It wraps signals from an orchestra and messages that are circulating
+between subsystems.</dd><dt><a class="enum" href="enum.OrchestraError.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::OrchestraError">Orchestra<wbr>Error</a></dt><dd>An error type that describes faults that may happen</dd><dt><a class="enum" href="enum.Poll.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Poll">Poll</a></dt><dd>Indicates whether a value is available or if the current task has been
+scheduled to receive a wakeup instead.</dd><dt><a class="enum" href="enum.PollNext.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::PollNext">Poll<wbr>Next</a></dt><dd>Type to tell <a href="futures/prelude/stream/struct.SelectWithStrategy.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::futures::prelude::stream::SelectWithStrategy"><code>SelectWithStrategy</code></a> which stream to poll next.</dd><dt><a class="enum" href="enum.PriorityLevel.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::PriorityLevel">Priority<wbr>Level</a></dt><dd>Priority of messages sending to the individual subsystems.
+Only for the bounded channel sender.</dd><dt><a class="enum" href="enum.ToOrchestra.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::ToOrchestra">ToOrchestra</a></dt><dd>A type of messages that are sent from a <a href="../../trait.Subsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::Subsystem"><code>Subsystem</code></a> to the declared orchestra.</dd><dt><a class="enum" href="enum.TrySendError.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::TrySendError">TrySend<wbr>Error</a></dt><dd>A bounded channel error when trying to send a message (transparently wraps the inner error type)</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AnnotateErrorOrigin.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::AnnotateErrorOrigin">Annotate<wbr>Error<wbr>Origin</a></dt><dd>A trait to support the origin annotation
+such that errors across subsystems can be easier tracked.</dd><dt><a class="trait" href="trait.Future.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Future">Future</a></dt><dd>A future represents an asynchronous computation obtained by use of <a href="../../std/keyword.async.html"><code>async</code></a>.</dd><dt><a class="trait" href="trait.FutureExt.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::FutureExt">Future<wbr>Ext</a></dt><dd>An extension trait for <code>Future</code>s that provides a variety of convenient
+adapters.</dd><dt><a class="trait" href="trait.MapSubsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::MapSubsystem">MapSubsystem</a></dt><dd>A helper trait to map a subsystem to smth. else.</dd><dt><a class="trait" href="trait.Priority.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Priority">Priority</a></dt><dd>Describes the priority of the message.</dd><dt><a class="trait" href="trait.Spawner.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Spawner">Spawner</a></dt><dd>A spawner</dd><dt><a class="trait" href="trait.StreamExt.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::StreamExt">Stream<wbr>Ext</a></dt><dd>An extension trait for <code>Stream</code>s that provides a variety of convenient
+combinator functions.</dd><dt><a class="trait" href="trait.Subsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Subsystem">Subsystem</a></dt><dd>A trait that describes the <a href="trait.Subsystem.html"><code>Subsystem</code></a>s that can run on the <a href="struct.Orchestra.html"><code>Orchestra</code></a>.</dd><dt><a class="trait" href="trait.SubsystemContext.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemContext">Subsystem<wbr>Context</a></dt><dd>A context type that is given to the <a href="../../trait.Subsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::Subsystem"><code>Subsystem</code></a> upon spawning.
+It can be used by <a href="../../trait.Subsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::Subsystem"><code>Subsystem</code></a> to communicate with other <a href="../../trait.Subsystem.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::Subsystem"><code>Subsystem</code></a>s
+or spawn jobs.</dd><dt><a class="trait" href="trait.SubsystemSender.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemSender">Subsystem<wbr>Sender</a></dt><dd>Sender end of a channel to interface with a subsystem.</dd><dt><a class="trait" href="trait.TimeoutExt.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::TimeoutExt">Timeout<wbr>Ext</a></dt><dd>Extends <code>Future</code> to allow time-limited futures.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.make_packet.html" title="fn yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::make_packet">make_<wbr>packet</a></dt><dd>Create a packet from its parts.</dd><dt><a class="fn" href="fn.select.html" title="fn yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::select">select</a></dt><dd>This function will attempt to pull items from both streams. Each
+stream will be polled in a round-robin fashion, and whenever a stream is
+ready to yield an item that item is yielded.</dd><dt><a class="fn" href="fn.select_message_channel_strategy.html" title="fn yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::select_message_channel_strategy">select_<wbr>message_<wbr>channel_<wbr>strategy</a></dt><dd>A functor to specify strategy of the channels selection in the <code>SubsystemIncomingMessages</code></dd><dt><a class="fn" href="fn.select_with_strategy.html" title="fn yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::select_with_strategy">select_<wbr>with_<wbr>strategy</a></dt><dd>This function will attempt to pull items from both streams. You provide a
+closure to tell <a href="futures/prelude/stream/struct.SelectWithStrategy.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::futures::prelude::stream::SelectWithStrategy"><code>SelectWithStrategy</code></a> which stream to poll. The closure can
+store state on <code>SelectWithStrategy</code> to which it will receive a <code>&amp;mut</code> on every
+invocation. This allows basing the strategy on prior choices.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BoxFuture.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::BoxFuture">BoxFuture</a></dt><dd>An owned dynamically typed <a href="trait.Future.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Future"><code>Future</code></a> for use in cases where you can’t
+statically type your result or need to add some indirection.</dd><dt><a class="type" href="type.OrchestraResult.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::OrchestraResult">Orchestra<wbr>Result</a></dt><dd>Alias for a result with error type <code>OrchestraError</code>.</dd><dt><a class="type" href="type.SubsystemIncomingMessages.html" title="type yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::SubsystemIncomingMessages">Subsystem<wbr>Incoming<wbr>Messages</a></dt><dd>Incoming messages from both the bounded and unbounded channel.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.async_trait.html" title="attr yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::async_trait">async_<wbr>trait</a></dt><dt><a class="attr" href="attr.contextbounds.html" title="attr yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::contextbounds">contextbounds</a></dt><dt><a class="attr" href="attr.orchestra.html" title="attr yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::orchestra">orchestra</a></dt><dt><a class="attr" href="attr.subsystem.html" title="attr yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::subsystem">subsystem</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

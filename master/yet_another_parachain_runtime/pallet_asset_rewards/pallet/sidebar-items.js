@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","FreezeReason","HoldReason"],"struct":["Pallet"],"trait":["Config"],"type":["Module","NextPoolId","PoolCost","PoolStakers","Pools"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["make_send_native_eth_message"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_account_id_from_seed","get_chain_spec","get_chain_spec_with_extra_endowed","get_from_seed","testnet_genesis","testnet_genesis_with_default_endowed"],"struct":["Extensions","ExtensionsFork","GenesisExt"],"type":["ChainSpec"]};

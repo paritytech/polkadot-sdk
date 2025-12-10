@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `v1` mod in crate `yet_another_parachain_runtime`."><title>yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module v1</a></h2><h3><a href="#macros">Module Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>sdk_<wbr>frame::<wbr>benchmarking</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">benchmarking</a></div><h1>Module <span>v1</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/polkadot_sdk_frame/lib.rs.html#275">Source</a> </span></div><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: ’The V1 benchmarking syntax is deprecated. Please use the V2 syntax. This warning may become a hard error any time after April 2025. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/5995</span></div></span><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.add_benchmark.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::add_benchmark">add_<wbr>benchmark</a></dt><dd>This macro adds pallet benchmarks to a <code>Vec&lt;BenchmarkBatch&gt;</code> object.</dd><dt><a class="macro" href="macro.benchmarks.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::benchmarks">benchmarks</a></dt><dd>Construct pallet benchmarks for weighing dispatchables.</dd><dt><a class="macro" href="macro.whitelist.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::whitelist">whitelist</a></dt><dd>Whitelist the given account.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.HostFunctions.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::HostFunctions">Host<wbr>Functions</a></dt><dd>Provides implementations for the extern host functions.</dd><dt><a class="struct" href="struct.System.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::System">System</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.RawOrigin.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::RawOrigin">RawOrigin</a></dt><dd>Origin for the System pallet.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.account.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::account">account</a></dt><dd>Grab an account, seeded by a name and index.</dd><dt><a class="fn" href="fn.add_to_whitelist.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::add_to_whitelist">add_<wbr>to_<wbr>whitelist</a></dt><dt><a class="fn" href="fn.commit_db.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::commit_db">commit_<wbr>db</a></dt><dd>Commit pending storage changes to the trie database and clear the database cache.</dd><dt><a class="fn" href="fn.current_time.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::current_time">current_<wbr>time</a></dt><dd>Get the number of nanoseconds passed since the UNIX epoch, as u128 le-bytes.</dd><dt><a class="fn" href="fn.get_read_and_written_keys.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::get_read_and_written_keys">get_<wbr>read_<wbr>and_<wbr>written_<wbr>keys</a></dt><dt><a class="fn" href="fn.get_whitelist.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::get_whitelist">get_<wbr>whitelist</a></dt><dd>Get the DB whitelist.</dd><dt><a class="fn" href="fn.proof_size.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::proof_size">proof_<wbr>size</a></dt><dd>Get current estimated proof size.</dd><dt><a class="fn" href="fn.read_write_count.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::read_write_count">read_<wbr>write_<wbr>count</a></dt><dd>Get the read/write count.</dd><dt><a class="fn" href="fn.remove_from_whitelist.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::remove_from_whitelist">remove_<wbr>from_<wbr>whitelist</a></dt><dt><a class="fn" href="fn.reset_read_write_count.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::reset_read_write_count">reset_<wbr>read_<wbr>write_<wbr>count</a></dt><dd>Reset the read/write count.</dd><dt><a class="fn" href="fn.set_whitelist.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::set_whitelist">set_<wbr>whitelist</a></dt><dd>Set the DB whitelist.</dd><dt><a class="fn" href="fn.whitelisted_caller.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::whitelisted_caller">whitelisted_<wbr>caller</a></dt><dd>This caller account is automatically whitelisted for DB reads/writes by the benchmarking macro.</dd><dt><a class="fn" href="fn.wipe_db.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking::v1::wipe_db">wipe_db</a></dt><dd>Reset the trie database to the genesis state.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

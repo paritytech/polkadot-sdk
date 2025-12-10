@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A collection of array/bytes/hex utilities."><title>yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../crates.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#enums">Crate Items</a></h3><ul class="block"><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>emulated_<wbr>integration_<wbr>tests_<wbr>common::<wbr>xcm_<wbr>emulator</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">emulated_integration_tests_common</a>::<wbr><a href="../index.html">xcm_emulator</a></div><h1>Crate <span>array_bytes</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A collection of array/bytes/hex utilities.</p>
+<p>Completely optimized for blockchain development.
+Especially the Substrate.</p>
+</div></details><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::Error">Error</a></dt><dd>The main error of array-bytes.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Hex.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::Hex">Hex</a></dt><dd>Convert the given type to hex.</dd><dt><a class="trait" href="trait.TryFromHex.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::TryFromHex">TryFrom<wbr>Hex</a></dt><dd>Try to convert the given hex to a specific type.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.bytes2hex.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::bytes2hex">bytes2hex</a></dt><dd><code>AsRef&lt;[u8]&gt;</code> to <a href="https://doc.rust-lang.org/1.88.0/alloc/string/struct.String.html" title="struct alloc::string::String"><code>String</code></a>.</dd><dt><a class="fn" href="fn.hex2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2array">hex2array</a></dt><dd>Just like <a href="fn.hex2bytes.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2bytes"><code>hex2bytes</code></a> but to a fixed length array.</dd><dt><a class="fn" href="fn.hex2array_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2array_unchecked">hex2array_<wbr>unchecked</a></dt><dd>Just like <a href="fn.hex2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2array"><code>hex2array</code></a> but without the checking.</dd><dt><a class="fn" href="fn.hex2bytes.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2bytes">hex2bytes</a></dt><dd><code>AsRef&lt;[u8]&gt;</code> to <a href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec"><code>Vec&lt;u8&gt;</code></a>.</dd><dt><a class="fn" href="fn.hex2bytes_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2bytes_unchecked">hex2bytes_<wbr>unchecked</a></dt><dd>Just like <a href="fn.hex2bytes.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2bytes"><code>hex2bytes</code></a> but without checking.</dd><dt><a class="fn" href="fn.hex2slice.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2slice">hex2slice</a></dt><dd><code>AsRef&lt;[u8]&gt;</code> to <code>&amp;[u8]</code>.</dd><dt><a class="fn" href="fn.hex2slice_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2slice_unchecked">hex2slice_<wbr>unchecked</a></dt><dd>Just like <a href="fn.hex2slice.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex2slice"><code>hex2slice</code></a> but without checking.</dd><dt><a class="fn" href="fn.hex_bytes2hex_str.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_bytes2hex_str">hex_<wbr>bytes2hex_<wbr>str</a></dt><dd>Convert hex bytes to hex string.</dd><dt><a class="fn" href="fn.hex_bytes2hex_str_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_bytes2hex_str_unchecked">hex_<wbr>bytes2hex_<wbr>str_<wbr>unchecked</a><sup title="unsafe function">⚠</sup></dt><dd>Just like <a href="fn.hex_bytes2hex_str.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_bytes2hex_str"><code>hex_bytes2hex_str</code></a> but without the checking.</dd><dt><a class="fn" href="fn.hex_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_into">hex_<wbr>into</a></dt><dd>Try to convert <code>AsRef&lt;[u8]&gt;</code> to <code>T</code> directly, where <code>T: From&lt;Vec&lt;u8&gt;&gt;</code>.</dd><dt><a class="fn" href="fn.hex_into_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_into_unchecked">hex_<wbr>into_<wbr>unchecked</a></dt><dd>Just like <a href="fn.hex_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_into"><code>hex_into</code></a> but without the checking.</dd><dt><a class="fn" href="fn.hex_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_n_into">hex_<wbr>n_<wbr>into</a></dt><dd>Try to convert <code>AsRef&lt;[u8]&gt;</code> to <code>T</code> directly, where <code>T: From&lt;[u8; N]&gt;</code>.</dd><dt><a class="fn" href="fn.hex_n_into_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_n_into_unchecked">hex_<wbr>n_<wbr>into_<wbr>unchecked</a></dt><dd>Just like <a href="fn.hex_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::hex_n_into"><code>hex_n_into</code></a> but without the checking.</dd><dt><a class="fn" href="fn.prefix_with.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::prefix_with">prefix_<wbr>with</a></dt><dd>Prefixes the given element to the given array/slice/vector to make it a fixed-size array of
+length <code>N</code>.</dd><dt><a class="fn" href="fn.slice2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice2array">slice2array</a></dt><dd><code>&amp;[T]</code> to <code>[T; N]</code>.</dd><dt><a class="fn" href="fn.slice2array_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice2array_unchecked">slice2array_<wbr>unchecked</a></dt><dd>Just like <a href="fn.slice2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice2array"><code>slice2array</code></a> but without the checking.</dd><dt><a class="fn" href="fn.slice_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice_n_into">slice_<wbr>n_<wbr>into</a></dt><dd>Convert <code>&amp;[T]</code> to a type directly.</dd><dt><a class="fn" href="fn.slice_n_into_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice_n_into_unchecked">slice_<wbr>n_<wbr>into_<wbr>unchecked</a></dt><dd>Just like <a href="fn.slice_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::slice_n_into"><code>slice_n_into</code></a> but without the checking.</dd><dt><a class="fn" href="fn.suffix_with.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::suffix_with">suffix_<wbr>with</a></dt><dd>Suffixes the given element to the given array/slice/vector to make it a fixed-size array of
+length <code>N</code>.</dd><dt><a class="fn" href="fn.vec2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec2array">vec2array</a></dt><dd><a href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec"><code>Vec&lt;T&gt;</code></a> to <code>[T; N]</code>.</dd><dt><a class="fn" href="fn.vec2array_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec2array_unchecked">vec2array_<wbr>unchecked</a></dt><dd>Just like <a href="fn.vec2array.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec2array"><code>vec2array</code></a> but without the checking.</dd><dt><a class="fn" href="fn.vec_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec_n_into">vec_<wbr>n_<wbr>into</a></dt><dd>Convert <a href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec"><code>Vec&lt;T&gt;</code></a> to a type directly.</dd><dt><a class="fn" href="fn.vec_n_into_unchecked.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec_n_into_unchecked">vec_<wbr>n_<wbr>into_<wbr>unchecked</a></dt><dd>Just like <a href="fn.vec_n_into.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::vec_n_into"><code>vec_n_into</code></a> but without the checking.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Result.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::array_bytes::Result">Result</a></dt><dd>The main result of array-bytes.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

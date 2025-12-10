@@ -1,0 +1,156 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This crate contains the code necessary to gather basic hardware and software telemetry information about the node on which we’re running."><title>sc_sysinfo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_sysinfo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_sysinfo/index.html">sc_<wbr>sysinfo</a><span class="version">27.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sc_sysinfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sc_sysinfo/lib.rs.html#19-178">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This crate contains the code necessary to gather basic hardware
+and software telemetry information about the node on which we’re running.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.HwBench.html" title="struct sc_sysinfo::HwBench">HwBench</a></dt><dd>Hardware benchmark results for the node.</dd><dt><a class="struct" href="struct.Requirement.html" title="struct sc_sysinfo::Requirement">Requirement</a></dt><dd>A single requirement for the hardware.</dd><dt><a class="struct" href="struct.Requirements.html" title="struct sc_sysinfo::Requirements">Requirements</a></dt><dd>Multiple requirements for the hardware.</dd><dt><a class="struct" href="struct.Throughput.html" title="struct sc_sysinfo::Throughput">Throughput</a></dt><dd>Throughput as measured in bytes per second.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ExecutionLimit.html" title="enum sc_sysinfo::ExecutionLimit">Execution<wbr>Limit</a></dt><dd>Limit the execution time of a benchmark.</dd><dt><a class="enum" href="enum.Metric.html" title="enum sc_sysinfo::Metric">Metric</a></dt><dd>A single hardware metric.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.TARGET_ARCH.html" title="constant sc_sysinfo::TARGET_ARCH">TARGET_<wbr>ARCH</a></dt><dd>The CPU ISA architecture part of the current target triplet.</dd><dt><a class="constant" href="constant.TARGET_ENV.html" title="constant sc_sysinfo::TARGET_ENV">TARGET_<wbr>ENV</a></dt><dd>The environment part of the current target triplet.</dd><dt><a class="constant" href="constant.TARGET_OS.html" title="constant sc_sysinfo::TARGET_OS">TARGET_<wbr>OS</a></dt><dd>The operating system part of the current target triplet.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.benchmark_cpu.html" title="fn sc_sysinfo::benchmark_cpu">benchmark_<wbr>cpu</a></dt><dt><a class="fn" href="fn.benchmark_cpu_parallelism.html" title="fn sc_sysinfo::benchmark_cpu_parallelism">benchmark_<wbr>cpu_<wbr>parallelism</a></dt><dt><a class="fn" href="fn.benchmark_disk_random_writes.html" title="fn sc_sysinfo::benchmark_disk_random_writes">benchmark_<wbr>disk_<wbr>random_<wbr>writes</a></dt><dt><a class="fn" href="fn.benchmark_disk_sequential_writes.html" title="fn sc_sysinfo::benchmark_disk_sequential_writes">benchmark_<wbr>disk_<wbr>sequential_<wbr>writes</a></dt><dt><a class="fn" href="fn.benchmark_memory.html" title="fn sc_sysinfo::benchmark_memory">benchmark_<wbr>memory</a></dt><dt><a class="fn" href="fn.benchmark_sr25519_verify.html" title="fn sc_sysinfo::benchmark_sr25519_verify">benchmark_<wbr>sr25519_<wbr>verify</a></dt><dd>Benchmarks the verification speed of sr25519 signatures.</dd><dt><a class="fn" href="fn.gather_hwbench.html" title="fn sc_sysinfo::gather_hwbench">gather_<wbr>hwbench</a></dt><dd>Benchmarks the hardware and returns the results of those benchmarks.</dd><dt><a class="fn" href="fn.gather_sysinfo.html" title="fn sc_sysinfo::gather_sysinfo">gather_<wbr>sysinfo</a></dt><dd>Gathers information about node’s hardware and software.</dd><dt><a class="fn" href="fn.initialize_hwbench_telemetry.html" title="fn sc_sysinfo::initialize_hwbench_telemetry">initialize_<wbr>hwbench_<wbr>telemetry</a></dt><dd>Initializes the hardware benchmarks telemetry.</dd><dt><a class="fn" href="fn.print_hwbench.html" title="fn sc_sysinfo::print_hwbench">print_<wbr>hwbench</a></dt><dd>Prints out the results of the hardware benchmarks in the logs.</dd><dt><a class="fn" href="fn.print_sysinfo.html" title="fn sc_sysinfo::print_sysinfo">print_<wbr>sysinfo</a></dt><dd>Prints out the system software/hardware information in the logs.</dd><dt><a class="fn" href="fn.serialize_throughput.html" title="fn sc_sysinfo::serialize_throughput">serialize_<wbr>throughput</a></dt><dd>Serializes <code>Throughput</code> and uses MiBs as the unit.</dd><dt><a class="fn" href="fn.serialize_throughput_option.html" title="fn sc_sysinfo::serialize_throughput_option">serialize_<wbr>throughput_<wbr>option</a></dt><dd>Serializes <code>Option&lt;Throughput&gt;</code> and uses MiBs as the unit.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

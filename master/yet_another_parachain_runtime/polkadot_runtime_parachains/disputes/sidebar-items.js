@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","DisputeLocation","DisputeResult","Error","Event"],"mod":["migration","pallet","slashing"],"struct":["Pallet","TestWeightInfo"],"trait":["Config","DisputesHandler","RewardValidators","SlashingHandler","WeightInfo"],"type":["Frozen","Module"]};

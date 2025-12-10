@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STORAGE_PRECOMPILE_ADDR","SYSTEM_PRECOMPILE_ADDR"],"enum":["HostFnImpl","ReturnErrorCode"],"fn":["pack_hi_lo","solidity_selector","u256_bytes"],"macro":["input","output","u64_output","unwrap_output"],"mod":["precompiles"],"struct":["CallFlags","ReturnCode","ReturnFlags","StorageFlags"],"trait":["HostFn"]};

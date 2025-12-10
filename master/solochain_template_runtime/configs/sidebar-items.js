@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BlockHashCount","FeeMultiplier","RuntimeBlockLength","RuntimeBlockWeights","SS58Prefix","Version"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_PEOPLEWESTEND"],"mod":["genesis"],"struct":["GLOBAL_EXT_PEOPLEWESTEND","PeopleWestend"],"trait":["PeopleWestendParaPallet"]};

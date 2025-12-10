@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["PayAssetFromAccount","PayFromAccount","PayWithFungibles"],"trait":["Pay","PayWithSource"],"type":["PaymentStatus"]};

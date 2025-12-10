@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_COMMANDS"],"enum":["Command"],"mod":["abi"],"struct":["ConstantGasMeter","Initializer","Message","OutboundCommandWrapper","OutboundMessage"],"trait":["GasMeter","SendMessage"]};

@@ -1,0 +1,222 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extended weight info."><title>WeightInfoExt in pallet_bridge_messages - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_bridge_messages/index.html">pallet_<wbr>bridge_<wbr>messages</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Weight<wbr>Info<wbr>Ext</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.expected_extra_storage_proof_size" title="expected_extra_storage_proof_size">expected_extra_storage_proof_size</a></li><li><a href="#tymethod.receive_messages_delivery_proof_overhead_from_runtime" title="receive_messages_delivery_proof_overhead_from_runtime">receive_messages_delivery_proof_overhead_from_runtime</a></li><li><a href="#tymethod.receive_messages_proof_overhead_from_runtime" title="receive_messages_proof_overhead_from_runtime">receive_messages_proof_overhead_from_runtime</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.message_dispatch_weight" title="message_dispatch_weight">message_dispatch_weight</a></li><li><a href="#method.receive_messages_delivery_proof_messages_overhead" title="receive_messages_delivery_proof_messages_overhead">receive_messages_delivery_proof_messages_overhead</a></li><li><a href="#method.receive_messages_delivery_proof_overhead" title="receive_messages_delivery_proof_overhead">receive_messages_delivery_proof_overhead</a></li><li><a href="#method.receive_messages_delivery_proof_relayers_overhead" title="receive_messages_delivery_proof_relayers_overhead">receive_messages_delivery_proof_relayers_overhead</a></li><li><a href="#method.receive_messages_delivery_proof_weight" title="receive_messages_delivery_proof_weight">receive_messages_delivery_proof_weight</a></li><li><a href="#method.receive_messages_proof_outbound_lane_state_overhead" title="receive_messages_proof_outbound_lane_state_overhead">receive_messages_proof_outbound_lane_state_overhead</a></li><li><a href="#method.receive_messages_proof_weight" title="receive_messages_proof_weight">receive_messages_proof_weight</a></li><li><a href="#method.storage_proof_size_overhead" title="storage_proof_size_overhead">storage_proof_size_overhead</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfoExt-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>bridge_<wbr>messages</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">pallet_bridge_messages</a></div><h1>Trait <span class="trait">WeightInfoExt</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_bridge_messages/weights_ext.rs.html#268-431">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WeightInfoExt: <a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_bridge_messages::weights::WeightInfo">WeightInfo</a> {
+    // Required methods
+    fn <a href="#tymethod.expected_extra_storage_proof_size" class="fn">expected_extra_storage_proof_size</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receive_messages_proof_overhead_from_runtime" class="fn">receive_messages_proof_overhead_from_runtime</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receive_messages_delivery_proof_overhead_from_runtime" class="fn">receive_messages_delivery_proof_overhead_from_runtime</a>() -&gt; Weight;
+
+    // Provided methods
+    fn <a href="#method.receive_messages_proof_weight" class="fn">receive_messages_proof_weight</a>(
+        proof: &amp;impl Size,
+        messages_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        dispatch_weight: Weight,
+    ) -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_weight" class="fn">receive_messages_delivery_proof_weight</a>(
+        proof: &amp;impl Size,
+        relayers_state: &amp;UnrewardedRelayersState,
+    ) -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.receive_messages_proof_outbound_lane_state_overhead" class="fn">receive_messages_proof_outbound_lane_state_overhead</a>() -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_overhead" class="fn">receive_messages_delivery_proof_overhead</a>() -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_messages_overhead" class="fn">receive_messages_delivery_proof_messages_overhead</a>(
+        messages: MessageNonce,
+    ) -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_relayers_overhead" class="fn">receive_messages_delivery_proof_relayers_overhead</a>(
+        relayers: MessageNonce,
+    ) -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_proof_size_overhead" class="fn">storage_proof_size_overhead</a>(proof_size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight { ... }
+<span class="item-spacer"></span>    fn <a href="#method.message_dispatch_weight" class="fn">message_dispatch_weight</a>(message_size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extended weight info.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.expected_extra_storage_proof_size" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#275">Source</a><h4 class="code-header">fn <a href="#tymethod.expected_extra_storage_proof_size" class="fn">expected_extra_storage_proof_size</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Size of proof that is already included in the single message delivery weight.</p>
+<p>The message submitter (at source chain) has already covered this cost. But there are two
+factors that may increase proof size: (1) the message size may be larger than predefined
+and (2) relayer may add extra trie nodes to the proof. So if proof size is larger than
+this value, we’re going to charge relayer for that.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.receive_messages_proof_overhead_from_runtime" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#292">Source</a><h4 class="code-header">fn <a href="#tymethod.receive_messages_proof_overhead_from_runtime" class="fn">receive_messages_proof_overhead_from_runtime</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Extra weight that is added to the <code>receive_messages_proof</code> call weight by signed extensions
+that are declared at runtime level.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.receive_messages_delivery_proof_overhead_from_runtime" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#296">Source</a><h4 class="code-header">fn <a href="#tymethod.receive_messages_delivery_proof_overhead_from_runtime" class="fn">receive_messages_delivery_proof_overhead_from_runtime</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Extra weight that is added to the <code>receive_messages_delivery_proof</code> call weight by signed
+extensions that are declared at runtime level.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.receive_messages_proof_weight" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#301-328">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_proof_weight" class="fn">receive_messages_proof_weight</a>(
+    proof: &amp;impl Size,
+    messages_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    dispatch_weight: Weight,
+) -&gt; Weight</h4></section></summary><div class="docblock"><p>Weight of message delivery extrinsic.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_weight" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#331-357">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_weight" class="fn">receive_messages_delivery_proof_weight</a>(
+    proof: &amp;impl Size,
+    relayers_state: &amp;UnrewardedRelayersState,
+) -&gt; Weight</h4></section></summary><div class="docblock"><p>Weight of confirmation delivery extrinsic.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_proof_outbound_lane_state_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#363-368">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_proof_outbound_lane_state_overhead" class="fn">receive_messages_proof_outbound_lane_state_overhead</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when message delivery transaction
+(<code>receive_messages_proof</code>) is carrying outbound lane state proof.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#372-379">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_overhead" class="fn">receive_messages_delivery_proof_overhead</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight overhead of delivery confirmation transaction
+(<code>receive_messages_delivery_proof</code>).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_messages_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#383-390">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_messages_overhead" class="fn">receive_messages_delivery_proof_messages_overhead</a>(
+    messages: MessageNonce,
+) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when receiving confirmations for given a number of
+messages with delivery confirmation transaction (<code>receive_messages_delivery_proof</code>).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_relayers_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#394-402">Source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_relayers_overhead" class="fn">receive_messages_delivery_proof_relayers_overhead</a>(
+    relayers: MessageNonce,
+) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when receiving confirmations for given a number of
+relayers entries with delivery confirmation transaction (<code>receive_messages_delivery_proof</code>).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_proof_size_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#412-417">Source</a><h4 class="code-header">fn <a href="#method.storage_proof_size_overhead" class="fn">storage_proof_size_overhead</a>(proof_size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when storage proof of given size is received
+(either in <code>receive_messages_proof</code> or <code>receive_messages_delivery_proof</code>).</p>
+<p><strong>IMPORTANT</strong>: this overhead is already included in the ‘base’ transaction cost - e.g. proof
+size depends on messages count or number of entries in the unrewarded relayers set. So this
+shouldn’t be added to cost of transaction, but instead should act as a minimal cost that the
+relayer must pay when it relays proof of given size (even if cost based on other parameters
+is less than that cost).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.message_dispatch_weight" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#426-430">Source</a><h4 class="code-header">fn <a href="#method.message_dispatch_weight" class="fn">message_dispatch_weight</a>(message_size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns dispatch weight of message of given size.</p>
+<p>This function would return correct value only if your runtime is configured to run
+<code>receive_single_message_proof_with_dispatch</code> benchmark. See its requirements for
+details.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfoExt-for-()" class="impl"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#433-445">Source</a><a href="#impl-WeightInfoExt-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfoExt.html" title="trait pallet_bridge_messages::WeightInfoExt">WeightInfoExt</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.expected_extra_storage_proof_size" class="method trait-impl"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#434-436">Source</a><a href="#method.expected_extra_storage_proof_size" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.expected_extra_storage_proof_size" class="fn">expected_extra_storage_proof_size</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></h4></section><section id="method.receive_messages_proof_overhead_from_runtime" class="method trait-impl"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#438-440">Source</a><a href="#method.receive_messages_proof_overhead_from_runtime" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.receive_messages_proof_overhead_from_runtime" class="fn">receive_messages_proof_overhead_from_runtime</a>() -&gt; Weight</h4></section><section id="method.receive_messages_delivery_proof_overhead_from_runtime" class="method trait-impl"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#442-444">Source</a><a href="#method.receive_messages_delivery_proof_overhead_from_runtime" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.receive_messages_delivery_proof_overhead_from_runtime" class="fn">receive_messages_delivery_proof_overhead_from_runtime</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfoExt-for-BridgeWeight%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#447-459">Source</a><a href="#impl-WeightInfoExt-for-BridgeWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfoExt.html" title="trait pallet_bridge_messages::WeightInfoExt">WeightInfoExt</a> for <a class="struct" href="weights/struct.BridgeWeight.html" title="struct pallet_bridge_messages::weights::BridgeWeight">BridgeWeight</a>&lt;T&gt;</h3></section></div><script src="../trait.impl/pallet_bridge_messages/weights_ext/trait.WeightInfoExt.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

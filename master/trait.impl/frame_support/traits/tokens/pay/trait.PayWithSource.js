@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["frame_support",[]],["parachains_common",[["impl&lt;A, F, C&gt; <a class=\"trait\" href=\"frame_support/traits/tokens/pay/trait.PayWithSource.html\" title=\"trait frame_support::traits::tokens::pay::PayWithSource\">PayWithSource</a> for <a class=\"struct\" href=\"parachains_common/pay/struct.LocalPay.html\" title=\"struct parachains_common::pay::LocalPay\">LocalPay</a>&lt;F, A, C&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html\" title=\"trait core::cmp::Eq\">Eq</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html\" title=\"trait core::clone::Clone\">Clone</a>,\n    F: <a class=\"trait\" href=\"frame_support/traits/tokens/fungibles/regular/trait.Mutate.html\" title=\"trait frame_support::traits::tokens::fungibles::regular::Mutate\">Mutate</a>&lt;A, AssetId = <a class=\"struct\" href=\"staging_xcm/v5/location/struct.Location.html\" title=\"struct staging_xcm::v5::location::Location\">Location</a>&gt; + <a class=\"trait\" href=\"frame_support/traits/tokens/fungibles/lifetime/trait.Create.html\" title=\"trait frame_support::traits::tokens::fungibles::lifetime::Create\">Create</a>&lt;A&gt;,\n    C: <a class=\"trait\" href=\"staging_xcm_executor/traits/conversion/trait.ConvertLocation.html\" title=\"trait staging_xcm_executor::traits::conversion::ConvertLocation\">ConvertLocation</a>&lt;A&gt;,</div>"]]],["polkadot_sdk_frame",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[20,1411,26]}

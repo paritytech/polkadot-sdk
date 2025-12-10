@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["source","target"],"struct":["DirectSubmitParachainHeadsCallBuilder","ParachainsPipelineAdapter"],"trait":["SubmitParachainHeadsCallBuilder","SubstrateParachainsPipeline"]};

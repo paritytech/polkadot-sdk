@@ -1,0 +1,240 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_scheduler`."><title>WeightInfo in yet_another_parachain_runtime::pallet_scheduler::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Weight<wbr>Info</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.cancel" title="cancel">cancel</a></li><li><a href="#tymethod.cancel_named" title="cancel_named">cancel_named</a></li><li><a href="#tymethod.cancel_retry" title="cancel_retry">cancel_retry</a></li><li><a href="#tymethod.cancel_retry_named" title="cancel_retry_named">cancel_retry_named</a></li><li><a href="#tymethod.execute_dispatch_signed" title="execute_dispatch_signed">execute_dispatch_signed</a></li><li><a href="#tymethod.execute_dispatch_unsigned" title="execute_dispatch_unsigned">execute_dispatch_unsigned</a></li><li><a href="#tymethod.schedule" title="schedule">schedule</a></li><li><a href="#tymethod.schedule_named" title="schedule_named">schedule_named</a></li><li><a href="#tymethod.schedule_retry" title="schedule_retry">schedule_retry</a></li><li><a href="#tymethod.service_agenda_base" title="service_agenda_base">service_agenda_base</a></li><li><a href="#tymethod.service_agendas_base" title="service_agendas_base">service_agendas_base</a></li><li><a href="#tymethod.service_task_base" title="service_task_base">service_task_base</a></li><li><a href="#tymethod.service_task_fetched" title="service_task_fetched">service_task_fetched</a></li><li><a href="#tymethod.service_task_named" title="service_task_named">service_task_named</a></li><li><a href="#tymethod.service_task_periodic" title="service_task_periodic">service_task_periodic</a></li><li><a href="#tymethod.set_retry" title="set_retry">set_retry</a></li><li><a href="#tymethod.set_retry_named" title="set_retry_named">set_retry_named</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>scheduler::<wbr>weights</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">pallet_scheduler</a>::<wbr><a href="index.html">weights</a></div><h1>Trait <span class="trait">WeightInfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/pallet_scheduler/weights.rs.html#74">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 17 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.service_agendas_base" class="fn">service_agendas_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.service_agenda_base" class="fn">service_agenda_base</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.service_task_base" class="fn">service_task_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.service_task_fetched" class="fn">service_task_fetched</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.service_task_named" class="fn">service_task_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.service_task_periodic" class="fn">service_task_periodic</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.execute_dispatch_signed" class="fn">execute_dispatch_signed</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.execute_dispatch_unsigned" class="fn">execute_dispatch_unsigned</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.schedule" class="fn">schedule</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel" class="fn">cancel</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.schedule_named" class="fn">schedule_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_named" class="fn">cancel_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.schedule_retry" class="fn">schedule_retry</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_retry" class="fn">set_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_retry_named" class="fn">set_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_retry" class="fn">cancel_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_retry_named" class="fn">cancel_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_scheduler</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.service_agendas_base" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#75">Source</a><h4 class="code-header">fn <a href="#tymethod.service_agendas_base" class="fn">service_agendas_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.service_agenda_base" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#76">Source</a><h4 class="code-header">fn <a href="#tymethod.service_agenda_base" class="fn">service_agenda_base</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.service_task_base" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#77">Source</a><h4 class="code-header">fn <a href="#tymethod.service_task_base" class="fn">service_task_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.service_task_fetched" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#78">Source</a><h4 class="code-header">fn <a href="#tymethod.service_task_fetched" class="fn">service_task_fetched</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.service_task_named" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#79">Source</a><h4 class="code-header">fn <a href="#tymethod.service_task_named" class="fn">service_task_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.service_task_periodic" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#80">Source</a><h4 class="code-header">fn <a href="#tymethod.service_task_periodic" class="fn">service_task_periodic</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.execute_dispatch_signed" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#81">Source</a><h4 class="code-header">fn <a href="#tymethod.execute_dispatch_signed" class="fn">execute_dispatch_signed</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.execute_dispatch_unsigned" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#82">Source</a><h4 class="code-header">fn <a href="#tymethod.execute_dispatch_unsigned" class="fn">execute_dispatch_unsigned</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.schedule" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#83">Source</a><h4 class="code-header">fn <a href="#tymethod.schedule" class="fn">schedule</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.cancel" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#84">Source</a><h4 class="code-header">fn <a href="#tymethod.cancel" class="fn">cancel</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.schedule_named" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#85">Source</a><h4 class="code-header">fn <a href="#tymethod.schedule_named" class="fn">schedule_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.cancel_named" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#86">Source</a><h4 class="code-header">fn <a href="#tymethod.cancel_named" class="fn">cancel_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.schedule_retry" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#87">Source</a><h4 class="code-header">fn <a href="#tymethod.schedule_retry" class="fn">schedule_retry</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.set_retry" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#88">Source</a><h4 class="code-header">fn <a href="#tymethod.set_retry" class="fn">set_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.set_retry_named" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#89">Source</a><h4 class="code-header">fn <a href="#tymethod.set_retry_named" class="fn">set_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.cancel_retry" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#90">Source</a><h4 class="code-header">fn <a href="#tymethod.cancel_retry" class="fn">cancel_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.cancel_retry_named" class="method"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#91">Source</a><h4 class="code-header">fn <a href="#tymethod.cancel_retry_named" class="fn">cancel_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#325">Source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="../trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_scheduler::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.service_agendas_base" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#328">Source</a><a href="#method.service_agendas_base" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_agendas_base" class="fn">service_agendas_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::IncompleteSince</code> (r:1 w:1)
+Proof: <code>Scheduler::IncompleteSince</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.service_agenda_base" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#340">Source</a><a href="#method.service_agenda_base" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_agenda_base" class="fn">service_agenda_base</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 512]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.service_task_fetched" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#365">Source</a><a href="#method.service_task_fetched" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_task_fetched" class="fn">service_task_fetched</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Preimage::PreimageFor</code> (r:1 w:1)
+Proof: <code>Preimage::PreimageFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(4194344), added: 4196819, mode: <code>Measured</code>)
+Storage: <code>Preimage::StatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::StatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::RequestStatusFor</code> (r:1 w:1)
+Proof: <code>Preimage::RequestStatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[128, 4194304]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.service_task_named" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#379">Source</a><a href="#method.service_task_named" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_task_named" class="fn">service_task_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Lookup</code> (r:0 w:1)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.execute_dispatch_signed" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#398">Source</a><a href="#method.execute_dispatch_signed" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.execute_dispatch_signed" class="fn">execute_dispatch_signed</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>SafeMode::EnteredUntil</code> (r:1 w:0)
+Proof: <code>SafeMode::EnteredUntil</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>TxPause::PausedCalls</code> (r:1 w:0)
+Proof: <code>TxPause::PausedCalls</code> (<code>max_values</code>: None, <code>max_size</code>: Some(532), added: 3007, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.schedule" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#416">Source</a><a href="#method.schedule" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.schedule" class="fn">schedule</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 511]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#434">Source</a><a href="#method.cancel" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel" class="fn">cancel</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Lookup</code> (r:0 w:1)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 512]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.schedule_named" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#450">Source</a><a href="#method.schedule_named" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.schedule_named" class="fn">schedule_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Lookup</code> (r:1 w:1)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 511]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_named" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#468">Source</a><a href="#method.cancel_named" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_named" class="fn">cancel_named</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Lookup</code> (r:1 w:1)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 512]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.schedule_retry" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#484">Source</a><a href="#method.schedule_retry" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.schedule_retry" class="fn">schedule_retry</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:1)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 512]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_retry" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#499">Source</a><a href="#method.set_retry" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_retry" class="fn">set_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:0)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_retry_named" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#514">Source</a><a href="#method.set_retry_named" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_retry_named" class="fn">set_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Lookup</code> (r:1 w:0)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Agenda</code> (r:1 w:0)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_retry" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#527">Source</a><a href="#method.cancel_retry" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_retry" class="fn">cancel_retry</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Agenda</code> (r:1 w:0)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_retry_named" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#542">Source</a><a href="#method.cancel_retry_named" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_retry_named" class="fn">cancel_retry_named</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Scheduler::Lookup</code> (r:1 w:0)
+Proof: <code>Scheduler::Lookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(48), added: 2523, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Agenda</code> (r:1 w:0)
+Proof: <code>Scheduler::Agenda</code> (<code>max_values</code>: None, <code>max_size</code>: Some(107022), added: 109497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Scheduler::Retries</code> (r:0 w:1)
+Proof: <code>Scheduler::Retries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(30), added: 2505, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><section id="method.service_task_base" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#351">Source</a><a href="#method.service_task_base" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_task_base" class="fn">service_task_base</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="method.service_task_periodic" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#387">Source</a><a href="#method.service_task_periodic" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.service_task_periodic" class="fn">service_task_periodic</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="method.execute_dispatch_unsigned" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#406">Source</a><a href="#method.execute_dispatch_unsigned" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.execute_dispatch_unsigned" class="fn">execute_dispatch_unsigned</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../../src/pallet_scheduler/weights.rs.html#96">Source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_scheduler::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct yet_another_parachain_runtime::pallet_scheduler::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>,</div></h3></section></div><script src="../../../trait.impl/pallet_scheduler/weights/trait.WeightInfo.js" data-ignore-extern-crates="pallet_scheduler,std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

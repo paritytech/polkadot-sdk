@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"westend_runtime":[["impl <a class=\"trait\" href=\"polkadot_runtime_parachains/disputes/slashing/benchmarking/trait.Config.html\" title=\"trait polkadot_runtime_parachains::disputes::slashing::benchmarking::Config\">Config</a> for <a class=\"struct\" href=\"westend_runtime/struct.Runtime.html\" title=\"struct westend_runtime::Runtime\">Runtime</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,553 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/fork_aware_txpool/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_transaction_pool/fork_aware_txpool/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// This program is free software: you can redistribute it and/or modify
+<a href=#7 id=7 data-nosnippet>7</a>// it under the terms of the GNU General Public License as published by
+<a href=#8 id=8 data-nosnippet>8</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#9 id=9 data-nosnippet>9</a>// (at your option) any later version.
+<a href=#10 id=10 data-nosnippet>10</a>
+<a href=#11 id=11 data-nosnippet>11</a>// This program is distributed in the hope that it will be useful,
+<a href=#12 id=12 data-nosnippet>12</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#13 id=13 data-nosnippet>13</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href=#14 id=14 data-nosnippet>14</a>// GNU General Public License for more details.
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a>// You should have received a copy of the GNU General Public License
+<a href=#17 id=17 data-nosnippet>17</a>// along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="doccomment">//! Substrate fork aware transaction pool implementation.
+<a href=#20 id=20 data-nosnippet>20</a>//!
+<a href=#21 id=21 data-nosnippet>21</a>//! # Top level overview.
+<a href=#22 id=22 data-nosnippet>22</a>//! This documentation provides high level overview of the main structures and the main flows within
+<a href=#23 id=23 data-nosnippet>23</a>//! the fork-aware transaction pool.
+<a href=#24 id=24 data-nosnippet>24</a>//!
+<a href=#25 id=25 data-nosnippet>25</a>//! ## Structures.
+<a href=#26 id=26 data-nosnippet>26</a>//! ### View.
+<a href=#27 id=27 data-nosnippet>27</a>//! #### Purpose.
+<a href=#28 id=28 data-nosnippet>28</a>//! The main responsibility of the [`View`] is to provide the valid set of ready transactions at
+<a href=#29 id=29 data-nosnippet>29</a>//! the given block. [`ForkAwareTxPool`] keeps the number of recent views for all the blocks
+<a href=#30 id=30 data-nosnippet>30</a>//! notified since recently finalized block.
+<a href=#31 id=31 data-nosnippet>31</a>//!
+<a href=#32 id=32 data-nosnippet>32</a>//! The views associated with blocks at the tips of the forks are actively updated with all newly
+<a href=#33 id=33 data-nosnippet>33</a>//! incoming transactions, while intermediate views are not updated (they still provide transactions
+<a href=#34 id=34 data-nosnippet>34</a>//! ready to be included at that block) due to performance reasons, since every transaction
+<a href=#35 id=35 data-nosnippet>35</a>//! submitted to the view needs to be [validated][runtime_api::validate].
+<a href=#36 id=36 data-nosnippet>36</a>//! Building upon the older blocks happens relatively rare so this does not affect blocks filling.
+<a href=#37 id=37 data-nosnippet>37</a>//!
+<a href=#38 id=38 data-nosnippet>38</a>//! The view is wrapper around [`Pool`] and exposes its functionality, including the ability
+<a href=#39 id=39 data-nosnippet>39</a>//! of [tracking][`Watcher`] the progress of every transaction.
+<a href=#40 id=40 data-nosnippet>40</a>//!
+<a href=#41 id=41 data-nosnippet>41</a>//! #### Views: active, inactive.
+<a href=#42 id=42 data-nosnippet>42</a>//! All the views are stored in [`ViewStore`] structure. In this documentation the views at the tips
+<a href=#43 id=43 data-nosnippet>43</a>//! of the forks are referred as [`active_views`], while the intermediate views as
+<a href=#44 id=44 data-nosnippet>44</a>//! [`inactive_views`].
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//!
+<a href=#47 id=47 data-nosnippet>47</a>//! #### The life cycle of the [`View`].
+<a href=#48 id=48 data-nosnippet>48</a>//! Views are created when the new [`ChainEvent`] is notified to the pool. The view that is
+<a href=#49 id=49 data-nosnippet>49</a>//! [closest][find_best_view] to the newly notified block is chosen to clone from. Once built and
+<a href=#50 id=50 data-nosnippet>50</a>//! updated the newly created view is placed in [`active_views`]. Detailed description of view
+<a href=#51 id=51 data-nosnippet>51</a>//! creation is described in [the material to follow](#handling-the-new-best-block). When the view
+<a href=#52 id=52 data-nosnippet>52</a>//! is no longer at the tip of the forks, it is moved to the [`inactive_views`]. When the block
+<a href=#53 id=53 data-nosnippet>53</a>//! number of the view is lower then the finalized block, the view is permanently removed.
+<a href=#54 id=54 data-nosnippet>54</a>//!
+<a href=#55 id=55 data-nosnippet>55</a>//!
+<a href=#56 id=56 data-nosnippet>56</a>//! *Example*:
+<a href=#57 id=57 data-nosnippet>57</a>//! The following chain:
+<a href=#58 id=58 data-nosnippet>58</a>//! ```text
+<a href=#59 id=59 data-nosnippet>59</a>//!    C2 - C3 - C4
+<a href=#60 id=60 data-nosnippet>60</a>//!   /
+<a href=#61 id=61 data-nosnippet>61</a>//! B1
+<a href=#62 id=62 data-nosnippet>62</a>//!   \
+<a href=#63 id=63 data-nosnippet>63</a>//!    B2 - B3 - B4
+<a href=#64 id=64 data-nosnippet>64</a>//! ```
+<a href=#65 id=65 data-nosnippet>65</a>//! and the following set of events:
+<a href=#66 id=66 data-nosnippet>66</a>//! ```text
+<a href=#67 id=67 data-nosnippet>67</a>//! New best block: B1, C3, C4, B4
+<a href=#68 id=68 data-nosnippet>68</a>//! ```
+<a href=#69 id=69 data-nosnippet>69</a>//! will result in the following set of views within the [`ViewStore`]:
+<a href=#70 id=70 data-nosnippet>70</a>//! ```text
+<a href=#71 id=71 data-nosnippet>71</a>//!   active: C4, B4
+<a href=#72 id=72 data-nosnippet>72</a>//! inactive: B1, C3
+<a href=#73 id=73 data-nosnippet>73</a>//! ```
+<a href=#74 id=74 data-nosnippet>74</a>//! Please note that views are only created for the notified blocks.
+<a href=#75 id=75 data-nosnippet>75</a>//!
+<a href=#76 id=76 data-nosnippet>76</a>//!
+<a href=#77 id=77 data-nosnippet>77</a>//! ### View store.
+<a href=#78 id=78 data-nosnippet>78</a>//! [`ViewStore`] is the helper structure that provides means to perform some actions like
+<a href=#79 id=79 data-nosnippet>79</a>//! [`submit`] or [`submit_and_watch`] on every view. It keeps track of both active and inactive
+<a href=#80 id=80 data-nosnippet>80</a>//! views.
+<a href=#81 id=81 data-nosnippet>81</a>//!
+<a href=#82 id=82 data-nosnippet>82</a>//! It also keeps tracks of the `most_recent_view` which is used to implement some methods of
+<a href=#83 id=83 data-nosnippet>83</a>//! [TransactionPool API], see [API considerations](#api-considerations) section.
+<a href=#84 id=84 data-nosnippet>84</a>//!
+<a href=#85 id=85 data-nosnippet>85</a>//! ### Multi-view listeners
+<a href=#86 id=86 data-nosnippet>86</a>//! There is a number of event streams that are provided by individual views:
+<a href=#87 id=87 data-nosnippet>87</a>//! - aggregated stream of [transactions statuses][`AggregatedStream`] for all the transactions
+<a href=#88 id=88 data-nosnippet>88</a>//!   within the view in the form of `(transaction-hash, status)` tuple,
+<a href=#89 id=89 data-nosnippet>89</a>//! - [ready notification][`vp::import_notification_stream`] (see [networking
+<a href=#90 id=90 data-nosnippet>90</a>//!   section](#networking)),
+<a href=#91 id=91 data-nosnippet>91</a>//! - [dropped notification][`create_dropped_by_limits_stream`].
+<a href=#92 id=92 data-nosnippet>92</a>//!
+<a href=#93 id=93 data-nosnippet>93</a>//! These streams need to be merged into a single stream exposed by transaction pool (or used
+<a href=#94 id=94 data-nosnippet>94</a>//! internally). Those aggregators are often referred as multi-view listeners and they implement
+<a href=#95 id=95 data-nosnippet>95</a>//! stream-specific or event-specific logic.
+<a href=#96 id=96 data-nosnippet>96</a>//!
+<a href=#97 id=97 data-nosnippet>97</a>//! The most important is [`MultiViewListener`] which is owned by view store. Some internal details
+<a href=#98 id=98 data-nosnippet>98</a>//! on events' flow is provided in [transaction status](#monitoring-the-status-of-a-transaction)
+<a href=#99 id=99 data-nosnippet>99</a>//! section.
+<a href=#100 id=100 data-nosnippet>100</a>//!
+<a href=#101 id=101 data-nosnippet>101</a>//! ### Intermediate transactions buffer: [`TxMemPool`]
+<a href=#102 id=102 data-nosnippet>102</a>//! The main purpose of an internal [`TxMemPool`] (referred to as *mempool*) is to prevent a
+<a href=#103 id=103 data-nosnippet>103</a>//! transaction from being lost, e.g. due to race condition when the new transaction submission
+<a href=#104 id=104 data-nosnippet>104</a>//! occurs just before the new view is created. This could also happen when a transaction is invalid
+<a href=#105 id=105 data-nosnippet>105</a>//! on one fork and could be valid on another which is not yet fully processed by the maintain
+<a href=#106 id=106 data-nosnippet>106</a>//! procedure. Additionally, it allows the pool to accept transactions when no blocks have been
+<a href=#107 id=107 data-nosnippet>107</a>//! reported yet.
+<a href=#108 id=108 data-nosnippet>108</a>//!
+<a href=#109 id=109 data-nosnippet>109</a>//! The *mempool* keeps a track on how the transaction was submitted - keeping number of watched and
+<a href=#110 id=110 data-nosnippet>110</a>//! non-watched transactions is useful for testing and metrics. The [transaction
+<a href=#111 id=111 data-nosnippet>111</a>//! source][`TransactionSource`] used to submit transactions also needs to be kept in the *mempool*.
+<a href=#112 id=112 data-nosnippet>112</a>//! The *mempool* transaction is a simple [wrapper][`TxInMemPool`] around the [`Arc`] reference to
+<a href=#113 id=113 data-nosnippet>113</a>//! the actual extrinsic body.
+<a href=#114 id=114 data-nosnippet>114</a>//!
+<a href=#115 id=115 data-nosnippet>115</a>//! Once the view is created, all transactions from *mempool* are submitted to and validated at this
+<a href=#116 id=116 data-nosnippet>116</a>//! view.
+<a href=#117 id=117 data-nosnippet>117</a>//!
+<a href=#118 id=118 data-nosnippet>118</a>//! The *mempool* removes its transactions when they get finalized. The transactions in *mempool*
+<a href=#119 id=119 data-nosnippet>119</a>//! are also periodically verified at every finalized block and removed from the *mempool* if no
+<a href=#120 id=120 data-nosnippet>120</a>//! longer valid. This is process is called [*mempool* revalidation](#mempool-pruningrevalidation).
+<a href=#121 id=121 data-nosnippet>121</a>//!
+<a href=#122 id=122 data-nosnippet>122</a>//! ## Flows
+<a href=#123 id=123 data-nosnippet>123</a>//!
+<a href=#124 id=124 data-nosnippet>124</a>//! The transaction pool internally is executing numerous tasks. This includes handling submitted
+<a href=#125 id=125 data-nosnippet>125</a>//! transactions and tracking their progress, listening to [`ChainEvent`]s and executing the
+<a href=#126 id=126 data-nosnippet>126</a>//! maintain process, which aims to provide the set of ready transactions. On the other side
+<a href=#127 id=127 data-nosnippet>127</a>//! transaction pool provides a [`ready_at`] future that resolves to the iterator of ready
+<a href=#128 id=128 data-nosnippet>128</a>//! transactions. On top of that pool performs background revalidation jobs.
+<a href=#129 id=129 data-nosnippet>129</a>//!
+<a href=#130 id=130 data-nosnippet>130</a>//! This section provides a top level overview of all flows within the fork aware transaction pool.
+<a href=#131 id=131 data-nosnippet>131</a>//!
+<a href=#132 id=132 data-nosnippet>132</a>//! ### Transaction route: [`submit`][`api_submit`]
+<a href=#133 id=133 data-nosnippet>133</a>//! This flow is simple. Transaction is added to the mempool and if it is not rejected by it (due to
+<a href=#134 id=134 data-nosnippet>134</a>//! size limits), it is also [submitted][`submit`] into every view in [`active_views`].
+<a href=#135 id=135 data-nosnippet>135</a>//!
+<a href=#136 id=136 data-nosnippet>136</a>//! When the newly created view does not contain this transaction yet, it is
+<a href=#137 id=137 data-nosnippet>137</a>//! [re-submitted][ForkAwareTxPool::update_view_with_mempool] from [`TxMemPool`] into this view.
+<a href=#138 id=138 data-nosnippet>138</a>//!
+<a href=#139 id=139 data-nosnippet>139</a>//! ### Transaction route: [`submit_and_watch`][`api_submit_and_watch`]
+<a href=#140 id=140 data-nosnippet>140</a>//!
+<a href=#141 id=141 data-nosnippet>141</a>//! The [`submit_and_watch`] function allows to submit the transaction and track its
+<a href=#142 id=142 data-nosnippet>142</a>//! [status][`TransactionStatus`] within the pool.
+<a href=#143 id=143 data-nosnippet>143</a>//!
+<a href=#144 id=144 data-nosnippet>144</a>//! When a watched transaction is submitted to the pool it is added to the *mempool* with the
+<a href=#145 id=145 data-nosnippet>145</a>//! watched flag. The external stream for the transaction is created in a [`MultiViewListener`].
+<a href=#146 id=146 data-nosnippet>146</a>//! Then a transaction is submitted to every active [`View`] (using
+<a href=#147 id=147 data-nosnippet>147</a>//! [`submit_many`][`View::submit_many`]). The view's [aggregated
+<a href=#148 id=148 data-nosnippet>148</a>//! stream][`create_aggregated_stream`] was already connected to the [`MultiViewListener`] when new
+<a href=#149 id=149 data-nosnippet>149</a>//! view was created, so no additional action is required upon the submission. The view will provide
+<a href=#150 id=150 data-nosnippet>150</a>//! the required updates for all the transactions over this single stream.
+<a href=#151 id=151 data-nosnippet>151</a>//!
+<a href=#152 id=152 data-nosnippet>152</a>//!
+<a href=#153 id=153 data-nosnippet>153</a>//! #### Monitoring the status of a transaction
+<a href=#154 id=154 data-nosnippet>154</a>//!
+<a href=#155 id=155 data-nosnippet>155</a>//! Transaction status monitoring and triggering events to [external
+<a href=#156 id=156 data-nosnippet>156</a>//! listener][`TransactionStatusStreamFor`] (e.g. to RPC client) is responsibility of the
+<a href=#157 id=157 data-nosnippet>157</a>//! [`MultiViewListener`].
+<a href=#158 id=158 data-nosnippet>158</a>//!
+<a href=#159 id=159 data-nosnippet>159</a>//! Every view is providing an independent aggreagated [stream][`create_aggregated_stream`] of
+<a href=#160 id=160 data-nosnippet>160</a>//! events for all transactions in this view, which needs to be merged into the single stream
+<a href=#161 id=161 data-nosnippet>161</a>//! exposed to the [external listener][`TransactionStatusStreamFor`] (e.g. to RPC client). For
+<a href=#162 id=162 data-nosnippet>162</a>//! majority of events simple forwarding would not work (e.g. we could get multiple [`Ready`]
+<a href=#163 id=163 data-nosnippet>163</a>//! events, or [`Ready`] / [`Future`] mix). Some additional stateful logic (implemented by
+<a href=#164 id=164 data-nosnippet>164</a>//! [`MultiViewListener`]) is required to filter and process the views' events.
+<a href=#165 id=165 data-nosnippet>165</a>//!
+<a href=#166 id=166 data-nosnippet>166</a>//! It is not possible to trigger some external events (e.g., [`Dropped`], [`Finalized`],
+<a href=#167 id=167 data-nosnippet>167</a>//! [`Invalid`], and [`Broadcast`]) using only the view-aggregated streams. These events require a
+<a href=#168 id=168 data-nosnippet>168</a>//! pool-wide understanding of the transaction state. For example, dropping a transaction from a
+<a href=#169 id=169 data-nosnippet>169</a>//! single view does not mean it was dropped from other views. Broadcast and finalized notifications
+<a href=#170 id=170 data-nosnippet>170</a>//! are sent to the transaction pool API, not at the view level. These events are simply ignored
+<a href=#171 id=171 data-nosnippet>171</a>//! when they originate in the view. The pool uses a dedicated side channel exposed by
+<a href=#172 id=172 data-nosnippet>172</a>//! [`MultiViewListener`] to trigger the beforementioned events.
+<a href=#173 id=173 data-nosnippet>173</a>//!
+<a href=#174 id=174 data-nosnippet>174</a>//! ### Maintain
+<a href=#175 id=175 data-nosnippet>175</a>//! The transaction pool exposes the [task][`notification_future`] that listens to the
+<a href=#176 id=176 data-nosnippet>176</a>//! finalized and best block streams and executes the [`maintain`] procedure.
+<a href=#177 id=177 data-nosnippet>177</a>//!
+<a href=#178 id=178 data-nosnippet>178</a>//! The [`maintain`] is the main procedure of the transaction pool. It handles incoming
+<a href=#179 id=179 data-nosnippet>179</a>//! [`ChainEvent`]s, as described in the following two sub-sections.
+<a href=#180 id=180 data-nosnippet>180</a>//!
+<a href=#181 id=181 data-nosnippet>181</a>//! #### Handling the new (best) block
+<a href=#182 id=182 data-nosnippet>182</a>//! If the new block actually needs to be handled, the following steps are
+<a href=#183 id=183 data-nosnippet>183</a>//! executed:
+<a href=#184 id=184 data-nosnippet>184</a>//! - [find][find_best_view] the best view and clone it to [create a new
+<a href=#185 id=185 data-nosnippet>185</a>//! view][crate::ForkAwareTxPool::build_new_view],
+<a href=#186 id=186 data-nosnippet>186</a>//! - [update the view][ForkAwareTxPool::update_view_with_mempool] with the transactions from the
+<a href=#187 id=187 data-nosnippet>187</a>//!   *mempool*
+<a href=#188 id=188 data-nosnippet>188</a>//! 	- all transactions from the *mempool* (with some obvious filtering applied) are submitted to
+<a href=#189 id=189 data-nosnippet>189</a>//!    the view,
+<a href=#190 id=190 data-nosnippet>190</a>//! 	- the new [aggregated stream][`create_aggregated_stream`] of all transactions statuses  is
+<a href=#191 id=191 data-nosnippet>191</a>//! 	created for the new view and it is connected to the multi-view-listener,
+<a href=#192 id=192 data-nosnippet>192</a>//! - [update the view][ForkAwareTxPool::update_view_with_fork] with the transactions from the [tree
+<a href=#193 id=193 data-nosnippet>193</a>//!   route][`TreeRoute`] (which is computed from the recent best block to newly notified one by
+<a href=#194 id=194 data-nosnippet>194</a>//!   [enactment state][`EnactmentState`] helper):
+<a href=#195 id=195 data-nosnippet>195</a>//! 	- resubmit the transactions from the retracted blocks,
+<a href=#196 id=196 data-nosnippet>196</a>//! 	- prune extrinsic from the enacted blocks, and trigger [`InBlock`] events,
+<a href=#197 id=197 data-nosnippet>197</a>//! - insert the newly created and updated view into the view store.
+<a href=#198 id=198 data-nosnippet>198</a>//!
+<a href=#199 id=199 data-nosnippet>199</a>//!
+<a href=#200 id=200 data-nosnippet>200</a>//! #### Handling the finalized block
+<a href=#201 id=201 data-nosnippet>201</a>//! The following actions are taken on every finalized block:
+<a href=#202 id=202 data-nosnippet>202</a>//! - send [`Finalized`] events for every transactions on the finalized [tree route][`TreeRoute`],
+<a href=#203 id=203 data-nosnippet>203</a>//! - remove all the views (both active and inactive) that are lower then finalized block from the
+<a href=#204 id=204 data-nosnippet>204</a>//! view store,
+<a href=#205 id=205 data-nosnippet>205</a>//! - removal of finalized transaction from the *mempool*,
+<a href=#206 id=206 data-nosnippet>206</a>//! - trigger [*mempool* background revalidation](#mempool-pruningrevalidation).
+<a href=#207 id=207 data-nosnippet>207</a>//! - clean up of multi-view listeners which is required to avoid ever-growing structures,
+<a href=#208 id=208 data-nosnippet>208</a>//!
+<a href=#209 id=209 data-nosnippet>209</a>//! ### Light maintain
+<a href=#210 id=210 data-nosnippet>210</a>//! The [maintain](#maintain) procedure can sometimes be quite heavy, and it may not be accomplished
+<a href=#211 id=211 data-nosnippet>211</a>//! within the time window expected by the block builder. On top of that block builder may want to
+<a href=#212 id=212 data-nosnippet>212</a>//! build few blocks in the row, not giving the pool enough time to accomplish possible ongoing
+<a href=#213 id=213 data-nosnippet>213</a>//! maintain process.
+<a href=#214 id=214 data-nosnippet>214</a>//!
+<a href=#215 id=215 data-nosnippet>215</a>//! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
+<a href=#216 id=216 data-nosnippet>216</a>//! [finds the first descendent view][`find_view_descendent_up_to_number`] up to the recent
+<a href=#217 id=217 data-nosnippet>217</a>//! finalized block, clones it and prunes all the transactions that were included in enacted part of
+<a href=#218 id=218 data-nosnippet>218</a>//! the traversed route, from the base view to the block at which a ready iterator was requested. No
+<a href=#219 id=219 data-nosnippet>219</a>//! new [transaction validations][runtime_api::validate] are required to accomplish it. If no view
+<a href=#220 id=220 data-nosnippet>220</a>//! is found, it will return the ready transactions of the most recent view processed by the
+<a href=#221 id=221 data-nosnippet>221</a>//! transaction pool.
+<a href=#222 id=222 data-nosnippet>222</a>//!
+<a href=#223 id=223 data-nosnippet>223</a>//! ### Providing ready transactions: `ready_at`
+<a href=#224 id=224 data-nosnippet>224</a>//! The asynchronous [`ready_at`] function resolves to the [ready transactions
+<a href=#225 id=225 data-nosnippet>225</a>//! iterator][`ReadyTransactions`]. The block builder shall wait either for the future to be
+<a href=#226 id=226 data-nosnippet>226</a>//! resolved or for timeout to be hit. To avoid building empty blocks in case of timeout, the
+<a href=#227 id=227 data-nosnippet>227</a>//! waiting for timeout functionality was moved into the transaction pool, and new API function was
+<a href=#228 id=228 data-nosnippet>228</a>//! added: [`ready_at_with_timeout`]. This function also provides a fall back ready iterator which
+<a href=#229 id=229 data-nosnippet>229</a>//! is result of [light maintain](#light-maintain).
+<a href=#230 id=230 data-nosnippet>230</a>//!
+<a href=#231 id=231 data-nosnippet>231</a>//! New function internally waits either for [maintain](#maintain) process triggered for requested
+<a href=#232 id=232 data-nosnippet>232</a>//! block to be accomplished or for the timeout. If timeout hits then the result of [light
+<a href=#233 id=233 data-nosnippet>233</a>//! maintain](#light-maintain) is returned. Light maintain is always executed at the beginning of
+<a href=#234 id=234 data-nosnippet>234</a>//! [`ready_at_with_timeout`] to make sure that it is available w/ o additional delay.
+<a href=#235 id=235 data-nosnippet>235</a>//!
+<a href=#236 id=236 data-nosnippet>236</a>//! If the maintain process for the requested block was accomplished before the `ready_at` functions
+<a href=#237 id=237 data-nosnippet>237</a>//! are called both of them immediately provide the ready transactions iterator (which is simply
+<a href=#238 id=238 data-nosnippet>238</a>//! requested on the appropriate instance of the [`View`]).
+<a href=#239 id=239 data-nosnippet>239</a>//!
+<a href=#240 id=240 data-nosnippet>240</a>//! The little [`ReadyPoll`] helper contained within [`ForkAwareTxPool`] as ([`ready_poll`])
+<a href=#241 id=241 data-nosnippet>241</a>//! implements the futures management.
+<a href=#242 id=242 data-nosnippet>242</a>//!
+<a href=#243 id=243 data-nosnippet>243</a>//! ### Background tasks
+<a href=#244 id=244 data-nosnippet>244</a>//! The [maintain](#maintain) procedure shall be as quick as possible, so heavy revalidation job is
+<a href=#245 id=245 data-nosnippet>245</a>//! delegated to the background worker. These includes view and *mempool* revalidation which are
+<a href=#246 id=246 data-nosnippet>246</a>//! both handled by the [`RevalidationQueue`] which simply sends revalidation requests to the
+<a href=#247 id=247 data-nosnippet>247</a>//! background thread.
+<a href=#248 id=248 data-nosnippet>248</a>//!
+<a href=#249 id=249 data-nosnippet>249</a>//! ####  View revalidation
+<a href=#250 id=250 data-nosnippet>250</a>//! View revalidation is performed in the background thread. Revalidation is executed for every
+<a href=#251 id=251 data-nosnippet>251</a>//! view. All the transaction from the view are [revalidated][`view::revalidate`].
+<a href=#252 id=252 data-nosnippet>252</a>//!
+<a href=#253 id=253 data-nosnippet>253</a>//! The fork-aware pool utilizes two threads to execute maintain and revalidation process
+<a href=#254 id=254 data-nosnippet>254</a>//! exclusively, ensuring maintain performance without overlapping with revalidation.
+<a href=#255 id=255 data-nosnippet>255</a>//!
+<a href=#256 id=256 data-nosnippet>256</a>//! The view revalidation process is [triggered][`start_background_revalidation`] at the very end of
+<a href=#257 id=257 data-nosnippet>257</a>//! the [maintain][`maintain`] process, and [stopped][`finish_background_revalidations`] at the
+<a href=#258 id=258 data-nosnippet>258</a>//! very beginning of the next maintenance execution (upon the next [`ChainEvent`] reception). The
+<a href=#259 id=259 data-nosnippet>259</a>//! results from the revalidation are immediately applied once the revalidation is
+<a href=#260 id=260 data-nosnippet>260</a>//! [terminated][crate::fork_aware_txpool::view::View::finish_revalidation].
+<a href=#261 id=261 data-nosnippet>261</a>//! ```text
+<a href=#262 id=262 data-nosnippet>262</a>//!                time: ----------------------&gt;
+<a href=#263 id=263 data-nosnippet>263</a>//!  maintenance thread: M----M------M--M-M---
+<a href=#264 id=264 data-nosnippet>264</a>//! revalidation thread: -RRRR-RR-----RR-R-RRR
+<a href=#265 id=265 data-nosnippet>265</a>//! ```
+<a href=#266 id=266 data-nosnippet>266</a>//!
+<a href=#267 id=267 data-nosnippet>267</a>//! ####  Mempool pruning/revalidation
+<a href=#268 id=268 data-nosnippet>268</a>//! Transactions within *mempool* are constantly revalidated in the background. The
+<a href=#269 id=269 data-nosnippet>269</a>//! [revalidation][`mp::revalidate`] is performed in [batches][`batch_size`], and transactions that
+<a href=#270 id=270 data-nosnippet>270</a>//! were validated as latest, are revalidated first in the next iteration. The revalidation is
+<a href=#271 id=271 data-nosnippet>271</a>//! triggered on every finalized block. If a transaction is found to be invalid, the [`Invalid`]
+<a href=#272 id=272 data-nosnippet>272</a>//! event is sent and transaction is removed from the *mempool*.
+<a href=#273 id=273 data-nosnippet>273</a>//!
+<a href=#274 id=274 data-nosnippet>274</a>//! NOTE: There is one exception: if transaction is referenced by any view as ready, then it is
+<a href=#275 id=275 data-nosnippet>275</a>//! removed from the *mempool*, but not removed from the view. The [`Invalid`] event is not sent.
+<a href=#276 id=276 data-nosnippet>276</a>//! This case is not likely to happen, however it may need some extra attention.
+<a href=#277 id=277 data-nosnippet>277</a>//!
+<a href=#278 id=278 data-nosnippet>278</a>//! ### Networking
+<a href=#279 id=279 data-nosnippet>279</a>//! The pool is exposing [`ImportNotificationStream`][`import_notification_stream`], the dedicated
+<a href=#280 id=280 data-nosnippet>280</a>//! channel over which all ready transactions are notified. Internally this channel needs to merge
+<a href=#281 id=281 data-nosnippet>281</a>//! all ready events from every view. This functionality is implemented by
+<a href=#282 id=282 data-nosnippet>282</a>//! [`MultiViewImportNotificationSink`].
+<a href=#283 id=283 data-nosnippet>283</a>//!
+<a href=#284 id=284 data-nosnippet>284</a>//! The networking module is utilizing this channel to receive info about new ready transactions
+<a href=#285 id=285 data-nosnippet>285</a>//! which later will be propagated over the network. On the other side, when a transaction is
+<a href=#286 id=286 data-nosnippet>286</a>//! received networking submits transaction to the pool using [`submit`][`api_submit`].
+<a href=#287 id=287 data-nosnippet>287</a>//!
+<a href=#288 id=288 data-nosnippet>288</a>//! ### Handling invalid transactions
+<a href=#289 id=289 data-nosnippet>289</a>//! Refer to *mempool* revalidation [section](#mempool-pruningrevalidation).
+<a href=#290 id=290 data-nosnippet>290</a>//!
+<a href=#291 id=291 data-nosnippet>291</a>//! ## Pool limits
+<a href=#292 id=292 data-nosnippet>292</a>//! Every [`View`] has the [limits][`Options`] for the number or size of transactions it can hold.
+<a href=#293 id=293 data-nosnippet>293</a>//! Obviously the number of transactions in every view is not distributed equally, so some views
+<a href=#294 id=294 data-nosnippet>294</a>//! might be fully filled while others not.
+<a href=#295 id=295 data-nosnippet>295</a>//!
+<a href=#296 id=296 data-nosnippet>296</a>//! On the other hand the size of internal *mempool* shall also be capped, but transactions that are
+<a href=#297 id=297 data-nosnippet>297</a>//! still referenced by views should not be removed.
+<a href=#298 id=298 data-nosnippet>298</a>//!
+<a href=#299 id=299 data-nosnippet>299</a>//! When the [`View`] is at its limits, it can either reject the transaction during
+<a href=#300 id=300 data-nosnippet>300</a>//! submission process, or it can accept the transaction and drop different transaction which is
+<a href=#301 id=301 data-nosnippet>301</a>//! already in the pool during the [`enforce_limits`][`vp::enforce_limits`] process.
+<a href=#302 id=302 data-nosnippet>302</a>//!
+<a href=#303 id=303 data-nosnippet>303</a>//! The [`StreamOfDropped`] stream aggregating [per-view][`create_dropped_by_limits_stream`] streams
+<a href=#304 id=304 data-nosnippet>304</a>//! allows to monitor the transactions that were dropped by all the views (or dropped by some views
+<a href=#305 id=305 data-nosnippet>305</a>//! while not referenced by the others), what means that transaction can also be
+<a href=#306 id=306 data-nosnippet>306</a>//! [removed][`dropped_monitor_task`] from the *mempool*.
+<a href=#307 id=307 data-nosnippet>307</a>//!
+<a href=#308 id=308 data-nosnippet>308</a>//!
+<a href=#309 id=309 data-nosnippet>309</a>//! ## API Considerations
+<a href=#310 id=310 data-nosnippet>310</a>//! Refer to github issue: &lt;https://github.com/paritytech/polkadot-sdk/issues/5491&gt;
+<a href=#311 id=311 data-nosnippet>311</a>//!
+<a href=#312 id=312 data-nosnippet>312</a>//! [`View`]: crate::fork_aware_txpool::view::View
+<a href=#313 id=313 data-nosnippet>313</a>//! [`view::revalidate`]: crate::fork_aware_txpool::view::View::revalidate
+<a href=#314 id=314 data-nosnippet>314</a>//! [`start_background_revalidation`]: crate::fork_aware_txpool::view::View::start_background_revalidation
+<a href=#315 id=315 data-nosnippet>315</a>//! [`View::submit_many`]: crate::fork_aware_txpool::view::View::submit_many
+<a href=#316 id=316 data-nosnippet>316</a>//! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
+<a href=#317 id=317 data-nosnippet>317</a>//! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
+<a href=#318 id=318 data-nosnippet>318</a>//! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
+<a href=#319 id=319 data-nosnippet>319</a>//! [`find_view_descendent_up_to_number`]: crate::fork_aware_txpool::view_store::ViewStore::find_view_descendent_up_to_number
+<a href=#320 id=320 data-nosnippet>320</a>//! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::active_views
+<a href=#321 id=321 data-nosnippet>321</a>//! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::inactive_views
+<a href=#322 id=322 data-nosnippet>322</a>//! [`TxMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool
+<a href=#323 id=323 data-nosnippet>323</a>//! [`mp::revalidate`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool::revalidate
+<a href=#324 id=324 data-nosnippet>324</a>//! [`batch_size`]: crate::fork_aware_txpool::tx_mem_pool::TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE
+<a href=#325 id=325 data-nosnippet>325</a>//! [`TxInMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxInMemPool
+<a href=#326 id=326 data-nosnippet>326</a>//! [`MultiViewListener`]: crate::fork_aware_txpool::multi_view_listener::MultiViewListener
+<a href=#327 id=327 data-nosnippet>327</a>//! [`Pool`]: crate::graph::Pool
+<a href=#328 id=328 data-nosnippet>328</a>//! [`Watcher`]: crate::graph::watcher::Watcher
+<a href=#329 id=329 data-nosnippet>329</a>//! [`AggregatedStream`]: crate::fork_aware_txpool::view::AggregatedStream
+<a href=#330 id=330 data-nosnippet>330</a>//! [`Options`]: crate::graph::Options
+<a href=#331 id=331 data-nosnippet>331</a>//! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
+<a href=#332 id=332 data-nosnippet>332</a>//! [`vp::enforce_limits`]: ../graph/validated_pool/struct.ValidatedPool.html#method.enforce_limits
+<a href=#333 id=333 data-nosnippet>333</a>//! [`create_dropped_by_limits_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_limits_stream
+<a href=#334 id=334 data-nosnippet>334</a>//! [`create_aggregated_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_aggregated_stream
+<a href=#335 id=335 data-nosnippet>335</a>//! [`ChainEvent`]: sc_transaction_pool_api::ChainEvent
+<a href=#336 id=336 data-nosnippet>336</a>//! [`TransactionStatusStreamFor`]: sc_transaction_pool_api::TransactionStatusStreamFor
+<a href=#337 id=337 data-nosnippet>337</a>//! [`api_submit`]: sc_transaction_pool_api::TransactionPool::submit_at
+<a href=#338 id=338 data-nosnippet>338</a>//! [`api_submit_and_watch`]: sc_transaction_pool_api::TransactionPool::submit_and_watch
+<a href=#339 id=339 data-nosnippet>339</a>//! [`ready_at_with_timeout`]: sc_transaction_pool_api::TransactionPool::ready_at_with_timeout
+<a href=#340 id=340 data-nosnippet>340</a>//! [`TransactionSource`]: sc_transaction_pool_api::TransactionSource
+<a href=#341 id=341 data-nosnippet>341</a>//! [TransactionPool API]: sc_transaction_pool_api::TransactionPool
+<a href=#342 id=342 data-nosnippet>342</a>//! [`TransactionStatus`]:sc_transaction_pool_api::TransactionStatus
+<a href=#343 id=343 data-nosnippet>343</a>//! [`Ready`]:sc_transaction_pool_api::TransactionStatus::Ready
+<a href=#344 id=344 data-nosnippet>344</a>//! [`Future`]:sc_transaction_pool_api::TransactionStatus::Future
+<a href=#345 id=345 data-nosnippet>345</a>//! [`Broadcast`]:sc_transaction_pool_api::TransactionStatus::Broadcast
+<a href=#346 id=346 data-nosnippet>346</a>//! [`Invalid`]:sc_transaction_pool_api::TransactionStatus::Invalid
+<a href=#347 id=347 data-nosnippet>347</a>//! [`InBlock`]:sc_transaction_pool_api::TransactionStatus::InBlock
+<a href=#348 id=348 data-nosnippet>348</a>//! [`Finalized`]:sc_transaction_pool_api::TransactionStatus::Finalized
+<a href=#349 id=349 data-nosnippet>349</a>//! [`Dropped`]:sc_transaction_pool_api::TransactionStatus::Dropped
+<a href=#350 id=350 data-nosnippet>350</a>//! [`ReadyTransactions`]:sc_transaction_pool_api::ReadyTransactions
+<a href=#351 id=351 data-nosnippet>351</a>//! [`dropped_monitor_task`]: ForkAwareTxPool::dropped_monitor_task
+<a href=#352 id=352 data-nosnippet>352</a>//! [`ready_poll`]: ForkAwareTxPool::ready_poll
+<a href=#353 id=353 data-nosnippet>353</a>//! [`ready_at_light`]: ForkAwareTxPool::ready_at_light
+<a href=#354 id=354 data-nosnippet>354</a>//! [`ready_at`]: ../struct.ForkAwareTxPool.html#method.ready_at
+<a href=#355 id=355 data-nosnippet>355</a>//! [`import_notification_stream`]: ../struct.ForkAwareTxPool.html#method.import_notification_stream
+<a href=#356 id=356 data-nosnippet>356</a>//! [`maintain`]: ../struct.ForkAwareTxPool.html#method.maintain
+<a href=#357 id=357 data-nosnippet>357</a>//! [`submit`]: ../struct.ForkAwareTxPool.html#method.submit_at
+<a href=#358 id=358 data-nosnippet>358</a>//! [`submit_and_watch`]: ../struct.ForkAwareTxPool.html#method.submit_and_watch
+<a href=#359 id=359 data-nosnippet>359</a>//! [`ReadyPoll`]: ../fork_aware_txpool/fork_aware_txpool/struct.ReadyPoll.html
+<a href=#360 id=360 data-nosnippet>360</a>//! [`TreeRoute`]: sp_blockchain::TreeRoute
+<a href=#361 id=361 data-nosnippet>361</a>//! [runtime_api::validate]: sp_transaction_pool::runtime_api::TaggedTransactionQueue::validate_transaction
+<a href=#362 id=362 data-nosnippet>362</a>//! [`notification_future`]: crate::common::notification_future
+<a href=#363 id=363 data-nosnippet>363</a>//! [`EnactmentState`]: crate::common::enactment_state::EnactmentState
+<a href=#364 id=364 data-nosnippet>364</a>//! [`MultiViewImportNotificationSink`]: crate::fork_aware_txpool::import_notification_sink::MultiViewImportNotificationSink
+<a href=#365 id=365 data-nosnippet>365</a>//! [`RevalidationQueue`]: crate::fork_aware_txpool::revalidation_worker::RevalidationQueue
+<a href=#366 id=366 data-nosnippet>366</a>//! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
+<a href=#367 id=367 data-nosnippet>367</a>//! [`Arc`]: std::sync::Arc
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a></span><span class="kw">mod </span>dropped_watcher;
+<a href=#370 id=370 data-nosnippet>370</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>fork_aware_txpool;
+<a href=#371 id=371 data-nosnippet>371</a><span class="kw">mod </span>import_notification_sink;
+<a href=#372 id=372 data-nosnippet>372</a><span class="kw">mod </span>metrics;
+<a href=#373 id=373 data-nosnippet>373</a><span class="kw">mod </span>multi_view_listener;
+<a href=#374 id=374 data-nosnippet>374</a><span class="kw">mod </span>revalidation_worker;
+<a href=#375 id=375 data-nosnippet>375</a><span class="kw">mod </span>tx_mem_pool;
+<a href=#376 id=376 data-nosnippet>376</a><span class="kw">mod </span>view;
+<a href=#377 id=377 data-nosnippet>377</a><span class="kw">mod </span>view_store;
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a><span class="kw">pub use </span>fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a><span class="kw">mod </span>stream_map_util {
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">use </span>futures::Stream;
+<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">use </span>std::marker::Unpin;
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">use </span>tokio_stream::StreamMap;
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>	<span class="kw">pub async fn </span>next_event&lt;K, V&gt;(
+<a href=#387 id=387 data-nosnippet>387</a>		stream_map: <span class="kw-2">&amp;mut </span>StreamMap&lt;K, V&gt;,
+<a href=#388 id=388 data-nosnippet>388</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;(K, &lt;V <span class="kw">as </span>Stream&gt;::Item)&gt;
+<a href=#389 id=389 data-nosnippet>389</a>	<span class="kw">where
+<a href=#390 id=390 data-nosnippet>390</a>		</span>K: Clone + Unpin,
+<a href=#391 id=391 data-nosnippet>391</a>		V: Stream + Unpin,
+<a href=#392 id=392 data-nosnippet>392</a>	{
+<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">if </span>stream_map.is_empty() {
+<a href=#394 id=394 data-nosnippet>394</a>			<span class="comment">// yield pending to prevent busy-loop on an empty map
+<a href=#395 id=395 data-nosnippet>395</a>			</span><span class="macro">futures::pending!</span>()
+<a href=#396 id=396 data-nosnippet>396</a>		}
+<a href=#397 id=397 data-nosnippet>397</a>
+<a href=#398 id=398 data-nosnippet>398</a>		futures::StreamExt::next(stream_map).<span class="kw">await
+<a href=#399 id=399 data-nosnippet>399</a>	</span>}
+<a href=#400 id=400 data-nosnippet>400</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

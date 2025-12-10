@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","LastContribution"],"mod":["migration","pallet"],"struct":["FundInfo","Pallet","TestWeightInfo"],"trait":["Config","WeightInfo"],"type":["EndingsCount","Funds","Module","NewRaise","NextFundIndex"]};

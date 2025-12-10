@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_foo","set_foo_using_authorize"]};

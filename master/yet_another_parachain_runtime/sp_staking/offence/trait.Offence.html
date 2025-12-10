@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait implemented by an offence report."><title>Offence in yet_another_parachain_runtime::sp_staking::offence - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Offence</a></h2><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.ID" title="ID">ID</a></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.TimeSlot" title="TimeSlot">TimeSlot</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.offenders" title="offenders">offenders</a></li><li><a href="#tymethod.session_index" title="session_index">session_index</a></li><li><a href="#tymethod.slash_fraction" title="slash_fraction">slash_fraction</a></li><li><a href="#tymethod.time_slot" title="time_slot">time_slot</a></li><li><a href="#tymethod.validator_set_count" title="validator_set_count">validator_set_count</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>sp_<wbr>staking::<wbr>offence</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">sp_staking</a>::<wbr><a href="index.html">offence</a></div><h1>Trait <span class="trait">Offence</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/sp_staking/offence.rs.html#45">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Offence&lt;Offender&gt; {
+    type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="../../sc_executor/trait.Codec.html" title="trait yet_another_parachain_runtime::sc_executor::Codec">Codec</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>;
+
+    const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>];
+
+    // Required methods
+    fn <a href="#tymethod.offenders" class="fn">offenders</a>(&amp;self) -&gt; <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Offender&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.session_index" class="fn">session_index</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validator_set_count" class="fn">validator_set_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.time_slot" class="fn">time_slot</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Offence.html#associatedtype.TimeSlot" title="type yet_another_parachain_runtime::sp_staking::offence::Offence::TimeSlot">TimeSlot</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.slash_fraction" class="fn">slash_fraction</a>(&amp;self, offenders_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Perbill.html" title="struct yet_another_parachain_runtime::Perbill">Perbill</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait implemented by an offence report.</p>
+<p>This trait assumes that the offence is legitimate and was validated already.</p>
+<p>Examples of offences include: a BABE equivocation or a GRANDPA unjustified vote.</p>
+</div></details><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.ID" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#47">Source</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section></summary><div class="docblock"><p>Identifier which is unique for this kind of an offence.</p>
+</div></details></div><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.TimeSlot" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#53">Source</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="../../sc_executor/trait.Codec.html" title="trait yet_another_parachain_runtime::sc_executor::Codec">Codec</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></h4></section></summary><div class="docblock"><p>A type that represents a point in time on an abstract timescale.</p>
+<p>See <code>Offence::time_slot</code> for details. The only requirement is that such timescale could be
+represented by a single <code>u128</code> value.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.offenders" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#58">Source</a><h4 class="code-header">fn <a href="#tymethod.offenders" class="fn">offenders</a>(&amp;self) -&gt; <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Offender&gt;</h4></section></summary><div class="docblock"><p>The list of all offenders involved in this incident.</p>
+<p>The list has no duplicates, so it is rather a set.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.session_index" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#64">Source</a><h4 class="code-header">fn <a href="#tymethod.session_index" class="fn">session_index</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>The session index that is used for querying the validator set for the <code>slash_fraction</code>
+function.</p>
+<p>This is used for filtering historical sessions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validator_set_count" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#67">Source</a><h4 class="code-header">fn <a href="#tymethod.validator_set_count" class="fn">validator_set_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Return a validator set count at the time when the offence took place.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.time_slot" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#80">Source</a><h4 class="code-header">fn <a href="#tymethod.time_slot" class="fn">time_slot</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Offence.html#associatedtype.TimeSlot" title="type yet_another_parachain_runtime::sp_staking::offence::Offence::TimeSlot">TimeSlot</a></h4></section></summary><div class="docblock"><p>A point in time when this offence happened.</p>
+<p>This is used for looking up offences that happened at the “same time”.</p>
+<p>The timescale is abstract and doesn’t have to be the same across different implementations
+of this trait. The value doesn’t represent absolute timescale though since it is interpreted
+along with the <code>session_index</code>. Two offences are considered to happen at the same time iff
+both <code>session_index</code> and <code>time_slot</code> are equal.</p>
+<p>As an example, for GRANDPA timescale could be a round number and for BABE it could be a slot
+number. Note that for GRANDPA the round number is reset each epoch.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.slash_fraction" class="method"><a class="src rightside" href="../../../src/sp_staking/offence.rs.html#86">Source</a><h4 class="code-header">fn <a href="#tymethod.slash_fraction" class="fn">slash_fraction</a>(&amp;self, offenders_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Perbill.html" title="struct yet_another_parachain_runtime::Perbill">Perbill</a></h4></section></summary><div class="docblock"><p>A slash fraction of the total exposure that should be slashed for this
+particular offence for the <code>offenders_count</code> that happened at a singular <code>TimeSlot</code>.</p>
+<p><code>offenders_count</code> - the count of unique offending authorities for this <code>TimeSlot</code>. It is &gt;0.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender%3E" class="impl"><a class="src rightside" href="../../../src/pallet_babe/equivocation.rs.html#71">Source</a><a href="#impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Offender&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for yet_another_parachain_runtime::pallet_babe::<a class="struct" href="../../pallet_babe/struct.EquivocationOffence.html" title="struct yet_another_parachain_runtime::pallet_babe::EquivocationOffence">EquivocationOffence</a>&lt;Offender&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-1" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/pallet_babe/equivocation.rs.html#72">Source</a><a href="#associatedconstant.ID-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_babe/equivocation.rs.html#73">Source</a><a href="#associatedtype.TimeSlot-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="struct" href="../../cumulus_primitives_aura/struct.Slot.html" title="struct yet_another_parachain_runtime::cumulus_primitives_aura::Slot">Slot</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender%3E-1" class="impl"><a class="src rightside" href="../../../src/pallet_grandpa/equivocation.rs.html#81">Source</a><a href="#impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;Offender&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for yet_another_parachain_runtime::pallet_grandpa::<a class="struct" href="../../pallet_grandpa/struct.EquivocationOffence.html" title="struct yet_another_parachain_runtime::pallet_grandpa::EquivocationOffence">EquivocationOffence</a>&lt;Offender&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-2" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/pallet_grandpa/equivocation.rs.html#82">Source</a><a href="#associatedconstant.ID-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-2" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_grandpa/equivocation.rs.html#83">Source</a><a href="#associatedtype.TimeSlot-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="struct" href="../../pallet_grandpa/struct.TimeSlot.html" title="struct yet_another_parachain_runtime::pallet_grandpa::TimeSlot">TimeSlot</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-UnresponsivenessOffence%3COffender%3E" class="impl"><a class="src rightside" href="../../../src/pallet_im_online/lib.rs.html#834">Source</a><a href="#impl-Offence%3COffender%3E-for-UnresponsivenessOffence%3COffender%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Offender&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for <a class="struct" href="../../pallet_im_online/struct.UnresponsivenessOffence.html" title="struct yet_another_parachain_runtime::pallet_im_online::UnresponsivenessOffence">UnresponsivenessOffence</a>&lt;Offender&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-3" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/pallet_im_online/lib.rs.html#835">Source</a><a href="#associatedconstant.ID-3" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-3" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_im_online/lib.rs.html#836">Source</a><a href="#associatedtype.TimeSlot-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-TestSpamOffence%3COffender%3E" class="impl"><a class="src rightside" href="../../../src/pallet_root_offences/lib.rs.html#59">Source</a><a href="#impl-Offence%3COffender%3E-for-TestSpamOffence%3COffender%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Offender&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for <a class="struct" href="../../pallet_root_offences/struct.TestSpamOffence.html" title="struct yet_another_parachain_runtime::pallet_root_offences::TestSpamOffence">TestSpamOffence</a>&lt;Offender&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-4" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/pallet_root_offences/lib.rs.html#60">Source</a><a href="#associatedconstant.ID-4" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-4" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_root_offences/lib.rs.html#61">Source</a><a href="#associatedtype.TimeSlot-4" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-SlashingOffence%3COffender%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/disputes/slashing.rs.html#123-125">Source</a><a href="#impl-Offence%3COffender%3E-for-SlashingOffence%3COffender%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Offender&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for <a class="struct" href="../../polkadot_runtime_parachains/disputes/slashing/struct.SlashingOffence.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::disputes::slashing::SlashingOffence">SlashingOffence</a>&lt;Offender&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-5" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/disputes/slashing.rs.html#127">Source</a><a href="#associatedconstant.ID-5" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-5" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/disputes/slashing.rs.html#129">Source</a><a href="#associatedtype.TimeSlot-5" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="struct" href="../../cumulus_primitives_core/relay_chain/v9/slashing/struct.DisputesTimeSlot.html" title="struct yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::slashing::DisputesTimeSlot">DisputesTimeSlot</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender,+N%3E" class="impl"><a class="src rightside" href="../../../src/pallet_beefy/equivocation.rs.html#88-90">Source</a><a href="#impl-Offence%3COffender%3E-for-EquivocationOffence%3COffender,+N%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Offender, N&gt; <a class="trait" href="trait.Offence.html" title="trait yet_another_parachain_runtime::sp_staking::offence::Offence">Offence</a>&lt;Offender&gt; for yet_another_parachain_runtime::pallet_beefy::<a class="struct" href="../../pallet_beefy/struct.EquivocationOffence.html" title="struct yet_another_parachain_runtime::pallet_beefy::EquivocationOffence">EquivocationOffence</a>&lt;Offender, N&gt;<div class="where">where
+    Offender: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,
+    N: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="../../frame_election_provider_support/trait.Encode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Encode">Encode</a> + <a class="trait" href="../../frame_election_provider_support/trait.Decode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Decode">Decode</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-6" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/pallet_beefy/equivocation.rs.html#92">Source</a><a href="#associatedconstant.ID-6" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]</h4></section><section id="associatedtype.TimeSlot-6" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_beefy/equivocation.rs.html#93">Source</a><a href="#associatedtype.TimeSlot-6" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a> = <a class="struct" href="../../pallet_beefy/struct.TimeSlot.html" title="struct yet_another_parachain_runtime::pallet_beefy::TimeSlot">TimeSlot</a>&lt;N&gt;</h4></section></div></details></div><script src="../../../trait.impl/sp_staking/offence/trait.Offence.js" data-ignore-extern-crates="polkadot_runtime_parachains,pallet_babe,pallet_grandpa,pallet_beefy,pallet_root_offences,pallet_im_online" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

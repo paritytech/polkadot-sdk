@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate state machine implementation."><title>yet_another_parachain_runtime::sp_state_machine - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sp_state_machine</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sp_state_machine/lib.rs.html#18-2034">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate state machine implementation.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="backend/index.html" title="mod yet_another_parachain_runtime::sp_state_machine::backend">backend</a></dt><dd>State machine backends. These manage the code and storage of contracts.</dd><dt><a class="mod" href="fuzzing/index.html" title="mod yet_another_parachain_runtime::sp_state_machine::fuzzing">fuzzing</a></dt><dd>State machine fuzzing implementation, behind <code>fuzzing</code> feature.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.debug.html" title="macro yet_another_parachain_runtime::sp_state_machine::debug">debug</a></dt><dd>Logs a message at the debug level.</dd><dt><a class="macro" href="macro.log_error.html" title="macro yet_another_parachain_runtime::sp_state_machine::log_error">log_<wbr>error</a></dt><dd>Logs a message at the error level.</dd><dt><a class="macro" href="macro.trace.html" title="macro yet_another_parachain_runtime::sp_state_machine::trace">trace</a></dt><dd>Constructs an event at the trace level.</dd><dt><a class="macro" href="macro.warn.html" title="macro yet_another_parachain_runtime::sp_state_machine::warn">warn</a></dt><dd>Logs a message at the warn level.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BasicExternalities.html" title="struct yet_another_parachain_runtime::sp_state_machine::BasicExternalities">Basic<wbr>Externalities</a></dt><dd>Simple Map-based Externalities impl.</dd><dt><a class="struct" href="struct.CompactProof.html" title="struct yet_another_parachain_runtime::sp_state_machine::CompactProof">Compact<wbr>Proof</a></dt><dd>Storage proof in compact form.</dd><dt><a class="struct" href="struct.Ext.html" title="struct yet_another_parachain_runtime::sp_state_machine::Ext">Ext</a></dt><dd>Wraps a read-only backend, call executor, and current overlayed changes.</dd><dt><a class="struct" href="struct.IterArgs.html" title="struct yet_another_parachain_runtime::sp_state_machine::IterArgs">Iter<wbr>Args</a></dt><dd>A struct containing arguments for iterating over the storage.</dd><dt><a class="struct" href="struct.KeyValueStates.html" title="struct yet_another_parachain_runtime::sp_state_machine::KeyValueStates">KeyValue<wbr>States</a></dt><dd>Multiple key value state.
+States are ordered by root storage key.</dd><dt><a class="struct" href="struct.KeyValueStorageLevel.html" title="struct yet_another_parachain_runtime::sp_state_machine::KeyValueStorageLevel">KeyValue<wbr>Storage<wbr>Level</a></dt><dd>A key value state at any storage level.</dd><dt><a class="struct" href="struct.KeysIter.html" title="struct yet_another_parachain_runtime::sp_state_machine::KeysIter">Keys<wbr>Iter</a></dt><dd>An iterator over storage keys.</dd><dt><a class="struct" href="struct.LayoutV0.html" title="struct yet_another_parachain_runtime::sp_state_machine::LayoutV0">Layout<wbr>V0</a></dt><dd>substrate trie layout</dd><dt><a class="struct" href="struct.LayoutV1.html" title="struct yet_another_parachain_runtime::sp_state_machine::LayoutV1">Layout<wbr>V1</a></dt><dd>substrate trie layout, with external value nodes.</dd><dt><a class="struct" href="struct.OffchainOverlayedChanges.html" title="struct yet_another_parachain_runtime::sp_state_machine::OffchainOverlayedChanges">Offchain<wbr>Overlayed<wbr>Changes</a></dt><dd>In-memory storage for offchain workers recoding changes for the actual offchain storage
+implementation.</dd><dt><a class="struct" href="struct.OverlayedChanges.html" title="struct yet_another_parachain_runtime::sp_state_machine::OverlayedChanges">Overlayed<wbr>Changes</a></dt><dd>The set of changes that are overlaid onto the backend.</dd><dt><a class="struct" href="struct.PairsIter.html" title="struct yet_another_parachain_runtime::sp_state_machine::PairsIter">Pairs<wbr>Iter</a></dt><dd>An iterator over storage keys and values.</dd><dt><a class="struct" href="struct.ReadOnlyExternalities.html" title="struct yet_another_parachain_runtime::sp_state_machine::ReadOnlyExternalities">Read<wbr>Only<wbr>Externalities</a></dt><dd>Simple read-only externalities for any backend.</dd><dt><a class="struct" href="struct.StateMachine.html" title="struct yet_another_parachain_runtime::sp_state_machine::StateMachine">State<wbr>Machine</a></dt><dd>The substrate state machine.</dd><dt><a class="struct" href="struct.StateMachineStats.html" title="struct yet_another_parachain_runtime::sp_state_machine::StateMachineStats">State<wbr>Machine<wbr>Stats</a></dt><dd>Accumulated usage statistics specific to state machine
+crate.</dd><dt><a class="struct" href="struct.StorageChanges.html" title="struct yet_another_parachain_runtime::sp_state_machine::StorageChanges">Storage<wbr>Changes</a></dt><dd>A storage changes structure that can be generated by the data collected in <a href="struct.OverlayedChanges.html" title="struct yet_another_parachain_runtime::sp_state_machine::OverlayedChanges"><code>OverlayedChanges</code></a>.</dd><dt><a class="struct" href="struct.StorageProof.html" title="struct yet_another_parachain_runtime::sp_state_machine::StorageProof">Storage<wbr>Proof</a></dt><dd>A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</dd><dt><a class="struct" href="struct.TestExternalities.html" title="struct yet_another_parachain_runtime::sp_state_machine::TestExternalities">Test<wbr>Externalities</a></dt><dd>Simple HashMap-based Externalities impl.</dd><dt><a class="struct" href="struct.TrieBackend.html" title="struct yet_another_parachain_runtime::sp_state_machine::TrieBackend">Trie<wbr>Backend</a></dt><dd>Patricia trie-based backend. Transaction type is an overlay of changes to commit.</dd><dt><a class="struct" href="struct.TrieBackendBuilder.html" title="struct yet_another_parachain_runtime::sp_state_machine::TrieBackendBuilder">Trie<wbr>Backend<wbr>Builder</a></dt><dd>Builder for creating a <a href="struct.TrieBackend.html" title="struct yet_another_parachain_runtime::sp_state_machine::TrieBackend"><code>TrieBackend</code></a>.</dd><dt><a class="struct" href="struct.UsageInfo.html" title="struct yet_another_parachain_runtime::sp_state_machine::UsageInfo">Usage<wbr>Info</a></dt><dd>Usage statistics for state backend.</dd><dt><a class="struct" href="struct.UsageUnit.html" title="struct yet_another_parachain_runtime::sp_state_machine::UsageUnit">Usage<wbr>Unit</a></dt><dd>Measured count of operations and total bytes.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BackendTrustLevel.html" title="enum yet_another_parachain_runtime::sp_state_machine::BackendTrustLevel">Backend<wbr>Trust<wbr>Level</a></dt><dd>Storage backend trust level.</dd><dt><a class="enum" href="enum.ExecutionError.html" title="enum yet_another_parachain_runtime::sp_state_machine::ExecutionError">Execution<wbr>Error</a></dt><dd>Externalities Error.</dd><dt><a class="enum" href="enum.IndexOperation.html" title="enum yet_another_parachain_runtime::sp_state_machine::IndexOperation">Index<wbr>Operation</a></dt><dd>Transaction index operation.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_NESTED_TRIE_DEPTH.html" title="constant yet_another_parachain_runtime::sp_state_machine::MAX_NESTED_TRIE_DEPTH">MAX_<wbr>NESTED_<wbr>TRIE_<wbr>DEPTH</a></dt><dd>State machine only allows a single level
+of child trie.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Backend.html" title="trait yet_another_parachain_runtime::sp_state_machine::Backend">Backend</a></dt><dd>A state backend is used to read state data and can have changes committed
+to it.</dd><dt><a class="trait" href="trait.Error.html" title="trait yet_another_parachain_runtime::sp_state_machine::Error">Error</a></dt><dd>State Machine Error bound.</dd><dt><a class="trait" href="trait.InspectState.html" title="trait yet_another_parachain_runtime::sp_state_machine::InspectState">Inspect<wbr>State</a></dt><dd>Trait for inspecting state in any backend.</dd><dt><a class="trait" href="trait.Storage.html" title="trait yet_another_parachain_runtime::sp_state_machine::Storage">Storage</a></dt><dd>Patricia trie-based storage trait.</dd><dt><a class="trait" href="trait.StorageIterator.html" title="trait yet_another_parachain_runtime::sp_state_machine::StorageIterator">Storage<wbr>Iterator</a></dt><dd>A trait for a raw storage iterator.</dd><dt><a class="trait" href="trait.TrieBackendStorage.html" title="trait yet_another_parachain_runtime::sp_state_machine::TrieBackendStorage">Trie<wbr>Backend<wbr>Storage</a></dt><dd>Key-value pairs storage that is used by trie backend essence.</dd><dt><a class="trait" href="trait.TrieCacheProvider.html" title="trait yet_another_parachain_runtime::sp_state_machine::TrieCacheProvider">Trie<wbr>Cache<wbr>Provider</a></dt><dd>A provider of trie caches that are compatible with [<code>trie_db::TrieDB</code>].</dd><dt><a class="trait" href="trait.TrieMut.html" title="trait yet_another_parachain_runtime::sp_state_machine::TrieMut">TrieMut</a></dt><dd>A key-value datastore implemented as a database-backed modified Merkle tree.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.create_proof_check_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::create_proof_check_backend">create_<wbr>proof_<wbr>check_<wbr>backend</a></dt><dd>Create a backend used for checking the proof, using <code>H</code> as hasher.</dd><dt><a class="fn" href="fn.execution_proof_check.html" title="fn yet_another_parachain_runtime::sp_state_machine::execution_proof_check">execution_<wbr>proof_<wbr>check</a></dt><dd>Check execution proof, generated by <code>prove_execution</code> call.</dd><dt><a class="fn" href="fn.execution_proof_check_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::execution_proof_check_on_trie_backend">execution_<wbr>proof_<wbr>check_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Check execution proof on proving backend, generated by <code>prove_execution</code> call.</dd><dt><a class="fn" href="fn.new_in_mem.html" title="fn yet_another_parachain_runtime::sp_state_machine::new_in_mem">new_<wbr>in_<wbr>mem</a></dt><dd>Create a new empty instance of in-memory backend.</dd><dt><a class="fn" href="fn.prove_child_read.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_child_read">prove_<wbr>child_<wbr>read</a></dt><dd>Generate child storage read proof.</dd><dt><a class="fn" href="fn.prove_child_read_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_child_read_on_trie_backend">prove_<wbr>child_<wbr>read_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Generate storage read proof on pre-created trie backend.</dd><dt><a class="fn" href="fn.prove_execution.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_execution">prove_<wbr>execution</a></dt><dd>Prove execution using the given state backend, overlayed changes, and call executor.</dd><dt><a class="fn" href="fn.prove_execution_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_execution_on_trie_backend">prove_<wbr>execution_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Prove execution using the given trie backend, overlayed changes, and call executor.
+Produces a state-backend-specific “transaction” which can be used to apply the changes
+to the backing store, such as the disk.
+Execution proof is the set of all ‘touched’ storage DBValues from the backend.</dd><dt><a class="fn" href="fn.prove_range_read_with_child_with_size.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_range_read_with_child_with_size">prove_<wbr>range_<wbr>read_<wbr>with_<wbr>child_<wbr>with_<wbr>size</a></dt><dd>Generate range storage read proof, with child tries
+content.
+A size limit is applied to the proof with the
+exception that <code>start_at</code> and its following element
+are always part of the proof.
+If a key different than <code>start_at</code> is a child trie root,
+the child trie content will be included in the proof.</dd><dt><a class="fn" href="fn.prove_range_read_with_child_with_size_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_range_read_with_child_with_size_on_trie_backend">prove_<wbr>range_<wbr>read_<wbr>with_<wbr>child_<wbr>with_<wbr>size_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Generate range storage read proof, with child tries
+content.
+See <code>prove_range_read_with_child_with_size</code>.</dd><dt><a class="fn" href="fn.prove_range_read_with_size.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_range_read_with_size">prove_<wbr>range_<wbr>read_<wbr>with_<wbr>size</a></dt><dd>Generate range storage read proof.</dd><dt><a class="fn" href="fn.prove_range_read_with_size_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_range_read_with_size_on_trie_backend">prove_<wbr>range_<wbr>read_<wbr>with_<wbr>size_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Generate range storage read proof on an existing trie backend.</dd><dt><a class="fn" href="fn.prove_read.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_read">prove_<wbr>read</a></dt><dd>Generate storage read proof.</dd><dt><a class="fn" href="fn.prove_read_on_trie_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::prove_read_on_trie_backend">prove_<wbr>read_<wbr>on_<wbr>trie_<wbr>backend</a></dt><dd>Generate storage read proof on pre-created trie backend.</dd><dt><a class="fn" href="fn.read_child_proof_check.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_child_proof_check">read_<wbr>child_<wbr>proof_<wbr>check</a></dt><dd>Check child storage read proof, generated by <code>prove_child_read</code> call.</dd><dt><a class="fn" href="fn.read_child_proof_check_on_proving_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_child_proof_check_on_proving_backend">read_<wbr>child_<wbr>proof_<wbr>check_<wbr>on_<wbr>proving_<wbr>backend</a></dt><dd>Check child storage read proof on pre-created proving backend.</dd><dt><a class="fn" href="fn.read_proof_check.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_proof_check">read_<wbr>proof_<wbr>check</a></dt><dd>Check storage read proof, generated by <code>prove_read</code> call.</dd><dt><a class="fn" href="fn.read_proof_check_on_proving_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_proof_check_on_proving_backend">read_<wbr>proof_<wbr>check_<wbr>on_<wbr>proving_<wbr>backend</a></dt><dd>Check storage read proof on pre-created proving backend.</dd><dt><a class="fn" href="fn.read_range_proof_check.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_range_proof_check">read_<wbr>range_<wbr>proof_<wbr>check</a></dt><dd>Check child storage range proof, generated by <code>prove_range_read_with_size</code> call.</dd><dt><a class="fn" href="fn.read_range_proof_check_on_proving_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_range_proof_check_on_proving_backend">read_<wbr>range_<wbr>proof_<wbr>check_<wbr>on_<wbr>proving_<wbr>backend</a></dt><dd>Check storage range proof on pre-created proving backend.</dd><dt><a class="fn" href="fn.read_range_proof_check_with_child.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_range_proof_check_with_child">read_<wbr>range_<wbr>proof_<wbr>check_<wbr>with_<wbr>child</a></dt><dd>Check storage range proof with child trie included, generated by
+<code>prove_range_read_with_child_with_size</code> call.</dd><dt><a class="fn" href="fn.read_range_proof_check_with_child_on_proving_backend.html" title="fn yet_another_parachain_runtime::sp_state_machine::read_range_proof_check_with_child_on_proving_backend">read_<wbr>range_<wbr>proof_<wbr>check_<wbr>with_<wbr>child_<wbr>on_<wbr>proving_<wbr>backend</a></dt><dd>Check storage range proof on pre-created proving backend.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BackendTransaction.html" title="type yet_another_parachain_runtime::sp_state_machine::BackendTransaction">Backend<wbr>Transaction</a></dt><dd>The transaction type used by <a href="../sc_client_api/trait.StateBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::StateBackend"><code>Backend</code></a>.</dd><dt><a class="type" href="type.ChildStorageCollection.html" title="type yet_another_parachain_runtime::sp_state_machine::ChildStorageCollection">Child<wbr>Storage<wbr>Collection</a></dt><dd>In memory arrays of storage values for multiple child tries.</dd><dt><a class="type" href="type.DBValue.html" title="type yet_another_parachain_runtime::sp_state_machine::DBValue">DBValue</a></dt><dd>Database value</dd><dt><a class="type" href="type.DefaultError.html" title="type yet_another_parachain_runtime::sp_state_machine::DefaultError">Default<wbr>Error</a></dt><dd>Default error type to use with state machine trie backend.</dd><dt><a class="type" href="type.DefaultHandler.html" title="type yet_another_parachain_runtime::sp_state_machine::DefaultHandler">Default<wbr>Handler</a></dt><dd>Default handler of the execution manager.</dd><dt><a class="type" href="type.InMemoryBackend.html" title="type yet_another_parachain_runtime::sp_state_machine::InMemoryBackend">InMemory<wbr>Backend</a></dt><dd>Trie backend with in-memory storage.</dd><dt><a class="type" href="type.MemoryDB.html" title="type yet_another_parachain_runtime::sp_state_machine::MemoryDB">MemoryDB</a></dt><dd>Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.
+This uses a noops <code>KeyFunction</code> (key addressing must be hashed or using
+an encoding scheme that avoid key conflict).</dd><dt><a class="type" href="type.OffchainChangesCollection.html" title="type yet_another_parachain_runtime::sp_state_machine::OffchainChangesCollection">Offchain<wbr>Changes<wbr>Collection</a></dt><dd>In memory array of storage values.</dd><dt><a class="type" href="type.StorageCollection.html" title="type yet_another_parachain_runtime::sp_state_machine::StorageCollection">Storage<wbr>Collection</a></dt><dd>In memory array of storage values.</dd><dt><a class="type" href="type.StorageKey.html" title="type yet_another_parachain_runtime::sp_state_machine::StorageKey">Storage<wbr>Key</a></dt><dd>Storage key.</dd><dt><a class="type" href="type.StorageValue.html" title="type yet_another_parachain_runtime::sp_state_machine::StorageValue">Storage<wbr>Value</a></dt><dd>Storage value.</dd><dt><a class="type" href="type.TrieDBMutV0.html" title="type yet_another_parachain_runtime::sp_state_machine::TrieDBMutV0">TrieDB<wbr>MutV0</a></dt><dd>Persistent trie database write-access interface for a given hasher.</dd><dt><a class="type" href="type.TrieDBMutV1.html" title="type yet_another_parachain_runtime::sp_state_machine::TrieDBMutV1">TrieDB<wbr>MutV1</a></dt><dd>Persistent trie database write-access interface for a given hasher.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

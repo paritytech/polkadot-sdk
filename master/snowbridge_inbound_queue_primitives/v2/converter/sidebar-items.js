@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AssetTransfer"],"struct":["AssetHubUniversal","CreateAssetCallInfo","MessageToXcm","PreparedMessage"]};

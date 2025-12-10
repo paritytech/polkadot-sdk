@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["config_preludes"],"struct":["Pallet"],"trait":["Config","DefaultConfig"],"type":["Cursor","Historic","Module"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositPrecompileCalls"],"struct":["callSetAndClearCall","callSetAndClearReturn","clearAllCall","clearAllReturn","clearCall","clearReturn","clearStorageSlotCall","clearStorageSlotReturn","setAndCallClearCall","setAndCallClearReturn","setAndClearCall","setAndClearReturn","setVarsCall","setVarsReturn"]};

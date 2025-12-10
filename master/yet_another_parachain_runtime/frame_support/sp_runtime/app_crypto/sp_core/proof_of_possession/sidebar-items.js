@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["statement_of_ownership"],"trait":["NonAggregatable","ProofOfPossessionGenerator","ProofOfPossessionVerifier"]};

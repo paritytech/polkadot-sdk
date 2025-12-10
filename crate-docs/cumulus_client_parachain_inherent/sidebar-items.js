@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INHERENT_IDENTIFIER"],"struct":["MockValidationDataInherentDataProvider","MockXcmConfig","ParachainInherentData","ParachainInherentDataProvider"]};

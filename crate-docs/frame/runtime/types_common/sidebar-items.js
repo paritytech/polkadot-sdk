@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["AccountId","BlockNumber","BlockOf","OpaqueBlock","Signature","SystemSignedExtensionsOf"]};

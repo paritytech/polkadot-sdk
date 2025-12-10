@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["migration","pallet"],"struct":["AllowedRelayParentsTracker","Pallet","RelayParentInfo"],"trait":["Config"],"type":["ActiveValidatorIndices","ActiveValidatorKeys","CurrentSessionIndex","Module"]};

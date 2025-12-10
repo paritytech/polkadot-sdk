@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Nfts Module"><title>yet_another_parachain_runtime::pallet_nfts - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#nfts-module" title="Nfts Module">Nfts Module</a><ul><li><a href="#related-modules" title="Related Modules">Related Modules</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_nfts</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_nfts/lib.rs.html#18-1937">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="nfts-module"><a class="doc-anchor" href="#nfts-module">§</a>Nfts Module</h2>
+<p>A simple, secure module for dealing with non-fungible items.</p>
+<h3 id="related-modules"><a class="doc-anchor" href="#related-modules">§</a>Related Modules</h3>
+<ul>
+<li><a href="../frame_system/index.html"><code>System</code></a></li>
+<li><a href="../frame_support/index.html"><code>Support</code></a></li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="macros/index.html" title="mod yet_another_parachain_runtime::pallet_nfts::macros">macros</a></dt><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::pallet_nfts::migration">migration</a></dt><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_nfts::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_nfts::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_nfts</code></dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro._runtime_benchmarks_enabled.html" title="macro yet_another_parachain_runtime::pallet_nfts::_runtime_benchmarks_enabled">_runtime_<wbr>benchmarks_<wbr>enabled</a></dt><dt><a class="macro" href="macro.runtime_benchmarks_enabled.html" title="macro yet_another_parachain_runtime::pallet_nfts::runtime_benchmarks_enabled">runtime_<wbr>benchmarks_<wbr>enabled</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AttributeDeposit.html" title="struct yet_another_parachain_runtime::pallet_nfts::AttributeDeposit">Attribute<wbr>Deposit</a></dt><dd>Information about the reserved attribute deposit.</dd><dt><a class="struct" href="struct.CancelAttributesApprovalWitness.html" title="struct yet_another_parachain_runtime::pallet_nfts::CancelAttributesApprovalWitness">Cancel<wbr>Attributes<wbr>Approval<wbr>Witness</a></dt><dd>A witness data to cancel attributes approval operation.</dd><dt><a class="struct" href="struct.CollectionConfig.html" title="struct yet_another_parachain_runtime::pallet_nfts::CollectionConfig">Collection<wbr>Config</a></dt><dd>Collection’s configuration.</dd><dt><a class="struct" href="struct.CollectionDetails.html" title="struct yet_another_parachain_runtime::pallet_nfts::CollectionDetails">Collection<wbr>Details</a></dt><dd>Information about a collection.</dd><dt><a class="struct" href="struct.CollectionMetadata.html" title="struct yet_another_parachain_runtime::pallet_nfts::CollectionMetadata">Collection<wbr>Metadata</a></dt><dd>Information about the collection’s metadata.</dd><dt><a class="struct" href="struct.CollectionRoles.html" title="struct yet_another_parachain_runtime::pallet_nfts::CollectionRoles">Collection<wbr>Roles</a></dt><dd>A wrapper type that implements <code>Codec</code>.</dd><dt><a class="struct" href="struct.CollectionSettings.html" title="struct yet_another_parachain_runtime::pallet_nfts::CollectionSettings">Collection<wbr>Settings</a></dt><dd>Wrapper type for <code>BitFlags&lt;CollectionSetting&gt;</code> that implements <code>Codec</code>.</dd><dt><a class="struct" href="struct.DestroyWitness.html" title="struct yet_another_parachain_runtime::pallet_nfts::DestroyWitness">Destroy<wbr>Witness</a></dt><dd>Witness data for the destroy transactions.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::pallet_nfts::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.ItemConfig.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemConfig">Item<wbr>Config</a></dt><dd>Item’s configuration.</dd><dt><a class="struct" href="struct.ItemDeposit.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemDeposit">Item<wbr>Deposit</a></dt><dd>Information about the reserved item deposit.</dd><dt><a class="struct" href="struct.ItemDetails.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemDetails">Item<wbr>Details</a></dt><dd>Information concerning the ownership of a single unique item.</dd><dt><a class="struct" href="struct.ItemMetadata.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemMetadata">Item<wbr>Metadata</a></dt><dd>Information about the item’s metadata.</dd><dt><a class="struct" href="struct.ItemMetadataDeposit.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemMetadataDeposit">Item<wbr>Metadata<wbr>Deposit</a></dt><dd>Information about the reserved item’s metadata deposit.</dd><dt><a class="struct" href="struct.ItemSettings.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemSettings">Item<wbr>Settings</a></dt><dd>Wrapper type for <code>BitFlags&lt;ItemSetting&gt;</code> that implements <code>Codec</code>.</dd><dt><a class="struct" href="struct.ItemTip.html" title="struct yet_another_parachain_runtime::pallet_nfts::ItemTip">ItemTip</a></dt><dd>Information about the tip.</dd><dt><a class="struct" href="struct.MintSettings.html" title="struct yet_another_parachain_runtime::pallet_nfts::MintSettings">Mint<wbr>Settings</a></dt><dd>Holds the information about minting.</dd><dt><a class="struct" href="struct.MintWitness.html" title="struct yet_another_parachain_runtime::pallet_nfts::MintWitness">Mint<wbr>Witness</a></dt><dd>Witness data for items mint transactions.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_nfts::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.PalletFeatures.html" title="struct yet_another_parachain_runtime::pallet_nfts::PalletFeatures">Pallet<wbr>Features</a></dt><dd>Wrapper type for <code>BitFlags&lt;PalletFeature&gt;</code> that implements <code>Codec</code>.</dd><dt><a class="struct" href="struct.PendingSwap.html" title="struct yet_another_parachain_runtime::pallet_nfts::PendingSwap">Pending<wbr>Swap</a></dt><dd>Information about the pending swap.</dd><dt><a class="struct" href="struct.PreSignedAttributes.html" title="struct yet_another_parachain_runtime::pallet_nfts::PreSignedAttributes">PreSigned<wbr>Attributes</a></dt><dt><a class="struct" href="struct.PreSignedMint.html" title="struct yet_another_parachain_runtime::pallet_nfts::PreSignedMint">PreSigned<wbr>Mint</a></dt><dt><a class="struct" href="struct.PriceWithDirection.html" title="struct yet_another_parachain_runtime::pallet_nfts::PriceWithDirection">Price<wbr>With<wbr>Direction</a></dt><dd>Holds the details about the price.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AttributeNamespace.html" title="enum yet_another_parachain_runtime::pallet_nfts::AttributeNamespace">Attribute<wbr>Namespace</a></dt><dd>Attribute namespaces for non-fungible tokens.</dd><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_nfts::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.CollectionRole.html" title="enum yet_another_parachain_runtime::pallet_nfts::CollectionRole">Collection<wbr>Role</a></dt><dd>Support for up to 8 different roles for collections.</dd><dt><a class="enum" href="enum.CollectionSetting.html" title="enum yet_another_parachain_runtime::pallet_nfts::CollectionSetting">Collection<wbr>Setting</a></dt><dd>Support for up to 64 user-enabled features on a collection.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_nfts::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_nfts::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.ItemSetting.html" title="enum yet_another_parachain_runtime::pallet_nfts::ItemSetting">Item<wbr>Setting</a></dt><dd>Support for up to 64 user-enabled features on an item.</dd><dt><a class="enum" href="enum.MintType.html" title="enum yet_another_parachain_runtime::pallet_nfts::MintType">Mint<wbr>Type</a></dt><dd>Mint type. Can the NFT be create by anyone, or only the creator of the collection,
+or only by wallets that already hold an NFT from a certain collection?
+The ownership of a privately minted NFT is still publicly visible.</dd><dt><a class="enum" href="enum.PalletAttributes.html" title="enum yet_another_parachain_runtime::pallet_nfts::PalletAttributes">Pallet<wbr>Attributes</a></dt><dd>A list of possible pallet-level attributes.</dd><dt><a class="enum" href="enum.PalletFeature.html" title="enum yet_another_parachain_runtime::pallet_nfts::PalletFeature">Pallet<wbr>Feature</a></dt><dd>Support for up to 64 system-enabled features on a collection.</dd><dt><a class="enum" href="enum.PriceDirection.html" title="enum yet_another_parachain_runtime::pallet_nfts::PriceDirection">Price<wbr>Direction</a></dt><dd>Specifies whether the tokens will be sent or received.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant yet_another_parachain_runtime::pallet_nfts::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The log target of this pallet.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BenchmarkHelper.html" title="trait yet_another_parachain_runtime::pallet_nfts::BenchmarkHelper">Benchmark<wbr>Helper</a></dt><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_nfts::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_nfts::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_nfts</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Account.html" title="type yet_another_parachain_runtime::pallet_nfts::Account">Account</a></dt><dd>The items held by any given account; set out this way so that items owned by a single
+account can be enumerated.</dd><dt><a class="type" href="type.ApprovalsOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ApprovalsOf">Approvals<wbr>Of</a></dt><dd>A type alias for keeping track of approvals used by a single item.</dd><dt><a class="type" href="type.Attribute.html" title="type yet_another_parachain_runtime::pallet_nfts::Attribute">Attribute</a></dt><dd>Attributes of a collection.</dd><dt><a class="type" href="type.AttributeDepositOf.html" title="type yet_another_parachain_runtime::pallet_nfts::AttributeDepositOf">Attribute<wbr>Deposit<wbr>Of</a></dt><dd>A type that holds the deposit amount for an item’s attribute.</dd><dt><a class="type" href="type.BalanceOf.html" title="type yet_another_parachain_runtime::pallet_nfts::BalanceOf">Balance<wbr>Of</a></dt><dd>A type alias for an accounts balance.</dd><dt><a class="type" href="type.BlockNumberFor.html" title="type yet_another_parachain_runtime::pallet_nfts::BlockNumberFor">Block<wbr>Number<wbr>For</a></dt><dt><a class="type" href="type.Collection.html" title="type yet_another_parachain_runtime::pallet_nfts::Collection">Collection</a></dt><dd>Details of a collection.</dd><dt><a class="type" href="type.CollectionAccount.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionAccount">Collection<wbr>Account</a></dt><dd>The collections owned by any given account; set out this way so that collections owned by
+a single account can be enumerated.</dd><dt><a class="type" href="type.CollectionConfigFor.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionConfigFor">Collection<wbr>Config<wbr>For</a></dt><dd>A type alias for the settings configuration of a collection.</dd><dt><a class="type" href="type.CollectionConfigOf.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionConfigOf">Collection<wbr>Config<wbr>Of</a></dt><dd>Config of a collection.</dd><dt><a class="type" href="type.CollectionDetailsFor.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionDetailsFor">Collection<wbr>Details<wbr>For</a></dt><dd>A type alias representing the details of a collection.</dd><dt><a class="type" href="type.CollectionMetadataOf.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionMetadataOf">Collection<wbr>Metadata<wbr>Of</a></dt><dd>Metadata of a collection.</dd><dt><a class="type" href="type.CollectionRoleOf.html" title="type yet_another_parachain_runtime::pallet_nfts::CollectionRoleOf">Collection<wbr>Role<wbr>Of</a></dt><dd>The items in existence and their ownership details.
+Stores collection roles as per account.</dd><dt><a class="type" href="type.DepositBalanceOf.html" title="type yet_another_parachain_runtime::pallet_nfts::DepositBalanceOf">Deposit<wbr>Balance<wbr>Of</a></dt><dd>A type alias for handling balance deposits.</dd><dt><a class="type" href="type.Item.html" title="type yet_another_parachain_runtime::pallet_nfts::Item">Item</a></dt><dd>The items in existence and their ownership details.</dd><dt><a class="type" href="type.ItemAttributesApprovals.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemAttributesApprovals">Item<wbr>Attributes<wbr>Approvals</a></dt><dd>A type alias for keeping track of approvals for an item’s attributes.</dd><dt><a class="type" href="type.ItemAttributesApprovalsOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemAttributesApprovalsOf">Item<wbr>Attributes<wbr>Approvals<wbr>Of</a></dt><dd>Item attribute approvals.</dd><dt><a class="type" href="type.ItemConfigOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemConfigOf">Item<wbr>Config<wbr>Of</a></dt><dd>Config of an item.</dd><dt><a class="type" href="type.ItemDepositOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemDepositOf">Item<wbr>Deposit<wbr>Of</a></dt><dd>A type that holds the deposit for a single item.</dd><dt><a class="type" href="type.ItemDetailsFor.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemDetailsFor">Item<wbr>Details<wbr>For</a></dt><dd>A type that holds the details of a single item.</dd><dt><a class="type" href="type.ItemMetadataDepositOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemMetadataDepositOf">Item<wbr>Metadata<wbr>Deposit<wbr>Of</a></dt><dd>A type that holds the deposit amount for an item’s metadata.</dd><dt><a class="type" href="type.ItemMetadataOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemMetadataOf">Item<wbr>Metadata<wbr>Of</a></dt><dd>Metadata of an item.</dd><dt><a class="type" href="type.ItemPrice.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemPrice">Item<wbr>Price</a></dt><dd>A type alias to represent the price of an item.</dd><dt><a class="type" href="type.ItemPriceOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemPriceOf">Item<wbr>Price<wbr>Of</a></dt><dd>A price of an item.</dd><dt><a class="type" href="type.ItemTipOf.html" title="type yet_another_parachain_runtime::pallet_nfts::ItemTipOf">Item<wbr>TipOf</a></dt><dd>A type alias for the tips held by a single item.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_nfts::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NextCollectionId.html" title="type yet_another_parachain_runtime::pallet_nfts::NextCollectionId">Next<wbr>Collection<wbr>Id</a></dt><dd>Stores the <code>CollectionId</code> that is going to be used for the next collection.
+This gets incremented whenever a new collection is created.</dd><dt><a class="type" href="type.OwnershipAcceptance.html" title="type yet_another_parachain_runtime::pallet_nfts::OwnershipAcceptance">Ownership<wbr>Acceptance</a></dt><dd>The collection, if any, of which an account is willing to take ownership.</dd><dt><a class="type" href="type.PendingSwapOf.html" title="type yet_another_parachain_runtime::pallet_nfts::PendingSwapOf">Pending<wbr>Swap<wbr>Of</a></dt><dd>Handles all the pending swaps.</dd><dt><a class="type" href="type.PreSignedAttributesOf.html" title="type yet_another_parachain_runtime::pallet_nfts::PreSignedAttributesOf">PreSigned<wbr>Attributes<wbr>Of</a></dt><dd>A type alias for the pre-signed minting configuration on the attribute level of an item.</dd><dt><a class="type" href="type.PreSignedMintOf.html" title="type yet_another_parachain_runtime::pallet_nfts::PreSignedMintOf">PreSigned<wbr>Mint<wbr>Of</a></dt><dd>A type alias for the pre-signed minting configuration for a specified collection.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

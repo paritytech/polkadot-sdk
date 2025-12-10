@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_ROCOCO"],"mod":["genesis"],"static":["GLOBAL_EXT_ROCOCO"],"struct":["Rococo"],"trait":["RococoRelayPallet"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FollowEvent","RuntimeEvent"],"mod":["api","chain_head","error","event"],"struct":["BestBlockChanged","ChainHead","ChainHeadConfig","ErrorEvent","Finalized","Initialized","NewBlock","RuntimeVersionEvent"],"trait":["ChainHeadApiServer"]};

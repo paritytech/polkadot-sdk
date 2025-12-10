@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ExecutiveError"],"mod":["block_flowchart"],"struct":["Executive","TryRuntimeUpgradeConfig"],"trait":["OnInitializeWithWeightRegistration"],"type":["CallOf","CheckedOf","OriginOf"]};

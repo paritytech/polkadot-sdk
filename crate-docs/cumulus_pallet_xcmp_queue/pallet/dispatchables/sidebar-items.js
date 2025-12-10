@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["resume_xcm_execution","service_overweight","suspend_xcm_execution","update_drop_threshold","update_resume_threshold","update_suspend_threshold","update_threshold_weight","update_weight_restrict_decay","update_xcmp_max_individual_weight"]};

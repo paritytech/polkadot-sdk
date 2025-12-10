@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sp_trie",[["impl&lt;'a, H: Hasher&gt; <a class=\"trait\" href=\"sp_trie/trait.TrieRecorder.html\" title=\"trait sp_trie::TrieRecorder\">TrieRecorder</a>&lt;&lt;H as Hasher&gt;::Out&gt; for <a class=\"struct\" href=\"sp_trie/recorder/struct.TrieRecorder.html\" title=\"struct sp_trie::recorder::TrieRecorder\">TrieRecorder</a>&lt;'a, H&gt;"],["impl&lt;H: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/cmp/trait.Ord.html\" title=\"trait core::cmp::Ord\">Ord</a>&gt; <a class=\"trait\" href=\"sp_trie/trait.TrieRecorder.html\" title=\"trait sp_trie::TrieRecorder\">TrieRecorder</a>&lt;H&gt; for <a class=\"struct\" href=\"sp_trie/accessed_nodes_tracker/struct.AccessedNodesTracker.html\" title=\"struct sp_trie::accessed_nodes_tracker::AccessedNodesTracker\">AccessedNodesTracker</a>&lt;H&gt;"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[944,37]}

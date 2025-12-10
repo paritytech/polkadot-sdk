@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Parse arguments into enums."><title>ValueEnum in yet_another_parachain_runtime::sc_cli::clap - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Value<wbr>Enum</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.to_possible_value" title="to_possible_value">to_possible_value</a></li><li><a href="#tymethod.value_variants" title="value_variants">value_variants</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.from_str" title="from_str">from_str</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>sc_<wbr>cli::<wbr>clap</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">sc_cli</a>::<wbr><a href="index.html">clap</a></div><h1>Trait <span class="trait">ValueEnum</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub trait ValueEnum: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> {
+    // Required methods
+    fn <a href="#tymethod.value_variants" class="fn">value_variants</a>&lt;'a&gt;() -&gt; &amp;'a [Self];
+<span class="item-spacer"></span>    fn <a href="#tymethod.to_possible_value" class="fn">to_possible_value</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="builder/struct.PossibleValue.html" title="struct yet_another_parachain_runtime::sc_cli::clap::builder::PossibleValue">PossibleValue</a>&gt;;
+
+    // Provided method
+    fn <a href="#method.from_str" class="fn">from_str</a>(input: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a>, ignore_case: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;Self, <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Parse arguments into enums.</p>
+<p>When deriving <a href="trait.Parser.html" title="trait yet_another_parachain_runtime::sc_cli::clap::Parser"><code>Parser</code></a>, a field whose type implements <code>ValueEnum</code> can have the attribute
+<code>#[arg(value_enum)]</code> which will</p>
+<ul>
+<li>Call <a href="builder/struct.EnumValueParser.html" title="struct yet_another_parachain_runtime::sc_cli::clap::builder::EnumValueParser"><code>EnumValueParser</code></a></li>
+<li>Allowing using the <code>#[arg(default_value_t)]</code> attribute without implementing <code>Display</code>.</li>
+</ul>
+<div class="warning">
+<p><strong>NOTE:</strong> Deriving requires the <code>derive</code> feature flag</p>
+</div></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.value_variants" class="method"><h4 class="code-header">fn <a href="#tymethod.value_variants" class="fn">value_variants</a>&lt;'a&gt;() -&gt; &amp;'a [Self]</h4></section></summary><div class="docblock"><p>All possible argument values, in display order.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.to_possible_value" class="method"><h4 class="code-header">fn <a href="#tymethod.to_possible_value" class="fn">to_possible_value</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="builder/struct.PossibleValue.html" title="struct yet_another_parachain_runtime::sc_cli::clap::builder::PossibleValue">PossibleValue</a>&gt;</h4></section></summary><div class="docblock"><p>The canonical argument value.</p>
+<p>The value is <code>None</code> for skipped variants.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.from_str" class="method"><h4 class="code-header">fn <a href="#method.from_str" class="fn">from_str</a>(input: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a>, ignore_case: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;Self, <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Parse an argument into <code>Self</code>.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ValueEnum-for-AuthoringPolicy" class="impl"><a class="src rightside" href="../../../src/polkadot_omni_node_lib/cli.rs.html#241">Source</a><a href="#impl-ValueEnum-for-AuthoringPolicy" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../../polkadot_omni_node_lib/cli/enum.AuthoringPolicy.html" title="enum yet_another_parachain_runtime::polkadot_omni_node_lib::cli::AuthoringPolicy">AuthoringPolicy</a></h3></section><section id="impl-ValueEnum-for-ChainType" class="impl"><a class="src rightside" href="../../../src/sc_chain_spec/lib.rs.html#367">Source</a><a href="#impl-ValueEnum-for-ChainType" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../../sc_chain_spec/enum.ChainType.html" title="enum yet_another_parachain_runtime::sc_chain_spec::ChainType">ChainType</a></h3></section><section id="impl-ValueEnum-for-CryptoScheme" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#122">Source</a><a href="#impl-ValueEnum-for-CryptoScheme" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.CryptoScheme.html" title="enum yet_another_parachain_runtime::sc_cli::CryptoScheme">CryptoScheme</a></h3></section><section id="impl-ValueEnum-for-Database" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#239">Source</a><a href="#impl-ValueEnum-for-Database" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.Database.html" title="enum yet_another_parachain_runtime::sc_cli::Database">Database</a></h3></section><section id="impl-ValueEnum-for-ExecutionStrategy" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#144">Source</a><a href="#impl-ValueEnum-for-ExecutionStrategy" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.ExecutionStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::ExecutionStrategy">ExecutionStrategy</a></h3></section><section id="impl-ValueEnum-for-NetworkBackendType" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#314">Source</a><a href="#impl-ValueEnum-for-NetworkBackendType" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.NetworkBackendType.html" title="enum yet_another_parachain_runtime::sc_cli::NetworkBackendType">NetworkBackendType</a></h3></section><section id="impl-ValueEnum-for-NodeKeyType" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#114">Source</a><a href="#impl-ValueEnum-for-NodeKeyType" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.NodeKeyType.html" title="enum yet_another_parachain_runtime::sc_cli::NodeKeyType">NodeKeyType</a></h3></section><section id="impl-ValueEnum-for-OffchainWorkerEnabled" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#270">Source</a><a href="#impl-ValueEnum-for-OffchainWorkerEnabled" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.OffchainWorkerEnabled.html" title="enum yet_another_parachain_runtime::sc_cli::OffchainWorkerEnabled">OffchainWorkerEnabled</a></h3></section><section id="impl-ValueEnum-for-OutputType" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#134">Source</a><a href="#impl-ValueEnum-for-OutputType" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.OutputType.html" title="enum yet_another_parachain_runtime::sc_cli::OutputType">OutputType</a></h3></section><section id="impl-ValueEnum-for-RpcMethods" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#159">Source</a><a href="#impl-ValueEnum-for-RpcMethods" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.RpcMethods.html" title="enum yet_another_parachain_runtime::sc_cli::RpcMethods">RpcMethods</a></h3></section><section id="impl-ValueEnum-for-SyncMode" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#283">Source</a><a href="#impl-ValueEnum-for-SyncMode" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.SyncMode.html" title="enum yet_another_parachain_runtime::sc_cli::SyncMode">SyncMode</a></h3></section><section id="impl-ValueEnum-for-TracingReceiver" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#98">Source</a><a href="#impl-ValueEnum-for-TracingReceiver" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.TracingReceiver.html" title="enum yet_another_parachain_runtime::sc_cli::TracingReceiver">TracingReceiver</a></h3></section><section id="impl-ValueEnum-for-TransactionPoolType" class="impl"><a class="src rightside" href="../../../src/sc_cli/params/transaction_pool_params.rs.html#23">Source</a><a href="#impl-ValueEnum-for-TransactionPoolType" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.TransactionPoolType.html" title="enum yet_another_parachain_runtime::sc_cli::TransactionPoolType">TransactionPoolType</a></h3></section><section id="impl-ValueEnum-for-TrieCacheWarmUpStrategy" class="impl"><a class="src rightside" href="../../../src/sc_cli/params/import_params.rs.html#92">Source</a><a href="#impl-ValueEnum-for-TrieCacheWarmUpStrategy" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.TrieCacheWarmUpStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::TrieCacheWarmUpStrategy">TrieCacheWarmUpStrategy</a></h3></section><section id="impl-ValueEnum-for-WasmExecutionMethod" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#49">Source</a><a href="#impl-ValueEnum-for-WasmExecutionMethod" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.WasmExecutionMethod.html" title="enum yet_another_parachain_runtime::sc_cli::WasmExecutionMethod">WasmExecutionMethod</a></h3></section><section id="impl-ValueEnum-for-WasmtimeInstantiationStrategy" class="impl"><a class="src rightside" href="../../../src/sc_cli/arg_enums.rs.html#25">Source</a><a href="#impl-ValueEnum-for-WasmtimeInstantiationStrategy" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="../enum.WasmtimeInstantiationStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::WasmtimeInstantiationStrategy">WasmtimeInstantiationStrategy</a></h3></section><section id="impl-ValueEnum-for-ColorChoice" class="impl"><a href="#impl-ValueEnum-for-ColorChoice" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">ValueEnum</a> for <a class="enum" href="enum.ColorChoice.html" title="enum yet_another_parachain_runtime::sc_cli::clap::ColorChoice">ColorChoice</a></h3></section></div><script src="../../../trait.impl/clap_builder/derive/trait.ValueEnum.js" data-ignore-extern-crates="sc_cli,sc_chain_spec,clap_builder,polkadot_omni_node_lib" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

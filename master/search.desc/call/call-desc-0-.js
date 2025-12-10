@@ -1,0 +1,1 @@
+searchState.loadedDescShard("call", 0, "Running\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.\nGrab random accounts, either known ones, or new ones.")

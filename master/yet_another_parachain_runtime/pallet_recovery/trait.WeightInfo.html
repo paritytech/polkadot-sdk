@@ -1,0 +1,212 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_recovery`."><title>WeightInfo in yet_another_parachain_runtime::pallet_recovery - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Weight<wbr>Info</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.as_recovered" title="as_recovered">as_recovered</a></li><li><a href="#tymethod.cancel_recovered" title="cancel_recovered">cancel_recovered</a></li><li><a href="#tymethod.claim_recovery" title="claim_recovery">claim_recovery</a></li><li><a href="#tymethod.close_recovery" title="close_recovery">close_recovery</a></li><li><a href="#tymethod.create_recovery" title="create_recovery">create_recovery</a></li><li><a href="#tymethod.initiate_recovery" title="initiate_recovery">initiate_recovery</a></li><li><a href="#tymethod.poke_deposit" title="poke_deposit">poke_deposit</a></li><li><a href="#tymethod.remove_recovery" title="remove_recovery">remove_recovery</a></li><li><a href="#tymethod.set_recovered" title="set_recovered">set_recovered</a></li><li><a href="#tymethod.vouch_recovery" title="vouch_recovery">vouch_recovery</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>recovery</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">pallet_recovery</a></div><h1>Trait <span class="trait">WeightInfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_recovery/weights.rs.html#72">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+    // Required methods
+    fn <a href="#tymethod.as_recovered" class="fn">as_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_recovered" class="fn">set_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.create_recovery" class="fn">create_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.initiate_recovery" class="fn">initiate_recovery</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.vouch_recovery" class="fn">vouch_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_recovery" class="fn">claim_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.close_recovery" class="fn">close_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_recovery" class="fn">remove_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_recovered" class="fn">cancel_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.poke_deposit" class="fn">poke_deposit</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_recovery</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.as_recovered" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#73">Source</a><h4 class="code-header">fn <a href="#tymethod.as_recovered" class="fn">as_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.set_recovered" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#74">Source</a><h4 class="code-header">fn <a href="#tymethod.set_recovered" class="fn">set_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.create_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#75">Source</a><h4 class="code-header">fn <a href="#tymethod.create_recovery" class="fn">create_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.initiate_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#76">Source</a><h4 class="code-header">fn <a href="#tymethod.initiate_recovery" class="fn">initiate_recovery</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.vouch_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#77">Source</a><h4 class="code-header">fn <a href="#tymethod.vouch_recovery" class="fn">vouch_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.claim_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#78">Source</a><h4 class="code-header">fn <a href="#tymethod.claim_recovery" class="fn">claim_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.close_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#79">Source</a><h4 class="code-header">fn <a href="#tymethod.close_recovery" class="fn">close_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.remove_recovery" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#80">Source</a><h4 class="code-header">fn <a href="#tymethod.remove_recovery" class="fn">remove_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.cancel_recovered" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#81">Source</a><h4 class="code-header">fn <a href="#tymethod.cancel_recovered" class="fn">cancel_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.poke_deposit" class="method"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#82">Source</a><h4 class="code-header">fn <a href="#tymethod.poke_deposit" class="fn">poke_deposit</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#233">Source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_recovery::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.as_recovered" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#240">Source</a><a href="#method.as_recovered" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.as_recovered" class="fn">as_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Proxy</code> (r:1 w:0)
+Proof: <code>Recovery::Proxy</code> (<code>max_values</code>: None, <code>max_size</code>: Some(80), added: 2555, mode: <code>MaxEncodedLen</code>)
+Storage: <code>SafeMode::EnteredUntil</code> (r:1 w:0)
+Proof: <code>SafeMode::EnteredUntil</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>TxPause::PausedCalls</code> (r:1 w:0)
+Proof: <code>TxPause::PausedCalls</code> (<code>max_values</code>: None, <code>max_size</code>: Some(532), added: 3007, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_recovered" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#250">Source</a><a href="#method.set_recovered" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_recovered" class="fn">set_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Proxy</code> (r:0 w:1)
+Proof: <code>Recovery::Proxy</code> (<code>max_values</code>: None, <code>max_size</code>: Some(80), added: 2555, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#261">Source</a><a href="#method.create_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.create_recovery" class="fn">create_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Recoverable</code> (r:1 w:1)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.initiate_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#276">Source</a><a href="#method.initiate_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.initiate_recovery" class="fn">initiate_recovery</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Recoverable</code> (r:1 w:0)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:1)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.vouch_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#290">Source</a><a href="#method.vouch_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.vouch_recovery" class="fn">vouch_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Recoverable</code> (r:1 w:0)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:1)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#308">Source</a><a href="#method.claim_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.claim_recovery" class="fn">claim_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Recoverable</code> (r:1 w:0)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:0)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::Proxy</code> (r:1 w:1)
+Proof: <code>Recovery::Proxy</code> (<code>max_values</code>: None, <code>max_size</code>: Some(80), added: 2555, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.close_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#324">Source</a><a href="#method.close_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.close_recovery" class="fn">close_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:1)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_recovery" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#340">Source</a><a href="#method.remove_recovery" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_recovery" class="fn">remove_recovery</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:0)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::Recoverable</code> (r:1 w:1)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_recovered" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#353">Source</a><a href="#method.cancel_recovered" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_recovered" class="fn">cancel_recovered</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Proxy</code> (r:1 w:1)
+Proof: <code>Recovery::Proxy</code> (<code>max_values</code>: None, <code>max_size</code>: Some(80), added: 2555, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.poke_deposit" class="method trait-impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#367">Source</a><a href="#method.poke_deposit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.poke_deposit" class="fn">poke_deposit</a>(_n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Recovery::Recoverable</code> (r:1 w:1)
+Proof: <code>Recovery::Recoverable</code> (<code>max_values</code>: None, <code>max_size</code>: Some(351), added: 2826, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Recovery::ActiveRecoveries</code> (r:1 w:1)
+Proof: <code>Recovery::ActiveRecoveries</code> (<code>max_values</code>: None, <code>max_size</code>: Some(389), added: 2864, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 9]</code>.</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_recovery/weights.rs.html#87">Source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_recovery::WeightInfo">WeightInfo</a> for <a class="struct" href="weights/struct.SubstrateWeight.html" title="struct yet_another_parachain_runtime::pallet_recovery::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>,</div></h3></section></div><script src="../../trait.impl/pallet_recovery/weights/trait.WeightInfo.js" data-ignore-extern-crates="pallet_recovery,std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

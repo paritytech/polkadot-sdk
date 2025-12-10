@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DisablingDecision","UpToLimitDisablingStrategy","UpToLimitWithReEnablingDisablingStrategy"],"trait":["DisablingStrategy"]};

@@ -1,0 +1,156 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about FRAME, the framework used to build Substrate runtimes."><title>developer_hub::polkadot_sdk::frame_runtime - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module frame_runtime</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">developer_hub</a>::<wbr><a href="../index.html">polkadot_sdk</a>::<wbr><a class="mod" href="#">frame_runtime</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/developer_hub/polkadot_sdk/frame_runtime.rs.html#1-179">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about FRAME, the framework used to build Substrate runtimes.</p>
+<h2 id="frame"><a href="#frame">FRAME</a></h2><div class="example-wrap"><pre class="language-no_compile"><code>  ______   ______    ________   ___ __ __   ______
+ /_____/\ /_____/\  /_______/\ /__//_//_/\ /_____/\
+ \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
+  \:\/___/\\:(_) ) )_\::(_)  \ \\:.      \ \\:\/___/\
+   \:::._\/ \: __ `\ \\:: __  \ \\:.\-/\  \ \\::___\/_
+    \:\ \    \ \ `\ \ \\:.\ \  \ \\. \  \  \ \\:\____/\
+     \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
+</code></pre></div>
+<blockquote>
+<p><strong>F</strong>ramework for <strong>R</strong>untime <strong>A</strong>ggregation of <strong>M</strong>odularized <strong>E</strong>ntities: Substrate’s
+State Transition Function (Runtime) Framework.</p>
+</blockquote>
+<h3 id="introduction"><a href="#introduction">Introduction</a></h3>
+<p>As described in <a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod developer_hub::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>, at a high-level Substrate-based
+blockchains are composed of two parts:</p>
+<ol>
+<li>A <em>runtime</em> which represents the state transition function (i.e. “Business Logic”) of a
+blockchain, and is encoded as a WASM blob.</li>
+<li>A node whose primary purpose is to execute the given runtime.</li>
+</ol>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Node
+	end
+	subgraph Runtime
+	end
+end
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p><em>FRAME is the Substrate’s framework of choice to build a runtime.</em></p>
+<p>FRAME is composed of two major components, <strong>pallets</strong> and a <strong>runtime</strong>.</p>
+<h3 id="pallets"><a href="#pallets">Pallets</a></h3>
+<p>A pallet is a unit of encapsulated logic. It has a clearly defined responsibility and can be
+linked to other pallets. In order to be reusable, pallets shipped with FRAME strive to only care
+about its own responsibilities and make as few assumptions about the general runtime as
+possible. A pallet is analogous to a <em>module</em> in the runtime.</p>
+<p>A pallet is defined as a <code>mod pallet</code> wrapped by the <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>frame::pallet</code></a> macro. Within this macro,
+pallet components/parts can be defined. Most notable of these parts are:</p>
+<ul>
+<li><a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config">Config</a>, allowing a pallet to make itself configurable and
+generic over types, values and such.</li>
+<li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage">Storage</a>, allowing a pallet to define onchain storage.</li>
+<li><a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call">Dispatchable function</a>, allowing a pallet to define extrinsics
+that are callable by end users, from the outer world.</li>
+<li><a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event">Events</a>, allowing a pallet to emit events.</li>
+<li><a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error">Errors</a>, allowing a pallet to emit well-formed errors.</li>
+</ul>
+<p>Some of these pallet components resemble the building blocks of a smart contract. While both
+models are programming state transition functions of blockchains, there are crucial differences
+between the two. See <a href="../../reference_docs/runtime_vs_smart_contract/index.html" title="mod developer_hub::reference_docs::runtime_vs_smart_contract"><code>crate::reference_docs::runtime_vs_smart_contract</code></a> for more.</p>
+<p>Most of these components are defined using macros, the full list of which can be found in
+<a href="../../../frame/pallet_macros/index.html" title="mod frame::pallet_macros"><code>frame::pallet_macros</code></a>.</p>
+<h4 id="example"><a href="#example">Example</a></h4>
+<p>The following examples showcases a minimal pallet.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>pallet {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
+	/// later point from the runtime that wishes to contain it. It allows the pallet to be
+	/// parameterized over both types and values.
+	</span><span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+		<span class="doccomment">/// A type that is not known now, but the runtime that will contain this pallet will
+		/// know it later, therefore we define it here as an associated type.
+		</span><span class="kw">type </span>RuntimeEvent: IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;
+			+ From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// A parameterize-able value that we receive later via the `Get&lt;_&gt;` trait.
+		</span><span class="kw">type </span>ValueParameter: Get&lt;u32&gt;;
+
+		<span class="doccomment">/// Similar to [`Config::ValueParameter`], but using `const`. Both are functionally
+		/// equal, but offer different tradeoffs.
+		</span><span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32;
+	}
+
+	<span class="doccomment">/// A mandatory struct in each pallet. All functions callable by external users (aka.
+	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
+	/// convenience, internal (private) functions can also be attached to this type.
+	</span><span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
+
+	<span class="doccomment">/// The events tha this pallet can emit.
+	</span><span class="attr">#[pallet::event]
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
+
+	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie/root
+	/// of the blockchain.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
+
+	<span class="doccomment">/// All *dispatchable* call functions (aka. transactions) are attached to `Pallet` in a
+	/// `impl` block.
+	</span><span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// This will be callable by external users, and has two u32s as a parameter.
+		</span><span class="kw">pub fn </span>some_dispatchable(
+			_origin: OriginFor&lt;T&gt;,
+			_param: u32,
+			_other_para: u32,
+		) -&gt; DispatchResult {
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+}</code></pre></div>
+<p>A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
+some configurations (exposed as a <code>trait Config</code>) that needs to be <em>specified</em> in the runtime.
+This is done with <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a>.</p>
+<p>A (real) runtime that actually wishes to compile to WASM needs to also implement a set of
+runtime-apis. These implementation can be specified using the
+<a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>frame::runtime::prelude::impl_runtime_apis</code></a> macro.</p>
+<h4 id="example-1"><a href="#example-1">Example</a></h4>
+<p>The following example shows a (test) runtime that is composing the pallet demonstrated above,
+next to the <a href="../../../frame_system/index.html" title="mod frame_system"><code>frame::prelude::frame_system</code></a> pallet, into a runtime.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>runtime {
+	<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
+	<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
+
+	<span class="comment">// The major macro that amalgamates pallets into `struct Runtime`
+	</span><span class="macro">construct_runtime!</span>(
+		<span class="kw">pub struct </span>Runtime {
+			System: frame_system,
+			Example: pallet_example,
+		}
+	);
+
+	<span class="comment">// These `impl` blocks specify the parameters of each pallet&#39;s `trait Config`.
+	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="kw">impl </span>pallet_example::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+		<span class="kw">type </span>ValueParameter = ConstU32&lt;<span class="number">42</span>&gt;;
+		<span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32 = <span class="number">42</span>;
+	}
+}</code></pre></div>
+<h3 id="more-examples"><a href="#more-examples">More Examples</a></h3>
+<p>You can find more FRAME examples that revolve around specific features at <a href="../../../pallet_examples/index.html" title="mod pallet_examples"><code>pallet_examples</code></a>.</p>
+<h3 id="alternatives-"><a href="#alternatives-">Alternatives 🌈</a></h3>
+<p>There is nothing in the Substrate’s node side code-base that mandates the use of FRAME. While
+FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
+the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
+a valid Runtime form the point of view of a Substrate client (see
+<a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod developer_hub::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>). Notable examples are:</p>
+<ul>
+<li>writing a runtime in pure Rust, as done in <a href="https://github.com/JoshOrndorff/frameless-node-template">this template</a>.</li>
+<li>writing a runtime in AssemblyScript,as explored in <a href="https://github.com/LimeChain/subsembly">this project</a>.</li>
+</ul>
+</div></details></section></div></main></body></html>

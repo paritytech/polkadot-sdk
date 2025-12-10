@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockState","Direction","FromBlock"],"mod":["generic"],"struct":["AnnouncementSummary","BlockAnnounce","BlockAnnouncesHandshake","BlockAttributes"],"type":["BlockData","BlockRequest","BlockResponse"]};

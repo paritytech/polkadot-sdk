@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Meta Tx (Meta Transaction) Pallet"><title>pallet_meta_tx - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_meta_tx" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_meta_tx/index.html">pallet_<wbr>meta_<wbr>tx</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#meta-tx-meta-transaction-pallet" title="Meta Tx (Meta Transaction) Pallet">Meta Tx (Meta Transaction) Pallet</a><ul><li><a href="#pallet-api" title="Pallet API">Pallet API</a></li><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#low-level--implementation-details" title="Low-Level / Implementation Details">Low-Level / Implementation Details</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_meta_tx</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_meta_tx/lib.rs.html#18-243">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="meta-tx-meta-transaction-pallet"><a class="doc-anchor" href="#meta-tx-meta-transaction-pallet">§</a>Meta Tx (Meta Transaction) Pallet</h2>
+<p>This pallet enables the dispatch of transactions that are authorized by one party (the signer)
+and executed by an untrusted third party (the relayer), who covers the transaction fees.</p>
+<h3 id="pallet-api"><a class="doc-anchor" href="#pallet-api">§</a>Pallet API</h3>
+<p>See the <a href="pallet/index.html" title="mod pallet_meta_tx::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
+including its configuration trait, dispatchables, storage items, events and errors.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The pallet provides a client-level API, typically not meant for direct use by end users.
+A meta transaction, constructed with the help of a wallet, contains a target call, necessary
+extensions, and the signer’s signature. This transaction is then broadcast, and any interested
+relayer can pick it up and execute it. The relayer submits a regular transaction via the
+<a href="pallet/struct.Pallet.html#method.dispatch" title="associated function pallet_meta_tx::pallet::Pallet::dispatch"><code>dispatch</code></a> function, passing the meta transaction as an argument to
+execute the target call on behalf of the signer while covering the fees.</p>
+<h4 id="example"><a class="doc-anchor" href="#example">§</a>Example</h4>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>sign_and_execute_meta_tx() {
+	new_test_ext().execute_with(|| {
+		<span class="comment">// meta tx signer
+		</span><span class="kw">let </span>alice_keyring = Sr25519Keyring::Alice;
+		<span class="comment">// meta tx relayer
+		</span><span class="kw">let </span>bob_keyring = Sr25519Keyring::Bob;
+
+		<span class="kw">let </span>alice_account: AccountId = alice_keyring.public().into();
+		<span class="kw">let </span>bob_account: AccountId = bob_keyring.public().into();
+
+		<span class="kw">let </span>tx_fee: Balance = (<span class="number">2 </span>* TX_FEE).into(); <span class="comment">// base tx fee + weight fee
+		</span><span class="kw">let </span>alice_balance = force_set_balance(alice_account.clone());
+		<span class="kw">let </span>bob_balance = force_set_balance(bob_account.clone());
+
+		<span class="comment">// Alice builds a meta transaction.
+
+		</span><span class="kw">let </span>remark_call =
+			RuntimeCall::System(frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[<span class="number">1</span>] });
+		<span class="kw">let </span>meta_tx_bare_ext = create_meta_tx_bare_ext(alice_account.clone());
+		<span class="kw">let </span>meta_tx_sig =
+			create_signature(remark_call.clone(), meta_tx_bare_ext.clone(), alice_keyring);
+		<span class="kw">let </span>meta_tx_ext = (
+			VerifySignatureExt::new_with_signature(meta_tx_sig, alice_account.clone()),
+			<span class="comment">// append signed part.
+			</span>meta_tx_bare_ext,
+		);
+
+		<span class="kw">let </span>meta_tx = MetaTxFor::&lt;Runtime&gt;::new(
+			remark_call.clone(),
+			META_EXTENSION_VERSION,
+			meta_tx_ext.clone(),
+		);
+
+		<span class="comment">// Encode and share with the world.
+		</span><span class="kw">let </span>meta_tx_encoded = meta_tx.encode();
+
+		<span class="comment">// Bob acts as meta transaction relayer.
+
+		</span><span class="kw">let </span>meta_tx = MetaTxFor::&lt;Runtime&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>meta_tx_encoded[..]).unwrap();
+		<span class="kw">let </span>call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
+		<span class="kw">let </span>tx_bare_ext = create_tx_bare_ext(bob_account.clone());
+		<span class="kw">let </span>tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
+		<span class="kw">let </span>tx_ext = (
+			VerifySignatureExt::new_with_signature(tx_sig, bob_account.clone()),
+			<span class="comment">// append signed part
+			</span>tx_bare_ext,
+		);
+
+		<span class="kw">let </span>uxt = UncheckedExtrinsic::new_transaction(call.clone(), tx_ext.clone());
+
+		<span class="comment">// Check Extrinsic validity and apply it.
+		</span><span class="kw">let </span>result = apply_extrinsic(uxt);
+
+		<span class="comment">// Asserting the results and make sure the weight is correct.
+
+		</span><span class="kw">let </span>tx_weight = tx_ext.weight(<span class="kw-2">&amp;</span>call) + &lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::bare_dispatch();
+		<span class="kw">let </span>meta_tx_weight = remark_call
+			.get_dispatch_info()
+			.call_weight
+			.add(meta_tx_ext.weight(<span class="kw-2">&amp;</span>remark_call));
+
+		<span class="macro">assert_eq!</span>(
+			result,
+			<span class="prelude-val">Ok</span>(PostDispatchInfo {
+				actual_weight: <span class="prelude-val">Some</span>(meta_tx_weight + tx_weight),
+				pays_fee: Pays::Yes,
+			})
+		);
+
+		System::assert_has_event(RuntimeEvent::MetaTx(<span class="kw">crate</span>::Event::Dispatched {
+			result: <span class="prelude-val">Ok</span>(PostDispatchInfo {
+				actual_weight: <span class="prelude-val">Some</span>(meta_tx_weight),
+				pays_fee: Pays::Yes,
+			}),
+		}));
+
+		System::assert_has_event(RuntimeEvent::System(frame_system::Event::Remarked {
+			sender: alice_account.clone(),
+			hash: &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Hashing::hash(<span class="kw-2">&amp;</span>[<span class="number">1</span>]),
+		}));
+
+		<span class="comment">// Alice balance is unchanged, Bob paid the transaction fee.
+		</span><span class="macro">assert_eq!</span>(alice_balance, Balances::free_balance(alice_account));
+		<span class="macro">assert_eq!</span>(bob_balance - tx_fee, Balances::free_balance(bob_account));
+	});
+}</code></pre></div>
+<h3 id="low-level--implementation-details"><a class="doc-anchor" href="#low-level--implementation-details">§</a>Low-Level / Implementation Details</h3>
+<p>The structure of a meta transaction is identical to the
+<a href="sp_runtime::generic::Preamble::General"><code>General</code></a> transaction.
+It contains the target call along with a configurable set of extensions and its associated
+version. Typically, these extensions include type like
+<code>pallet_verify_signature::VerifySignature</code>, which provides the signer address
+and the signature of the payload, encompassing the call and the meta-transaction’s
+configurations, such as its mortality.  The extensions follow the same [<code>TransactionExtension</code>]
+contract, and common types such as [<code>frame_system::CheckGenesis</code>],
+[<code>frame_system::CheckMortality</code>], [<code>frame_system::CheckNonce</code>], etc., are applicable in the
+context of meta transactions. Check the <code>mock</code> setup for the example.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_meta_tx::weights::WeightInfo">WeightInfo</a>;</code></dt><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_meta_tx::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod pallet_meta_tx::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_meta_tx::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_meta_tx</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MetaTx.html" title="struct pallet_meta_tx::MetaTx">MetaTx</a></dt><dd>Meta Transaction type.</dd><dt><a class="struct" href="struct.MetaTxMarker.html" title="struct pallet_meta_tx::MetaTxMarker">Meta<wbr>TxMarker</a></dt><dd>This type serves as a marker extension to differentiate meta-transactions from regular
+transactions. It implements the <code>TransactionExtension</code> trait and carries constant implicit data
+(“_meta_tx”).</dd><dt><a class="struct" href="struct.WeightlessExtension.html" title="struct pallet_meta_tx::WeightlessExtension">Weightless<wbr>Extension</a></dt><dd>A weightless extension to facilitate the bare dispatch benchmark.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.MetaTxFor.html" title="type pallet_meta_tx::MetaTxFor">Meta<wbr>TxFor</a></dt><dd>The <a href="struct.MetaTx.html" title="struct pallet_meta_tx::MetaTx"><code>MetaTx</code></a> for the given config.</dd></dl><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

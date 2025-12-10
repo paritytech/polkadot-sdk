@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BRIDGE_HUB_KUSAMA","BRIDGE_HUB_KUSAMA_DEVELOPMENT","BRIDGE_HUB_KUSAMA_ED","BRIDGE_HUB_KUSAMA_LOCAL"],"fn":["genesis","local_config"],"type":["BridgeHubChainSpec","RuntimeApi"]};

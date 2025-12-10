@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AUTHORIZATION_NOT_EXPIRED","AUTHORIZATION_NOT_FOUND","BAD_DATA_SIZE","DEFAULT_MAX_BLOCK_TRANSACTIONS","DEFAULT_MAX_TRANSACTION_SIZE","IMPOSSIBLE","RENEWED_NOT_FOUND"],"mod":["pallet","weights"],"struct":["AuthorizationExtent","TransactionInfo"],"type":["CreditOf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["deposit"],"struct":["CodeHashLockupDepositPercent","DepositPerByte","DepositPerItem","TestDefaultConfig"]};

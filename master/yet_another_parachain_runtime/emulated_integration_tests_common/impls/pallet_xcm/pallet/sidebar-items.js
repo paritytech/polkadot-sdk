@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason","Origin","QueryStatus","VersionMigrationStage"],"mod":["migrations"],"struct":["CurrentXcmVersion","GenesisConfig","MaxAuthorizedAliases","Pallet","RemoteLockedFungibleRecord","VersionDiscoveryQueueSize"],"trait":["Config"],"type":["BalanceOf","Module","TicketOf"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_offchain", 0, "The Offchain Worker runtime api primitives.\nThe offchain worker api.\nRe-export of parent module scope storage prefix. …\nStarts the off-chain task for given block header.\nStarts the off-chain task for given block number.")

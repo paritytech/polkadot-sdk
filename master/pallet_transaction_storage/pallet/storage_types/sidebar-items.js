@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Authorizations","BlockTransactions","ByteFee","EntryFee","ProofChecked","StoragePeriod","Transactions"]};

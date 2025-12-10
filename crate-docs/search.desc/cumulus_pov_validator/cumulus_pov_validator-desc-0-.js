@@ -1,0 +1,1 @@
+searchState.loadedDescShard("cumulus_pov_validator", 0, "Tool for validating a <code>PoV</code> locally.\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.\nThe path to the <code>PoV</code> to validate.\nThe path to the validation code that should be used to …")

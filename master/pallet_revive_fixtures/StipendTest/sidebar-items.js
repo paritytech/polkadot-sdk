@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StipendTestCalls"],"struct":["attemptTransferCall","attemptTransferReturn","constructorCall","testCallCall","testCallReturn","testSendCall","testSendReturn","testTransferCall","testTransferReturn"]};

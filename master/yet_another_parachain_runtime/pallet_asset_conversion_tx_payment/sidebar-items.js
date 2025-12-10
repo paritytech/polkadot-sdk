@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Event","InitialPayment","Pre","Val"],"mod":["pallet","weights"],"struct":["ChargeAssetTxPayment","Pallet","SwapAssetAdapter"],"trait":["BenchmarkHelperTrait","Config","OnChargeAssetTransaction","WeightInfo"],"type":["Module"]};

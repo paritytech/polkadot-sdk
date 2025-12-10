@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InvalidTransaction","TransactionSource","TransactionValidityError","UnknownTransaction"],"struct":["ValidTransaction"]};

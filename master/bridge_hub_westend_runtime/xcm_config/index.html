@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `xcm_config` mod in crate `bridge_hub_westend_runtime`."><title>bridge_hub_westend_runtime::xcm_config - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_hub_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../bridge_hub_westend_runtime/index.html">bridge_<wbr>hub_<wbr>westend_<wbr>runtime</a><span class="version">0.3.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module xcm_<wbr>config</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate bridge_<wbr>hub_<wbr>westend_<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">bridge_hub_westend_runtime</a></div><h1>Module <span>xcm_config</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/bridge_hub_westend_runtime/xcm_config.rs.html#17-320">Source</a> </span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AuthorizeAliasHoldReason.html" title="struct bridge_hub_westend_runtime::xcm_config::AuthorizeAliasHoldReason">Authorize<wbr>Alias<wbr>Hold<wbr>Reason</a></dt><dt><a class="struct" href="struct.DepositPerByte.html" title="struct bridge_hub_westend_runtime::xcm_config::DepositPerByte">Deposit<wbr>PerByte</a></dt><dt><a class="struct" href="struct.DepositPerItem.html" title="struct bridge_hub_westend_runtime::xcm_config::DepositPerItem">Deposit<wbr>PerItem</a></dt><dt><a class="struct" href="struct.MaxAssetsIntoHolding.html" title="struct bridge_hub_westend_runtime::xcm_config::MaxAssetsIntoHolding">MaxAssets<wbr>Into<wbr>Holding</a></dt><dt><a class="struct" href="struct.MaxInstructions.html" title="struct bridge_hub_westend_runtime::xcm_config::MaxInstructions">MaxInstructions</a></dt><dt><a class="struct" href="struct.ParentOrParentsPlurality.html" title="struct bridge_hub_westend_runtime::xcm_config::ParentOrParentsPlurality">Parent<wbr>OrParents<wbr>Plurality</a></dt><dt><a class="struct" href="struct.RelayChainOrigin.html" title="struct bridge_hub_westend_runtime::xcm_config::RelayChainOrigin">Relay<wbr>Chain<wbr>Origin</a></dt><dt><a class="struct" href="struct.RelayNetwork.html" title="struct bridge_hub_westend_runtime::xcm_config::RelayNetwork">Relay<wbr>Network</a></dt><dt><a class="struct" href="struct.RelayTreasuryLocation.html" title="struct bridge_hub_westend_runtime::xcm_config::RelayTreasuryLocation">Relay<wbr>Treasury<wbr>Location</a></dt><dt><a class="struct" href="struct.RootLocation.html" title="struct bridge_hub_westend_runtime::xcm_config::RootLocation">Root<wbr>Location</a></dt><dt><a class="struct" href="struct.TreasuryAccount.html" title="struct bridge_hub_westend_runtime::xcm_config::TreasuryAccount">Treasury<wbr>Account</a></dt><dt><a class="struct" href="struct.UniversalLocation.html" title="struct bridge_hub_westend_runtime::xcm_config::UniversalLocation">Universal<wbr>Location</a></dt><dt><a class="struct" href="struct.WestendLocation.html" title="struct bridge_hub_westend_runtime::xcm_config::WestendLocation">Westend<wbr>Location</a></dt><dt><a class="struct" href="struct.XcmConfig.html" title="struct bridge_hub_westend_runtime::xcm_config::XcmConfig">XcmConfig</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Barrier.html" title="type bridge_hub_westend_runtime::xcm_config::Barrier">Barrier</a></dt><dt><a class="type" href="type.FungibleTransactor.html" title="type bridge_hub_westend_runtime::xcm_config::FungibleTransactor">Fungible<wbr>Transactor</a></dt><dd>Means for transacting the native currency on this chain.</dd><dt><a class="type" href="type.GovernanceLocation.html" title="type bridge_hub_westend_runtime::xcm_config::GovernanceLocation">Governance<wbr>Location</a></dt><dd>The governance on the AssetHub.</dd><dt><a class="type" href="type.LocalOriginToLocation.html" title="type bridge_hub_westend_runtime::xcm_config::LocalOriginToLocation">Local<wbr>Origin<wbr>ToLocation</a></dt><dd>Converts a local signed origin into an XCM location. Forms the basis for local origins
+sending/executing XCMs.</dd><dt><a class="type" href="type.LocationToAccountId.html" title="type bridge_hub_westend_runtime::xcm_config::LocationToAccountId">Location<wbr>ToAccount<wbr>Id</a></dt><dd>Type for specifying how a <code>Location</code> can be converted into an <code>AccountId</code>. This is used
+when determining ownership of accounts for asset transacting and when attempting to use XCM
+<code>Transact</code> in order to determine the dispatch Origin.</dd><dt><a class="type" href="type.PriceForParentDelivery.html" title="type bridge_hub_westend_runtime::xcm_config::PriceForParentDelivery">Price<wbr>ForParent<wbr>Delivery</a></dt><dt><a class="type" href="type.TrustedAliasers.html" title="type bridge_hub_westend_runtime::xcm_config::TrustedAliasers">Trusted<wbr>Aliasers</a></dt><dd>Defines origin aliasing rules for this chain.</dd><dt><a class="type" href="type.TrustedTeleporters.html" title="type bridge_hub_westend_runtime::xcm_config::TrustedTeleporters">Trusted<wbr>Teleporters</a></dt><dd>Cases where a remote origin is accepted as trusted Teleporter for a given asset:</dd><dt><a class="type" href="type.WaivedLocations.html" title="type bridge_hub_westend_runtime::xcm_config::WaivedLocations">Waived<wbr>Locations</a></dt><dd>Locations that will not be charged fees in the executor,
+either execution or delivery.
+We only waive fees for system functions, which these locations represent.</dd><dt><a class="type" href="type.XcmOriginToTransactDispatchOrigin.html" title="type bridge_hub_westend_runtime::xcm_config::XcmOriginToTransactDispatchOrigin">XcmOrigin<wbr>ToTransact<wbr>Dispatch<wbr>Origin</a></dt><dd>This is the type we use to convert an (incoming) XCM origin into a local <code>Origin</code> instance,
+ready for dispatching a transaction with Xcm’s <code>Transact</code>. There is an <code>OriginKind</code> which can
+biases the kind of local <code>Origin</code> it will become.</dd><dt><a class="type" href="type.XcmRouter.html" title="type bridge_hub_westend_runtime::xcm_config::XcmRouter">XcmRouter</a></dt><dd>The means for routing XCM messages which are not for local execution into the right message
+queues.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

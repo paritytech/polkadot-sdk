@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConvertMessageError","MessageProcessorError"],"trait":["ConvertMessage","MessageProcessor"]};

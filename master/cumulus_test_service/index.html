@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Crate used for testing with Cumulus."><title>cumulus_test_service - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_test_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_test_service/index.html">cumulus_<wbr>test_<wbr>service</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>cumulus_test_service</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/cumulus_test_service/lib.rs.html#17-996">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Crate used for testing with Cumulus.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.runtime"><code>pub use cumulus_test_runtime as runtime;</code></dt><dt><code>pub use <a class="mod" href="chain_spec/index.html" title="mod cumulus_test_service::chain_spec">chain_spec</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="bench_utils/index.html" title="mod cumulus_test_service::bench_utils">bench_<wbr>utils</a></dt><dd>Utilities used for benchmarking</dd><dt><a class="mod" href="chain_spec/index.html" title="mod cumulus_test_service::chain_spec">chain_<wbr>spec</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.FailingRecoveryHandle.html" title="struct cumulus_test_service::FailingRecoveryHandle">Failing<wbr>Recovery<wbr>Handle</a></dt><dd>Recovery handle that fails regularly to simulate unavailable povs.</dd><dt><a class="struct" href="struct.TestNode.html" title="struct cumulus_test_service::TestNode">Test<wbr>Node</a></dt><dd>A Cumulus test node instance used for testing.</dd><dt><a class="struct" href="struct.TestNodeBuilder.html" title="struct cumulus_test_service::TestNodeBuilder">Test<wbr>Node<wbr>Builder</a></dt><dd>A builder to create a <a href="struct.TestNode.html" title="struct cumulus_test_service::TestNode"><code>TestNode</code></a>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Keyring.html" title="enum cumulus_test_service::Keyring">Keyring</a></dt><dd>Set of test accounts.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.construct_extrinsic.html" title="fn cumulus_test_service::construct_extrinsic">construct_<wbr>extrinsic</a></dt><dd>Construct an extrinsic that can be applied to the test runtime.</dd><dt><a class="fn" href="fn.fetch_nonce.html" title="fn cumulus_test_service::fetch_nonce">fetch_<wbr>nonce</a></dt><dd>Fetch account nonce for key pair</dd><dt><a class="fn" href="fn.new_partial.html" title="fn cumulus_test_service::new_partial">new_<wbr>partial</a></dt><dd>Starts a <code>ServiceBuilder</code> for a full service.</dd><dt><a class="fn" href="fn.node_config.html" title="fn cumulus_test_service::node_config">node_<wbr>config</a></dt><dd>Create a Cumulus <code>Configuration</code>.</dd><dt><a class="fn" href="fn.run_relay_chain_validator_node.html" title="fn cumulus_test_service::run_relay_chain_validator_node">run_<wbr>relay_<wbr>chain_<wbr>validator_<wbr>node</a></dt><dd>Run a relay-chain validator node.</dd><dt><a class="fn" href="fn.start_node_impl.html" title="fn cumulus_test_service::start_node_impl">start_<wbr>node_<wbr>impl</a></dt><dd>Start a node with the given parachain <code>Configuration</code> and relay chain <code>Configuration</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AnnounceBlockFn.html" title="type cumulus_test_service::AnnounceBlockFn">Announce<wbr>Block<wbr>Fn</a></dt><dd>The signature of the announce block fn.</dd><dt><a class="type" href="type.Backend.html" title="type cumulus_test_service::Backend">Backend</a></dt><dd>The backend type being used by the test service.</dd><dt><a class="type" href="type.Client.html" title="type cumulus_test_service::Client">Client</a></dt><dd>The client type being used by the test service.</dd><dt><a class="type" href="type.ParachainBlockImport.html" title="type cumulus_test_service::ParachainBlockImport">Parachain<wbr>Block<wbr>Import</a></dt><dd>The block-import type being used by the test service.</dd><dt><a class="type" href="type.Service.html" title="type cumulus_test_service::Service">Service</a></dt><dd>Assembly of PartialComponents (enough to run chain ops subcommands)</dd><dt><a class="type" href="type.TransactionPool.html" title="type cumulus_test_service::TransactionPool">Transaction<wbr>Pool</a></dt><dd>Transaction pool type used by the test service</dd></dl><script type="text/json" id="notable-traits-data">{"&'slf <Arc<T> as AsSelf<'slf>>::Ref":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","<Arc<S> as Service<Request>>::Future":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","<Arc<T> as IntoVisitor>::AnyVisitor<R>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","<Arc<T> as ValueParserFactory>::Parser":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","<Arc<W> as MakeWriter<'a>>::Writer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

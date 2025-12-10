@@ -1,0 +1,205 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The unsigned pallet"><title>pallet_election_provider_multi_block::unsigned - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_block" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_election_provider_multi_block/index.html">pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a><span class="version">0.9.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module unsigned</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#the-unsigned-phase-and-its-miner" title="The unsigned phase, and its miner.">The unsigned phase, and its miner.</a></li><li><a href="#future-idea-multi-page-unsigned-submission" title="Future Idea: Multi-Page unsigned submission">Future Idea: Multi-Page unsigned submission</a></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_election_provider_multi_block</a></div><h1>Module <span>unsigned</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_election_provider_multi_block/unsigned/mod.rs.html#18-648">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The unsigned pallet</p>
+<h3 id="the-unsigned-phase-and-its-miner"><a class="doc-anchor" href="#the-unsigned-phase-and-its-miner">§</a>The unsigned phase, and its miner.</h3>
+<p>This pallet deals with unsigned submissions. These are backup, “possibly” multi-page submissions
+from validators.</p>
+<p>This pallet has two miners, described in <a href="miner/index.html" title="mod pallet_election_provider_multi_block::unsigned::miner"><code>unsigned::miner</code></a>.</p>
+<p>As it stands, a validator can, during the unsigned phase, submit up to
+<a href="trait.Config.html#associatedtype.MinerPages" title="associated type pallet_election_provider_multi_block::unsigned::Config::MinerPages"><code>unsigned::Config::MinerPages</code></a> pages. While this can be more than 1, it can likely not be a
+full, high quality solution. This is because unsigned validator solutions are verified on the
+fly, all within a single block. The exact value of this parameter should be determined by the
+benchmarks of a runtime.</p>
+<p>We could implement a protocol to allow multi-block, multi-page collaborative submissions from
+different validators, but it is not trivial. Moreover, recall that the unsigned phase is merely
+a backup and we should primarily rely on offchain staking miners to fulfill this role during
+<code>Phase::Signed</code>.</p>
+<h3 id="future-idea-multi-page-unsigned-submission"><a class="doc-anchor" href="#future-idea-multi-page-unsigned-submission">§</a>Future Idea: Multi-Page unsigned submission</h3>
+<p>the following is the idea of how to implement multi-page unsigned, which we don’t have.</p>
+<p>All validators will run their miners and compute the full paginated solution. They submit all
+pages as individual unsigned transactions to their local tx-pool.</p>
+<p>Upon validation, if any page is now present the corresponding transaction is dropped.</p>
+<p>At each block, the first page that may be valid is included as a high priority operational
+transaction. This page is validated on the fly to be correct. Since this transaction is sourced
+from a validator, we can panic if they submit an invalid transaction.</p>
+<p>Then, once the final page is submitted, some extra checks are done, as explained in
+<a href="../verifier/index.html" title="mod pallet_election_provider_multi_block::verifier"><code>crate::verifier</code></a>:</p>
+<ol>
+<li>bounds</li>
+<li>total score</li>
+</ol>
+<p>These checks might still fail. If they do, the solution is dropped. At this point, we don’t know
+which validator may have submitted a slightly-faulty solution.</p>
+<p>In order to prevent this, the transaction validation process always includes a check to ensure
+all of the previous pages that have been submitted match what the local validator has computed.
+If they match, the validator knows that they are putting skin in a game that is valid.</p>
+<p>If any bad paged are detected, the next validator can bail. This process means:</p>
+<ul>
+<li>As long as all validators are honest, and run the same miner code, a correct solution is
+found.</li>
+<li>As little as one malicious validator can stall the process, but no one is accidentally
+slashed, and no panic happens.</li>
+</ul>
+<p>Alternatively, we can keep track of submitters, and report a slash if it occurs. Or, if
+the signed process is bullet-proof, we can be okay with the status quo.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use crate::weights::traits::<a class="mod" href="../weights/traits/pallet_election_provider_multi_block_unsigned/index.html" title="mod pallet_election_provider_multi_block::weights::traits::pallet_election_provider_multi_block_unsigned">pallet_election_provider_multi_block_unsigned</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="dispatchables/index.html" title="mod pallet_election_provider_multi_block::unsigned::dispatchables">dispatchables</a></dt><dd>Exports of this pallet
+Auto-generated docs-only module listing all defined dispatchables for this pallet.</dd><dt><a class="mod" href="miner/index.html" title="mod pallet_election_provider_multi_block::unsigned::miner">miner</a></dt><dd>The miner.
+The miner code for the EPMB pallet.</dd><dt><a class="mod" href="storage_types/index.html" title="mod pallet_election_provider_multi_block::unsigned::storage_types">storage_<wbr>types</a></dt><dd>Exports of this pallet
+Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Pallet.html" title="struct pallet_election_provider_multi_block::unsigned::Pallet">Pallet</a></dt><dd>Exports of this pallet
+The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum pallet_election_provider_multi_block::unsigned::Call">Call</a></dt><dd>Exports of this pallet
+Contains a variant per dispatchable extrinsic that this pallet has.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait pallet_election_provider_multi_block::unsigned::Config">Config</a></dt><dd>Exports of this pallet
+Configuration trait of this pallet.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Module.html" title="type pallet_election_provider_multi_block::unsigned::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Exports of this pallet
+Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

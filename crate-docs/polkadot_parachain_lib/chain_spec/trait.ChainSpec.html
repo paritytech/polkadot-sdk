@@ -1,0 +1,194 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Common interface of a chain specification."><title>ChainSpec in polkadot_parachain_lib::chain_spec - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain_lib" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_parachain_lib/index.html">polkadot_parachain_lib</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">ChainSpec</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.add_boot_node">add_boot_node</a></li><li><a href="#tymethod.as_json">as_json</a></li><li><a href="#tymethod.as_storage_builder">as_storage_builder</a></li><li><a href="#tymethod.boot_nodes">boot_nodes</a></li><li><a href="#tymethod.chain_type">chain_type</a></li><li><a href="#tymethod.cloned_box">cloned_box</a></li><li><a href="#tymethod.code_substitutes">code_substitutes</a></li><li><a href="#tymethod.extensions">extensions</a></li><li><a href="#tymethod.extensions_mut">extensions_mut</a></li><li><a href="#tymethod.fork_id">fork_id</a></li><li><a href="#tymethod.id">id</a></li><li><a href="#tymethod.name">name</a></li><li><a href="#tymethod.properties">properties</a></li><li><a href="#tymethod.protocol_id">protocol_id</a></li><li><a href="#tymethod.set_storage">set_storage</a></li><li><a href="#tymethod.telemetry_endpoints">telemetry_endpoints</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Debug-for-dyn+ChainSpec">Debug</a></li><li><a href="#impl-IdentifyVariant-for-Box%3Cdyn+ChainSpec%3E">IdentifyVariant</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_parachain_lib::chain_spec</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_parachain_lib/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_parachain_lib</a>::<wbr><a href="index.html">chain_spec</a>::<wbr><a class="trait" href="#">ChainSpec</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/sc_chain_spec/lib.rs.html#388">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait ChainSpec: <a class="trait" href="../../sp_runtime/trait.BuildStorage.html" title="trait sp_runtime::BuildStorage">BuildStorage</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 16 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.id" class="fn">id</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.chain_type" class="fn">chain_type</a>(&amp;self) -&gt; <a class="enum" href="../../sc_chain_spec/enum.ChainType.html" title="enum sc_chain_spec::ChainType">ChainType</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.boot_nodes" class="fn">boot_nodes</a>(&amp;self) -&gt; &amp;[<a class="struct" href="../../sc_network/config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>];
+<span class="item-spacer"></span>    fn <a href="#tymethod.telemetry_endpoints" class="fn">telemetry_endpoints</a>(&amp;self) -&gt; &amp;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../sc_telemetry/endpoints/struct.TelemetryEndpoints.html" title="struct sc_telemetry::endpoints::TelemetryEndpoints">TelemetryEndpoints</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.protocol_id" class="fn">protocol_id</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.fork_id" class="fn">fork_id</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.properties" class="fn">properties</a>(&amp;self) -&gt; <a class="struct" href="https://docs.rs/serde_json/1.0.124/serde_json/map/struct.Map.html" title="struct serde_json::map::Map">Map</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="https://docs.rs/serde_json/1.0.124/serde_json/value/enum.Value.html" title="enum serde_json::value::Value">Value</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.extensions" class="fn">extensions</a>(&amp;self) -&gt; &amp;dyn <a class="trait" href="../../sc_chain_spec/extension/trait.GetExtension.html" title="trait sc_chain_spec::extension::GetExtension">GetExtension</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.extensions_mut" class="fn">extensions_mut</a>(&amp;mut self) -&gt; &amp;mut dyn <a class="trait" href="../../sc_chain_spec/extension/trait.GetExtension.html" title="trait sc_chain_spec::extension::GetExtension">GetExtension</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_boot_node" class="fn">add_boot_node</a>(&amp;mut self, addr: <a class="struct" href="../../sc_network/config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.as_json" class="fn">as_json</a>(&amp;self, raw: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.as_storage_builder" class="fn">as_storage_builder</a>(&amp;self) -&gt; &amp;dyn <a class="trait" href="../../sp_runtime/trait.BuildStorage.html" title="trait sp_runtime::BuildStorage">BuildStorage</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cloned_box" class="fn">cloned_box</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ChainSpec.html" title="trait polkadot_parachain_lib::chain_spec::ChainSpec">ChainSpec</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(&amp;mut self, storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.code_substitutes" class="fn">code_substitutes</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Common interface of a chain specification.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.name" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#390">source</a><h4 class="code-header">fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Spec name.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.id" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#392">source</a><h4 class="code-header">fn <a href="#tymethod.id" class="fn">id</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Spec id.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.chain_type" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#394">source</a><h4 class="code-header">fn <a href="#tymethod.chain_type" class="fn">chain_type</a>(&amp;self) -&gt; <a class="enum" href="../../sc_chain_spec/enum.ChainType.html" title="enum sc_chain_spec::ChainType">ChainType</a></h4></section></summary><div class="docblock"><p>Type of the chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.boot_nodes" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#396">source</a><h4 class="code-header">fn <a href="#tymethod.boot_nodes" class="fn">boot_nodes</a>(&amp;self) -&gt; &amp;[<a class="struct" href="../../sc_network/config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>]</h4></section></summary><div class="docblock"><p>A list of bootnode addresses.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.telemetry_endpoints" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#398">source</a><h4 class="code-header">fn <a href="#tymethod.telemetry_endpoints" class="fn">telemetry_endpoints</a>(&amp;self) -&gt; &amp;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../sc_telemetry/endpoints/struct.TelemetryEndpoints.html" title="struct sc_telemetry::endpoints::TelemetryEndpoints">TelemetryEndpoints</a>&gt;</h4></section></summary><div class="docblock"><p>Telemetry endpoints (if any)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.protocol_id" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#400">source</a><h4 class="code-header">fn <a href="#tymethod.protocol_id" class="fn">protocol_id</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>&gt;</h4></section></summary><div class="docblock"><p>Network protocol id.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.fork_id" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#402">source</a><h4 class="code-header">fn <a href="#tymethod.fork_id" class="fn">fork_id</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>&gt;</h4></section></summary><div class="docblock"><p>Optional network fork identifier. <code>None</code> by default.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.properties" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#406">source</a><h4 class="code-header">fn <a href="#tymethod.properties" class="fn">properties</a>(&amp;self) -&gt; <a class="struct" href="https://docs.rs/serde_json/1.0.124/serde_json/map/struct.Map.html" title="struct serde_json::map::Map">Map</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="https://docs.rs/serde_json/1.0.124/serde_json/value/enum.Value.html" title="enum serde_json::value::Value">Value</a>&gt;</h4></section></summary><div class="docblock"><p>Additional loosely-typed properties of the chain.</p>
+<p>Returns an empty JSON object if ‘properties’ not defined in config</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.extensions" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#408">source</a><h4 class="code-header">fn <a href="#tymethod.extensions" class="fn">extensions</a>(&amp;self) -&gt; &amp;dyn <a class="trait" href="../../sc_chain_spec/extension/trait.GetExtension.html" title="trait sc_chain_spec::extension::GetExtension">GetExtension</a></h4></section></summary><div class="docblock"><p>Returns a reference to the defined chain spec extensions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.extensions_mut" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#410">source</a><h4 class="code-header">fn <a href="#tymethod.extensions_mut" class="fn">extensions_mut</a>(&amp;mut self) -&gt; &amp;mut dyn <a class="trait" href="../../sc_chain_spec/extension/trait.GetExtension.html" title="trait sc_chain_spec::extension::GetExtension">GetExtension</a></h4></section></summary><div class="docblock"><p>Returns a mutable reference to the defined chain spec extensions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.add_boot_node" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#412">source</a><h4 class="code-header">fn <a href="#tymethod.add_boot_node" class="fn">add_boot_node</a>(&amp;mut self, addr: <a class="struct" href="../../sc_network/config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>)</h4></section></summary><div class="docblock"><p>Add a bootnode to the list.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.as_json" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#414">source</a><h4 class="code-header">fn <a href="#tymethod.as_json" class="fn">as_json</a>(&amp;self, raw: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Return spec as JSON.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.as_storage_builder" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#416">source</a><h4 class="code-header">fn <a href="#tymethod.as_storage_builder" class="fn">as_storage_builder</a>(&amp;self) -&gt; &amp;dyn <a class="trait" href="../../sp_runtime/trait.BuildStorage.html" title="trait sp_runtime::BuildStorage">BuildStorage</a></h4></section></summary><div class="docblock"><p>Return StorageBuilder for this spec.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.cloned_box" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#418">source</a><h4 class="code-header">fn <a href="#tymethod.cloned_box" class="fn">cloned_box</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ChainSpec.html" title="trait polkadot_parachain_lib::chain_spec::ChainSpec">ChainSpec</a>&gt;</h4></section></summary><div class="docblock"><p>Returns a cloned <code>Box&lt;dyn ChainSpec&gt;</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_storage" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#422">source</a><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(&amp;mut self, storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>)</h4></section></summary><div class="docblock"><p>Set the storage that should be used by this chain spec.</p>
+<p>This will be used as storage at genesis.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code_substitutes" class="method"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#424">source</a><h4 class="code-header">fn <a href="#tymethod.code_substitutes" class="fn">code_substitutes</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns code substitutes that should be used for the on chain wasm.</p>
+</div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Debug-for-dyn+ChainSpec" class="impl"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#427">source</a><a href="#impl-Debug-for-dyn+ChainSpec" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for dyn <a class="trait" href="trait.ChainSpec.html" title="trait polkadot_parachain_lib::chain_spec::ChainSpec">ChainSpec</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.fmt" class="method trait-impl"><a class="src rightside" href="../../src/sc_chain_spec/lib.rs.html#428">source</a><a href="#method.fmt" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html#tymethod.fmt" class="fn">fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/fmt/struct.Error.html" title="struct core::fmt::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Formats the value using the given formatter. <a href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html#tymethod.fmt">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-IdentifyVariant-for-Box%3Cdyn+ChainSpec%3E" class="impl"><a href="#impl-IdentifyVariant-for-Box%3Cdyn+ChainSpec%3E" class="anchor">§</a><h3 class="code-header">impl IdentifyVariant for <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ChainSpec.html" title="trait polkadot_parachain_lib::chain_spec::ChainSpec">ChainSpec</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.is_polkadot" class="method trait-impl"><a href="#method.is_polkadot" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_polkadot</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Polkadot</code> network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_kusama" class="method trait-impl"><a href="#method.is_kusama" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_kusama</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Kusama</code> network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_westend" class="method trait-impl"><a href="#method.is_westend" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_westend</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Westend</code> network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_rococo" class="method trait-impl"><a href="#method.is_rococo" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_rococo</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Rococo</code> network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_wococo" class="method trait-impl"><a href="#method.is_wococo" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_wococo</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Wococo</code> test network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_versi" class="method trait-impl"><a href="#method.is_versi" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_versi</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns if this is a configuration for the <code>Versi</code> test network.</div></details><details class="toggle method-toggle" open><summary><section id="method.is_dev" class="method trait-impl"><a href="#method.is_dev" class="anchor">§</a><h4 class="code-header">fn <a class="fn">is_dev</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Returns true if this configuration is for a development network.</div></details><details class="toggle method-toggle" open><summary><section id="method.identify_chain" class="method trait-impl"><a href="#method.identify_chain" class="anchor">§</a><h4 class="code-header">fn <a class="fn">identify_chain</a>(&amp;self) -&gt; Chain</h4></section></summary><div class='docblock'>Identifies the variant of the chain.</div></details></div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ChainSpec-for-GenericChainSpec%3CE,+EHF%3E" class="impl"><a class="src rightside" href="../../src/sc_chain_spec/chain_spec.rs.html#623-626">source</a><a href="#impl-ChainSpec-for-GenericChainSpec%3CE,+EHF%3E" class="anchor">§</a><h3 class="code-header">impl&lt;E, EHF&gt; <a class="trait" href="trait.ChainSpec.html" title="trait polkadot_parachain_lib::chain_spec::ChainSpec">ChainSpec</a> for <a class="struct" href="../../sc_chain_spec/chain_spec/struct.ChainSpec.html" title="struct sc_chain_spec::chain_spec::ChainSpec">ChainSpec</a>&lt;E, EHF&gt;<div class="where">where
+    E: <a class="trait" href="../../sc_chain_spec/extension/trait.GetExtension.html" title="trait sc_chain_spec::extension::GetExtension">GetExtension</a> + <a class="trait" href="https://docs.rs/serde/1.0.206/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    EHF: <a class="trait" href="../../sp_wasm_interface/trait.HostFunctions.html" title="trait sp_wasm_interface::HostFunctions">HostFunctions</a>,</div></h3></section></div><script src="../../trait.impl/sc_chain_spec/trait.ChainSpec.js" data-ignore-extern-crates="sc_chain_spec" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

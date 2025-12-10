@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Pallet Broker"><title>yet_another_parachain_runtime::pallet_broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#pallet-broker" title="Pallet Broker">Pallet Broker</a><ul><li><a href="#implementation-specifics" title="Implementation Specifics">Implementation Specifics</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_broker</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_broker/lib.rs.html#18-1033">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="pallet-broker"><a class="doc-anchor" href="#pallet-broker">§</a>Pallet Broker</h2>
+<p>Brokerage tool for managing Polkadot Core scheduling.</p>
+<p>Properly described in <a href="https://github.com/polkadot-fellows/RFCs/blob/main/text/0001-agile-coretime.md">RFC-0001 Agile Coretime</a>.</p>
+<h3 id="implementation-specifics"><a class="doc-anchor" href="#implementation-specifics">§</a>Implementation Specifics</h3><h4 id="core-mask-bits"><a class="doc-anchor" href="#core-mask-bits">§</a>Core Mask Bits</h4>
+<p>This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are 80 blocks, then this
+indicates usage of a single core one time over a timeslice.</p>
+<h4 id="the-sale"><a class="doc-anchor" href="#the-sale">§</a>The Sale</h4><div class="example-wrap"><pre class="language-nocompile"><code>					1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7
+--------------------------------------------------------
+&lt; interlude  &gt;
+			  &lt;                   sale                 &gt;
+							... of which ...
+			  &lt;  descending-price   &gt;&lt;   fixed-price   &gt;
+														| &lt;-------\
+price fixed, unsold assigned to instapool, system cores reserved -/</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::pallet_broker::migration">migration</a></dt><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_broker::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="runtime_api/index.html" title="mod yet_another_parachain_runtime::pallet_broker::runtime_api">runtime_<wbr>api</a></dt><dd>Runtime API definition for the FRAME Broker pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_broker::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_broker</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AdaptedPrices.html" title="struct yet_another_parachain_runtime::pallet_broker::AdaptedPrices">Adapted<wbr>Prices</a></dt><dd>Result of <code>AdaptPrice::adapt_price</code>.</dd><dt><a class="struct" href="struct.AutoRenewalRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::AutoRenewalRecord">Auto<wbr>Renewal<wbr>Record</a></dt><dd>A record containing information regarding auto-renewal for a specific core.</dd><dt><a class="struct" href="struct.CenterTargetPrice.html" title="struct yet_another_parachain_runtime::pallet_broker::CenterTargetPrice">Center<wbr>Target<wbr>Price</a></dt><dd>Simple implementation of <code>AdaptPrice</code> with two linear phases.</dd><dt><a class="struct" href="struct.ConfigRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::ConfigRecord">Config<wbr>Record</a></dt><dd>Configuration of this pallet.</dd><dt><a class="struct" href="struct.ContributionRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::ContributionRecord">Contribution<wbr>Record</a></dt><dd>The record body of a Region which was contributed to the Instantaneous Coretime Pool. This helps
+with making pro rata payments to contributors.</dd><dt><a class="struct" href="struct.CoreMask.html" title="struct yet_another_parachain_runtime::pallet_broker::CoreMask">Core<wbr>Mask</a></dt><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::pallet_broker::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.InstaPoolHistoryRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::InstaPoolHistoryRecord">Insta<wbr>Pool<wbr>History<wbr>Record</a></dt><dd>A per-timeslice bookkeeping record for tracking Instantaneous Coretime Pool activity and
+making proper payments to contributors.</dd><dt><a class="struct" href="struct.LeaseRecordItem.html" title="struct yet_another_parachain_runtime::pallet_broker::LeaseRecordItem">Lease<wbr>Record<wbr>Item</a></dt><dd>Information on a single legacy lease.</dd><dt><a class="struct" href="struct.MinimumPrice.html" title="struct yet_another_parachain_runtime::pallet_broker::MinimumPrice">Minimum<wbr>Price</a></dt><dd><code>AdaptPrice</code> like <code>CenterTargetPrice</code>, but with a minimum price.</dd><dt><a class="struct" href="struct.OnDemandRevenueRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::OnDemandRevenueRecord">OnDemand<wbr>Revenue<wbr>Record</a></dt><dd>Record for On demand core sales.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_broker::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.PoolIoRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::PoolIoRecord">Pool<wbr>IoRecord</a></dt><dd>A record of flux in the InstaPool.</dd><dt><a class="struct" href="struct.PotentialRenewalId.html" title="struct yet_another_parachain_runtime::pallet_broker::PotentialRenewalId">Potential<wbr>Renewal<wbr>Id</a></dt><dd>The identity of a possibly renewable Core workload.</dd><dt><a class="struct" href="struct.PotentialRenewalRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::PotentialRenewalRecord">Potential<wbr>Renewal<wbr>Record</a></dt><dd>A record of a potential renewal.</dd><dt><a class="struct" href="struct.RegionId.html" title="struct yet_another_parachain_runtime::pallet_broker::RegionId">Region<wbr>Id</a></dt><dd>Self-describing identity for a Region of Bulk Coretime.</dd><dt><a class="struct" href="struct.RegionRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::RegionRecord">Region<wbr>Record</a></dt><dd>The rest of the information describing a Region.</dd><dt><a class="struct" href="struct.SaleInfoRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::SaleInfoRecord">Sale<wbr>Info<wbr>Record</a></dt><dd>The status of a Bulk Coretime Sale.</dd><dt><a class="struct" href="struct.SalePerformance.html" title="struct yet_another_parachain_runtime::pallet_broker::SalePerformance">Sale<wbr>Performance</a></dt><dd>Performance of a past sale.</dd><dt><a class="struct" href="struct.ScheduleItem.html" title="struct yet_another_parachain_runtime::pallet_broker::ScheduleItem">Schedule<wbr>Item</a></dt><dd>An distinct item which can be scheduled on a Polkadot Core.</dd><dt><a class="struct" href="struct.StatusRecord.html" title="struct yet_another_parachain_runtime::pallet_broker::StatusRecord">Status<wbr>Record</a></dt><dd>General status of the system.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_broker::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.CompletionStatus.html" title="enum yet_another_parachain_runtime::pallet_broker::CompletionStatus">Completion<wbr>Status</a></dt><dd>How much of a core has been assigned or, if completely assigned, the workload itself.</dd><dt><a class="enum" href="enum.CoreAssignment.html" title="enum yet_another_parachain_runtime::pallet_broker::CoreAssignment">Core<wbr>Assignment</a></dt><dd>An element to which a core can be assigned.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_broker::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_broker::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.Finality.html" title="enum yet_another_parachain_runtime::pallet_broker::Finality">Finality</a></dt><dd>Whether a core assignment is revokable or not.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.CORE_MASK_BITS.html" title="constant yet_another_parachain_runtime::pallet_broker::CORE_MASK_BITS">CORE_<wbr>MASK_<wbr>BITS</a></dt><dd>The number of bits in the <code>CoreMask</code>.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AdaptPrice.html" title="trait yet_another_parachain_runtime::pallet_broker::AdaptPrice">Adapt<wbr>Price</a></dt><dd>Type for determining how to set price.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_broker::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">Coretime<wbr>Interface</a></dt><dd>Type able to accept Coretime scheduling instructions and provide certain usage information.
+Generally implemented by the Relay-chain or some means of communicating with it.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_broker::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_broker</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AutoRenewals.html" title="type yet_another_parachain_runtime::pallet_broker::AutoRenewals">Auto<wbr>Renewals</a></dt><dd>Keeping track of cores which have auto-renewal enabled.</dd><dt><a class="type" href="type.BalanceOf.html" title="type yet_another_parachain_runtime::pallet_broker::BalanceOf">Balance<wbr>Of</a></dt><dt><a class="type" href="type.ConfigRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::ConfigRecordOf">Config<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.Configuration.html" title="type yet_another_parachain_runtime::pallet_broker::Configuration">Configuration</a></dt><dd>The current configuration of this pallet.</dd><dt><a class="type" href="type.ContributionRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::ContributionRecordOf">Contribution<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.CoreCountInbox.html" title="type yet_another_parachain_runtime::pallet_broker::CoreCountInbox">Core<wbr>Count<wbr>Inbox</a></dt><dd>Received core count change from the relay chain.</dd><dt><a class="type" href="type.CoreIndex.html" title="type yet_another_parachain_runtime::pallet_broker::CoreIndex">Core<wbr>Index</a></dt><dd>Index of a Polkadot Core.</dd><dt><a class="type" href="type.CoreMaskBitCount.html" title="type yet_another_parachain_runtime::pallet_broker::CoreMaskBitCount">Core<wbr>Mask<wbr>BitCount</a></dt><dd>Counter for the total number of set bits over every core’s <code>CoreMask</code>. <code>u32</code> so we don’t
+ever get an overflow. This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are
+80 blocks, then this indicates usage of a single core one time over a timeslice.</dd><dt><a class="type" href="type.InstaPoolContribution.html" title="type yet_another_parachain_runtime::pallet_broker::InstaPoolContribution">Insta<wbr>Pool<wbr>Contribution</a></dt><dd>Record of a single contribution to the Instantaneous Coretime Pool.</dd><dt><a class="type" href="type.InstaPoolHistory.html" title="type yet_another_parachain_runtime::pallet_broker::InstaPoolHistory">Insta<wbr>Pool<wbr>History</a></dt><dd>Total InstaPool rewards for each Timeslice and the number of core parts which contributed.</dd><dt><a class="type" href="type.InstaPoolHistoryRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::InstaPoolHistoryRecordOf">Insta<wbr>Pool<wbr>History<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.InstaPoolIo.html" title="type yet_another_parachain_runtime::pallet_broker::InstaPoolIo">Insta<wbr>Pool<wbr>Io</a></dt><dd>Record of Coretime entering or leaving the Instantaneous Coretime Pool.</dd><dt><a class="type" href="type.Leases.html" title="type yet_another_parachain_runtime::pallet_broker::Leases">Leases</a></dt><dd>The Polkadot Core legacy leases.</dd><dt><a class="type" href="type.LeasesRecord.html" title="type yet_another_parachain_runtime::pallet_broker::LeasesRecord">Leases<wbr>Record</a></dt><dd>Record for Polkadot Core legacy leases.</dd><dt><a class="type" href="type.LeasesRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::LeasesRecordOf">Leases<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_broker::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.OnDemandRevenueRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::OnDemandRevenueRecordOf">OnDemand<wbr>Revenue<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.PartsOf57600.html" title="type yet_another_parachain_runtime::pallet_broker::PartsOf57600">Parts<wbr>Of57600</a></dt><dd>Fraction expressed as a nominator with an assumed denominator of 57,600.</dd><dt><a class="type" href="type.PotentialRenewalRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::PotentialRenewalRecordOf">Potential<wbr>Renewal<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.PotentialRenewals.html" title="type yet_another_parachain_runtime::pallet_broker::PotentialRenewals">Potential<wbr>Renewals</a></dt><dd>Records of potential renewals.</dd><dt><a class="type" href="type.RCBlockNumberOf.html" title="type yet_another_parachain_runtime::pallet_broker::RCBlockNumberOf">RCBlock<wbr>Number<wbr>Of</a></dt><dd>Relay chain block number of <code>T</code> that implements <a href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface"><code>CoretimeInterface</code></a>.</dd><dt><a class="type" href="type.RCBlockNumberProviderOf.html" title="type yet_another_parachain_runtime::pallet_broker::RCBlockNumberProviderOf">RCBlock<wbr>Number<wbr>Provider<wbr>Of</a></dt><dd>Relay chain block number provider of <code>T</code> that implements <a href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface"><code>CoretimeInterface</code></a>.</dd><dt><a class="type" href="type.RegionRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::RegionRecordOf">Region<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.Regions.html" title="type yet_another_parachain_runtime::pallet_broker::Regions">Regions</a></dt><dd>The current (unassigned or provisionally assigend) Regions.</dd><dt><a class="type" href="type.RelayAccountIdOf.html" title="type yet_another_parachain_runtime::pallet_broker::RelayAccountIdOf">Relay<wbr>Account<wbr>IdOf</a></dt><dt><a class="type" href="type.RelayBalanceOf.html" title="type yet_another_parachain_runtime::pallet_broker::RelayBalanceOf">Relay<wbr>Balance<wbr>Of</a></dt><dt><a class="type" href="type.RelayBlockNumberOf.html" title="type yet_another_parachain_runtime::pallet_broker::RelayBlockNumberOf">Relay<wbr>Block<wbr>Number<wbr>Of</a></dt><dt><a class="type" href="type.Reservations.html" title="type yet_another_parachain_runtime::pallet_broker::Reservations">Reservations</a></dt><dd>The Polkadot Core reservations (generally tasked with the maintenance of System Chains).</dd><dt><a class="type" href="type.ReservationsRecord.html" title="type yet_another_parachain_runtime::pallet_broker::ReservationsRecord">Reservations<wbr>Record</a></dt><dd>Record for Polkadot Core reservations (generally tasked with the maintenance of System
+Chains).</dd><dt><a class="type" href="type.ReservationsRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::ReservationsRecordOf">Reservations<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.RevenueInbox.html" title="type yet_another_parachain_runtime::pallet_broker::RevenueInbox">Revenue<wbr>Inbox</a></dt><dd>Received revenue info from the relay chain.</dd><dt><a class="type" href="type.SaleInfo.html" title="type yet_another_parachain_runtime::pallet_broker::SaleInfo">Sale<wbr>Info</a></dt><dd>The details of the current sale, including its properties and status.</dd><dt><a class="type" href="type.SaleInfoRecordOf.html" title="type yet_another_parachain_runtime::pallet_broker::SaleInfoRecordOf">Sale<wbr>Info<wbr>Record<wbr>Of</a></dt><dt><a class="type" href="type.Schedule.html" title="type yet_another_parachain_runtime::pallet_broker::Schedule">Schedule</a></dt><dt><a class="type" href="type.SignedCoreMaskBitCount.html" title="type yet_another_parachain_runtime::pallet_broker::SignedCoreMaskBitCount">Signed<wbr>Core<wbr>Mask<wbr>BitCount</a></dt><dd>The same as <code>CoreMaskBitCount</code> but signed.</dd><dt><a class="type" href="type.Status.html" title="type yet_another_parachain_runtime::pallet_broker::Status">Status</a></dt><dd>The current status of miscellaneous subsystems of this pallet.</dd><dt><a class="type" href="type.TaskId.html" title="type yet_another_parachain_runtime::pallet_broker::TaskId">TaskId</a></dt><dd>A Task Id. In general this is called a ParachainId.</dd><dt><a class="type" href="type.Timeslice.html" title="type yet_another_parachain_runtime::pallet_broker::Timeslice">Timeslice</a></dt><dd>Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.</dd><dt><a class="type" href="type.Workload.html" title="type yet_another_parachain_runtime::pallet_broker::Workload">Workload</a></dt><dd>The current workload of each core. This gets updated with workplan as timeslices pass.</dd><dt><a class="type" href="type.Workplan.html" title="type yet_another_parachain_runtime::pallet_broker::Workplan">Workplan</a></dt><dd>The work we plan on having each core do at a particular time in the future.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["dynamic_pallet_params","dynamic_params"]};

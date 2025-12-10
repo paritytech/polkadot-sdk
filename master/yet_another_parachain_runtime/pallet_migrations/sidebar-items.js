@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HistoricCleanupSelector","MigrationCursor"],"mod":["migrations","mock_helpers","pallet","weights"],"struct":["ActiveCursor","Pallet"],"trait":["Config","DefaultConfig","MockedMigrations","WeightInfo"],"type":["ActiveCursorOf","Cursor","CursorOf","Historic","IdentifierOf","Module","RawCursorOf"]};

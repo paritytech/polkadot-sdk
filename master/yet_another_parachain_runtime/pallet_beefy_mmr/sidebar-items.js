@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["pallet"],"struct":["BeefyEcdsaToEthereum","DepositBeefyDigest","Pallet"],"trait":["BeefyMmrApi","Config","WeightInfo"],"type":["BeefyAuthorities","BeefyNextAuthorities","Module"]};

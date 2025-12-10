@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["create_median_value_data_provider"],"mod":["pallet","traits","weights"],"struct":["DefaultCombineData"],"trait":["BenchmarkHelper"]};

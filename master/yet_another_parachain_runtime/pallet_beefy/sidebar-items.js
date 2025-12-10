@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error"],"mod":["pallet"],"struct":["EquivocationOffence","EquivocationReportSystem","GenesisConfig","Pallet","TimeSlot"],"trait":["Config","WeightInfo"],"type":["Authorities","GenesisBlock","Module","NextAuthorities","SetIdSession","ValidatorSetId"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CHARGE_FEES_OVERRIDE","IS_WAIVED","SENDER_OVERRIDE"],"enum":["Weightless"],"fn":["clear_charge_fees_override","clear_sender_override","set_charge_fees_override","set_fee_waiver","set_sender_override"],"struct":["MockXcmExecutor","MockXcmSender","SuccessfulTransactor"]};

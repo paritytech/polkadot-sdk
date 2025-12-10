@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CatchConstructorFooCalls"],"struct":["constructorCall","myFuncCall","myFuncReturn","ownerCall","ownerReturn"]};

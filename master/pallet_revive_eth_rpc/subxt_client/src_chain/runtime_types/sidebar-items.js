@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bounded_collections","frame_support","frame_system","pallet_balances","pallet_revive","pallet_revive_uapi","pallet_sudo","pallet_timestamp","pallet_transaction_payment","revive_dev_runtime","sp_arithmetic","sp_core","sp_inherents","sp_runtime","sp_version","sp_weights"]};

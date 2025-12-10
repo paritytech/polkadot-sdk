@@ -1,0 +1,208 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Bridge module that has owner and operating mode"><title>OwnedBridgeModule in yet_another_parachain_runtime::bp_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Owned<wbr>Bridge<wbr>Module</a></h2><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.LOG_TARGET" title="LOG_TARGET">LOG_TARGET</a></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.OperatingMode" title="OperatingMode">OperatingMode</a></li><li><a href="#associatedtype.OperatingModeStorage" title="OperatingModeStorage">OperatingModeStorage</a></li><li><a href="#associatedtype.OwnerStorage" title="OwnerStorage">OwnerStorage</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.ensure_not_halted" title="ensure_not_halted">ensure_not_halted</a></li><li><a href="#method.ensure_owner_or_root" title="ensure_owner_or_root">ensure_owner_or_root</a></li><li><a href="#method.is_halted" title="is_halted">is_halted</a></li><li><a href="#method.module_owner" title="module_owner">module_owner</a></li><li><a href="#method.operating_mode" title="operating_mode">operating_mode</a></li><li><a href="#method.set_operating_mode" title="set_operating_mode">set_operating_mode</a></li><li><a href="#method.set_owner" title="set_owner">set_owner</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>bp_<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">bp_runtime</a></div><h1>Trait <span class="trait">OwnedBridgeModule</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/bp_runtime/lib.rs.html#377">Source</a> </span></div><pre class="rust item-decl"><code>pub trait OwnedBridgeModule&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>,</div>{
+    type <a href="#associatedtype.OwnerStorage" class="associatedtype">OwnerStorage</a>: <a class="trait" href="../trait.StorageValue.html" title="trait yet_another_parachain_runtime::StorageValue">StorageValue</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>, Query = <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;;
+    type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a>: <a class="trait" href="trait.OperatingMode.html" title="trait yet_another_parachain_runtime::bp_runtime::OperatingMode">OperatingMode</a>;
+    type <a href="#associatedtype.OperatingModeStorage" class="associatedtype">OperatingModeStorage</a>: <a class="trait" href="../trait.StorageValue.html" title="trait yet_another_parachain_runtime::StorageValue">StorageValue</a>&lt;Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>, Query = Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>&gt;;
+
+    const <a href="#associatedconstant.LOG_TARGET" class="constant">LOG_TARGET</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a>;
+
+    // Provided methods
+    fn <a href="#method.is_halted" class="fn">is_halted</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ensure_owner_or_root" class="fn">ensure_owner_or_root</a>(
+        origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="struct" href="../frame_support/error/struct.BadOrigin.html" title="struct yet_another_parachain_runtime::frame_support::error::BadOrigin">BadOrigin</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ensure_not_halted" class="fn">ensure_not_halted</a>() -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.OwnedBridgeModuleError.html" title="enum yet_another_parachain_runtime::bp_runtime::OwnedBridgeModuleError">OwnedBridgeModuleError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_owner" class="fn">set_owner</a>(
+        origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+        maybe_owner: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_operating_mode" class="fn">set_operating_mode</a>(
+        origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+        operating_mode: Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.module_owner" class="fn">module_owner</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.operating_mode" class="fn">operating_mode</a>() -&gt; Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Bridge module that has owner and operating mode</p>
+</div></details><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.LOG_TARGET" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#379">Source</a><h4 class="code-header">const <a href="#associatedconstant.LOG_TARGET" class="constant">LOG_TARGET</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>The target that will be used when publishing logs related to this module.</p>
+</div></details></div><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.OwnerStorage" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#382">Source</a><h4 class="code-header">type <a href="#associatedtype.OwnerStorage" class="associatedtype">OwnerStorage</a>: <a class="trait" href="../trait.StorageValue.html" title="trait yet_another_parachain_runtime::StorageValue">StorageValue</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>, Query = <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>A storage entry that holds the module <code>Owner</code> account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OperatingMode" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#384">Source</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a>: <a class="trait" href="trait.OperatingMode.html" title="trait yet_another_parachain_runtime::bp_runtime::OperatingMode">OperatingMode</a></h4></section></summary><div class="docblock"><p>Operating mode type of the pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OperatingModeStorage" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#386">Source</a><h4 class="code-header">type <a href="#associatedtype.OperatingModeStorage" class="associatedtype">OperatingModeStorage</a>: <a class="trait" href="../trait.StorageValue.html" title="trait yet_another_parachain_runtime::StorageValue">StorageValue</a>&lt;Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>, Query = Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>&gt;</h4></section></summary><div class="docblock"><p>A storage value that holds the pallet operating mode.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.is_halted" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#389">Source</a><h4 class="code-header">fn <a href="#method.is_halted" class="fn">is_halted</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Check if the module is halted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.ensure_owner_or_root" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#394">Source</a><h4 class="code-header">fn <a href="#method.ensure_owner_or_root" class="fn">ensure_owner_or_root</a>(
+    origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="struct" href="../frame_support/error/struct.BadOrigin.html" title="struct yet_another_parachain_runtime::frame_support::error::BadOrigin">BadOrigin</a>&gt;</h4></section></summary><div class="docblock"><p>Ensure that the origin is either root, or <code>PalletOwner</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.ensure_not_halted" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#405">Source</a><h4 class="code-header">fn <a href="#method.ensure_not_halted" class="fn">ensure_not_halted</a>() -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.OwnedBridgeModuleError.html" title="enum yet_another_parachain_runtime::bp_runtime::OwnedBridgeModuleError">OwnedBridgeModuleError</a>&gt;</h4></section></summary><div class="docblock"><p>Ensure that the module is not halted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_owner" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#413">Source</a><h4 class="code-header">fn <a href="#method.set_owner" class="fn">set_owner</a>(
+    origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+    maybe_owner: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Change the owner of the module.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_operating_mode" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#430-433">Source</a><h4 class="code-header">fn <a href="#method.set_operating_mode" class="fn">set_operating_mode</a>(
+    origin: &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
+    operating_mode: Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Halt or resume all/some module operations.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.module_owner" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#444">Source</a><h4 class="code-header">fn <a href="#method.module_owner" class="fn">module_owner</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>Pallet owner has a right to halt all module operations and then resume it. If it is <code>None</code>,
+then there are no direct ways to halt/resume module operations, but other runtime methods
+may still be used to do that (i.e. democracy::referendum to update halt flag directly
+or call the <code>set_operating_mode</code>).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.operating_mode" class="method"><a class="src rightside" href="../../src/bp_runtime/lib.rs.html#450">Source</a><h4 class="code-header">fn <a href="#method.operating_mode" class="fn">operating_mode</a>() -&gt; Self::<a class="associatedtype" href="trait.OwnedBridgeModule.html#associatedtype.OperatingMode" title="type yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule::OperatingMode">OperatingMode</a></h4></section></summary><div class="docblock"><p>The current operating mode of the module.
+Depending on the mode either all, some, or no transactions will be allowed.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E" class="impl"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#163">Source</a><a href="#impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, I&gt; <a class="trait" href="trait.OwnedBridgeModule.html" title="trait yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule">OwnedBridgeModule</a>&lt;T&gt; for yet_another_parachain_runtime::pallet_bridge_grandpa::<a class="struct" href="../pallet_bridge_grandpa/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::Pallet">Pallet</a>&lt;T, I&gt;<div class="where">where
+    T: <a class="trait" href="../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;I&gt;,
+    I: 'static,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.LOG_TARGET-1" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#164">Source</a><a href="#associatedconstant.LOG_TARGET-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.LOG_TARGET" class="constant">LOG_TARGET</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a> = LOG_TARGET</h4></section><section id="associatedtype.OwnerStorage-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#165">Source</a><a href="#associatedtype.OwnerStorage-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OwnerStorage" class="associatedtype">OwnerStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOwner&lt;T, I&gt;, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;</h4></section><section id="associatedtype.OperatingMode-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#166">Source</a><a href="#associatedtype.OperatingMode-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a> = <a class="enum" href="enum.BasicOperatingMode.html" title="enum yet_another_parachain_runtime::bp_runtime::BasicOperatingMode">BasicOperatingMode</a></h4></section><section id="associatedtype.OperatingModeStorage-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#167">Source</a><a href="#associatedtype.OperatingModeStorage-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingModeStorage" class="associatedtype">OperatingModeStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOperatingMode&lt;T, I&gt;, <a class="enum" href="enum.BasicOperatingMode.html" title="enum yet_another_parachain_runtime::bp_runtime::BasicOperatingMode">BasicOperatingMode</a>, <a class="struct" href="../frame_support/pallet_prelude/struct.ValueQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ValueQuery">ValueQuery</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E-1" class="impl"><a class="src rightside" href="../../src/pallet_bridge_messages/lib.rs.html#161">Source</a><a href="#impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T, I&gt; <a class="trait" href="trait.OwnedBridgeModule.html" title="trait yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule">OwnedBridgeModule</a>&lt;T&gt; for yet_another_parachain_runtime::pallet_bridge_messages::<a class="struct" href="../pallet_bridge_messages/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::Pallet">Pallet</a>&lt;T, I&gt;<div class="where">where
+    T: <a class="trait" href="../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;I&gt;,
+    I: 'static,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.LOG_TARGET-2" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/pallet_bridge_messages/lib.rs.html#162">Source</a><a href="#associatedconstant.LOG_TARGET-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.LOG_TARGET" class="constant">LOG_TARGET</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a> = LOG_TARGET</h4></section><section id="associatedtype.OwnerStorage-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_messages/lib.rs.html#163">Source</a><a href="#associatedtype.OwnerStorage-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OwnerStorage" class="associatedtype">OwnerStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOwner&lt;T, I&gt;, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;</h4></section><section id="associatedtype.OperatingMode-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_messages/lib.rs.html#164">Source</a><a href="#associatedtype.OperatingMode-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a> = <a class="enum" href="../bp_messages/enum.MessagesOperatingMode.html" title="enum yet_another_parachain_runtime::bp_messages::MessagesOperatingMode">MessagesOperatingMode</a></h4></section><section id="associatedtype.OperatingModeStorage-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_messages/lib.rs.html#165">Source</a><a href="#associatedtype.OperatingModeStorage-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingModeStorage" class="associatedtype">OperatingModeStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOperatingMode&lt;T, I&gt;, <a class="enum" href="../bp_messages/enum.MessagesOperatingMode.html" title="enum yet_another_parachain_runtime::bp_messages::MessagesOperatingMode">MessagesOperatingMode</a>, <a class="struct" href="../frame_support/pallet_prelude/struct.ValueQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ValueQuery">ValueQuery</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E-2" class="impl"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#321">Source</a><a href="#impl-OwnedBridgeModule%3CT%3E-for-Pallet%3CT,+I%3E-2" class="anchor">§</a><h3 class="code-header">impl&lt;T, I&gt; <a class="trait" href="trait.OwnedBridgeModule.html" title="trait yet_another_parachain_runtime::bp_runtime::OwnedBridgeModule">OwnedBridgeModule</a>&lt;T&gt; for yet_another_parachain_runtime::pallet_bridge_parachains::<a class="struct" href="../pallet_bridge_parachains/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_bridge_parachains::Pallet">Pallet</a>&lt;T, I&gt;<div class="where">where
+    T: <a class="trait" href="../pallet_bridge_parachains/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_parachains::Config">Config</a>&lt;I&gt;,
+    I: 'static,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.LOG_TARGET-3" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#322">Source</a><a href="#associatedconstant.LOG_TARGET-3" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.LOG_TARGET" class="constant">LOG_TARGET</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.str.html">str</a> = LOG_TARGET</h4></section><section id="associatedtype.OwnerStorage-3" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#323">Source</a><a href="#associatedtype.OwnerStorage-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OwnerStorage" class="associatedtype">OwnerStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOwner&lt;T, I&gt;, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;</h4></section><section id="associatedtype.OperatingMode-3" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#324">Source</a><a href="#associatedtype.OperatingMode-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a> = <a class="enum" href="enum.BasicOperatingMode.html" title="enum yet_another_parachain_runtime::bp_runtime::BasicOperatingMode">BasicOperatingMode</a></h4></section><section id="associatedtype.OperatingModeStorage-3" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#325">Source</a><a href="#associatedtype.OperatingModeStorage-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingModeStorage" class="associatedtype">OperatingModeStorage</a> = <a class="struct" href="../frame_support/pallet_prelude/struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">StorageValue</a>&lt;_GeneratedPrefixForStoragePalletOperatingMode&lt;T, I&gt;, <a class="enum" href="enum.BasicOperatingMode.html" title="enum yet_another_parachain_runtime::bp_runtime::BasicOperatingMode">BasicOperatingMode</a>, <a class="struct" href="../frame_support/pallet_prelude/struct.ValueQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ValueQuery">ValueQuery</a>&gt;</h4></section></div></details></div><script src="../../trait.impl/bp_runtime/trait.OwnedBridgeModule.js" data-ignore-extern-crates="pallet_bridge_messages,pallet_bridge_grandpa,pallet_bridge_parachains" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

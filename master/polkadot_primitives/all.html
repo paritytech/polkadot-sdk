@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_primitives/index.html">polkadot_<wbr>primitives</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.BlakeTwo256.html">BlakeTwo256</a></li><li><a href="struct.CandidateHash.html">CandidateHash</a></li><li><a href="struct.HeadData.html">HeadData</a></li><li><a href="struct.HrmpChannelId.html">HrmpChannelId</a></li><li><a href="struct.Id.html">Id</a></li><li><a href="struct.InboundDownwardMessage.html">InboundDownwardMessage</a></li><li><a href="struct.InboundHrmpMessage.html">InboundHrmpMessage</a></li><li><a href="struct.OutboundHrmpMessage.html">OutboundHrmpMessage</a></li><li><a href="struct.Slot.html">Slot</a></li><li><a href="struct.ValidationCode.html">ValidationCode</a></li><li><a href="struct.ValidationCodeHash.html">ValidationCodeHash</a></li><li><a href="v9/struct.AbridgedHostConfiguration.html">v9::AbridgedHostConfiguration</a></li><li><a href="v9/struct.AbridgedHrmpChannel.html">v9::AbridgedHrmpChannel</a></li><li><a href="v9/struct.ApprovalVote.html">v9::ApprovalVote</a></li><li><a href="v9/struct.ApprovalVoteMultipleCandidates.html">v9::ApprovalVoteMultipleCandidates</a></li><li><a href="v9/struct.ApprovalVotingParams.html">v9::ApprovalVotingParams</a></li><li><a href="v9/struct.AvailabilityBitfield.html">v9::AvailabilityBitfield</a></li><li><a href="v9/struct.BackedCandidate.html">v9::BackedCandidate</a></li><li><a href="v9/struct.BlakeTwo256.html">v9::BlakeTwo256</a></li><li><a href="v9/struct.CandidateCommitments.html">v9::CandidateCommitments</a></li><li><a href="v9/struct.CandidateDescriptorV2.html">v9::CandidateDescriptorV2</a></li><li><a href="v9/struct.CandidateHash.html">v9::CandidateHash</a></li><li><a href="v9/struct.CandidateReceiptV2.html">v9::CandidateReceiptV2</a></li><li><a href="v9/struct.CandidateUMPSignals.html">v9::CandidateUMPSignals</a></li><li><a href="v9/struct.CheckedDisputeStatementSet.html">v9::CheckedDisputeStatementSet</a></li><li><a href="v9/struct.ChunkIndex.html">v9::ChunkIndex</a></li><li><a href="v9/struct.ClaimQueueOffset.html">v9::ClaimQueueOffset</a></li><li><a href="v9/struct.CommittedCandidateReceiptV2.html">v9::CommittedCandidateReceiptV2</a></li><li><a href="v9/struct.CoreIndex.html">v9::CoreIndex</a></li><li><a href="v9/struct.CoreSelector.html">v9::CoreSelector</a></li><li><a href="v9/struct.DisputeState.html">v9::DisputeState</a></li><li><a href="v9/struct.DisputeStatementSet.html">v9::DisputeStatementSet</a></li><li><a href="v9/struct.ExplicitDisputeStatement.html">v9::ExplicitDisputeStatement</a></li><li><a href="v9/struct.GroupIndex.html">v9::GroupIndex</a></li><li><a href="v9/struct.GroupRotationInfo.html">v9::GroupRotationInfo</a></li><li><a href="v9/struct.HeadData.html">v9::HeadData</a></li><li><a href="v9/struct.HrmpChannelId.html">v9::HrmpChannelId</a></li><li><a href="v9/struct.Id.html">v9::Id</a></li><li><a href="v9/struct.InboundDownwardMessage.html">v9::InboundDownwardMessage</a></li><li><a href="v9/struct.InboundHrmpMessage.html">v9::InboundHrmpMessage</a></li><li><a href="v9/struct.IndexedVec.html">v9::IndexedVec</a></li><li><a href="v9/struct.InherentData.html">v9::InherentData</a></li><li><a href="v9/struct.InternalVersion.html">v9::InternalVersion</a></li><li><a href="v9/struct.OccupiedCore.html">v9::OccupiedCore</a></li><li><a href="v9/struct.OutboundHrmpMessage.html">v9::OutboundHrmpMessage</a></li><li><a href="v9/struct.ParaId.html">v9::ParaId</a></li><li><a href="v9/struct.ParathreadClaim.html">v9::ParathreadClaim</a></li><li><a href="v9/struct.ParathreadEntry.html">v9::ParathreadEntry</a></li><li><a href="v9/struct.PersistedValidationData.html">v9::PersistedValidationData</a></li><li><a href="v9/struct.PvfCheckStatement.html">v9::PvfCheckStatement</a></li><li><a href="v9/struct.RuntimeMetricLabel.html">v9::RuntimeMetricLabel</a></li><li><a href="v9/struct.RuntimeMetricLabels.html">v9::RuntimeMetricLabels</a></li><li><a href="v9/struct.RuntimeMetricUpdate.html">v9::RuntimeMetricUpdate</a></li><li><a href="v9/struct.ScheduledCore.html">v9::ScheduledCore</a></li><li><a href="v9/struct.SchedulerParams.html">v9::SchedulerParams</a></li><li><a href="v9/struct.ScrapedOnChainVotes.html">v9::ScrapedOnChainVotes</a></li><li><a href="v9/struct.SessionInfo.html">v9::SessionInfo</a></li><li><a href="v9/struct.Signed.html">v9::Signed</a></li><li><a href="v9/struct.SigningContext.html">v9::SigningContext</a></li><li><a href="v9/struct.Slot.html">v9::Slot</a></li><li><a href="v9/struct.UncheckedExtrinsic.html">v9::UncheckedExtrinsic</a></li><li><a href="v9/struct.UncheckedSigned.html">v9::UncheckedSigned</a></li><li><a href="v9/struct.ValidationCode.html">v9::ValidationCode</a></li><li><a href="v9/struct.ValidationCodeHash.html">v9::ValidationCodeHash</a></li><li><a href="v9/struct.ValidatorIndex.html">v9::ValidatorIndex</a></li><li><a href="v9/struct.WellKnownKey.html">v9::WellKnownKey</a></li><li><a href="v9/async_backing/struct.AsyncBackingParams.html">v9::async_backing::AsyncBackingParams</a></li><li><a href="v9/async_backing/struct.BackingState.html">v9::async_backing::BackingState</a></li><li><a href="v9/async_backing/struct.CandidatePendingAvailability.html">v9::async_backing::CandidatePendingAvailability</a></li><li><a href="v9/async_backing/struct.Constraints.html">v9::async_backing::Constraints</a></li><li><a href="v9/async_backing/struct.InboundHrmpLimitations.html">v9::async_backing::InboundHrmpLimitations</a></li><li><a href="v9/async_backing/struct.OutboundHrmpChannelLimitations.html">v9::async_backing::OutboundHrmpChannelLimitations</a></li><li><a href="v9/executor_params/struct.ExecutorParams.html">v9::executor_params::ExecutorParams</a></li><li><a href="v9/executor_params/struct.ExecutorParamsHash.html">v9::executor_params::ExecutorParamsHash</a></li><li><a href="v9/executor_params/struct.ExecutorParamsPrepHash.html">v9::executor_params::ExecutorParamsPrepHash</a></li><li><a href="v9/metric_definitions/struct.CounterDefinition.html">v9::metric_definitions::CounterDefinition</a></li><li><a href="v9/metric_definitions/struct.CounterVecDefinition.html">v9::metric_definitions::CounterVecDefinition</a></li><li><a href="v9/metric_definitions/struct.HistogramDefinition.html">v9::metric_definitions::HistogramDefinition</a></li><li><a href="v9/slashing/struct.DisputeProof.html">v9::slashing::DisputeProof</a></li><li><a href="v9/slashing/struct.DisputesTimeSlot.html">v9::slashing::DisputesTimeSlot</a></li><li><a href="v9/slashing/struct.LegacyPendingSlashes.html">v9::slashing::LegacyPendingSlashes</a></li><li><a href="v9/slashing/struct.OpaqueKeyOwnershipProof.html">v9::slashing::OpaqueKeyOwnershipProof</a></li><li><a href="v9/slashing/struct.PendingSlashes.html">v9::slashing::PendingSlashes</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="v9/enum.CandidateDescriptorVersion.html">v9::CandidateDescriptorVersion</a></li><li><a href="v9/enum.CandidateEvent.html">v9::CandidateEvent</a></li><li><a href="v9/enum.CommittedCandidateReceiptError.html">v9::CommittedCandidateReceiptError</a></li><li><a href="v9/enum.CompactStatement.html">v9::CompactStatement</a></li><li><a href="v9/enum.ConsensusLog.html">v9::ConsensusLog</a></li><li><a href="v9/enum.CoreState.html">v9::CoreState</a></li><li><a href="v9/enum.DisputeOffenceKind.html">v9::DisputeOffenceKind</a></li><li><a href="v9/enum.DisputeStatement.html">v9::DisputeStatement</a></li><li><a href="v9/enum.InvalidDisputeStatementKind.html">v9::InvalidDisputeStatementKind</a></li><li><a href="v9/enum.OccupiedCoreAssumption.html">v9::OccupiedCoreAssumption</a></li><li><a href="v9/enum.PvfExecKind.html">v9::PvfExecKind</a></li><li><a href="v9/enum.PvfPrepKind.html">v9::PvfPrepKind</a></li><li><a href="v9/enum.RuntimeMetricOp.html">v9::RuntimeMetricOp</a></li><li><a href="v9/enum.UMPSignal.html">v9::UMPSignal</a></li><li><a href="v9/enum.UpgradeGoAhead.html">v9::UpgradeGoAhead</a></li><li><a href="v9/enum.UpgradeRestriction.html">v9::UpgradeRestriction</a></li><li><a href="v9/enum.ValidDisputeStatementKind.html">v9::ValidDisputeStatementKind</a></li><li><a href="v9/enum.ValidityAttestation.html">v9::ValidityAttestation</a></li><li><a href="v9/enum.ValidityError.html">v9::ValidityError</a></li><li><a href="v9/executor_params/enum.ExecutorParam.html">v9::executor_params::ExecutorParam</a></li><li><a href="v9/executor_params/enum.ExecutorParamError.html">v9::executor_params::ExecutorParamError</a></li><li><a href="v9/node_features/enum.FeatureIndex.html">v9::node_features::FeatureIndex</a></li><li><a href="v9/slashing/enum.SlashingOffenceKind.html">v9::slashing::SlashingOffenceKind</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.AppVerify.html">AppVerify</a></li><li><a href="trait.HashT.html">HashT</a></li><li><a href="runtime_api/trait.ParachainHost.html">runtime_api::ParachainHost</a></li><li><a href="v9/trait.AppVerify.html">v9::AppVerify</a></li><li><a href="v9/trait.EncodeAs.html">v9::EncodeAs</a></li><li><a href="v9/trait.HashT.html">v9::HashT</a></li><li><a href="v9/trait.HeaderT.html">v9::HeaderT</a></li><li><a href="v9/trait.MutateDescriptorV2.html">v9::MutateDescriptorV2</a></li><li><a href="v9/trait.TypeIndex.html">v9::TypeIndex</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="v9/fn.byzantine_threshold.html">v9::byzantine_threshold</a></li><li><a href="v9/fn.check_candidate_backing.html">v9::check_candidate_backing</a></li><li><a href="v9/fn.effective_minimum_backing_votes.html">v9::effective_minimum_backing_votes</a></li><li><a href="v9/fn.skip_ump_signals.html">v9::skip_ump_signals</a></li><li><a href="v9/fn.supermajority_threshold.html">v9::supermajority_threshold</a></li><li><a href="v9/fn.transpose_claim_queue.html">v9::transpose_claim_queue</a></li><li><a href="v9/well_known_keys/fn.dmq_mqc_head.html">v9::well_known_keys::dmq_mqc_head</a></li><li><a href="v9/well_known_keys/fn.hrmp_channels.html">v9::well_known_keys::hrmp_channels</a></li><li><a href="v9/well_known_keys/fn.hrmp_egress_channel_index.html">v9::well_known_keys::hrmp_egress_channel_index</a></li><li><a href="v9/well_known_keys/fn.hrmp_ingress_channel_index.html">v9::well_known_keys::hrmp_ingress_channel_index</a></li><li><a href="v9/well_known_keys/fn.para_head.html">v9::well_known_keys::para_head</a></li><li><a href="v9/well_known_keys/fn.relay_dispatch_queue_remaining_capacity.html">v9::well_known_keys::relay_dispatch_queue_remaining_capacity</a></li><li><a href="v9/well_known_keys/fn.relay_dispatch_queue_size.html">v9::well_known_keys::relay_dispatch_queue_size</a></li><li><a href="v9/well_known_keys/fn.relay_dispatch_queue_size_typed.html">v9::well_known_keys::relay_dispatch_queue_size_typed</a></li><li><a href="v9/well_known_keys/fn.upgrade_go_ahead_signal.html">v9::well_known_keys::upgrade_go_ahead_signal</a></li><li><a href="v9/well_known_keys/fn.upgrade_restriction_signal.html">v9::well_known_keys::upgrade_restriction_signal</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.AccountId.html">AccountId</a></li><li><a href="type.AccountIndex.html">AccountIndex</a></li><li><a href="type.AccountPublic.html">AccountPublic</a></li><li><a href="type.AuthorityDiscoveryId.html">AuthorityDiscoveryId</a></li><li><a href="type.Balance.html">Balance</a></li><li><a href="type.Block.html">Block</a></li><li><a href="type.BlockId.html">BlockId</a></li><li><a href="type.BlockNumber.html">BlockNumber</a></li><li><a href="type.DownwardMessage.html">DownwardMessage</a></li><li><a href="type.Hash.html">Hash</a></li><li><a href="type.Header.html">Header</a></li><li><a href="type.HorizontalMessages.html">HorizontalMessages</a></li><li><a href="type.Moment.html">Moment</a></li><li><a href="type.Nonce.html">Nonce</a></li><li><a href="type.SessionIndex.html">SessionIndex</a></li><li><a href="type.Signature.html">Signature</a></li><li><a href="type.UpwardMessage.html">UpwardMessage</a></li><li><a href="v9/type.AccountId.html">v9::AccountId</a></li><li><a href="v9/type.AccountIndex.html">v9::AccountIndex</a></li><li><a href="v9/type.AccountPublic.html">v9::AccountPublic</a></li><li><a href="v9/type.ApprovedPeerId.html">v9::ApprovedPeerId</a></li><li><a href="v9/type.AssignmentId.html">v9::AssignmentId</a></li><li><a href="v9/type.AssignmentPair.html">v9::AssignmentPair</a></li><li><a href="v9/type.AuthorityDiscoveryId.html">v9::AuthorityDiscoveryId</a></li><li><a href="v9/type.Balance.html">v9::Balance</a></li><li><a href="v9/type.Block.html">v9::Block</a></li><li><a href="v9/type.BlockId.html">v9::BlockId</a></li><li><a href="v9/type.BlockNumber.html">v9::BlockNumber</a></li><li><a href="v9/type.CandidateIndex.html">v9::CandidateIndex</a></li><li><a href="v9/type.ChainId.html">v9::ChainId</a></li><li><a href="v9/type.CheckedMultiDisputeStatementSet.html">v9::CheckedMultiDisputeStatementSet</a></li><li><a href="v9/type.CollatorId.html">v9::CollatorId</a></li><li><a href="v9/type.CollatorPair.html">v9::CollatorPair</a></li><li><a href="v9/type.CollatorSignature.html">v9::CollatorSignature</a></li><li><a href="v9/type.DownwardMessage.html">v9::DownwardMessage</a></li><li><a href="v9/type.Hash.html">v9::Hash</a></li><li><a href="v9/type.Header.html">v9::Header</a></li><li><a href="v9/type.HorizontalMessages.html">v9::HorizontalMessages</a></li><li><a href="v9/type.Moment.html">v9::Moment</a></li><li><a href="v9/type.MultiDisputeStatementSet.html">v9::MultiDisputeStatementSet</a></li><li><a href="v9/type.NodeFeatures.html">v9::NodeFeatures</a></li><li><a href="v9/type.Nonce.html">v9::Nonce</a></li><li><a href="v9/type.Remark.html">v9::Remark</a></li><li><a href="v9/type.RuntimeMetricLabelValue.html">v9::RuntimeMetricLabelValue</a></li><li><a href="v9/type.RuntimeMetricLabelValues.html">v9::RuntimeMetricLabelValues</a></li><li><a href="v9/type.SessionIndex.html">v9::SessionIndex</a></li><li><a href="v9/type.Signature.html">v9::Signature</a></li><li><a href="v9/type.SignedAvailabilityBitfield.html">v9::SignedAvailabilityBitfield</a></li><li><a href="v9/type.SignedAvailabilityBitfields.html">v9::SignedAvailabilityBitfields</a></li><li><a href="v9/type.SignedStatement.html">v9::SignedStatement</a></li><li><a href="v9/type.TransposedClaimQueue.html">v9::TransposedClaimQueue</a></li><li><a href="v9/type.UncheckedSignedAvailabilityBitfield.html">v9::UncheckedSignedAvailabilityBitfield</a></li><li><a href="v9/type.UncheckedSignedAvailabilityBitfields.html">v9::UncheckedSignedAvailabilityBitfields</a></li><li><a href="v9/type.UncheckedSignedStatement.html">v9::UncheckedSignedStatement</a></li><li><a href="v9/type.UpwardMessage.html">v9::UpwardMessage</a></li><li><a href="v9/type.UpwardMessages.html">v9::UpwardMessages</a></li><li><a href="v9/type.ValidatorId.html">v9::ValidatorId</a></li><li><a href="v9/type.ValidatorPair.html">v9::ValidatorPair</a></li><li><a href="v9/type.ValidatorSignature.html">v9::ValidatorSignature</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.LOWEST_PUBLIC_ID.html">LOWEST_PUBLIC_ID</a></li><li><a href="v9/constant.ASSIGNMENT_KEY_TYPE_ID.html">v9::ASSIGNMENT_KEY_TYPE_ID</a></li><li><a href="v9/constant.COLLATOR_KEY_TYPE_ID.html">v9::COLLATOR_KEY_TYPE_ID</a></li><li><a href="v9/constant.DEFAULT_CLAIM_QUEUE_OFFSET.html">v9::DEFAULT_CLAIM_QUEUE_OFFSET</a></li><li><a href="v9/constant.DEFAULT_SCHEDULING_LOOKAHEAD.html">v9::DEFAULT_SCHEDULING_LOOKAHEAD</a></li><li><a href="v9/constant.LEGACY_MIN_BACKING_VOTES.html">v9::LEGACY_MIN_BACKING_VOTES</a></li><li><a href="v9/constant.LOWEST_PUBLIC_ID.html">v9::LOWEST_PUBLIC_ID</a></li><li><a href="v9/constant.MAX_CODE_SIZE.html">v9::MAX_CODE_SIZE</a></li><li><a href="v9/constant.MAX_HEAD_DATA_SIZE.html">v9::MAX_HEAD_DATA_SIZE</a></li><li><a href="v9/constant.MAX_POV_SIZE.html">v9::MAX_POV_SIZE</a></li><li><a href="v9/constant.MIN_CODE_SIZE.html">v9::MIN_CODE_SIZE</a></li><li><a href="v9/constant.ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE.html">v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE</a></li><li><a href="v9/constant.ON_DEMAND_MAX_QUEUE_MAX_SIZE.html">v9::ON_DEMAND_MAX_QUEUE_MAX_SIZE</a></li><li><a href="v9/constant.PARACHAINS_INHERENT_IDENTIFIER.html">v9::PARACHAINS_INHERENT_IDENTIFIER</a></li><li><a href="v9/constant.PARACHAIN_KEY_TYPE_ID.html">v9::PARACHAIN_KEY_TYPE_ID</a></li><li><a href="v9/constant.POLKADOT_ENGINE_ID.html">v9::POLKADOT_ENGINE_ID</a></li><li><a href="v9/constant.UMP_SEPARATOR.html">v9::UMP_SEPARATOR</a></li><li><a href="v9/executor_params/constant.DEFAULT_APPROVAL_EXECUTION_TIMEOUT.html">v9::executor_params::DEFAULT_APPROVAL_EXECUTION_TIMEOUT</a></li><li><a href="v9/executor_params/constant.DEFAULT_BACKING_EXECUTION_TIMEOUT.html">v9::executor_params::DEFAULT_BACKING_EXECUTION_TIMEOUT</a></li><li><a href="v9/executor_params/constant.DEFAULT_LENIENT_PREPARATION_TIMEOUT.html">v9::executor_params::DEFAULT_LENIENT_PREPARATION_TIMEOUT</a></li><li><a href="v9/executor_params/constant.DEFAULT_LOGICAL_STACK_MAX.html">v9::executor_params::DEFAULT_LOGICAL_STACK_MAX</a></li><li><a href="v9/executor_params/constant.DEFAULT_NATIVE_STACK_MAX.html">v9::executor_params::DEFAULT_NATIVE_STACK_MAX</a></li><li><a href="v9/executor_params/constant.DEFAULT_PRECHECK_PREPARATION_TIMEOUT.html">v9::executor_params::DEFAULT_PRECHECK_PREPARATION_TIMEOUT</a></li><li><a href="v9/executor_params/constant.LOGICAL_MAX_HI.html">v9::executor_params::LOGICAL_MAX_HI</a></li><li><a href="v9/executor_params/constant.LOGICAL_MAX_LO.html">v9::executor_params::LOGICAL_MAX_LO</a></li><li><a href="v9/executor_params/constant.MEMORY_PAGES_MAX.html">v9::executor_params::MEMORY_PAGES_MAX</a></li><li><a href="v9/executor_params/constant.PRECHECK_MEM_MAX_HI.html">v9::executor_params::PRECHECK_MEM_MAX_HI</a></li><li><a href="v9/executor_params/constant.PRECHECK_MEM_MAX_LO.html">v9::executor_params::PRECHECK_MEM_MAX_LO</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_CREATE_INHERENT_BITFIELDS_SIGNATURE_CHECKS.html">v9::metric_definitions::PARACHAIN_CREATE_INHERENT_BITFIELDS_SIGNATURE_CHECKS</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED.html">v9::metric_definitions::PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_INHERENT_DATA_CANDIDATES_PROCESSED.html">v9::metric_definitions::PARACHAIN_INHERENT_DATA_CANDIDATES_PROCESSED</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_INHERENT_DATA_DISPUTE_SETS_PROCESSED.html">v9::metric_definitions::PARACHAIN_INHERENT_DATA_DISPUTE_SETS_PROCESSED</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_INHERENT_DATA_WEIGHT.html">v9::metric_definitions::PARACHAIN_INHERENT_DATA_WEIGHT</a></li><li><a href="v9/metric_definitions/constant.PARACHAIN_VERIFY_DISPUTE_SIGNATURE.html">v9::metric_definitions::PARACHAIN_VERIFY_DISPUTE_SIGNATURE</a></li><li><a href="v9/well_known_keys/constant.ACTIVE_CONFIG.html">v9::well_known_keys::ACTIVE_CONFIG</a></li><li><a href="v9/well_known_keys/constant.AUTHORITIES.html">v9::well_known_keys::AUTHORITIES</a></li><li><a href="v9/well_known_keys/constant.CURRENT_BLOCK_RANDOMNESS.html">v9::well_known_keys::CURRENT_BLOCK_RANDOMNESS</a></li><li><a href="v9/well_known_keys/constant.CURRENT_SLOT.html">v9::well_known_keys::CURRENT_SLOT</a></li><li><a href="v9/well_known_keys/constant.EPOCH_INDEX.html">v9::well_known_keys::EPOCH_INDEX</a></li><li><a href="v9/well_known_keys/constant.NEXT_AUTHORITIES.html">v9::well_known_keys::NEXT_AUTHORITIES</a></li><li><a href="v9/well_known_keys/constant.ONE_EPOCH_AGO_RANDOMNESS.html">v9::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS</a></li><li><a href="v9/well_known_keys/constant.TWO_EPOCHS_AGO_RANDOMNESS.html">v9::well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

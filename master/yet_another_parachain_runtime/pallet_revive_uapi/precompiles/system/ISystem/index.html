@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Module containing a contract’s types and functions."><title>yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module ISystem</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>revive_<wbr>uapi::<wbr>precompiles::<wbr>system</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../../index.html">pallet_revive_uapi</a>::<wbr><a href="../../index.html">precompiles</a>::<wbr><a href="../index.html">system</a></div><h1>Module <span>ISystem</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../src/pallet_revive_uapi/precompiles/system.rs.html#25">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Module containing a contract’s types and functions.</p>
+<div class="example-wrap"><pre class="language-solidity"><code>interface ISystem {
+    function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
+    function hashBlake128(bytes memory input) external pure returns (bytes32 digest);
+    function toAccountId(address input) external view returns (bytes memory account_id);
+    function callerIsOrigin() external view returns (bool);
+    function callerIsRoot() external view returns (bool);
+    function minimumBalance() external view returns (uint);
+    function ownCodeHash() external view returns (bytes32);
+    function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
+    function terminate(address beneficiary) external;
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.callerIsOriginCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::callerIsOriginCall">caller<wbr>IsOrigin<wbr>Call</a></dt><dd>Checks whether the caller of the contract calling this function is the origin
+of the whole call stack.
+Function with signature <code>callerIsOrigin()</code> and selector <code>0x9098d8c1</code>.</dd><dt><a class="struct" href="struct.callerIsOriginReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::callerIsOriginReturn">caller<wbr>IsOrigin<wbr>Return</a></dt><dd>Checks whether the caller of the contract calling this function is the origin
+of the whole call stack.
+Container type for the return parameters of the <a href="struct.callerIsOriginCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::callerIsOriginCall"><code>callerIsOrigin()</code></a> function.</dd><dt><a class="struct" href="struct.callerIsRootCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::callerIsRootCall">caller<wbr>IsRoot<wbr>Call</a></dt><dd>Checks whether the caller of the contract calling this function is root.</dd><dt><a class="struct" href="struct.callerIsRootReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::callerIsRootReturn">caller<wbr>IsRoot<wbr>Return</a></dt><dd>Checks whether the caller of the contract calling this function is root.</dd><dt><a class="struct" href="struct.hashBlake128Call.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake128Call">hash<wbr>Blake128<wbr>Call</a></dt><dd>Computes the BLAKE2 128-bit hash on the given input.
+Function with signature <code>hashBlake128(bytes)</code> and selector <code>0xa63b6983</code>.</dd><dt><a class="struct" href="struct.hashBlake128Return.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake128Return">hash<wbr>Blake128<wbr>Return</a></dt><dd>Computes the BLAKE2 128-bit hash on the given input.
+Container type for the return parameters of the <a href="struct.hashBlake128Call.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake128Call"><code>hashBlake128(bytes)</code></a> function.</dd><dt><a class="struct" href="struct.hashBlake256Call.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake256Call">hash<wbr>Blake256<wbr>Call</a></dt><dd>Computes the BLAKE2 256-bit hash on the given input.
+Function with signature <code>hashBlake256(bytes)</code> and selector <code>0xc7dff686</code>.</dd><dt><a class="struct" href="struct.hashBlake256Return.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake256Return">hash<wbr>Blake256<wbr>Return</a></dt><dd>Computes the BLAKE2 256-bit hash on the given input.
+Container type for the return parameters of the <a href="struct.hashBlake256Call.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::hashBlake256Call"><code>hashBlake256(bytes)</code></a> function.</dd><dt><a class="struct" href="struct.minimumBalanceCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::minimumBalanceCall">minimum<wbr>Balance<wbr>Call</a></dt><dd>Returns the minimum balance that is required for creating an account
+(the existential deposit).
+Function with signature <code>minimumBalance()</code> and selector <code>0xb9d1d49b</code>.</dd><dt><a class="struct" href="struct.minimumBalanceReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::minimumBalanceReturn">minimum<wbr>Balance<wbr>Return</a></dt><dd>Returns the minimum balance that is required for creating an account
+(the existential deposit).
+Container type for the return parameters of the <a href="struct.minimumBalanceCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::minimumBalanceCall"><code>minimumBalance()</code></a> function.</dd><dt><a class="struct" href="struct.ownCodeHashCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::ownCodeHashCall">ownCode<wbr>Hash<wbr>Call</a></dt><dd>Returns the code hash of the caller.
+Function with signature <code>ownCodeHash()</code> and selector <code>0xdb6bdc8a</code>.</dd><dt><a class="struct" href="struct.ownCodeHashReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::ownCodeHashReturn">ownCode<wbr>Hash<wbr>Return</a></dt><dd>Returns the code hash of the caller.
+Container type for the return parameters of the <a href="struct.ownCodeHashCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::ownCodeHashCall"><code>ownCodeHash()</code></a> function.</dd><dt><a class="struct" href="struct.terminateCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::terminateCall">terminate<wbr>Call</a></dt><dd>Terminate the calling contract of this function and send balance to <code>beneficiary</code>.
+This will revert if:</dd><dt><a class="struct" href="struct.terminateReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::terminateReturn">terminate<wbr>Return</a></dt><dd>Terminate the calling contract of this function and send balance to <code>beneficiary</code>.
+This will revert if:</dd><dt><a class="struct" href="struct.toAccountIdCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::toAccountIdCall">toAccount<wbr>IdCall</a></dt><dd>Retrieve the account id for a specified <code>H160</code> address.</dd><dt><a class="struct" href="struct.toAccountIdReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::toAccountIdReturn">toAccount<wbr>IdReturn</a></dt><dd>Retrieve the account id for a specified <code>H160</code> address.</dd><dt><a class="struct" href="struct.weightLeftCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::weightLeftCall">weight<wbr>Left<wbr>Call</a></dt><dd>Returns the amount of <code>Weight</code> left.
+Function with signature <code>weightLeft()</code> and selector <code>0x8d29dffb</code>.</dd><dt><a class="struct" href="struct.weightLeftReturn.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::weightLeftReturn">weight<wbr>Left<wbr>Return</a></dt><dd>Returns the amount of <code>Weight</code> left.
+Container type for the return parameters of the <a href="struct.weightLeftCall.html" title="struct yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::weightLeftCall"><code>weightLeft()</code></a> function.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ISystemCalls.html" title="enum yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem::ISystemCalls">ISystem<wbr>Calls</a></dt><dd>Container for all the <a href="index.html" title="mod yet_another_parachain_runtime::pallet_revive_uapi::precompiles::system::ISystem"><code>ISystem</code></a> function calls.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

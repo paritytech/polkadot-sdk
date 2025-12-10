@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"struct":["GenesisConfig","Pallet"],"trait":["Config"],"type":["AutoRenewals","Configuration","CoreCountInbox","InstaPoolContribution","InstaPoolHistory","InstaPoolIo","Leases","Module","PotentialRenewals","Regions","Reservations","RevenueInbox","SaleInfo","Status","Workload","Workplan"]};

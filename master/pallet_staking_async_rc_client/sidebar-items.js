@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["log"],"mod":["pallet"],"struct":["Offence","SessionReport","ValidatorSetReport","XCMSender"],"trait":["AHStakingInterface","RcClientInterface","SendToAssetHub","SendToRelayChain","SplittableMessage"]};

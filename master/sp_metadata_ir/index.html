@@ -1,0 +1,160 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Intermediate representation of the runtime metadata."><title>sp_metadata_ir - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_metadata_ir" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_metadata_ir/index.html">sp_<wbr>metadata_<wbr>ir</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sp_metadata_ir</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sp_metadata_ir/lib.rs.html#18-163">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Intermediate representation of the runtime metadata.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.EnumDeprecationInfoIR.html" title="struct sp_metadata_ir::EnumDeprecationInfoIR">Enum<wbr>Deprecation<wbr>InfoIR</a></dt><dd>Deprecation information for enums in which specific variants can be deprecated.
+If the map is empty, then nothing is deprecated.</dd><dt><a class="struct" href="struct.ExtrinsicMetadataIR.html" title="struct sp_metadata_ir::ExtrinsicMetadataIR">Extrinsic<wbr>MetadataIR</a></dt><dd>Metadata of the extrinsic used by the runtime.</dd><dt><a class="struct" href="struct.MetadataIR.html" title="struct sp_metadata_ir::MetadataIR">MetadataIR</a></dt><dd>The intermediate representation for the runtime metadata.
+Contains the needed context that allows conversion to multiple metadata versions.</dd><dt><a class="struct" href="struct.OuterEnumsIR.html" title="struct sp_metadata_ir::OuterEnumsIR">Outer<wbr>EnumsIR</a></dt><dd>The type of the outer enums.</dd><dt><a class="struct" href="struct.PalletAssociatedTypeMetadataIR.html" title="struct sp_metadata_ir::PalletAssociatedTypeMetadataIR">Pallet<wbr>Associated<wbr>Type<wbr>MetadataIR</a></dt><dd>Metadata of a pallet’s associated type.</dd><dt><a class="struct" href="struct.PalletCallMetadataIR.html" title="struct sp_metadata_ir::PalletCallMetadataIR">Pallet<wbr>Call<wbr>MetadataIR</a></dt><dd>Metadata for all calls in a pallet</dd><dt><a class="struct" href="struct.PalletConstantMetadataIR.html" title="struct sp_metadata_ir::PalletConstantMetadataIR">Pallet<wbr>Constant<wbr>MetadataIR</a></dt><dd>Metadata about one pallet constant.</dd><dt><a class="struct" href="struct.PalletErrorMetadataIR.html" title="struct sp_metadata_ir::PalletErrorMetadataIR">Pallet<wbr>Error<wbr>MetadataIR</a></dt><dd>Metadata about a pallet error.</dd><dt><a class="struct" href="struct.PalletEventMetadataIR.html" title="struct sp_metadata_ir::PalletEventMetadataIR">Pallet<wbr>Event<wbr>MetadataIR</a></dt><dd>Metadata about the pallet Event type.</dd><dt><a class="struct" href="struct.PalletMetadataIR.html" title="struct sp_metadata_ir::PalletMetadataIR">Pallet<wbr>MetadataIR</a></dt><dd>The intermediate representation for a pallet metadata.</dd><dt><a class="struct" href="struct.PalletStorageMetadataIR.html" title="struct sp_metadata_ir::PalletStorageMetadataIR">Pallet<wbr>Storage<wbr>MetadataIR</a></dt><dd>All metadata of the pallet’s storage.
+The common prefix used by all storage entries.</dd><dt><a class="struct" href="struct.PalletViewFunctionMetadataIR.html" title="struct sp_metadata_ir::PalletViewFunctionMetadataIR">Pallet<wbr>View<wbr>Function<wbr>MetadataIR</a></dt><dd>Metadata of a pallet view function method.</dd><dt><a class="struct" href="struct.PalletViewFunctionParamMetadataIR.html" title="struct sp_metadata_ir::PalletViewFunctionParamMetadataIR">Pallet<wbr>View<wbr>Function<wbr>Param<wbr>MetadataIR</a></dt><dd>Metadata of a pallet view function method argument.</dd><dt><a class="struct" href="struct.RuntimeApiMetadataIR.html" title="struct sp_metadata_ir::RuntimeApiMetadataIR">Runtime<wbr>ApiMetadataIR</a></dt><dd>Metadata of a runtime trait.</dd><dt><a class="struct" href="struct.RuntimeApiMethodMetadataIR.html" title="struct sp_metadata_ir::RuntimeApiMethodMetadataIR">Runtime<wbr>ApiMethod<wbr>MetadataIR</a></dt><dd>Metadata of a runtime method.</dd><dt><a class="struct" href="struct.RuntimeApiMethodParamMetadataIR.html" title="struct sp_metadata_ir::RuntimeApiMethodParamMetadataIR">Runtime<wbr>ApiMethod<wbr>Param<wbr>MetadataIR</a></dt><dd>Metadata of a runtime method parameter.</dd><dt><a class="struct" href="struct.StorageEntryMetadataIR.html" title="struct sp_metadata_ir::StorageEntryMetadataIR">Storage<wbr>Entry<wbr>MetadataIR</a></dt><dd>Metadata about one storage entry.</dd><dt><a class="struct" href="struct.TransactionExtensionMetadataIR.html" title="struct sp_metadata_ir::TransactionExtensionMetadataIR">Transaction<wbr>Extension<wbr>MetadataIR</a></dt><dd>Metadata of an extrinsic’s signed extension.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ItemDeprecationInfoIR.html" title="enum sp_metadata_ir::ItemDeprecationInfoIR">Item<wbr>Deprecation<wbr>InfoIR</a></dt><dd>Deprecation information for generic items.</dd><dt><a class="enum" href="enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::StorageEntryModifierIR">Storage<wbr>Entry<wbr>ModifierIR</a></dt><dd>A storage entry modifier indicates how a storage entry is returned when fetched and what the
+value will be if the key is not present. Specifically this refers to the “return type” when
+fetching a storage entry, and what the value will be if the key is not present.</dd><dt><a class="enum" href="enum.StorageEntryTypeIR.html" title="enum sp_metadata_ir::StorageEntryTypeIR">Storage<wbr>Entry<wbr>TypeIR</a></dt><dd>A type of storage value.</dd><dt><a class="enum" href="enum.StorageHasherIR.html" title="enum sp_metadata_ir::StorageHasherIR">Storage<wbr>HasherIR</a></dt><dd>Hasher used by storage maps</dd><dt><a class="enum" href="enum.VariantDeprecationInfoIR.html" title="enum sp_metadata_ir::VariantDeprecationInfoIR">Variant<wbr>Deprecation<wbr>InfoIR</a></dt><dd>Deprecation information for an item or variant in the metadata.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.into_latest.html" title="fn sp_metadata_ir::into_latest">into_<wbr>latest</a></dt><dd>Transform the IR to the latest stable metadata version.</dd><dt><a class="fn" href="fn.into_v14.html" title="fn sp_metadata_ir::into_v14">into_<wbr>v14</a></dt><dd>Transform the IR to metadata version 14.</dd><dt><a class="fn" href="fn.into_v15.html" title="fn sp_metadata_ir::into_v15">into_<wbr>v15</a></dt><dd>Transform the IR to metadata version 15.</dd><dt><a class="fn" href="fn.into_v16.html" title="fn sp_metadata_ir::into_v16">into_<wbr>v16</a></dt><dd>Transform the IR to metadata version 16.</dd><dt><a class="fn" href="fn.into_version.html" title="fn sp_metadata_ir::into_version">into_<wbr>version</a></dt><dd>Transform the IR to the specified version.</dd><dt><a class="fn" href="fn.supported_versions.html" title="fn sp_metadata_ir::supported_versions">supported_<wbr>versions</a></dt><dd>Returns the supported metadata versions.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

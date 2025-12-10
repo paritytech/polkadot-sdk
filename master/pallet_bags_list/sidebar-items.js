@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["log"],"mod":["example","list","migrations","mock","pallet","weights"]};

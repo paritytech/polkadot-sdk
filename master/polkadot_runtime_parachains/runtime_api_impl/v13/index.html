@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A module exporting runtime API implementation functions for all runtime APIs using `v5` primitives."><title>polkadot_runtime_parachains::runtime_api_impl::v13 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_runtime_parachains/index.html">polkadot_<wbr>runtime_<wbr>parachains</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module v13</a></h2><h3><a href="#functions">Module Items</a></h3><ul class="block"><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>runtime_<wbr>parachains::<wbr>runtime_<wbr>api_<wbr>impl</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_runtime_parachains</a>::<wbr><a href="../index.html">runtime_api_impl</a></div><h1>Module <span>v13</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_runtime_parachains/runtime_api_impl/v13.rs.html#14-581">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A module exporting runtime API implementation functions for all runtime APIs using <code>v5</code>
+primitives.</p>
+<p>Runtimes implementing the v13 runtime API are recommended to forward directly to these
+functions.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.approval_voting_params.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::approval_voting_params">approval_<wbr>voting_<wbr>params</a></dt><dd>Approval voting subsystem configuration parameters</dd><dt><a class="fn" href="fn.assumed_validation_data.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::assumed_validation_data">assumed_<wbr>validation_<wbr>data</a></dt><dd>Implementation for the <code>assumed_validation_data</code> function of the runtime API.</dd><dt><a class="fn" href="fn.async_backing_params.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::async_backing_params">async_<wbr>backing_<wbr>params</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Implementation for <code>AsyncBackingParams</code> function from the runtime API</dd><dt><a class="fn" href="fn.availability_cores.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::availability_cores">availability_<wbr>cores</a></dt><dd>Implementation for the <code>availability_cores</code> function of the runtime API.</dd><dt><a class="fn" href="fn.backing_constraints.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::backing_constraints">backing_<wbr>constraints</a></dt><dt><a class="fn" href="fn.backing_state.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::backing_state">backing_<wbr>state</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Implementation for <code>ParaBackingState</code> function from the runtime API</dd><dt><a class="fn" href="fn.candidate_events.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::candidate_events">candidate_<wbr>events</a></dt><dd>Implementation for the <code>candidate_events</code> function of the runtime API.</dd><dt><a class="fn" href="fn.candidate_pending_availability.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::candidate_pending_availability">candidate_<wbr>pending_<wbr>availability</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Implementation for the <code>candidate_pending_availability</code> function of the runtime API.</dd><dt><a class="fn" href="fn.candidates_pending_availability.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::candidates_pending_availability">candidates_<wbr>pending_<wbr>availability</a></dt><dd>Returns all the candidates that are pending availability for a given <code>ParaId</code>.
+Deprecates <code>candidate_pending_availability</code> in favor of supporting elastic scaling.</dd><dt><a class="fn" href="fn.check_validation_outputs.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::check_validation_outputs">check_<wbr>validation_<wbr>outputs</a></dt><dd>Implementation for the <code>check_validation_outputs</code> function of the runtime API.</dd><dt><a class="fn" href="fn.claim_queue.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::claim_queue">claim_<wbr>queue</a></dt><dd>Returns the claimqueue from the scheduler</dd><dt><a class="fn" href="fn.disabled_validators.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::disabled_validators">disabled_<wbr>validators</a></dt><dd>Implementation for <code>DisabledValidators</code></dd><dt><a class="fn" href="fn.dmq_contents.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::dmq_contents">dmq_<wbr>contents</a></dt><dd>Implementation for the <code>dmq_contents</code> function of the runtime API.</dd><dt><a class="fn" href="fn.get_session_disputes.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::get_session_disputes">get_<wbr>session_<wbr>disputes</a></dt><dd>Implementation for <code>get_session_disputes</code> function from the runtime API</dd><dt><a class="fn" href="fn.inbound_hrmp_channels_contents.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::inbound_hrmp_channels_contents">inbound_<wbr>hrmp_<wbr>channels_<wbr>contents</a></dt><dd>Implementation for the <code>inbound_hrmp_channels_contents</code> function of the runtime API.</dd><dt><a class="fn" href="fn.minimum_backing_votes.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::minimum_backing_votes">minimum_<wbr>backing_<wbr>votes</a></dt><dd>Return the min backing votes threshold from the configuration.</dd><dt><a class="fn" href="fn.node_features.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::node_features">node_<wbr>features</a></dt><dd>Returns the current state of the node features.</dd><dt><a class="fn" href="fn.on_chain_votes.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::on_chain_votes">on_<wbr>chain_<wbr>votes</a></dt><dd>Disputes imported via means of on-chain imports.</dd><dt><a class="fn" href="fn.persisted_validation_data.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::persisted_validation_data">persisted_<wbr>validation_<wbr>data</a></dt><dd>Implementation for the <code>persisted_validation_data</code> function of the runtime API.</dd><dt><a class="fn" href="fn.pvfs_require_precheck.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::pvfs_require_precheck">pvfs_<wbr>require_<wbr>precheck</a></dt><dd>Returns the list of all PVF code hashes that require pre-checking.</dd><dt><a class="fn" href="fn.relevant_authority_ids.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::relevant_authority_ids">relevant_<wbr>authority_<wbr>ids</a></dt><dd>Implementation for the <code>AuthorityDiscoveryApi::authorities()</code> function of the runtime API.
+It is a heavy call, but currently only used for authority discovery, so it is fine.
+Gets next, current and some historical authority ids using <code>session_info</code> module.</dd><dt><a class="fn" href="fn.scheduling_lookahead.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::scheduling_lookahead">scheduling_<wbr>lookahead</a></dt><dd>Implementation for <code>scheduling_lookahead</code> function from the runtime API</dd><dt><a class="fn" href="fn.session_executor_params.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::session_executor_params">session_<wbr>executor_<wbr>params</a></dt><dd>Get session executor parameter set</dd><dt><a class="fn" href="fn.session_index_for_child.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::session_index_for_child">session_<wbr>index_<wbr>for_<wbr>child</a></dt><dd>Implementation for the <code>session_index_for_child</code> function of the runtime API.</dd><dt><a class="fn" href="fn.session_info.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::session_info">session_<wbr>info</a></dt><dd>Get the session info for the given session, if stored.</dd><dt><a class="fn" href="fn.submit_pvf_check_statement.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::submit_pvf_check_statement">submit_<wbr>pvf_<wbr>check_<wbr>statement</a></dt><dd>Submits an PVF pre-checking vote.</dd><dt><a class="fn" href="fn.submit_unsigned_slashing_report.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::submit_unsigned_slashing_report">submit_<wbr>unsigned_<wbr>slashing_<wbr>report</a></dt><dd>Implementation of <code>submit_report_dispute_lost</code> runtime API</dd><dt><a class="fn" href="fn.unapplied_slashes.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::unapplied_slashes">unapplied_<wbr>slashes</a></dt><dd>Implementation of <code>unapplied_slashes</code> runtime API</dd><dt><a class="fn" href="fn.unapplied_slashes_v2.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::unapplied_slashes_v2">unapplied_<wbr>slashes_<wbr>v2</a></dt><dd>Implementation of <code>unapplied_slashes_v2</code> runtime API</dd><dt><a class="fn" href="fn.validation_code.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validation_code">validation_<wbr>code</a></dt><dd>Implementation for the <code>validation_code</code> function of the runtime API.</dd><dt><a class="fn" href="fn.validation_code_bomb_limit.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validation_code_bomb_limit">validation_<wbr>code_<wbr>bomb_<wbr>limit</a></dt><dd>Implementation for <code>validation_code_bomb_limit</code> function from the runtime API</dd><dt><a class="fn" href="fn.validation_code_by_hash.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validation_code_by_hash">validation_<wbr>code_<wbr>by_<wbr>hash</a></dt><dd>Implementation for the <code>validation_code_by_hash</code> function of the runtime API.</dd><dt><a class="fn" href="fn.validation_code_hash.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validation_code_hash">validation_<wbr>code_<wbr>hash</a></dt><dd>Returns the validation code hash for the given parachain making the given
+<code>OccupiedCoreAssumption</code>.</dd><dt><a class="fn" href="fn.validator_groups.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validator_groups">validator_<wbr>groups</a></dt><dd>Implementation for the <code>validator_groups</code> function of the runtime API.</dd><dt><a class="fn" href="fn.validators.html" title="fn polkadot_runtime_parachains::runtime_api_impl::v13::validators">validators</a></dt><dd>Implementation for the <code>validators</code> function of the runtime API.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

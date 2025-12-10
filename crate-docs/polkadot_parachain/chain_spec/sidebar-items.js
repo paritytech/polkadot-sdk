@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SAFE_XCM_VERSION"],"fn":["get_account_id_from_seed","get_collator_keys_from_seed","get_from_seed"],"mod":["asset_hubs","bridge_hubs","collectives","contracts","glutton","penpal","rococo_parachain","seedling","shell"],"struct":["Extensions","ExtensionsFork"],"type":["AccountPublic"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"mod":["dispatchables","storage_types"],"struct":["Instance1","Pallet","SpendContext"],"trait":["Config"],"type":["Bounties","BountyCount","ChildBounties","ChildBountiesPerParent","ChildBountiesValuePerParent","CuratorDeposit","Module","TotalChildBountiesPerParent"]};

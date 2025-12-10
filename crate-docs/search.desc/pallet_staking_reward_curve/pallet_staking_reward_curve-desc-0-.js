@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_staking_reward_curve", 0, "Proc macro to generate the reward curve functions and …\nAccepts a number of expressions to create a instance of …")

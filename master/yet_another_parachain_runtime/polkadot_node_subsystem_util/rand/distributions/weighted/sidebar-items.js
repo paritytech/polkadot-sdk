@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WeightedError"],"mod":["alias_method"],"struct":["WeightedIndex"]};

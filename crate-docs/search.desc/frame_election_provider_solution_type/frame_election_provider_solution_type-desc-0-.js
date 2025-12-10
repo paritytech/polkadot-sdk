@@ -1,0 +1,1 @@
+searchState.loadedDescShard("frame_election_provider_solution_type", 0, "Proc macro for a npos solution type.\nGenerates a struct to store the election result in a …")

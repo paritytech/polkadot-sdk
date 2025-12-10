@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TransferStatus"],"trait":["Transfer"]};

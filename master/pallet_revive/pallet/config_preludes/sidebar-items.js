@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CENTS","DOLLARS","MILLICENTS"],"fn":["deposit"],"struct":["CodeHashLockupDepositPercent","DepositPerByte","DepositPerChildTrieItem","DepositPerItem","GasScale","MaxEthExtrinsicWeight","TestDefaultConfig"]};

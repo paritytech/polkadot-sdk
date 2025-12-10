@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Lowest-abstraction level for the Substrate runtime: just exports useful primitives from std or client/alloc to be used with any code that depends on the runtime. Substrate runtime standard library as compiled when linked with Rust’s standard library."><title>sp_std - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_std" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_std/index.html">sp_std</a><span class="version">14.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sp_std</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sp_std/lib.rs.html#18-114">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Lowest-abstraction level for the Substrate runtime: just exports useful primitives from std
+or client/alloc to be used with any code that depends on the runtime.
+Substrate runtime standard library as compiled when linked with Rust’s standard library.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="alloc/index.html" title="mod sp_std::alloc">alloc</a></dt><dd>Memory allocation APIs.</dd><dt><a class="mod" href="any/index.html" title="mod sp_std::any">any</a></dt><dd>Utilities for dynamic typing or type reflection.</dd><dt><a class="mod" href="borrow/index.html" title="mod sp_std::borrow">borrow</a></dt><dd>A module for working with borrowed data.</dd><dt><a class="mod" href="boxed/index.html" title="mod sp_std::boxed">boxed</a></dt><dd>The <code>Box&lt;T&gt;</code> type for heap allocation.</dd><dt><a class="mod" href="cell/index.html" title="mod sp_std::cell">cell</a></dt><dd>Shareable mutable containers.</dd><dt><a class="mod" href="clone/index.html" title="mod sp_std::clone">clone</a></dt><dd>The <code>Clone</code> trait for types that cannot be ‘implicitly copied’.</dd><dt><a class="mod" href="cmp/index.html" title="mod sp_std::cmp">cmp</a></dt><dd>Utilities for comparing and ordering values.</dd><dt><a class="mod" href="collections/index.html" title="mod sp_std::collections">collections</a></dt><dt><a class="mod" href="convert/index.html" title="mod sp_std::convert">convert</a></dt><dd>Traits for conversions between types.</dd><dt><a class="mod" href="default/index.html" title="mod sp_std::default">default</a></dt><dd>The <code>Default</code> trait for types with a default value.</dd><dt><a class="mod" href="fmt/index.html" title="mod sp_std::fmt">fmt</a></dt><dd>Utilities for formatting and printing <code>String</code>s.</dd><dt><a class="mod" href="hash/index.html" title="mod sp_std::hash">hash</a></dt><dd>Generic hashing support.</dd><dt><a class="mod" href="iter/index.html" title="mod sp_std::iter">iter</a></dt><dd>Composable external iteration.</dd><dt><a class="mod" href="marker/index.html" title="mod sp_std::marker">marker</a></dt><dd>Primitive traits and types representing basic properties of types.</dd><dt><a class="mod" href="mem/index.html" title="mod sp_std::mem">mem</a></dt><dd>Basic functions for dealing with memory.</dd><dt><a class="mod" href="num/index.html" title="mod sp_std::num">num</a></dt><dd>Additional functionality for numerics.</dd><dt><a class="mod" href="ops/index.html" title="mod sp_std::ops">ops</a></dt><dd>Overloadable operators.</dd><dt><a class="mod" href="prelude/index.html" title="mod sp_std::prelude">prelude</a></dt><dd>Prelude of common useful imports.</dd><dt><a class="mod" href="ptr/index.html" title="mod sp_std::ptr">ptr</a></dt><dd>Manually manage memory through raw pointers.</dd><dt><a class="mod" href="rc/index.html" title="mod sp_std::rc">rc</a></dt><dd>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
+Counted’.</dd><dt><a class="mod" href="result/index.html" title="mod sp_std::result">result</a></dt><dd>Error handling with the <code>Result</code> type.</dd><dt><a class="mod" href="slice/index.html" title="mod sp_std::slice">slice</a></dt><dd>Utilities for the slice primitive type.</dd><dt><a class="mod" href="str/index.html" title="mod sp_std::str">str</a></dt><dd>Utilities for the <code>str</code> primitive type.</dd><dt><a class="mod" href="sync/index.html" title="mod sp_std::sync">sync</a></dt><dd>Useful synchronization primitives.</dd><dt><a class="mod" href="thread/index.html" title="mod sp_std::thread">thread</a></dt><dt><a class="mod" href="time/index.html" title="mod sp_std::time">time</a></dt><dd>Temporal quantification.</dd><dt><a class="mod" href="vec/index.html" title="mod sp_std::vec">vec</a></dt><dd>A contiguous growable array type with heap-allocated contents, written
+<code>Vec&lt;T&gt;</code>.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.if_std.html" title="macro sp_std::if_std">if_std</a></dt><dd>Feature gate some code that should only be run when <code>std</code> feature is enabled.</dd><dt><a class="macro" href="macro.map.html" title="macro sp_std::map">map</a></dt><dd>Initialize a key-value collection from array.</dd><dt><a class="macro" href="macro.vec.html" title="macro sp_std::vec">vec</a></dt><dd>Creates a <a href="prelude/struct.Vec.html" title="struct sp_std::prelude::Vec"><code>Vec</code></a> containing the arguments.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Writer.html" title="struct sp_std::Writer">Writer</a></dt><dd>A target for <code>core::write!</code> macro - constructs a string in memory.</dd></dl><script type="text/json" id="notable-traits-data">{"IntoIter<T>":"<h3>Notable traits for <code><a class=\"struct\" href=\"result/struct.IntoIter.html\" title=\"struct sp_std::result::IntoIter\">IntoIter</a>&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"iter/trait.Iterator.html\" title=\"trait sp_std::iter::Iterator\">Iterator</a> for <a class=\"struct\" href=\"result/struct.IntoIter.html\" title=\"struct sp_std::result::IntoIter\">IntoIter</a>&lt;T&gt;</div><div class=\"where\">    type <a href=\"iter/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","Iter<'_, T>":"<h3>Notable traits for <code><a class=\"struct\" href=\"result/struct.Iter.html\" title=\"struct sp_std::result::Iter\">Iter</a>&lt;'a, T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;'a, T&gt; <a class=\"trait\" href=\"iter/trait.Iterator.html\" title=\"trait sp_std::iter::Iterator\">Iterator</a> for <a class=\"struct\" href=\"result/struct.Iter.html\" title=\"struct sp_std::result::Iter\">Iter</a>&lt;'a, T&gt;</div><div class=\"where\">    type <a href=\"iter/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.reference.html\">&amp;'a T</a>;</div>","IterMut<'_, T>":"<h3>Notable traits for <code><a class=\"struct\" href=\"result/struct.IterMut.html\" title=\"struct sp_std::result::IterMut\">IterMut</a>&lt;'a, T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;'a, T&gt; <a class=\"trait\" href=\"iter/trait.Iterator.html\" title=\"trait sp_std::iter::Iterator\">Iterator</a> for <a class=\"struct\" href=\"result/struct.IterMut.html\" title=\"struct sp_std::result::IterMut\">IterMut</a>&lt;'a, T&gt;</div><div class=\"where\">    type <a href=\"iter/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.reference.html\">&amp;'a mut T</a>;</div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

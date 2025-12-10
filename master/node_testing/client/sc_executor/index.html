@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Re-export test-client utilities. A crate that provides means of executing/dispatching calls into the runtime."><title>node_testing::client::sc_executor - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="node_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../node_testing/index.html">node_<wbr>testing</a><span class="version">3.0.0-dev</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In node_<wbr>testing::<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">node_testing</a>::<wbr><a href="../index.html">client</a></div><h1>Crate <span>sc_executor</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/sc_executor/lib.rs.html#19-91">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Re-export test-client utilities.
+A crate that provides means of executing/dispatching calls into the runtime.</p>
+<p>There are a few responsibilities of this crate at the moment:</p>
+<ul>
+<li>It provides an implementation of a common entrypoint for calling into the runtime, both
+wasm and compiled.</li>
+<li>It defines the environment for the wasm execution, namely the host functions that are to be
+provided into the wasm runtime module.</li>
+<li>It also provides the required infrastructure for executing the current wasm runtime (specified
+by the current value of <code>:code</code> in the provided externalities), i.e. interfacing with
+wasm engine used, instance cache.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="error/index.html" title="mod node_testing::client::sc_executor::error">error</a></dt><dd>Rust executor possible errors.</dd><dt><a class="mod" href="sp_wasm_interface/index.html" title="mod node_testing::client::sc_executor::sp_wasm_interface">sp_<wbr>wasm_<wbr>interface</a></dt><dd>Types and traits for interfacing between the host and the wasm runtime.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.NativeElseWasmExecutor.html" title="struct node_testing::client::sc_executor::NativeElseWasmExecutor">Native<wbr>Else<wbr>Wasm<wbr>Executor</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>A generic <code>CodeExecutor</code> implementation that uses a delegate to determine wasm code equivalence
+and dispatch to native code when possible, falling back on <code>WasmExecutor</code> when not.</dd><dt><a class="struct" href="struct.NativeVersion.html" title="struct node_testing::client::sc_executor::NativeVersion">Native<wbr>Version</a></dt><dd>The version of the native runtime.</dd><dt><a class="struct" href="struct.RuntimeVersion.html" title="struct node_testing::client::sc_executor::RuntimeVersion">Runtime<wbr>Version</a></dt><dd>Runtime version.
+This should not be thought of as classic Semver (major/minor/tiny).
+This triplet have different semantics and mis-interpretation could cause problems.
+In particular: bug fixes should result in an increment of <code>spec_version</code> and possibly
+<code>authoring_version</code>, absolutely not <code>impl_version</code> since they change the semantics of the
+runtime.</dd><dt><a class="struct" href="struct.WasmExecutor.html" title="struct node_testing::client::sc_executor::WasmExecutor">Wasm<wbr>Executor</a></dt><dd>An abstraction over Wasm code executor. Supports selecting execution backend and
+manages runtime cache.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.HeapAllocStrategy.html" title="enum node_testing::client::sc_executor::HeapAllocStrategy">Heap<wbr>Alloc<wbr>Strategy</a></dt><dd>Defines the heap pages allocation strategy the wasm runtime should use.</dd><dt><a class="enum" href="enum.WasmExecutionMethod.html" title="enum node_testing::client::sc_executor::WasmExecutionMethod">Wasm<wbr>Execution<wbr>Method</a></dt><dd>Specification of different methods of executing the runtime Wasm code.</dd><dt><a class="enum" href="enum.WasmtimeInstantiationStrategy.html" title="enum node_testing::client::sc_executor::WasmtimeInstantiationStrategy">Wasmtime<wbr>Instantiation<wbr>Strategy</a></dt><dd>The instantiation strategy to use for the WASM executor.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEFAULT_HEAP_ALLOC_PAGES.html" title="constant node_testing::client::sc_executor::DEFAULT_HEAP_ALLOC_PAGES">DEFAULT_<wbr>HEAP_<wbr>ALLOC_<wbr>PAGES</a></dt><dd>Default heap allocation pages.</dd><dt><a class="constant" href="constant.DEFAULT_HEAP_ALLOC_STRATEGY.html" title="constant node_testing::client::sc_executor::DEFAULT_HEAP_ALLOC_STRATEGY">DEFAULT_<wbr>HEAP_<wbr>ALLOC_<wbr>STRATEGY</a></dt><dd>Default heap allocation strategy.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Codec.html" title="trait node_testing::client::sc_executor::Codec">Codec</a></dt><dd>Trait that allows zero-copy read/write of value-references to/from slices in LE format.</dd><dt><a class="trait" href="trait.Externalities.html" title="trait node_testing::client::sc_executor::Externalities">Externalities</a></dt><dd>The Substrate externalities.</dd><dt><a class="trait" href="trait.HostFunctions.html" title="trait node_testing::client::sc_executor::HostFunctions">Host<wbr>Functions</a></dt><dd>Something that provides implementations for host functions.</dd><dt><a class="trait" href="trait.NativeExecutionDispatch.html" title="trait node_testing::client::sc_executor::NativeExecutionDispatch">Native<wbr>Execution<wbr>Dispatch</a></dt><dd>Delegate for dispatching a CodeExecutor call.</dd><dt><a class="trait" href="trait.RuntimeVersionOf.html" title="trait node_testing::client::sc_executor::RuntimeVersionOf">Runtime<wbr>Version<wbr>Of</a></dt><dd>Extracts the runtime version of a given runtime code.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.read_embedded_version.html" title="fn node_testing::client::sc_executor::read_embedded_version">read_<wbr>embedded_<wbr>version</a></dt><dd>Take the runtime blob and scan it for the custom wasm sections containing the version
+information and construct the <code>RuntimeVersion</code> from them.</dd><dt><a class="fn" href="fn.with_externalities_safe.html" title="fn node_testing::client::sc_executor::with_externalities_safe">with_<wbr>externalities_<wbr>safe</a></dt><dd>Set up the externalities and safe calling environment to execute runtime calls.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

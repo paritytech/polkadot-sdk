@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["adapter"],"struct":["ExtractAssetId","UniqueInstancesAdapter","UniqueInstancesDepositAdapter"],"type":["NonFungibleAsset"]};

@@ -1,0 +1,540 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Documentation of the syscalls (host functions) available to contracts."><title>SyscallDoc in pallet_revive - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_revive</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">SyscallDoc</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.address">address</a></li><li><a href="#tymethod.balance">balance</a></li><li><a href="#tymethod.block_number">block_number</a></li><li><a href="#tymethod.call">call</a></li><li><a href="#tymethod.call_chain_extension">call_chain_extension</a></li><li><a href="#tymethod.call_runtime">call_runtime</a></li><li><a href="#tymethod.caller">caller</a></li><li><a href="#tymethod.caller_is_origin">caller_is_origin</a></li><li><a href="#tymethod.caller_is_root">caller_is_root</a></li><li><a href="#tymethod.clear_storage">clear_storage</a></li><li><a href="#tymethod.code_hash">code_hash</a></li><li><a href="#tymethod.contains_storage">contains_storage</a></li><li><a href="#tymethod.debug_message">debug_message</a></li><li><a href="#tymethod.delegate_call">delegate_call</a></li><li><a href="#tymethod.deposit_event">deposit_event</a></li><li><a href="#tymethod.ecdsa_recover">ecdsa_recover</a></li><li><a href="#tymethod.ecdsa_to_eth_address">ecdsa_to_eth_address</a></li><li><a href="#tymethod.get_storage">get_storage</a></li><li><a href="#tymethod.hash_blake2_128">hash_blake2_128</a></li><li><a href="#tymethod.hash_blake2_256">hash_blake2_256</a></li><li><a href="#tymethod.hash_keccak_256">hash_keccak_256</a></li><li><a href="#tymethod.hash_sha2_256">hash_sha2_256</a></li><li><a href="#tymethod.input">input</a></li><li><a href="#tymethod.instantiate">instantiate</a></li><li><a href="#tymethod.is_contract">is_contract</a></li><li><a href="#tymethod.lock_delegate_dependency">lock_delegate_dependency</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.noop">noop</a></li><li><a href="#tymethod.now">now</a></li><li><a href="#tymethod.own_code_hash">own_code_hash</a></li><li><a href="#tymethod.seal_return">seal_return</a></li><li><a href="#tymethod.set_code_hash">set_code_hash</a></li><li><a href="#tymethod.set_storage">set_storage</a></li><li><a href="#tymethod.sr25519_verify">sr25519_verify</a></li><li><a href="#tymethod.take_storage">take_storage</a></li><li><a href="#tymethod.terminate">terminate</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.unlock_delegate_dependency">unlock_delegate_dependency</a></li><li><a href="#tymethod.value_transferred">value_transferred</a></li><li><a href="#tymethod.weight_left">weight_left</a></li><li><a href="#tymethod.weight_to_fee">weight_to_fee</a></li><li><a href="#tymethod.xcm_execute">xcm_execute</a></li><li><a href="#tymethod.xcm_send">xcm_send</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_revive</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../pallet_revive/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_revive</a>::<wbr><a class="trait" href="#">SyscallDoc</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SyscallDoc {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 43 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.noop" class="fn">noop</a>();
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(
+        flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        value_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_storage" class="fn">clear_storage</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(
+        flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains_storage" class="fn">contains_storage</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
+        flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>(account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.call" class="fn">call</a>(
+        flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        callee_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        deposit_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.delegate_call" class="fn">delegate_call</a>(
+        flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+        code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        deposit_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        address_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        address_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        salt_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        salt_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.terminate" class="fn">terminate</a>(beneficiary_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.input" class="fn">input</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.seal_return" class="fn">seal_return</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller" class="fn">caller</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.is_contract" class="fn">is_contract</a>(account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(
+        account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.own_code_hash" class="fn">own_code_hash</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller_is_origin" class="fn">caller_is_origin</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller_is_root" class="fn">caller_is_root</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.address" class="fn">address</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.weight_to_fee" class="fn">weight_to_fee</a>(
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.weight_left" class="fn">weight_left</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.balance" class="fn">balance</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.value_transferred" class="fn">value_transferred</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.now" class="fn">now</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(
+        topics_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        topics_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.block_number" class="fn">block_number</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_sha2_256" class="fn">hash_sha2_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_keccak_256" class="fn">hash_keccak_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_blake2_256" class="fn">hash_blake2_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_blake2_128" class="fn">hash_blake2_128</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.call_chain_extension" class="fn">call_chain_extension</a>(
+        id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.debug_message" class="fn">debug_message</a>(str_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, str_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.call_runtime" class="fn">call_runtime</a>(call_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, call_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.xcm_execute" class="fn">xcm_execute</a>(msg_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, msg_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
+        dest_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        msg_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        msg_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
+        signature_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        message_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.sr25519_verify" class="fn">sr25519_verify</a>(
+        signature_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        pub_key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        message_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        message_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_code_hash" class="fn">set_code_hash</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ecdsa_to_eth_address" class="fn">ecdsa_to_eth_address</a>(key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode;
+<span class="item-spacer"></span>    fn <a href="#tymethod.lock_delegate_dependency" class="fn">lock_delegate_dependency</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.unlock_delegate_dependency" class="fn">unlock_delegate_dependency</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>);
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Documentation of the syscalls (host functions) available to contracts.</p>
+<p>Each of the functions in this trait represent a function that is callable
+by the contract. Guests use the function name as the import symbol.</p>
+<h2 id="note"><a class="doc-anchor" href="#note">§</a>Note</h2>
+<p>This module is not meant to be used by any code. Rather, it is meant to be
+consumed by humans through rustdoc.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.noop" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.noop" class="fn">noop</a>()</h4></section></summary><div class="docblock"><p>Noop function used to benchmark the time it takes to execute an empty function.</p>
+<h5 id="unstable-api"><a class="doc-anchor" href="#unstable-api">§</a>Unstable API</h5>
+<p>This API is not standardized and only available for testing.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_storage" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    value_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Set the value at the given key in the contract storage.
+See [<code>pallet_revive_uapi::HostFn::set_storage_v2</code>]</p>
+<h5 id="required-api-version"><a class="doc-anchor" href="#required-api-version">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_storage" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.clear_storage" class="fn">clear_storage</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Clear the value at the given key in the contract storage.
+See [<code>pallet_revive_uapi::HostFn::clear_storage</code>]</p>
+<h5 id="required-api-version-1"><a class="doc-anchor" href="#required-api-version-1">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_storage" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Retrieve the value under the given key from storage.
+See [<code>pallet_revive_uapi::HostFn::get_storage</code>]</p>
+<h5 id="required-api-version-2"><a class="doc-anchor" href="#required-api-version-2">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains_storage" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.contains_storage" class="fn">contains_storage</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Checks whether there is a value stored under the given key.
+See [<code>pallet_revive_uapi::HostFn::contains_storage</code>]</p>
+<h5 id="required-api-version-3"><a class="doc-anchor" href="#required-api-version-3">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take_storage" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Retrieve and remove the value under the given key from storage.
+See [<code>pallet_revive_uapi::HostFn::take_storage</code>]</p>
+<h5 id="required-api-version-4"><a class="doc-anchor" href="#required-api-version-4">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.transfer" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>(account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Transfer some value to another account.
+See [<code>pallet_revive_uapi::HostFn::transfer</code>].</p>
+<h5 id="required-api-version-5"><a class="doc-anchor" href="#required-api-version-5">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.call" class="fn">call</a>(
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    callee_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    deposit_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Make a call to another contract.
+See [<code>pallet_revive_uapi::HostFn::call</code>].</p>
+<h5 id="required-api-version-6"><a class="doc-anchor" href="#required-api-version-6">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.delegate_call" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.delegate_call" class="fn">delegate_call</a>(
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Execute code in the context (storage, caller, value) of the current contract.
+See [<code>pallet_revive_uapi::HostFn::delegate_call</code>].</p>
+<h5 id="required-api-version-7"><a class="doc-anchor" href="#required-api-version-7">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.instantiate" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+    code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    deposit_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    value_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    address_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    address_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    salt_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    salt_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Instantiate a contract with the specified code hash.
+See [<code>pallet_revive_uapi::HostFn::instantiate</code>].</p>
+<h5 id="required-api-version-8"><a class="doc-anchor" href="#required-api-version-8">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.terminate" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.terminate" class="fn">terminate</a>(beneficiary_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Remove the calling account and transfer remaining <strong>free</strong> balance.
+See [<code>pallet_revive_uapi::HostFn::terminate</code>].</p>
+<h5 id="required-api-version-9"><a class="doc-anchor" href="#required-api-version-9">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.input" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.input" class="fn">input</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the input passed by the caller into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::input</code>].</p>
+<h5 id="required-api-version-10"><a class="doc-anchor" href="#required-api-version-10">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.seal_return" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.seal_return" class="fn">seal_return</a>(flags: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Cease contract execution and save a data buffer as a result of the execution.
+See [<code>pallet_revive_uapi::HostFn::return_value</code>].</p>
+<h5 id="required-api-version-11"><a class="doc-anchor" href="#required-api-version-11">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.caller" class="fn">caller</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the address of the caller into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::caller</code>].</p>
+<h5 id="required-api-version-12"><a class="doc-anchor" href="#required-api-version-12">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.is_contract" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.is_contract" class="fn">is_contract</a>(account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Checks whether a specified address belongs to a contract.
+See [<code>pallet_revive_uapi::HostFn::is_contract</code>].</p>
+<h5 id="required-api-version-13"><a class="doc-anchor" href="#required-api-version-13">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code_hash" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(
+    account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Retrieve the code hash for a specified contract address.
+See [<code>pallet_revive_uapi::HostFn::code_hash</code>].</p>
+<h5 id="required-api-version-14"><a class="doc-anchor" href="#required-api-version-14">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.own_code_hash" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.own_code_hash" class="fn">own_code_hash</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Retrieve the code hash of the currently executing contract.
+See [<code>pallet_revive_uapi::HostFn::own_code_hash</code>].</p>
+<h5 id="required-api-version-15"><a class="doc-anchor" href="#required-api-version-15">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller_is_origin" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.caller_is_origin" class="fn">caller_is_origin</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Checks whether the caller of the current contract is the origin of the whole call stack.
+See [<code>pallet_revive_uapi::HostFn::caller_is_origin</code>].</p>
+<h5 id="required-api-version-16"><a class="doc-anchor" href="#required-api-version-16">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller_is_root" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.caller_is_root" class="fn">caller_is_root</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Checks whether the caller of the current contract is root.
+See [<code>pallet_revive_uapi::HostFn::caller_is_root</code>].</p>
+<h5 id="required-api-version-17"><a class="doc-anchor" href="#required-api-version-17">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.address" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.address" class="fn">address</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the address of the current contract into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::address</code>].</p>
+<h5 id="required-api-version-18"><a class="doc-anchor" href="#required-api-version-18">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.weight_to_fee" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.weight_to_fee" class="fn">weight_to_fee</a>(
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+)</h4></section></summary><div class="docblock"><p>Stores the price for the specified amount of weight into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::weight_to_fee</code>].</p>
+<h5 id="required-api-version-19"><a class="doc-anchor" href="#required-api-version-19">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.weight_left" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.weight_left" class="fn">weight_left</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the amount of weight left into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::weight_left</code>].</p>
+<h5 id="required-api-version-20"><a class="doc-anchor" href="#required-api-version-20">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.balance" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.balance" class="fn">balance</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the <em>free</em> balance of the current account into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::balance</code>].</p>
+<h5 id="required-api-version-21"><a class="doc-anchor" href="#required-api-version-21">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.value_transferred" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.value_transferred" class="fn">value_transferred</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the value transferred along with this call/instantiate into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::value_transferred</code>].</p>
+<h5 id="required-api-version-22"><a class="doc-anchor" href="#required-api-version-22">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.now" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.now" class="fn">now</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Load the latest block timestamp into the supplied buffer
+See [<code>pallet_revive_uapi::HostFn::now</code>].</p>
+<h5 id="required-api-version-23"><a class="doc-anchor" href="#required-api-version-23">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.minimum_balance" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::minimum_balance</code>].</p>
+<h5 id="required-api-version-24"><a class="doc-anchor" href="#required-api-version-24">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_event" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(topics_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, topics_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Deposit a contract event with the data buffer and optional list of topics.
+See [pallet_revive_uapi::HostFn::deposit_event]</p>
+<h5 id="required-api-version-25"><a class="doc-anchor" href="#required-api-version-25">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_number" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.block_number" class="fn">block_number</a>(out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Stores the current block number of the current contract into the supplied buffer.
+See [<code>pallet_revive_uapi::HostFn::block_number</code>].</p>
+<h5 id="required-api-version-26"><a class="doc-anchor" href="#required-api-version-26">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_sha2_256" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.hash_sha2_256" class="fn">hash_sha2_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Computes the SHA2 256-bit hash on the given input buffer.
+See [<code>pallet_revive_uapi::HostFn::hash_sha2_256</code>].</p>
+<h5 id="required-api-version-27"><a class="doc-anchor" href="#required-api-version-27">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_keccak_256" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.hash_keccak_256" class="fn">hash_keccak_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Computes the KECCAK 256-bit hash on the given input buffer.
+See [<code>pallet_revive_uapi::HostFn::hash_keccak_256</code>].</p>
+<h5 id="required-api-version-28"><a class="doc-anchor" href="#required-api-version-28">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_blake2_256" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.hash_blake2_256" class="fn">hash_blake2_256</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Computes the BLAKE2 256-bit hash on the given input buffer.
+See [<code>pallet_revive_uapi::HostFn::hash_blake2_256</code>].</p>
+<h5 id="required-api-version-29"><a class="doc-anchor" href="#required-api-version-29">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_blake2_128" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.hash_blake2_128" class="fn">hash_blake2_128</a>(input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Computes the BLAKE2 128-bit hash on the given input buffer.
+See [<code>pallet_revive_uapi::HostFn::hash_blake2_128</code>].</p>
+<h5 id="required-api-version-30"><a class="doc-anchor" href="#required-api-version-30">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call_chain_extension" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.call_chain_extension" class="fn">call_chain_extension</a>(
+    id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Call into the chain extension provided by the chain if any.
+See [<code>pallet_revive_uapi::HostFn::call_chain_extension</code>].</p>
+<h5 id="unstable-api-1"><a class="doc-anchor" href="#unstable-api-1">§</a>Unstable API</h5>
+<p>This API is not standardized and only available for testing.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.debug_message" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.debug_message" class="fn">debug_message</a>(str_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, str_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Emit a custom debug message.
+See [<code>pallet_revive_uapi::HostFn::debug_message</code>].</p>
+<h5 id="required-api-version-31"><a class="doc-anchor" href="#required-api-version-31">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call_runtime" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.call_runtime" class="fn">call_runtime</a>(call_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, call_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Call some dispatchable of the runtime.
+See [<code>frame_support::traits::call_runtime</code>].</p>
+<h5 id="unstable-api-2"><a class="doc-anchor" href="#unstable-api-2">§</a>Unstable API</h5>
+<p>This API is not standardized and only available for testing.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_execute" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_execute" class="fn">xcm_execute</a>(msg_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, msg_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Execute an XCM program locally, using the contract’s address as the origin.
+See [<code>pallet_revive_uapi::HostFn::execute_xcm</code>].</p>
+<h5 id="unstable-api-3"><a class="doc-anchor" href="#unstable-api-3">§</a>Unstable API</h5>
+<p>This API is not standardized and only available for testing.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_send" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
+    dest_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    msg_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    msg_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Send an XCM program from the contract to the specified destination.
+See [<code>pallet_revive_uapi::HostFn::send_xcm</code>].</p>
+<h5 id="unstable-api-4"><a class="doc-anchor" href="#unstable-api-4">§</a>Unstable API</h5>
+<p>This API is not standardized and only available for testing.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_recover" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
+    signature_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    message_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Recovers the ECDSA public key from the given message hash and signature.
+See [<code>pallet_revive_uapi::HostFn::ecdsa_recover</code>].</p>
+<h5 id="required-api-version-32"><a class="doc-anchor" href="#required-api-version-32">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.sr25519_verify" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.sr25519_verify" class="fn">sr25519_verify</a>(
+    signature_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    pub_key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    message_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    message_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Verify a sr25519 signature
+See [<code>pallet_revive_uapi::HostFn::sr25519_verify</code>].</p>
+<h5 id="required-api-version-33"><a class="doc-anchor" href="#required-api-version-33">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_code_hash" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.set_code_hash" class="fn">set_code_hash</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Replace the contract code at the specified address with new code.
+See [<code>pallet_revive_uapi::HostFn::set_code_hash</code>].</p>
+<h5 id="required-api-version-34"><a class="doc-anchor" href="#required-api-version-34">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_to_eth_address" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_to_eth_address" class="fn">ecdsa_to_eth_address</a>(key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; ReturnErrorCode</h4></section></summary><div class="docblock"><p>Calculates Ethereum address from the ECDSA compressed public key and stores
+See [<code>pallet_revive_uapi::HostFn::ecdsa_to_eth_address</code>].</p>
+<h5 id="required-api-version-35"><a class="doc-anchor" href="#required-api-version-35">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.lock_delegate_dependency" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.lock_delegate_dependency" class="fn">lock_delegate_dependency</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Adds a new delegate dependency to the contract.
+See [<code>pallet_revive_uapi::HostFn::lock_delegate_dependency</code>].</p>
+<h5 id="required-api-version-36"><a class="doc-anchor" href="#required-api-version-36">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unlock_delegate_dependency" class="method"><a class="src rightside" href="../src/pallet_revive/wasm/runtime.rs.html#1071">source</a><h4 class="code-header">fn <a href="#tymethod.unlock_delegate_dependency" class="fn">unlock_delegate_dependency</a>(code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Removes the delegate dependency from the contract.
+see [<code>pallet_revive_uapi::HostFn::unlock_delegate_dependency</code>].</p>
+<h5 id="required-api-version-37"><a class="doc-anchor" href="#required-api-version-37">§</a>Required API version</h5>
+<p>This API was added in version <strong>0</strong>.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_revive/wasm/runtime/trait.SyscallDoc.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

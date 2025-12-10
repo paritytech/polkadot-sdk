@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Pair","ProofOfPossession","Public","Signature"],"type":["AuthorityId","AuthoritySignature"]};

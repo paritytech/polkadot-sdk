@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_async_backing_chain_spec","get_chain_spec","get_chain_spec_with_extra_endowed","get_elastic_scaling_500ms_chain_spec","get_elastic_scaling_chain_spec","get_elastic_scaling_multi_block_slot_chain_spec","get_elastic_scaling_mvp_chain_spec","get_relay_parent_offset_chain_spec","get_sync_backing_chain_spec"]};

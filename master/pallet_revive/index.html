@@ -1,0 +1,255 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Revive Pallet"><title>pallet_revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#revive-pallet" title="Revive Pallet">Revive Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#host-function-tracing" title="Host function tracing">Host function tracing</a></li><li><a href="#unstable-interfaces" title="Unstable Interfaces">Unstable Interfaces</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_revive</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/lib.rs.html#18-2973">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="revive-pallet"><a class="doc-anchor" href="#revive-pallet">§</a>Revive Pallet</h2>
+<p>This is an <strong>experimental</strong> module that provides functionality for the runtime to deploy and execute PolkaVM
+smart-contracts. It is a heavily modified <code>pallet_contracts</code> fork.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This module extends accounts based on the [<code>frame_support::traits::fungible</code>] traits to have smart-contract
+functionality. It can be used with other modules that implement accounts based on [<code>frame_support::traits::fungible</code>].
+These “smart-contract accounts” have the ability to instantiate smart-contracts and make calls to other contract and
+non-contract accounts.</p>
+<p>The smart-contract code is stored once, and later retrievable via its <code>code_hash</code>. This means that multiple
+smart-contracts can be instantiated from the same <code>code</code>, without replicating the code each time.</p>
+<p>When a smart-contract is called, its associated code is retrieved via the code hash and gets executed. This call can
+alter the storage entries of the smart-contract account, instantiate new smart-contracts, or call other smart-contracts.</p>
+<p>Finally, when an account is reaped, its associated code and storage of the smart-contract account will also be deleted.</p>
+<h4 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h4>
+<p>Senders must specify a <a href="https://paritytech.github.io/substrate/master/sp_weights/struct.Weight.html"><code>Weight</code></a> limit
+with every call, as all instructions invoked by the smart-contract require weight. Unused weight is refunded after the
+call, regardless of the execution outcome.</p>
+<p>If the weight limit is reached, then all calls and state changes (including balance transfers) are only reverted at the
+current call’s contract level. For example, if contract A calls B and B runs out of weight mid-call, then all of B’s
+calls are reverted. Assuming correct error handling by contract A, A’s other calls and state changes still persist.</p>
+<p>One <code>ref_time</code> <code>Weight</code> is defined as one picosecond of execution time on the runtime’s reference machine.</p>
+<h5 id="event-aware-weight-accounting"><a class="doc-anchor" href="#event-aware-weight-accounting">§</a>Event-Aware Weight Accounting</h5>
+<p>The pallet includes <strong>event-aware weight accounting</strong> for <code>finalize_block()</code> operations through the <code>OnFinalizeBlockParts</code>
+trait. The weight model uses differential benchmarking to precisely account for the computational cost of processing
+events during Ethereum block construction:</p>
+<div class="example-wrap"><pre class="language-text"><code>Total Weight = fixed_part +
+               Σ(per_tx_part(payload_i)) +
+               Σ(per_event_part(data_len_j))</code></pre></div>
+<p><strong>High-Level Weight API (<code>OnFinalizeBlockParts</code> trait):</strong>
+The pallet exposes these weight calculation methods for runtime use:</p>
+<ul>
+<li><strong>Fixed cost</strong>: <code>on_finalize_block_fixed()</code> - Base overhead regardless of transaction/event count</li>
+<li><strong>Per-transaction cost</strong>: <code>on_finalize_block_per_tx(payload_size)</code> - Applied incrementally during each <code>eth_call()</code></li>
+<li><strong>Per-event cost</strong>: <code>on_finalize_block_per_event(data_len)</code> - Applied dynamically during each <code>deposit_event()</code></li>
+</ul>
+<p><strong>Underlying Benchmark Functions (<code>WeightInfo</code> trait):</strong>
+These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:</p>
+<ul>
+<li><strong>Per-transaction overhead</strong>: <code>on_finalize_per_transaction(n)</code> - Measures cost scaling with <code>n</code> transaction count</li>
+<li><strong>Per-transaction data</strong>: <code>on_finalize_per_transaction_data(d)</code> - Measures cost scaling with <code>d</code> bytes of transaction payload</li>
+<li><strong>Per-event overhead</strong>: <code>on_finalize_per_event(e)</code> - Measures cost scaling with <code>e</code> event count</li>
+<li><strong>Per-event data</strong>: <code>on_finalize_per_event_data(d)</code> - Measures cost scaling with <code>d</code> bytes of event data</li>
+</ul>
+<p><strong>Weight Derivation Methodology:</strong>
+The high-level API methods use differential calculation to isolate marginal costs from benchmarks:</p>
+<ul>
+<li>Per-transaction base: <code>on_finalize_per_transaction(1) - on_finalize_per_transaction(0)</code></li>
+<li>Per-transaction byte: <code>on_finalize_per_transaction_data(1) - on_finalize_per_transaction_data(0)</code></li>
+<li>Per-event base: <code>on_finalize_per_event(1) - on_finalize_per_event(0)</code></li>
+<li>Per-byte of event data: <code>on_finalize_per_event_data(data_len) - on_finalize_per_event_data(0)</code></li>
+</ul>
+<p>This comprehensive weight model ensures that:</p>
+<ul>
+<li>Transactions emitting many events are properly weighted based on event count and data size</li>
+<li>Resource exhaustion attacks via oversized event data are prevented through proactive weight enforcement</li>
+<li>Accurate block packing calculations include all processing costs (bloom filters, RLP encoding, log conversion)</li>
+<li>Gas limit enforcement occurs early in <code>eth_call()</code> to prevent block overruns</li>
+</ul>
+<h4 id="revert-behaviour"><a class="doc-anchor" href="#revert-behaviour">§</a>Revert Behaviour</h4>
+<p>Contract call failures are not cascading. When failures occur in a sub-call, they do not “bubble up”, and the call will
+only revert at the specific contract level. For example, if contract A calls contract B, and B fails, A can decide how
+to handle that failure, either proceeding or reverting A’s changes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable functions</h4>
+<p>Those are documented in the <a href="https://paritytech.github.io/polkadot-sdk/master/pallet_revive/pallet/dispatchables/index.html">reference
+documentation</a>.</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>This module executes PolkaVM smart contracts. These can potentially be written in any language that compiles to
+RISC-V. For now, the only officially supported languages are Solidity (via <a href="https://github.com/xermicus/revive"><code>revive</code></a>)
+and Rust (check the <code>fixtures</code> directory for Rust examples).</p>
+<h3 id="host-function-tracing"><a class="doc-anchor" href="#host-function-tracing">§</a>Host function tracing</h3>
+<p>For contract authors, it can be a helpful debugging tool to see which host functions are called, with which arguments,
+and what the result was.</p>
+<p>In order to see these messages on the node console, the log level for the <code>runtime::revive::strace</code> target needs to
+be raised to the <code>trace</code> level.</p>
+<p>Example:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo run --release -- --dev -lerror,runtime::revive::strace=trace,runtime::revive=debug</code></pre></div><h3 id="unstable-interfaces"><a class="doc-anchor" href="#unstable-interfaces">§</a>Unstable Interfaces</h3>
+<p>Driven by the desire to have an iterative approach in developing new contract interfaces this pallet contains the
+concept of an unstable interface. Akin to the rust nightly compiler it allows us to add new interfaces but mark them as
+unstable so that contract languages can experiment with them and give feedback before we stabilize those.</p>
+<p>In order to access interfaces which don’t have a stable <code>#[stable]</code> in <a href="src/vm/runtime.rs"><code>runtime.rs</code></a>
+one need to set <code>pallet_revive::Config::UnsafeUnstableInterface</code> to <code>ConstU32&lt;true&gt;</code>.
+<strong>It should be obvious that any production runtime should never be compiled with this feature: In addition to be
+subject to change or removal those interfaces might not have proper weights associated with them and are therefore
+considered unsafe</strong>.</p>
+<p>New interfaces are generally added as unstable and might go through several iterations before they are promoted to a
+stable interface.</p>
+<p>License: Apache-2.0</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.EthBlock"><code>pub use crate::evm::<a class="struct" href="evm/struct.Block.html" title="struct pallet_revive::evm::Block">Block</a> as EthBlock;</code></dt><dt id="reexport.DryRunConfig"><code>pub use crate::evm::<a class="struct" href="evm/struct.DryRunConfig.html" title="struct pallet_revive::evm::DryRunConfig">DryRunConfig</a>;</code></dt><dt id="reexport.ReceiptInfo"><code>pub use crate::evm::<a class="struct" href="evm/struct.ReceiptInfo.html" title="struct pallet_revive::evm::ReceiptInfo">ReceiptInfo</a>;</code></dt><dt id="reexport.genesis"><code>pub use crate::pallet::<a class="mod" href="pallet/genesis/index.html" title="mod pallet_revive::pallet::genesis">genesis</a>;</code></dt><dt id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_revive::weights::WeightInfo">WeightInfo</a>;</code></dt><dt id="reexport.codec"><code>pub use codec;</code></dt><dt id="reexport.frame_support"><code>pub use frame_support;</code></dt><dt id="reexport.frame_system"><code>pub use frame_system;</code></dt><dt id="reexport.sp_runtime"><code>pub use sp_runtime;</code></dt><dt><code>pub use crate::<a class="mod" href="pallet/index.html" title="mod pallet_revive::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="evm/index.html" title="mod pallet_revive::evm">evm</a></dt><dd>Types, and traits to integrate pallet-revive with EVM.</dd><dt><a class="mod" href="migrations/index.html" title="mod pallet_revive::migrations">migrations</a></dt><dt><a class="mod" href="mock/index.html" title="mod pallet_revive::mock">mock</a></dt><dd>Helper interfaces and functions, that help with controlling the execution of EVM contracts.
+It is mostly used to help with the implementation of foundry cheatscodes for forge test
+integration.</dd><dt><a class="mod" href="pallet/index.html" title="mod pallet_revive::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="precompiles/index.html" title="mod pallet_revive::precompiles">precompiles</a></dt><dd>Exposes types that can be used to extend <code>pallet_revive</code> with additional functionality.</dd><dt><a class="mod" href="test_utils/index.html" title="mod pallet_revive::test_utils">test_<wbr>utils</a></dt><dd>Shared utilities for testing contracts.
+This is not part of the tests module because it is made public for other crates to use.</dd><dt><a class="mod" href="tracing/index.html" title="mod pallet_revive::tracing">tracing</a></dt><dt><a class="mod" href="weights/index.html" title="mod pallet_revive::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_revive</code></dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.impl_runtime_apis_plus_revive_traits.html" title="macro pallet_revive::impl_runtime_apis_plus_revive_traits">impl_<wbr>runtime_<wbr>apis_<wbr>plus_<wbr>revive_<wbr>traits</a></dt><dd>This macro wraps substrate’s <code>impl_runtime_apis!</code> and implements <code>pallet_revive</code> runtime APIs
+and other required traits.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountId32Mapper.html" title="struct pallet_revive::AccountId32Mapper">Account<wbr>Id32<wbr>Mapper</a></dt><dd>The mapper to be used if the account id is <code>AccountId32</code>.</dd><dt><a class="struct" href="struct.AccountInfo.html" title="struct pallet_revive::AccountInfo">Account<wbr>Info</a></dt><dd>Represents the account information for a contract or an externally owned account (EOA).</dd><dt><a class="struct" href="struct.BalanceWithDust.html" title="struct pallet_revive::BalanceWithDust">Balance<wbr>With<wbr>Dust</a></dt><dd>A Balance amount along with some “dust” to represent the lowest decimals that can’t be expressed
+in the native currency</dd><dt><a class="struct" href="struct.BlockWeights.html" title="struct pallet_revive::BlockWeights">Block<wbr>Weights</a></dt><dd>Block weight limits &amp; base values configuration.</dd><dt><a class="struct" href="struct.CodeUploadReturnValue.html" title="struct pallet_revive::CodeUploadReturnValue">Code<wbr>Upload<wbr>Return<wbr>Value</a></dt><dd>The result of successfully uploading a contract.</dd><dt><a class="struct" href="struct.ContractBlob.html" title="struct pallet_revive::ContractBlob">Contract<wbr>Blob</a></dt><dd>Validated Vm module ready for execution.
+This data structure is immutable once created and stored.</dd><dt><a class="struct" href="struct.ContractInfo.html" title="struct pallet_revive::ContractInfo">Contract<wbr>Info</a></dt><dd>Information for managing an account and its sub trie abstraction.
+This is the required info to cache for an account.</dd><dt><a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">Contract<wbr>Result</a></dt><dd>Result type of a <code>bare_call</code> or <code>bare_instantiate</code> call as well as <code>ContractsApi::call</code> and
+<code>ContractsApi::instantiate</code>.</dd><dt><a class="struct" href="struct.DebugSettings.html" title="struct pallet_revive::DebugSettings">Debug<wbr>Settings</a></dt><dd>Debugging settings that can be configured when DebugEnabled config is true.</dd><dt><a class="struct" href="struct.DelegateInfo.html" title="struct pallet_revive::DelegateInfo">Delegate<wbr>Info</a></dt><dd>This structure is used to represent the arguments in a delegate call frame in order to
+distinguish who delegated the call and where it was delegated to.</dd><dt><a class="struct" href="struct.DispatchInfo.html" title="struct pallet_revive::DispatchInfo">Dispatch<wbr>Info</a></dt><dd>A bundle of static information collected from the <code>#[pallet::weight]</code> attributes.</dd><dt><a class="struct" href="struct.EthTransactInfo.html" title="struct pallet_revive::EthTransactInfo">EthTransact<wbr>Info</a></dt><dd>The result of the execution of a <code>eth_transact</code> call.</dd><dt><a class="struct" href="struct.EthTxInfo.html" title="struct pallet_revive::EthTxInfo">EthTx<wbr>Info</a></dt><dd>Ethereum transaction context for gas conversions.</dd><dt><a class="struct" href="struct.ExecConfig.html" title="struct pallet_revive::ExecConfig">Exec<wbr>Config</a></dt><dd><code>Stack</code> wide configuration options.</dd><dt><a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">Exec<wbr>Return<wbr>Value</a></dt><dd>Output of a contract call or instantiation which ran to completion.</dd><dt><a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a></dt><dd>Fixed-size uninterpreted hash type with 20 bytes (160 bits) size.</dd><dt><a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a></dt><dd>Fixed-size uninterpreted hash type with 32 bytes (256 bits) size.</dd><dt><a class="struct" href="struct.InstantiateReturnValue.html" title="struct pallet_revive::InstantiateReturnValue">Instantiate<wbr>Return<wbr>Value</a></dt><dd>The result of a successful contract instantiation.</dd><dt><a class="struct" href="struct.ReceiptGasInfo.html" title="struct pallet_revive::ReceiptGasInfo">Receipt<wbr>GasInfo</a></dt><dd>Details needed to reconstruct the receipt info in the RPC
+layer without losing accuracy.</dd><dt><a class="struct" href="struct.ResourceMeter.html" title="struct pallet_revive::ResourceMeter">Resource<wbr>Meter</a></dt><dd>Resource meter tracking weight and storage deposit consumption.</dd><dt><a class="struct" href="struct.TestAccountMapper.html" title="struct pallet_revive::TestAccountMapper">Test<wbr>Account<wbr>Mapper</a></dt><dd>An account mapper that can be used for testing u64 account ids.</dd><dt><a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a></dt><dd>Little-endian large integer type
+256-bit unsigned integer.</dd><dt><a class="struct" href="struct.Weight.html" title="struct pallet_revive::Weight">Weight</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BalanceConversionError.html" title="enum pallet_revive::BalanceConversionError">Balance<wbr>Conversion<wbr>Error</a></dt><dd>Error encountered while creating a BalanceWithDust from a U256 balance.</dd><dt><a class="enum" href="enum.BytecodeType.html" title="enum pallet_revive::BytecodeType">Bytecode<wbr>Type</a></dt><dt><a class="enum" href="enum.CallResources.html" title="enum pallet_revive::CallResources">Call<wbr>Resources</a></dt><dd>Argument passed by a contact to describe the amount of resources allocated to a cross contact
+call.</dd><dt><a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a></dt><dd>Reference to an existing code hash or a new vm module.</dd><dt><a class="enum" href="enum.CodeRemoved.html" title="enum pallet_revive::CodeRemoved">Code<wbr>Removed</a></dt><dd>Indicates whether the code was removed after the last refcount was decremented.</dd><dt><a class="enum" href="enum.ContractAccessError.html" title="enum pallet_revive::ContractAccessError">Contract<wbr>Access<wbr>Error</a></dt><dd>The possible errors that can happen querying the storage of a contract.</dd><dt><a class="enum" href="enum.EthTransactError.html" title="enum pallet_revive::EthTransactError">EthTransact<wbr>Error</a></dt><dd>Error type of a <code>eth_transact</code> call.</dd><dt><a class="enum" href="enum.ExecOrigin.html" title="enum pallet_revive::ExecOrigin">Exec<wbr>Origin</a></dt><dd>The type of origins supported by the revive pallet.</dd><dt><a class="enum" href="enum.Key.html" title="enum pallet_revive::Key">Key</a></dt><dd>Combined key type for both fixed and variable sized storage keys.</dd><dt><a class="enum" href="enum.StorageDeposit.html" title="enum pallet_revive::StorageDeposit">Storage<wbr>Deposit</a></dt><dd>The amount of balance that was either charged or refunded in order to pay for storage.</dd><dt><a class="enum" href="enum.TransactionLimits.html" title="enum pallet_revive::TransactionLimits">Transaction<wbr>Limits</a></dt><dd>Transaction-wide resource limit configuration.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.RUNTIME_PALLETS_ADDR.html" title="constant pallet_revive::RUNTIME_PALLETS_ADDR">RUNTIME_<wbr>PALLETS_<wbr>ADDR</a></dt><dd>The address used to call the runtime’s pallets dispatchables</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AddressMapper.html" title="trait pallet_revive::AddressMapper">Address<wbr>Mapper</a></dt><dd>Map between the native chain account id <code>T</code> and an Ethereum <a href="struct.H160.html" title="struct pallet_revive::H160"><code>H160</code></a>.</dd><dt><a class="trait" href="trait.Executable.html" title="trait pallet_revive::Executable">Executable</a></dt><dd>A trait that represents something that can be executed.</dd><dt><a class="trait" href="trait.ReviveApi.html" title="trait pallet_revive::ReviveApi">Revive<wbr>Api</a></dt><dd>The API used to dry-run contract interactions.</dd><dt><a class="trait" href="trait.SyscallDoc.html" title="trait pallet_revive::SyscallDoc">Syscall<wbr>Doc</a></dt><dd>Documentation of the syscalls (host functions) available to contracts.</dd><dt><a class="trait" href="trait.Time.html" title="trait pallet_revive::Time">Time</a></dt><dt><a class="trait" href="trait.WeightToken.html" title="trait pallet_revive::WeightToken">Weight<wbr>Token</a></dt><dd>This trait represents a token that can be used for charging <code>WeightMeter</code>.
+There is no other way of charging it.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.create1.html" title="fn pallet_revive::create1">create1</a></dt><dd>Determine the address of a contract using CREATE semantics.</dd><dt><a class="fn" href="fn.create2.html" title="fn pallet_revive::create2">create2</a></dt><dd>Determine the address of a contract using the CREATE2 semantics.</dd><dt><a class="fn" href="fn.is_eth_derived.html" title="fn pallet_revive::is_eth_derived">is_<wbr>eth_<wbr>derived</a></dt><dd>Returns true if the passed account id is controlled by an eth key.</dd><dt><a class="fn" href="fn.keccak_256.html" title="fn pallet_revive::keccak_256">keccak_<wbr>256</a></dt><dd>Do a keccak 256-bit hash and return result.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BalanceOf.html" title="type pallet_revive::BalanceOf">Balance<wbr>Of</a></dt><dt><a class="type" href="type.CodeUploadResult.html" title="type pallet_revive::CodeUploadResult">Code<wbr>Upload<wbr>Result</a></dt><dd>Result type of a <code>bare_code_upload</code> call.</dd><dt><a class="type" href="type.EthAddress.html" title="type pallet_revive::EthAddress">EthAddress</a></dt><dt><a class="type" href="type.FrameMeter.html" title="type pallet_revive::FrameMeter">Frame<wbr>Meter</a></dt><dd>The type of resource meter used for an execution frame.</dd><dt><a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorage<wbr>Result</a></dt><dd>Result type of a <code>get_storage</code> call.</dd><dt><a class="type" href="type.MomentOf.html" title="type pallet_revive::MomentOf">Moment<wbr>Of</a></dt><dt><a class="type" href="type.SetStorageResult.html" title="type pallet_revive::SetStorageResult">SetStorage<wbr>Result</a></dt><dd>Result type of a <code>set_storage</code> call.</dd><dt><a class="type" href="type.TransactionMeter.html" title="type pallet_revive::TransactionMeter">Transaction<wbr>Meter</a></dt><dd>The type of resource meter used at the root level for transactions as a whole.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&<Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut <Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&mut [u8]":"<h3>Notable traits for <code>&amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for &amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","<Vec<T, A> as IntoIterator>::IntoIter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoDeserializer<'de, E>>::Deserializer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoParallelIterator>::Iter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoVisitor>::AnyVisitor<R>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

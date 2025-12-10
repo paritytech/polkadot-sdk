@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["deconstruct_parachain_inherent_data"],"struct":["AbridgedInboundMessagesCollection","BasicParachainInherentData","InboundMessageId","InboundMessagesCollection","InboundMessagesData"],"trait":["InboundMessage"],"type":["AbridgedInboundDownwardMessages","AbridgedInboundHrmpMessages","InboundDownwardMessages","InboundHrmpMessages"]};

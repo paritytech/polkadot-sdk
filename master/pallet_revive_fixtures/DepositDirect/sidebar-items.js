@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositDirectCalls"],"struct":["callSetAndClearCall","callSetAndClearReturn","clearAllCall","clearAllReturn","clearCall","clearReturn","setAndCallClearCall","setAndCallClearReturn","setAndClearCall","setAndClearReturn","setVarsCall","setVarsReturn"]};

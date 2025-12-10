@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait that represents something that can be executed."><title>Executable in pallet_revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Executable</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.code" title="code">code</a></li><li><a href="#tymethod.code_hash" title="code_hash">code_hash</a></li><li><a href="#tymethod.code_info" title="code_info">code_info</a></li><li><a href="#tymethod.execute" title="execute">execute</a></li><li><a href="#tymethod.from_evm_init_code" title="from_evm_init_code">from_evm_init_code</a></li><li><a href="#tymethod.from_storage" title="from_storage">from_storage</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>revive</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">pallet_revive</a></div><h1>Trait <span class="trait">Executable</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/exec.rs.html#572-609">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Executable&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    // Required methods
+    fn <a href="#tymethod.from_storage" class="fn">from_storage</a>&lt;S: State&gt;(
+        code_hash: <a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a>,
+        meter: &amp;mut <a class="struct" href="struct.ResourceMeter.html" title="struct pallet_revive::ResourceMeter">ResourceMeter</a>&lt;T, S&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.from_evm_init_code" class="fn">from_evm_init_code</a>(
+        code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        owner: &lt;T as Config&gt;::AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.execute" class="fn">execute</a>&lt;E: Ext&lt;T = T&gt;&gt;(
+        self,
+        ext: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;mut E</a>,
+        function: ExportedFunction,
+        input_data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">ExecReturnValue</a>, <a class="struct" href="precompiles/struct.ExecError.html" title="struct pallet_revive::precompiles::ExecError">ExecError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.code_info" class="fn">code_info</a>(&amp;self) -&gt; &amp;CodeInfo&lt;T&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.code" class="fn">code</a>(&amp;self) -&gt; &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;[u8]">ⓘ</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(&amp;self) -&gt; &amp;<a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait that represents something that can be executed.</p>
+<p>In the on-chain environment this would be represented by a vm binary module. This trait exists
+in order to be able to mock the vm logic for testing.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.from_storage" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#577-580">Source</a><h4 class="code-header">fn <a href="#tymethod.from_storage" class="fn">from_storage</a>&lt;S: State&gt;(
+    code_hash: <a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a>,
+    meter: &amp;mut <a class="struct" href="struct.ResourceMeter.html" title="struct pallet_revive::ResourceMeter">ResourceMeter</a>&lt;T, S&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Load the executable from storage.</p>
+<h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
+<p>Charges size base load weight from the weight meter.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.from_evm_init_code" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#583">Source</a><h4 class="code-header">fn <a href="#tymethod.from_evm_init_code" class="fn">from_evm_init_code</a>(
+    code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    owner: &lt;T as Config&gt;::AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Load the executable from EVM bytecode</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.execute" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#594-599">Source</a><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>&lt;E: Ext&lt;T = T&gt;&gt;(
+    self,
+    ext: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;mut E</a>,
+    function: ExportedFunction,
+    input_data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">ExecReturnValue</a>, <a class="struct" href="precompiles/struct.ExecError.html" title="struct pallet_revive::precompiles::ExecError">ExecError</a>&gt;</h4></section></summary><div class="docblock"><p>Execute the specified exported function and return the result.</p>
+<p>When the specified function is <code>Constructor</code> the executable is stored and its
+refcount incremented.</p>
+<h5 id="note-1"><a class="doc-anchor" href="#note-1">§</a>Note</h5>
+<p>This functions expects to be executed in a storage transaction that rolls back
+all of its emitted storage changes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code_info" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#602">Source</a><h4 class="code-header">fn <a href="#tymethod.code_info" class="fn">code_info</a>(&amp;self) -&gt; &amp;CodeInfo&lt;T&gt;</h4></section></summary><div class="docblock"><p>The code info of the executable.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#605">Source</a><h4 class="code-header">fn <a href="#tymethod.code" class="fn">code</a>(&amp;self) -&gt; &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;[u8]">ⓘ</a></h4></section></summary><div class="docblock"><p>The raw code of the executable.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code_hash" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#608">Source</a><h4 class="code-header">fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(&amp;self) -&gt; &amp;<a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a></h4></section></summary><div class="docblock"><p>The code hash of the executable.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Executable%3CT%3E-for-ContractBlob%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_revive/vm/mod.rs.html#310-355">Source</a><a href="#impl-Executable%3CT%3E-for-ContractBlob%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&gt; <a class="trait" href="trait.Executable.html" title="trait pallet_revive::Executable">Executable</a>&lt;T&gt; for <a class="struct" href="struct.ContractBlob.html" title="struct pallet_revive::ContractBlob">ContractBlob</a>&lt;T&gt;</h3></section></div><script src="../trait.impl/pallet_revive/exec/trait.Executable.js" async></script><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

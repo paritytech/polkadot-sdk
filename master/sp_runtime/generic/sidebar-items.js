@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXTRINSIC_FORMAT_VERSION"],"enum":["BlockId","DigestItem","DigestItemRef","Era","ExtrinsicFormat","OpaqueDigestItemId","Preamble"],"struct":["Block","CallAndMaybeEncoded","CheckedExtrinsic","Digest","Header","LazyBlock","SignedBlock","SignedPayload","UncheckedExtrinsic"],"type":["ExtensionVersion","Phase","UncheckedSignaturePayload"]};

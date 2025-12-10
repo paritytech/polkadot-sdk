@@ -1,0 +1,255 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single Block Migration Example Pallet"><title>pallet_example_single_block_migrations - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_example_single_block_migrations" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_example_single_block_migrations/index.html">pallet_example_single_block_migrations</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_example_single_block_migrations</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_example_single_block_migrations/lib.rs.html#18-213">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="single-block-migration-example-pallet"><a href="#single-block-migration-example-pallet">Single Block Migration Example Pallet</a></h2>
+<p>An example pallet demonstrating best-practices for writing single-block migrations in the
+context of upgrading pallet storage.</p>
+<h3 id="forwarning"><a href="#forwarning">Forwarning</a></h3>
+<p>Single block migrations <strong>MUST</strong> execute in a single block, therefore when executed on a
+parachain are only appropriate when guaranteed to not exceed block weight limits. If a
+parachain submits a block that exceeds the block weight limit it will <strong>brick the chain</strong>!</p>
+<p>If weight is a concern or you are not sure which type of migration to use, you should probably
+use a multi-block migration.</p>
+<p>TODO: Link above to multi-block migration example.</p>
+<h3 id="pallet-overview"><a href="#pallet-overview">Pallet Overview</a></h3>
+<p>This example pallet contains a single storage item <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a>, which may be set by
+any signed origin by calling the <a href="pallet/enum.Call.html#variant.set_value" title="variant pallet_example_single_block_migrations::pallet::Call::set_value"><code>set_value</code></a> extrinsic.</p>
+<p>For the purposes of this exercise, we imagine that in [<code>StorageVersion</code>] V0 of this pallet
+<a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> is a <code>u32</code>, and this what is currently stored on-chain.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// (Old) Storage Version V0 representation of `Value`
+</span><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>Value&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;</code></pre></div>
+<p>In [<code>StorageVersion</code>] V1 of the pallet a new struct <a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a> is introduced:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+)]
+</span><span class="kw">pub struct </span>CurrentAndPreviousValue {
+	<span class="doccomment">/// The most recently set value.
+	</span><span class="kw">pub </span>current: u32,
+	<span class="doccomment">/// The previous value, if one existed.
+	</span><span class="kw">pub </span>previous: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+}</code></pre></div>
+<p>and <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> is updated to store this new struct instead of a <code>u32</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>Value&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, CurrentAndPreviousValue&gt;;</code></pre></div>
+<p>In StorageVersion V1 of the pallet when <a href="pallet/enum.Call.html#variant.set_value" title="variant pallet_example_single_block_migrations::pallet::Call::set_value"><code>set_value</code></a> is called, the
+new value is stored in the <code>current</code> field of <a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a>, and the previous
+value (if it exists) is stored in the <code>previous</code> field.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::call]
+</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="kw">pub fn </span>set_value(origin: OriginFor&lt;T&gt;, value: u32) -&gt; DispatchResult {
+		ensure_signed(origin)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>previous = Value::&lt;T&gt;::get().map(|v| v.current);
+		<span class="kw">let </span>new_struct = CurrentAndPreviousValue { current: value, previous };
+		&lt;Value&lt;T&gt;&gt;::put(new_struct);
+
+		<span class="prelude-val">Ok</span>(())
+	}
+}</code></pre></div>
+<h3 id="why-a-migration-is-necessary"><a href="#why-a-migration-is-necessary">Why a migration is necessary</a></h3>
+<p>Without a migration, there will be a discrepancy between the on-chain storage for <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> (in
+V0 it is a <code>u32</code>) and the current storage for <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> (in V1 it was changed to a
+<a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a> struct).</p>
+<p>The on-chain storage for <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> would be a <code>u32</code> but the runtime would try to read it as a
+<a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a>. This would result in unacceptable undefined behavior.</p>
+<h3 id="adding-a-migration-module"><a href="#adding-a-migration-module">Adding a migration module</a></h3>
+<p>Writing a pallets migrations in a seperate module is strongly recommended.</p>
+<p>Here’s how the migration module is defined for this pallet:</p>
+<div class="example-wrap"><pre class="language-text"><code>substrate/frame/examples/single-block-migrations/src/
+├── lib.rs       &lt;-- pallet definition
+├── Cargo.toml   &lt;-- pallet manifest
+└── migrations/
+   ├── mod.rs    &lt;-- migrations module definition
+   └── v1.rs     &lt;-- migration logic for the V0 to V1 transition
+</code></pre></div>
+<p>This structure allows keeping migration logic separate from the pallet logic and
+easily adding new migrations in the future.</p>
+<h3 id="writing-the-migration"><a href="#writing-the-migration">Writing the Migration</a></h3>
+<p>All code related to the migration can be found under
+<a href="migrations/v1/index.html" title="mod pallet_example_single_block_migrations::migrations::v1"><code>v1.rs</code></a>.</p>
+<p>See the migration source code for detailed comments.</p>
+<p>To keep the migration logic organised, it is split across additional modules:</p>
+<h4 id="mod-v0"><a href="#mod-v0"><code>mod v0</code></a></h4>
+<p>Here we define a <a href="../frame_support_procedural/attr.storage_alias.html" title="attr frame_support_procedural::storage_alias"><code>storage_alias</code></a> for the old v0 <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a>
+format.</p>
+<p>This allows reading the old v0 value from storage during the migration.</p>
+<h4 id="mod-version_unchecked"><a href="#mod-version_unchecked"><code>mod version_unchecked</code></a></h4>
+<p>Here we define our raw migration logic,
+<code>version_unchecked::MigrateV0ToV1</code> which implements the <a href="frame_support::traits::OnRuntimeUpgrade"><code>OnRuntimeUpgrade</code></a> trait.</p>
+<p>Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.</p>
+<p>Private modules cannot be referenced in docs, so please read the code directly.</p>
+<h5 id="standalone-struct-or-pallet-hook"><a href="#standalone-struct-or-pallet-hook">Standalone Struct or Pallet Hook?</a></h5>
+<p>Note that the storage migration logic is attached to a standalone struct implementing
+<a href="frame_support::traits::OnRuntimeUpgrade"><code>OnRuntimeUpgrade</code></a>, rather than implementing the
+<a href="frame_support::traits::Hooks::on_runtime_upgrade"><code>Hooks::on_runtime_upgrade</code></a> hook directly on
+the pallet. The pallet hook is better suited for special types of logic that need to execute on
+every runtime upgrade, but not so much for one-off storage migrations.</p>
+<h4 id="pub-mod-versioned"><a href="#pub-mod-versioned"><code>pub mod versioned</code></a></h4>
+<p>Here, <code>version_unchecked::MigrateV0ToV1</code> is wrapped in a
+<a href="frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> to define
+<a href="migrations/v1/versioned/type.MigrateV0ToV1.html" title="type pallet_example_single_block_migrations::migrations::v1::versioned::MigrateV0ToV1"><code>versioned::MigrateV0ToV1</code></a>, which may be used
+in runtimes.</p>
+<p>Using <a href="frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> ensures that</p>
+<ul>
+<li>The migration only runs once when the on-chain storage version is <code>0</code></li>
+<li>The on-chain storage version is updated to <code>1</code> after the migration executes</li>
+<li>Reads and writes from checking and setting the on-chain storage version are accounted for in
+the final <a href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight"><code>Weight</code></a></li>
+</ul>
+<p>This is the only public module exported from <code>v1</code>.</p>
+<h4 id="mod-test"><a href="#mod-test"><code>mod test</code></a></h4>
+<p>Here basic unit tests are defined for the migration.</p>
+<p>When writing migration tests, don’t forget to check:</p>
+<ul>
+<li><code>on_runtime_upgrade</code> returns the expected weight</li>
+<li><code>post_upgrade</code> succeeds when given the bytes returned by <code>pre_upgrade</code></li>
+<li>Pallet storage is in the expected state after the migration</li>
+</ul>
+</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_example_single_block_migrations::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migrations/index.html" title="mod pallet_example_single_block_migrations::migrations">migrations</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_example_single_block_migrations::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue">CurrentAndPreviousValue</a></div><div class="desc docblock-short">Example struct holding the most recently set <a href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html" title="primitive u32"><code>u32</code></a> and the
+second most recently set <a href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html" title="primitive u32"><code>u32</code></a> (if one existed).</div></li></ul></section></div></main></body></html>

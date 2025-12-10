@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["barriers","message_queue","xcm_version"]};

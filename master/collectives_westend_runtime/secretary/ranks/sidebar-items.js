@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SECRETARY","SECRETARY_CANDIDATE"]};

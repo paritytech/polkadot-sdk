@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["pallet"],"struct":["BalanceSwapAction","Pallet","PendingSwap"],"trait":["Config","SwapAction"],"type":["HashedProof","Module","PendingSwaps"]};

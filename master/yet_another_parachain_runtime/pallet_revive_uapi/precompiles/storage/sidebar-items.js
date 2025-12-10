@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STORAGE_PRECOMPILE_ADDR"],"mod":["IStorage"]};

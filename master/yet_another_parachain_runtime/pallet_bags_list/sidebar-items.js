@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","ListError"],"fn":["notional_bag_for"],"macro":["log"],"mod":["list","migrations","mock","pallet","weights"],"struct":["Bag","Instance1","List","Node","Pallet","ScoresViewFunction"],"trait":["Config","WeightInfo"],"type":["ListBags","ListNodes","Lock","Module","NextNodeAutoRebagged","PendingRebag"]};

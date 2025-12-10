@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@dev Interface of the ERC-20 standard as defined in the ERC."><title>ethereum_standards::IERC20 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ethereum_standards" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ethereum_standards/index.html">ethereum_<wbr>standards</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module IERC20</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate ethereum_<wbr>standards</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ethereum_standards</a></div><h1>Module <span>IERC20</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/ethereum_standards/lib.rs.html#22">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@dev Interface of the ERC-20 standard as defined in the ERC.</p>
+<div class="example-wrap"><pre class="language-solidity"><code>interface IERC20 {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Approval.html" title="struct ethereum_standards::IERC20::Approval">Approval</a></dt><dd>@dev Emitted when the allowance of a <code>spender</code> for an <code>owner</code> is set by
+a call to {approve}. <code>value</code> is the new allowance.
+Event with signature <code>Approval(address,address,uint256)</code> and selector <code>0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925</code>.</dd><dt><a class="struct" href="struct.Transfer.html" title="struct ethereum_standards::IERC20::Transfer">Transfer</a></dt><dd>@dev Emitted when <code>value</code> tokens are moved from one account (<code>from</code>) to
+another (<code>to</code>).</dd><dt><a class="struct" href="struct.allowanceCall.html" title="struct ethereum_standards::IERC20::allowanceCall">allowance<wbr>Call</a></dt><dd>@dev Returns the remaining number of tokens that <code>spender</code> will be
+allowed to spend on behalf of <code>owner</code> through {transferFrom}. This is
+zero by default.</dd><dt><a class="struct" href="struct.allowanceReturn.html" title="struct ethereum_standards::IERC20::allowanceReturn">allowance<wbr>Return</a></dt><dd>@dev Returns the remaining number of tokens that <code>spender</code> will be
+allowed to spend on behalf of <code>owner</code> through {transferFrom}. This is
+zero by default.</dd><dt><a class="struct" href="struct.approveCall.html" title="struct ethereum_standards::IERC20::approveCall">approve<wbr>Call</a></dt><dd>@dev Sets a <code>value</code> amount of tokens as the allowance of <code>spender</code> over the
+caller’s tokens.</dd><dt><a class="struct" href="struct.approveReturn.html" title="struct ethereum_standards::IERC20::approveReturn">approve<wbr>Return</a></dt><dd>@dev Sets a <code>value</code> amount of tokens as the allowance of <code>spender</code> over the
+caller’s tokens.</dd><dt><a class="struct" href="struct.balanceOfCall.html" title="struct ethereum_standards::IERC20::balanceOfCall">balance<wbr>OfCall</a></dt><dd>@dev Returns the value of tokens owned by <code>account</code>.
+Function with signature <code>balanceOf(address)</code> and selector <code>0x70a08231</code>.</dd><dt><a class="struct" href="struct.balanceOfReturn.html" title="struct ethereum_standards::IERC20::balanceOfReturn">balance<wbr>OfReturn</a></dt><dd>@dev Returns the value of tokens owned by <code>account</code>.
+Container type for the return parameters of the <a href="struct.balanceOfCall.html" title="struct ethereum_standards::IERC20::balanceOfCall"><code>balanceOf(address)</code></a> function.</dd><dt><a class="struct" href="struct.totalSupplyCall.html" title="struct ethereum_standards::IERC20::totalSupplyCall">total<wbr>Supply<wbr>Call</a></dt><dd>@dev Returns the value of tokens in existence.
+Function with signature <code>totalSupply()</code> and selector <code>0x18160ddd</code>.</dd><dt><a class="struct" href="struct.totalSupplyReturn.html" title="struct ethereum_standards::IERC20::totalSupplyReturn">total<wbr>Supply<wbr>Return</a></dt><dd>@dev Returns the value of tokens in existence.
+Container type for the return parameters of the <a href="struct.totalSupplyCall.html" title="struct ethereum_standards::IERC20::totalSupplyCall"><code>totalSupply()</code></a> function.</dd><dt><a class="struct" href="struct.transferCall.html" title="struct ethereum_standards::IERC20::transferCall">transfer<wbr>Call</a></dt><dd>@dev Moves a <code>value</code> amount of tokens from the caller’s account to <code>to</code>.</dd><dt><a class="struct" href="struct.transferFromCall.html" title="struct ethereum_standards::IERC20::transferFromCall">transfer<wbr>From<wbr>Call</a></dt><dd>@dev Moves a <code>value</code> amount of tokens from <code>from</code> to <code>to</code> using the
+allowance mechanism. <code>value</code> is then deducted from the caller’s
+allowance.</dd><dt><a class="struct" href="struct.transferFromReturn.html" title="struct ethereum_standards::IERC20::transferFromReturn">transfer<wbr>From<wbr>Return</a></dt><dd>@dev Moves a <code>value</code> amount of tokens from <code>from</code> to <code>to</code> using the
+allowance mechanism. <code>value</code> is then deducted from the caller’s
+allowance.</dd><dt><a class="struct" href="struct.transferReturn.html" title="struct ethereum_standards::IERC20::transferReturn">transfer<wbr>Return</a></dt><dd>@dev Moves a <code>value</code> amount of tokens from the caller’s account to <code>to</code>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.IERC20Calls.html" title="enum ethereum_standards::IERC20::IERC20Calls">IERC20<wbr>Calls</a></dt><dd>Container for all the <a href="index.html" title="mod ethereum_standards::IERC20"><code>IERC20</code></a> function calls.</dd><dt><a class="enum" href="enum.IERC20Events.html" title="enum ethereum_standards::IERC20::IERC20Events">IERC20<wbr>Events</a></dt><dd>Container for all the <a href="index.html" title="mod ethereum_standards::IERC20"><code>IERC20</code></a> events.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_debug_derive", 0, "Macros to derive runtime debug implementation.\nDerive macro for <code>Debug</code> that emits a deprecation warning.")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":["V5Config"],"type":["MigrateV4ToV5"]};

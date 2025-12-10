@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["transaction_extensions_example"]};
