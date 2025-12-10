@@ -107,6 +107,17 @@ fn test_zero_cores() {
 }
 
 #[test]
+fn test_uneven_number_of_blocks_on_even_number_of_cores() {
+	TestExtBuilder::new().number_of_cores(2).build().execute_with(|| {
+		let weight = MaxParachainBlockWeight::<Runtime, ConstU32<3>>::get();
+
+		// Each block should get half of a core.
+		assert_eq!(weight.ref_time(), WEIGHT_REF_TIME_PER_SECOND);
+		assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64 / 2);
+	});
+}
+
+#[test]
 fn test_zero_target_blocks() {
 	TestExtBuilder::new().number_of_cores(2).build().execute_with(|| {
 		let weight = MaxParachainBlockWeight::<Runtime, ConstU32<0>>::get();

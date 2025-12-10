@@ -203,29 +203,33 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 		let number_of_cores = CumulusDigestItem::find_core_info(&digest).map_or_else(
 			|| PreviousCoreCount::<Config>::get().map_or(1, |pc| pc.0),
 			|ci| ci.number_of_cores.0,
-		) as u32;
+		) as u64;
 
-		let target_blocks = TargetBlockRate::get();
+		let target_blocks = TargetBlockRate::get() as u64;
 
 		// Ensure we have at least one core and valid target blocks
 		if number_of_cores == 0 || target_blocks == 0 {
 			return FULL_CORE_WEIGHT;
 		}
 
+		let blocks_per_core = target_blocks.div_ceil(number_of_cores);
+
+		let ref_time_per_block = MAX_REF_TIME_PER_CORE_NS / blocks_per_core;
+
 		// At maximum we want to allow `6s` of ref time, because we don't want to overload nodes
 		// that are running with standard hardware. These nodes need to be able to import all the
 		// blocks in `6s`.
-		let total_ref_time = (number_of_cores as u64)
-			.saturating_mul(MAX_REF_TIME_PER_CORE_NS)
-			.min(WEIGHT_REF_TIME_PER_SECOND * 6);
-		let ref_time_per_block = total_ref_time
-			.saturating_div(target_blocks as u64)
-			.min(MAX_REF_TIME_PER_CORE_NS);
+		let total_ref_time = ref_time_per_block * target_blocks;
+		let ref_time_per_block = if total_ref_time > 6 * WEIGHT_REF_TIME_PER_SECOND {
+			ref_time_per_block -
+				(total_ref_time - 6 * WEIGHT_REF_TIME_PER_SECOND).div_ceil(target_blocks)
+		} else {
+			ref_time_per_block
+		};
 
-		let total_pov_size = (number_of_cores as u64).saturating_mul(MAX_POV_SIZE as u64);
-		// Each block at max gets one core.
-		let proof_size_per_block =
-			total_pov_size.saturating_div(target_blocks as u64).min(MAX_POV_SIZE as u64);
+		// PoV size we can use as much as we can get from the cores, but at maximum it is one block
+		// per core. Or in other words, one block can not span across multiple cores.
+		let proof_size_per_block = MAX_POV_SIZE as u64 / blocks_per_core;
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
 	}
