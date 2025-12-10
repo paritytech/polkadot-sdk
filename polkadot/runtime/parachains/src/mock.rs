@@ -219,7 +219,7 @@ impl crate::shared::Config for Test {
 
 parameter_types! {
 	pub const MaxPublishItems: u32 = 16;
-	pub const MaxKeyLength: u32 = 256;
+	pub const MaxKeyLength: u32 = 32;
 	pub const MaxValueLength: u32 = 1024;
 	pub const MaxStoredKeys: u32 = 100;
 	pub const MaxPublishers: u32 = 1000;

@@ -227,7 +227,8 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = XcmPallet;
-	type BroadcastHandler = ();
+	type BroadcastHandler =
+		xcm_builder::ParachainBroadcastAdapter<xcm_builder::OnlyParachains, crate::Broadcaster>;
 }
 
 parameter_types! {
