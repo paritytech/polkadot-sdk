@@ -30,6 +30,11 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
         with:
           fetch-depth: 2
