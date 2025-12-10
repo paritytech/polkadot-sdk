@@ -13,10 +13,11 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
+// limitations under the License
 
 use crate::{evm::fees::InfoT, BalanceOf, Config, StorageDeposit};
 use frame_support::DebugNoBound;
+use sp_core::Get;
 use sp_runtime::{FixedPointNumber, Saturating};
 
 /// The type for negative and positive gas amounts.
@@ -52,7 +53,8 @@ impl<T: Config> SignedGas<T> {
 	/// Transform an Ethereum gas amount coming from outside the metering system and transform into
 	/// the internally used SignedGas.
 	pub fn from_ethereum_gas(gas: BalanceOf<T>) -> Self {
-		Self::Positive(gas)
+		let gas_scale = <T as Config>::GasScale::get();
+		Self::Positive(gas.saturating_mul(gas_scale.into()))
 	}
 
 	/// Transform a storage deposit into a gas value. The value will be adjusted by dividing it
@@ -80,8 +82,11 @@ impl<T: Config> SignedGas<T> {
 	/// Transform the gas amount to an Ethereum gas amount usable for external purposes
 	/// Returns None if the gas amount is negative.
 	pub fn to_ethereum_gas(&self) -> Option<BalanceOf<T>> {
+		let gas_scale: BalanceOf<T> = <T as Config>::GasScale::get().into();
+
 		match self {
-			Positive(amount) => Some(*amount),
+			Positive(amount) =>
+				Some((amount.saturating_add(gas_scale.saturating_sub(1u32.into()))) / gas_scale),
 			Negative(..) => None,
 		}
 	}
