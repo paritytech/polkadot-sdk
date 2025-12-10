@@ -90,6 +90,9 @@ pub const MAX_STATEMENT_SIZE: usize =
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// Default number of parallel validation workers
+pub const DEFAULT_NUM_VALIDATION_WORKERS: usize = 8;
+
 mod col {
 	pub const META: u8 = 0;
 	pub const STATEMENTS: u8 = 1;
@@ -170,31 +173,90 @@ struct Index {
 	total_size: usize,
 }
 
-struct ClientWrapper<Block, Client> {
-	client: Arc<Client>,
-	_block: std::marker::PhantomData<Block>,
+struct ValidationPool<Block, Client> {
+	senders: Vec<
+		std::sync::mpsc::Sender<(
+			Option<BlockHash>,
+			StatementSource,
+			Statement,
+			std::sync::mpsc::Sender<std::result::Result<ValidStatement, InvalidStatement>>,
+		)>,
+	>,
+	next_worker: std::sync::atomic::AtomicUsize,
+	_phantom: std::marker::PhantomData<(Block, Client)>,
 }
 
-impl<Block, Client> ClientWrapper<Block, Client>
+impl<Block, Client> ValidationPool<Block, Client>
 where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 	Client::Api: ValidateStatement<Block>,
 {
+	fn new(_task_spawner: &dyn SpawnNamed, client: Arc<Client>, num_workers: usize) -> Self {
+		let num_workers = num_workers.max(1); // Ensure at least 1
+		let mut senders = Vec::with_capacity(num_workers);
+
+		for worker_id in 0..num_workers {
+			let worker_client = client.clone();
+			let (sender, receiver) = std::sync::mpsc::channel::<(
+				Option<BlockHash>,
+				StatementSource,
+				Statement,
+				std::sync::mpsc::Sender<std::result::Result<ValidStatement, InvalidStatement>>,
+			)>();
+			senders.push(sender);
+
+			std::thread::spawn(move || {
+				log::debug!(target: LOG_TARGET, "Validation worker {} started", worker_id);
+				let api = worker_client.runtime_api();
+
+				while let Ok((block, source, statement, response_tx)) = receiver.recv() {
+					let block = block
+						.map(Into::into)
+						.unwrap_or_else(|| worker_client.info().finalized_hash);
+
+					let result = match api.validate_statement(block, source, statement) {
+						Ok(validation_result) => validation_result,
+						Err(e) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Runtime error on worker {}: {:?}",
+								worker_id, e
+							);
+							Err(InvalidStatement::InternalError)
+						},
+					};
+
+					let _ = response_tx.send(result);
+				}
+				log::debug!(target: LOG_TARGET, "Validation worker {} stopping", worker_id);
+			});
+		}
+
+		Self {
+			senders,
+			next_worker: std::sync::atomic::AtomicUsize::new(0),
+			_phantom: std::marker::PhantomData,
+		}
+	}
+
 	fn validate_statement(
 		&self,
 		block: Option<BlockHash>,
 		source: StatementSource,
 		statement: Statement,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
-		let block = block.map(Into::into).unwrap_or_else(|| {
-			// Validate against the finalized state.
-			self.client.info().finalized_hash
-		});
-		api.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?
+		let (response_tx, response_rx) = std::sync::mpsc::channel();
+
+		let worker_idx = self.next_worker.fetch_add(1, std::sync::atomic::Ordering::Relaxed) %
+			self.senders.len();
+
+		self.senders[worker_idx]
+			.send((block, source, statement, response_tx))
+			.map_err(|_| InvalidStatement::InternalError)?;
+
+		response_rx.recv().map_err(|_| InvalidStatement::InternalError)?
 	}
 }
 
@@ -506,7 +568,7 @@ impl Store {
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
-		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
+		let store = Arc::new(Self::new(path, options, client, keystore, task_spawner, prometheus)?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -533,6 +595,7 @@ impl Store {
 		options: Options,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
+		task_spawner: &dyn SpawnNamed,
 		prometheus: Option<&PrometheusRegistry>,
 	) -> Result<Store>
 	where
@@ -572,9 +635,11 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper { client, _block: Default::default() };
+		let validation_pool: ValidationPool<Block, Client> =
+			ValidationPool::new(task_spawner, client, DEFAULT_NUM_VALIDATION_WORKERS);
+		let validation_pool = Arc::new(validation_pool);
 		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
+			validation_pool.validate_statement(block, source, statement)
 		});
 
 		let store = Store {
@@ -1146,7 +1211,9 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let task_spawner = sp_core::testing::TaskExecutor::new();
+		let store =
+			Store::new(&path, Default::default(), client, keystore, &task_spawner, None).unwrap();
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
 	}
 
@@ -1255,7 +1322,9 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let task_spawner = sp_core::testing::TaskExecutor::new();
+		let store =
+			Store::new(&path, Default::default(), client, keystore, &task_spawner, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
@@ -1445,7 +1514,9 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let task_spawner = sp_core::testing::TaskExecutor::new();
+		let store =
+			Store::new(&path, Default::default(), client, keystore, &task_spawner, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
 		assert_eq!(store.index.read().expired.len(), 0);
 	}

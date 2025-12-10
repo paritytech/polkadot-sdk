@@ -148,7 +148,8 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let task_spawner = sp_core::testing::TaskExecutor::new();
+	let store = Store::new(&path, Default::default(), client, keystore, &task_spawner, None).unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
 		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
