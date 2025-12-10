@@ -66,7 +66,8 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	assigner_coretime as parachains_assigner_coretime, broadcaster as parachains_broadcaster,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1226,6 +1227,27 @@ impl parachains_slashing::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxPublishItems: u32 = 10;
+	pub const MaxKeyLength: u32 = 32;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 100;
+	pub const MaxPublishers: u32 = 1000;
+	pub const PublisherDeposit: Balance = 100 * UNITS;
+}
+
+impl parachains_broadcaster::Config for Runtime {
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
+	type MaxPublishers = MaxPublishers;
+	type PublisherDeposit = PublisherDeposit;
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
 
@@ -1589,6 +1611,7 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info = 61,
 		ParasDisputes: parachains_disputes = 62,
 		ParasSlashing: parachains_slashing = 63,
+		Broadcaster: parachains_broadcaster = 65,
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
@@ -1853,6 +1876,7 @@ mod benches {
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		[polkadot_runtime_common::slots, Slots]
 		[polkadot_runtime_common::paras_registrar, Registrar]
+		[polkadot_runtime_parachains::broadcaster, Broadcaster]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::coretime, Coretime]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
