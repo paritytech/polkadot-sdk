@@ -58,7 +58,11 @@ parameter_types! {
 	pub const MaxConfigsPerAccount: u32 = 128;
 
 	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroups);
+	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::Attempt);
+	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::Inheritor);
 }
+
+pub const SECURITY_DEPOSIT: u128 = 100;
 
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
@@ -71,8 +75,19 @@ impl Config for Test {
 		FriendGroupsHoldReason,
 		LinearStoragePrice<ConstU128<5>, ConstU128<1>, u128>, // 5 + n
 	>;
-	type AttemptConsideration = ();
-	type InheritorConsideration = ();
+	type AttemptConsideration = HoldConsideration<
+		u64,
+		Balances,
+		AttemptHoldReason,
+		LinearStoragePrice<ConstU128<3>, ConstU128<1>, u128>, // 2 + n
+	>;
+	type InheritorConsideration = HoldConsideration<
+		u64,
+		Balances,
+		InheritorHoldReason,
+		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
+	>;
+	type SecurityDeposit = ConstU128<SECURITY_DEPOSIT>;
 	type MaxFriendsPerConfig = MaxFriendsPerConfig;
 	type MaxConfigsPerAccount = MaxConfigsPerAccount;
 	type WeightInfo = ();
@@ -88,7 +103,7 @@ pub const DAVE: u64 = 4;
 pub const EVE: u64 = 5;
 pub const FERDIE: u64 = 6;
 
-pub const START_BALANCE: u128 = 1000;
+pub const START_BALANCE: u128 = 10_000;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

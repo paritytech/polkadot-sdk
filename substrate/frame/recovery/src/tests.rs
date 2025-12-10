@@ -18,11 +18,16 @@
 //! Tests for the module.
 
 use crate::{frame_system::Origin, mock::*, Call as RecoveryCall, *};
-use frame::{prelude::fungible::InspectHold, testing_prelude::*};
+use frame::{
+	prelude::fungible::{InspectHold, UnbalancedHold},
+	testing_prelude::*,
+};
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{bounded_vec, DispatchError, ModuleError, TokenError};
 
 use Test as T;
+
+const ABORT_DELAY: u64 = 5;
 
 fn friends(friends: impl IntoIterator<Item = u64>) -> FriendsOf<T> {
 	friends.into_iter().map(|f| f.into()).collect::<Vec<_>>().try_into().unwrap()
@@ -36,7 +41,7 @@ fn fg(fs: impl IntoIterator<Item = u64>) -> FriendGroupOf<T> {
 		inheritor: FERDIE,
 		inheritance_delay: 10,
 		inheritance_order: 0,
-		abort_delay: 10,
+		cancel_delay: ABORT_DELAY,
 	}
 }
 
@@ -54,12 +59,51 @@ fn assert_fg_deposit(who: u64, deposit: u128) {
 	);
 }
 
+fn assert_attempt_deposit(who: u64, deposit: u128) {
+	assert_eq!(
+		<T as crate::Config>::Currency::balance_on_hold(&crate::HoldReason::Attempt.into(), &who),
+		deposit
+	);
+}
+
+fn assert_security_deposit(who: u64, deposit: u128) {
+	assert_eq!(
+		<T as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::SecurityDeposit.into(),
+			&who
+		),
+		deposit
+	);
+}
+
 fn clear_events() {
 	frame_system::Pallet::<T>::reset_events();
 }
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
+
+fn inc_block_number(by: u64) {
+	frame_system::Pallet::<T>::set_block_number(
+		frame_system::Pallet::<T>::current_block_number() + by,
+	);
+}
+
+/// Whether `inheritor` can control the `recovered` account.
+fn can_control_account(inheritor: AccountIdLookupOf<T>, recovered: AccountIdLookupOf<T>) -> bool {
+	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+	let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+
+	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
+}
+
+/// Storage root excluding System events.
+fn root_without_events() -> Vec<u8> {
+	hypothetically!({
+		clear_events();
+		sp_io::storage::root(sp_runtime::StateVersion::V1)
+	})
 }
 
 #[test]
@@ -73,7 +117,7 @@ fn basic_flow_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
@@ -116,7 +160,7 @@ fn basic_flow_works() {
 		));
 
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 0);
-		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2000);
+		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 20_000);
 	});
 }
 
@@ -132,7 +176,7 @@ fn set_friend_groups_multiple_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let fg2 = FriendGroupOf::<T> {
 			deposit: 10,
@@ -141,7 +185,7 @@ fn set_friend_groups_multiple_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg1, fg2];
 
@@ -163,7 +207,7 @@ fn set_friend_groups_duplicate_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg1.clone(), fg1];
 
@@ -185,7 +229,7 @@ fn set_friend_groups_too_many_friends_needed_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg];
 
@@ -207,7 +251,7 @@ fn set_friend_groups_no_friends_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_noop!(Recovery::set_friend_groups(signed(ALICE), vec![fg]), Error::<T>::NoFriends);
@@ -225,7 +269,7 @@ fn set_friend_groups_remove_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
@@ -259,7 +303,7 @@ fn set_friend_groups_ongoing_attempt_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
@@ -288,7 +332,7 @@ fn initiate_attempt_multiple_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
 
@@ -330,6 +374,7 @@ fn initiate_attempt_different_friend_groups_works() {
 					fg([BOB, CHARLIE]),
 					AttemptOf::<T> {
 						friend_group_index: 0,
+						initiator: BOB.into(),
 						init_block: 10,
 						last_approval_block: 10,
 						approvals: ApprovalBitfield::default(),
@@ -339,6 +384,7 @@ fn initiate_attempt_different_friend_groups_works() {
 					fg([CHARLIE, DAVE]),
 					AttemptOf::<T> {
 						friend_group_index: 1,
+						initiator: CHARLIE.into(),
 						init_block: 10,
 						last_approval_block: 10,
 						approvals: ApprovalBitfield::default(),
@@ -362,6 +408,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 1,
 					approvals: ApprovalBitfield::default(),
@@ -379,6 +426,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 2,
 					approvals: ApprovalBitfield::default().with_bits([0]), // Bob is index 0
@@ -399,6 +447,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 3,
 					approvals: ApprovalBitfield::default().with_bits([0, 2]), /* Bob is index 0,
@@ -558,7 +607,7 @@ fn control_inherited_account_works() {
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
 		let call: RuntimeCall =
-			BalancesCall::transfer_allow_death { value: 2000, dest: FERDIE }.into();
+			BalancesCall::transfer_allow_death { value: 20_000, dest: FERDIE }.into();
 		let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
 
 		// Outer call works:
@@ -573,10 +622,187 @@ fn control_inherited_account_works() {
 	});
 }
 
-/// Whether `inheritor` can control the `recovered` account.
-fn can_control_account(inheritor: AccountIdLookupOf<T>, recovered: AccountIdLookupOf<T>) -> bool {
-	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
-	let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+#[test]
+fn cancel_attempt_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
-	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 2_001);
+
+		// Charlie can never cancel
+		assert_noop!(Recovery::cancel_attempt(signed(CHARLIE), ALICE, 0), Error::<T>::NotCanceller);
+		// Bob can not yet cancel
+		assert_noop!(Recovery::cancel_attempt(signed(BOB), ALICE, 0), Error::<T>::NotYetCancelable);
+		// Lost could always cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+		});
+
+		frame_system::Pallet::<T>::set_block_number(12);
+		// Charlie can never cancel
+		assert_noop!(Recovery::cancel_attempt(signed(CHARLIE), ALICE, 0), Error::<T>::NotCanceller);
+		// Bob could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: BOB,
+			});
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+		});
+		// Alice could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: ALICE,
+			});
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+		});
+
+		// Alice or Bob canceling is the exact same thing
+		let alice_cancel = hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			root_without_events()
+		});
+		let bob_cancel = hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			root_without_events()
+		});
+		assert_eq!(alice_cancel, bob_cancel);
+	});
+}
+
+#[test]
+fn cancel_attempt_extends_delay_after_new_approval() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		// Let's go just before the DELAY expires
+		inc_block_number(ABORT_DELAY - 1);
+		// After one more block, Bob can cancel
+		hypothetically!({
+			inc_block_number(1);
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+		});
+
+		// But if there is a new approval, the delay is extended
+		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
+		hypothetically!({
+			inc_block_number(1);
+			assert_noop!(
+				Recovery::cancel_attempt(signed(BOB), ALICE, 0),
+				Error::<T>::NotYetCancelable
+			);
+		});
+
+		// Bob needs to wait for the DELAY again
+		inc_block_number(ABORT_DELAY);
+		assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+	});
+}
+
+/// Can still cancel an attempt even if the initiator account does not have the deposit anymore.
+#[test]
+fn cancel_attempt_works_when_initiator_account_is_broken() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 2_001);
+
+		frame_system::Pallet::<T>::set_block_number(12);
+
+		// Force remove the deposit from bob
+		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+			&crate::HoldReason::Attempt.into(),
+			&BOB,
+			0
+		));
+		assert_attempt_deposit(BOB, 0);
+
+		// Bob could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: BOB,
+			});
+		});
+		// Alice could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: ALICE,
+			});
+		});
+	});
+}
+
+/// Slashing an attempt will remove it and slash the deposit of the initiator.
+#[test]
+fn slash_attempt_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_security_deposit(BOB, SECURITY_DEPOSIT);
+
+		// Slash the attempt and check that TI decreased
+		let ti = <T as Config>::Currency::total_issuance();
+		assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+		assert_security_deposit(BOB, 0);
+
+		// Bob got slashed
+		assert_eq!(<T as Config>::Currency::total_balance(&BOB), START_BALANCE - SECURITY_DEPOSIT);
+		// TI reduced (balance burnt)
+		assert_eq!(<T as Config>::Currency::total_issuance(), ti - SECURITY_DEPOSIT);
+
+		assert_last_event(Event::<T>::AttemptSlashed {
+			lost: ALICE,
+			friend_group_index: 0,
+		});
+	});
+}
+
+#[test]
+fn slash_attempt_fails_when_initiator_is_missing_deposit() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 2_001);
+
+		// Force remove the deposit from bob
+		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+			&crate::HoldReason::Attempt.into(),
+			&BOB,
+			0
+		));
+		assert_attempt_deposit(BOB, 0);
+
+		// Slash the attempt
+		assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+	});
 }
