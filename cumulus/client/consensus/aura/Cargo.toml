@@ -21,7 +21,6 @@ tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
-log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }

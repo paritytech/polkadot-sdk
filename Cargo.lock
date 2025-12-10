@@ -4439,7 +4439,6 @@ dependencies = [
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "futures",
- "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-node-primitives",
