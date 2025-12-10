@@ -24,6 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod assigner_coretime;
+pub mod broadcaster;
 pub mod configuration;
 pub mod coretime;
 pub mod disputes;
