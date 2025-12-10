@@ -21,7 +21,13 @@ use crate::{
 	self as pallet_transaction_storage, TransactionStorageProof, DEFAULT_MAX_BLOCK_TRANSACTIONS,
 	DEFAULT_MAX_TRANSACTION_SIZE,
 };
-use frame_support::{derive_impl, traits::ConstU32};
+use frame_support::{
+	derive_impl,
+	pallet_prelude::{TransactionLongevity, TransactionPriority},
+	parameter_types,
+	traits::ConstU32,
+};
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -44,6 +50,14 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
+parameter_types! {
+	pub const AuthorizationPeriod: BlockNumberFor<Test> = 10;
+	pub const StoreRenewPriority: TransactionPriority = TransactionPriority::MAX;
+	pub const StoreRenewLongevity: TransactionLongevity = 10;
+	pub const RemoveExpiredAuthorizationPriority: TransactionPriority = TransactionPriority::MAX;
+	pub const RemoveExpiredAuthorizationLongevity: TransactionLongevity = 10;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
@@ -58,6 +72,12 @@ impl pallet_transaction_storage::Config for Test {
 	type WeightInfo = ();
 	type MaxBlockTransactions = ConstU32<{ DEFAULT_MAX_BLOCK_TRANSACTIONS }>;
 	type MaxTransactionSize = ConstU32<{ DEFAULT_MAX_TRANSACTION_SIZE }>;
+	type AuthorizationPeriod = AuthorizationPeriod;
+	type Authorizer = EnsureRoot<Self::AccountId>;
+	type StoreRenewPriority = StoreRenewPriority;
+	type StoreRenewLongevity = StoreRenewLongevity;
+	type RemoveExpiredAuthorizationPriority = RemoveExpiredAuthorizationPriority;
+	type RemoveExpiredAuthorizationLongevity = RemoveExpiredAuthorizationLongevity;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

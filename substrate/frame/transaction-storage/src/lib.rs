@@ -57,7 +57,7 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/10591 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
+// TODO: https://github.com/paritytech/polkadot-bulletin-chain/issues/139 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
 // Setting higher limit also requires raising the allocator limit.
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
@@ -168,9 +168,28 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Maximum number of indexed transactions in the block.
+		#[pallet::constant]
 		type MaxBlockTransactions: Get<u32>;
 		/// Maximum data set in a single transaction in bytes.
+		#[pallet::constant]
 		type MaxTransactionSize: Get<u32>;
+		/// Authorizations expire after this many blocks.
+		#[pallet::constant]
+		type AuthorizationPeriod: Get<BlockNumberFor<Self>>;
+		/// The origin that can authorize data storage.
+		type Authorizer: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Priority of store/renew transactions.
+		#[pallet::constant]
+		type StoreRenewPriority: Get<TransactionPriority>;
+		/// Longevity of store/renew transactions.
+		#[pallet::constant]
+		type StoreRenewLongevity: Get<TransactionLongevity>;
+		/// Priority of unsigned transactions to remove expired authorizations.
+		#[pallet::constant]
+		type RemoveExpiredAuthorizationPriority: Get<TransactionPriority>;
+		/// Longevity of unsigned transactions to remove expired authorizations.
+		#[pallet::constant]
+		type RemoveExpiredAuthorizationLongevity: Get<TransactionLongevity>;
 	}
 
 	#[pallet::error]
@@ -248,6 +267,7 @@ pub mod pallet {
 				},
 				"Storage proof must be checked once in the block"
 			);
+
 			// Insert new transactions, iff they have chunks.
 			let transactions = BlockTransactions::<T>::take();
 			let total_chunks = TransactionInfo::total_chunks(&transactions);
@@ -255,12 +275,27 @@ pub mod pallet {
 				Transactions::<T>::insert(n, transactions);
 			}
 		}
+
+		fn integrity_test() {
+			assert!(
+				!T::MaxBlockTransactions::get().is_zero(),
+				"Not useful if data cannot be stored"
+			);
+			assert!(!T::MaxTransactionSize::get().is_zero(), "Not useful if data cannot be stored");
+			let default_period = sp_transaction_storage_proof::DEFAULT_STORAGE_PERIOD.into();
+			let storage_period = GenesisConfig::<T>::default().storage_period;
+			assert_eq!(storage_period, default_period, "Not useful if data is not stored");
+			assert!(
+				!T::AuthorizationPeriod::get().is_zero(),
+				"Not useful if authorizations are never valid"
+			);
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Index and store data off chain. Minimum data size is 1 bytes, maximum is
-		/// `MaxTransactionSize`. Data will be removed after `STORAGE_PERIOD` blocks, unless `renew`
+		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
+		/// `MaxTransactionSize`. Data will be removed after `StoragePeriod` blocks, unless `renew`
 		/// is called.
 		/// ## Complexity
 		/// - O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
@@ -464,9 +499,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			ByteFee::<T>::put(&self.byte_fee);
-			EntryFee::<T>::put(&self.entry_fee);
-			StoragePeriod::<T>::put(&self.storage_period);
+			ByteFee::<T>::put(self.byte_fee);
+			EntryFee::<T>::put(self.entry_fee);
+			StoragePeriod::<T>::put(self.storage_period);
 		}
 	}
 
