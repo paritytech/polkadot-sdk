@@ -225,7 +225,9 @@ def main() -> None:
                 if status["status"] != "Failed":
                     continue
 
-                failure_reason: str = status["reason"].replace("\n", " ")
+                failure_reason: str = (
+                    status["reason"].replace("\n", " ").replace("|", " ")
+                )
 
                 note: str = ""
                 modes_where_this_case_succeeded: set[ModeString] = (

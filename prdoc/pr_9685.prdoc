@@ -1,0 +1,12 @@
+title: Upgrade litep2p to v0.12.0
+doc:
+- audience: Node Dev
+  description: litep2p v0.12.0 adds ability to track whether publishing a DHT record
+    or provider was successful. This PR brings this functionality to substrate. Particularly,
+    this fixes authority-discovery unnecessarily republishing DHT records due to litep2p
+    not emitting `KademliaEvent::PutRecordSuccess` before v0.12.0.
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-types
+  bump: major
