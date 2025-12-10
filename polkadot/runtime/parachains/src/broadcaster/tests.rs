@@ -420,12 +420,12 @@ fn max_publishers_limit_enforced() {
 		// Cannot register new publisher when limit reached
 		let new_para = ParaId::from(3000);
 		setup_account(ALICE, 10000);
-		let data = vec![(b"key".to_vec(), b"value".to_vec())];
 
-		// Registration should fail due to max publishers
-		// (registration checks this in get_or_create_publisher_child_info)
-		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), new_para));
-		assert_err!(Broadcaster::handle_publish(new_para, data), Error::<Test>::TooManyPublishers);
+		// Registration should fail at registration time due to MaxPublishers limit
+		assert_err!(
+			Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), new_para),
+			Error::<Test>::TooManyPublishers
+		);
 
 		// Existing publisher can still update
 		let existing_para = ParaId::from(2000);

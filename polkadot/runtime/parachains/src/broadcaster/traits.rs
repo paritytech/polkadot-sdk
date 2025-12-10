@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Traits for publish/subscribe operations in the broadcaster pallet.
+//! Traits for publish operations in the broadcaster pallet.
 
 use alloc::vec::Vec;
 use polkadot_primitives::Id as ParaId;
