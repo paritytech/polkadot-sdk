@@ -1728,6 +1728,182 @@ impl<T: Config> Pallet<T> {
 		}
 		Ok(())
 	}
+
+	// ==================== Time-based dispatch service functions ====================
+
+	/// Service time-based agendas starting from the earliest incomplete minute.
+	fn service_time_agendas(weight: &mut WeightMeter, now_ms: u64, max: u32) {
+		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
+			return;
+		}
+
+		let now_minute = Self::timestamp_to_minute(now_ms);
+		let mut incomplete_since = now_minute + 1;
+		let mut minute = TimeIncompleteSince::<T>::take().unwrap_or(now_minute);
+		let mut is_first = true;
+
+		let max_items = T::MaxTimeScheduledPerMinute::get();
+		let mut count_down = max;
+		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
+		while count_down > 0 && minute <= now_minute && weight.can_consume(service_agenda_base_weight) {
+			if !Self::service_time_agenda(weight, is_first, now_ms, minute, u32::MAX) {
+				incomplete_since = incomplete_since.min(minute);
+			}
+			is_first = false;
+			minute = minute.saturating_add(1);
+			count_down = count_down.saturating_sub(1);
+		}
+		incomplete_since = incomplete_since.min(minute);
+		if incomplete_since <= now_minute {
+			Self::deposit_event(Event::TimeAgendaIncomplete { when: incomplete_since });
+			TimeIncompleteSince::<T>::put(incomplete_since);
+		} else {
+			// Start from the next minute on the next iteration
+			TimeIncompleteSince::<T>::put(now_minute + 1);
+		}
+	}
+
+	/// Service a single time agenda for the given minute.
+	/// Returns `true` if the agenda was fully completed.
+	fn service_time_agenda(
+		weight: &mut WeightMeter,
+		mut is_first: bool,
+		now_ms: u64,
+		minute: u64,
+		max: u32,
+	) -> bool {
+		let mut agenda = TimeAgenda::<T>::get(minute);
+		let mut ordered = agenda
+			.iter()
+			.enumerate()
+			.filter_map(|(index, maybe_item)| {
+				maybe_item.as_ref().map(|item| (index as u32, item.priority))
+			})
+			.collect::<Vec<_>>();
+		ordered.sort_by_key(|k| k.1);
+		let within_limit = weight
+			.try_consume(T::WeightInfo::service_agenda_base(ordered.len() as u32))
+			.is_ok();
+		debug_assert!(within_limit, "weight limit should have been checked in advance");
+
+		let mut postponed = (ordered.len() as u32).saturating_sub(max);
+		let mut dropped = 0;
+
+		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
+			let Some(task) = agenda[agenda_index as usize].take() else { continue };
+			let base_weight = T::WeightInfo::service_task(
+				task.call.lookup_len().map(|x| x as usize),
+				task.maybe_id.is_some(),
+				task.maybe_periodic.is_some(),
+			);
+			if !weight.can_consume(base_weight) {
+				postponed += 1;
+				agenda[agenda_index as usize] = Some(task);
+				break;
+			}
+			let result = Self::service_time_task(weight, now_ms, minute, agenda_index, is_first, task);
+			agenda[agenda_index as usize] = match result {
+				Err((Unavailable, slot)) => {
+					dropped += 1;
+					slot
+				},
+				Err((Overweight, slot)) => {
+					postponed += 1;
+					slot
+				},
+				Ok(()) => {
+					is_first = false;
+					None
+				},
+			};
+		}
+		if postponed > 0 || dropped > 0 {
+			TimeAgenda::<T>::insert(minute, agenda);
+		} else {
+			TimeAgenda::<T>::remove(minute);
+		}
+
+		postponed == 0
+	}
+
+	/// Service a single time-based task.
+	fn service_time_task(
+		weight: &mut WeightMeter,
+		now_ms: u64,
+		minute: u64,
+		agenda_index: u32,
+		is_first: bool,
+		mut task: ScheduledTimeOf<T>,
+	) -> Result<(), (ServiceTaskError, Option<ScheduledTimeOf<T>>)> {
+		if let Some(ref id) = task.maybe_id {
+			TimeLookup::<T>::remove(id);
+		}
+
+		let (call, lookup_len) = match T::Preimages::peek(&task.call) {
+			Ok(c) => c,
+			Err(_) => {
+				Self::deposit_event(Event::TimeCallUnavailable {
+					task: (minute, agenda_index),
+					id: task.maybe_id,
+				});
+				T::Preimages::drop(&task.call);
+				let _ = weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x as usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
+				return Err((Unavailable, Some(task)));
+			},
+		};
+
+		let _ = weight.try_consume(T::WeightInfo::service_task(
+			lookup_len.map(|x| x as usize),
+			task.maybe_id.is_some(),
+			task.maybe_periodic.is_some(),
+		));
+
+		match Self::execute_dispatch(weight, task.origin.clone(), call) {
+			Err(()) if is_first => {
+				T::Preimages::drop(&task.call);
+				Self::deposit_event(Event::TimePermanentlyOverweight {
+					task: (minute, agenda_index),
+					id: task.maybe_id,
+				});
+				Err((Unavailable, Some(task)))
+			},
+			Err(()) => Err((Overweight, Some(task))),
+			Ok(result) => {
+				Self::deposit_event(Event::TimeDispatched {
+					task: (minute, agenda_index),
+					id: task.maybe_id,
+					result,
+				});
+
+				// Handle periodic rescheduling
+				if let &Some((period_ms, count)) = &task.maybe_periodic {
+					if count > 1 {
+						task.maybe_periodic = Some((period_ms, count - 1));
+					} else {
+						task.maybe_periodic = None;
+					}
+					let wake_ms = now_ms.saturating_add(period_ms);
+					match Self::place_time_task(wake_ms, task) {
+						Ok(_) => {},
+						Err((_, task)) => {
+							T::Preimages::drop(&task.call);
+							Self::deposit_event(Event::TimePeriodicFailed {
+								task: (minute, agenda_index),
+								id: task.maybe_id,
+							});
+						},
+					}
+				} else {
+					T::Preimages::drop(&task.call);
+				}
+				Ok(())
+			},
+		}
+	}
 }
 
 #[allow(deprecated)]
