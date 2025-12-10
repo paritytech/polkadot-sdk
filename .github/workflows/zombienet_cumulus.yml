@@ -58,6 +58,8 @@ jobs:
   zombienet-cumulus-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    container:
+      image: ${{ matrix.test.use-provider == 'k8s' && 'docker.io/paritytech/zombienet:v1.3.136' || null }}
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
     # Run if: called from build workflow OR merge_group OR (changes detected)
