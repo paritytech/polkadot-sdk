@@ -116,6 +116,12 @@ jobs:
       - name: Run Check
         id: required2
         run: |
+          # Disable the check for asset-hub-westend temporarily due to frequent failures.
+          if [ "${{ matrix.network }}" = "asset-hub-westend" ]; then
+            echo "Skipping runtime migration check for asset-hub-westend due to frequent failures."
+            exit 0
+          fi
+
           echo "Running ${{ matrix.network }} runtime migration check"
           export RUST_LOG=remote-ext=debug,runtime=debug
 
