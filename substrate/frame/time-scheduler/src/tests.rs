@@ -3202,3 +3202,40 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
 	});
 }
+
+// ==================== Time-based scheduling tests ====================
+
+#[test]
+fn basic_time_scheduling_works() {
+	new_test_ext().execute_with(|| {
+		// Set the initial timestamp (e.g., 60_000ms = 1 minute from epoch)
+		Timestamp::set_timestamp(60_000);
+
+		// Create a call to schedule
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+
+		// Schedule call to be executed at 120_000ms (2 minutes from epoch)
+		assert_ok!(Scheduler::schedule_at_time(
+			RuntimeOrigin::root(),
+			120_000,  // when: 2 minutes from epoch
+			None,     // not periodic
+			0,        // priority
+			Box::new(call),
+		));
+
+		// Check that the task is scheduled in minute 2 (120_000 / 60_000 = 2)
+		assert!(!TimeAgenda::<Test>::get(2).is_empty());
+		assert!(logger::log().is_empty());
+
+		// Advance timestamp to 120_000ms and run on_initialize
+		Timestamp::set_timestamp(120_000);
+		Scheduler::on_initialize(2);
+
+		// Check that the log was executed
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+
+		// TimeAgenda should be cleaned up after dispatch
+		assert!(TimeAgenda::<Test>::get(2).is_empty());
+	});
+}

@@ -121,6 +121,7 @@ frame_support::construct_runtime!(
 		Logger: logger,
 		Scheduler: scheduler,
 		Preimage: pallet_preimage,
+		Timestamp: pallet_timestamp,
 	}
 );
 
@@ -158,6 +159,17 @@ impl pallet_preimage::Config for Test {
 	type Currency = ();
 	type ManagerOrigin = EnsureRoot<u64>;
 	type Consideration = ();
+}
+
+parameter_types! {
+	pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 
 pub struct TestWeightInfo;
@@ -232,6 +244,7 @@ impl Config for Test {
 	type WeightInfo = TestWeightInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Self>;
+	type TimestampProvider = Timestamp;
 }
 
 pub type LoggerCall = logger::Call<Test>;
