@@ -87,8 +87,14 @@ pub fn extrinsic_set_validation_data(
 		..Default::default()
 	};
 
+<<<<<<< HEAD
 	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
 	let data = ParachainInherentData {
+=======
+	let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+		sproof_builder.into_state_root_proof_and_descendants(1);
+	let data = BasicParachainInherentData {
+>>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 		validation_data: PersistedValidationData {
 			parent_head,
 			relay_parent_number: 10,
@@ -96,9 +102,13 @@ pub fn extrinsic_set_validation_data(
 			max_pov_size: 10000,
 		},
 		relay_chain_state,
+<<<<<<< HEAD
 		downward_messages: Default::default(),
 		horizontal_messages: Default::default(),
 		relay_parent_descendants: Default::default(),
+=======
+		relay_parent_descendants,
+>>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 		collator_peer_id: None,
 	};
 

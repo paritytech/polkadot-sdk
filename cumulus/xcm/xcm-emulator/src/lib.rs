@@ -64,7 +64,12 @@ pub use sp_tracing;
 
 // Cumulus
 pub use cumulus_pallet_parachain_system::{
+<<<<<<< HEAD
 	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+=======
+	parachain_inherent::{deconstruct_parachain_inherent_data, InboundMessagesData},
+	Call as ParachainSystemCall, Config as ParachainSystemConfig, Pallet as ParachainSystemPallet,
+>>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 };
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
@@ -190,6 +195,7 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
+		relay_parent_offset: u64,
 	) -> ParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
@@ -697,7 +703,31 @@ macro_rules! decl_test_parachains {
 
 						// Process parachain inherents:
 
+<<<<<<< HEAD
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+=======
+					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+						// We need to satisfy `pallet_timestamp::on_finalize`.
+						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
+					now: relay_block_number as u64 * slot_duration,
+					}.into();
+					$crate::assert_ok!(
+						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+					);
+
+					// Get RelayParentOffset from the runtime
+					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
+
+					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
+						let (data, mut downward_messages, mut horizontal_messages) =
+							$crate::deconstruct_parachain_inherent_data(data);
+						let inbound_messages_data = $crate::InboundMessagesData::new(
+							downward_messages.into_abridged(&mut usize::MAX.clone()),
+							horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+						);
+>>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
 							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						}.into();
@@ -1156,10 +1186,16 @@ macro_rules! decl_test_networks {
 					para_id: u32,
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
+					relay_parent_offset: u64,
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
+<<<<<<< HEAD
+=======
+					sproof.host_config.max_upward_message_size = 1024 * 1024;
+					sproof.num_authorities = relay_parent_offset + 1;
+>>>>>>> 0f28d81 (test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541))
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1187,7 +1223,8 @@ macro_rules! decl_test_networks {
 							});
 					}
 
-					let (relay_storage_root, proof) = sproof.into_state_root_and_proof();
+					let (relay_storage_root, proof, relay_parent_descendants) =
+						sproof.into_state_root_proof_and_descendants(relay_parent_offset);
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
@@ -1199,7 +1236,7 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
-						relay_parent_descendants: Default::default(),
+						relay_parent_descendants,
 						collator_peer_id: None,
 					}
 				}
