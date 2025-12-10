@@ -496,9 +496,22 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
 	for (rp, per_para) in v2_candidates_per_rp {
 		for (para_id, included_candidates) in per_para {
-			let candidates_pending_availability =
-				recv_runtime(request_candidates_pending_availability(rp, para_id, sender).await)
-					.await?;
+			let candidates_pending_availability = match recv_runtime(
+				request_candidates_pending_availability(rp, para_id, sender).await,
+			)
+			.await
+			{
+				Ok(c) => c,
+				Err(err) => {
+					gum::warn!(target: LOG_TARGET,
+					relay_parent=?rp,
+					?para_id,
+					?err,
+					"Failed to get candidates pending availability. Skipping score bumps for the para id",
+					);
+					continue;
+				},
+			};
 
 			for candidate in candidates_pending_availability {
 				let candidate_hash = candidate.hash();

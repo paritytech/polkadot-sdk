@@ -229,7 +229,7 @@ pub struct PerPara {
 impl PerPara {
 	/// Get the peer's score, if any.
 	pub fn get_score(&self, peer_id: &PeerId) -> Option<Score> {
-		self.per_peer_score.get(peer_id).map(|s| *s)
+		self.per_peer_score.get(peer_id).copied()
 	}
 
 	fn new(limit: NonZeroU16) -> Self {
