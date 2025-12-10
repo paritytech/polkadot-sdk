@@ -964,6 +964,7 @@ mod benchmarks {
 	#[benchmark]
 	fn publish(n: Linear<1, { MaxPublishItems::get() }>) -> Result<(), BenchmarkError> {
 		use xcm::latest::{MaxPublishKeyLength, MaxPublishValueLength};
+		use xcm_builder::test_utils::PublishedData;
 
 		// The `Publish` instruction weight scales with the number of items published.
 		// Each item is benchmarked at maximum key and value lengths to represent worst-case
@@ -993,6 +994,11 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
+
+		// Verify data was published (origin is Parachain(1000) from mock)
+		let published = PublishedData::get();
+		assert!(published.contains_key(&1000));
+		assert!(!published.get(&1000).unwrap().is_empty());
 
 		Ok(())
 	}
