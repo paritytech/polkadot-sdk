@@ -80,6 +80,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
+      - name: Set additional environment variables
+        if: ${{ matrix.test.additional-env }}
+        shell: bash
+        run: |
+          echo '${{ toJson(matrix.test.additional-env) }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         if: ${{ matrix.test.needs-wasm-binary }}
         with:

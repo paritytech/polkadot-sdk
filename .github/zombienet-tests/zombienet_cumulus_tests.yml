@@ -93,3 +93,6 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
   use-provider: "k8s"
+  additional-env:
+    ZOMBIE_K8S_REQUEST_CPU: "2"
+    ZOMBIE_K8S_REQUEST_MEM: "16G"
