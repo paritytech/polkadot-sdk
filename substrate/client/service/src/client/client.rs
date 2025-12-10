@@ -611,7 +611,7 @@ where
 						Some((main_sc, child_sc))
 					},
 					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
-						operation.op.commit_complete_partial_state();
+						operation.op.mark_have_state();
 						None
 					},
 					sc_consensus::StorageChanges::Import(ImportedState::KeyValues { state: changes_state, .. }) => {

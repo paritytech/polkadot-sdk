@@ -549,7 +549,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
-	fn commit_complete_partial_state(&mut self) {
+	fn mark_have_state(&mut self) {
 		// Don't need to do anything,
 		// because in-memory backend doesn't mark blocks with state
 		// like `sc-client-db` backend does.
@@ -918,7 +918,7 @@ mod tests {
 			extrinsics_root: Default::default(),
 		};
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
-		op.commit_complete_partial_state();
+		op.mark_have_state();
 		backend.commit_operation(op).unwrap();
 
 		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()

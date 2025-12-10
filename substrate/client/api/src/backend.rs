@@ -210,7 +210,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Commit complete partial state.
 	/// `sc-client-db` expects blocks with state to be marked.
 	/// Otherwise it complains that state is not found.
-	fn commit_complete_partial_state(&mut self);
+	fn mark_have_state(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(

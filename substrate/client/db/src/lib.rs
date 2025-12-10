@@ -939,7 +939,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
-	fn commit_complete_partial_state(&mut self) {
+	fn mark_have_state(&mut self) {
 		self.commit_state = true;
 	}
 
@@ -5062,7 +5062,7 @@ pub(crate) mod tests {
 			extrinsics_root: Default::default(),
 		};
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
-		op.commit_complete_partial_state();
+		op.mark_have_state();
 		backend.commit_operation(op).unwrap();
 
 		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()
