@@ -337,6 +337,9 @@ pub trait BlockImport<B: BlockT> {
 	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error>;
 
 	/// Import partial state.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
+	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
 	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error>;
 }
 
@@ -354,7 +357,6 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 		(**self).import_block(block).await
 	}
 
-	/// Import partial state.
 	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
 		(**self).import_partial_state(partial_state).await
 	}
@@ -364,17 +366,14 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 impl<B: BlockT> BlockImport<B> for crate::import_queue::ArcBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
-	/// Check block preconditions.
 	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).check_block(block).await
 	}
 
-	/// Import a block.
 	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).import_block(block).await
 	}
 
-	/// Import partial state.
 	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
 		(**self).import_partial_state(partial_state).await
 	}

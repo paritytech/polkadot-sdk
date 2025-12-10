@@ -207,7 +207,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
 
-	/// Commit complete partial state.
+	/// Mark block state as present.
+	/// Used when complete state is available after series of `import_partial_state` calls.
 	/// `sc-client-db` expects blocks with state to be marked.
 	/// Otherwise it complains that state is not found.
 	fn mark_have_state(&mut self);
@@ -686,6 +687,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn requires_full_sync(&self) -> bool;
 
 	/// Inject partial state into the database.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
+	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
 	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
 }
 

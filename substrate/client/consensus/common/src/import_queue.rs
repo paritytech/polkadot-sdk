@@ -126,6 +126,9 @@ pub trait ImportQueueService<B: BlockT>: Send {
 	);
 
 	/// Import partial state.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
+	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
 	fn import_partial_state(
 		&mut self,
 		partial_state: PrefixedMemoryDB<HashingFor<B>>,
