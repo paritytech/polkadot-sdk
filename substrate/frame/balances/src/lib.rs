@@ -873,7 +873,7 @@ pub mod pallet {
 		/// Currently burns directly, reducing total issuance.
 		///
 		/// TODO(DAP): When `BurnDestination` is uncommented in the Config trait, this should
-		/// use `T::BurnDestination::return_funds()` instead to allow DAP-enabled runtimes to
+		/// use `T::BurnDestination::fill()` instead to allow DAP-enabled runtimes to
 		/// redirect user-initiated burns to the DAP buffer.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
