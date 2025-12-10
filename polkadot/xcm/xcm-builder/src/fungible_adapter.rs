@@ -33,11 +33,22 @@ use frame_support::{
 		Get, Imbalance as ImbalanceT,
 	},
 };
+use sp_runtime::traits::Convert;
 use xcm::latest::prelude::*;
 use xcm_executor::{
 	traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset},
-	AssetsInHolding,
+	AssetsInHolding, XcmDropHandler, XcmImbalance,
 };
+
+/// Adapter that wraps a fungible drop handler as an XCM drop handler.
+pub struct FungibleDropHandlerAdapter<Balance, OnDrop>(PhantomData<(Balance, OnDrop)>);
+impl<Balance: From<u128>, OnDrop: fungible::HandleImbalanceDrop<Balance>> XcmDropHandler
+	for FungibleDropHandlerAdapter<Balance, OnDrop>
+{
+	fn handle(_asset: AssetId, amount: u128) {
+		OnDrop::handle(amount.into());
+	}
+}
 
 /// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
@@ -83,8 +94,8 @@ impl<
 /// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
 /// Works for everything but transfers.
-pub struct FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>(
-	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
+pub struct FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter>(
+	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter)>,
 );
 
 impl<
@@ -93,7 +104,8 @@ impl<
 		AccountIdConverter: ConvertLocation<AccountId>,
 		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
-	> FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+		ImbalanceConverter,
+	> FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter>
 {
 	fn can_accrue_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_deposit(&checking_account, amount, Minted)
@@ -132,21 +144,26 @@ impl<
 }
 
 impl<
-		Fungible: fungible::Inspect<AccountId, Balance: 'static>
+		Fungible: fungible::Inspect<AccountId, Balance: 'static + From<u128>>
 			+ fungible::Mutate<AccountId>
 			+ fungible::Balanced<AccountId, OnDropCredit: 'static, OnDropDebt: 'static>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
 		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
+		ImbalanceConverter: Convert<
+			fungible::Imbalance<
+				<Fungible as fungible::Inspect<AccountId>>::Balance,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
+			>,
+			XcmImbalance<FungibleDropHandlerAdapter<
+				<Fungible as fungible::Inspect<AccountId>>::Balance,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropCredit
+			>>
+		>,
 	> TransactAsset
-	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
-where
-	fungible::Imbalance<
-		<Fungible as fungible::Inspect<AccountId>>::Balance,
-		<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
-		<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
-	>: ImbalanceAccounting<u128>,
+	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter>
 {
 	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
@@ -239,16 +256,18 @@ where
 		let Some(who) = AccountIdConverter::convert_location(who) else {
 			return Err((what, MatchError::AccountIdConversionFailed.into()))
 		};
-		let Some(imbalance) = what.fungible.remove(&asset_id) else {
+		let Some(mut xcm_imbalance_box) = what.fungible.remove(&asset_id) else {
 			return Err((what, MatchError::AssetNotHandled.into()))
 		};
-		// "manually" build the concrete credit and move the imbalance there.
-		let mut credit = fungible::Credit::<AccountId, Fungible>::zero();
-		credit.subsume_other(imbalance);
-		Fungible::resolve(&who, credit).map_err(|unspent| {
+		// Extract the amount and forget the XCM imbalance to avoid double-handling on drop
+		let imbalance_amount = xcm_imbalance_box.forget_imbalance();
+		// Recreate as fungible credit
+		let fungible_imbalance = Fungible::issue(imbalance_amount.into());
+		Fungible::resolve(&who, fungible_imbalance).map_err(|unspent| {
 			tracing::debug!(target: "xcm::fungible_adapter", ?asset_id, ?who, ?amount, "Failed to deposit asset");
+			let xcm_credit = ImbalanceConverter::convert(unspent);
 			(
-				AssetsInHolding::new_from_fungible_credit(asset_id, Box::new(unspent)),
+				AssetsInHolding::new_from_fungible_credit(asset_id, Box::new(xcm_credit)),
 				XcmError::FailedToTransactAsset("")
 			)
 		})?;
@@ -272,7 +291,8 @@ where
 			tracing::debug!(target: "xcm::fungibles_adapter", ?error, ?who, ?amount, "Failed to withdraw asset");
 			XcmError::FailedToTransactAsset(error.into())
 		})?;
-		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
+		let xcm_credit = ImbalanceConverter::convert(credit);
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(xcm_credit)))
 	}
 
 	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
@@ -283,32 +303,38 @@ where
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let credit = Fungible::issue(amount);
-		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
+		let xcm_credit = ImbalanceConverter::convert(credit);
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(xcm_credit)))
 	}
 }
 
 /// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
 /// Works for everything, transfers and teleport bookkeeping.
-pub struct FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>(
-	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
+pub struct FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter>(
+	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter)>,
 );
 impl<
-		Fungible: fungible::Inspect<AccountId, Balance: 'static>
+		Fungible: fungible::Inspect<AccountId, Balance: 'static + From<u128>>
 			+ fungible::Mutate<AccountId>
 			+ fungible::Balanced<AccountId, OnDropCredit: 'static, OnDropDebt: 'static>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
 		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
+		ImbalanceConverter: Convert<
+			fungible::Imbalance<
+				<Fungible as fungible::Inspect<AccountId>>::Balance,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
+			>,
+			XcmImbalance<FungibleDropHandlerAdapter<
+				<Fungible as fungible::Inspect<AccountId>>::Balance,
+				<Fungible as fungible::Balanced<AccountId>>::OnDropCredit
+			>>
+		>,
 	> TransactAsset
-	for FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
-where
-	fungible::Imbalance<
-		<Fungible as fungible::Inspect<AccountId>>::Balance,
-		<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
-		<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
-	>: ImbalanceAccounting<u128>,
+	for FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount, ImbalanceConverter>
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		FungibleMutateAdapter::<
@@ -317,6 +343,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::can_check_in(origin, what, context)
 	}
 
@@ -327,6 +354,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::check_in(origin, what, context)
 	}
 
@@ -337,6 +365,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::can_check_out(dest, what, context)
 	}
 
@@ -347,6 +376,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::check_out(dest, what, context)
 	}
 
@@ -361,6 +391,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::deposit_asset(what, who, context)
 	}
 
@@ -375,6 +406,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::withdraw_asset(what, who, maybe_context)
 	}
 
@@ -396,6 +428,7 @@ where
 			AccountIdConverter,
 			AccountId,
 			CheckingAccount,
+			ImbalanceConverter,
 		>::mint_asset(
 			what, context,
 		)

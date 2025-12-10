@@ -17,10 +17,20 @@
 //! Helper datatypes for XCM.
 
 use super::*;
+use crate::{XcmDropHandler, XcmImbalance};
 use alloc::boxed::Box;
 use frame_support::traits::tokens::imbalance::{
 	ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
 };
+
+/// No-op drop handler for tests
+pub struct NoopDropHandler;
+
+impl XcmDropHandler for NoopDropHandler {
+	fn handle(_asset: AssetId, _amount: u128) {
+		// Do nothing
+	}
+}
 
 /// Mock credit for tests
 pub struct MockCredit(pub u128);
@@ -57,7 +67,7 @@ pub fn mock_asset_to_holding(asset: Asset) -> AssetsInHolding {
 	let mut holding = AssetsInHolding::new();
 	match asset.fun {
 		Fungible(amount) => {
-			holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+			holding.fungible.insert(asset.id.clone(), Box::new(XcmImbalance::<NoopDropHandler>::new(asset.id, amount)));
 		},
 		NonFungible(instance) => {
 			holding.non_fungible.insert((asset.id, instance));

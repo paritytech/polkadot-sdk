@@ -43,7 +43,7 @@ use sp_runtime::traits::Zero;
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.
 pub trait HandleImbalanceDrop<Balance> {
-	/// Some something with the imbalance's value which is being dropped.
+	/// Do something with the imbalance's value which is being dropped.
 	fn handle(amount: Balance);
 }
 
@@ -192,7 +192,7 @@ impl<
 	> UnsafeConstructorDestructor<u128> for Imbalance<B, OnDrop, OppositeOnDrop>
 {
 	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-		let clone = Self { amount: self.amount, _phantom: PhantomData::default() };
+		let clone = Self { amount: self.amount, _phantom: PhantomData };
 		Box::new(clone)
 	}
 	fn forget_imbalance(&mut self) -> u128 {

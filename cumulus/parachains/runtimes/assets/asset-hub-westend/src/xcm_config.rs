@@ -108,6 +108,13 @@ pub type LocationToAccountId = (
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
 
+pub struct FungibleImbalanceToXcmImbalanceConverter;
+impl Convert<fungible::Imbalance<_>, XcmImbalance> for FungibleImbalanceToXcmImbalanceConverter {
+	fn convert(from: fungible::Imbalance<u128, OnDrop, _>) -> XcmImbalance<OnDrop> {
+		XcmImbalance::new(ParentLocation::get(), from.peek())
+	}
+}
+
 /// Means for transacting the native currency on this chain.
 pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:

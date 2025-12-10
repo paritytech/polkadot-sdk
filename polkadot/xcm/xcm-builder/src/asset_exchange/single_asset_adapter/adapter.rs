@@ -27,7 +27,7 @@ use pallet_asset_conversion::{QuotePrice, SwapCredit};
 use xcm::prelude::*;
 use xcm_executor::{
 	traits::{AssetExchange, MatchesFungibles},
-	AssetsInHolding,
+	AssetsInHolding, XcmImbalance,
 };
 
 /// An adapter from [`pallet_asset_conversion::SwapCredit`] and
@@ -41,11 +41,11 @@ use xcm_executor::{
 ///
 /// `exchange_asset` and `quote_exchange_price` will both return an error if there's
 /// more than one asset in `give` or `want`.
-pub struct SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId>(
-	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId)>,
+pub struct SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId, ImbalanceConverter>(
+	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId, ImbalanceConverter)>,
 );
-impl<AssetConversion, Fungibles, Matcher, AccountId> AssetExchange
-	for SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId>
+impl<AssetConversion, Fungibles, Matcher, AccountId, ImbalanceConverter> AssetExchange
+	for SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId, ImbalanceConverter>
 where
 	AssetConversion: SwapCredit<
 			AccountId,
@@ -57,6 +57,19 @@ where
 		+ fungibles::Balanced<AccountId, Balance = u128, OnDropCredit: 'static, OnDropDebt: 'static>
 		+ 'static,
 	Matcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
+	ImbalanceConverter: sp_runtime::traits::Convert<
+		fungibles::Imbalance<
+			<Fungibles as fungibles::Inspect<AccountId>>::AssetId,
+			<Fungibles as fungibles::Inspect<AccountId>>::Balance,
+			<Fungibles as fungibles::Balanced<AccountId>>::OnDropCredit,
+			<Fungibles as fungibles::Balanced<AccountId>>::OnDropDebt,
+		>,
+		XcmImbalance<crate::FungiblesDropHandlerAdapter<
+			<Fungibles as fungibles::Inspect<AccountId>>::AssetId,
+			<Fungibles as fungibles::Inspect<AccountId>>::Balance,
+			<Fungibles as fungibles::Balanced<AccountId>>::OnDropCredit
+		>>
+	>,
 {
 	fn exchange_asset(
 		_: Option<&Location>,
@@ -99,10 +112,10 @@ where
 
 		// We have to do this to convert the XCM assets into credit the pool can use.
 		let swap_asset = give_asset_id.clone().into();
-		let Some(imbalance) = give.fungible.remove(&give_asset.id) else { return Err(give) };
-		// "manually" build the concrete credit and move the imbalance there.
-		let mut credit_in = fungibles::Credit::<AccountId, Fungibles>::zero(give_asset_id);
-		credit_in.subsume_other(imbalance);
+		let Some(mut imbalance) = give.fungible.remove(&give_asset.id) else { return Err(give) };
+		// Extract the amount from XCM imbalance and create fungibles credit
+		let amount_in = imbalance.forget_imbalance();
+		let credit_in = Fungibles::issue(give_asset_id, amount_in.into());
 
 		// Do the swap.
 		let (credit_out, maybe_credit_change) = if maximal {

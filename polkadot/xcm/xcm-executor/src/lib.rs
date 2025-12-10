@@ -45,7 +45,7 @@ use traits::{
 pub use traits::RecordXcm;
 
 mod assets;
-pub use assets::AssetsInHolding;
+pub use assets::{AssetsInHolding, Imbalance, XcmDropHandler, XcmImbalance};
 mod config;
 use crate::assets::BackupAssetsInHolding;
 pub use config::Config;

@@ -40,7 +40,7 @@ use core::marker::PhantomData;
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
-use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
+use super::{imbalance, Credit, Debt, Imbalance};
 
 /// Trait for providing balance-inspection access to a fungible asset.
 pub trait Inspect<AccountId>: Sized {
@@ -364,7 +364,7 @@ where
 /// Simple handler for an imbalance drop which increases the total issuance of the system by the
 /// imbalance amount. Used for leftover debt.
 pub struct IncreaseIssuance<AccountId, U>(PhantomData<(AccountId, U)>);
-impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
+impl<AccountId, U: Unbalanced<AccountId>> imbalance::HandleImbalanceDrop<U::Balance>
 	for IncreaseIssuance<AccountId, U>
 {
 	fn handle(amount: U::Balance) {
@@ -375,7 +375,7 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
 /// Simple handler for an imbalance drop which decreases the total issuance of the system by the
 /// imbalance amount. Used for leftover credit.
 pub struct DecreaseIssuance<AccountId, U>(PhantomData<(AccountId, U)>);
-impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
+impl<AccountId, U: Unbalanced<AccountId>> imbalance::HandleImbalanceDrop<U::Balance>
 	for DecreaseIssuance<AccountId, U>
 {
 	fn handle(amount: U::Balance) {
@@ -389,10 +389,10 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
 /// This is auto-implemented when a token class has [`Unbalanced`] implemented.
 pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	/// The type for managing what happens when an instance of `Debt` is dropped without being used.
-	type OnDropDebt: HandleImbalanceDrop<Self::Balance>;
+	type OnDropDebt: imbalance::HandleImbalanceDrop<Self::Balance>;
 	/// The type for managing what happens when an instance of `Credit` is dropped without being
 	/// used.
-	type OnDropCredit: HandleImbalanceDrop<Self::Balance>;
+	type OnDropCredit: imbalance::HandleImbalanceDrop<Self::Balance>;
 
 	/// Reduce the total issuance by `amount` and return the according imbalance. The imbalance will
 	/// typically be used to reduce an account by the same amount with e.g. [`Balanced::settle`].

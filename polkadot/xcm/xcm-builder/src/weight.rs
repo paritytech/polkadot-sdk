@@ -281,8 +281,8 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		self.0 -= weight;
 		self.1.fungible.get_mut(&id).and_then(|credit| {
-			let refunded = credit.saturating_take(amount);
-			if refunded.amount() > 0 {
+			let refunded = credit.extract(amount);
+			if refunded.peek() > 0 {
 				Some(AssetsInHolding::new_from_fungible_credit(id, refunded))
 			} else {
 				None

@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use alloc::{
-	boxed::Box,
 	collections::{
 		btree_map::{self, BTreeMap},
 		btree_set::BTreeSet,
@@ -23,7 +22,6 @@ use alloc::{
 	vec::Vec,
 };
 use core::{fmt::Formatter, mem};
-use frame_support::traits::tokens::imbalance::ImbalanceAccounting;
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
@@ -57,7 +55,7 @@ impl BackupAssetsInHolding {
 				fungible: other
 					.fungible
 					.iter()
-					.map(|(id, accounting)| (id.clone(), accounting.unsafe_clone()))
+					.map(|(id, imbalance)| (id.clone(), imbalance.unsafe_clone()))
 					.collect(),
 				non_fungible: other.non_fungible.clone(),
 			},
@@ -74,8 +72,8 @@ impl BackupAssetsInHolding {
 	/// imbalances.
 	pub fn safe_drop(&mut self) {
 		// set amount to 0 so that no accounting is done on imbalance Drop
-		self.inner.fungible.iter_mut().for_each(|(_, accounting)| {
-			accounting.forget_imbalance();
+		self.inner.fungible.iter_mut().for_each(|(_, imbalance)| {
+			imbalance.forget_imbalance();
 		});
 	}
 }
@@ -89,11 +87,106 @@ impl Drop for BackupAssetsInHolding {
 /// Map of non-wildcard fungible and non-fungible assets held in the holding register.
 pub struct AssetsInHolding {
 	/// The fungible assets.
-	pub fungible: BTreeMap<AssetId, Box<dyn ImbalanceAccounting<u128>>>,
+	pub fungible: BTreeMap<AssetId, Box<dyn Imbalance>>,
 	/// The non-fungible assets.
 	// TODO: Consider BTreeMap<AssetId, BTreeSet<AssetInstance>>
 	//   or even BTreeMap<AssetId, SortedVec<AssetInstance>>
 	pub non_fungible: BTreeSet<(AssetId, AssetInstance)>,
+}
+
+/// Handler for when an XCM imbalance gets dropped.
+pub trait XcmDropHandler {
+	/// Handle the drop of an imbalance.
+	fn handle(asset: AssetId, amount: u128);
+}
+
+/// A standardized imbalance.
+///
+/// Meant to be adapted from fungible::Imbalance, fungibles::Imbalance and any other
+/// concrete implementation.
+#[must_use]
+pub struct XcmImbalance<OnDrop: XcmDropHandler> {
+	asset: AssetId,
+	amount: u128,
+	_phantom: core::marker::PhantomData<OnDrop>,
+}
+
+impl<OnDrop: XcmDropHandler> Drop for XcmImbalance<OnDrop> {
+	fn drop(&mut self) {
+		if self.amount != 0 {
+			OnDrop::handle(self.asset.clone(), self.amount);
+		}
+	}
+}
+
+impl<OnDrop: XcmDropHandler> XcmImbalance<OnDrop> {
+	pub(crate) fn new(asset: AssetId, amount: u128) -> Self {
+		Self { asset, amount, _phantom: core::marker::PhantomData }
+	}
+}
+
+impl<OnDrop: XcmDropHandler + 'static> Imbalance for XcmImbalance<OnDrop> {
+	fn extract(&mut self, amount: u128) -> Box<dyn Imbalance> {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Box::new(Self::new(self.asset.clone(), new))
+	}
+
+	fn subsume(&mut self, mut other: Box<dyn Imbalance>) -> Result<(), Box<dyn Imbalance>> {
+		if self.asset == other.asset() {
+			self.amount = self.amount.saturating_add(other.forget_imbalance());
+			Ok(())
+		} else {
+			Err(other)
+		}
+	}
+
+	fn peek(&self) -> u128 {
+		self.amount
+	}
+
+	fn unsafe_clone(&self) -> Box<dyn Imbalance> {
+		Box::new(Self {
+			asset: self.asset.clone(),
+			amount: self.amount,
+			_phantom: core::marker::PhantomData
+		})
+	}
+
+	fn forget_imbalance(&mut self) -> u128 {
+		let amount = self.amount;
+		self.amount = 0;
+		amount
+	}
+
+	fn asset(&self) -> AssetId {
+		self.asset.clone()
+	}
+}
+
+/// Custom imbalance trait specifically for XCM.
+///
+/// Based on the fungible imbalances from FRAME.
+pub trait Imbalance {
+	/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	fn extract(&mut self, amount: u128) -> Box<dyn Imbalance>;
+
+	/// Consume an `other` to mutate `self` into a new instance that combines
+	/// both.
+	fn subsume(&mut self, other: Box<dyn Imbalance>) -> Result<(), Box<dyn Imbalance>>;
+
+	/// The raw value of self.
+	fn peek(&self) -> u128;
+
+	/// Clone this imbalance into a new boxed instance.
+	fn unsafe_clone(&self) -> Box<dyn Imbalance>;
+
+	/// Forget the imbalance without calling the drop handler, returning the amount.
+	fn forget_imbalance(&mut self) -> u128;
+
+	/// Get the asset ID for this imbalance.
+	fn asset(&self) -> AssetId;
 }
 
 impl PartialEq for AssetsInHolding {
@@ -108,7 +201,7 @@ impl PartialEq for AssetsInHolding {
 			.fungible
 			.iter()
 			.zip(other.fungible.iter())
-			.all(|(left, right)| left.0 == right.0 && left.1.amount() == right.1.amount())
+			.all(|(left, right)| left.0 == right.0 && left.1.peek() == right.1.peek())
 		{
 			return false
 		}
@@ -119,7 +212,7 @@ impl PartialEq for AssetsInHolding {
 impl core::fmt::Debug for AssetsInHolding {
 	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
 		let fungibles: BTreeMap<&AssetId, u128> =
-			self.fungible.iter().map(|(id, accounting)| (id, accounting.amount())).collect();
+			self.fungible.iter().map(|(id, imbalance)| (id, imbalance.peek())).collect();
 		f.debug_struct("AssetsInHolding")
 			.field("fungible", &fungibles)
 			.field("non_fungible", &self.non_fungible)
@@ -136,7 +229,7 @@ impl AssetsInHolding {
 	/// New holding containing a single fungible imbalance.
 	pub fn new_from_fungible_credit(
 		asset: AssetId,
-		credit: Box<dyn ImbalanceAccounting<u128>>,
+		credit: Box<dyn Imbalance>,
 	) -> Self {
 		let mut new = AssetsInHolding { fungible: BTreeMap::new(), non_fungible: BTreeSet::new() };
 		new.fungible.insert(asset, credit);
@@ -164,7 +257,7 @@ impl AssetsInHolding {
 	pub fn fungible_assets_iter(&self) -> impl Iterator<Item = Asset> + '_ {
 		self.fungible
 			.iter()
-			.map(|(id, accounting)| Asset { fun: Fungible(accounting.amount()), id: id.clone() })
+			.map(|(id, imbalance)| Asset { fun: Fungible(imbalance.peek()), id: id.clone() })
 	}
 
 	/// A borrowing iterator over the non-fungible assets.
@@ -178,7 +271,7 @@ impl AssetsInHolding {
 	pub fn into_assets_iter(self) -> impl Iterator<Item = Asset> {
 		self.fungible
 			.into_iter()
-			.map(|(id, accounting)| Asset { fun: Fungible(accounting.amount()), id })
+			.map(|(id, imbalance)| Asset { fun: Fungible(imbalance.peek()), id })
 			.chain(
 				self.non_fungible
 					.into_iter()
@@ -197,13 +290,14 @@ impl AssetsInHolding {
 	pub fn subsume_assets(&mut self, assets: AssetsInHolding) {
 		// for fungibles, find matching fungibles and sum their amounts so we end-up having just
 		// single such fungible but with increased amount inside
-		for (asset_id, accounting) in assets.fungible.into_iter() {
+		for (asset_id, imbalance) in assets.fungible.into_iter() {
 			match self.fungible.entry(asset_id) {
 				btree_map::Entry::Occupied(mut e) => {
-					e.get_mut().subsume_other(accounting);
+					let result = e.get_mut().subsume(imbalance);
+					debug_assert!(result.is_ok(), "Imbalance asset should match entry key");
 				},
 				btree_map::Entry::Vacant(e) => {
-					e.insert(accounting);
+					e.insert(imbalance);
 				},
 			}
 		}
@@ -237,10 +331,10 @@ impl AssetsInHolding {
 		let mut assets: Vec<Asset> = self
 			.fungible
 			.into_iter()
-			.filter_map(|(mut id, accounting)| match id.reanchor(target, context) {
-				Ok(()) => Some(Asset::from((id, Fungible(accounting.amount())))),
+			.filter_map(|(mut id, imbalance)| match id.reanchor(target, context) {
+				Ok(()) => Some(Asset::from((id, Fungible(imbalance.peek())))),
 				Err(()) => {
-					failed_bin.fungible.insert(id, accounting);
+					failed_bin.fungible.insert(id, imbalance);
 					None
 				},
 			})
@@ -264,8 +358,8 @@ impl AssetsInHolding {
 		let mut assets: Vec<Asset> = self
 			.fungible
 			.iter()
-			.filter_map(|(id, accounting)| match id.clone().reanchored(target, context) {
-				Ok(new_id) => Some(Asset::from((new_id, Fungible(accounting.amount())))),
+			.filter_map(|(id, imbalance)| match id.clone().reanchored(target, context) {
+				Ok(new_id) => Some(Asset::from((new_id, Fungible(imbalance.peek())))),
 				Err(()) => None,
 			})
 			.chain(self.non_fungible.iter().filter_map(|(class, inst)| {
@@ -283,7 +377,7 @@ impl AssetsInHolding {
 	pub fn contains_asset(&self, asset: &Asset) -> bool {
 		match asset {
 			Asset { fun: Fungible(amount), id } =>
-				self.fungible.get(id).map_or(false, |a| a.amount() >= *amount),
+				self.fungible.get(id).map_or(false, |imbalance| imbalance.peek() >= *amount),
 			Asset { fun: NonFungible(instance), id } =>
 				self.non_fungible.contains(&(id.clone(), *instance)),
 		}
@@ -299,7 +393,7 @@ impl AssetsInHolding {
 		for asset in assets.inner().iter() {
 			match asset {
 				Asset { fun: Fungible(amount), id } => {
-					if self.fungible.get(id).map_or(true, |a| a.amount() < *amount) {
+					if self.fungible.get(id).map_or(true, |imbalance| imbalance.peek() < *amount) {
 						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()))
 					}
 				},
@@ -385,11 +479,11 @@ impl AssetsInHolding {
 					match asset {
 						Asset { fun: Fungible(amount), id } => {
 							let (remove, balance) = match self.fungible.get_mut(&id) {
-								Some(self_amount) => {
+								Some(imbalance) => {
 									// Ok to use `saturating_take()` because we checked with
 									// `self.ensure_contains()` above against `saturate` flag
-									let balance = self_amount.saturating_take(amount);
-									(self_amount.amount() == 0, Some(balance))
+									let balance = imbalance.extract(amount);
+									(imbalance.peek() == 0, Some(balance))
 								},
 								None => (false, None),
 							};
@@ -465,8 +559,8 @@ impl AssetsInHolding {
 				if maybe_limit.map_or(true, |l| self.len() <= l) {
 					return self.assets_iter().collect::<Vec<Asset>>().into()
 				} else {
-					for (c, accounting) in self.fungible.iter() {
-						masked.push((c.clone(), accounting.amount()).into());
+					for (c, imbalance) in self.fungible.iter() {
+						masked.push((c.clone(), imbalance.peek()).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
 							return masked
 						}
@@ -481,8 +575,8 @@ impl AssetsInHolding {
 			},
 			AssetFilter::Wild(AllOfCounted { fun: WildFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildFungible, id }) =>
-				if let Some(accounting) = self.fungible.get(&id) {
-					masked.push((id.clone(), accounting.amount()).into());
+				if let Some(imbalance) = self.fungible.get(&id) {
+					masked.push((id.clone(), imbalance.peek()).into());
 				},
 			AssetFilter::Wild(AllOfCounted { fun: WildNonFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildNonFungible, id }) =>
@@ -498,9 +592,9 @@ impl AssetsInHolding {
 				for asset in assets.inner().iter() {
 					match asset {
 						Asset { fun: Fungible(amount), id } => {
-							if let Some(m) = self.fungible.get(id) {
+							if let Some(imbalance) = self.fungible.get(id) {
 								masked
-									.push((id.clone(), Fungible(*amount.min(&m.amount()))).into());
+									.push((id.clone(), Fungible(*amount.min(&imbalance.peek()))).into());
 							}
 						},
 						Asset { fun: NonFungible(instance), id } => {
@@ -525,7 +619,7 @@ impl AssetsInHolding {
 			fungible: self
 				.fungible
 				.iter()
-				.map(|(id, accounting)| (id.clone(), accounting.unsafe_clone()))
+				.map(|(id, imbalance)| (id.clone(), imbalance.unsafe_clone()))
 				.collect(),
 			non_fungible: self.non_fungible.clone(),
 		}
