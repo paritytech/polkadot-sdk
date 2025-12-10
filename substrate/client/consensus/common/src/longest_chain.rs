@@ -128,7 +128,7 @@ where
 	}
 
 	fn leaves(&self) -> Result<Vec<<Block as BlockT>::Hash>, sp_blockchain::Error> {
-		Backend::leaves(self.backend.blockchain())
+		self.backend.blockchain().leaves()
 	}
 }
 

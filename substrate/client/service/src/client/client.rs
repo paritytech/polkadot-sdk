@@ -900,9 +900,7 @@ where
 			.blockchain()
 			.number(hash)?
 			.ok_or(Error::MissingHeader(format!("{hash:?}")))?;
-		if ChainHeaderBackend::leaves(self.backend.blockchain())?.len() > 1 ||
-			info.best_number < block_number
-		{
+		if self.backend.blockchain().leaves()?.len() > 1 || info.best_number < block_number {
 			let route_from_best =
 				sp_blockchain::tree_route(self.backend.blockchain(), info.best_hash, hash)?;
 
@@ -1581,7 +1579,7 @@ where
 	}
 
 	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
-		ChainHeaderBackend::leaves(self.backend.blockchain())
+		self.backend.blockchain().leaves()
 	}
 }
 

@@ -169,11 +169,6 @@ pub trait Backend<Block: BlockT>:
 	/// Get last finalized block hash.
 	fn last_finalized(&self) -> Result<Block::Hash>;
 
-	/// Returns hashes of all blocks that are leaves of the block tree.
-	/// in other words, that have no children, are chain heads.
-	/// Results must be ordered best (longest, highest) chain first.
-	fn leaves(&self) -> Result<Vec<Block::Hash>>;
-
 	/// Return hashes of all blocks that are children of the block with `parent_hash`.
 	fn children(&self, parent_hash: Block::Hash) -> Result<Vec<Block::Hash>>;
 
@@ -202,7 +197,7 @@ pub trait Backend<Block: BlockT>:
 				// `base_header` is on a dead fork.
 				return Ok(None);
 			}
-			HeaderBackend::leaves(self)?
+			self.leaves()?
 		};
 
 		// for each chain. longest chain first. shortest last
@@ -263,7 +258,7 @@ pub trait Backend<Block: BlockT>:
 			return Ok(DisplacedLeavesAfterFinalization::default());
 		}
 
-		let leaves = HeaderBackend::leaves(self)?;
+		let leaves = self.leaves()?;
 
 		let now = std::time::Instant::now();
 		debug!(

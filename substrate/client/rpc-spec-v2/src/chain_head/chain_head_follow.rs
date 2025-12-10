@@ -38,7 +38,9 @@ use sc_client_api::{
 use sc_rpc::utils::Subscription;
 use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata, Info};
+use sp_blockchain::{
+	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
+};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion, Saturating,
@@ -308,7 +310,7 @@ where
 		finalized: Block::Hash,
 	) -> Result<InitialBlocks<Block>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
-		let leaves = HeaderBackend::leaves(blockchain)?;
+		let leaves = blockchain.leaves()?;
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();

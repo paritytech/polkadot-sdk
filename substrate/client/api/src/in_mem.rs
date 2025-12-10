@@ -419,10 +419,6 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 		Ok(self.storage.read().finalized_hash)
 	}
 
-	fn leaves(&self) -> sp_blockchain::Result<Vec<Block::Hash>> {
-		Ok(self.storage.read().leaves.hashes())
-	}
-
 	fn children(&self, _parent_hash: Block::Hash) -> sp_blockchain::Result<Vec<Block::Hash>> {
 		unimplemented!()
 	}
