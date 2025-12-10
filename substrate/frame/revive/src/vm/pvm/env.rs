@@ -82,7 +82,7 @@ impl<T: Config> ContractBlob<T> {
 			.ok_or_else(|| <Error<T>>::CodeRejected)?
 			.program_counter();
 
-		let gas_limit_polkavm: polkavm::Gas = runtime.ext().gas_meter_mut().engine_fuel_left()?;
+		let gas_limit_polkavm: polkavm::Gas = runtime.ext().frame_meter_mut().sync_to_executor();
 
 		let mut instance = module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
@@ -304,14 +304,55 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
 			callee_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Make a call to another contract.
+	/// See [`pallet_revive_uapi::HostFn::call_evm`].
+	#[stable]
+	fn call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		value_ptr: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+			let value = memory.read_u256(value_ptr)?;
+			// We also need to detect the 2300: We need to add something scaled.
+			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
+			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::Call { value_ptr },
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -335,14 +376,50 @@ pub mod env {
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall,
 			address_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Same as `delegate_call` but with EVM gas.
+	/// See [`pallet_revive_uapi::HostFn::delegate_call_evm`].
+	#[stable]
+	fn delegate_call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			CallResources::from_ethereum_gas(gas.into(), false)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::DelegateCall,
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -851,7 +928,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
 	#[stable]
 	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
-		self.ext.gas_meter_mut().consume_all();
+		self.ext.frame_meter_mut().consume_all_weight();
 		Err(TrapReason::Return(ReturnData {
 			flags: ReturnFlags::REVERT.bits(),
 			data: Default::default(),
