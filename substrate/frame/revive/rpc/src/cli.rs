@@ -20,6 +20,8 @@ use crate::{
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
+	SubstrateRpcServer,
+	SubstrateRpcServerImpl,
 };
 use clap::Parser;
 use futures::{future::BoxFuture, pin_mut, FutureExt};
@@ -266,11 +268,13 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
-	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
+	let substrate_api = SubstrateRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(substrate_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }
