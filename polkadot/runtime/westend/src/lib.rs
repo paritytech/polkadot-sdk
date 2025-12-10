@@ -1448,6 +1448,7 @@ impl parachains_paras::Config for Runtime {
 
 impl parachains_approvals_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	//type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -2150,6 +2151,7 @@ mod benches {
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		[polkadot_runtime_parachains::coretime, Coretime]
+		[polkadot_runtime_parachains::approvals_rewards, ApprovalsRewards]
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]

@@ -16,6 +16,7 @@
 
 //! Approvals Rewards pallet.
 
+use alloc::vec::Vec;
 use crate::{
     configuration,
     inclusion::{QueueFootprinter, UmpQueueId},
@@ -43,10 +44,24 @@ use polkadot_primitives::{
     ValidatorSignature,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 const LOG_TARGET: &str = "runtime::approvals_rewards";
 
 pub use pallet::*;
+
+pub trait WeightInfo {
+    fn include_approvals_rewards_statistics() -> Weight;
+}
+
+pub struct TestWeightInfo;
+impl WeightInfo for TestWeightInfo {
+    fn include_approvals_rewards_statistics() -> Weight {
+        // This special value is to distinguish from the finalizing variants above in tests.
+        Weight::MAX - Weight::from_parts(1, 1)
+    }
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -76,6 +91,9 @@ pub mod pallet {
     {
         #[allow(deprecated)]
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        // Weight information for extrinsics in this pallet.
+        //type WeightInfo: WeightInfo;
     }
 
     /// Actual past code hash, indicated by the para id as well as the block number at which it
@@ -86,7 +104,9 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> { }
+    pub enum Event<T: Config> {
+        ApprovalTalliesStored((SessionIndex, ValidatorIndex))
+    }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -104,12 +124,16 @@ pub mod pallet {
 
         /// Invalid signed payload
         ApprovalRewardsInvalidSignature,
+
+        /// The validator already have submitted a tally for that session
+        ApprovalTalliesAlreadyStored,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(1)]
+        //#[pallet::weight(<T as Config>::WeightInfo::include_approvals_rewards_statistics())]
         pub fn include_approvals_rewards_statistics(
             origin: OriginFor<T>,
             payload: ApprovalStatistics,
@@ -154,6 +178,16 @@ pub mod pallet {
 				Error::<T>::ApprovalRewardsInvalidSignature,
 			);
 
+            let approvals_key = (payload_session_index, payload_validator_index);
+
+            // Ensure that it is a fresh session tally.
+            if let Some(_) = ApprovalsTallies::<T>::get(&approvals_key) {
+                return Err(Error::<T>::ApprovalTalliesAlreadyStored.into())
+            }
+
+            ApprovalsTallies::<T>::insert(approvals_key, payload.2);
+            Self::deposit_event(Event::ApprovalTalliesStored(approvals_key));
+            //Ok(Some(<T as Config>::WeightInfo::include_approvals_rewards_statistics()).into())
             Ok(Pays::No.into())
         }
     }
