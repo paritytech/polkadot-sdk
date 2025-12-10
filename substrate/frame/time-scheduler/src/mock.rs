@@ -228,6 +228,7 @@ impl Config for Test {
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = ConstU32<10>;
+	type MaxTimeScheduledPerMinute = ConstU32<100>;
 	type WeightInfo = TestWeightInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Self>;

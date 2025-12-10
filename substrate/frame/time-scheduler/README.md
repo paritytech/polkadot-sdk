@@ -1,9 +1,9 @@
-# Scheduler
+# Time Based Scheduler
 A module for scheduling dispatches.
 
-- [`scheduler::Config`](https://docs.rs/pallet-scheduler/latest/pallet_scheduler/trait.Config.html)
-- [`Call`](https://docs.rs/pallet-scheduler/latest/pallet_scheduler/enum.Call.html)
-- [`Module`](https://docs.rs/pallet-scheduler/latest/pallet_scheduler/struct.Module.html)
+- [`time_scheduler::Config`](https://docs.rs/pallet-time-scheduler/latest/pallet_time_scheduler/trait.Config.html)
+- [`Call`](https://docs.rs/pallet-time-scheduler/latest/pallet_time_scheduler/enum.Call.html)
+- [`Module`](https://docs.rs/pallet-time-scheduler/latest/pallet_time_scheduler/struct.Module.html)
 
 ## Overview
 

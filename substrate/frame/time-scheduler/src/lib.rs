@@ -229,6 +229,16 @@ pub type ScheduledOf<T> = Scheduled<
 	<T as frame_system::Config>::AccountId,
 >;
 
+/// Scheduled task for time-based scheduling.
+/// Uses `u64` for time period (milliseconds) instead of block number.
+pub type ScheduledTimeOf<T> = Scheduled<
+	TaskName,
+	BoundedCallOf<T>,
+	u64,
+	<T as Config>::PalletsOrigin,
+	<T as frame_system::Config>::AccountId,
+>;
+
 pub(crate) trait MarginalWeightInfo: WeightInfo {
 	fn service_task(maybe_lookup_len: Option<usize>, named: bool, periodic: bool) -> Weight {
 		let base = Self::service_task_base();
@@ -309,6 +319,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxScheduledPerBlock: Get<u32>;
 
+		/// The maximum number of time-scheduled calls in the queue for a single minute.
+		///
+		/// This is used for the time-based scheduler where tasks are indexed by
+		/// minute (timestamp / 60_000).
+		#[pallet::constant]
+		type MaxTimeScheduledPerMinute: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -356,6 +373,19 @@ pub mod pallet {
 		Twox64Concat,
 		BlockNumberFor<T>,
 		BoundedVec<Option<ScheduledOf<T>>, T::MaxScheduledPerBlock>,
+		ValueQuery,
+	>;
+
+	/// Items to be executed, indexed by minute (timestamp in milliseconds / 60_000).
+	///
+	/// The key is the minute number since Unix epoch. Tasks scheduled for a specific
+	/// time will be stored in the minute bucket they belong to.
+	#[pallet::storage]
+	pub type TimeAgenda<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		u64,
+		BoundedVec<Option<ScheduledTimeOf<T>>, T::MaxTimeScheduledPerMinute>,
 		ValueQuery,
 	>;
 
