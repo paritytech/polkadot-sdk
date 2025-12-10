@@ -79,17 +79,17 @@ where
 					// We have already imported this part of the chain.
 					break;
 				}
-				chain.push((number, hash));
+				let authorities =
+					fetch_authorities_from_runtime(&*client, hash, number, compatibility_mode)
+						.map_err(|e| format!("Could not fetch authorities at {hash:?}: {e}"))?;
+				chain.push((number, hash, authorities));
 				if hash == finalized_hash {
 					break;
 				}
 				hash = *header.parent_hash();
 			}
 			let mut last_imported_authorities = None;
-			for (number, hash) in chain.into_iter().rev() {
-				let authorities =
-					fetch_authorities_from_runtime(&*client, hash, number, compatibility_mode)
-						.map_err(|e| format!("Could not fetch authorities at {hash:?}: {e}"))?;
+			for (number, hash, authorities) in chain.into_iter().rev() {
 				if Some(&authorities) != last_imported_authorities.as_ref() {
 					last_imported_authorities = Some(authorities.clone());
 					Self::import_authorities(
