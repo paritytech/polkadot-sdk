@@ -44,7 +44,7 @@ use sc_client_api::{
 	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportedState, ImportResult, StateAction,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -77,13 +77,16 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, PrefixedMemoryDB, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
 };
+use sp_trie::ClientProof;
+use sp_trie::HashDBT;
+use sp_trie::TrieNodeChild;
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
@@ -610,9 +613,13 @@ where
 
 						Some((main_sc, child_sc))
 					},
-					sc_consensus::StorageChanges::Import(changes) => {
+					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
+						operation.op.commit_complete_partial_state();
+						None
+					},
+					sc_consensus::StorageChanges::Import(ImportedState::KeyValues { state: changes_state, .. }) => {
 						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
+						for state in changes_state.0.into_iter() {
 							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
 								for (key, value) in state.key_values.into_iter() {
 									storage.top.insert(key, value);
@@ -1379,6 +1386,74 @@ where
 
 		Ok(state)
 	}
+
+	fn get_trie_nodes_recursive_with_proof(
+		&self,
+		client_proof: &ClientProof<Block::Hash>,
+		size_limit: usize,
+	) -> sp_blockchain::Result<Vec<CompactProof>> {
+		let load = |node: &TrieNodeChild<Block::Hash>| {
+			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash).map_err(|e| sp_blockchain::Error::Storage(e.to_string()))? {
+				None => {
+					return Ok(None);
+				},
+				Some(encoded) => encoded,
+			};
+			let child_nodes = node.get_children::<HashingFor<Block>>(&encoded).map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+			Ok(Some((encoded, child_nodes)))
+		};
+
+		let mut results = vec![];
+		let mut size = 0;
+		let mut leaf_iter = std::iter::from_fn({
+			let mut stack = vec![(client_proof, TrieNodeChild::root(client_proof.hash, true))];
+			move || {
+				while let Some((proof, node)) = stack.pop() {
+					if proof.is_leaf() {
+						return Some(Ok(node));
+					}
+					let child_nodes = match load(&node) {
+						Err(e) => {
+							return Some(Err(e));
+						},
+						Ok(None) => {
+							continue;
+						},
+						Ok(Some((_, child_nodes))) => child_nodes,
+					};
+					for child_proof in proof.children.iter().rev() {
+						if let Some(child_node) = child_nodes.iter().find(|node| node.hash == child_proof.hash) {
+							stack.push((child_proof, child_node.clone()));
+						} else {
+							return Some(Err(sp_blockchain::Error::Storage("ClientProof: unexpected child".to_string())));
+						}
+					}
+				}
+				None
+			}
+		});
+		while let Some(node) = leaf_iter.next().transpose()? {
+			let mut db = sp_trie::MemoryDB::<HashingFor<Block>>::default();
+			let mut stack = vec![node.clone()];
+			while let Some(node) = stack.pop() {
+				if let Some((encoded, child_nodes)) = load(&node)? {
+					size += encoded.len();
+					db.emplace(node.hash, node.prefix.as_prefix(), encoded.clone());
+					// `encode_compact_raw` expects hashed value to be present
+					let has_hashed_value = child_nodes.iter().any(|child_node| child_node.is_value());
+					if size >= size_limit && !has_hashed_value {
+						break;
+					}
+					stack.extend(child_nodes.into_iter().rev());
+				}
+			}
+			results.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash, node.is_value()).map_err(|e| sp_blockchain::Error::Storage(e.to_string()))?);
+			if size >= size_limit {
+				break;
+			}
+		}
+		Ok(results)
+	}
 }
 
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>
@@ -1799,6 +1874,18 @@ where
 
 		Ok(ImportResult::imported(false))
 	}
+
+	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		// Can't use `lock_import_and_run`.
+		// It requires block to write state changes along with the block.
+		// But partial state implies block is not ready for import yet.
+		let _import_lock = self.backend.get_import_lock().write();
+		self.backend.import_partial_state(partial_state)
+		.map_err(|e| {
+			warn!("Partial state import error: {}", e);
+			ConsensusError::ClientImport(e.to_string())
+		})
+	}
 }
 
 #[async_trait::async_trait]
@@ -1825,6 +1912,10 @@ where
 		import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).import_block(import_block).await
+	}
+
+	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		(&self).import_partial_state(partial_state).await
 	}
 }
 

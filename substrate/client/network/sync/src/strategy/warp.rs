@@ -713,6 +713,7 @@ where
 					peer_id,
 					protocol_name,
 					request.encode(),
+					None,
 					tx,
 					IfDisconnected::ImmediateError,
 				);

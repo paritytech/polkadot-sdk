@@ -939,6 +939,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
+	fn commit_complete_partial_state(&mut self) {
+		self.commit_state = true;
+	}
+
 	fn set_genesis_state(
 		&mut self,
 		storage: Storage,
@@ -2634,6 +2638,21 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		)
 	}
 
+	fn import_partial_state(&self, mut partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		self.storage.db.commit(Transaction(
+			partial_state
+				.drain()
+				.into_iter()
+				.map(|(key, (value, _))| sp_database::Change::Set(columns::STATE, key, value))
+				.collect(),
+		))?;
+		Ok(())
+	}
+
+	fn get_trie_node(&self, prefix: Prefix, hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(sp_state_machine::Storage::get(self.storage.as_ref(), hash, prefix).map_err(|e| sp_blockchain::Error::Storage(e))?)
+	}
+
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
 		let hint = || {
 			let header_metadata = self.blockchain.header_metadata(hash);
@@ -2694,6 +2713,9 @@ pub(crate) mod tests {
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
+	use sp_trie::TrieDBMutBuilder;
+	use sp_trie::TrieMut;
+	use sp_trie::LayoutV0;
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -5014,5 +5036,43 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn import_partial_state() {
+		let expected_key_values = vec![
+			(vec![0u8; 40], vec![0u8; 1]),
+			(vec![1u8; 40], vec![1u8; 1]),
+		];
+
+		let mut partial_state = PrefixedMemoryDB::default();
+		let mut state_root: <Block as BlockT>::Hash = Default::default();
+		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
+		for (k, v) in &expected_key_values {
+			trie.insert(k, v).unwrap();
+		}
+		trie.commit();
+		drop(trie);
+
+		let backend = Backend::<Block>::new_test(10, 10);
+		backend.import_partial_state(partial_state).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
+		let header = Header {
+			number: 1,
+			parent_hash: Default::default(),
+			state_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
+		op.commit_complete_partial_state();
+		backend.commit_operation(op).unwrap();
+
+		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()
+			.pairs(Default::default()).unwrap()
+			.map(Result::unwrap)
+			.collect();
+		assert_eq!(key_values, expected_key_values);
 	}
 }

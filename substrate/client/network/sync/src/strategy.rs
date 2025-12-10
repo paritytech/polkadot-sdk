@@ -41,9 +41,10 @@ use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, NumberFor},
+	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 use std::any::Any;
 
 /// Syncing strategy for syncing engine to use
@@ -172,6 +173,10 @@ pub enum SyncingAction<B: BlockT> {
 		number: NumberFor<B>,
 		justifications: Justifications,
 	},
+	/// Import partial state
+	ImportPartialState {
+		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+	},
 	/// Strategy finished. Nothing to do, this is handled by `PolkadotSyncingStrategy`.
 	Finished,
 }
@@ -199,6 +204,9 @@ where
 			Self::ImportJustifications { hash, number, .. } => {
 				write!(f, "ImportJustifications({:?}, {:?})", hash, number)
 			},
+			Self::ImportPartialState { .. } => {
+				write!(f, "ImportPartialState")
+			},
 			Self::Finished => write!(f, "Finished"),
 		}
 	}
@@ -218,6 +226,7 @@ impl<B: BlockT> SyncingAction<B> {
 			Self::DropPeer(_) => "DropPeer",
 			Self::ImportBlocks { .. } => "ImportBlocks",
 			Self::ImportJustifications { .. } => "ImportJustifications",
+			Self::ImportPartialState { .. } => "ImportPartialState",
 			Self::Finished => "Finished",
 		}
 	}

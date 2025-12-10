@@ -22,6 +22,7 @@ use crate::{
 	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
 	LOG_TARGET,
 };
+use crate::state_request_handler::STATE_SYNC_REQUEST_SIZE_LIMIT;
 use codec::{Decode, Encode};
 use log::debug;
 use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
@@ -29,10 +30,18 @@ use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor},
+	traits::{Block as BlockT, HashingFor, Header, NumberFor},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
+use sp_trie::MemoryDB;
+use sp_trie::ClientProof;
+use sp_trie::TrieNodeChild;
+use trie_db::NibbleVec;
+use hash_db::HashDB;
 use std::{collections::HashMap, fmt, sync::Arc};
+
+type LastKey = SmallVec<[Vec<u8>; 2]>;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -82,15 +91,33 @@ pub struct StateSyncProgress {
 /// Import state chunk result.
 pub enum ImportResult<B: BlockT> {
 	/// State is complete and ready for import.
-	Import(B::Hash, B::Header, ImportedState<B>, Option<Vec<B::Extrinsic>>, Option<Justifications>),
+	Import {
+		hash: B::Hash,
+		header: B::Header,
+		partial_state: Option<PrefixedMemoryDB<HashingFor<B>>>,
+		state: ImportedState<B>,
+		body: Option<Vec<B::Extrinsic>>,
+		justifications: Option<Justifications>,
+	},
 	/// Continue downloading.
-	Continue,
+	Continue {
+		partial_state: Option<PrefixedMemoryDB<HashingFor<B>>>,
+	},
 	/// Bad state chunk.
 	BadResponse,
 }
 
+impl<B: BlockT> ImportResult<B> {
+	pub fn take_partial_state(&mut self) -> Option<PrefixedMemoryDB<HashingFor<B>>> {
+		match self {
+			ImportResult::Import { partial_state, .. } | ImportResult::Continue { partial_state } => partial_state.take(),
+			ImportResult::BadResponse => None,
+		}
+	}
+}
+
 struct StateSyncMetadata<B: BlockT> {
-	last_key: SmallVec<[Vec<u8>; 2]>,
+	last_key: LastKey,
 	target_header: B::Header,
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
@@ -118,6 +145,7 @@ impl<B: BlockT> StateSyncMetadata<B> {
 			block: self.target_hash().encode(),
 			start: self.last_key.clone().into_vec(),
 			no_proof: self.skip_proof,
+			client_proof: vec![],
 		}
 	}
 
@@ -136,6 +164,115 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
+fn pad_prefix(prefix: &NibbleVec) -> Vec<u8> {
+	let (prefix, last) = prefix.as_prefix();
+	let mut prefix = prefix.to_vec();
+	if let Some(last) = last {
+		assert_eq!(last & 0xf, 0);
+		prefix.push(last);
+	}
+	prefix
+}
+
+enum Tree<B: BlockT> {
+	Known {
+		hash: B::Hash,
+		children: Vec<Tree<B>>,
+		child_trie_key: Option<Vec<u8>>,
+	},
+	Unknown(TrieNodeChild<B::Hash>),
+}
+impl<B: BlockT> Tree<B> {
+	fn complete(&self) -> bool {
+		match self {
+			Self::Known { children, .. } if children.is_empty() => true,
+			_ => false,
+		}
+	}
+
+	fn node_hash(&self) -> &B::Hash {
+		match self {
+			Self::Known { hash, .. } | Self::Unknown(TrieNodeChild { hash, .. }) => hash,
+		}
+	}
+
+	fn fallback_request(&self) -> LastKey {
+		let mut last_key = LastKey::default();
+		let mut node = self;
+		loop {
+			match node {
+				Tree::Known { children, child_trie_key, .. } => {
+					if let Some(key) = child_trie_key {
+						last_key.push(key.clone());
+					}
+					if let Some(child) = children.first() {
+						node = child;
+					} else {
+						break;
+					}
+				},
+				Tree::Unknown(node) => {
+					if let Some(key) = &node.child_trie_key {
+						last_key.push(key.clone());
+						last_key.push(vec![]);
+					} else {
+						last_key.push(pad_prefix(&node.prefix));
+					}
+					break;
+				},
+			}
+		}
+		last_key
+	}
+
+	fn request(&self, size_limit: usize) -> (ClientProof<B::Hash>, usize) {
+		let mut proof = ClientProof {
+			hash: *self.node_hash(),
+			children: vec![],
+		};
+		let item_size = proof.hash.as_ref().len() + 1;
+		let mut size = item_size;
+		if let Self::Known { children, .. } = self {
+			for child in children {
+				if size + item_size > size_limit {
+					break;
+				}
+				let (child_proof, child_size) = child.request(size_limit - size);
+				proof.children.push(child_proof);
+				size += child_size;
+			}
+		}
+		(proof, size)
+	}
+}
+
+fn fill<B: BlockT>(
+	tree: &mut Tree<B>,
+	db_out: &mut PrefixedMemoryDB::<HashingFor<B>>,
+	db_in: &MemoryDB::<HashingFor<B>>,
+) -> usize {
+	let mut new_nodes = 0;
+	if let Tree::Unknown(node) = tree {
+		if let Some(encoded) = db_in.get(&node.hash, node.prefix.as_prefix()) {
+			let children = node.get_children::<HashingFor<B>>(&encoded)
+				.unwrap()
+				.into_iter()
+				.map(Tree::Unknown)
+				.collect();
+			db_out.emplace(node.hash, node.prefix.as_prefix(), encoded);
+			new_nodes += 1;
+			*tree = Tree::Known { hash: node.hash, children, child_trie_key: node.child_trie_key.take() };
+		}
+	}
+	if let Tree::Known { children, .. } = tree {
+		children.retain_mut(|child| {
+			new_nodes += fill(child, db_out, db_in);
+			!child.complete()
+		});
+	}
+	new_nodes
+}
+
 /// State sync state machine.
 ///
 /// Accumulates partial state data until it is ready to be imported.
@@ -143,6 +280,7 @@ pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
+	tree: Tree<B>,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -158,10 +296,11 @@ where
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 	) -> Self {
+		let state_root = *target_header.state_root();
 		Self {
 			client,
 			metadata: StateSyncMetadata {
-				last_key: SmallVec::default(),
+				last_key: LastKey::default(),
 				target_header,
 				target_body,
 				target_justifications,
@@ -170,6 +309,7 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
+			tree: Tree::Unknown(TrieNodeChild::root(state_root, true)),
 		}
 	}
 
@@ -255,70 +395,105 @@ where
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
-		if response.entries.is_empty() && response.proof.is_empty() {
+		if response.entries.is_empty() && response.proof.is_empty() && response.raw_proofs.is_empty() {
 			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
 		}
-		if !self.metadata.skip_proof && response.proof.is_empty() {
+		if !self.metadata.skip_proof && response.proof.is_empty() && response.raw_proofs.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse
 		}
-		let complete = if !self.metadata.skip_proof {
-			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
-			let proof_size = response.proof.len() as u64;
-			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
-				Ok(proof) => proof,
-				Err(e) => {
+		let (complete, partial_state) = if !self.metadata.skip_proof {
+			let mut db = MemoryDB::<HashingFor<B>>::default();
+			type Layout<B> = sp_state_machine::LayoutV1<HashingFor<B>>;
+			let mut trie_nodes = 0;
+			let mut proof_size = 0;
+			if !response.proof.is_empty() {
+				proof_size += response.proof.len();
+				let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
+					Ok(proof) => proof,
+					Err(e) => {
+						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+						return ImportResult::BadResponse;
+					},
+				};
+				trie_nodes += proof.encoded_nodes.len();
+				if let Err(e) = sp_trie::decode_compact::<Layout<B>, _, _>(
+					&mut db,
+					proof.iter_compact_encoded_nodes(),
+					Some(&self.metadata.target_root()),
+				) {
 					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
-					return ImportResult::BadResponse
-				},
-			};
-			let (values, completed) = match self.client.verify_range_proof(
-				self.metadata.target_root(),
-				proof,
-				self.metadata.last_key.as_slice(),
-			) {
-				Err(e) => {
-					debug!(
-						target: LOG_TARGET,
-						"StateResponse failed proof verification: {}",
-						e,
-					);
-					return ImportResult::BadResponse
-				},
-				Ok(values) => values,
-			};
-			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
+					return ImportResult::BadResponse;
+				}
+			} else {
+				for proof in &response.raw_proofs {
+					proof_size += proof.len();
+					let proof = match CompactProof::decode(&mut proof.as_ref()) {
+						Ok(proof) => proof,
+						Err(e) => {
+							debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+							return ImportResult::BadResponse;
+						},
+					};
+					trie_nodes += proof.encoded_nodes.len();
+					if let Err(e) = sp_trie::decode_compact_raw::<Layout<B>, _>(
+						&mut db,
+						&proof,
+					) {
+						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+						return ImportResult::BadResponse;
+					}
+				}
+			}
+			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", trie_nodes);
+			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::default();
+			let new_nodes = fill(&mut self.tree, &mut partial_state, &db);
+			if new_nodes == 0 {
+				debug!(target: LOG_TARGET, "No new nodes received");
+				return ImportResult::BadResponse;
+			}
+			debug!(target: LOG_TARGET, "Imported with {} nodes", new_nodes);
 
-			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
-				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
-			};
-
-			self.process_state_verified(values);
-			self.metadata.imported_bytes += proof_size;
-			complete
+			self.metadata.imported_bytes += proof_size as u64;
+			self.metadata.last_key = self.tree.fallback_request();
+			(self.tree.complete(), Some(partial_state))
 		} else {
-			self.process_state_unverified(response)
+			(self.process_state_unverified(response), None)
 		};
 		if complete {
 			self.metadata.complete = true;
 			let target_hash = self.metadata.target_hash();
-			ImportResult::Import(
-				target_hash,
-				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
-				self.metadata.target_body.clone(),
-				self.metadata.target_justifications.clone(),
-			)
+			let state = if partial_state.is_none() {
+				ImportedState::KeyValues { block: target_hash, state: std::mem::take(&mut self.state).into() }
+			} else {
+				ImportedState::Proof
+			};
+			ImportResult::Import {
+				hash: target_hash,
+				header: self.metadata.target_header.clone(),
+				partial_state,
+				state,
+				body: self.metadata.target_body.clone(),
+				justifications: self.metadata.target_justifications.clone(),
+			}
 		} else {
-			ImportResult::Continue
+			ImportResult::Continue {
+				partial_state,
+			}
 		}
 	}
 
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
-		self.metadata.next_request()
+		let request_v2 = self.metadata.next_request();
+		if request_v2.no_proof {
+			return request_v2;
+		}
+		StateRequest {
+			client_proof: self.tree.request(STATE_SYNC_REQUEST_SIZE_LIMIT).0.encode(),
+			..request_v2
+		}
 	}
 
 	/// Check if the state is complete.

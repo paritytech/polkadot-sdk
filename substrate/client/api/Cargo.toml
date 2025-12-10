@@ -36,6 +36,7 @@ sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+hash-db = { workspace = true, default-features = true }
 
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }

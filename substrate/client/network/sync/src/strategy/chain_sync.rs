@@ -43,6 +43,7 @@ use crate::{
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
+use crate::state_request_handler::StateSyncProtocolNames;
 
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
@@ -327,7 +328,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Maximum blocks per request.
 	max_blocks_per_request: u32,
 	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
+	state_sync_protocol_names: StateSyncProtocolNames,
 	/// Total number of downloaded blocks.
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
@@ -589,7 +590,7 @@ where
 			return;
 		}
 
-		if protocol_name == self.state_request_protocol_name {
+		if protocol_name == self.state_sync_protocol_names.v2 || protocol_name == self.state_sync_protocol_names.v3 {
 			let Ok(response) = response.downcast::<Vec<u8>>() else {
 				warn!(target: LOG_TARGET, "Failed to downcast state response");
 				debug_assert!(false);
@@ -894,10 +895,12 @@ where
 
 			let (tx, rx) = oneshot::channel();
 
+			let (protocol, request, fallback_request) = self.state_sync_protocol_names.encode_request(&request);
 			network_service.start_request(
 				peer_id,
-				self.state_request_protocol_name.clone(),
-				request.encode_to_vec(),
+				protocol,
+				request,
+				fallback_request,
 				tx,
 				IfDisconnected::ImmediateError,
 			);
@@ -940,7 +943,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		state_request_protocol_name: ProtocolName,
+		state_sync_protocol_names: StateSyncProtocolNames,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
@@ -960,7 +963,7 @@ where
 			allowed_requests: Default::default(),
 			max_parallel_downloads,
 			max_blocks_per_request,
-			state_request_protocol_name,
+			state_sync_protocol_names,
 			downloaded_blocks: 0,
 			state_sync: None,
 			import_existing: false,
@@ -1992,7 +1995,7 @@ where
 				self.allowed_requests.set_all();
 			}
 		}
-		let import_result = if let Some(sync) = &mut self.state_sync {
+		let mut import_result = if let Some(sync) = &mut self.state_sync {
 			debug!(
 				target: LOG_TARGET,
 				"Importing state data from {} with {} keys, {} proof nodes.",
@@ -2006,8 +2009,12 @@ where
 			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));
 		};
 
+		if let Some(partial_state) = import_result.take_partial_state() {
+			self.actions.push(SyncingAction::ImportPartialState { partial_state });
+		}
+
 		match import_result {
-			ImportResult::Import(hash, header, state, body, justifications) => {
+			ImportResult::Import { hash, header, state, body, justifications, .. } => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
@@ -2025,7 +2032,7 @@ where
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
-			ImportResult::Continue => Ok(()),
+			ImportResult::Continue { .. } => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_BLOCK))

@@ -391,6 +391,10 @@ where
 
 		self.inner.import_block(block).await.map_err(Into::into)
 	}
+
+	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await
+	}
 }
 
 /// A verifier for PoW blocks.

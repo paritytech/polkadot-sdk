@@ -29,6 +29,9 @@ use log::{debug, trace};
 use prost::Message;
 use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
+use sp_core::blake2_256;
+use sp_trie::ClientProof;
+use sc_network::ProtocolName;
 
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
@@ -44,6 +47,9 @@ use std::{
 	time::Duration,
 };
 
+const MAX_REQUEST_BYTES_OVERHEAD: usize = 4 + (1 + 1 + 32) + (1 + 4); // Block hash, protobuf and framing.
+const MAX_REQUEST_BYTES: usize = 1024 * 1024;
+pub const STATE_SYNC_REQUEST_SIZE_LIMIT: usize = MAX_REQUEST_BYTES.saturating_sub(MAX_REQUEST_BYTES_OVERHEAD);
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024; // Actual reponse may be bigger.
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
@@ -52,6 +58,44 @@ mod rep {
 
 	/// Reputation change when a peer sent us the same request multiple times.
 	pub const SAME_REQUEST: Rep = Rep::new(i32::MIN, "Same state request multiple times");
+}
+
+#[derive(Clone, Debug)]
+pub struct StateSyncProtocolNames {
+	pub v2: ProtocolName,
+	pub v3: ProtocolName,
+}
+
+impl StateSyncProtocolNames {
+	pub fn encode_request(&self, request: &StateRequest) -> (ProtocolName, Vec<u8>, Option<(Vec<u8>, ProtocolName)>) {
+		let request_v2 = StateRequest {
+			block: request.block.clone(),
+			start: request.start.clone(),
+			no_proof: request.no_proof,
+			client_proof: vec![],
+		};
+		if request.no_proof {
+			return (
+				self.v2.clone(),
+				request_v2.encode_to_vec(),
+				None,
+			);
+		}
+		let request_v3 = StateRequest {
+			block: request.block.clone(),
+			start: vec![],
+			no_proof: false,
+			client_proof: request.client_proof.clone(),
+		};
+		(
+			self.v3.clone(),
+			request_v3.encode_to_vec(),
+			Some((
+				request_v2.encode_to_vec(),
+				self.v2.clone(),
+			)),
+		)
+	}
 }
 
 /// Generates a `RequestResponseProtocolConfig` for the state request protocol, refusing incoming
@@ -65,24 +109,37 @@ pub fn generate_protocol_config<
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
 	inbound_queue: async_channel::Sender<IncomingRequest>,
-) -> N::RequestResponseProtocolConfig {
-	N::request_response_config(
-		generate_protocol_name(genesis_hash, fork_id).into(),
-		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
-		1024 * 1024,
+) -> (Vec<N::RequestResponseProtocolConfig>, StateSyncProtocolNames) {
+	let protocol_names = StateSyncProtocolNames {
+		v2: generate_protocol_name(&genesis_hash, fork_id, "2").into(),
+		v3: generate_protocol_name(&genesis_hash, fork_id, "3").into(),
+	};
+	let config_v2 = N::request_response_config(
+		protocol_names.v2.clone(),
+		vec![generate_legacy_protocol_name(protocol_id).into()],
+		MAX_REQUEST_BYTES as u64,
+		MAX_RESPONSE_SIZE,
+		Duration::from_secs(40),
+		Some(inbound_queue.clone()),
+	);
+	let config_v3 = N::request_response_config(
+		protocol_names.v3.clone(),
+		vec![],
+		MAX_REQUEST_BYTES as u64,
 		MAX_RESPONSE_SIZE,
 		Duration::from_secs(40),
 		Some(inbound_queue),
-	)
+	);
+	(vec![config_v2, config_v3], protocol_names)
 }
 
 /// Generate the state protocol name from the genesis hash and fork id.
-fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
+fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: &Hash, fork_id: Option<&str>, version: &str) -> String {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {
-		format!("/{}/{}/state/2", array_bytes::bytes2hex("", genesis_hash), fork_id)
+		format!("/{}/{}/state/{}", array_bytes::bytes2hex("", genesis_hash), fork_id, version)
 	} else {
-		format!("/{}/state/2", array_bytes::bytes2hex("", genesis_hash))
+		format!("/{}/state/{}", array_bytes::bytes2hex("", genesis_hash), version)
 	}
 }
 
@@ -137,13 +194,13 @@ where
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		num_peer_hint: usize,
-	) -> (Self, N::RequestResponseProtocolConfig) {
+	) -> (Self, Vec<N::RequestResponseProtocolConfig>, StateSyncProtocolNames) {
 		// Reserve enough request slots for one request per peer when we are at the maximum
 		// number of peers.
 		let capacity = std::cmp::max(num_peer_hint, 1);
 		let (tx, request_receiver) = async_channel::bounded(capacity);
 
-		let protocol_config = generate_protocol_config::<_, B, N>(
+		let (protocol_config, protocol_names) = generate_protocol_config::<_, B, N>(
 			protocol_id,
 			client
 				.block_hash(0u32.into())
@@ -157,7 +214,7 @@ where
 		let capacity = ByLength::new(num_peer_hint.max(1) as u32 * 2);
 		let seen_requests = LruMap::new(capacity);
 
-		(Self { client, request_receiver, seen_requests }, protocol_config)
+		(Self { client, request_receiver, seen_requests }, protocol_config, protocol_names)
 	}
 
 	/// Run [`StateRequestHandler`].
@@ -184,7 +241,15 @@ where
 		let request = StateRequest::decode(&payload[..])?;
 		let block: B::Hash = Decode::decode(&mut request.block.as_ref())?;
 
-		let key = SeenRequestsKey { peer: *peer, block, start: request.start.clone() };
+		let key = SeenRequestsKey {
+			peer: *peer,
+			block,
+			start: if !request.client_proof.is_empty() {
+				vec![blake2_256(&request.client_proof).to_vec()]
+			} else {
+				request.start.clone()
+			}
+		};
 
 		let mut reputation_changes = Vec::new();
 
@@ -214,7 +279,11 @@ where
 		let result = if reputation_changes.is_empty() {
 			let mut response = StateResponse::default();
 
-			if !request.no_proof {
+			if !request.client_proof.is_empty() {
+				let client_proof = ClientProof::decode(&mut &request.client_proof[..])?;
+				let raw_proofs = self.client.get_trie_nodes_recursive_with_proof(&client_proof, MAX_RESPONSE_BYTES)?;
+				response.raw_proofs = raw_proofs.iter().map(|x| x.encode()).collect();
+			} else if !request.no_proof {
 				let (proof, _count) = self.client.read_proof_collection(
 					block,
 					request.start.as_slice(),

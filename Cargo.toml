@@ -1576,3 +1576,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+trie-db = { git = "https://github.com/turuslan/paritytech-trie.git", branch = "fix/decode_compact_prefix_db_0_30_0" }

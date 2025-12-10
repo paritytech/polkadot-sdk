@@ -182,6 +182,10 @@ where
 
 		Ok(res)
 	}
+
+	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await
+	}
 }
 
 /// Marker trait denoting a block import type that fits the parachain requirements.

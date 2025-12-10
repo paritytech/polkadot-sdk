@@ -35,6 +35,8 @@ use sp_state_machine::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
+use sp_trie::PrefixedMemoryDB;
+use hash_db::Prefix;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
@@ -205,6 +207,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 		storage: Storage,
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
+
+	/// Commit complete partial state.
+	fn commit_complete_partial_state(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(
@@ -678,6 +683,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// Inject partial state into the database.
+	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
+
+	/// Get trie node from database.
+	fn get_trie_node(&self, prefix: Prefix, hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

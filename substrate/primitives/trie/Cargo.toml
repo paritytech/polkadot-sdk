@@ -35,6 +35,7 @@ scale-info = { features = ["derive"], workspace = true }
 schnellru = { optional = true, workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { workspace = true }
+sp-storage = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }

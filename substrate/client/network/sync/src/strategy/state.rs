@@ -29,12 +29,13 @@ use crate::{
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
+use crate::state_request_handler::StateSyncProtocolNames;
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::{IfDisconnected, ProtocolName};
+use sc_network::IfDisconnected;
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
 use sp_consensus::BlockOrigin;
@@ -76,7 +77,7 @@ pub struct StateStrategy<B: BlockT> {
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
 	actions: Vec<SyncingAction<B>>,
-	protocol_name: ProtocolName,
+	protocol_name: StateSyncProtocolNames,
 	succeeded: bool,
 }
 
@@ -92,7 +93,7 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
-		protocol_name: ProtocolName,
+		protocol_name: StateSyncProtocolNames,
 	) -> Self
 	where
 		Client: ProofProvider<B> + Send + Sync + 'static,
@@ -125,7 +126,7 @@ impl<B: BlockT> StateStrategy<B> {
 	pub fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
-		protocol_name: ProtocolName,
+		protocol_name: StateSyncProtocolNames,
 	) -> Self {
 		Self {
 			state_sync: state_sync_provider,
@@ -216,8 +217,14 @@ impl<B: BlockT> StateStrategy<B> {
 			response.proof.len(),
 		);
 
-		match self.state_sync.import(response) {
-			ImportResult::Import(hash, header, state, body, justifications) => {
+		let mut import_result = self.state_sync.import(response);
+
+		if let Some(partial_state) = import_result.take_partial_state() {
+			self.actions.push(SyncingAction::ImportPartialState { partial_state });
+		}
+
+		match import_result {
+			ImportResult::Import { hash, header, state, body, justifications, .. } => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
@@ -235,7 +242,7 @@ impl<B: BlockT> StateStrategy<B> {
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
-			ImportResult::Continue => Ok(()),
+			ImportResult::Continue { .. } => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_STATE))
@@ -358,10 +365,12 @@ impl<B: BlockT> StateStrategy<B> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			let (tx, rx) = oneshot::channel();
 
+			let (protocol, request, fallback_request) = self.protocol_name.encode_request(&request);
 			network_service.start_request(
 				peer_id,
-				self.protocol_name.clone(),
-				request.encode_to_vec(),
+				protocol,
+				request,
+				fallback_request,
 				tx,
 				IfDisconnected::ImmediateError,
 			);

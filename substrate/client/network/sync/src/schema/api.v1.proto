@@ -78,6 +78,8 @@ message StateRequest {
 	repeated bytes start = 2; // optional
 	// if 'true' indicates that response should contain raw key-values, rather than proof.
 	bool no_proof = 3;
+	// Merkle proof of trie node hashes requested by client
+	bytes client_proof = 4; // optional
 }
 
 message StateResponse {
@@ -85,6 +87,9 @@ message StateResponse {
 	repeated KeyValueStateEntry entries = 1;
 	// If `no_proof` is false in request, this contains proof nodes.
 	bytes proof = 2;
+	// Client may request multiple subtrees.
+	// `decode_compact` expects `.proof` to contain single root along with child tries.
+	repeated bytes raw_proofs = 3;
 }
 
 // A key value state.

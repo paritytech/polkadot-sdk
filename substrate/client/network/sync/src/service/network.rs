@@ -56,6 +56,7 @@ pub enum ToServiceCommand {
 		PeerId,
 		ProtocolName,
 		Vec<u8>,
+		Option<(Vec<u8>, ProtocolName)>,
 		oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		IfDisconnected,
 	),
@@ -90,12 +91,13 @@ impl NetworkServiceHandle {
 		who: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
 		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
 		let _ = self
 			.tx
-			.unbounded_send(ToServiceCommand::StartRequest(who, protocol, request, tx, connect));
+			.unbounded_send(ToServiceCommand::StartRequest(who, protocol, request, fallback_request, tx, connect));
 	}
 }
 
@@ -123,8 +125,8 @@ impl NetworkServiceProvider {
 					service.disconnect_peer(peer, protocol_name),
 				ToServiceCommand::ReportPeer(peer, reputation_change) =>
 					service.report_peer(peer, reputation_change),
-				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =>
-					service.start_request(peer, protocol, request, None, tx, connect),
+				ToServiceCommand::StartRequest(peer, protocol, request, fallback_request, tx, connect) =>
+					service.start_request(peer, protocol, request, fallback_request, tx, connect),
 			}
 		}
 	}
