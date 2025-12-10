@@ -401,6 +401,7 @@ pub mod pallet {
 
 		type InheritorConsideration: Consideration<Self::AccountId, Footprint>;
 
+		/// Security deposit taken for each attempt.
 		#[pallet::constant]
 		type SecurityDeposit: Get<BalanceOf<Self>>;
 
@@ -471,21 +472,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		RecoveredAccountControlled {
-			recovered: T::AccountId,
-			inheritor: T::AccountId,
-			call_hash: HashOf<T>,
-			call_result: DispatchResult,
-		},
-		FriendGroupsChanged {
-			lost: T::AccountId,
-			old_friend_groups: FriendGroupsOf<T>,
-		},
-		AttemptInitiated {
-			lost: T::AccountId,
-			friend_group_index: FriendGroupIndex,
-			initiator: T::AccountId,
-		},
 		AttemptApproved {
 			lost: T::AccountId,
 			friend_group_index: FriendGroupIndex,
@@ -496,60 +482,75 @@ pub mod pallet {
 			friend_group_index: FriendGroupIndex,
 			canceler: T::AccountId,
 		},
+		AttemptInitiated {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			initiator: T::AccountId,
+		},
 		AttemptSlashed {
 			lost: T::AccountId,
 			friend_group_index: FriendGroupIndex,
+		},
+		FriendGroupsChanged {
+			lost: T::AccountId,
+			old_friend_groups: FriendGroupsOf<T>,
+		},
+		RecoveredAccountControlled {
+			recovered: T::AccountId,
+			inheritor: T::AccountId,
+			call_hash: HashOf<T>,
+			call_result: DispatchResult,
 		},
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The lost account has ongoing recovery attempts.
-		HasOngoingAttempts,
-		/// The recovery attempt has already been initiated.
-		AlreadyInitiated,
-		/// This account does not have any friend groups.
-		NoFriendGroups,
-		/// A specific referenced friend group was not found.
-		NotFriendGroup,
-		/// The caller is not a friend of the lost account.
-		NotFriend,
-		/// The friend group has no friends.
-		NoFriends,
-		/// The referenced recovery attempt was not found.
-		NotAttempt,
 		/// This attempt is already fully approved and does not need any more votes.
 		AlreadyApproved,
+		/// The recovery attempt has already been initiated.
+		AlreadyInitiated,
 		/// The friend already voted for this attempt.
 		AlreadyVoted,
-		/// The lost account does not have any inheritor.
-		NoInheritor,
-		/// The caller is not the inheritor of the lost account.
-		NotInheritor,
-		/// Not enough friends approved this attempt.
-		NotApproved,
-		/// The recovery attempt is not yet unlocked.
-		NotUnlocked,
-		/// The caller is not the initiator or the lost account.
-		NotCanceller,
-		/// The cancel delay since the last approval or initialization has not yet passed.
-		NotYetCancelable,
-		/// Too many concurrent recovery attempts for this recoverer.
-		TooManyAttempts,
-		/// The inheritance delay of this attempt has not yet passed.
-		NotYetInheritable,
-		/// The number of friends needed is greater than the number of friends.
-		TooManyFriendsNeeded,
-		/// Too many friend groups.
-		TooManyFriendGroups,
 		/// Duplicate friend groups.
 		DuplicateFriendGroup,
+		/// The lost account has ongoing recovery attempts.
+		HasOngoingAttempts,
 		/// The lost account cannot be a friend of itself.
 		LostAccountInFriendGroup,
 		/// The account was already recovered by a friend group with lower inheritance order.
 		LowerOrderRecovered,
+		/// This account does not have any friend groups.
+		NoFriendGroups,
+		/// The friend group has no friends.
+		NoFriends,
+		/// The lost account does not have any inheritor.
+		NoInheritor,
+		/// Not enough friends approved this attempt.
+		NotApproved,
+		/// The referenced recovery attempt was not found.
+		NotAttempt,
+		/// The caller is not the initiator or the lost account.
+		NotCanceller,
+		/// The caller is not a friend of the lost account.
+		NotFriend,
+		/// A specific referenced friend group was not found.
+		NotFriendGroup,
+		/// The caller is not the inheritor of the lost account.
+		NotInheritor,
+		/// The recovery attempt is not yet unlocked.
+		NotUnlocked,
+		/// The cancel delay since the last approval or initialization has not yet passed.
+		NotYetCancelable,
+		/// The inheritance delay of this attempt has not yet passed.
+		NotYetInheritable,
 		/// Only the lost account can slash an attempt.
 		OnlyLostCanSlash,
+		/// Too many concurrent recovery attempts for this recoverer.
+		TooManyAttempts,
+		/// Too many friend groups.
+		TooManyFriendGroups,
+		/// The number of friends needed is greater than the number of friends.
+		TooManyFriendsNeeded,
 	}
 
 	#[pallet::view_functions]

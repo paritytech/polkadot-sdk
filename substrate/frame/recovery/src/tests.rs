@@ -360,18 +360,26 @@ fn initiate_attempt_no_friend_groups_fails() {
 #[test]
 fn initiate_attempt_different_friend_groups_works() {
 	new_test_ext().execute_with(|| {
-		setup_alice_fgs([[BOB, CHARLIE], [CHARLIE, DAVE]]);
+		setup_alice_fgs([[BOB, DAVE], [BOB, CHARLIE]]);
 
 		frame_system::Pallet::<T>::set_block_number(10);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_security_deposit(BOB, SECURITY_DEPOSIT);
+		
+		hypothetically!({
+			assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
+			assert_security_deposit(BOB, SECURITY_DEPOSIT * 2);
+		});
+
 		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
+		assert_security_deposit(CHARLIE, SECURITY_DEPOSIT);
 
 		assert_eq!(
 			Recovery::attempts(ALICE),
 			vec![
 				(
-					fg([BOB, CHARLIE]),
+					fg([BOB, DAVE]),
 					AttemptOf::<T> {
 						friend_group_index: 0,
 						initiator: BOB.into(),
@@ -381,7 +389,7 @@ fn initiate_attempt_different_friend_groups_works() {
 					}
 				),
 				(
-					fg([CHARLIE, DAVE]),
+					fg([BOB, CHARLIE]),
 					AttemptOf::<T> {
 						friend_group_index: 1,
 						initiator: CHARLIE.into(),
