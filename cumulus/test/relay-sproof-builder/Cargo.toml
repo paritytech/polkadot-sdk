@@ -27,7 +27,6 @@ polkadot-primitives.workspace = true
 # Cumulus
 cumulus-primitives-core.workspace = true
 
-
 [features]
 default = ["std"]
 std = [
