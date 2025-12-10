@@ -546,13 +546,14 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
 	use parking_lot::Mutex;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::BlockchainEvents;
 	use sc_consensus::BoxJustificationImport;
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
 	use sc_keystore::LocalKeystore;
-	use sc_network_test::{Block as TestBlock, *};
+	use sc_network_test::{Block as TestBlock, Header as TestHeader, *};
 	use sp_application_crypto::{key_types::AURA, AppCrypto};
 	use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
 	use sp_consensus_aura::sr25519::AuthorityPair;
@@ -561,7 +562,7 @@ mod tests {
 	use sp_keystore::Keystore;
 	use sp_runtime::{
 		traits::{Block as BlockT, Header as _},
-		Digest,
+		Digest, DigestItem,
 	};
 	use sp_timestamp::Timestamp;
 	use std::{
@@ -879,5 +880,41 @@ mod tests {
 
 		// The returned block should be imported and we should be able to get its header by now.
 		assert!(client.header(res.block.hash()).unwrap().is_some());
+	}
+
+	#[tokio::test]
+	async fn authorities_tracker_importing_blocks() {
+		let mut net = AuraTestNet::new(3);
+		let peer = net.peer(0);
+		let client = peer.client().as_client();
+		let tracker = AuthoritiesTracker::<AuthorityPair, _, _>::new_empty(client);
+		let parent_header = TestHeader {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Digest {
+				logs: vec![DigestItem::Consensus(
+					AURA_ENGINE_ID,
+					vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())].encode(),
+				)],
+			},
+		};
+		let current_header = TestHeader {
+			parent_hash: parent_header.hash(),
+			number: 1,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+		assert!(tracker.is_empty());
+
+		tracker.import(&parent_header).unwrap();
+		let authorities = tracker.fetch(&current_header).unwrap();
+		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
+
+		tracker.import(&current_header).unwrap();
+		let authorities = tracker.fetch(&current_header).unwrap();
+		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
 	}
 }
