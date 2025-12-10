@@ -22921,7 +22921,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -23165,7 +23165,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-test-utils"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bp-relayers",
  "frame-benchmarking",
