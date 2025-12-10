@@ -44,7 +44,6 @@ use cumulus_client_consensus_aura::{
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
@@ -69,6 +68,7 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
+use sp_consensus::Environment;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -370,7 +370,8 @@ where
 
 		// The aura digest provider will provide digests that match the provided timestamp data.
 		// Without this, the AURA parachain runtimes complain about slot mismatches.
-		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(slot_duration);
+		let aura_digest_provider =
+			AuraConsensusDataProvider::<Block>::new_with_slot_duration(slot_duration);
 
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
@@ -613,7 +614,7 @@ where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
-		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnEssentialNamed + Clone + 'static,
 	{
@@ -695,7 +696,7 @@ where
 		),
 	) -> Result<(), Error> {
 		let (block_import_handle, _authorities_tracker) = block_import_auxiliary_data;
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -898,7 +899,7 @@ where
 			>,
 		>,
 	) -> Result<(), Error> {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
