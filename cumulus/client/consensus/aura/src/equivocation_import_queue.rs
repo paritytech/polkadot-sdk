@@ -152,7 +152,7 @@ where
 			let authorities = self
 				.authorities_tracker
 				.fetch(&block_params.header)
-				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
+				.map_err(|e| format!("Could not fetch authorities: {e}"))?;
 
 			let slot_duration = self
 				.client

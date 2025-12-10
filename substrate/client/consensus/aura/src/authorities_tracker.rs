@@ -152,7 +152,7 @@ where
 				format!("Could not find authorities for block {hash:?} at number {number}: {e}")
 			})?
 			.ok_or_else(|| {
-				format!("Authorities for block {hash:?} at number {number} not found in",)
+				format!("Authorities for block {hash:?} at number {number} not found in authorities tracker")
 			})?;
 		Ok(node.data.clone())
 	}
