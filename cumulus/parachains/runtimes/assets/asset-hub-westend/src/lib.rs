@@ -1397,6 +1397,7 @@ construct_runtime!(
 		Whitelist: pallet_whitelist = 93,
 		Treasury: pallet_treasury = 94,
 		AssetRate: pallet_asset_rate = 95,
+		MultiAssetBounties: pallet_multi_asset_bounties = 96,
 
 		// Dynamic Allocation Pool / Issuance Buffer
 		Dap: pallet_dap = 100,
@@ -1702,6 +1703,7 @@ mod benches {
 		[pallet_election_provider_multi_block::signed, MultiBlockElectionSigned]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
+		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
