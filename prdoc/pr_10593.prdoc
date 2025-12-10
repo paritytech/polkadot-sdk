@@ -4,4 +4,4 @@ doc:
   description: The PR aligns Storages between Bulletin and SDK.
 crates:
 - name: pallet-transaction-storage
-  bump: major
+  bump: minor
