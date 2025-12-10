@@ -98,8 +98,8 @@ mod storage;
 pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
-	LinearStoragePrice, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance,
-	TrackedStorageKey, WhitelistedStorageKeys,
+	LinearStoragePrice, NoDrop, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
+	StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;

@@ -340,6 +340,10 @@ pub use pallet_assets_freezer;
 #[cfg(feature = "pallet-assets-holder")]
 pub use pallet_assets_holder;
 
+/// Provides precompiles for `pallet-assets`.
+#[cfg(feature = "pallet-assets-precompiles")]
+pub use pallet_assets_precompiles;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -620,10 +624,6 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// An Ethereum JSON-RPC server for pallet-revive.
-#[cfg(feature = "pallet-revive-eth-rpc")]
-pub use pallet_revive_eth_rpc;
-
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
@@ -790,6 +790,10 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
+
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]

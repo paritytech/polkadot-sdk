@@ -1,0 +1,72 @@
+[package]
+name = "pallet-xcm-precompiles"
+version = "0.2.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Provides precompiles for `pallet-xcm`"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+frame-support.workspace = true
+pallet-revive.workspace = true
+pallet-xcm.workspace = true
+tracing = { workspace = true }
+xcm.workspace = true
+xcm-executor.workspace = true
+
+[dev-dependencies]
+frame-system = { default-features = true, workspace = true }
+pallet-assets = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+polkadot-parachain-primitives = { default-features = true, workspace = true }
+scale-info = { workspace = true, default-features = true }
+sp-io = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
+xcm-builder = { default-features = true, workspace = true }
+xcm-simulator = { default-features = true, workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"pallet-revive/std",
+	"pallet-xcm/std",
+	"tracing/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-revive/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-xcm/try-runtime",
+	"sp-runtime/try-runtime",
+]

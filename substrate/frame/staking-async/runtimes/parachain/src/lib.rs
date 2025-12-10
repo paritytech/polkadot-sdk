@@ -822,7 +822,10 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	// TODO: note that this value is different from most system chains, and is changed here only
+	// until lazy era pruning is implemented. The actual weight of the era pruning is not huge due
+	// to the fact that deletion is not expensive in `state_version: 1`.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(70) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -1848,9 +1851,6 @@ impl_runtime_apis! {
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::Pages::key().to_vec().into()
-			);
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::staking::SolutionImprovementThreshold::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::SignedPhase::key().to_vec().into()

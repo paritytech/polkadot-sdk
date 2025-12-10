@@ -64,6 +64,10 @@ pub extern "C" fn call() {
 		api::return_value(uapi::ReturnFlags::REVERT, &(code as u32).to_le_bytes());
 	};
 
+	// fail in the caller
+	key[1] = 1;
+	api::set_storage(StorageFlags::empty(), &key, data);
+
 	// Return the deployed contract address.
 	api::return_value(uapi::ReturnFlags::empty(), &address);
 }

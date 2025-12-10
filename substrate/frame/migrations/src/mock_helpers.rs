@@ -93,15 +93,15 @@ impl SteppedMigrations for MockedMigrations {
 
 		Some(match kind {
 			SucceedAfter => {
-				log::debug!("MockedMigration: Succeeded after {} steps", count);
+				log::debug!("MockedMigration: Succeeded after {count} steps");
 				Ok(None)
 			},
 			HighWeightAfter(required) => {
-				log::debug!("MockedMigration: Not enough weight after {} steps", count);
+				log::debug!("MockedMigration: Not enough weight after {count} steps");
 				Err(SteppedMigrationError::InsufficientWeight { required })
 			},
 			FailAfter => {
-				log::debug!("MockedMigration: Failed after {} steps", count);
+				log::debug!("MockedMigration: Failed after {count} steps");
 				Err(SteppedMigrationError::Failed)
 			},
 			TimeoutAfter => unreachable!(),

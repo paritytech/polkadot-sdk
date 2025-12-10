@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-relay-chain-streams"
-version = "0.3.0"
+version = "0.5.0"
 authors.workspace = true
 description = "Cumulus client common relay chain streams."
 edition.workspace = true

@@ -22,7 +22,7 @@ use crate::{
 	LOG_TARGET,
 };
 use clap::Parser;
-use futures::{pin_mut, FutureExt};
+use futures::{future::BoxFuture, pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
@@ -127,7 +127,8 @@ fn build_client(
 
 		let receipt_extractor = ReceiptExtractor::new(
 			api.clone(),
-			earliest_receipt_block).await?;
+			earliest_receipt_block,
+		).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 				pool,
@@ -227,17 +228,16 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	task_manager
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
-			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
-			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
+			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> = vec![
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
+			];
 
-			let res = if let Some(index_last_n_blocks) = index_last_n_blocks {
-				let fut3 = client.subscribe_and_cache_blocks(index_last_n_blocks);
-				tokio::try_join!(fut1, fut2, fut3).map(|_| ())
-			} else {
-				tokio::try_join!(fut1, fut2).map(|_| ())
-			};
+			if let Some(index_last_n_blocks) = index_last_n_blocks {
+				futures.push(Box::pin(client.subscribe_and_cache_blocks(index_last_n_blocks)));
+			}
 
-			if let Err(err) = res {
+			if let Err(err) = futures::future::try_join_all(futures).await {
 				panic!("Block subscription task failed: {err:?}",)
 			}
 		});
@@ -251,7 +251,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 /// Create the JSON-RPC module.
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
+		.with_accounts(if is_dev {
+			vec![
+				crate::Account::from(subxt_signer::eth::dev::alith()),
+				crate::Account::from(subxt_signer::eth::dev::baltathar()),
+				crate::Account::from(subxt_signer::eth::dev::charleth()),
+				crate::Account::from(subxt_signer::eth::dev::dorothy()),
+				crate::Account::from(subxt_signer::eth::dev::ethan()),
+			]
+		} else {
+			vec![]
+		})
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

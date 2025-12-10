@@ -139,6 +139,7 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
 			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
@@ -156,6 +157,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 			(),
 		),
 	);
@@ -1068,6 +1070,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
@@ -1081,6 +1084,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					set_eth_origin,
 					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
@@ -1097,6 +1101,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 						(),
 					),
 				);

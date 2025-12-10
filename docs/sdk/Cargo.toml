@@ -14,7 +14,6 @@ version = "0.1.0"
 workspace = true
 
 [dependencies]
-# Needed for all FRAME-based code
 chain-spec-builder.default-features = true
 chain-spec-builder.workspace = true
 chain-spec-guide-runtime.default-features = true

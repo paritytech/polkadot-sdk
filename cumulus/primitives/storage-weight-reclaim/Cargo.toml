@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "13.0.0"
+version = "15.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utilities to reclaim storage weight."

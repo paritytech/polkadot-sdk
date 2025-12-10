@@ -1,6 +1,6 @@
 [package]
 name = "sc-tracing"
-version = "41.0.0"
+version = "43.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true

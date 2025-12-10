@@ -1,0 +1,11 @@
+title: '[pallet-revive] expose `exec::Key`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This is a fix for the fact that `exec::Key` is exposed from within `pallet_revive::tracing::Tracing` interface, but not from the crate itself making custom tracers effectively unimplementable outside said crate.
+
+    In my case it's useful for implementing custom tracers for integration with `foundry`
+
+crates:
+- name: pallet-revive
+  bump: minor

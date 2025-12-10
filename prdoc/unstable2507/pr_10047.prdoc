@@ -1,0 +1,12 @@
+title: 'pallet_revive: Increase event sizes'
+doc:
+- audience: Runtime User
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/140
+
+    This increases the maximum event payload size from 416 bytes to 64k. Since https://github.com/paritytech/polkadot-sdk/pull/9418 we charge some additional weight per byte of event payload. This makes it possible to raise the limit while staying within our memory envelope. This artificial weight will add 18us of weight to a maximum sized event.
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch

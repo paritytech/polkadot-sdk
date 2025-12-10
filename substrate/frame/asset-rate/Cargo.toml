@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-rate"
-version = "21.0.0"
+version = "23.0.0"
 description = "Whitelist non-native assets for treasury spending and provide conversion to native balance"
 authors.workspace = true
 homepage.workspace = true

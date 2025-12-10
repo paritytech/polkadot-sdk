@@ -23,7 +23,9 @@ use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	Event as StakingEvent,
 };
-use pallet_staking_async_rc_client::{self as rc_client, UnexpectedKind, ValidatorSetReport};
+use pallet_staking_async_rc_client::{
+	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
+};
 
 // Tests that are specific to Asset Hub.
 #[test]
@@ -162,6 +164,7 @@ fn on_receive_session_report() {
 		// no xcm message sent yet.
 		assert_eq!(LocalQueue::get().unwrap(), vec![]);
 
+		// normal conditions, validator set can be sent.
 		// next 3 block exports the election result to staking.
 		roll_many(3);
 
@@ -197,6 +200,179 @@ fn on_receive_session_report() {
 			)]
 		);
 	})
+}
+
+#[test]
+fn validator_set_send_fail_retries() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN genesis state of ah
+		assert_eq!(System::block_number(), 1);
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
+		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+
+		// first session comes in.
+		let session_report = rc_client::SessionReport {
+			end_index: 0,
+			validator_points: (1..9).into_iter().map(|v| (v as AccountId, v * 10)).collect(),
+			activation_timestamp: None,
+			leftover: false,
+		};
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			session_report.clone(),
+		));
+
+		// flush some events.
+		let _ = staking_events_since_last_call();
+
+		// roll two more sessions...
+		for i in 1..3 {
+			// roll some random number of blocks.
+			roll_many(10);
+
+			// send the session report.
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: i,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
+			assert_eq!(era_points.total, 360 + i * 10);
+			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: i + 1,
+					active_era: 0,
+					planned_era: 0
+				}]
+			);
+		}
+
+		// Next session we will begin election.
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 3,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::SessionRotated {
+				starting_session: 4,
+				active_era: 0,
+				// planned era 1 indicates election start signal is sent.
+				planned_era: 1
+			}]
+		);
+
+		assert_eq!(
+			election_events_since_last_call(),
+			// Snapshot phase has started which will run for 3 blocks
+			vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
+		);
+
+		// roll 3 blocks for signed phase, and one for the transition.
+		roll_many(3 + 1);
+		assert_eq!(
+			election_events_since_last_call(),
+			// Signed phase has started which will run for 3 blocks.
+			vec![ElectionEvent::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(3)
+			}]
+		);
+
+		// roll some blocks until election result is exported.
+		roll_many(15);
+		assert_eq!(
+			election_events_since_last_call(),
+			vec![
+				ElectionEvent::PhaseTransitioned {
+					from: Phase::Signed(0),
+					to: Phase::SignedValidation(6)
+				},
+				ElectionEvent::PhaseTransitioned {
+					from: Phase::SignedValidation(0),
+					to: Phase::Unsigned(3)
+				},
+				ElectionEvent::PhaseTransitioned { from: Phase::Unsigned(0), to: Phase::Done },
+			]
+		);
+
+		// no staking event while election ongoing.
+		assert_eq!(staking_events_since_last_call(), vec![]);
+		// no xcm message sent yet.
+		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+
+		// bad condition -- validator set cannot be sent.
+		// assume the next validator set cannot be sent.
+		NextRelayDeliveryFails::set(true);
+		let _ = rc_client_events_since_last_call();
+
+		roll_many(3);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) }
+			]
+		);
+
+		assert_eq!(
+			election_events_since_last_call(),
+			vec![
+				ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(1) },
+				ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
+			]
+		);
+
+		// but..
+
+		// nothing is queued
+		assert!(LocalQueue::get().unwrap().is_empty());
+
+		// rc-client has an event
+		assert_eq!(
+			rc_client_events_since_last_call(),
+			vec![rc_client::Event::Unexpected(UnexpectedKind::ValidatorSetSendFailed)]
+		);
+
+		// the buffer is set
+		assert!(matches!(OutgoingValidatorSet::<T>::get(), Some((_, 2))));
+
+		// next block it is retried and sent fine
+		roll_next();
+		assert_eq!(
+			LocalQueue::get().unwrap(),
+			vec![(
+				// this is the block number at which the message was sent.
+				44,
+				OutgoingMessages::ValidatorSet(ValidatorSetReport {
+					new_validator_set: vec![3, 5, 6, 8],
+					id: 1,
+					prune_up_to: None,
+					leftover: false
+				})
+			)]
+		);
+
+		// buffer is clear
+		assert!(OutgoingValidatorSet::<T>::get().is_none());
+	});
 }
 
 #[test]
@@ -475,20 +651,25 @@ fn on_offence_current_era() {
 		// flush the events.
 		let _ = staking_events_since_last_call();
 
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
-			5,
 			vec![
-				rc_client::Offence {
-					offender: 5,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				},
-				rc_client::Offence {
-					offender: 3,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}
+				(
+					5,
+					rc_client::Offence {
+						offender: 5,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				),
+				(
+					5,
+					rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)
 			]
 		));
 
@@ -567,20 +748,25 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
-				5,
 				vec![
-					rc_client::Offence {
-						offender: 5,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(50),
-					},
-					rc_client::Offence {
-						offender: 3,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(50),
-					}
+					(
+						5,
+						rc_client::Offence {
+							offender: 5,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50),
+						}
+					),
+					(
+						5,
+						rc_client::Offence {
+							offender: 3,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50),
+						}
+					)
 				]
 			));
 
@@ -645,15 +831,17 @@ fn on_offence_non_validator() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
-				5,
-				vec![rc_client::Offence {
-					// this offender is unknown to the staking pallet.
-					offender: 666,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}]
+				vec![(
+					5,
+					rc_client::Offence {
+						// this offender is unknown to the staking pallet.
+						offender: 666,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)]
 			));
 
 			// nada
@@ -683,15 +871,17 @@ fn on_offence_previous_era() {
 		assert_eq!(oldest_reportable_era, 2);
 
 		// WHEN we report an offence older than Era 2 (oldest reportable era).
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 1
-			5,
-			vec![rc_client::Offence {
-				offender: 3,
-				reporters: vec![],
-				slash_fraction: Perbill::from_percent(30),
-			}]
+			vec![(
+				5,
+				rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(30),
+				}
+			)]
 		));
 
 		// THEN offence is ignored.
@@ -706,15 +896,17 @@ fn on_offence_previous_era() {
 
 		// WHEN: report an offence for the session belonging to the previous era
 		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(10));
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 2
-			10,
-			vec![rc_client::Offence {
-				offender: 3,
-				reporters: vec![],
-				slash_fraction: Perbill::from_percent(50),
-			}]
+			vec![(
+				10,
+				rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				}
+			)]
 		));
 
 		// THEN: offence is reported.
@@ -779,15 +971,17 @@ fn on_offence_previous_era_instant_apply() {
 			// report an offence for the session belonging to the previous era
 			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				// offence is in era 1
-				5,
-				vec![rc_client::Offence {
-					offender: 3,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}]
+				vec![(
+					5,
+					rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)]
 			));
 
 			// reported

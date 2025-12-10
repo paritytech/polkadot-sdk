@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -36,8 +36,8 @@ pub fn trace<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracing + 'static), f: F) ->
 ///
 /// This is safe to be called from on-chain code as tracing will never be activated
 /// there. Hence the closure is not executed in this case.
-pub(crate) fn if_tracing<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
-	tracer::with(f);
+pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) -> Option<R> {
+	tracer::with(f)
 }
 
 /// Defines methods to trace contract interactions.
@@ -50,11 +50,21 @@ pub trait Tracing {
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_is_delegate_call: bool,
+		_delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas_limit: U256,
+	) {
+	}
+
+	/// Called when a contract calls terminates (selfdestructs)
+	fn terminate(
+		&mut self,
+		_contract_address: H160,
+		_beneficiary_address: H160,
+		_gas_left: U256,
+		_value: U256,
 	) {
 	}
 
@@ -80,8 +90,8 @@ pub trait Tracing {
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
 	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_left: Weight) {}
+	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: U256) {}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_left: Weight) {}
+	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: U256) {}
 }

@@ -22,7 +22,6 @@
 pub mod benchmarking;
 #[cfg(test)]
 mod mock;
-pub mod precompiles;
 #[cfg(test)]
 mod tests;
 mod transfer_assets_validation;

@@ -29,7 +29,10 @@ pub use frame_benchmarking::{
 };
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	assert_ok, pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::TryCollect,
+	assert_ok,
+	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
+	traits::{fungible::Inspect, TryCollect},
 };
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
@@ -1226,14 +1229,15 @@ mod benchmarks {
 			.map(|validator_index| account::<T::AccountId>("validator", validator_index, SEED))
 			.for_each(|validator| {
 				let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
-					own: BalanceOf::<T>::max_value(),
-					total: BalanceOf::<T>::max_value(),
+					own: T::Currency::minimum_balance(),
+					total: T::Currency::minimum_balance() *
+						(exposed_nominators_per_validator + 1).into(),
 					others: (0..exposed_nominators_per_validator)
 						.map(|n| {
 							let nominator = account::<T::AccountId>("nominator", n, SEED);
 							IndividualExposure {
 								who: nominator,
-								value: BalanceOf::<T>::max_value(),
+								value: T::Currency::minimum_balance(),
 							}
 						})
 						.collect::<Vec<_>>(),

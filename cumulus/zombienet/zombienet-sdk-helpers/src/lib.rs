@@ -16,8 +16,15 @@ use tokio::{
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	blocks::Block, config::substrate::DigestItem, events::Events, ext::scale_value::value,
-	tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
+	self,
+	blocks::Block,
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+	dynamic::Value,
+	events::Events,
+	ext::scale_value::value,
+	tx::{signer::Signer, DynamicPayload, TxStatus},
+	utils::H256,
+	OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -393,4 +400,110 @@ fn extract_relay_parent_storage_root(
 		},
 		_ => None,
 	}
+}
+
+/// Submits the given `call` as transaction and waits for it successful finalization.
+///
+/// The transaction is send as immortal transaction.
+pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	call: &DynamicPayload,
+	signer: &S,
+) -> Result<(), anyhow::Error> {
+	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+
+	let mut tx = client
+		.tx()
+		.create_signed(call, signer, extensions)
+		.await?
+		.submit_and_watch()
+		.await?;
+
+	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
+	while let Some(status) = tx.next().await {
+		let status = status?;
+		match &status {
+			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
+				let _result = tx_in_block.wait_for_success().await?;
+				let block_status =
+					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
+				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+			},
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
+				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+			},
+			_ => continue,
+		}
+	}
+	Ok(())
+}
+
+/// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
+///
+/// If the transaction does not reach the finalized state in `timeout_secs` an error is returned.
+/// The transaction is send as immortal transaction.
+pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
+	S: Signer<PolkadotConfig>,
+>(
+	client: &OnlineClient<PolkadotConfig>,
+	call: &DynamicPayload,
+	signer: &S,
+	timeout_secs: impl Into<u64>,
+) -> Result<(), anyhow::Error> {
+	let secs = timeout_secs.into();
+	let res = tokio::time::timeout(
+		Duration::from_secs(secs),
+		submit_extrinsic_and_wait_for_finalization_success(client, call, signer),
+	)
+	.await;
+
+	match res {
+		Ok(Ok(_)) => Ok(()),
+		Ok(Err(e)) => Err(anyhow!("Error waiting for metric: {}", e)),
+		// timeout
+		Err(_) => Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization")),
+	}
+}
+
+/// Asserts that the given `para_id` is registered at the relay chain.
+pub async fn assert_para_is_registered(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	blocks_to_wait: u32,
+) -> Result<(), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+	let para_id: u32 = para_id.into();
+
+	let keys: Vec<Value> = vec![];
+	let query = subxt::dynamic::storage("Paras", "Parachains", keys);
+
+	let mut blocks_cnt = 0;
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!("Relay block #{}, checking if para_id {para_id} is registered", block.number(),);
+		let parachains = block.storage().fetch(&query).await?;
+
+		let parachains: Vec<u32> = match parachains {
+			Some(parachains) => parachains.as_type()?,
+			None => vec![],
+		};
+
+		log::debug!("Registered para_ids: {:?}", parachains);
+
+		if parachains.iter().any(|p| para_id.eq(p)) {
+			log::debug!("para_id {para_id} registered");
+			return Ok(());
+		}
+		if blocks_cnt >= blocks_to_wait {
+			return Err(anyhow!(
+				"Parachain {para_id} not registered within {blocks_to_wait} blocks"
+			));
+		}
+		blocks_cnt += 1;
+	}
+
+	Err(anyhow!("No more blocks to check"))
 }
