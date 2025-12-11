@@ -99,7 +99,7 @@ use frame_system::pallet_prelude::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
-	Permill, RuntimeDebug,
+	Debug, Permill,
 };
 
 /// Lookup type for beneficiary addresses.
@@ -129,7 +129,7 @@ pub type ChildBountyOf<T, I> = ChildBounty<
 >;
 
 /// A funded bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
@@ -148,7 +148,7 @@ pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 }
 
 /// A funded child-bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
@@ -166,7 +166,7 @@ pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 }
 
 /// The status of a child-/bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// The child-/bounty funding has been attempted and is waiting to confirm the funds
 	/// allocation.
@@ -231,7 +231,7 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 /// When a payment is initiated via `Paymaster::pay`, it begins in the `Pending` state. The
 /// `check_status` call updates the payment state and advances the child-/bounty status. The
 /// `retry_payment` call can be used to reattempt payments in either `Pending` or `Failed` states.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
 	Pending,
