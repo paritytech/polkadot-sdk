@@ -21,7 +21,7 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::ops::Add;
 use impl_trait_for_tuples::impl_for_tuples;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Provides information about the pallet itself and its setup in the runtime.
 ///
@@ -41,7 +41,7 @@ pub trait PalletInfo {
 }
 
 /// Information regarding an instance of a pallet.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct PalletInfoData {
 	/// Index of the pallet as configured in the runtime.
 	pub index: usize,
@@ -96,7 +96,7 @@ impl PalletsInfoAccess for Tuple {
 }
 
 /// The function and pallet name of the Call.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct CallMetadata {
 	/// Name of the function.
 	pub function_name: &'static str,

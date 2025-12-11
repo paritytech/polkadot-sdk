@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
-use sp_core::{Get, RuntimeDebug, H160, H256};
+use sp_core::{Get, H160, H256};
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
@@ -18,14 +18,14 @@ const MINIMUM_DEPOSIT: u128 = 1;
 /// Messages from Ethereum are versioned. This is because in future,
 /// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
 /// Instead having BridgeHub transcode the messages into XCM.
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Debug)]
 pub enum VersionedMessage {
 	V1(MessageV1),
 }
 
 /// For V1, the ethereum side sends messages which are transcoded into XCM. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Debug)]
 pub struct MessageV1 {
 	/// EIP-155 chain id of the origin Ethereum network
 	pub chain_id: u64,
@@ -33,7 +33,7 @@ pub struct MessageV1 {
 	pub command: Command,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Debug)]
 pub enum Command {
 	/// Register a wrapped token on the AssetHub `ForeignAssets` pallet
 	RegisterToken {
@@ -67,7 +67,7 @@ pub enum Command {
 }
 
 /// Destination for bridged tokens
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Debug)]
 pub enum Destination {
 	/// The funds will be deposited into account `id` on AssetHub
 	AccountId32 { id: [u8; 32] },
@@ -121,9 +121,7 @@ pub struct MessageToXcm<
 }
 
 /// Reason why a message conversion failed.
-#[derive(
-	Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, RuntimeDebug,
-)]
+#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, Debug)]
 pub enum ConvertMessageError {
 	/// The message version is not supported for conversion.
 	UnsupportedVersion,
