@@ -19,7 +19,8 @@
 // This is separated into its own crate due to cyclic dependency issues.
 
 use alloc::{vec, vec::Vec};
-use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
+use sp_runtime::traits::{Convert, One, StaticLookup, TrailingZeroInput};
+use sp_staking::offence::OffenceSeverity;
 
 use codec::Decode;
 use frame_benchmarking::v2::*;
@@ -98,6 +99,71 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(v_controller));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn rotate_session(v: Linear<1, MAX_VALIDATORS>) -> Result<(), BenchmarkError> {
+		// Create validators 
+		let validators = create_validators::<T>(v, 1000)?;
+
+		// Convert AccountId to ValidatorId 
+		let validator_ids: Vec<T::ValidatorId> = validators.iter()
+			.filter_map(|v| {
+				let account = T::Lookup::lookup(v.clone()).ok()?;
+				T::ValidatorIdOf::convert(account)
+			})
+			.collect();
+
+		if validator_ids.len() != v as usize {
+			return Err("validator conversion failed".into());
+		}
+
+		// Setup: Directly populate Session storage
+		let session_index = 1u32;
+		CurrentIndex::<T>::put(session_index);
+		Validators::<T>::put(&validator_ids);
+
+		// Setup queued keys 
+		let base_keys = T::Keys::decode(&mut TrailingZeroInput::zeroes())
+			.map_err(|_| "decode failed")?;
+
+		// Set NextKeys for all validators to avoid warnings from session handlers
+		for id in validator_ids.iter() {
+			NextKeys::<T>::insert(id, &base_keys);
+		}
+
+		QueuedKeys::<T>::put(
+			validator_ids.iter()
+				.map(|id| (id.clone(), base_keys.clone()))
+				.collect::<Vec<_>>()
+		);
+
+		// Worst-case scenario setup:
+		// 1. Validator set changed (triggers DisabledValidators::kill())
+		QueuedChanged::<T>::put(true);
+
+		// 2. Maximum validators disabled based on DisablingStrategy limit
+		// With default DISABLING_LIMIT_FACTOR=3, max is (v-1)/3 validators
+		// With DISABLING_LIMIT_FACTOR=2, max is (v-1)/2 validators
+		// We use factor=2 for worst case (up to 50% of validators disabled)
+		let disabled_count = v.saturating_sub(1).saturating_div(2);
+		for i in 0..disabled_count {
+			DisabledValidators::<T>::mutate(|d| {
+				d.push((i, OffenceSeverity::default()));
+			});
+		}
+
+		// Benchmark the rotate_session call
+		#[block]
+		{
+			Session::<T>::rotate_session();
+		}
+
+		// Verify rotation happened
+		assert_eq!(CurrentIndex::<T>::get(), session_index + 1);
+		assert_eq!(DisabledValidators::<T>::get().len(), 0);
 
 		Ok(())
 	}

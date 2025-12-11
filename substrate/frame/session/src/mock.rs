@@ -301,6 +301,8 @@ impl Config for Test {
 	type DisablingStrategy =
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
+	type SessionHandlerWeights = ();
+	type SessionManagerWeights = ();
 	type Currency = pallet_balances::Pallet<Test>;
 	type KeyDeposit = KeyDeposit;
 }
