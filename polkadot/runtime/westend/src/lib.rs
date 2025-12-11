@@ -1446,7 +1446,7 @@ impl parachains_paras::Config for Runtime {
 
 impl parachains_approvals_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	//type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
+	// type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
 
 parameter_types! {

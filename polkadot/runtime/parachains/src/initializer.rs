@@ -24,6 +24,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
+	approvals_rewards,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -125,6 +126,7 @@ pub mod pallet {
 		+ disputes::Config
 		+ dmp::Config
 		+ hrmp::Config
+		+ approvals_rewards::Config
 	{
 		/// A randomness beacon.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -283,6 +285,7 @@ impl<T: Config> Pallet<T> {
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
+		approvals_rewards::Pallet::<T>::initializer_on_new_session(&notification);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
