@@ -57,7 +57,10 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_keystore::LocalKeystore;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
+use sp_core::{
+	crypto::UncheckedFrom, hashing::twox_128, hexdisplay::HexDisplay, traits::SpawnNamed, Decode,
+	Encode,
+};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{
@@ -87,6 +90,9 @@ pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 /// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
 pub const MAX_STATEMENT_SIZE: usize =
 	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
+
+// Number of shards for the sharded statement store
+const NUM_SHARDS: usize = 4;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -136,6 +142,7 @@ struct StatementsForAccount {
 }
 
 /// Store configuration
+#[derive(Clone)]
 pub struct Options {
 	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
@@ -199,7 +206,7 @@ where
 }
 
 /// Statement store.
-pub struct Store {
+struct SingleStore {
 	db: parity_db::Db,
 	index: RwLock<Index>,
 	validate_fn: Box<
@@ -493,7 +500,7 @@ impl Index {
 	}
 }
 
-impl Store {
+impl SingleStore {
 	/// Create a new shared store instance. There should only be one per process.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
 	pub fn new_shared<Block, Client>(
@@ -503,7 +510,7 @@ impl Store {
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
 		task_spawner: &dyn SpawnNamed,
-	) -> Result<Arc<Store>>
+	) -> Result<Arc<SingleStore>>
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
@@ -538,7 +545,7 @@ impl Store {
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
-	) -> Result<Store>
+	) -> Result<SingleStore>
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
@@ -581,7 +588,7 @@ impl Store {
 			validator.validate_statement(block, source, statement)
 		});
 
-		let store = Store {
+		let store = SingleStore {
 			db,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
@@ -722,11 +729,6 @@ impl Store {
 		self.time_override = Some(time);
 	}
 
-	/// Returns `self` as [`StatementStoreExt`].
-	pub fn as_statement_store_ext(self: Arc<Self>) -> StatementStoreExt {
-		StatementStoreExt::new(self)
-	}
-
 	/// Return information of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
 	fn posted_clear_inner<R>(
@@ -778,7 +780,7 @@ impl Store {
 	}
 }
 
-impl StatementStore for Store {
+impl StatementStore for SingleStore {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
@@ -1049,9 +1051,170 @@ impl StatementStore for Store {
 	}
 }
 
+fn shard_index(account_id: &AccountId) -> usize {
+	let hash = twox_128(account_id.as_ref());
+	(hash[0] as usize) % NUM_SHARDS
+}
+
+/// Sharded statement store wrapper
+pub struct Store {
+	shards: Vec<Arc<SingleStore>>,
+}
+
+impl Store {
+	/// Create a new sharded store instance.
+	/// Creates NUM_SHARDS Store instances, each with its own database at `{path}/shard_{i}`.
+	pub fn new_shared<Block, Client>(
+		path: &std::path::Path,
+		options: Options,
+		client: Arc<Client>,
+		keystore: Arc<LocalKeystore>,
+		prometheus: Option<&PrometheusRegistry>,
+		task_spawner: &dyn SpawnNamed,
+	) -> Result<Arc<Store>>
+	where
+		Block: BlockT,
+		Block::Hash: From<BlockHash>,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+		Client::Api: ValidateStatement<Block>,
+	{
+		let shard_options = Options {
+			max_total_statements: options.max_total_statements / NUM_SHARDS,
+			max_total_size: options.max_total_size / NUM_SHARDS,
+			purge_after_sec: options.purge_after_sec,
+		};
+		let mut shards = Vec::with_capacity(NUM_SHARDS);
+		for i in 0..NUM_SHARDS {
+			let mut shard_path = path.to_path_buf();
+			shard_path.push(format!("shard_{}", i));
+
+			let shard = SingleStore::new_shared(
+				&shard_path,
+				shard_options.clone(),
+				client.clone(),
+				keystore.clone(),
+				prometheus,
+				task_spawner,
+			)?;
+			shards.push(shard);
+		}
+
+		Ok(Arc::new(Store { shards }))
+	}
+
+	/// Returns `self` as [`StatementStoreExt`].
+	pub fn as_statement_store_ext(self: Arc<Self>) -> StatementStoreExt {
+		StatementStoreExt::new(self)
+	}
+}
+
+impl StatementStore for Store {
+	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		let Some(account_id) = statement.account_id() else {
+			return SubmitResult::Bad("No statement proof");
+		};
+
+		let shard_idx = shard_index(&account_id);
+		self.shards[shard_idx].submit(statement, source)
+	}
+
+	fn statement(&self, hash: &Hash) -> Result<Option<Statement>> {
+		for shard in &self.shards {
+			if let Some(stmt) = shard.statement(hash)? {
+				return Ok(Some(stmt));
+			}
+		}
+		Ok(None)
+	}
+
+	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.broadcasts(match_all_topics)?);
+		}
+		Ok(result)
+	}
+
+	fn posted(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.posted(match_all_topics, dest)?);
+		}
+		Ok(result)
+	}
+
+	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.statements()?);
+		}
+		Ok(result)
+	}
+
+	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.take_recent_statements()?);
+		}
+		Ok(result)
+	}
+
+	fn has_statement(&self, hash: &Hash) -> bool {
+		self.shards.iter().any(|shard| shard.has_statement(hash))
+	}
+
+	fn posted_clear(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.posted_clear(match_all_topics, dest)?);
+		}
+		Ok(result)
+	}
+
+	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.broadcasts_stmt(match_all_topics)?);
+		}
+		Ok(result)
+	}
+
+	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.posted_stmt(match_all_topics, dest)?);
+		}
+		Ok(result)
+	}
+
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+	) -> Result<Vec<Vec<u8>>> {
+		let mut result = Vec::new();
+		for shard in &self.shards {
+			result.extend(shard.posted_clear_stmt(match_all_topics, dest)?);
+		}
+		Ok(result)
+	}
+
+	fn remove(&self, hash: &Hash) -> Result<()> {
+		for shard in &self.shards {
+			shard.remove(hash)?;
+		}
+		Ok(())
+	}
+
+	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
+		let shard_idx = shard_index(&who);
+		self.shards[shard_idx].remove_by(who)
+	}
+}
+
 #[cfg(test)]
 mod tests {
-	use crate::Store;
+	use crate::SingleStore;
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -1144,7 +1307,7 @@ mod tests {
 		}
 	}
 
-	fn test_store() -> (Store, tempfile::TempDir) {
+	fn test_store() -> (SingleStore, tempfile::TempDir) {
 		sp_tracing::init_for_tests();
 		let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 
@@ -1152,7 +1315,7 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = SingleStore::new(&path, Default::default(), client, keystore, None).unwrap();
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
 	}
 
@@ -1246,7 +1409,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = SingleStore::new(&path, Default::default(), client, keystore, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
@@ -1450,7 +1613,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = SingleStore::new(&path, Default::default(), client, keystore, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
 		assert_eq!(store.index.read().expired.len(), 0);
 	}
