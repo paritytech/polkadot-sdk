@@ -17,8 +17,8 @@
 //! Substrate-specific JSON-RPC methods.
 
 use crate::*;
-use sp_runtime::Weight;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use sp_runtime::Weight;
 
 #[rpc(server, client)]
 pub trait SubstrateRpc {
@@ -44,4 +44,3 @@ impl SubstrateRpcServer for SubstrateRpcServerImpl {
 		Ok(weight)
 	}
 }
-
