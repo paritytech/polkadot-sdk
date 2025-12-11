@@ -14425,6 +14425,7 @@ dependencies = [
  "pallet-multi-asset-bounties",
  "pallet-treasury",
  "pallet-xcm",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-common",
@@ -14437,6 +14438,15 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "parachains-common-types"
+version = "0.1.0"
+dependencies = [
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -16131,7 +16141,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parachains-common",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
@@ -16665,6 +16675,7 @@ dependencies = [
  "pallet-xcm-bridge-hub-router",
  "pallet-xcm-precompiles",
  "parachains-common",
+ "parachains-common-types",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
@@ -21162,6 +21173,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -21190,6 +21202,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
+ "strum 0.26.3",
  "thiserror 1.0.65",
 ]
 
@@ -23564,6 +23577,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-weights",
+ "strum 0.26.3",
  "substrate-test-runtime-client",
  "tracing",
  "tuplex",

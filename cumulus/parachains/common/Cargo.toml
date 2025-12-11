@@ -46,6 +46,7 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
+parachains-common-types = { workspace = true }
 
 [features]
 default = ["std"]
@@ -65,6 +66,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
+	"parachains-common-types/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
