@@ -387,7 +387,7 @@ mod tests {
 	fn build_block(client: &Client, included: Hash) -> (Block, StorageChanges<Block>) {
 		let sproof = sproof_with_parent_by_hash(client, included);
 		let block_builder = client.init_block_builder(None, sproof).block_builder;
-		let (block, storage_changes, _) = block_builder.build().unwrap().into_inner();
+		let (block, storage_changes) = block_builder.build().unwrap().into_inner();
 		(block, StorageChanges::Changes(storage_changes))
 	}
 
