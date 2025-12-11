@@ -79,15 +79,17 @@ impl<B: Backend> State<B> {
 				gum::trace!(
 					target: LOG_TARGET,
 					?peer_id,
+					?version,
 					"Peer connected",
 				);
 			},
 			TryAcceptOutcome::Replaced(other_peers) => {
 				gum::trace!(
 					target: LOG_TARGET,
-					"Peer {:?} replaced the connection slots of other peers: {:?}",
-					peer_id,
-					&other_peers
+					?peer_id,
+					?version,
+					?other_peers,
+					"Peer connected and replaced the connection slots of other peers",
 				);
 				self.collation_manager.remove_peers(other_peers.iter());
 			},
@@ -95,6 +97,7 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?peer_id,
+					?version,
 					"Peer connection was rejected. Going to disconnect",
 				);
 			},
@@ -267,8 +270,9 @@ impl<B: Backend> State<B> {
 					?relay_parent,
 					?maybe_prospective_candidate,
 					?peer_id,
-					"Advertisement rejected: {}",
-					err
+					?para_id,
+					?err,
+					"Advertisement rejected",
 				);
 			},
 			Ok(()) => {
@@ -277,6 +281,7 @@ impl<B: Backend> State<B> {
 					?relay_parent,
 					?maybe_prospective_candidate,
 					?peer_id,
+					?para_id,
 					"Advertisement accepted",
 				);
 			},
@@ -330,6 +335,13 @@ impl<B: Backend> State<B> {
 				);
 			},
 			CanSecond::No(maybe_slash, reject_info) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?maybe_slash,
+					?reject_info,
+					"Cannot second collation",
+				);
+
 				if let Some(slash) = maybe_slash {
 					self.peer_manager
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
@@ -343,7 +355,14 @@ impl<B: Backend> State<B> {
 					reject_info.maybe_output_head_hash,
 				);
 			},
-			CanSecond::BlockedOnParent(_, _) => {},
+			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?parent_hash,
+					?reject_info,
+					"Collation blocked on parent, waiting for parent to be validated",
+				);
+			},
 		};
 	}
 
@@ -375,10 +394,18 @@ impl<B: Backend> State<B> {
 				para_id = ?receipt.descriptor.para_id(),
 				?relay_parent,
 				?candidate_hash,
-				"Could not find the peerid of the invalid collation",
+				"Could not find the peer id of the invalid collation",
 			);
 			return
 		};
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?candidate_hash,
+			?peer_id,
+			"Invalid collation reported, slashing peer reputation",
+		);
 
 		self.peer_manager
 			.slash_reputation(peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
@@ -428,6 +455,14 @@ impl<B: Backend> State<B> {
 		if let Some((peer_id, PeerInfo { version, .. })) = peer_id
 			.and_then(|peer_id| self.peer_manager.peer_info(&peer_id).map(|info| (peer_id, info)))
 		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				?candidate_hash,
+				?peer_id,
+				"Notifying collator about seconded collation",
+			);
 			notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
 		}
 

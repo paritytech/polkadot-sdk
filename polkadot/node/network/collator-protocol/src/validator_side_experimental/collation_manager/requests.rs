@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side_experimental::common::{
-	Advertisement, CollationFetchError, CollationFetchResponse, ProspectiveCandidate,
+use crate::{
+	validator_side_experimental::common::{
+		Advertisement, CollationFetchError, CollationFetchResponse, ProspectiveCandidate,
+	},
+	LOG_TARGET,
 };
 use futures::{
 	future::BoxFuture,
@@ -82,6 +85,11 @@ impl PendingRequests {
 
 	pub fn cancel(&mut self, advertisement: &Advertisement) {
 		if let Some(cancellation_token) = self.cancellation_tokens.remove(advertisement) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?advertisement,
+				"Cancelling collation fetch request",
+			);
 			cancellation_token.cancel();
 		}
 	}

@@ -434,6 +434,14 @@ impl CollationManager {
 					&para_id,
 					advertisement.candidate_hash(),
 				) {
+					gum::trace!(
+						target: LOG_TARGET,
+						peer_id = ?advertisement.peer_id,
+						?para_id,
+						relay_parent = ?advertisement.relay_parent,
+						maybe_candidate_hash = ?advertisement.candidate_hash(),
+						"Requesting collation",
+					);
 					let req = self.fetching.launch(&advertisement);
 					requests.push(req);
 					continue
@@ -441,8 +449,9 @@ impl CollationManager {
 					gum::warn!(
 						target: LOG_TARGET,
 						?leaf,
-						"Could not claim a slot for the chosen advertisement {:?}",
-						advertisement
+						?para_id,
+						?advertisement,
+						"Could not claim a slot for the chosen advertisement",
 					);
 				}
 			}

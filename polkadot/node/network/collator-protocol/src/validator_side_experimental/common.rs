@@ -215,6 +215,7 @@ pub enum CanSecond {
 }
 
 /// Information that identifies a collation that was rejected from seconding.
+#[derive(Debug)]
 pub struct SecondingRejectionInfo {
 	pub relay_parent: Hash,
 	pub peer_id: PeerId,
