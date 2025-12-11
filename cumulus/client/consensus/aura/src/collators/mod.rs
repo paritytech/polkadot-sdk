@@ -25,7 +25,9 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT, ClaimQueueOffset};
+use cumulus_primitives_core::{
+	relay_chain::Header as RelayHeader, BlockT, ClaimQueueOffset, KeyToIncludeInRelayProofApi,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -173,6 +175,34 @@ async fn cores_scheduled_for_para(
 		.iter_claims_at_depth(claim_queue_offset.0 as usize)
 		.filter_map(|(core_index, core_para_id)| (core_para_id == para_id).then_some(core_index))
 		.collect()
+}
+
+/// Query relay chain storage keys to include in proofs.
+///
+/// This helper function queries the runtime for which relay chain storage keys
+/// (both top-level and child trie keys) should be included in the relay chain state proof.
+///
+/// Falls back to an empty request if the runtime API call fails or is not implemented.
+fn get_relay_proof_request<Block, Client>(
+	client: &Client,
+	parent_hash: Block::Hash,
+) -> cumulus_primitives_core::RelayProofRequest
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block>,
+{
+	client
+		.runtime_api()
+		.keys_to_prove(parent_hash)
+		.unwrap_or_else(|e| {
+			tracing::warn!(
+				target: crate::LOG_TARGET,
+				error = ?e,
+				"Failed to fetch relay proof requests from runtime, using empty request"
+			);
+			Default::default()
+		})
 }
 
 // Checks if we own the slot at the given block and whether there

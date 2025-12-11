@@ -345,19 +345,9 @@ where
 					"Slot claimed. Building"
 				);
 
-				// Query child trie proof requests from the parachain runtime
-				let child_trie_requests = params
-					.para_client
-					.runtime_api()
-					.child_trie_keys_to_prove(parent_hash)
-					.unwrap_or_else(|e| {
-						tracing::warn!(
-							target: crate::LOG_TARGET,
-							error = ?e,
-							"Failed to fetch child trie proof requests from runtime, using empty vec"
-						);
-						Vec::new()
-					});
+				// Query relay proof requests from the parachain runtime
+				let relay_proof_request =
+					super::get_relay_proof_request(&*params.para_client, parent_hash);
 
 				let validation_data = PersistedValidationData {
 					parent_head: parent_header.encode().into(),
@@ -374,7 +364,7 @@ where
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
-						child_trie_requests.clone(),
+						relay_proof_request.clone(),
 					)
 					.await
 				{

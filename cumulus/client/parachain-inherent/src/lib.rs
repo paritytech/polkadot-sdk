@@ -16,7 +16,7 @@
 
 //! Client side code for generating the parachain inherent.
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
@@ -149,35 +149,63 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Collect child trie proofs for relay chain storage.
+/// Collect storage proofs for relay chain data.
 ///
-/// Generates proofs for child trie data. The child trie roots are automatically
-/// included from their standard storage locations (`:child_storage:default:` + identifier).
+/// Generates proofs for both top-level relay chain storage and child trie data.
+/// Top-level keys are proven directly. Child trie roots are automatically included
+/// from their standard storage locations (`:child_storage:default:` + identifier).
 ///
-/// Returns a merged proof combining all requested child trie data, or `None` if
-/// there are no requests.
-async fn collect_child_trie_proofs(
+/// Returns a merged proof combining all requested data, or `None` if there are no requests.
+async fn collect_relay_storage_proofs(
 	relay_chain_interface: &impl RelayChainInterface,
 	relay_parent: PHash,
-	requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
+	relay_proof_request: cumulus_primitives_core::RelayProofRequest,
 ) -> Option<sp_state_machine::StorageProof> {
-	if requests.is_empty() {
+	use cumulus_primitives_core::RelayStorageKey;
+
+	let cumulus_primitives_core::RelayProofRequest { keys } = relay_proof_request;
+
+	if keys.is_empty() {
 		return None;
 	}
 
 	let mut combined_proof: Option<StorageProof> = None;
 
-	for request in requests {
-		if request.data_keys.is_empty() {
-			continue;
+	// Group keys by storage type
+	let mut top_keys = Vec::new();
+	let mut child_keys: std::collections::BTreeMap<Vec<u8>, Vec<Vec<u8>>> =
+		std::collections::BTreeMap::new();
+
+	for key in keys {
+		match key {
+			RelayStorageKey::Top(k) => top_keys.push(k),
+			RelayStorageKey::Child { info, key } => {
+				child_keys.entry(info).or_default().push(key);
+			},
 		}
+	}
 
-		let child_info = ChildInfo::new_default(&request.child_trie_identifier);
+	// Collect top-level storage proofs
+	if !top_keys.is_empty() {
+		match relay_chain_interface.prove_read(relay_parent, &top_keys).await {
+			Ok(top_proof) => {
+				combined_proof = Some(top_proof);
+			},
+			Err(e) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					error = ?e,
+					"Cannot obtain top-level storage proof from relay chain.",
+				);
+			},
+		}
+	}
 
-		match relay_chain_interface
-			.prove_child_read(relay_parent, &child_info, &request.data_keys)
-			.await
-		{
+	// Collect child trie proofs
+	for (storage_key, data_keys) in child_keys {
+		let child_info = ChildInfo::new_default(&storage_key);
+		match relay_chain_interface.prove_child_read(relay_parent, &child_info, &data_keys).await {
 			Ok(child_proof) => {
 				combined_proof = match combined_proof {
 					None => Some(child_proof),
@@ -188,7 +216,7 @@ async fn collect_child_trie_proofs(
 				tracing::error!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
-					child_trie_id = ?request.child_trie_identifier,
+					child_trie_id = ?child_info.storage_key(),
 					error = ?e,
 					"Cannot obtain child trie proof from relay chain.",
 				);
@@ -211,7 +239,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
-		child_trie_requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
+		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
@@ -230,16 +258,15 @@ impl ParachainInherentDataProvider {
 		)
 		.await?;
 
-		if !child_trie_requests.is_empty() {
-			if let Some(child_proofs) = collect_child_trie_proofs(
-				relay_chain_interface,
-				relay_parent,
-				child_trie_requests,
-			)
-			.await
-			{
-				relay_chain_state = StorageProof::merge([relay_chain_state, child_proofs]);
-			}
+		// Collect additional requested storage proofs (top-level and child tries)
+		if let Some(additional_proofs) = collect_relay_storage_proofs(
+			relay_chain_interface,
+			relay_parent,
+			relay_proof_request,
+		)
+		.await
+		{
+			relay_chain_state = StorageProof::merge([relay_chain_state, additional_proofs]);
 		}
 
 		let downward_messages = relay_chain_interface

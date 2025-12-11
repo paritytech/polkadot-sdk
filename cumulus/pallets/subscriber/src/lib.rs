@@ -68,18 +68,25 @@ pub mod pallet {
 	>;
 
 	impl<T: Config> Pallet<T> {
-		/// Build child trie proof requests from subscriptions.
-		pub fn get_child_trie_proof_requests(
-		) -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
-			T::SubscriptionHandler::subscriptions()
+		/// Build relay proof requests from subscriptions.
+		///
+		/// Returns a `RelayProofRequest` with child trie proof requests for subscribed data.
+		pub fn get_relay_proof_requests() -> cumulus_primitives_core::RelayProofRequest {
+			let storage_keys = T::SubscriptionHandler::subscriptions()
 				.into_iter()
-				.map(|(para_id, keys)| cumulus_primitives_core::ChildTrieProofRequest {
-					child_trie_identifier: Self::derive_child_info(para_id)
-						.storage_key()
-						.to_vec(),
-					data_keys: keys,
+				.flat_map(|(para_id, data_keys)| {
+					let child_info = Self::derive_child_info(para_id);
+					let storage_key = child_info.storage_key().to_vec();
+				data_keys.into_iter().map(move |key| {
+					cumulus_primitives_core::RelayStorageKey::Child {
+						info: storage_key.clone(),
+						key,
+					}
 				})
-				.collect()
+				})
+				.collect();
+
+			cumulus_primitives_core::RelayProofRequest { keys: storage_keys }
 		}
 
 		fn derive_child_info(publisher_para_id: ParaId) -> sp_storage::ChildInfo {

@@ -128,7 +128,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-		child_trie_requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
+		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
@@ -138,7 +138,7 @@ where
 			relay_parent_descendants
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
-			child_trie_requests,
+			relay_proof_request,
 		)
 		.await;
 
@@ -174,7 +174,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-		child_trie_requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
+		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
 			relay_parent,
@@ -182,7 +182,7 @@ where
 			parent_hash,
 			timestamp,
 			None,
-			child_trie_requests,
+			relay_proof_request,
 		)
 		.await
 	}

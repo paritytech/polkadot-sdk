@@ -370,16 +370,28 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
-/// Request for proving child trie data from the relay chain.
-///
-/// Specifies a child trie identifier and the keys to prove from that trie.
+/// A relay chain storage key to be included in the storage proof.
 #[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq)]
-pub struct ChildTrieProofRequest {
-	/// Child trie identifier (converted to `ChildInfo` by the collator).
-	pub child_trie_identifier: Vec<u8>,
+pub enum RelayStorageKey {
+	/// Top-level relay chain storage key.
+	Top(Vec<u8>),
+	/// Child trie storage key.
+	Child {
+		/// Child trie storage key (unprefixed).
+		info: Vec<u8>,
+		/// Key within the child trie.
+		key: Vec<u8>,
+	},
+}
 
-	/// Keys to prove from within the child trie.
-	pub data_keys: Vec<Vec<u8>>,
+/// Request for proving relay chain storage data.
+///
+/// Contains a list of storage keys (either top-level or child trie keys)
+/// to be included in the relay chain state proof.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Default)]
+pub struct RelayProofRequest {
+	/// Storage keys to include in the relay chain state proof.
+	pub keys: Vec<RelayStorageKey>,
 }
 
 sp_api::decl_runtime_apis! {
@@ -414,12 +426,19 @@ sp_api::decl_runtime_apis! {
 		fn relay_parent_offset() -> u32;
 	}
 
-	/// API for specifying which relay chain child trie data to include in storage proofs.
+	/// API for specifying which relay chain storage data to include in storage proofs.
+	///
+	/// This API allows parachains to request both top-level relay chain storage keys
+	/// and child trie storage keys to be included in the relay chain state proof.
 	pub trait KeyToIncludeInRelayProofApi {
-		/// Returns child trie proof requests.
+		/// Returns relay chain storage proof requests.
 		///
-		/// Each request specifies a child trie identifier and the keys to read from that trie.
+		/// The returned structure specifies:
+		/// - `top`: Top-level relay chain storage keys to include in the proof
+		/// - `children_default`: Child trie storage to include, with each entry containing
+		///   the child trie identifier and the keys to prove from that child trie
+		///
 		/// The collator generates proofs for these and includes them in the relay chain state proof.
-		fn child_trie_keys_to_prove() -> Vec<ChildTrieProofRequest>;
+		fn keys_to_prove() -> RelayProofRequest;
 	}
 }

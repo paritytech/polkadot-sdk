@@ -899,8 +899,8 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
-		fn child_trie_keys_to_prove() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
-			Subscriber::get_child_trie_proof_requests()
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			Subscriber::get_relay_proof_requests()
 		}
 	}
 }
