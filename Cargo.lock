@@ -5129,6 +5129,7 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
+ "proptest",
  "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-runtime",
