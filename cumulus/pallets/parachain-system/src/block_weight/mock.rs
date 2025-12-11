@@ -156,7 +156,7 @@ pub mod test_pallet {
 			Ok(())
 		}
 
-		#[pallet::weight((_weight.clone(), DispatchClass::Normal))]
+		#[pallet::weight((*_weight, DispatchClass::Normal))]
 		pub fn use_weight(_: OriginFor<T>, _weight: Weight) -> DispatchResult {
 			Ok(())
 		}
