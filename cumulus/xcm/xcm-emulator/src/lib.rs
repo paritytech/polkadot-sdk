@@ -713,6 +713,7 @@ macro_rules! decl_test_parachains {
 						// Process parachain inherents:
 
 					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+					let slot_duration = 6000; // 6 seconds slot duration in milliseconds
 					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
 						// We need to satisfy `pallet_timestamp::on_finalize`.
 						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
