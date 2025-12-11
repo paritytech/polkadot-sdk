@@ -17,11 +17,11 @@
 //! Logic for working with storage proofs.
 
 use frame_support::PalletError;
-use sp_core::RuntimeDebug;
 use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
+use Debug;
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
@@ -33,7 +33,7 @@ use trie_db::{Trie, TrieConfiguration, TrieDBMut};
 
 /// Errors that can occur when interacting with `UnverifiedStorageProof` and `VerifiedStorageProof`.
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+	Clone, Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo,
 )]
 pub enum StorageProofError {
 	/// Call to `generate_trie_proof()` failed.
