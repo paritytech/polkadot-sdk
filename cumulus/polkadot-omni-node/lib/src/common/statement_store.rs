@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
-use parachains_common::Hash;
+use parachains_common_types::Hash;
 use sc_network::{
 	config::FullNetworkConfiguration, service::traits::NetworkService, NetworkBackend,
 };
