@@ -22,14 +22,13 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
-use sp_core::RuntimeDebug;
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
 
 /// The origin of funds to be used for a deposit operation.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Provenance {
 	/// The funds will be minted into the system, increasing total issuance (and potentially
 	/// causing an overflow there).
@@ -39,7 +38,7 @@ pub enum Provenance {
 }
 
 /// The mode under which usage of funds may be restricted.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Restriction {
 	/// Funds are under the normal conditions.
 	Free,
@@ -48,7 +47,7 @@ pub enum Restriction {
 }
 
 /// The mode by which we describe whether an operation should keep an account alive.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Preservation {
 	/// We don't care if the account gets killed by this operation.
 	Expendable,
@@ -60,7 +59,7 @@ pub enum Preservation {
 }
 
 /// The privilege with which a withdraw operation is conducted.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Fortitude {
 	/// The operation should execute with regular privilege.
 	Polite,
@@ -71,7 +70,7 @@ pub enum Fortitude {
 
 /// The precision required of an operation generally involving some aspect of quantitative fund
 /// withdrawal or transfer.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Precision {
 	/// The operation should must either proceed either exactly according to the amounts involved
 	/// or not at all.
@@ -82,7 +81,7 @@ pub enum Precision {
 }
 
 /// One of a number of consequences of withdrawing a fungible from an account.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WithdrawConsequence<Balance> {
 	/// Withdraw could not happen since the amount to be withdrawn is less than the total funds in
 	/// the account.
@@ -128,7 +127,7 @@ impl<Balance: Zero> WithdrawConsequence<Balance> {
 }
 
 /// One of a number of consequences of withdrawing a fungible from an account.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum DepositConsequence {
 	/// Deposit couldn't happen due to the amount being too low. This is usually because the
 	/// account doesn't yet exist and the deposit wouldn't bring it to at least the minimum needed
@@ -166,7 +165,7 @@ impl DepositConsequence {
 }
 
 /// Simple boolean for whether an account needs to be kept in existence.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ExistenceRequirement {
 	/// Operation must not result in the account going out of existence.
 	///
@@ -186,7 +185,7 @@ pub enum ExistenceRequirement {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	MaxEncodedLen,
 )]
@@ -427,15 +426,7 @@ impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 
 /// An identifier and balance.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	MaxEncodedLen,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo,
 )]
 pub struct IdAmount<Id, Balance> {
 	/// An identifier for this item.

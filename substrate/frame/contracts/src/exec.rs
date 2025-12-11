@@ -405,7 +405,7 @@ pub trait Ext: sealing::Sealed {
 	Clone,
 	PartialEq,
 	Eq,
-	sp_core::RuntimeDebug,
+	Debug,
 	codec::Decode,
 	codec::Encode,
 	codec::MaxEncodedLen,

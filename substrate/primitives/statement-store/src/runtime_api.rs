@@ -21,7 +21,6 @@ use crate::{Hash, Statement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
@@ -29,12 +28,13 @@ use sp_runtime_interface::{
 	},
 	runtime_interface,
 };
+use Debug;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
 /// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidStatement {
 	/// Max statement count for this account, as calculated by the runtime.
 	pub max_count: u32,
@@ -43,7 +43,7 @@ pub struct ValidStatement {
 }
 
 /// An reason for an invalid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 pub enum InvalidStatement {
 	/// Failed proof validation.
 	BadProof,
@@ -56,7 +56,7 @@ pub enum InvalidStatement {
 /// The source of the statement.
 ///
 /// Depending on the source we might apply different validation schemes.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub enum StatementSource {
 	/// Statement is coming from the on-chain worker.
 	Chain,
