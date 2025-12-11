@@ -4641,6 +4641,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-subscriber"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "cumulus-pallet-weight-reclaim"
 version = "1.0.0"
 dependencies = [

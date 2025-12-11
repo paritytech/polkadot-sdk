@@ -385,6 +385,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type ChildTrieProcessor = ();
 }
 
 impl parachain_info::Config for Runtime {}
