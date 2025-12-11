@@ -20,14 +20,21 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
+mod client;
+mod config;
+mod key_range;
 mod logging;
 
-use codec::{Compact, Decode, Encode};
+pub use config::{Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+
+use client::{Client, ConnectionManager, VersionedClient};
+use codec::Encode;
+use config::Snapshot;
+#[cfg(all(test, feature = "remote-test"))]
+use config::DEFAULT_HTTP_ENDPOINT;
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	ws_client::{WsClient, WsClientBuilder},
-};
+use jsonrpsee::{core::params::ArrayParams, ws_client::WsClient};
+use key_range::{initialize_work_queue, subdivide_remaining_range, KeyRange};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -44,9 +51,7 @@ use sp_runtime::{
 use sp_state_machine::TestExternalities;
 use std::{
 	collections::VecDeque,
-	fs,
 	ops::{Deref, DerefMut},
-	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicUsize, Ordering},
 		Arc, Mutex,
@@ -61,139 +66,8 @@ type Result<T, E = &'static str> = std::result::Result<T, E>;
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
 type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
-type SnapshotVersion = Compact<u16>;
-
-/// A versioned WebSocket client returned by `ConnectionManager::get()`.
-///
-/// Always contains a usable client. The version is used to detect if the client
-/// has been recreated by another worker.
-struct VersionedClient {
-	ws_client: Arc<WsClient>,
-	version: u64,
-}
-
-impl Deref for VersionedClient {
-	type Target = WsClient;
-	fn deref(&self) -> &Self::Target {
-		&self.ws_client
-	}
-}
-
-/// Represents a range of keys to fetch from the remote node.
-#[derive(Debug, Clone)]
-struct KeyRange {
-	/// The starting key of this range (inclusive).
-	start_key: StorageKey,
-	/// The ending key of this range (exclusive), or None for open-ended range.
-	end_key: Option<StorageKey>,
-	/// The common prefix for this range.
-	prefix: StorageKey,
-	/// Page size for fetching keys in this range (decreases on failure).
-	page_size: u32,
-}
-
-impl KeyRange {
-	fn new(start_key: StorageKey, end_key: Option<StorageKey>, prefix: StorageKey) -> Self {
-		Self { start_key, end_key, prefix, page_size: 1000 }
-	}
-
-	/// Returns a new KeyRange with halved page size (minimum 10).
-	fn with_halved_page_size(&self) -> Self {
-		Self { page_size: (self.page_size / 2).max(10), ..self.clone() }
-	}
-}
-
-/// Work queue for distributing key ranges to workers.
-type WorkQueue = Arc<Mutex<VecDeque<KeyRange>>>;
-
-/// Manages WebSocket client connections for parallel workers.
-#[derive(Clone)]
-struct ConnectionManager {
-	clients: Vec<Arc<tokio::sync::Mutex<Client>>>,
-}
-
-impl ConnectionManager {
-	fn new(clients: Vec<Arc<tokio::sync::Mutex<Client>>>) -> Result<Self> {
-		if clients.is_empty() {
-			return Err("At least one client must be provided");
-		}
-
-		Ok(Self { clients })
-	}
-
-	fn num_clients(&self) -> usize {
-		self.clients.len()
-	}
-
-	/// Get a usable client for a specific worker.
-	/// Distributes workers across available clients.
-	async fn get(&self, worker_index: usize) -> VersionedClient {
-		let client_index = worker_index % self.clients.len();
-		let client = self.clients[client_index].lock().await;
-		VersionedClient { ws_client: client.inner.clone(), version: client.version }
-	}
-
-	/// Called when a request fails. Triggers client recreation if version matches.
-	/// Returns the new client (which may be the same if another worker already recreated it).
-	async fn recreate_client(
-		&self,
-		worker_index: usize,
-		failed: &VersionedClient,
-	) -> VersionedClient {
-		let client_index = worker_index % self.clients.len();
-		let mut client = self.clients[client_index].lock().await;
-		let _ = client.recreate(failed.version).await;
-		VersionedClient { ws_client: client.inner.clone(), version: client.version }
-	}
-}
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
-const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
-
-/// The snapshot that we store on disk.
-#[derive(Decode, Encode)]
-struct Snapshot<B: BlockT> {
-	snapshot_version: SnapshotVersion,
-	state_version: StateVersion,
-	// <Vec<Key, (Value, MemoryDbRefCount)>>
-	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-	// The storage root of the state. This may vary from the storage root in the header, if not the
-	// entire state was fetched.
-	storage_root: B::Hash,
-	header: B::Header,
-}
-
-impl<B: BlockT> Snapshot<B> {
-	pub fn new(
-		state_version: StateVersion,
-		raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-		storage_root: B::Hash,
-		header: B::Header,
-	) -> Self {
-		Self {
-			snapshot_version: SNAPSHOT_VERSION,
-			state_version,
-			raw_storage,
-			storage_root,
-			header,
-		}
-	}
-
-	fn load(path: &PathBuf) -> Result<Snapshot<B>> {
-		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
-		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
-		// check that first, before proceeding to decode the rest of the snapshot.
-		let snapshot_version = SnapshotVersion::decode(&mut &*bytes)
-			.map_err(|_| "Failed to decode snapshot version")?;
-
-		if snapshot_version != SNAPSHOT_VERSION {
-			return Err("Unsupported snapshot version detected. Please create a new snapshot.")
-		}
-
-		Decode::decode(&mut &*bytes).map_err(|_| "Decode failed")
-	}
-}
 
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
@@ -214,157 +88,6 @@ impl<B: BlockT> Deref for RemoteExternalities<B> {
 impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner_ext
-	}
-}
-
-/// The execution mode.
-#[derive(Clone)]
-pub enum Mode<H> {
-	/// Online. Potentially writes to a snapshot file.
-	Online(OnlineConfig<H>),
-	/// Offline. Uses a state snapshot file and needs not any client config.
-	Offline(OfflineConfig),
-	/// Prefer using a snapshot file if it exists, else use a remote server.
-	OfflineOrElseOnline(OfflineConfig, OnlineConfig<H>),
-}
-
-impl<H> Default for Mode<H> {
-	fn default() -> Self {
-		Mode::Online(OnlineConfig::default())
-	}
-}
-
-/// Configuration of the offline execution.
-///
-/// A state snapshot config must be present.
-#[derive(Clone)]
-pub struct OfflineConfig {
-	/// The configuration of the state snapshot file to use. It must be present.
-	pub state_snapshot: SnapshotConfig,
-}
-
-/// A WebSocket client with version tracking for reconnection.
-#[derive(Debug, Clone)]
-pub struct Client {
-	inner: Arc<WsClient>,
-	version: u64,
-	uri: String,
-}
-
-impl Client {
-	/// Create a WebSocket client for the given URI.
-	async fn create_ws_client(uri: &str) -> std::result::Result<WsClient, String> {
-		debug!(target: LOG_TARGET, "initializing remote client to {:?}", uri);
-
-		WsClientBuilder::default()
-			.max_request_size(u32::MAX)
-			.max_response_size(u32::MAX)
-			.request_timeout(std::time::Duration::from_secs(60 * 5))
-			.build(uri)
-			.await
-			.map_err(|e| format!("{e:?}"))
-	}
-
-	/// Create a new Client from a URI.
-	///
-	/// Returns `None` if the initial connection fails.
-	pub async fn new(uri: impl Into<String>) -> Option<Self> {
-		let uri = uri.into();
-		match Self::create_ws_client(&uri).await {
-			Ok(ws_client) => Some(Self { inner: Arc::new(ws_client), version: 0, uri }),
-			Err(e) => {
-				warn!(target: LOG_TARGET, "Connection to {uri} failed: {e}. Ignoring this URI.");
-				None
-			},
-		}
-	}
-
-	/// Recreate the WebSocket client using the stored URI if the version matches.
-	async fn recreate(&mut self, expected_version: u64) -> std::result::Result<(), String> {
-		// Only recreate if version matches (prevents redundant reconnections)
-		if self.version > expected_version {
-			return Ok(());
-		}
-
-		warn!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
-		let ws_client = Self::create_ws_client(&self.uri).await?;
-		self.inner = Arc::new(ws_client);
-		self.version = expected_version + 1;
-		Ok(())
-	}
-}
-
-/// Configuration of the online execution.
-///
-/// A state snapshot config may be present and will be written to in that case.
-#[derive(Clone)]
-pub struct OnlineConfig<H> {
-	/// The block hash at which to get the runtime state. Will be latest finalized head if not
-	/// provided.
-	pub at: Option<H>,
-	/// An optional state snapshot file to WRITE to, not for reading. Not written if set to `None`.
-	pub state_snapshot: Option<SnapshotConfig>,
-	/// The pallets to scrape. These values are hashed and added to `hashed_prefix`.
-	pub pallets: Vec<String>,
-	/// Transport URIs. Can be a single URI or multiple for load distribution.
-	pub transport_uris: Vec<String>,
-	/// Lookout for child-keys, and scrape them as well if set to true.
-	pub child_trie: bool,
-	/// Storage entry key prefixes to be injected into the externalities. The *hashed* prefix must
-	/// be given.
-	pub hashed_prefixes: Vec<Vec<u8>>,
-	/// Storage entry keys to be injected into the externalities. The *hashed* key must be given.
-	pub hashed_keys: Vec<Vec<u8>>,
-}
-
-impl<H: Clone> OnlineConfig<H> {
-	fn at_expected(&self) -> H {
-		self.at.clone().expect("block at must be initialized; qed")
-	}
-}
-
-impl<H> Default for OnlineConfig<H> {
-	fn default() -> Self {
-		Self {
-			transport_uris: vec![DEFAULT_HTTP_ENDPOINT.to_owned()],
-			child_trie: true,
-			at: None,
-			state_snapshot: None,
-			pallets: Default::default(),
-			hashed_keys: Default::default(),
-			hashed_prefixes: Default::default(),
-		}
-	}
-}
-
-impl<H> From<String> for OnlineConfig<H> {
-	fn from(uri: String) -> Self {
-		Self { transport_uris: vec![uri], ..Default::default() }
-	}
-}
-
-/// Configuration of the state snapshot.
-#[derive(Clone)]
-pub struct SnapshotConfig {
-	/// The path to the snapshot file.
-	pub path: PathBuf,
-}
-
-impl SnapshotConfig {
-	pub fn new<P: Into<PathBuf>>(path: P) -> Self {
-		Self { path: path.into() }
-	}
-}
-
-impl From<String> for SnapshotConfig {
-	fn from(s: String) -> Self {
-		Self::new(s)
-	}
-}
-
-impl Default for SnapshotConfig {
-	fn default() -> Self {
-		Self { path: Path::new("SNAPSHOT").into() }
 	}
 }
 
@@ -488,45 +211,6 @@ where
 			})
 	}
 
-	/// Generate start keys for parallel fetching, dividing the workload.
-	/// Uses the same logic as the original gen_start_keys but returns KeyRange objects.
-	fn gen_key_ranges(prefix: &StorageKey) -> Vec<KeyRange> {
-		let prefix_bytes = prefix.as_ref().to_vec();
-		let mut ranges = Vec::with_capacity(16);
-
-		// Create 16 ranges by appending one nibble (4 bits) to the prefix
-		// Since we work with bytes, we append a byte where the upper nibble is 0x0-0xF
-		// This gives us: 0x00, 0x10, 0x20, ..., 0xF0
-		for i in 0u8..16u8 {
-			let mut start_key = prefix_bytes.clone();
-			start_key.push(i << 4); // Shift nibble to upper 4 bits
-
-			let end_key = if i < 15 {
-				let mut end = prefix_bytes.clone();
-				end.push((i + 1) << 4); // Next nibble
-				Some(StorageKey(end))
-			} else {
-				None
-			};
-
-			ranges.push(KeyRange::new(StorageKey(start_key), end_key, prefix.clone()));
-		}
-
-		ranges
-	}
-
-	/// Initialize the work queue with ranges for each prefix.
-	fn initialize_work_queue(prefixes: &[StorageKey]) -> WorkQueue {
-		let mut queue = VecDeque::new();
-
-		for prefix in prefixes {
-			let ranges = Self::gen_key_ranges(prefix);
-			queue.extend(ranges);
-		}
-
-		Arc::new(Mutex::new(queue))
-	}
-
 	/// Internal generic parallel key fetching that abstracts over the RPC method.
 	///
 	/// Takes a closure that fetches a single batch of keys, allowing this function
@@ -548,13 +232,19 @@ where
 		Fut: std::future::Future<Output = Result<(Vec<StorageKey>, bool)>> + Send + 'static,
 	{
 		// Initialize work queue with top-level 16 ranges for this prefix
-		let work_queue = Self::initialize_work_queue(&[prefix.clone()]);
+		let work_queue = initialize_work_queue(&[prefix.clone()]);
 		let initial_ranges = work_queue.lock().unwrap().len();
-		eprintln!("🔧 Initialized work queue with {} ranges for parallel fetching", initial_ranges);
+		info!(
+			target: LOG_TARGET,
+			"🔧 Initialized work queue with {} ranges for parallel fetching", initial_ranges
+		);
 
 		// Get connection manager for handling client recreation across multiple RPC providers
 		let conn_manager = Arc::new(self.conn_manager()?.clone());
-		eprintln!("🌐 Using {} RPC provider(s) for parallel fetching", conn_manager.num_clients());
+		info!(
+			target: LOG_TARGET,
+			"🌐 Using {} RPC provider(s) for parallel fetching", conn_manager.num_clients()
+		);
 
 		// Shared storage for all collected keys
 		let all_keys: Arc<Mutex<Vec<StorageKey>>> = Arc::new(Mutex::new(Vec::new()));
@@ -572,7 +262,7 @@ where
 		let mut handles = vec![];
 
 		// Spawn worker tasks
-		eprintln!("🚀 Spawning {parallel} parallel workers for key fetching");
+		info!(target: LOG_TARGET, "🚀 Spawning {parallel} parallel workers for key fetching");
 
 		for worker_index in 0..parallel {
 			let permit =
@@ -678,7 +368,8 @@ where
 									)
 									.is_ok()
 								{
-									eprintln!(
+									info!(
+										target: LOG_TARGET,
 										"📊 {log_prefix}: Scraped {total_keys} keys so far..."
 									);
 								}
@@ -687,7 +378,7 @@ where
 							// If we got a full batch, subdivide the remaining key space
 							if is_full_batch {
 								if let Some((second_last, last)) = last_two_keys {
-									let new_ranges = Self::subdivide_remaining_range(
+									let new_ranges = subdivide_remaining_range(
 										&second_last,
 										&last,
 										range.end_key.as_ref(),
@@ -740,7 +431,8 @@ where
 
 		// Extract and return all keys
 		let keys = all_keys.lock().unwrap().clone();
-		eprintln!(
+		info!(
+			target: LOG_TARGET,
 			"🎉 Parallel key fetching complete: {} total keys fetched by {} workers",
 			keys.len(),
 			parallel
@@ -813,82 +505,6 @@ where
 		);
 
 		Ok((page, is_full_batch))
-	}
-
-	/// Subdivide the key space AFTER the last_key into up to 16 new ranges.
-	///
-	/// Takes the last two keys from a batch to find where they diverge, then creates
-	/// ranges based on incrementing the nibble at the divergence point.
-	fn subdivide_remaining_range(
-		second_last_key: &StorageKey,
-		last_key: &StorageKey,
-		end_key: Option<&StorageKey>,
-		prefix: &StorageKey,
-	) -> Vec<KeyRange> {
-		let second_last_bytes = second_last_key.as_ref();
-		let last_key_bytes = last_key.as_ref();
-
-		// Find the first byte position where the two keys diverge
-		let divergence_pos = second_last_bytes
-			.iter()
-			.zip(last_key_bytes.iter())
-			.position(|(a, b)| a != b)
-			.unwrap_or(second_last_bytes.len().min(last_key_bytes.len()));
-
-		let mut subdivision_nibble = None;
-
-		for subdivision_pos in divergence_pos..last_key_bytes.len() {
-			let byte = last_key_bytes[subdivision_pos];
-			let nibble = byte >> 4;
-
-			if nibble < 15 {
-				subdivision_nibble = Some((subdivision_pos, nibble));
-				break;
-			}
-		}
-
-		let mut ranges = Vec::new();
-
-		// If we found a position where we can subdivide
-		if let Some((pos, current_nibble)) = subdivision_nibble {
-			let subdivision_prefix = &last_key_bytes[..pos];
-
-			let mut end = subdivision_prefix.to_vec();
-			end.push((current_nibble + 1) << 4);
-			ranges.push(KeyRange::new(last_key.clone(), Some(StorageKey(end)), prefix.clone()));
-
-			// Create ranges for each nibble from (current_nibble + 1) to 0xF
-			for nibble in (current_nibble + 1)..16u8 {
-				let mut start = subdivision_prefix.to_vec();
-				start.push(nibble << 4);
-				let start_key = StorageKey(start);
-
-				// Check if this range starts at or after the end
-				if end_key.map_or(false, |ek| start_key >= *ek) {
-					break
-				}
-
-				let chunk_end_key = if nibble < 15 {
-					let mut end = subdivision_prefix.to_vec();
-					end.push((nibble + 1) << 4);
-					let computed_end = StorageKey(end);
-
-					Some(match end_key {
-						Some(actual_end) if &computed_end > actual_end => actual_end.clone(),
-						_ => computed_end,
-					})
-				} else {
-					end_key.cloned()
-				};
-
-				ranges.push(KeyRange::new(start_key, chunk_end_key, prefix.clone()));
-			}
-		} else if end_key.as_ref().map_or(true, |ek| last_key <= ek) {
-			// We are not yet past the end
-			ranges.push(KeyRange::new(last_key.clone(), end_key.cloned(), prefix.clone()));
-		}
-
-		ranges
 	}
 
 	/// Fetches storage data from a node using a dynamic batch size.
@@ -1043,8 +659,8 @@ where
 
 		let parallel = self.parallel_requests();
 
-		eprintln!("🔧 Initialized {} batches for dynamic value fetching", batches.len());
-		eprintln!("🚀 Spawning {} parallel workers for value fetching", parallel);
+		info!(target: LOG_TARGET, "🔧 Initialized {} batches for dynamic value fetching", batches.len());
+		info!(target: LOG_TARGET, "🚀 Spawning {} parallel workers for value fetching", parallel);
 
 		// Shared structures for dynamic work distribution
 		let work_queue = Arc::new(Mutex::new(batches));
