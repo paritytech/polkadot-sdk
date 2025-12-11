@@ -205,30 +205,34 @@ impl StatementHandlerPrototype {
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		let store = statement_store.clone();
-		executor(
-			async move {
-				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-						queue_receiver.next().await;
-					match task {
-						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
-								log::debug!(
-									target: LOG_TARGET,
-									"Error sending validation completion"
-								);
-							}
-						},
+		const NUM_VALIDATION_WORKERS: usize = 4;
+		for _ in 0..NUM_VALIDATION_WORKERS {
+			let store = statement_store.clone();
+			let mut queue_receiver = queue_receiver.clone();
+			executor(
+				async move {
+					loop {
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
+						match task {
+							None => return,
+							Some((statement, completion)) => {
+								let result = store.submit(statement, StatementSource::Network);
+								if completion.send(result).is_err() {
+									log::debug!(
+										target: LOG_TARGET,
+										"Error sending validation completion"
+									);
+								}
+							},
+						}
 					}
 				}
-			}
-			.boxed(),
-		);
+				.boxed(),
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
