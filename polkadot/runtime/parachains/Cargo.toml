@@ -59,7 +59,7 @@ xcm-executor.workspace = true
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }

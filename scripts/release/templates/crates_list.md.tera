@@ -1,1 +1,13 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+- pallet-staking-async-rc-client@0.4.1
+- sc-network@0.53.1
+- cumulus-test-relay-sproof-builder@0.22.1
+- pallet-staking-async@0.5.2
+- sc-rpc-spec-v2@0.53.1
+- cumulus-pallet-parachain-system@0.23.2
+- parachains-runtimes-test-utils@26.0.1
+- xcm-emulator@0.23.1
+- asset-hub-westend-runtime@0.36.2
+- cumulus-client-parachain-inherent@0.20.1
+- cumulus-client-consensus-aura@0.26.2
