@@ -641,6 +641,12 @@ impl_runtime_apis! {
 			1
 		}
 	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			Default::default()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
