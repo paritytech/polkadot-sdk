@@ -17,8 +17,8 @@
 
 use crate::{
 	client::Balance,
-	subxt_client::{self, SrcChainConfig},
-	ClientError,
+	subxt_client::{self, runtime_apis::revive_api::types::address::AccountId, SrcChainConfig},
+	ClientError, LOG_TARGET,
 };
 use futures::TryFutureExt;
 use pallet_revive::{
@@ -31,8 +31,6 @@ use pallet_revive::{
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use subxt::{error::MetadataError, ext::subxt_rpcs::UserError, Error::Metadata, OnlineClient};
-
-const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
 /// A Wrapper around subxt Runtime API
 #[derive(Clone)]
@@ -207,6 +205,13 @@ impl RuntimeApi {
 		let payload = subxt_client::apis().revive_api().code(address);
 		let code = self.0.call(payload).await?;
 		Ok(code)
+	}
+
+	// Get the account for the given H160 address
+	pub async fn account_or_fallback(&self, address: H160) -> Result<AccountId, ClientError> {
+		let payload = subxt_client::apis().revive_api().account_or_fallback(address);
+		let account = self.0.call(payload).await?;
+		Ok(account)
 	}
 
 	/// Get the current Ethereum block.

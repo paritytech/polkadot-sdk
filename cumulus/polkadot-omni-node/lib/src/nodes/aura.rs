@@ -290,6 +290,7 @@ where
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
 		let create_inherent_data_providers =
 			Self::create_dev_node_inherent_data_providers(client.clone(), para_id, slot_duration);
+		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
 
 		match mode {
 			DevSealMode::InstantSeal => {
@@ -301,6 +302,7 @@ where
 					select_chain: LongestChain::new(backend.clone()),
 					consensus_data_provider: Some(Box::new(aura_digest_provider)),
 					create_inherent_data_providers,
+					manual_trigger_stream: manual_seal_stream,
 				};
 
 				let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
@@ -311,7 +313,6 @@ where
 				);
 			},
 			DevSealMode::ManualSeal(block_time) => {
-				let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
 				let mut manual_seal_sink_clone = manual_seal_sink.clone();
 				task_manager
 					.spawn_essential_handle()

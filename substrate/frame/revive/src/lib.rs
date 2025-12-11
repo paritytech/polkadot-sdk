@@ -105,7 +105,7 @@ pub use crate::{
 		TransactionMeter,
 	},
 	pallet::{genesis, *},
-	storage::{AccountInfo, ContractInfo},
+	storage::{AccountInfo, ContractInfo, EvmNonce},
 	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
@@ -623,6 +623,8 @@ pub mod pallet {
 		/// Some pre-compile functions will trap the caller context if being delegate
 		/// called or if their caller was being delegate called.
 		PrecompileDelegateDenied = 0x40,
+
+		NonceTooLow = 0xFE,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -657,6 +659,29 @@ pub mod pallet {
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
 	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
+
+	/// A mapping from an account to it's nonce.
+	#[pallet::storage]
+	pub(crate) type EvmNonceOf<T: Config> = StorageMap<_, Identity, H160, EvmNonce>;
+
+	/// A mapping from a block to it's modified miner.
+	#[pallet::storage]
+	pub(crate) type ModifiedCoinbase<T: Config> = StorageValue<_, H160, ValueQuery>;
+
+	/// A mapping from a block to it's modified prevrandao.
+	#[pallet::storage]
+	pub(crate) type ModifiedPrevrandao<T: Config> = StorageMap<_, Identity, U256, H256>;
+
+	/// The modifiable EVM gas price, used by the EVM RPC.
+	#[pallet::storage]
+	pub(crate) type GasPrice<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
+
+	/// The modifiable EVM gas limit, used by the EVM RPC.
+	#[pallet::storage]
+	pub(crate) type GasLimit<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
+
+	#[pallet::storage]
+	pub(crate) type ImpersonatedAccounts<T: Config> = StorageMap<_, Identity, H160, ()>;
 
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
@@ -1571,6 +1596,146 @@ pub mod pallet {
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
 		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::upload_code(nonce.as_u32()))]
+		pub fn set_evm_nonce_call(
+			origin: OriginFor<T>,
+			address: H160,
+			nonce: U256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::set_evm_nonce(&address, nonce.as_u32())?;
+			Ok(())
+		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(10_000)]
+		pub fn set_gas_price(origin: OriginFor<T>, new_price: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasPrice::<T>::put(Some(new_price));
+			Ok(())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(10_000)]
+		pub fn set_storage_at(
+			origin: OriginFor<T>,
+			address: H160,
+			storage_slot: U256,
+			value: U256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&address).unwrap_or_else(|| {
+				ContractInfo::new(&address, T::Nonce::default(), H256::zero())
+					.expect("Should insert dummy contract")
+			});
+
+			AccountInfo::<T>::insert_contract(&address, contract_info.clone());
+
+			contract_info
+				.write(
+					&Key::from_fixed(storage_slot.to_big_endian()),
+					Some(value.to_big_endian().to_vec()),
+					None,
+					false,
+				)
+				.map_err(|_| Error::<T>::ExecutionFailed)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_coinbase(origin: OriginFor<T>, coinbase: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ModifiedCoinbase::<T>::put(coinbase);
+			Ok(())
+		}
+
+		#[pallet::call_index(17)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_prev_randao(
+			origin: OriginFor<T>,
+			last_block: U256,
+			prev_randao: H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let next_block_number = last_block.as_u32().saturating_add(2);
+			ModifiedPrevrandao::<T>::insert(U256::from(next_block_number), prev_randao);
+			Ok(())
+		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(10_000)]
+		pub fn set_block_gas_limit(origin: OriginFor<T>, block_gas_limit: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasLimit::<T>::put(Some(block_gas_limit));
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(10_000)]
+		pub fn impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::insert(account, ());
+			Ok(())
+		}
+
+		#[pallet::call_index(20)]
+		#[pallet::weight(10_000)]
+		pub fn stop_impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::remove(account);
+			Ok(())
+		}
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_bytecode(
+			origin: OriginFor<T>,
+			dest: H160,
+			code_hash: sp_core::H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&dest).unwrap_or_else(|| {
+				ContractInfo::new(&dest, T::Nonce::default(), code_hash)
+					.expect("Should insert dummy contract")
+			});
+			AccountInfo::<T>::insert_contract(&dest, contract_info.clone());
+
+			Ok(())
+		}
+
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_balance(origin: OriginFor<T>, dest: H160, value: U256) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let exists = <AccountInfoOf<T>>::contains_key(dest);
+			match exists {
+				true => {
+					<AccountInfoOf<T>>::try_mutate(&dest, |account: &mut Option<AccountInfo<T>>| {
+						let Some(account) = account else {
+							return Err(<Error<T>>::ContractNotFound.into());
+						};
+
+						let AccountType::EOA = account.account_type else {
+							return Err(<Error<T>>::AccountUnmapped.into());
+						};
+
+						account.dust = value.as_u32();
+
+						Ok(())
+					})
+				},
+				false => {
+					let info = AccountInfo { account_type: AccountType::EOA, dust: value.as_u32() };
+
+					<AccountInfoOf<T>>::set(dest, Some(info));
+					Ok(())
+				},
+			}
+		}
 	}
 }
 
@@ -1705,7 +1870,7 @@ impl<T: Config> Pallet<T> {
 					)?;
 					executable
 				},
-				Code::Upload(code) =>
+				Code::Upload(code) => {
 					if T::AllowEVMBytecode::get() {
 						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
@@ -1713,7 +1878,8 @@ impl<T: Config> Pallet<T> {
 						executable
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
-					},
+					}
+				},
 				Code::Existing(code_hash) => {
 					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
@@ -2101,19 +2267,57 @@ impl<T: Config> Pallet<T> {
 	where
 		T::Nonce: Into<u32>,
 	{
+		let evm_nonce = EvmNonceOf::<T>::get(address).unwrap_or_default();
 		let account = T::AddressMapper::to_account_id(&address);
-		System::<T>::account_nonce(account).into()
+		let substrate_nonce = System::<T>::account_nonce(account);
+
+		if evm_nonce.positive {
+			let nonce = substrate_nonce.into().saturating_add(evm_nonce.difference);
+			return nonce;
+		} else {
+			let nonce = substrate_nonce.into().saturating_sub(evm_nonce.difference);
+			return nonce;
+		}
+	}
+
+	pub fn set_evm_nonce(address: &H160, nonce: u32) -> Result<u32, Error<T>> {
+		let account = T::AddressMapper::to_account_id(&address);
+		let substrate_nonce: u32 = System::<T>::account_nonce(account).try_into().ok().unwrap();
+		let evm_nonce_u32 = nonce;
+
+		if evm_nonce_u32 < substrate_nonce {
+			return Err(<Error<T>>::NonceTooLow.into());
+		}
+
+		// Use mutate_exists because the key might not exist yet
+		EvmNonceOf::<T>::mutate_exists(&address, |maybe_evm_nonce| {
+			let (difference, positive) = if substrate_nonce > evm_nonce_u32 {
+				(substrate_nonce - evm_nonce_u32, false)
+			} else {
+				(evm_nonce_u32 - substrate_nonce, true)
+			};
+
+			match maybe_evm_nonce {
+				Some(evm_nonce) => {
+					evm_nonce.difference = difference;
+					evm_nonce.positive = positive;
+				},
+				None => {
+					*maybe_evm_nonce = Some(EvmNonce { difference, positive });
+				},
+			}
+		});
+
+		Ok(evm_nonce_u32)
 	}
 
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
-		// We just return `u64::MAX` because the gas cost of a transaction can get very large when
-		// the transaction executes many storage deposits (in theory a contract can behave like a
-		// factory, procedurally create code and make contract creation calls to store that as
-		// code). It is too brittle to estimate a maximally possible amount here.
-		// On the other hand, the data type `u64` seems to be the "common denominator" as the
-		// typical data type tools and Ethereum implementations use to represent gas amounts.
-		u64::MAX.into()
+		if let Some(gas_limit) = GasLimit::<T>::get() {
+			return U256::from(gas_limit);
+		} else {
+			u64::MAX.into()
+		}
 	}
 
 	/// The maximum weight an `eth_transact` is allowed to consume.
@@ -2131,12 +2335,16 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the base gas price.
 	pub fn evm_base_fee() -> U256 {
-		let gas_scale = <T as Config>::GasScale::get();
-		let multiplier = T::FeeInfo::next_fee_multiplier();
-		multiplier
+		if let Some(gas_price) = GasPrice::<T>::get() {
+			return U256::from(gas_price);
+		} else {
+			let gas_scale = <T as Config>::GasScale::get();
+			let multiplier = T::FeeInfo::next_fee_multiplier();
+			multiplier
 			.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into())
 			.saturating_mul(gas_scale.saturated_into())
 			.into()
+		}
 	}
 
 	/// Build an EVM tracer from the given tracer type.
@@ -2295,32 +2503,6 @@ impl<T: Config> Pallet<T> {
 		PalletId(*b"py/reviv").into_account_truncating()
 	}
 
-	/// The address of the validator that produced the current block.
-	pub fn block_author() -> H160 {
-		use frame_support::traits::FindAuthor;
-
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		T::FindAuthor::find_author(pre_runtime_digests)
-			.map(|account_id| T::AddressMapper::to_address(&account_id))
-			.unwrap_or_default()
-	}
-
-	/// Returns the code at `address`.
-	///
-	/// This takes pre-compiles into account.
-	pub fn code(address: &H160) -> Vec<u8> {
-		use precompiles::{All, Precompiles};
-		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into()
-		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
-	}
-
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	pub fn try_upload_code(
 		origin: T::AccountId,
@@ -2354,6 +2536,32 @@ impl<T: Config> Pallet<T> {
 				.map(|_| f())
 				.and_then(|r| r)
 		})
+	}
+
+	/// The address of the validator that produced the current block.
+	pub fn block_author() -> H160 {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		T::FindAuthor::find_author(pre_runtime_digests)
+			.map(|account_id| T::AddressMapper::to_address(&account_id))
+			.unwrap_or_default()
+	}
+
+	/// Returns the code at `address`.
+	///
+	/// This takes pre-compiles into account.
+	pub fn code(address: &H160) -> Vec<u8> {
+		use precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return code.into();
+		}
+		AccountInfo::<T>::load_contract(&address)
+			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.map(|code| code.into())
+			.unwrap_or_default()
 	}
 
 	/// Transfer a deposit from some account to another.
@@ -2585,6 +2793,9 @@ sp_api::decl_runtime_apis! {
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
 
+		fn account_or_fallback(address: H160) -> AccountId;
+
+
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
@@ -2764,6 +2975,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					$crate::Pallet::<Self>::block_author()
 				}
 
+				fn account_or_fallback(address: $crate::H160) -> AccountId {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
+				}
+
 				fn block_gas_limit() -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_block_gas_limit()
 				}
@@ -2773,9 +2989,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
-					use $crate::AddressMapper;
-					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&address);
-					$crate::frame_system::Pallet::<Self>::account_nonce(account)
+					$crate::Pallet::<Self>::evm_nonce(&address)
 				}
 
 				fn address(account_id: AccountId) -> $crate::H160 {

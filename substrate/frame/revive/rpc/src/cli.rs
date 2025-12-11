@@ -17,7 +17,7 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
+	HardhatRpcServerImpl, HardhatRpcServer, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
 };
@@ -30,6 +30,8 @@ use sc_service::{
 	start_rpc_servers, TaskManager,
 };
 use sqlx::sqlite::SqlitePoolOptions;
+use subxt_signer::eth::dev;
+use std::sync::{Arc, RwLock};
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -137,9 +139,10 @@ fn build_client(
 				keep_latest_n_blocks,
 			)
 			.await?;
+		let block_offset = Arc::new(RwLock::new(0u64));
 
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, block_offset).await?;
 
 		Ok(client)
 	}
@@ -254,11 +257,25 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev {
 			vec![
-				crate::Account::from(subxt_signer::eth::dev::alith()),
-				crate::Account::from(subxt_signer::eth::dev::baltathar()),
-				crate::Account::from(subxt_signer::eth::dev::charleth()),
-				crate::Account::from(subxt_signer::eth::dev::dorothy()),
-				crate::Account::from(subxt_signer::eth::dev::ethan()),
+				dev::alith().into(),
+				dev::baltathar().into(),
+				dev::charleth().into(),
+				dev::dorothy().into(),
+				dev::ethan().into(),
+				dev::faith().into(),
+				dev::gareth().into(),
+				dev::heather().into(),
+				dev::ithelia().into(),
+				dev::jethro().into(),
+				dev::keith().into(),
+				dev::luther().into(),
+				dev::martha().into(),
+				dev::othello().into(),
+				dev::perth().into(),
+				dev::ruth().into(),
+				dev::seth().into(),
+				dev::thomas().into(),
+				dev::uthman().into(),
 			]
 		} else {
 			vec![]
@@ -266,11 +283,15 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
-	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
+	let hardhat_api = HardhatRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module
+		.merge(hardhat_api)
+		.map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

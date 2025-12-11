@@ -115,7 +115,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 }
 
 /// Params required to start the instant sealing authorship task.
-pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP> {
+pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, MTS> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
 
@@ -136,6 +136,7 @@ pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, 
 
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
+	pub manual_trigger_stream: MTS,
 }
 
 /// Params required to start the delayed finalization task.
@@ -210,7 +211,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP>(
 /// runs the background authorship task for the instant seal engine.
 /// instant-seal creates a new block for every transaction imported into
 /// the transaction pool.
-pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
+pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, MTS>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -219,7 +220,8 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP>,
+		manual_trigger_stream,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, MTS>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -230,15 +232,19 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
+	MTS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
-	let commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: true,
-		finalize: false,
-		parent_hash: None,
-		sender: None,
-	});
+	let instant_commands_stream =
+		pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
+			create_empty: true,
+			finalize: false,
+			parent_hash: None,
+			sender: None,
+		});
+
+	let commands_stream = futures::stream::select(instant_commands_stream, manual_trigger_stream);
 
 	run_manual_seal(ManualSealParams {
 		block_import,
@@ -259,7 +265,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 ///
 /// This function will finalize the block immediately as well. If you don't
 /// want this behavior use `run_instant_seal` instead.
-pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP>(
+pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, MTS>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -268,7 +274,8 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP>,
+		manual_trigger_stream,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, MTS>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -279,15 +286,19 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP>(
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
+	MTS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 {
 	// Creates and finalizes blocks as soon as transactions are imported
 	// into the transaction pool.
-	let commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: false,
-		finalize: true,
-		parent_hash: None,
-		sender: None,
-	});
+	let instant_commands_stream =
+		pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
+			create_empty: false,
+			finalize: true,
+			parent_hash: None,
+			sender: None,
+		});
+
+	let commands_stream = futures::stream::select(instant_commands_stream, manual_trigger_stream);
 
 	run_manual_seal(ManualSealParams {
 		block_import,

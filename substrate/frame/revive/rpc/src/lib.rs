@@ -26,6 +26,7 @@ use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 use tokio::time::Duration;
+use sc_consensus_manual_seal::rpc::CreatedBlock;
 
 pub mod cli;
 pub mod client;
@@ -74,6 +75,19 @@ impl EthRpcServerImpl {
 	}
 }
 
+/// A hardhat RPC server implementation.
+pub struct HardhatRpcServerImpl {
+	/// The client used to interact with the substrate node.
+	client: client::Client,
+}
+
+impl HardhatRpcServerImpl {
+	/// Creates a new [`HardhatRpcServerImpl`].
+	pub fn new(client: client::Client) -> Self {
+		Self { client }
+	}
+}
+
 /// The error type for the EVM RPC server.
 #[derive(Error, Debug)]
 pub enum EthRpcError {
@@ -107,6 +121,114 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::ClientError(err) => Self::from(err),
 			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
 		}
+	}
+}
+
+#[async_trait]
+impl HardhatRpcServer for HardhatRpcServerImpl {
+	async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
+	) -> RpcResult<CreatedBlock<H256>> {
+		Ok(self.client.mine(number_of_blocks, interval).await?)
+	}
+
+	async fn evm_mine(&self, timestamp: Option<u64>) -> RpcResult<CreatedBlock<H256>> {
+		let timestamp = timestamp.map(U256::from);
+		Ok(self.client.evm_mine(timestamp).await?)
+	}
+
+	async fn get_automine(&self) -> RpcResult<bool> {
+		Ok(self.client.get_automine().await)
+	}
+
+	async fn set_automine(&self, automine: bool) -> RpcResult<bool> {
+		Ok(self.client.set_automine(automine).await?)
+	}
+
+	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>> {
+		Ok(self.client.drop_transaction(hash).await?)
+	}
+
+	async fn set_evm_nonce(&self, account: H160, nonce: U256) -> RpcResult<Option<U256>> {
+		Ok(self.client.set_evm_nonce(account, nonce).await?)
+	}
+
+	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>> {
+		Ok(self.client.set_balance(who, new_free).await?)
+	}
+
+	async fn set_next_block_base_fee_per_gas(
+		&self,
+		base_fee_per_gas: U128,
+	) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_next_block_base_fee_per_gas(base_fee_per_gas).await?)
+	}
+
+	async fn set_storage_at(
+		&self,
+		address: H160,
+		storage_slot: U256,
+		value: U256,
+	) -> RpcResult<Option<U256>> {
+		Ok(self.client.set_storage_at(address, storage_slot, value).await?)
+	}
+
+	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>> {
+		Ok(self.client.set_coinbase(coinbase).await?)
+	}
+
+	async fn set_next_block_timestamp(&self, next_timestamp: u64) -> RpcResult<()> {
+		Ok(self.client.set_next_block_timestamp(U256::from(next_timestamp)).await?)
+	}
+
+	async fn increase_time(&self, increase_by_seconds: u64) -> RpcResult<U256> {
+		Ok(self.client.increase_time(U256::from(increase_by_seconds)).await?)
+	}
+
+	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>> {
+		Ok(self.client.set_prev_randao(prev_randao).await?)
+	}
+
+	async fn set_block_gas_limit(&self, block_gas_limit: u64) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_block_gas_limit(U128::from(block_gas_limit)).await?)
+	}
+
+	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
+		Ok(self.client.impersonate_account(account).await?)
+	}
+
+	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
+		Ok(self.client.stop_impersonate_account(account).await?)
+	}
+
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<TransactionInfo>>> {
+		Ok(self.client.pending_transactions().await?)
+	}
+
+	async fn get_coinbase(&self) -> RpcResult<Option<H160>> {
+		Ok(self.client.get_coinbase().await?)
+	}
+
+	async fn set_code(&self, dest: H160, code: Bytes) -> RpcResult<Option<H256>> {
+		Ok(self.client.set_code(dest, code).await?)
+	}
+
+	async fn hardhat_metadata(&self) -> RpcResult<Option<HardhatMetadata>> {
+		Ok(self.client.hardhat_metadata().await?)
+	}
+
+	async fn snapshot(&self) -> RpcResult<Option<U64>> {
+		Ok(self.client.snapshot().await?)
+	}
+
+	async fn revert(&self, id: U64) -> RpcResult<Option<bool>> {
+		Ok(self.client.revert(id).await?)
+	}
+
+	async fn reset(&self) -> RpcResult<Option<bool>> {
+		Ok(self.client.reset().await?)
 	}
 }
 
@@ -411,7 +533,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let git_revision = env!("GIT_REVISION");
 		let rustc_version = env!("RUSTC_VERSION");
 		let target = env!("TARGET");
-		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+		Ok(format!("anvil/{git_revision}/{target}/{rustc_version}"))
 	}
 
 	async fn fee_history(
@@ -423,6 +545,35 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
+	}
+
+	async fn personal_sign(&self, message: Bytes, address: H160) -> RpcResult<Option<Bytes>> {
+		let impersonated = self.client.is_impersonated_account(address).await.unwrap();
+
+		let account = match impersonated {
+			Some(true) => &self.accounts[0],
+			_ => self
+				.accounts
+				.iter()
+				.find(|account| account.address() == address)
+				.ok_or(EthRpcError::AccountNotFound(address))?,
+		};
+
+		// Prepare the message by prefixing it with the header used by the `eth_sign`
+		let eth_message = [
+			format!("\x19Ethereum Signed Message:\n{}", message.0.len()).as_bytes(),
+			&message.0,
+		].concat();
+
+		let mut signature = account.sign(&eth_message);
+
+		// Adjust the V value to be compatible with Ethereum
+		let recovery_id_constant: u8 = 27;
+		if signature[64] < recovery_id_constant {
+			signature[64] += recovery_id_constant; // Adjust V value
+		}
+
+		Ok(Some(signature.to_vec().into()))
 	}
 }
 
