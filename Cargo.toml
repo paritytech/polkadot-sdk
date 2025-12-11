@@ -820,7 +820,7 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "23.0.0", default-features = false }
+frame-metadata = { version = "23.0.1", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
