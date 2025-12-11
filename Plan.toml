@@ -1156,9 +1156,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async/rc-client
 name = "pallet-staking-async-rc-client"
-from = "0.3.0"
-to = "0.4.0"
-bump = "major"
+from = "0.4.0"
+to = "0.4.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1212,9 +1212,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network
 name = "sc-network"
-from = "0.52.0"
-to = "0.53.0"
-bump = "major"
+from = "0.53.0"
+to = "0.53.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1304,9 +1304,9 @@ reason = "changed"
 [[crate]]
 # cumulus/test/relay-sproof-builder
 name = "cumulus-test-relay-sproof-builder"
-from = "0.21.0"
-to = "0.22.0"
-bump = "major"
+from = "0.22.0"
+to = "0.22.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1632,9 +1632,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async
 name = "pallet-staking-async"
-from = "0.5.0"
-to = "0.5.1"
-bump = "patch"
+from = "0.5.1"
+to = "0.5.2"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -2722,9 +2722,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/rpc-spec-v2
 name = "sc-rpc-spec-v2"
-from = "0.52.0"
-to = "0.53.0"
-bump = "major"
+from = "0.53.0"
+to = "0.53.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2774,8 +2774,8 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/parachain-system
 name = "cumulus-pallet-parachain-system"
-from = "0.23.0"
-to = "0.23.1"
+from = "0.23.1"
+to = "0.23.2"
 bump = "patch"
 reason = "changed"
 
@@ -3330,9 +3330,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/test-utils
 name = "parachains-runtimes-test-utils"
-from = "25.0.0"
-to = "26.0.0"
-bump = "major"
+from = "26.0.0"
+to = "26.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3408,9 +3408,9 @@ reason = "changed"
 [[crate]]
 # cumulus/xcm/xcm-emulator
 name = "xcm-emulator"
-from = "0.22.0"
-to = "0.23.0"
-bump = "major"
+from = "0.23.0"
+to = "0.23.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3504,8 +3504,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.36.0"
-to = "0.36.1"
+from = "0.36.1"
+to = "0.36.2"
 bump = "minor"
 reason = "changed"
 
@@ -3552,9 +3552,9 @@ reason = "changed"
 [[crate]]
 # cumulus/client/parachain-inherent
 name = "cumulus-client-parachain-inherent"
-from = "0.19.0"
-to = "0.20.0"
-bump = "major"
+from = "0.20.0"
+to = "0.20.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4004,8 +4004,8 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/aura
 name = "cumulus-client-consensus-aura"
-from = "0.26.0"
-to = "0.26.1"
+from = "0.26.1"
+to = "0.26.2"
 bump = "patch"
 reason = "changed"
 
