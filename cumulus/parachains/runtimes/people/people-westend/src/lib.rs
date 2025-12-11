@@ -64,7 +64,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	SignatureVerificationResult, Statement,
@@ -440,7 +440,7 @@ impl pallet_multisig::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]

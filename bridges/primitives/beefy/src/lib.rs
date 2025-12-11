@@ -42,7 +42,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
-	RuntimeAppPublic, RuntimeDebug,
+	Debug, RuntimeAppPublic,
 };
 use sp_std::prelude::*;
 
@@ -130,7 +130,7 @@ pub type BeefyMmrLeafOf<C> = sp_consensus_beefy::mmr::MmrLeaf<
 ///
 /// Provides the initial context that the bridge needs in order to know
 /// where to start the sync process from.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Clone, TypeInfo, Serialize, Deserialize)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo, Serialize, Deserialize)]
 pub struct InitializationData<BlockNumber, Hash> {
 	/// Pallet operating mode.
 	pub operating_mode: BasicOperatingMode,
@@ -142,7 +142,7 @@ pub struct InitializationData<BlockNumber, Hash> {
 }
 
 /// Basic data, stored by the pallet for every imported commitment.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
 pub struct ImportedCommitment<BlockNumber, BlockHash, MmrHash> {
 	/// Block number and hash of the finalized block parent.
 	pub parent_number_and_hash: (BlockNumber, BlockHash),

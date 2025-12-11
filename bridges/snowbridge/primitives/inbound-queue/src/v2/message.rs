@@ -10,7 +10,7 @@ use alloy_core::{
 };
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_std::prelude::*;
 
 sol! {
@@ -80,7 +80,7 @@ impl core::fmt::Debug for IGatewayV2::Xcm {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum XcmPayload {
 	/// Represents raw XCM bytes
 	Raw(Vec<u8>),
@@ -97,7 +97,7 @@ pub enum Network {
 
 /// The ethereum side sends messages which are transcoded into XCM on BH. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct Message {
 	/// The address of the outbound queue on Ethereum that emitted this message as an event log
 	pub gateway: H160,
@@ -122,7 +122,7 @@ pub struct Message {
 /// An asset that will be transacted on AH. The asset will be reserved/withdrawn and placed into
 /// the holding register. The user needs to provide additional xcm to deposit the asset
 /// in a beneficiary account.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum EthereumAsset {
 	NativeTokenERC20 {
 		/// The native token ID
@@ -138,7 +138,7 @@ pub enum EthereumAsset {
 	},
 }
 
-#[derive(Copy, Clone, RuntimeDebug)]
+#[derive(Copy, Clone, Debug)]
 pub struct MessageDecodeError;
 
 impl TryFrom<&Log> for Message {
