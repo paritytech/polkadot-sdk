@@ -712,21 +712,9 @@ macro_rules! decl_test_parachains {
 
 						// Process parachain inherents:
 
-					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
-					let slot_duration = 6000; // 6 seconds slot duration in milliseconds
-					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-						// We need to satisfy `pallet_timestamp::on_finalize`.
-						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
-					now: relay_block_number as u64 * slot_duration,
-					}.into();
-					$crate::assert_ok!(
-						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
-					);
-
-					// Get RelayParentOffset from the runtime
-					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
-
-					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						// Get RelayParentOffset from the runtime
+						let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
@@ -740,6 +728,15 @@ macro_rules! decl_test_parachains {
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: Zero::zero(),
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 
 						$crate::assert_ok!(
