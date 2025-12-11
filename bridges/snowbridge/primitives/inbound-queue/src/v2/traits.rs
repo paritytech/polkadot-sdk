@@ -3,7 +3,6 @@
 // SPDX-FileCopyrightText: 2021-2025 Parity Technologies (UK) Ltd.
 use super::Message;
 
-use sp_core::RuntimeDebug;
 use sp_runtime::DispatchError;
 use xcm::latest::{SendError, Xcm};
 use Debug;
@@ -26,7 +25,7 @@ pub enum ConvertMessageError {
 }
 
 /// Reason why a message processor failed.
-#[derive(Clone, RuntimeDebug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MessageProcessorError {
 	/// Message processing failed.
 	ProcessMessage(DispatchError),
