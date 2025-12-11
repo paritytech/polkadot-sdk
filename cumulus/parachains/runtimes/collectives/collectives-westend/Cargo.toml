@@ -86,8 +86,8 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
-sp-io = { features = ["std"], default-features = true, path = "../../../../../substrate/primitives/io" }
+parachains-runtimes-test-utils = { default-features = true, workspace = true }
+sp-io = { features = ["std"], default-features = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

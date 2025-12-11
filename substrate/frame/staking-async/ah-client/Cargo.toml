@@ -36,6 +36,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
@@ -58,4 +59,4 @@ try-runtime = [
 ]
 
 [dev-dependencies]
-sp-io = { default-features = false, path = "../../../primitives/io" }
+sp-io = { default-features = false, workspace = true }
