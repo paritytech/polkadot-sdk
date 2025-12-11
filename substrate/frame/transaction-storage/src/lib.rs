@@ -282,8 +282,12 @@ pub mod pallet {
 		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
 		/// `MaxTransactionSize`. Data will be removed after `StoragePeriod` blocks, unless `renew`
 		/// is called.
+		///
+		/// Emits [`Stored`](Event::Stored) when successful.
+		///
 		/// ## Complexity
-		/// - O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
+		///
+		/// O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::store(data.len() as u32))]
 		pub fn store(origin: OriginFor<T>, data: Vec<u8>) -> DispatchResult {
@@ -541,6 +545,11 @@ pub mod pallet {
 			debug_assert!(_remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
+		}
+
+		/// Returns `true` if a blob of the given size can be stored.
+		fn data_size_ok(size: usize) -> bool {
+			(size > 0) && (size <= T::MaxTransactionSize::get() as usize)
 		}
 
 		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
