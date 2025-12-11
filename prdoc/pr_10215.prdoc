@@ -19,7 +19,7 @@ crates:
 - name: sp-state-machine
   bump: major
 - name: sc-client-db
-  bump: patch
+  bump: minor
 - name: sp-trie
   bump: minor
 - name: polkadot-node-core-pvf-common
@@ -29,7 +29,7 @@ crates:
 - name: cumulus-pallet-weight-reclaim
   bump: patch
 - name: cumulus-primitives-proof-size-hostfunction
-  bump: minor
+  bump: major
 - name: cumulus-primitives-storage-weight-reclaim
   bump: major
 - name: frame-benchmarking
@@ -38,7 +38,24 @@ crates:
   bump: patch
 - name: frame-benchmarking-cli
   bump: minor
+  validate: false
 - name: frame-storage-access-test-runtime
   bump: major
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: minor
+- name: sc-transaction-pool-api
+  bump: none
+  validate: false
+- name: cumulus-pallet-aura-ext
+  bump: none
+- name: sc-transaction-pool
+  bump: none
+  validate: false
+- name: polkadot-dispute-distribution
+  bump: none
+- name: bp-runtime
+  bump: none
+  validate: false
+- name: substrate-state-trie-migration-rpc
+  bump: none
+  validate: false
