@@ -88,11 +88,18 @@ struct KeyRange {
 	end_key: Option<StorageKey>,
 	/// The common prefix for this range.
 	prefix: StorageKey,
+	/// Page size for fetching keys in this range (decreases on failure).
+	page_size: u32,
 }
 
 impl KeyRange {
 	fn new(start_key: StorageKey, end_key: Option<StorageKey>, prefix: StorageKey) -> Self {
-		Self { start_key, end_key, prefix }
+		Self { start_key, end_key, prefix, page_size: 1000 }
+	}
+
+	/// Returns a new KeyRange with halved page size (minimum 10).
+	fn with_halved_page_size(&self) -> Self {
+		Self { page_size: (self.page_size / 2).max(10), ..self.clone() }
 	}
 }
 
@@ -127,10 +134,16 @@ impl ConnectionManager {
 	}
 
 	/// Called when a request fails. Triggers client recreation if version matches.
-	async fn recreate_client(&self, worker_index: usize, failed: &VersionedClient) {
+	/// Returns the new client (which may be the same if another worker already recreated it).
+	async fn recreate_client(
+		&self,
+		worker_index: usize,
+		failed: &VersionedClient,
+	) -> VersionedClient {
 		let client_index = worker_index % self.clients.len();
 		let mut client = self.clients[client_index].lock().await;
 		let _ = client.recreate(failed.version).await;
+		VersionedClient { ws_client: client.inner.clone(), version: client.version }
 	}
 }
 
@@ -273,7 +286,7 @@ impl Client {
 			return Ok(());
 		}
 
-		debug!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
+		warn!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
 		let ws_client = Self::create_ws_client(&self.uri).await?;
 		self.inner = Arc::new(ws_client);
 		self.version = expected_version + 1;
@@ -421,9 +434,14 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 24;
-	// nodes by default will not return more than 1000 keys per request
-	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
+	const PARALLEL_REQUESTS_PER_CLIENT: usize = 4;
+
+	fn parallel_requests(&self) -> usize {
+		self.conn_manager
+			.as_ref()
+			.map(|cm| cm.num_clients() * Self::PARALLEL_REQUESTS_PER_CLIENT)
+			.unwrap_or(Self::PARALLEL_REQUESTS_PER_CLIENT)
+	}
 
 	async fn rpc_get_storage(
 		&self,
@@ -459,9 +477,10 @@ where
 		prefix: Option<StorageKey>,
 		start_key: Option<StorageKey>,
 		at: B::Hash,
+		page_size: u32,
 	) -> Result<Vec<StorageKey>> {
 		client
-			.storage_keys_paged(prefix, Self::DEFAULT_KEY_DOWNLOAD_PAGE, start_key, Some(at))
+			.storage_keys_paged(prefix, page_size, start_key, Some(at))
 			.await
 			.map_err(|e| {
 				error!(target: LOG_TARGET, "Error = {e:?}");
@@ -521,7 +540,7 @@ where
 		fetch_batch: F,
 	) -> Result<Vec<StorageKey>>
 	where
-		F: Fn(Arc<Self>, KeyRange, B::Hash, usize, Arc<WsClient>) -> Fut
+		F: Fn(Arc<Self>, KeyRange, B::Hash, usize, Arc<WsClient>, u32) -> Fut
 			+ Send
 			+ Sync
 			+ Clone
@@ -622,6 +641,7 @@ where
 						block,
 						worker_index,
 						client.ws_client.clone(),
+						range.page_size,
 					)
 					.await
 					{
@@ -692,22 +712,19 @@ where
 							sleep(Duration::from_millis(10)).await;
 						},
 						Err(e) => {
-							warn!(
+							debug!(
 								target: LOG_TARGET,
-								"Worker {worker_index} failed to fetch keys: {e:?}. Requeueing for retry..."
+								"Worker {worker_index} failed to fetch keys: {e:?}"
 							);
 
+							// Put the range back in the queue with halved page size
+							work_queue.lock().unwrap().push_back(range.with_halved_page_size());
+
+							// Wait before recreating the client
+							sleep(Duration::from_secs(15)).await;
+
 							// Tell connection manager to recreate this client
-							conn_manager.recreate_client(worker_index, &client).await;
-
-							// Put the range back in the queue for retry
-							{
-								let mut queue = work_queue.lock().unwrap();
-								queue.push_back(range);
-							}
-
-							// Wait to avoid hammering a potentially failing connection
-							sleep(Duration::from_secs(1)).await;
+							let _ = conn_manager.recreate_client(worker_index, &client).await;
 						},
 					}
 				}
@@ -744,40 +761,10 @@ where
 			block,
 			parallel,
 			"Top-level keys",
-			|builder, range, block, worker_index, client| async move {
-				builder.rpc_get_keys_single_batch(range, block, worker_index, &client).await
-			},
-		)
-		.await
-	}
-
-	/// Get child keys with `prefix` at `block` with multiple requests in parallel.
-	async fn rpc_child_get_keys_parallel(
-		&self,
-		prefixed_top_key: &StorageKey,
-		prefix: &StorageKey,
-		block: B::Hash,
-		parallel: usize,
-	) -> Result<Vec<StorageKey>> {
-		let prefixed_top_key = prefixed_top_key.clone();
-		self.rpc_get_keys_parallel_internal(
-			prefix,
-			block,
-			parallel,
-			"Child keys",
-			move |builder, range, block, worker_index, client| {
-				let prefixed_top_key = prefixed_top_key.clone();
-				async move {
-					builder
-						.rpc_child_get_keys_single_batch(
-							range,
-							&prefixed_top_key,
-							block,
-							worker_index,
-							&client,
-						)
-						.await
-				}
+			|builder, range, block, worker_index, client, page_size| async move {
+				builder
+					.rpc_get_keys_single_batch(range, block, worker_index, &client, page_size)
+					.await
 			},
 		)
 		.await
@@ -794,18 +781,20 @@ where
 		block: B::Hash,
 		worker_index: usize,
 		client: &WsClient,
+		page_size: u32,
 	) -> Result<(Vec<StorageKey>, bool)> {
-		// Fetch a single page of keys with retry logic
-		// Note: The retry logic in get_keys_single_page handles transient errors,
-		// but connection errors need to be propagated up for reconnection
 		let mut page = self
 			.get_keys_single_page_with_client(
 				client,
 				Some(range.prefix.clone()),
 				Some(range.start_key.clone()),
 				block,
+				page_size,
 			)
 			.await?;
+
+		// Determine if this was a full batch BEFORE filtering
+		let is_full_batch = page.len() == page_size as usize;
 
 		// Avoid duplicated keys across workloads - filter out keys beyond our range
 		if let (Some(last), Some(end)) = (page.last(), &range.end_key) {
@@ -815,7 +804,6 @@ where
 		}
 
 		let page_len = page.len();
-		let is_full_batch = page_len == Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize;
 
 		debug!(
 			target: LOG_TARGET,
@@ -948,14 +936,14 @@ where
 	/// }
 	/// ```
 	async fn get_storage_data_dynamic_batch_size(
-		conn_manager: &ConnectionManager,
+		client: &VersionedClient,
 		worker_index: usize,
-		payloads: Vec<(String, ArrayParams)>,
+		payloads: &[(String, ArrayParams)],
 		bar: &ProgressBar,
-	) -> Vec<Option<StorageData>> {
+		batch_size: usize,
+	) -> std::result::Result<Vec<Option<StorageData>>, String> {
 		let mut all_data: Vec<Option<StorageData>> = vec![];
 		let mut start_index = 0;
-		let batch_size = 1000;
 		let total_payloads = payloads.len();
 
 		while start_index < total_payloads {
@@ -976,21 +964,10 @@ where
 				}
 			}
 
-			let batch_response = loop {
-				let client = conn_manager.get(worker_index).await;
-
-				match client.batch_request::<Option<StorageData>>(batch.clone()).await {
-					Ok(response) => break response,
-					Err(e) => {
-						warn!(
-							target: LOG_TARGET,
-							"Value worker {worker_index}: batch request failed: {e:?}. Retrying..."
-						);
-						conn_manager.recreate_client(worker_index, &client).await;
-						sleep(Duration::from_secs(1)).await;
-					},
-				}
-			};
+			let batch_response = client
+				.batch_request::<Option<StorageData>>(batch)
+				.await
+				.map_err(|e| format!("{e:?}"))?;
 
 			debug!(
 				target: LOG_TARGET,
@@ -1013,7 +990,7 @@ where
 			start_index = end_index;
 		}
 
-		all_data
+		Ok(all_data)
 	}
 
 	/// Synonym of `getPairs` that uses paged queries to first get the keys, and then
@@ -1026,18 +1003,9 @@ where
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>> {
+		let parallel = self.parallel_requests();
 		let keys = logging::with_elapsed_async(
-			|| async {
-				// TODO: We could start downloading when having collected the first batch of keys.
-				// https://github.com/paritytech/polkadot-sdk/issues/2494
-				let keys = self
-					.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
-					.await?
-					.into_iter()
-					.collect::<Vec<_>>();
-
-				Ok(keys)
-			},
+			|| async { self.rpc_get_keys_parallel(&prefix, at, parallel).await },
 			"Scraping keys...",
 			|keys| format!("Found {} keys", keys.len()),
 		)
@@ -1066,26 +1034,28 @@ where
 		);
 
 		// Create batches of payloads for dynamic work distribution
-		// Each batch is: (start_index, payloads)
+		// Each batch is: (start_index, payloads, batch_size)
 		const BATCH_SIZE: usize = 1000;
-		let mut batches: VecDeque<(usize, Vec<(String, ArrayParams)>)> = VecDeque::new();
+		let mut batches: VecDeque<(usize, Vec<(String, ArrayParams)>, usize)> = VecDeque::new();
 		for (batch_index, chunk) in payloads.chunks(BATCH_SIZE).enumerate() {
-			batches.push_back((batch_index * BATCH_SIZE, chunk.to_vec()));
+			batches.push_back((batch_index * BATCH_SIZE, chunk.to_vec(), BATCH_SIZE));
 		}
 
+		let parallel = self.parallel_requests();
+
 		eprintln!("🔧 Initialized {} batches for dynamic value fetching", batches.len());
-		eprintln!("🚀 Spawning {} parallel workers for value fetching", Self::PARALLEL_REQUESTS);
+		eprintln!("🚀 Spawning {} parallel workers for value fetching", parallel);
 
 		// Shared structures for dynamic work distribution
 		let work_queue = Arc::new(Mutex::new(batches));
 		let results: Arc<Mutex<Vec<Option<StorageData>>>> =
 			Arc::new(Mutex::new(vec![None; payloads.len()]));
 		let active_workers = Arc::new(AtomicUsize::new(0));
-		let semaphore = Arc::new(Semaphore::new(Self::PARALLEL_REQUESTS));
+		let semaphore = Arc::new(Semaphore::new(parallel));
 
 		// Spawn worker tasks
 		let mut handles = vec![];
-		for worker_index in 0..Self::PARALLEL_REQUESTS {
+		for worker_index in 0..parallel {
 			let work_queue = Arc::clone(&work_queue);
 			let results = Arc::clone(&results);
 			let active_workers = Arc::clone(&active_workers);
@@ -1113,30 +1083,57 @@ where
 					};
 
 					match work {
-						Some((start_index, batch)) => {
+						Some((start_index, batch, batch_size)) => {
 							debug!(
 								target: LOG_TARGET,
 								"Value worker {worker_index}: Processing batch starting at index {start_index} with {} payloads",
 								batch.len()
 							);
 
-							let batch_results = Self::get_storage_data_dynamic_batch_size(
-								&conn_manager,
-								worker_index,
-								batch,
-								&bar,
-							)
-							.await;
+							let client = conn_manager.get(worker_index).await;
 
-							// Store results in the correct positions
-							let mut results_lock = results.lock().unwrap();
-							for (offset, result) in batch_results.into_iter().enumerate() {
-								results_lock[start_index + offset] = result;
+							match Self::get_storage_data_dynamic_batch_size(
+								&client,
+								worker_index,
+								&batch,
+								&bar,
+								batch_size,
+							)
+							.await
+							{
+								Ok(batch_results) => {
+									// Store results in the correct positions
+									let mut results_lock = results.lock().unwrap();
+									for (offset, result) in batch_results.into_iter().enumerate() {
+										results_lock[start_index + offset] = result;
+									}
+									debug!(
+										target: LOG_TARGET,
+										"Value worker {worker_index}: Successfully processed batch at index {start_index}"
+									);
+								},
+								Err(e) => {
+									debug!(
+										target: LOG_TARGET,
+										"Value worker {worker_index}: batch request failed: {e:?}"
+									);
+
+									// Put batch back in queue with halved batch_size (minimum 10)
+									let new_batch_size = (batch_size / 2).max(10);
+									work_queue.lock().unwrap().push_back((
+										start_index,
+										batch,
+										new_batch_size,
+									));
+
+									// Wait before recreating the client
+									sleep(Duration::from_secs(15)).await;
+
+									// Recreate the client
+									let _ =
+										conn_manager.recreate_client(worker_index, &client).await;
+								},
 							}
-							debug!(
-								target: LOG_TARGET,
-								"Value worker {worker_index}: Successfully processed batch at index {start_index}"
-							);
 						},
 						None => {
 							// No more work in queue
@@ -1187,18 +1184,13 @@ where
 		// Check if we got responses for all submitted requests.
 		assert_eq!(keys.len(), storage_data.len());
 
-		let key_values = keys
+		// Filter out None values - keys without values should NOT be inserted
+		// (inserting with empty value would change the trie structure)
+		let key_values: Vec<_> = keys
 			.iter()
 			.zip(storage_data)
-			.map(|(key, maybe_value)| match maybe_value {
-				Some(data) => (key.clone(), data),
-				None => {
-					warn!(target: LOG_TARGET, "key {key:?} had none corresponding value.");
-					let data = StorageData(vec![]);
-					(key.clone(), data)
-				},
-			})
-			.collect::<Vec<_>>();
+			.filter_map(|(key, maybe_value)| maybe_value.map(|data| (key.clone(), data)))
+			.collect();
 
 		logging::with_elapsed(
 			|| {
@@ -1246,68 +1238,45 @@ where
 			.collect::<Vec<_>>();
 
 		let bar = ProgressBar::new(payloads.len() as u64);
-		let storage_data =
-			Self::get_storage_data_dynamic_batch_size(conn_manager, worker_index, payloads, &bar)
-				.await;
+
+		let storage_data = {
+			let mut batch_size = 1000usize;
+			loop {
+				let client = conn_manager.get(worker_index).await;
+
+				match Self::get_storage_data_dynamic_batch_size(
+					&client,
+					worker_index,
+					&payloads,
+					&bar,
+					batch_size,
+				)
+				.await
+				{
+					Ok(data) => break data,
+					Err(e) => {
+						debug!(
+							target: LOG_TARGET,
+							"Child storage worker {worker_index}: batch request failed: {e:?}"
+						);
+						// Halve the batch size on failure (minimum 10)
+						batch_size = (batch_size / 2).max(10);
+						sleep(Duration::from_secs(15)).await;
+						let _ = conn_manager.recreate_client(worker_index, &client).await;
+					},
+				}
+			}
+		};
 
 		assert_eq!(child_keys_len, storage_data.len());
 
+		// Filter out None values - keys without values should NOT be inserted
+		// (inserting with empty value would change the child trie structure)
 		Ok(child_keys
 			.iter()
 			.zip(storage_data)
-			.map(|(key, maybe_value)| match maybe_value {
-				Some(v) => (key.clone(), v),
-				None => {
-					warn!(target: LOG_TARGET, "key {key:?} had no corresponding value.");
-					(key.clone(), StorageData(vec![]))
-				},
-			})
+			.filter_map(|(key, maybe_value)| maybe_value.map(|v| (key.clone(), v)))
 			.collect::<Vec<_>>())
-	}
-
-	/// Get ONE batch of child keys from the given range at `block`.
-	async fn rpc_child_get_keys_single_batch(
-		&self,
-		range: KeyRange,
-		prefixed_top_key: &StorageKey,
-		block: B::Hash,
-		worker_index: usize,
-		client: &WsClient,
-	) -> Result<(Vec<StorageKey>, bool)> {
-		let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
-
-		let mut page = substrate_rpc_client::ChildStateApi::storage_keys_paged(
-			client,
-			top_key,
-			Some(range.prefix.clone()),
-			Self::DEFAULT_KEY_DOWNLOAD_PAGE,
-			Some(range.start_key.clone()),
-			Some(block),
-		)
-		.await
-		.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {e:?}");
-			"rpc child_get_keys failed"
-		})?;
-
-		// Avoid duplicated keys across workloads
-		if let (Some(last), Some(end)) = (page.last(), &range.end_key) {
-			if last >= end {
-				page.retain(|key| key < end);
-			}
-		}
-
-		let page_len = page.len();
-		let is_full_batch = page_len == Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize;
-
-		debug!(
-			target: LOG_TARGET,
-			"Worker {worker_index}: fetched {} child keys from range, full_batch={}",
-			page_len,
-			is_full_batch
-		);
-
-		Ok((page, is_full_batch))
 	}
 }
 
@@ -1322,18 +1291,18 @@ where
 	/// `top_kv` need not be only child-bearing top keys. It should be all of the top keys that are
 	/// included thus far.
 	///
-	/// This function concurrently populates `pending_ext`. the return value is only for writing to
-	/// cache, we can also optimize further.
+	/// This function uses parallel workers to fetch child tries concurrently.
+	/// Each worker handles complete child tries using simple sequential fetching.
 	async fn load_child_remote(
 		&self,
 		top_kv: &[KeyValue],
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues> {
-		let child_roots = top_kv
+		let child_roots: Vec<StorageKey> = top_kv
 			.iter()
 			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
 			.map(|(k, _)| k.clone())
-			.collect::<Vec<_>>();
+			.collect();
 
 		if child_roots.is_empty() {
 			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape");
@@ -1342,50 +1311,175 @@ where
 
 		info!(
 			target: LOG_TARGET,
-			"👩‍👦 scraping child-tree data from {} top keys",
+			"👩‍👦 scraping child-tree data from {} child tries using parallel workers",
 			child_roots.len(),
 		);
 
 		let at = self.as_online().at_expected();
-
 		let conn_manager = self.conn_manager()?;
-		let mut child_kv = vec![];
-		for (worker_index, prefixed_top_key) in child_roots.iter().enumerate() {
-			let child_keys = self
-				.rpc_child_get_keys_parallel(
-					&prefixed_top_key,
-					&StorageKey(vec![]),
-					at,
-					Self::PARALLEL_REQUESTS,
-				)
-				.await?;
+		let parallel = self.parallel_requests();
 
-			let child_kv_inner = Self::rpc_child_get_storage_paged(
-				&conn_manager,
-				worker_index,
-				&prefixed_top_key,
-				child_keys,
-				at,
-			)
-			.await?;
+		// Create a work queue with all child roots
+		let work_queue =
+			Arc::new(std::sync::Mutex::new(child_roots.into_iter().collect::<VecDeque<_>>()));
 
-			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
-			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-				None => {
-					error!(target: LOG_TARGET, "invalid key: {prefixed_top_key:?}");
-					return Err("Invalid child key")
-				},
-			};
+		// Results will be collected here
+		let results: Arc<std::sync::Mutex<Vec<(ChildInfo, Vec<KeyValue>)>>> =
+			Arc::new(std::sync::Mutex::new(Vec::new()));
 
-			let info = ChildInfo::new_default(un_prefixed);
-			let key_values =
-				child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
-			child_kv.push((info.clone(), child_kv_inner));
+		// Progress tracking
+		let completed_count = Arc::new(AtomicUsize::new(0));
+		let total_count = work_queue.lock().unwrap().len();
+
+		// Spawn workers
+		let mut handles = Vec::new();
+		for worker_index in 0..parallel {
+			let work_queue = Arc::clone(&work_queue);
+			let results = Arc::clone(&results);
+			let completed_count = Arc::clone(&completed_count);
+			let conn_manager = conn_manager.clone();
+			let at = at;
+
+			let handle = tokio::spawn(async move {
+				loop {
+					// Get next child trie to process
+					let prefixed_top_key = {
+						let mut queue = work_queue.lock().unwrap();
+						queue.pop_front()
+					};
+
+					let prefixed_top_key = match prefixed_top_key {
+						Some(key) => key,
+						None => break, // No more work
+					};
+
+					// Get the client for this worker
+					let client = conn_manager.get(worker_index).await;
+
+					// Fetch all keys for this child trie
+					let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+					let prefix = StorageKey(vec![]);
+					let page_size = 1000u32;
+					let mut child_keys = Vec::new();
+					let mut start_key: Option<StorageKey> = None;
+
+					let keys_result: Result<()> = async {
+						loop {
+							let page = substrate_rpc_client::ChildStateApi::storage_keys_paged(
+								client.ws_client.as_ref(),
+								top_key.clone(),
+								Some(prefix.clone()),
+								page_size,
+								start_key.clone(),
+								Some(at),
+							)
+							.await
+							.map_err(|e| {
+								error!(target: LOG_TARGET, "Error = {e:?}");
+								"rpc child_get_keys failed"
+							})?;
+
+							let is_full_batch = page.len() == page_size as usize;
+							if let Some(last) = page.last() {
+								start_key = Some(last.clone());
+							}
+							child_keys.extend(page);
+
+							if !is_full_batch {
+								break;
+							}
+						}
+						Ok(())
+					}
+					.await;
+
+					if let Err(e) = keys_result {
+						error!(
+							target: LOG_TARGET,
+							"Worker {worker_index}: Failed to fetch child keys: {e:?}"
+						);
+						// Put work back in queue and retry after reconnect
+						work_queue.lock().unwrap().push_back(prefixed_top_key);
+						sleep(Duration::from_secs(5)).await;
+						let _ = conn_manager.recreate_client(worker_index, &client).await;
+						continue;
+					}
+
+					// Fetch values for all keys
+					let child_kv_inner = match Self::rpc_child_get_storage_paged(
+						&conn_manager,
+						worker_index,
+						&prefixed_top_key,
+						child_keys,
+						at,
+					)
+					.await
+					{
+						Ok(kv) => kv,
+						Err(e) => {
+							error!(
+								target: LOG_TARGET,
+								"Worker {worker_index}: Failed to fetch child values: {e:?}"
+							);
+							// Put work back in queue and retry
+							work_queue.lock().unwrap().push_back(prefixed_top_key);
+							sleep(Duration::from_secs(5)).await;
+							continue;
+						},
+					};
+
+					// Process result
+					let prefixed_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+					let un_prefixed = match ChildType::from_prefixed_key(&prefixed_key) {
+						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+						None => {
+							error!(target: LOG_TARGET, "invalid key: {prefixed_key:?}");
+							continue;
+						},
+					};
+
+					let info = ChildInfo::new_default(un_prefixed);
+					results.lock().unwrap().push((info, child_kv_inner));
+
+					// Log progress
+					let done = completed_count.fetch_add(1, Ordering::SeqCst) + 1;
+					if done % 100 == 0 || done == total_count {
+						info!(
+							target: LOG_TARGET,
+							"👩‍👦 Child tries progress: {}/{} completed",
+							done,
+							total_count
+						);
+					}
+				}
+			});
+
+			handles.push(handle);
+		}
+
+		// Wait for all workers
+		futures::future::join_all(handles).await;
+
+		// Extract results and populate pending_ext
+		let child_kv_results = Arc::try_unwrap(results)
+			.map(|mutex| mutex.into_inner().unwrap())
+			.unwrap_or_else(|arc| arc.lock().unwrap().clone());
+
+		let mut child_kv = Vec::new();
+		for (info, kv_inner) in child_kv_results {
+			let key_values: Vec<(Vec<u8>, Vec<u8>)> =
+				kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect();
 			for (k, v) in key_values {
 				pending_ext.insert_child(info.clone(), k, v);
 			}
+			child_kv.push((info, kv_inner));
 		}
+
+		info!(
+			target: LOG_TARGET,
+			"👩‍👦 Completed scraping {} child tries",
+			child_kv.len()
+		);
 
 		Ok(child_kv)
 	}
