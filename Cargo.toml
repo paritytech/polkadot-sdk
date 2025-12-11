@@ -89,6 +89,7 @@ members = [
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
 	"cumulus/parachains/common",
+	"cumulus/parachains/common/types",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
@@ -1100,6 +1101,7 @@ pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
+parachains-common-types = { path = "cumulus/parachains/common/types", default-features = false }
 parachains-relay = { path = "bridges/relays/parachains" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
@@ -1454,8 +1456,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.0" }
-trie-db = { version = "0.30.0", default-features = false }
+trie-bench = { version = "0.42.1" }
+trie-db = { version = "0.31.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }

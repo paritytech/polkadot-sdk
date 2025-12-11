@@ -1409,6 +1409,7 @@ dependencies = [
  "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
+ "pallet-multi-asset-bounties",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -14421,8 +14422,10 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-multi-asset-bounties",
  "pallet-treasury",
  "pallet-xcm",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-common",
@@ -14435,6 +14438,15 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "parachains-common-types"
+version = "0.1.0"
+dependencies = [
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -16129,7 +16141,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parachains-common",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
@@ -16663,6 +16675,7 @@ dependencies = [
  "pallet-xcm-bridge-hub-router",
  "pallet-xcm-precompiles",
  "parachains-common",
+ "parachains-common-types",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
@@ -21160,6 +21173,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -21188,6 +21202,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
+ "strum 0.26.3",
  "thiserror 1.0.65",
 ]
 
@@ -23334,6 +23349,7 @@ dependencies = [
 name = "sp-debug-derive"
 version = "14.0.0"
 dependencies = [
+ "proc-macro-warning",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -23562,6 +23578,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-weights",
+ "strum 0.26.3",
  "substrate-test-runtime-client",
  "tracing",
  "tuplex",
@@ -26342,9 +26359,9 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.0"
+version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
+checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
 dependencies = [
  "criterion",
  "hash-db",
@@ -26358,9 +26375,9 @@ dependencies = [
 
 [[package]]
 name = "trie-db"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c0670ab45a6b7002c7df369fee950a27cf29ae0474343fd3a15aa15f691e7a6"
+checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
 dependencies = [
  "hash-db",
  "log",

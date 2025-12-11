@@ -44,7 +44,7 @@ use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	RuntimeDebug,
+	Debug,
 };
 
 #[derive(
@@ -54,7 +54,7 @@ use sp_runtime::{
 	PartialEq,
 	Eq,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,

@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Snowfork <hello@snowfork.com>
 // SPDX-FileCopyrightText: 2021-2025 Parity Technologies (UK) Ltd.
 use super::Message;
+
 use sp_core::RuntimeDebug;
 use sp_runtime::DispatchError;
 use xcm::latest::{SendError, Xcm};
+use Debug;
 
 /// Converts an inbound message from Ethereum to an XCM message that can be
 /// executed on a parachain.
@@ -13,7 +15,7 @@ pub trait ConvertMessage {
 }
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, RuntimeDebug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ConvertMessageError {
 	/// Invalid foreign ERC-20 token ID
 	InvalidAsset,
