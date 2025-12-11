@@ -306,7 +306,7 @@ pub fn build_relay_parent_descendants(
 
 	let mut previous_hash = None;
 
-	for block_number in 0..=num_headers as u32 {
+	for block_number in 0..num_headers as u32 {
 		let mut header = Header {
 			number: block_number,
 			parent_hash: previous_hash.unwrap_or_default(),
