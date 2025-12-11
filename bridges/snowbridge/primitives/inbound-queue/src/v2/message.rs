@@ -80,7 +80,7 @@ impl core::fmt::Debug for IGatewayV2::Xcm {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum Payload {
 	/// Raw bytes payload. Commonly used to represent raw XCM bytes
 	Raw(Vec<u8>),
