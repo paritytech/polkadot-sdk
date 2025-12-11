@@ -212,7 +212,7 @@ where
 						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational }
 							|| info.class == DispatchClass::Mandatory;
 
-						// If the `BundleInfo` digest is not set (function returns `None`), it means we are in some offchain
+						// If the `BlockBundleInfo` digest is not set (function returns `None`), it means we are in some offchain
 						// call like `validate_block`. In this case we assume this is the first block, otherwise these big
 						// transactions will never be able to enter the tx pool.
 						let is_first_block = is_first_block_in_core_with_digest(&digest).unwrap_or(true);

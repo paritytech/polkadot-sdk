@@ -19,7 +19,8 @@ use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
-	BundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector, ParachainBlockData,
+	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
+	ParachainBlockData,
 	PersistedValidationData,
 };
 use cumulus_test_client::{
@@ -797,14 +798,14 @@ fn validate_block_rejects_incomplete_bundle() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build 2 blocks with BundleInfo
+	// Build 2 blocks with BlockBundleInfo
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
 		Default::default(),
 		2,
 		|_| Vec::new(),
-		|i| vec![BundleInfo { index: i as u8, maybe_last: i == 1 }.to_digest_item()],
+		|i| vec![BlockBundleInfo { index: i as u8, maybe_last: i == 1 }.to_digest_item()],
 	);
 
 	// Validation with only first block should fail (incomplete bundle)
@@ -841,7 +842,7 @@ fn only_send_ump_signal_on_last_block_in_bundle() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build 4 blocks with BundleInfo and CoreInfo on all blocks
+	// Build 4 blocks with BlockBundleInfo and CoreInfo on all blocks
 	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
@@ -850,7 +851,7 @@ fn only_send_ump_signal_on_last_block_in_bundle() {
 		|_| Vec::new(),
 		|i| {
 			vec![
-				BundleInfo { index: i as u8, maybe_last: i == 3 }.to_digest_item(),
+				BlockBundleInfo { index: i as u8, maybe_last: i == 3 }.to_digest_item(),
 				CumulusDigestItem::CoreInfo(CoreInfo {
 					selector: CoreSelector(0),
 					claim_queue_offset: ClaimQueueOffset(0),
@@ -899,14 +900,14 @@ fn validate_block_accepts_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BundleInfo (maybe_last=false) and UseFullCore set via extrinsic
+	// Build a single block with BlockBundleInfo (maybe_last=false) and UseFullCore set via extrinsic
 	// UseFullCore should make validation succeed even without maybe_last=true
 	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
 		parent_head.clone(),
 		Default::default(),
-		vec![BundleInfo { index: 0, maybe_last: false }.to_digest_item()],
+		vec![BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item()],
 	);
 
 	// Validation should succeed because UseFullCore marks it as last block
@@ -926,7 +927,7 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BundleInfo (maybe_last=false), CoreInfo, and UseFullCore set via
+	// Build a single block with BlockBundleInfo (maybe_last=false), CoreInfo, and UseFullCore set via
 	// extrinsic. UseFullCore makes this block the last block in the core.
 	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
 		&client,
@@ -936,7 +937,7 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 		|_| vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
 		|_| {
 			vec![
-				BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+				BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item(),
 				CumulusDigestItem::CoreInfo(CoreInfo {
 					selector: CoreSelector(0),
 					claim_queue_offset: ClaimQueueOffset(0),

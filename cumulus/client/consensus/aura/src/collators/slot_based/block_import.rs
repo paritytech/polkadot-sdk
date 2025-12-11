@@ -18,7 +18,7 @@
 use crate::LOG_TARGET;
 use codec::{Codec, Decode, Encode};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
-use cumulus_primitives_core::{BundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -116,7 +116,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		&self,
 		parent: Block::Hash,
 		core_info: &CoreInfo,
-		bundle_info: &BundleInfo,
+		bundle_info: &BlockBundleInfo,
 		relay_block_identifier: &RelayBlockIdentifier,
 	) -> Option<ProofRecorderIgnoredNodes<Block>>
 	where
@@ -124,7 +124,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 	{
 		let parent_header = self.client.header(parent).ok().flatten()?;
 		let parent_core_info = CumulusDigestItem::find_core_info(parent_header.digest())?;
-		let parent_bundle_info = CumulusDigestItem::find_bundle_info(parent_header.digest())?;
+		let parent_bundle_info = CumulusDigestItem::find_block_bundle_info(parent_header.digest())?;
 		let parent_relay_block_identifier =
 			CumulusDigestItem::find_relay_block_identifier(parent_header.digest())?;
 
@@ -173,7 +173,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		AuthorityId: Codec + Send + Sync + std::fmt::Debug,
 	{
 		let core_info = CumulusDigestItem::find_core_info(params.header.digest());
-		let bundle_info = CumulusDigestItem::find_bundle_info(params.header.digest());
+		let bundle_info = CumulusDigestItem::find_block_bundle_info(params.header.digest());
 		let relay_block_identifier =
 			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
 

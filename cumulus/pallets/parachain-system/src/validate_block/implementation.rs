@@ -365,7 +365,7 @@ fn validate_validation_data(
 	);
 }
 
-/// Validates that the given blocks form a valid chain and have consistent BundleInfo.
+/// Validates that the given blocks form a valid chain and have consistent BlockBundleInfo.
 fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
 	let num_blocks = blocks.len();
 
@@ -392,17 +392,17 @@ fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header
 			array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
 		);
 
-		// Validate BundleInfo consistency
-		let bundle_info = CumulusDigestItem::find_bundle_info(block.header().digest());
+		// Validate BlockBundleInfo consistency
+		let bundle_info = CumulusDigestItem::find_block_bundle_info(block.header().digest());
 		match (first_block_has_bundle_info, &bundle_info) {
 			(None, info) => {
 				first_block_has_bundle_info = Some(info.is_some());
 			},
 			(Some(true), None) => {
-				panic!("All blocks must have BundleInfo if the first block has it");
+				panic!("All blocks must have BlockBundleInfo if the first block has it");
 			},
 			(Some(false), Some(_)) => {
-				panic!("No block should have BundleInfo if the first block doesn't have it");
+				panic!("No block should have BlockBundleInfo if the first block doesn't have it");
 			},
 			_ => {},
 		}
@@ -411,7 +411,7 @@ fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header
 			assert_eq!(
 				info.index as usize,
 				block_index,
-				"BundleInfo index mismatch: expected {}, got {}",
+				"BlockBundleInfo index mismatch: expected {}, got {}",
 				block_index,
 				info.index
 			);

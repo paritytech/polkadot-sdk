@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use cumulus_primitives_core::{BundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::stream::StreamExt;
 use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
 use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
@@ -529,16 +529,16 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
-/// Returns [`BundleInfo`] for the given parachain block.
-fn find_bundle_info(
+/// Returns [`BlockBundleInfo`] for the given parachain block.
+fn find_block_bundle_info(
 	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<BundleInfo, anyhow::Error> {
+) -> Result<BlockBundleInfo, anyhow::Error> {
 	let substrate_digest =
 		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
-	CumulusDigestItem::find_bundle_info(&substrate_digest)
-		.ok_or_else(|| anyhow!("Failed to find `BundleInfo` digest"))
+	CumulusDigestItem::find_block_bundle_info(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `BlockBundleInfo` digest"))
 }
 
 /// Validates that the given block is a "special" block in the core.
@@ -625,7 +625,7 @@ pub async fn ensure_is_only_block_in_core(
 			let mut next_first_bundle_block = None;
 			while let Some(mut block) = best_block_stream.next().await.transpose()? {
 				while block.number() > start_block.number() {
-					if find_bundle_info(&block)?.index == 0 {
+					if find_block_bundle_info(&block)?.index == 0 {
 						next_first_bundle_block = Some(block.hash());
 					}
 
@@ -657,7 +657,7 @@ pub async fn ensure_is_last_block_in_core(
 
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_to_check).await?;
-	let bundle_info = find_bundle_info(&block)?;
+	let bundle_info = find_block_bundle_info(&block)?;
 
 	// Above we ensure it is the last block in the core and now we want to ensure it isn't the first
 	// block.

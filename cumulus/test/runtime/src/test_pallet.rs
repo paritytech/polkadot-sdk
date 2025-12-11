@@ -321,7 +321,7 @@ pub mod pallet {
 						if {
 							let digest = frame_system::Pallet::<T>::digest();
 
-							CumulusDigestItem::find_bundle_info(&digest)
+							CumulusDigestItem::find_block_bundle_info(&digest)
 								// Default being `true` to support `validate_transaction`
 								.map_or(true, |bi| {
 									// Either we want that the transaction goes into the first block

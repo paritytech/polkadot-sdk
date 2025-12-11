@@ -34,7 +34,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
+	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
 	PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -626,7 +626,7 @@ where
 				slot_claim,
 				additional_pre_digest: vec![
 					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
-					CumulusDigestItem::BundleInfo(BundleInfo {
+					CumulusDigestItem::BlockBundleInfo(BlockBundleInfo {
 						index: block_index as u8,
 						maybe_last: is_last_block_in_core,
 					})

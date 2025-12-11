@@ -292,14 +292,14 @@ fn is_first_block_in_core<T: Config>() -> Option<bool> {
 
 /// Is this the first block in a core? (takes digest as parameter)
 ///
-/// Returns `None` if the [`CumulusDigestItem::BundleInfo`] digest is not set.
+/// Returns `None` if the [`CumulusDigestItem::BlockBundleInfo`] digest is not set.
 fn is_first_block_in_core_with_digest(digest: &Digest) -> Option<bool> {
-	CumulusDigestItem::find_bundle_info(digest).map(|bi| bi.index == 0)
+	CumulusDigestItem::find_block_bundle_info(digest).map(|bi| bi.index == 0)
 }
 
 /// Is the `BlockWeight` already above the target block weight?
 ///
-/// Returns `None` if the [`CumulusDigestItem::BundleInfo`] digest is not set.
+/// Returns `None` if the [`CumulusDigestItem::BlockBundleInfo`] digest is not set.
 fn block_weight_over_target_block_weight<T: Config, TargetBlockRate: Get<u32>>() -> bool {
 	let target_block_weight = MaxParachainBlockWeight::<T, TargetBlockRate>::target_block_weight();
 

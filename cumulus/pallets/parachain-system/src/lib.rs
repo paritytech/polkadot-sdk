@@ -376,7 +376,7 @@ pub mod pallet {
 				}
 
 				// Only send UMP signals on the last block of a bundle.
-				// For single-block PoVs (no BundleInfo), always send signals.
+				// For single-block PoVs (no BlockBundleInfo), always send signals.
 				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
 					Self::send_ump_signals();
 				}
