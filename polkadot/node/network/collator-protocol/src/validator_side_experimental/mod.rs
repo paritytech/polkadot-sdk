@@ -17,7 +17,6 @@
 mod collation_manager;
 mod common;
 mod error;
-mod metrics;
 mod peer_manager;
 mod state;
 #[cfg(test)]
@@ -43,7 +42,7 @@ use peer_manager::{Db, PeerManager};
 
 use state::State;
 
-pub use metrics::Metrics;
+pub use crate::validator_side_metrics::Metrics;
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]

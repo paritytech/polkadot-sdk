@@ -51,6 +51,9 @@ mod collator_side;
 mod validator_side;
 mod validator_side_experimental;
 
+// TODO: move into validator_side_experimental once `validator_side` is retired
+mod validator_side_metrics;
+
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 const LOG_TARGET_STATS: &'static str = "parachain::collator-protocol::stats";
 

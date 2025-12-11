@@ -62,7 +62,6 @@ use super::{modify_reputation, tick_stream, LOG_TARGET};
 mod claim_queue_state;
 mod collation;
 pub mod error;
-mod metrics;
 
 use claim_queue_state::ClaimQueueState;
 pub(crate) use claim_queue_state::PerLeafClaimQueueState;
@@ -79,7 +78,7 @@ const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000); // Asset Hub's para id is 1
 #[cfg(test)]
 mod tests;
 
-pub use metrics::Metrics;
+pub use crate::validator_side_metrics::Metrics;
 
 const COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor("An unexpected message");
 /// Message could not be decoded properly.
