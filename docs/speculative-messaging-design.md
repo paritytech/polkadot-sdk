@@ -560,53 +560,24 @@ t=2:    Chain B collator sees A's acknowledgement, acknowledges Block B
 t=N:    Both blocks included on relay chain, commitments verified
 ```
 
-Note: Block *building* can proceed immediately upon seeing messages. Only
-*acknowledgement* of the receiving block must wait for acknowledgement of the
-sending block.
-
-For different trust domains, acknowledgement of Block B waits for relay chain
+For different trust domains, acknowledgement of Block B depends on relay chain
 inclusion of Block A instead of collator acknowledgement.
 
 ### Cycle Prevention
 
 When two chains want to exchange messages speculatively in the same block, we
-risk deadlock: each waits for the other's acknowledgement.
+risk deadlock: each waits for the other's acknowledgement. For non-super chains
+(above scenario), we trivially break cycles, by sticking to the procedure
+above. In particular t=1: We only process the messages in block `A` once we
+have seen the entire block. By doing this both ways, block `A` can not depend
+on the current block `B`, because it did not exist when `A` was built. This
+holds even for multi-party communication.
 
-#### The Odd/Even Solution
-
-We break cycles using a deterministic, alternating priority scheme:
-
-```rust
-fn can_send_speculatively_this_block(
-    source_para: ParaId,
-    dest_para: ParaId, 
-    source_block_number: BlockNumber,
-) -> bool {
-    let is_lower_id = source_para.0 < dest_para.0;
-    let is_odd_block = source_block_number % 2 == 1;
-    
-    // Odd blocks: lower ParaId sends speculatively (higher waits for next block)
-    // Even blocks: higher ParaId sends speculatively (lower waits for next block)
-    (is_odd_block && is_lower_id) || (!is_odd_block && !is_lower_id)
-}
-```
-
-**How it works:**
-
-- On odd blocks: ParaId 100 can send speculatively to ParaId 200, but 200 must
-  wait until the next block (even) to send back speculatively
-- On even blocks: ParaId 200 can send speculatively to ParaId 100, but 100 must
-  wait until the next block (odd)
-- Over time, both directions get equal opportunities for speculative messaging
-- Worst-case round-trip latency: **2 parachain blocks** (not relay chain
-  inclusion!)
-
-**Why this prevents cycles:**
-
-For a cycle A→B→C→A to form, each link would need to be speculative in the same
-block. But the odd/even rule ensures that for any pair, only one direction is
-speculative per block. Therefore, at least one link must wait for the next
-block, breaking the cycle.
+Conclusion: By not allowing intra-block communication, no cycles between blocks
+can exist and above acknowledgment procedure is sound. For Basti blocks, we
+will end up with cycles between POVs, but those don't seem problematic, apart
+from the fact that those candidates can only become available atomically: All
+or nothing.
 
 ### Super Chains
 
@@ -664,7 +635,7 @@ chains because:
 1. The same collator produces all blocks
 2. They have access to all chains' state simultaneously 
 3. They can resolve message dependencies during block production
-4. The odd/even rule doesn't apply (same author, coordinated production)
+4. Cycles are fine and supported
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1074,7 +1045,7 @@ impl MMRExtensionProof {
 | Same super-chain | Messages from co-authored blocks are immediately trusted |
 | Same trust domain | Wait for source block acknowledgement |
 | Cross-domain | Wait for source block inclusion on relay chain |
-| Cycle prevention | Respect odd/even sending restrictions (wait for next block, not inclusion) |
+| Cycle prevention | No intra block communication apart from super chains (wait for next block, not inclusion) |
 
 ## Appendix D: Commitment Schema Summary
 
