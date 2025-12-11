@@ -173,23 +173,6 @@ pub mod pallet {
 		/// Maximum data set in a single transaction in bytes.
 		#[pallet::constant]
 		type MaxTransactionSize: Get<u32>;
-		/// Authorizations expire after this many blocks.
-		#[pallet::constant]
-		type AuthorizationPeriod: Get<BlockNumberFor<Self>>;
-		/// The origin that can authorize data storage.
-		type Authorizer: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Priority of store/renew transactions.
-		#[pallet::constant]
-		type StoreRenewPriority: Get<TransactionPriority>;
-		/// Longevity of store/renew transactions.
-		#[pallet::constant]
-		type StoreRenewLongevity: Get<TransactionLongevity>;
-		/// Priority of unsigned transactions to remove expired authorizations.
-		#[pallet::constant]
-		type RemoveExpiredAuthorizationPriority: Get<TransactionPriority>;
-		/// Longevity of unsigned transactions to remove expired authorizations.
-		#[pallet::constant]
-		type RemoveExpiredAuthorizationLongevity: Get<TransactionLongevity>;
 	}
 
 	#[pallet::error]
@@ -290,10 +273,6 @@ pub mod pallet {
 			assert_eq!(
 				storage_period, default_period,
 				"GenesisConfig.storage_period must match DEFAULT_STORAGE_PERIOD"
-			);
-			assert!(
-				!T::AuthorizationPeriod::get().is_zero(),
-				"AuthorizationPeriod must be greater than zero"
 			);
 		}
 	}
