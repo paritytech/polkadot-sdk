@@ -502,7 +502,8 @@ mod tests {
 		}
 	}
 
-	/// Test to ensure that when num_authorities is populated, the authorities are included in the proof
+	/// Test to ensure that when num_authorities is populated, the authorities are included in the
+	/// proof
 	#[test]
 	fn test_authorities_included_in_proof() {
 		let mut builder = RelayStateSproofBuilder::default();
@@ -516,19 +517,21 @@ mod tests {
 
 		// At minimum, we should be able to verify that authorities data exists in the storage
 		// by reconstructing the storage and checking if the keys exist
-		use sp_state_machine::{TrieBackendBuilder, Backend};
 		use sp_runtime::traits::HashingFor;
+		use sp_state_machine::{Backend, TrieBackendBuilder};
 		let db = proof.into_memory_db::<HashingFor<polkadot_primitives::Block>>();
 		let backend = TrieBackendBuilder::new(db, state_root).build();
 
 		// Verify authorities key exists and contains 3 authorities
 		let authorities_data = backend.storage(authorities_key).unwrap().unwrap();
-		let authorities: Vec<(AuthorityId, BabeAuthorityWeight)> = codec::Decode::decode(&mut &authorities_data[..]).unwrap();
+		let authorities: Vec<(AuthorityId, BabeAuthorityWeight)> =
+			codec::Decode::decode(&mut &authorities_data[..]).unwrap();
 		assert_eq!(authorities.len(), 3);
 
 		// Verify next_authorities key exists and contains the same 3 authorities
 		let next_authorities_data = backend.storage(next_authorities_key).unwrap().unwrap();
-		let next_authorities: Vec<(AuthorityId, BabeAuthorityWeight)> = codec::Decode::decode(&mut &next_authorities_data[..]).unwrap();
+		let next_authorities: Vec<(AuthorityId, BabeAuthorityWeight)> =
+			codec::Decode::decode(&mut &next_authorities_data[..]).unwrap();
 		assert_eq!(next_authorities.len(), 3);
 
 		// Verify they are the same authorities
@@ -546,13 +549,19 @@ mod tests {
 
 		for relay_parent_offset in test_cases {
 			let builder_clone = builder.clone();
-			let (state_root, _proof, descendants) = builder_clone.into_state_root_proof_and_descendants(relay_parent_offset);
+			let (state_root, _proof, descendants) =
+				builder_clone.into_state_root_proof_and_descendants(relay_parent_offset);
 
 			// Should generate relay_parent_offset + 1 headers
 			let expected_num_headers = relay_parent_offset + 1;
-			assert_eq!(descendants.len(), expected_num_headers as usize,
+			assert_eq!(
+				descendants.len(),
+				expected_num_headers as usize,
 				"Failed for relay_parent_offset {}: expected {} headers, got {}",
-				relay_parent_offset, expected_num_headers, descendants.len());
+				relay_parent_offset,
+				expected_num_headers,
+				descendants.len()
+			);
 
 			// Verify the headers are properly linked
 			for (i, header) in descendants.iter().enumerate() {
@@ -562,7 +571,11 @@ mod tests {
 
 			// Verify each header has proper digest items (pre-digest and seal)
 			for header in &descendants {
-				assert_eq!(header.digest().logs.len(), 2, "Each header should have pre-digest and seal");
+				assert_eq!(
+					header.digest().logs.len(),
+					2,
+					"Each header should have pre-digest and seal"
+				);
 			}
 		}
 	}
