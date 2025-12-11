@@ -43,7 +43,11 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{CandidateHash, CoreIndex, GroupIndex, Hash, SessionIndex};
 
-use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
+use super::{
+	error::Error,
+	metrics::{OCCUPIED, SCHEDULED},
+	FatalError, Metrics, Result, LOG_TARGET,
+};
 
 #[cfg(test)]
 mod tests;
@@ -76,10 +80,19 @@ struct CoreInfo {
 
 /// Origin of CoreInfo.  Whether it was created by calling prospective parachains for scheduled
 /// candidates, or by querying occupied cores for already backed candidates.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum CoreInfoOrigin {
 	Occupied,
 	Scheduled,
+}
+
+impl CoreInfoOrigin {
+	fn to_metric_name(&self) -> &'static str {
+		match self {
+			CoreInfoOrigin::Occupied => OCCUPIED,
+			CoreInfoOrigin::Scheduled => SCHEDULED,
+		}
+	}
 }
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
@@ -267,62 +280,66 @@ impl Requester {
 			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
 		}
 
-		if self.speculative_availability {
-			let scheduled_cores = self.request_backable_candidates_core_info(ctx, new_head).await?;
-			if scheduled_cores.len() > 0 {
-				gum::trace!(
-					target: LOG_TARGET,
-					?scheduled_cores,
-					"Query scheduled cores"
-				);
-
-				let candidate_hashes = scheduled_cores
-					.iter()
-					.map(|(_, core_info)| core_info.candidate_hash)
-					.collect::<HashSet<_>>();
-
-				let session_info = self
-					.session_cache
-					.get_session_info(
-						ctx,
-						runtime,
-						// We use leaf here, the relay_parent must be in the same session as
-						// the leaf. This is guaranteed by runtime which ensures that cores are
-						// cleared at session boundaries. At the same time, only leaves are
-						// guaranteed to be fetchable by the state trie.
-						leaf,
-						leaf_session_index,
-					)
-					.await
-					.map_err(|err| {
-						gum::warn!(
-							target: LOG_TARGET,
-							error = ?err,
-							"Failed to spawn a fetch task"
-						);
-						err
-					})?;
-
-				if let Some(session_info) = session_info {
-					let num_validators =
-						session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
-							acc = acc.saturating_add(group.len());
-							acc
-						});
-
-					let (tx, rx) = oneshot::channel();
-					sender
-						.send_message(AvailabilityStoreMessage::NoteBackableCandidates {
-							candidate_hashes,
-							num_validators,
-							tx,
-						})
-						.await;
-					rx.await?.map_err(|_| Error::AvailabilityStore)?;
-					self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
-				}
-			}
+		if !self.speculative_availability {
+			return Ok(())
 		}
+
+		let scheduled_cores = self.request_backable_candidates_core_info(ctx, new_head).await?;
+		if scheduled_cores.is_empty() {
+			return Ok(());
+		}
+		gum::trace!(
+			target: LOG_TARGET,
+			?scheduled_cores,
+			"Query scheduled cores"
+		);
+
+		let candidate_hashes = scheduled_cores
+			.iter()
+			.map(|(_, core_info)| core_info.candidate_hash)
+			.collect::<HashSet<_>>();
+
+		let session_info = self
+			.session_cache
+			.get_session_info(
+				ctx,
+				runtime,
+				// We use leaf here, the relay_parent must be in the same session as
+				// the leaf. This is guaranteed by runtime which ensures that cores are
+				// cleared at session boundaries. At the same time, only leaves are
+				// guaranteed to be fetchable by the state trie.
+				leaf,
+				leaf_session_index,
+			)
+			.await
+			.map_err(|err| {
+				gum::warn!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Failed to spawn a fetch task"
+				);
+				err
+			})?;
+
+		if let Some(session_info) = session_info {
+			let num_validators =
+				session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
+					acc = acc.saturating_add(group.len());
+					acc
+				});
+
+			let (tx, rx) = oneshot::channel();
+			sender
+				.send_message(AvailabilityStoreMessage::NoteBackableCandidates {
+					candidate_hashes,
+					num_validators,
+					tx,
+				})
+				.await;
+			rx.await?.map_err(|_| Error::AvailabilityStore)?;
+			self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
+		}
+
 		Ok(())
 	}
 

@@ -183,7 +183,7 @@ impl FetchTaskConfig {
 			chunk_index,
 			req_v1_protocol_name,
 			req_v2_protocol_name,
-			origin: core.origin.clone(),
+			origin: core.origin,
 		};
 		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
 	}
@@ -290,13 +290,7 @@ impl RunningTask {
 						target: LOG_TARGET,
 						"Node seems to be shutting down, canceling fetch task"
 					);
-					self.metrics.on_fetch(
-						FAILED,
-						match self.origin {
-							CoreInfoOrigin::Scheduled => SCHEDULED,
-							CoreInfoOrigin::Occupied => OCCUPIED,
-						},
-					);
+					self.metrics.on_fetch(FAILED, self.origin.to_metric_name());
 					return
 				},
 				Err(TaskError::PeerError) => {
@@ -336,22 +330,10 @@ impl RunningTask {
 			break
 		}
 		if succeeded {
-			self.metrics.on_fetch(
-				SUCCEEDED,
-				match self.origin {
-					CoreInfoOrigin::Scheduled => SCHEDULED,
-					CoreInfoOrigin::Occupied => OCCUPIED,
-				},
-			);
+			self.metrics.on_fetch(SUCCEEDED, self.origin.to_metric_name());
 			self.conclude(bad_validators).await;
 		} else {
-			self.metrics.on_fetch(
-				FAILED,
-				match self.origin {
-					CoreInfoOrigin::Scheduled => SCHEDULED,
-					CoreInfoOrigin::Occupied => OCCUPIED,
-				},
-			);
+			self.metrics.on_fetch(FAILED, self.origin.to_metric_name());
 			self.conclude_fail().await
 		}
 	}
