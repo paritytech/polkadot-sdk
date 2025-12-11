@@ -82,7 +82,7 @@ use sp_std::prelude::*;
 /// Meta Transaction type.
 ///
 /// The data that is provided and signed by the signer and shared with the relayer.
-#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug, DecodeWithMemTracking)]
+#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, Debug, DecodeWithMemTracking)]
 pub struct MetaTx<Call, Extension> {
 	/// The target call to be executed on behalf of the signer.
 	call: Call,
