@@ -32,12 +32,12 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-pallet-assets = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-polkadot-parachain-primitives = { default-features = true, workspace = true }
-polkadot-runtime-parachains = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-xcm-simulator = { default-features = true, workspace = true }
+pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }
+pallet-timestamp = { default-features = true, path = "../../../substrate/frame/timestamp" }
+polkadot-parachain-primitives = { default-features = true, path = "../../parachain" }
+polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+xcm-simulator = { default-features = true, path = "../xcm-simulator" }
 
 [features]
 default = ["std"]
@@ -64,12 +64,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -80,10 +76,7 @@ test-utils = ["std"]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

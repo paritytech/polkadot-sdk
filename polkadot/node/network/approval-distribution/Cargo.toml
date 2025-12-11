@@ -13,37 +13,37 @@ workspace = true
 
 [dependencies]
 itertools = { workspace = true }
-polkadot-node-metrics.default-features = true
 polkadot-node-metrics.workspace = true
-polkadot-node-network-protocol.default-features = true
+polkadot-node-metrics.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true, default-features = true }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 
 [dev-dependencies]
-sc-keystore = { default-features = false, workspace = true }
-sp-application-crypto = { default-features = true, workspace = true }
-sp-authority-discovery = { default-features = true, workspace = true }
-sp-core = { features = ["std"], default-features = true, workspace = true }
+sc-keystore = { default-features = false, path = "../../../../substrate/client/keystore" }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
+sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
 
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 assert_matches = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
 schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
 rand_core = { workspace = true }
-sp-tracing = { default-features = false, workspace = true }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }

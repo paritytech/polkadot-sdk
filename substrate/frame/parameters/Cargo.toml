@@ -20,9 +20,9 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-pallet-example-basic = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-example-basic = { default-features = true, path = "../examples/basic" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
@@ -40,14 +40,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-example-basic/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-example-basic/try-runtime",
 	"sp-runtime/try-runtime",
 ]

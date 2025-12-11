@@ -27,10 +27,10 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-frame-support = { features = ["experimental"], default-features = true, workspace = true }
-pallet-transaction-payment = { default-features = true, workspace = true }
+frame-support = { features = ["experimental"], default-features = true, path = "../support" }
+pallet-transaction-payment = { default-features = true, path = "../transaction-payment" }
 paste = { workspace = true, default-features = true }
-sp-io = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
@@ -50,12 +50,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

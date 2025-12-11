@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.36.1"
+version = "0.36.2"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -4325,7 +4325,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.26.1"
+version = "0.26.2"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -4487,7 +4487,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-parachain-inherent"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4620,7 +4620,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.23.1"
+version = "0.23.2"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -5059,7 +5059,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
@@ -13363,7 +13363,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -13537,7 +13537,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-client"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -14171,7 +14171,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -20180,7 +20180,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.53.0"
+version = "0.53.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -20552,7 +20552,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.53.0"
+version = "0.53.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -27668,7 +27668,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
