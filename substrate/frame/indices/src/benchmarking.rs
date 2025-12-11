@@ -23,12 +23,21 @@ use crate::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use frame_support::traits::{Currency, ReservableCurrency};
 
 const SEED: u32 = 0;
 
-#[benchmarks]
+#[benchmarks(
+	where
+		T::NativeBalance: frame_support::traits::fungible::Inspect<T::AccountId>,
+		T: Config + pallet_balances::Config,
+		pallet_balances::Pallet<T>: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,
+)]
 mod benchmarks {
 	use super::*;
+	use crate::migration::v1::MigrateCurrencyToFungibles;
+	use frame_support::weights::WeightMeter;
+	use frame_support::migrations::SteppedMigration;
 
 	#[benchmark]
 	fn claim() {
@@ -204,7 +213,7 @@ mod benchmarks {
 		let old_deposit = T::Deposit::get();
 		#[block]
 		{
-			MigrateCurrencyToFungibles::<T>::migrate_account(account, index, frozen, old_deposit);
+			let _ = MigrateCurrencyToFungibles::<T, pallet_balances::Pallet<T>>::step(None, &mut WeightMeter::new());
 		}
 		assert_eq!(Accounts::<T>::get(index).unwrap().0, account);
 		assert_eq!(Accounts::<T>::get(index).unwrap().1, old_deposit);

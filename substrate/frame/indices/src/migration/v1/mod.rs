@@ -80,22 +80,28 @@ use crate::{
 	pallet::{Accounts, Config, HoldReason},
 	BalanceOf,
 };
-use alloc::collections::BTreeMap;
+
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	traits::{
-		fungible::{Inspect, InspectHold, MutateHold},
+		fungible::{Inspect, MutateHold},
 		tokens::{Fortitude, Preservation},
 		Currency, Get, ReservableCurrency,
 	},
 	weights::WeightMeter,
 };
-use sp_runtime::{traits::Zero, TryRuntimeError};
+use sp_runtime::traits::Zero;
 use std::cmp::min;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+#[cfg(any(test, feature = "try-runtime"))]
+use alloc::collections::BTreeMap;
+#[cfg(any(test, feature = "try-runtime"))]
+use sp_runtime::TryRuntimeError;
+#[cfg(any(test, feature = "try-runtime"))]
+use frame_support::traits::fungible::InspectHold;
 
 // Module containing the OLD (v0) storage items that used Currency trait.
 pub mod v0 {
@@ -150,12 +156,6 @@ where
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
-		loop {
-			// Process one account per step
-			if meter.try_consume(min_required).is_err() {
-				break;
-			}
-
 			// Get the iterator for the OLD accounts to migrate
 			let mut iter = if let Some(Some(last_key)) = cursor {
 				v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
@@ -172,7 +172,8 @@ where
 				println!("Migration completed - no more accounts to migrate");
 				return Ok(None);
 			}
-		}
+
+			meter.consume(min_required);
 
 		Ok(cursor)
 	}
@@ -254,7 +255,12 @@ where
 
 		Ok(())
 	}
+}
 
+impl<T: Config, OldCurrency> MigrateCurrencyToFungibles<T, OldCurrency>
+where
+	OldCurrency: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,
+{
 	fn migrate_account(
 		account: T::AccountId,
 		index: T::AccountIndex,
