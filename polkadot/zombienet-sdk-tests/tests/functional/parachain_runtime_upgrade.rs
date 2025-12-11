@@ -8,12 +8,13 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_blocks_are_being_finalized, assert_para_throughput, runtime_upgrade, wait_for_upgrade,
+	assert_blocks_are_being_finalized, assert_para_throughput, create_runtime_upgrade_call,
+	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
-use std::time::Duration;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -79,22 +80,23 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 		));
 	}
 
-	// Perform runtime upgrade through the parachain collator
-	// Important: the upgrade must be performed through the collator, not through the relay node,
-	// so that the new runtime can use all necessary host functions
 	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
-	runtime_upgrade(&network, &collator_node, PARA_ID, WASM_WITH_SLOT_DURATION_18S).await?;
+	let wasm = std::fs::read(WASM_WITH_SLOT_DURATION_18S)?;
+	let call = create_runtime_upgrade_call(&wasm);
+	submit_extrinsic_and_wait_for_finalization_success(&collator_client, &call, &dev::alice())
+		.await?;
 
 	let expected_spec_version = current_spec_version + 1;
 
-	// Wait for the upgrade to complete (maximum 250 seconds)
 	log::info!("Waiting for parachain runtime upgrade to version {}...", expected_spec_version);
-	tokio::time::timeout(
-		Duration::from_secs(250),
-		wait_for_upgrade(collator_client.clone(), expected_spec_version),
-	)
-	.await
-	.map_err(|_| anyhow!("Timeout waiting for runtime upgrade"))??;
+	wait_for_runtime_upgrade(&collator_client).await?;
+
+	let spec_version_after_upgrade =
+		collator_client.backend().current_runtime_version().await?.spec_version;
+	assert_eq!(
+		expected_spec_version, spec_version_after_upgrade,
+		"Unexpected runtime spec version"
+	);
 
 	log::info!("Runtime upgrade completed successfully");
 
@@ -109,12 +111,7 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	// Verify that the parachain continues producing blocks after the upgrade
 	// The migration should have prevented the panic and allowed the parachain to work normally
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(PARA_ID), 10..30)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 10..30)]).await?;
 
 	log::info!("Test finished - parachain successfully continued producing blocks after upgrade");
 

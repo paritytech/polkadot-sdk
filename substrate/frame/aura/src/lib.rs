@@ -143,17 +143,17 @@ pub mod pallet {
 			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
 
 			let old_slot = CurrentSlot::<T>::get();
-			CurrentSlot::<T>::put(new_slot);
-
-			log::info!(
-				target: LOG_TARGET,
-				"Migrated CurrentSlot from {} to {} (timestamp: {:?}, slot_duration: {:?})",
-				u64::from(old_slot),
-				u64::from(new_slot),
-				current_timestamp,
-				new_slot_duration
-			);
-
+			if old_slot != new_slot {
+				CurrentSlot::<T>::put(new_slot);
+				log::info!(
+					target: LOG_TARGET,
+					"Migrated CurrentSlot from {} to {} (timestamp: {:?}, slot_duration: {:?})",
+					u64::from(old_slot),
+					u64::from(new_slot),
+					current_timestamp,
+					new_slot_duration
+				);
+			}
 			T::DbWeight::get().reads_writes(2, 1)
 		}
 
