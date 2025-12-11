@@ -8,3 +8,15 @@ doc:
 crates:
   - name: sp-trie
     bump: minor
+  - name: cumulus-pallet-parachain-system
+    bump: none
+    validate: false
+  - name: sp-state-machine
+    bump: none
+    validate: false
+  - name: substrate-state-trie-migration-rpc
+    bump: none
+    validate: false
+  - name: bp-runtime
+    bump: none
+    validate: false
