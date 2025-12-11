@@ -85,6 +85,7 @@ use unincluded_segment::{
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
+pub use relay_state_snapshot::ProcessChildTrieData;
 /// Register the `validate_block` function that is used by parachains to validate blocks on a
 /// validator.
 ///
@@ -263,6 +264,12 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Processor for child trie data from relay chain state proofs.
+		///
+		/// This allows parachains to process published data from other parachains
+		/// by reading it from child tries included in the relay chain state proof.
+		type ChildTrieProcessor: relay_state_snapshot::ProcessChildTrieData;
 	}
 
 	#[pallet::hooks]
@@ -700,6 +707,8 @@ pub mod pallet {
 			<RelayStateProof<T>>::put(relay_chain_state);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
+
+			total_weight.saturating_accrue(T::ChildTrieProcessor::process_child_trie_data(&relay_state_proof));
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
