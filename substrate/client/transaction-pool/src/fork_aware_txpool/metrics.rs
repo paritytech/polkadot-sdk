@@ -97,6 +97,12 @@ pub struct EventsHistograms {
 	pub broadcast: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::InBlock` event
 	pub in_block: Histogram,
+	/// Histogram of timings for reporting `TransactionStatus::InBlock` event (unfiltered).
+	///
+	/// This is an experimental feature for reliability dashboard.
+	/// Unlike `in_block`, this metric records every InBlock event, including duplicates
+	/// when the same transaction appears in multiple blocks (e.g., during chain reorgs).
+	pub in_block_forks: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::Retracted` event
 	pub retracted: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::FinalityTimeout` event
@@ -143,6 +149,23 @@ impl EventsHistograms {
 					histogram_opts!(
 						"substrate_sub_txpool_timing_event_in_block",
 						"Histogram of timings for reporting InBlock event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
+				registry,
+			)?,
+			in_block_forks: register(
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_in_block_forks",
+						"Histogram of timings for reporting unfiltered InBlock event (experimental feature for reliability dashboard)",
 					)
 					.buckets(
 						[
@@ -557,6 +580,15 @@ where
 	) {
 		let Entry::Occupied(mut entry) = submitted_timestamp_map.entry(hash) else { return };
 		let remove = status.is_final();
+
+		// Record unfiltered in_block_forks metric for EVERY InBlock event
+		if matches!(status, TransactionStatus::InBlock(..)) {
+			let duration = timestamp.duration_since(entry.get().submit_timestamp);
+			metrics.report(|metrics| {
+				metrics.events_histograms.in_block_forks.observe(duration.as_secs_f64())
+			});
+		}
+
 		if let Some(submit_timestamp) = entry.get_mut().update(&status) {
 			metrics.report(|metrics| {
 				metrics

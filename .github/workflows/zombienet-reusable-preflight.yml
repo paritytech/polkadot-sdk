@@ -75,7 +75,7 @@ on:
         value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
 
       BUILD_RUN_ID:
-        value: ${{ inputs.build_run_id }}
+        value: ${{ jobs.preflight.outputs.BUILD_RUN_ID }}
         description: |
           Id of the build run, needed to download the artifacts.
 
@@ -193,6 +193,7 @@ jobs:
       ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}
       ZOMBIENET_SDK_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+      BUILD_RUN_ID: ${{ steps.determine_build.outputs.BUILD_RUN_ID }}
 
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -234,6 +235,40 @@ jobs:
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
               - '.github/zombienet-flaky-tests'
+
+      - name: Determine build run id
+        id: determine_build
+        shell: bash
+        env:
+          PROVIDED_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BUILD_WORKFLOW_FILE: build-publish-images.yml
+          BRANCH_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [[ -n "$PROVIDED_BUILD_RUN_ID" ]]; then
+            echo "Using provided build run ID: $PROVIDED_BUILD_RUN_ID"
+            echo "BUILD_RUN_ID=$PROVIDED_BUILD_RUN_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Auto-detecting build run ID for ${BUILD_WORKFLOW_FILE} on branch ${BRANCH_REF}"
+          RUNS_JSON=$(gh run list --workflow="${BUILD_WORKFLOW_FILE}" -b "${BRANCH_REF}" -L 20 --json databaseId,status,conclusion,createdAt || true)
+
+          if [[ -z "$RUNS_JSON" || "$RUNS_JSON" == "[]" ]]; then
+            echo "::error::Unable to retrieve runs for ${BUILD_WORKFLOW_FILE} on branch ${BRANCH_REF}"
+            exit 1
+          fi
+
+          RUN_ID=$(echo "$RUNS_JSON" | jq -r '[.[] | select(.status == "completed" and .conclusion == "success")] | first | .databaseId // empty')
+
+          if [[ -z "$RUN_ID" ]]; then
+            echo "::error::Unable to find successful ${BUILD_WORKFLOW_FILE} run for branch ${BRANCH_REF}"
+            exit 1
+          fi
+
+          echo "Found build run ID: $RUN_ID"
+          echo "BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_OUTPUT"
 
       #
       # Set environment vars (including runner/image)

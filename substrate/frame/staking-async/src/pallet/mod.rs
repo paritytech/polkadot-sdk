@@ -18,10 +18,11 @@
 //! `pallet-staking-async`'s main `pallet` module.
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
+	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -68,7 +69,7 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::DefaultNoBound;
+	use frame_support::{weights::WeightMeter, DefaultNoBound};
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -1207,6 +1208,8 @@ pub mod pallet {
 		EraDurationBoundExceeded,
 		/// Received a validator activation event that is not recognized.
 		UnknownValidatorActivation,
+		/// Failed to proceed paged election due to weight limits
+		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
 	}
 
 	#[pallet::error]
@@ -1408,6 +1411,30 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			let (weight, exec) = EraElectionPlanner::<T>::maybe_fetch_election_results();
+			crate::log!(
+				trace,
+				"weight of fetching next election page is {:?}, have {:?}",
+				weight,
+				weight_meter.remaining()
+			);
+
+			if weight_meter.can_consume(weight) {
+				exec(weight_meter);
+			} else {
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::PagedElectionOutOfWeight {
+						page: NextElectionPage::<T>::get().unwrap_or(
+							EraElectionPlanner::<T>::election_pages().defensive_saturating_sub(1),
+						),
+						required: weight,
+						had: weight_meter.remaining(),
+					},
+				));
+			}
+		}
+
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// process our queue.
 			let mut consumed_weight = slashing::process_offence::<T>();
@@ -1419,9 +1446,6 @@ pub mod pallet {
 				consumed_weight.saturating_accrue(slash_weight);
 			}
 
-			// maybe plan eras and stuff. Note that this is benchmark as a part of the
-			// election-provider's benchmarks.
-			session_rotation::EraElectionPlanner::<T>::maybe_fetch_election_results();
 			consumed_weight
 		}
 

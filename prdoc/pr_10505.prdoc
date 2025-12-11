@@ -1,0 +1,8 @@
+title: 'pallet-aura: Extend `try_state` to also check `CurrentSlot`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This ensures that `CurrentSlot` matches `timestamp / slot_duration`. Which is especially important to ensure that no one changed the `SlotDuration`.
+crates:
+- name: pallet-aura
+  bump: patch

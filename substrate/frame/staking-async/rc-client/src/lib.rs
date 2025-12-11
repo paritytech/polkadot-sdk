@@ -568,6 +568,11 @@ pub trait AHStakingInterface {
 	/// This will return the worst case estimate of the weight. The actual execution will return the
 	/// accurate amount.
 	fn weigh_on_new_offences(offence_count: u32) -> Weight;
+
+	/// Get the active era's start session index.
+	///
+	/// Returns the first session index of the currently active era.
+	fn active_era_start_session_index() -> SessionIndex;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -593,7 +598,6 @@ pub struct Offence<AccountId> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use alloc::vec;
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
@@ -636,27 +640,70 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			// Early return if no validator set to export
+			if !OutgoingValidatorSet::<T>::exists() {
+				return weight;
+			}
+
+			// Determine if we should export based on session offset
+			let should_export = if T::ValidatorSetExportSession::get() == 0 {
+				// Immediate export mode
+				true
+			} else {
+				// Check if we've reached the target session offset
+				weight.saturating_accrue(T::DbWeight::get().reads(2));
+
+				let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+				let last_era_ending_index =
+					T::AHStakingInterface::active_era_start_session_index().saturating_sub(1);
+				let session_offset = last_session_end.saturating_sub(last_era_ending_index);
+
+				session_offset >= T::ValidatorSetExportSession::get()
+			};
+
+			if !should_export {
+				// validator set buffered until target session offset
+				return weight;
+			}
+
+			// good time to export the latest elected validator set
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
+				// Export the validator set
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
 				match T::SendToRelayChain::validator_set(report.clone()) {
 					Ok(()) => {
-						// report was sent, all good, it is already deleted.
+						log::debug!(
+							target: LOG_TARGET,
+							"Exported validator set to RC for Era: {}",
+							report.id,
+						);
 					},
 					Err(()) => {
 						log!(error, "Failed to send validator set report to relay chain");
+						weight.saturating_accrue(T::DbWeight::get().writes(1));
 						Self::deposit_event(Event::<T>::Unexpected(
 							UnexpectedKind::ValidatorSetSendFailed,
 						));
+
 						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
-							OutgoingValidatorSet::<T>::put((report, new_retries_left))
+							weight.saturating_accrue(T::DbWeight::get().writes(1));
+							OutgoingValidatorSet::<T>::put((report, new_retries_left));
 						} else {
+							weight.saturating_accrue(T::DbWeight::get().writes(1));
 							Self::deposit_event(Event::<T>::Unexpected(
 								UnexpectedKind::ValidatorSetDropped,
 							));
 						}
 					},
 				}
+			} else {
+				defensive!("OutgoingValidatorSet checked already, must exist.");
 			}
-			T::DbWeight::get().reads_writes(1, 1)
+
+			weight
 		}
 	}
 
@@ -677,6 +724,28 @@ pub mod pallet {
 		/// sending still fails, we emit an [`UnexpectedKind::ValidatorSetDropped`] event and drop
 		/// it.
 		type MaxValidatorSetRetries: Get<u32>;
+
+		/// The end session index within an era post which we export validator set to RC.
+		///
+		/// This is a 1-indexed session number relative to the era start:
+		/// - 0 = export immediately when received from staking pallet
+		/// - 1 = export at end of first session of era
+		/// - 5 = export at end of 5th session of era (for 6-session eras)
+		///
+		/// The validator set is placed in `OutgoingValidatorSet` when election completes
+		/// in `pallet-staking-async`. The XCM message is sent when BOTH conditions met:
+		/// 1. Current session offset >= `ValidatorSetExportSession`
+		/// 2. `OutgoingValidatorSet` exists (validator set buffered)
+		///
+		/// Setting to 0 bypasses the session check and exports immediately.
+		///
+		/// Example: With `SessionsPerEra=6` and `ValidatorSetExportSession=4`:
+		/// - Session 0: Election completes → validator set buffered in `OutgoingValidatorSet`
+		/// - Sessions 1-4: Buffered (session offset < 5)
+		/// - End of Session 4 and start of Session 5: Export triggered.
+		///
+		/// Must be < SessionsPerEra.
+		type ValidatorSetExportSession: Get<SessionIndex>;
 	}
 
 	#[pallet::event]
@@ -811,6 +880,7 @@ pub mod pallet {
 			} else {
 				// this is final, report it.
 				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
+
 				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
 				Ok((Some(local_weight + weight)).into())
 			}

@@ -2028,7 +2028,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			);
 
 			let calculated_approvals = Approvals::<T, I>::iter_prefix((&asset_id,)).count() as u32;
-			ensure!(details.approvals == calculated_approvals, "Asset approvals count mismatch");
+
+			if details.approvals != calculated_approvals {
+				log::error!(
+					"Asset {asset_id:?} approvals count mismatch: calculated {calculated_approvals} vs expected {}",
+					details.approvals,
+				);
+
+				return Err("Asset approvals count mismatch".into())
+			}
 		}
 		Ok(())
 	}

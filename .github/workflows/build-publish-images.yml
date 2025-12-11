@@ -153,9 +153,6 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/release/test-parachain ./artifacts/.
           mkdir -p ./artifacts/zombienet
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling.rs.compact.compressed.wasm ./artifacts/zombienet/.
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -400,6 +397,36 @@ jobs:
         run: |
           mkdir -p artifacts
           cp polkadot-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-substrate-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path substrate/zombienet/zombienet-sdk/Cargo.toml archive --locked --features zombie-ci --archive-file substrate-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp substrate-zombienet-tests.tar.zst ./artifacts
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -697,7 +724,7 @@ jobs:
         id: check_success
         run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             echo "build_success=false" >> $GITHUB_OUTPUT
@@ -753,7 +780,7 @@ jobs:
         id: check_success
         run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(grep -c '"result": "failure"' resultfile || true)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ "$FAILURES" -gt 0 ]; then
             echo "### At least one zombienet job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

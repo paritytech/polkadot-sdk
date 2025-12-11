@@ -47,52 +47,55 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::terminate(_) if env.is_read_only() =>
 				Err(crate::Error::<T>::StateChangeDenied.into()),
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
 				Ok(output.abi_encode())
 			},
 			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::HashBlake128(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
 				Ok(output.abi_encode())
 			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::ToAccountId)?;
 				let account_id = env.to_account_id(&H160::from_slice(input.as_slice()));
 				Ok(account_id.encode().abi_encode())
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::CallerIsOrigin)?;
 				let is_origin = env.caller_is_origin(true);
 				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::CallerIsRoot)?;
 				let is_root = env.caller_is_root(true);
 				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::OwnCodeHash)?;
 				let caller = env.caller();
 				let addr = T::AddressMapper::to_address(caller.account_id()?);
 				let output = env.code_hash(&addr.into()).0.abi_encode();
 				Ok(output)
 			},
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::MinimumBalance)?;
 				let minimum_balance = env.minimum_balance();
 				Ok(minimum_balance.to_big_endian().abi_encode())
 			},
 			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
-				let ref_time = env.gas_meter().gas_left().ref_time();
-				let proof_size = env.gas_meter().gas_left().proof_size();
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::WeightLeft)?;
+				let ref_time = env.frame_meter().weight_left().unwrap_or_default().ref_time();
+				let proof_size = env.frame_meter().weight_left().unwrap_or_default().proof_size();
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				// no need to adjust gas because this always deletes code
-				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())

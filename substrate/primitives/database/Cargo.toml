@@ -15,4 +15,9 @@ workspace = true
 
 [dependencies]
 kvdb = { workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
+
+[features]
+default = []
+rocksdb = ["kvdb-rocksdb"]
