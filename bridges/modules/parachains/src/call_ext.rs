@@ -26,11 +26,11 @@ use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_runtime::{
 	traits::Zero,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	RuntimeDebug,
+	Debug,
 };
 
 /// Verified `SubmitParachainHeadsInfo`.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct VerifiedSubmitParachainHeadsInfo {
 	/// Base call information.
 	pub base: SubmitParachainHeadsInfo,

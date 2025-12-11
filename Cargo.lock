@@ -1409,6 +1409,7 @@ dependencies = [
  "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
+ "pallet-multi-asset-bounties",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -5128,6 +5129,8 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
+ "sp-consensus-babe",
+ "sp-core 28.0.0",
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
@@ -14419,6 +14422,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-multi-asset-bounties",
  "pallet-treasury",
  "pallet-xcm",
  "parity-scale-codec",
@@ -23331,6 +23335,7 @@ dependencies = [
 name = "sp-debug-derive"
 version = "14.0.0"
 dependencies = [
+ "proc-macro-warning",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
