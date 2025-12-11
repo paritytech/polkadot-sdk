@@ -320,7 +320,7 @@ pub(crate) mod v7 {
 	}
 
 	#[allow(dead_code)]
-	#[derive(RuntimeDebugNoBound)]
+	#[derive(DebugNoBound)]
 	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 	pub struct V7BondedPool<T: Config> {
 		/// The identifier of the pool.

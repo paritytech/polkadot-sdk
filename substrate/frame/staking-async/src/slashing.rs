@@ -51,7 +51,7 @@ use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUn
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	RuntimeDebug, WeakBoundedVec, Weight,
+	Debug, WeakBoundedVec, Weight,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -77,7 +77,7 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 
 /// Represents an offence record within the staking system, capturing details about a slashing
 /// event.
-#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug)]
 pub struct OffenceRecord<AccountId> {
 	/// The account ID of the entity that reported the offence.
 	pub reporter: Option<AccountId>,
