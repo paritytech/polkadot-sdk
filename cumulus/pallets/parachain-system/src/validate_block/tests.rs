@@ -20,8 +20,7 @@ use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
 	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
-	ParachainBlockData,
-	PersistedValidationData,
+	ParachainBlockData, PersistedValidationData,
 };
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
@@ -880,15 +879,13 @@ fn only_send_ump_signal_on_last_block_in_bundle() {
 			assert!(
 				has_separator,
 				"Block {} (last) should have UMP_SEPARATOR, got: {:?}",
-				i,
-				collation_info.upward_messages
+				i, collation_info.upward_messages
 			);
 		} else {
 			assert!(
 				!has_separator,
 				"Block {} should NOT have UMP_SEPARATOR, got: {:?}",
-				i,
-				collation_info.upward_messages
+				i, collation_info.upward_messages
 			);
 		}
 	}
@@ -900,8 +897,8 @@ fn validate_block_accepts_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BlockBundleInfo (maybe_last=false) and UseFullCore set via extrinsic
-	// UseFullCore should make validation succeed even without maybe_last=true
+	// Build a single block with BlockBundleInfo (maybe_last=false) and UseFullCore set via
+	// extrinsic UseFullCore should make validation succeed even without maybe_last=true
 	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
@@ -927,8 +924,8 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BlockBundleInfo (maybe_last=false), CoreInfo, and UseFullCore set via
-	// extrinsic. UseFullCore makes this block the last block in the core.
+	// Build a single block with BlockBundleInfo (maybe_last=false), CoreInfo, and UseFullCore set
+	// via extrinsic. UseFullCore makes this block the last block in the core.
 	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
