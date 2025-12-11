@@ -1147,30 +1147,9 @@ impl_runtime_apis! {
 			_source: StatementSource,
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement> {
-			let account = match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => account.into(),
-				SignatureVerificationResult::Invalid => {
-					tracing::debug!(target: "runtime", "Bad statement signature.");
-					return Err(InvalidStatement::BadProof)
-				},
-				SignatureVerificationResult::NoSignature => {
-					tracing::debug!(target: "runtime", "Missing statement signature.");
-					return Err(InvalidStatement::NoProof)
-				},
-			};
-
-			// For now just allow validators to store some statements.
-			// In the future we will allow people.
-			if pallet_session::Validators::<Runtime>::get().contains(&account) {
-				Ok(ValidStatement {
-					max_count: 2,
-					max_size: 1024,
-				})
-			} else {
-				Ok(ValidStatement {
-					max_count: 0,
-					max_size: 0,
-				})
+			match statement.verify_signature() {
+				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
 			}
 		}
 	}
