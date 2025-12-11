@@ -42,7 +42,7 @@ use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
-	metrics::{Metrics, FAILED, OCCUPIED, SCHEDULED, SUCCEEDED},
+	metrics::{Metrics, FAILED, SUCCEEDED},
 	requester::{
 		session_cache::{BadValidators, SessionInfo},
 		CoreInfo, CoreInfoOrigin,
