@@ -170,7 +170,7 @@ pub struct RunCmd {
 	/// Enable or disable per validator collected approvals metrics
 	/// to be published to prometheus. If not specified, set to false.
 	#[arg(long)]
-	pub verbose_approval_metrics: Option<bool>,
+	pub verbose_approval_metrics: bool,
 }
 
 #[allow(missing_docs)]
