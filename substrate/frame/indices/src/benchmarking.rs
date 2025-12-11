@@ -207,17 +207,43 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migrate_account_step() -> Result<(), BenchmarkError> {
-		let account = account("account", 0, SEED);
-		let index = T::AccountIndex::from(SEED);
-		let frozen = false;
-		let old_deposit = T::Deposit::get();
+		use crate::migration::v1::v0;
+
+		// Setup: Create an account in the OLD currency system that needs migration
+		let account_index = T::AccountIndex::from(SEED);
+		let caller: T::AccountId = whitelisted_caller();
+		let deposit = T::Deposit::get();
+
+		// Give the account some balance (enough for deposit + existential deposit)
+		T::NativeBalance::set_balance(
+			&caller,
+			T::NativeBalance::minimum_balance() + deposit + deposit,
+		);
+
+		// Reserve funds using the old Currency system
+		<pallet_balances::Pallet<T> as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)?;
+
+		// Insert into the OLD storage (v0) to simulate pre-migration state
+		v0::OldAccounts::<T>::insert(account_index, (caller.clone(), deposit, false));
+
 		#[block]
 		{
 			let _ = MigrateCurrencyToFungibles::<T, pallet_balances::Pallet<T>>::step(None, &mut WeightMeter::new());
 		}
-		assert_eq!(Accounts::<T>::get(index).unwrap().0, account);
-		assert_eq!(Accounts::<T>::get(index).unwrap().1, old_deposit);
-		assert_eq!(Accounts::<T>::get(index).unwrap().2, frozen);
+
+		// Verify the account was migrated to the new storage
+		assert!(Accounts::<T>::contains_key(account_index));
+		let (migrated_account, migrated_deposit, frozen) = Accounts::<T>::get(account_index).unwrap();
+		assert_eq!(migrated_account, caller);
+		assert_eq!(migrated_deposit, deposit);
+		assert_eq!(frozen, false);
+
+		// Verify the hold was created in the new fungible system
+		assert_eq!(
+			T::NativeBalance::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller),
+			deposit
+		);
+
 		Ok(())
 	}
 
