@@ -16,7 +16,7 @@
 
 //! Approvals Rewards pallet.
 
-use alloc::vec::Vec;
+use alloc::vec::*;
 use crate::{
     configuration,
     inclusion::{QueueFootprinter, UmpQueueId},
@@ -31,7 +31,10 @@ use frame_support::{
     traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
     DefaultNoBound,
 };
-use scale_info::{Type, TypeInfo};
+use scale_info::{
+    Type, TypeInfo,
+    prelude::vec,
+};
 use sp_runtime::{
     traits::{AppVerify, One, Saturating},
     DispatchResult, SaturatedConversion,
@@ -40,8 +43,10 @@ use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
     vstaging::ApprovalStatistics,
     slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes},
-    CandidateHash, DisputeOffenceKind, SessionIndex, ValidatorId, ValidatorIndex,
-    ValidatorSignature,
+    CandidateHash,
+    DisputeOffenceKind,
+    SessionIndex, ValidatorId, ValidatorIndex, ValidatorSignature,
+    IndexedVec, byzantine_threshold
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -50,6 +55,7 @@ pub mod benchmarking;
 const LOG_TARGET: &str = "runtime::approvals_rewards";
 
 pub use pallet::*;
+use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
 
 pub trait WeightInfo {
     fn include_approvals_rewards_statistics() -> Weight;
@@ -65,17 +71,12 @@ impl WeightInfo for TestWeightInfo {
 
 #[frame_support::pallet]
 pub mod pallet {
-    use polkadot_parachain_primitives::primitives::ValidationCodeHash;
-    use polkadot_primitives::v9::ParaId;
-    use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
     use super::*;
-
+    use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
     use sp_runtime::transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     };
-    use crate::disputes::WeightInfo;
-    use crate::paras::CodeByHash;
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -93,7 +94,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         // Weight information for extrinsics in this pallet.
-        //type WeightInfo: WeightInfo;
+        // type WeightInfo: WeightInfo;
     }
 
     /// Actual past code hash, indicated by the para id as well as the block number at which it
@@ -101,6 +102,10 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type ApprovalsTallies<T: Config> =
         StorageMap<_, Twox64Concat, (SessionIndex, ValidatorIndex), Vec<ApprovalStatisticsTallyLine>>;
+
+    #[pallet::storage]
+    pub(super) type AvailableApprovalsMedians<T: Config> =
+        StorageMap<_, Twox64Concat, SessionIndex, Vec<u32>>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -181,7 +186,7 @@ pub mod pallet {
             let approvals_key = (payload_session_index, payload_validator_index);
 
             // Ensure that it is a fresh session tally.
-            if let Some(_) = ApprovalsTallies::<T>::get(&approvals_key) {
+            if ApprovalsTallies::<T>::contains_key(&approvals_key) {
                 return Err(Error::<T>::ApprovalTalliesAlreadyStored.into())
             }
 
@@ -212,6 +217,53 @@ pub mod pallet {
 
         fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
             Ok(())
+        }
+    }
+}
+
+impl <T: Config> Pallet<T> {
+    /// Handle an incoming session change.
+    pub(crate) fn initializer_on_new_session(
+        notification: &SessionChangeNotification<BlockNumberFor<T>>,
+    ) {
+        let previous_session = notification.session_index.saturating_sub(1);
+        let session_info = match session_info::Sessions::<T>::get(previous_session) {
+            Some(s) => s,
+            None => return,
+        };
+
+        let validators_len = session_info.validators.len();
+
+        let mut rewards_matrix: Vec<Vec<ApprovalStatisticsTallyLine>> = vec![];
+        for idx in 0..validators_len {
+            let v_idx = ValidatorIndex(idx as u32);
+            if let Some(tally) = ApprovalsTallies::<T>::get((previous_session, v_idx)) {
+                rewards_matrix.push(tally);
+            }
+        }
+
+        if rewards_matrix.len() >= byzantine_threshold(validators_len) {
+            let mut approval_usages_medians = Vec::new();
+            for (v_idx, _) in session_info.validators.into_iter().enumerate() {
+                let mut v: Vec<u32> = rewards_matrix.iter().map(|at| at[v_idx].approvals_usage).collect();
+                v.sort();
+                approval_usages_medians.push(v[validators_len/2]);
+            }
+
+            AvailableApprovalsMedians::<T>::insert(previous_session, approval_usages_medians);
+        }
+
+        let mut drop_keys = vec![];
+        let config = configuration::ActiveConfig::<T>::get();
+        ApprovalsTallies::<T>::iter_keys().for_each(|(session_idx, validator_idx)| {
+            let min_session_to_keep = notification.session_index - config.dispute_period;
+            if session_idx < min_session_to_keep {
+                drop_keys.push((session_idx, validator_idx));
+            }
+        });
+
+        for key in drop_keys {
+            ApprovalsTallies::<T>::remove(key);
         }
     }
 }
