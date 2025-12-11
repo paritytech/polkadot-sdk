@@ -293,11 +293,18 @@ jobs:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
-      - name: Download all artifacts
+      - name: Download command-diff artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: command-diff
           path: command-diff
+
+      - name: Download command-output artifact
+        if: startsWith(github.event.inputs.cmd, 'label')
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: command-output
+          path: command-output
 
       - name: Apply labels for label command
         if: startsWith(github.event.inputs.cmd, 'label')
@@ -310,7 +317,7 @@ jobs:
             let labels = [];
 
             try {
-              const output = fs.readFileSync('/tmp/cmd/command_output.log', 'utf8');
+              const output = fs.readFileSync('command-output/command_output.log', 'utf8');
 
               // Parse JSON labels from output - look for "LABELS_JSON: {...}"
               const jsonMatch = output.match(/LABELS_JSON: (.+)/);
