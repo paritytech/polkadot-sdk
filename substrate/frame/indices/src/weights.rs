@@ -227,4 +227,19 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: UNKNOWN KEY `0x1a736d37504c2e3fb73dad160c55b2915c858e3f3bd0a1a1c78c656baa95f5b5` (r:2 w:0)
+	/// Proof: UNKNOWN KEY `0x1a736d37504c2e3fb73dad160c55b2915c858e3f3bd0a1a1c78c656baa95f5b5` (r:2 w:0)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `Indices::Accounts` (r:0 w:1)
+	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
+	fn migrate_account_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `138`
+		//  Estimated: `6078`
+		// Minimum execution time: 38_131_000 picoseconds.
+		Weight::from_parts(38_749_000, 6078)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
 }
