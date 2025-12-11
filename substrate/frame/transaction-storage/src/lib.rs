@@ -279,15 +279,15 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(
 				!T::MaxBlockTransactions::get().is_zero(),
-				"Not useful if data cannot be stored"
+				"MaxTransactionSize must be greater than zero"
 			);
-			assert!(!T::MaxTransactionSize::get().is_zero(), "Not useful if data cannot be stored");
+			assert!(!T::MaxTransactionSize::get().is_zero(), "MaxTransactionSize must be greater than zero");
 			let default_period = sp_transaction_storage_proof::DEFAULT_STORAGE_PERIOD.into();
 			let storage_period = GenesisConfig::<T>::default().storage_period;
-			assert_eq!(storage_period, default_period, "Not useful if data is not stored");
+			assert_eq!(storage_period, default_period, "GenesisConfig.storage_period must match DEFAULT_STORAGE_PERIOD");
 			assert!(
 				!T::AuthorizationPeriod::get().is_zero(),
-				"Not useful if authorizations are never valid"
+				"AuthorizationPeriod must be greater than zero"
 			);
 		}
 	}
