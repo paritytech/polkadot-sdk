@@ -210,6 +210,20 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			})
 	}
 
+	async fn prove_child_read(
+		&self,
+		_relay_parent: RelayHash,
+		_child_info: &cumulus_relay_chain_interface::ChildInfo,
+		_child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		// Not implemented: requires relay chain RPC to expose child trie proof method.
+		tracing::warn!(
+			target: "relay-chain-rpc-interface",
+			"prove_child_read not implemented for RPC interface, returning empty proof"
+		);
+		Ok(StorageProof::empty())
+	}
+
 	/// Wait for a given relay chain block
 	///
 	/// The hash of the block to wait for is passed. We wait for the block to arrive or return after
