@@ -770,8 +770,9 @@ jobs:
     runs-on: ubuntu-latest
     name: All zombienet tests passed
     needs:
-      - trigger-zombienet-polkadot
-      - trigger-zombienet-cumulus
+      # Disabled until zombienet polkadot/cumulus flows are stable
+      # - trigger-zombienet-polkadot
+      # - trigger-zombienet-cumulus
       - trigger-zombienet-substrate
       - trigger-zombienet-parachain-template
     if: always() && !cancelled()

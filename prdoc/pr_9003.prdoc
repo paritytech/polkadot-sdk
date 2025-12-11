@@ -1,0 +1,12 @@
+title: '`fatxpool`: add labels for mempool revalidation invalid txs counting'
+doc:
+- audience: [ Node Dev, Node Operator ]
+  description: |-
+    This PR considers errors propagated from mempool revalidation in the context of fork-aware transaction pool and groups them under unique labels to count them under `mempool_revalidation_invalid_txs` prometheus metric. This results in a breakdown of the type of root causes for why a transaction is considered invalid, helping with debugging.
+crates:
+- name: sc-transaction-pool
+  bump: minor 
+- name: sc-transaction-pool-api
+  bump: minor
+- name: sp-runtime
+  bump: minor 
