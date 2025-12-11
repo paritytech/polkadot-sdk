@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.11.0"
+version = "0.11.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -83,7 +83,7 @@ pallet-timestamp = { default-features = true, workspace = true }
 pallet-utility = { default-features = true, workspace = true }
 proptest = { workspace = true }
 sp-keystore = { default-features = true, workspace = true }
-sp-state-machine = { workspace = true, default-features = false }
+sp-state-machine = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
 [features]

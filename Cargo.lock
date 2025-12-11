@@ -13493,7 +13493,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -22923,7 +22923,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -23167,7 +23167,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-test-utils"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bp-relayers",
  "frame-benchmarking",
