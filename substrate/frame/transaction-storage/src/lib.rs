@@ -333,6 +333,8 @@ pub mod pallet {
 		/// `store` or `renew` call and transaction index within that block. Transaction index is
 		/// emitted in the `Stored` or `Renewed` event. Applies same fees as `store`.
 		///
+		/// Emits [`Renewed`](Event::Renewed) when successful.
+		///
 		/// ## Complexity
 		///
 		/// O(1).
