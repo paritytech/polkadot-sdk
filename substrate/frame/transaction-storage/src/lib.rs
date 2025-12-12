@@ -291,17 +291,16 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::store(data.len() as u32))]
 		pub fn store(origin: OriginFor<T>, data: Vec<u8>) -> DispatchResult {
-			ensure!(data.len() > 0, Error::<T>::EmptyTransaction);
-			ensure!(
-				data.len() <= T::MaxTransactionSize::get() as usize,
-				Error::<T>::TransactionTooLarge
-			);
-			let sender = ensure_signed(origin)?;
+			// In the case of a regular unsigned transaction, this should have been checked by
+			// pre_dispatch. In the case of a regular signed transaction, this should have been
+			// checked by pre_dispatch_signed.
+			Self::ensure_data_size_ok(data.len())?;
 			Self::apply_fee(sender, data.len() as u32)?;
 
 			// Chunk data and compute storage root
-			let chunk_count = num_chunks(data.len() as u32);
-			let chunks = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
+			let chunks: Vec<_> = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
+			let chunk_count = chunks.len();
+			debug_assert_eq!(chunk_count, num_chunks(data.len() as u32) as usize);
 			let root = sp_io::trie::blake2_256_ordered_root(chunks, sp_runtime::StateVersion::V1);
 
 			let content_hash = sp_io::hashing::blake2_256(&data);
@@ -323,19 +322,19 @@ pub mod pallet {
 						content_hash: content_hash.into(),
 						block_chunks: total_chunks,
 					})
-					.map_err(|_| Error::<T>::TooManyTransactions)?;
-				Ok(())
+					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
 			Self::deposit_event(Event::Stored { index, content_hash });
 			Ok(())
 		}
 
-		/// Renew previously stored data. Parameters are the block number that contains
-		/// previous `store` or `renew` call and transaction index within that block.
-		/// Transaction index is emitted in the `Stored` or `Renewed` event.
-		/// Applies same fees as `store`.
+		/// Renew previously stored data. Parameters are the block number that contains previous
+		/// `store` or `renew` call and transaction index within that block. Transaction index is
+		/// emitted in the `Stored` or `Renewed` event. Applies same fees as `store`.
+		///
 		/// ## Complexity
-		/// - O(1).
+		///
+		/// O(1).
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::renew())]
 		pub fn renew(
@@ -346,9 +345,14 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let transactions = Transactions::<T>::get(block).ok_or(Error::<T>::RenewedNotFound)?;
 			let info = transactions.get(index as usize).ok_or(Error::<T>::RenewedNotFound)?;
+
+			// In the case of a regular unsigned transaction, this should have been checked by
+			// pre_dispatch. In the case of a regular signed transaction, this should have been
+			// checked by pre_dispatch_signed.
+			Self::ensure_data_size_ok(info.len())?;
+
 			let extrinsic_index =
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
-
 			Self::apply_fee(sender, info.size)?;
 			let content_hash = info.content_hash.into();
 			sp_io::transaction_index::renew(extrinsic_index, content_hash);
@@ -374,12 +378,12 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Check storage proof for block number `block_number() - StoragePeriod`.
-		/// If such a block does not exist, the proof is expected to be `None`.
+		/// Check storage proof for block number `block_number() - StoragePeriod`. If such a block
+		/// does not exist, the proof is expected to be `None`.
 		///
 		/// ## Complexity
-		/// - Linear w.r.t the number of indexed transactions in the proved block for random
-		///   probing.
+		///
+		/// Linear w.r.t the number of indexed transactions in the proved block for random probing.
 		/// There's a DB read for each transaction.
 		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::check_proof_max(), DispatchClass::Mandatory))]
@@ -507,10 +511,7 @@ pub mod pallet {
 			proof.map(|proof| Call::check_proof { proof })
 		}
 
-		fn check_inherent(
-			_call: &Self::Call,
-			_data: &InherentData,
-		) -> result::Result<(), Self::Error> {
+		fn check_inherent(_call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
 			Ok(())
 		}
 
@@ -552,6 +553,12 @@ pub mod pallet {
 			(size > 0) && (size <= T::MaxTransactionSize::get() as usize)
 		}
 
+		/// Ensures that the given data size is valid for storage.
+		fn ensure_data_size_ok(size: usize) -> Result<(), Error<T>> {
+			ensure!(Self::data_size_ok(size), Error::<T>::BadDataSize);
+			Ok(())
+		}
+
 		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
 		/// transactions.
 		pub(crate) fn verify_chunk_proof(
@@ -562,7 +569,7 @@ pub mod pallet {
 			// Get the random chunk index - from all transactions in the block = [0..total_chunks).
 			let total_chunks: ChunkIndex = TransactionInfo::total_chunks(&infos);
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
-			let selected_block_chunk_index = random_chunk(random_hash, total_chunks as _);
+			let selected_block_chunk_index = random_chunk(random_hash, total_chunks);
 
 			// Let's find the corresponding transaction and its "local" chunk index for "global"
 			// `selected_block_chunk_index`.
