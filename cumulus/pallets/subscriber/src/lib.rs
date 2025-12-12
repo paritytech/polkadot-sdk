@@ -48,6 +48,7 @@ pub trait SubscriptionHandler {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -65,6 +66,49 @@ pub mod pallet {
 		BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, ConstU32<100>>,
 		ValueQuery,
 	>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Data was received and processed from a publisher.
+		DataProcessed {
+			publisher: ParaId,
+			key: BoundedVec<u8, ConstU32<256>>,
+			value_size: u32,
+		},
+		/// Stored publisher roots were cleared.
+		RootsCleared { count: u32 },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// No stored roots to clear.
+		NoStoredRoots,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Clear all stored publisher roots.
+		///
+		/// This forces reprocessing of all subscribed data in the next block.
+		/// Useful for recovery scenarios or manual cache invalidation.
+		///
+		/// - `origin`: Must be root.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::clear_stored_roots())]
+		pub fn clear_stored_roots(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let roots = <PreviousPublishedDataRoots<T>>::get();
+			ensure!(!roots.is_empty(), Error::<T>::NoStoredRoots);
+
+			let count = roots.len() as u32;
+			<PreviousPublishedDataRoots<T>>::kill();
+
+			Self::deposit_event(Event::RootsCleared { count });
+			Ok(())
+		}
+	}
 
 	impl<T: Config> Pallet<T> {
 		/// Build relay proof requests from subscriptions.
@@ -149,12 +193,22 @@ pub mod pallet {
 							Ok(Some(encoded_value)) => {
 								match Vec::<u8>::decode(&mut &encoded_value[..]) {
 									Ok(value) => {
+										let value_size = value.len() as u32;
 										T::SubscriptionHandler::on_data_updated(
 											publisher,
 											key.clone(),
 											value.clone(),
 										);
-										v = v.max(value.len() as u32);
+
+										if let Ok(bounded_key) = BoundedVec::try_from(key.clone()) {
+											Self::deposit_event(Event::DataProcessed {
+												publisher,
+												key: bounded_key,
+												value_size,
+											});
+										}
+
+										v = v.max(value_size);
 										k += 1;
 									},
 									Err(_) => {
@@ -200,6 +254,7 @@ pub mod pallet {
 
 pub trait WeightInfo {
 	fn process_published_data(p: u32, k: u32, v: u32) -> Weight;
+	fn clear_stored_roots() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -209,5 +264,9 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(100 * v as u64, 0))
 			.saturating_add(frame_support::weights::constants::RocksDbWeight::get().reads(1 + k as u64))
 			.saturating_add(frame_support::weights::constants::RocksDbWeight::get().writes(1))
+	}
+
+	fn clear_stored_roots() -> Weight {
+		frame_support::weights::constants::RocksDbWeight::get().reads_writes(1, 1)
 	}
 }
