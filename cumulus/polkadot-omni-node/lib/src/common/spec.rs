@@ -337,7 +337,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			// Some additional customization in relation to starting the node as an ipfs server.
 			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
-				node_extra_args.ipfs_server
+				parachain_config.network.ipfs_server
 			{
 				info!("Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.", parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT);
 				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
