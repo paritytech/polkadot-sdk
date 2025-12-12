@@ -191,7 +191,7 @@ impl Requester {
 			"Got {} backable candidates", backable.len()
 		);
 
-		// now get the backed candidates corresponding to these candidate receipts
+		// now get the backed candidates corresponding to these candidate hashes
 		let (tx, rx) = oneshot::channel();
 		sender
 			.send_message(CandidateBackingMessage::GetBackableCandidates(backable, tx))
