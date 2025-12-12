@@ -31,7 +31,7 @@ use sp_core::storage::{
 };
 #[cfg(feature = "std")]
 use sp_externalities::TransactionType;
-use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults, StateLoad};
 
 use crate::{trace, warn};
 use alloc::{boxed::Box, vec::Vec};
@@ -160,6 +160,33 @@ where
 		result
 	}
 
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+		let result = self.overlay.storage(key).map(|x| x.map(|x| x.to_vec())).map_or_else(
+			|| self.backend.storage_with_status(key).expect(EXT_NOT_ALLOWED_TO_FAIL),
+			|data| StateLoad { is_cold: false, data },
+		);
+
+		// NOTE: be careful about touching the key names – used outside substrate!
+		trace!(
+			target: "state",
+			method = "GetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			key = %HexDisplay::from(&key),
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
+			result_encoded = %HexDisplay::from(
+				&result
+					.data.as_ref()
+					.map(|v| EncodeOpaqueValue(v.clone()))
+					.encode()
+			),
+		);
+
+		log::debug!(target: "runtim::revive", "storage_with_status key={:?} is_cold={}", sp_core::hexdisplay::HexDisplay::from(&key), result.is_cold);
+		result
+	}
+
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
 		let result = self
@@ -195,6 +222,39 @@ where
 			child_info = %HexDisplay::from(&child_info.storage_key()),
 			key = %HexDisplay::from(&key),
 			result = ?result.as_ref().map(HexDisplay::from)
+		);
+
+		result
+	}
+
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+
+		let result = self
+			.overlay
+			.child_storage(child_info, key)
+			.map(|x| x.map(|x| x.to_vec()))
+			.map_or_else(
+				|| {
+					self.backend
+						.child_storage_with_status(child_info, key)
+						.expect(EXT_NOT_ALLOWED_TO_FAIL)
+				},
+				|data| StateLoad { is_cold: false, data },
+			);
+
+		trace!(
+			target: "state",
+			method = "ChildGetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			child_info = %HexDisplay::from(&child_info.storage_key()),
+			key = %HexDisplay::from(&key),
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
 		);
 
 		result

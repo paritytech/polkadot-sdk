@@ -212,6 +212,17 @@ pub fn get_raw(child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 	}
 }
 
+/// Get a Vec of bytes from storage, tracking whether it was a cold load.
+///
+/// Similar to [`get_raw`], but returns a [`sp_io::StateLoad`] that indicates whether the value
+/// was loaded from the database backend (cold load) or from the storage overlay (hot load).
+pub fn get_raw_with_status(child_info: &ChildInfo, key: &[u8]) -> sp_io::StateLoad<Option<Vec<u8>>> {
+	match child_info.child_type() {
+		ChildType::ParentKeyId =>
+			sp_io::default_child_storage::get_with_status(child_info.storage_key(), key),
+	}
+}
+
 /// Put a raw byte slice into storage.
 pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 	match child_info.child_type() {

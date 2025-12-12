@@ -78,6 +78,7 @@ use sp_core::{
 	storage::{well_known_keys, ChildInfo},
 };
 use sp_database::Transaction;
+use sp_externalities::StateLoad;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
@@ -199,6 +200,10 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		self.state.storage(key)
 	}
 
+	fn storage_with_status(&self, key: &[u8]) -> Result<StateLoad<Option<Vec<u8>>>, Self::Error> {
+		self.state.storage_with_status(key)
+	}
+
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
 		self.state.storage_hash(key)
 	}
@@ -209,6 +214,14 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		key: &[u8],
 	) -> Result<Option<Vec<u8>>, Self::Error> {
 		self.state.child_storage(child_info, key)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<StateLoad<Option<Vec<u8>>>, Self::Error> {
+		self.state.child_storage_with_status(child_info, key)
 	}
 
 	fn child_storage_hash(

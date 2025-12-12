@@ -272,8 +272,8 @@ impl<T: Config> TransientStorage<T> {
 
 		Ok(match (take, prev_value) {
 			(_, None) => WriteOutcome::New,
-			(false, Some(prev_value)) => WriteOutcome::Overwritten(prev_value.len() as _),
-			(true, Some(prev_value)) => WriteOutcome::Taken(prev_value),
+			(false, Some(prev_value)) => WriteOutcome::Overwritten { len: prev_value.len() as _ },
+			(true, Some(prev_value)) => WriteOutcome::Taken { value: prev_value },
 		})
 	}
 
@@ -373,11 +373,11 @@ mod tests {
 		// Overwrite values.
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![4, 5]), false),
-			Ok(WriteOutcome::Overwritten(1))
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![6, 7]), true),
-			Ok(WriteOutcome::Taken(vec![3]))
+			Ok(WriteOutcome::Taken { value: vec![3] })
 		);
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), Some(vec![4, 5]));
@@ -386,13 +386,13 @@ mod tests {
 		// Check for an empty value.
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![]), true),
-			Ok(WriteOutcome::Taken(vec![6, 7]))
+			Ok(WriteOutcome::Taken { value: vec![6, 7] })
 		);
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![]));
 
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), None, true),
-			Ok(WriteOutcome::Taken(vec![]))
+			Ok(WriteOutcome::Taken { value: vec![] })
 		);
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), None);
 	}
@@ -434,7 +434,7 @@ mod tests {
 				Some(vec![4, 5]),
 				false
 			),
-			Ok(WriteOutcome::Overwritten(1))
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		assert_eq!(
 			storage.read(&ALICE, &Key::try_from_var([1; 64].to_vec()).unwrap()),
@@ -478,7 +478,7 @@ mod tests {
 		);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1, 2]), false),
-			Ok(WriteOutcome::Overwritten(1))
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		storage.commit_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1, 2]))

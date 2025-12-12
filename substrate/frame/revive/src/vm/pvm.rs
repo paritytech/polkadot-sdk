@@ -489,11 +489,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |new_bytes: u32, old_bytes: u32| {
+		let costs = |new_bytes: u32, old_bytes: u32, is_cold: bool| {
 			if transient {
 				RuntimeCosts::SetTransientStorage { new_bytes, old_bytes }
 			} else {
-				RuntimeCosts::SetStorage { new_bytes, old_bytes }
+				RuntimeCosts::SetStorage { new_bytes, old_bytes, is_cold }
 			}
 		};
 
@@ -503,7 +503,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let max_size = limits::STORAGE_BYTES;
-		let charged = self.charge_gas(costs(value_len, max_size))?;
+		let charged = self.charge_gas(costs(value_len, max_size, true))?;
 		if value_len > max_size {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
@@ -516,13 +516,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let write_outcome = if transient {
-			self.ext.set_transient_storage(&key, value, false)?
+			self.ext
+				.set_transient_storage(&key, value, false)
+				.map(|data| sp_io::StateLoad { data, is_cold: false })?
 		} else {
 			self.ext.set_storage(&key, value, false)?
 		};
 
-		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
-		Ok(write_outcome.old_len_with_sentinel())
+		self.adjust_gas(
+			charged,
+			costs(value_len, write_outcome.data.old_len(), write_outcome.is_cold),
+		);
+		Ok(write_outcome.data.old_len_with_sentinel())
 	}
 
 	fn clear_storage(
@@ -533,22 +538,24 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
+		let costs = |len, is_cold: bool| {
 			if transient {
 				RuntimeCosts::ClearTransientStorage(len)
 			} else {
-				RuntimeCosts::ClearStorage(len)
+				RuntimeCosts::ClearStorage { len, is_cold }
 			}
 		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES, true))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let outcome = if transient {
-			self.ext.set_transient_storage(&key, None, false)?
+			self.ext
+				.set_transient_storage(&key, None, false)
+				.map(|data| sp_io::StateLoad { data, is_cold: false })?
 		} else {
 			self.ext.set_storage(&key, None, false)?
 		};
-		self.adjust_gas(charged, costs(outcome.old_len()));
-		Ok(outcome.old_len_with_sentinel())
+		self.adjust_gas(charged, costs(outcome.data.old_len(), outcome.is_cold));
+		Ok(outcome.data.old_len_with_sentinel())
 	}
 
 	fn get_storage(
@@ -561,23 +568,24 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
+		let costs = |len, is_cold: bool| {
 			if transient {
 				RuntimeCosts::GetTransientStorage(len)
 			} else {
-				RuntimeCosts::GetStorage(len)
+				RuntimeCosts::GetStorage { len, is_cold }
 			}
 		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES, true))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let outcome = if transient {
-			self.ext.get_transient_storage(&key)
+		let (outcome, is_cold) = if transient {
+			(self.ext.get_transient_storage(&key), false)
 		} else {
-			self.ext.get_storage(&key)
+			let state_load = self.ext.get_storage(&key);
+			(state_load.data, state_load.is_cold)
 		};
 
 		if let Some(value) = outcome {
-			self.adjust_gas(charged, costs(value.len() as u32));
+			self.adjust_gas(charged, costs(value.len() as u32, is_cold));
 
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
@@ -607,7 +615,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				},
 			}
 		} else {
-			self.adjust_gas(charged, costs(0));
+			self.adjust_gas(charged, costs(0, is_cold));
 
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {

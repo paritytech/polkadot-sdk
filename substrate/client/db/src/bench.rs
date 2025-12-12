@@ -353,6 +353,15 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		self.state.borrow().as_ref().ok_or_else(state_err)?.storage(key)
 	}
 
+	fn storage_with_status(
+		&self,
+		key: &[u8],
+	) -> Result<sp_externalities::StateLoad<Option<Vec<u8>>>, Self::Error> {
+		// Only if cold load ?
+		self.add_read_key(None, key);
+		self.state.borrow().as_ref().ok_or_else(state_err)?.storage_with_status(key)
+	}
+
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<Hasher::Output>, Self::Error> {
 		self.add_read_key(None, key);
 		self.state.borrow().as_ref().ok_or_else(state_err)?.storage_hash(key)
@@ -369,6 +378,20 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.as_ref()
 			.ok_or_else(state_err)?
 			.child_storage(child_info, key)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<sp_externalities::StateLoad<Option<Vec<u8>>>, Self::Error> {
+		// Only if cold load ?
+		self.add_read_key(Some(child_info.storage_key()), key);
+		self.state
+			.borrow()
+			.as_ref()
+			.ok_or_else(state_err)?
+			.child_storage_with_status(child_info, key)
 	}
 
 	fn child_storage_hash(

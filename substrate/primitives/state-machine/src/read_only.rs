@@ -29,7 +29,7 @@ use sp_core::{
 	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,
 };
-use sp_externalities::MultiRemovalResults;
+use sp_externalities::{MultiRemovalResults, StateLoad};
 
 /// Trait for inspecting state in any backend.
 ///
@@ -95,6 +95,14 @@ where
 			.expect("Backed failed for storage in ReadOnlyExternalities")
 	}
 
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
+		let data = self
+			.backend
+			.storage(key)
+			.expect("Backed failed for storage_with_status in ReadOnlyExternalities");
+		StateLoad { data, is_cold: true }
+	}
+
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		self.backend
 			.storage_hash(key)
@@ -106,6 +114,18 @@ where
 		self.backend
 			.child_storage(child_info, key)
 			.expect("Backed failed for child_storage in ReadOnlyExternalities")
+	}
+
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> StateLoad<Option<StorageValue>> {
+		let data = self
+			.backend
+			.child_storage(child_info, key)
+			.expect("Backed failed for child_storage_with_status in ReadOnlyExternalities");
+		StateLoad { data, is_cold: true }
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {

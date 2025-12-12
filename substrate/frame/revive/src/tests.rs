@@ -641,7 +641,7 @@ fn ext_builder_with_genesis_config_works() {
 			for (key, value) in contract_data.storage.iter() {
 				assert_eq!(
 					Pallet::<Test>::get_storage(contract.address, key.0),
-					Ok(Some(value.0.to_vec()))
+					Ok(sp_io::StateLoad { data: Some(value.0.to_vec()), is_cold: true })
 				);
 			}
 

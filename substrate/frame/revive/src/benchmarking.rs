@@ -1407,10 +1407,12 @@ mod benchmarks {
 
 	// n: new byte size
 	// o: old byte size
+	// c: is_cold (0 = hot, 1 = cold)
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn seal_set_storage(
 		n: Linear<0, { limits::STORAGE_BYTES }>,
 		o: Linear<0, { limits::STORAGE_BYTES }>,
+		c: Linear<0, 1>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1422,6 +1424,13 @@ mod benchmarks {
 
 		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
 
 		let result;
 		#[block]
@@ -1437,12 +1446,15 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(info.read(&key).unwrap(), value);
+		assert_eq!(info.read(&key).data.unwrap(), value);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn clear_storage(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		c: Linear<0, 1>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1455,6 +1467,15 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1465,17 +1486,21 @@ mod benchmarks {
 			result = run_builtin_precompile(
 				&mut ext,
 				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
+				input_bytes.clone(),
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_none());
+		assert!(ext.get_storage(&key).data.is_none());
 
 		Ok(())
 	}
 
+	// c: is_cold (0 = hot, 1 = cold)
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		c: Linear<0, 1>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1486,6 +1511,15 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let out_ptr = max_key_len + 4;
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+			let _ = info.read(&key);
+		}
+
 		let result;
 		#[block]
 		{
@@ -1500,12 +1534,16 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		assert_eq!(&info.read(&key).data.unwrap(), &memory[out_ptr as usize..]);
 		Ok(())
 	}
 
+	// c: is_cold (0 = hot, 1 = cold)
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn contains_storage(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		c: Linear<0, 1>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1517,6 +1555,15 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1527,17 +1574,21 @@ mod benchmarks {
 			result = run_builtin_precompile(
 				&mut ext,
 				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
+				input_bytes.clone(),
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_some());
+		assert!(ext.get_storage(&key).data.is_some());
 
 		Ok(())
 	}
 
+	// c: is_cold (0 = hot, 1 = cold)
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		c: Linear<0, 1>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1550,6 +1601,15 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1560,11 +1620,11 @@ mod benchmarks {
 			result = run_builtin_precompile(
 				&mut ext,
 				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
+				input_bytes.clone(),
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_none());
+		assert!(ext.get_storage(&key).data.is_none());
 
 		Ok(())
 	}
