@@ -19,7 +19,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, CallFlags, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,10 +28,25 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(addr: &[u8; 32],);
-	api::set_code_hash(addr);
+	input!(
+		address: &[u8; 20],
+		gas: u64,
+	);
 
-	// we return 1 after setting new code_hash
-	// next `call` will NOT return this value, because contract code has been changed
-	api::return_value(uapi::ReturnFlags::empty(), &1u32.to_le_bytes());
+	let mut key = [0u8; 32];
+	key[0] = 1u8;
+
+	let mut value = [0u8; 32];
+	let value = &mut &mut value[..];
+	value[0] = 2u8;
+
+	api::set_storage(StorageFlags::empty(), &key, value);
+	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
+	assert!(value[0] == 2u8);
+
+	api::delegate_call_evm(CallFlags::empty(), address, gas, &[], None).unwrap();
+
+	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
+	assert!(value[0] == 1u8);
 }
+

@@ -8,12 +8,12 @@ use ethabi::Token;
 use scale_info::TypeInfo;
 use snowbridge_core::{pricing::UD60x18, ChannelId};
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::{RuntimeDebug, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_std::{borrow::ToOwned, vec, vec::Vec};
 
 /// Enqueued outbound messages need to be versioned to prevent data corruption
 /// or loss after forkless runtime upgrades
-#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VersionedQueuedMessage {
 	V1(QueuedMessage),
@@ -36,7 +36,7 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 }
 
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
-#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct Message {
 	/// ID for this message. One will be automatically generated if not provided.
@@ -53,7 +53,7 @@ pub struct Message {
 }
 
 /// A command which is executable by the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum Command {
 	/// Execute a sub-command within an agent for a consensus system in Polkadot
@@ -201,7 +201,7 @@ impl Command {
 
 /// Representation of a call to the initializer of an implementation contract.
 /// The initializer has the following ABI signature: `initialize(bytes)`.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Initializer {
 	/// ABI-encoded params of type `bytes` to pass to the initializer
 	pub params: Vec<u8>,
@@ -210,7 +210,7 @@ pub struct Initializer {
 }
 
 /// A Sub-command executable within an agent
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum AgentExecuteCommand {
 	/// Transfer ERC20 tokens
@@ -247,7 +247,7 @@ impl AgentExecuteCommand {
 }
 
 /// Message which is awaiting processing in the MessageQueue pallet
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct QueuedMessage {
 	/// Message ID
@@ -258,7 +258,7 @@ pub struct QueuedMessage {
 	pub command: Command,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 /// Fee for delivering message
 pub struct Fee<Balance>

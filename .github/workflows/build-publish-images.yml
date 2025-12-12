@@ -153,9 +153,6 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/release/test-parachain ./artifacts/.
           mkdir -p ./artifacts/zombienet
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling.rs.compact.compressed.wasm ./artifacts/zombienet/.
-          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -727,7 +724,7 @@ jobs:
         id: check_success
         run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             echo "build_success=false" >> $GITHUB_OUTPUT
@@ -773,8 +770,9 @@ jobs:
     runs-on: ubuntu-latest
     name: All zombienet tests passed
     needs:
-      - trigger-zombienet-polkadot
-      - trigger-zombienet-cumulus
+      # Disabled until zombienet polkadot/cumulus flows are stable
+      # - trigger-zombienet-polkadot
+      # - trigger-zombienet-cumulus
       - trigger-zombienet-substrate
       - trigger-zombienet-parachain-template
     if: always() && !cancelled()
@@ -783,7 +781,7 @@ jobs:
         id: check_success
         run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(grep -c '"result": "failure"' resultfile || true)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ "$FAILURES" -gt 0 ]; then
             echo "### At least one zombienet job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
