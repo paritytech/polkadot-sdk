@@ -106,7 +106,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
-	type ChildTrieProcessor = ();
+	type RelayProofKeysProcessor = ();
 }
 
 parameter_types! {
