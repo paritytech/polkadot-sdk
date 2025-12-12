@@ -27,14 +27,11 @@
 //!   filtering an XCM holding account.
 
 use super::{InteriorMultiLocation, MultiLocation};
-use crate::{
-	v4::{
-		Asset as NewMultiAssetV4, AssetFilter as NewMultiAssetFilterV4, AssetId as NewAssetIdV4,
-		AssetInstance as NewAssetInstanceV4, Assets as NewMultiAssetsV4, Fungibility as NewFungibilityV4,
-		WildAsset as NewWildMultiAssetV4, WildFungibility as NewWildFungibilityV4,
-	}
+use crate::v4::{
+	Asset as NewMultiAsset, AssetFilter as NewMultiAssetFilter, AssetId as NewAssetId,
+	AssetInstance as NewAssetInstance, Assets as NewMultiAssets, Fungibility as NewFungibility,
+	WildAsset as NewWildMultiAsset, WildFungibility as NewWildFungibility,
 };
-
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
 use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -81,10 +78,10 @@ pub enum AssetInstance {
 	Array32([u8; 32]),
 }
 
-impl TryFrom<NewAssetInstanceV4> for AssetInstance {
+impl TryFrom<NewAssetInstance> for AssetInstance {
 	type Error = ();
-	fn try_from(value: NewAssetInstanceV4) -> Result<Self, Self::Error> {
-		use NewAssetInstanceV4::*;
+	fn try_from(value: NewAssetInstance) -> Result<Self, Self::Error> {
+		use NewAssetInstance::*;
 		Ok(match value {
 			Undefined => Self::Undefined,
 			Index(n) => Self::Index(n),
@@ -321,10 +318,10 @@ impl<T: Into<AssetInstance>> From<T> for Fungibility {
 	}
 }
 
-impl TryFrom<NewFungibilityV4> for Fungibility {
+impl TryFrom<NewFungibility> for Fungibility {
 	type Error = ();
-	fn try_from(value: NewFungibilityV4) -> Result<Self, Self::Error> {
-		use NewFungibilityV4::*;
+	fn try_from(value: NewFungibility) -> Result<Self, Self::Error> {
+		use NewFungibility::*;
 		Ok(match value {
 			Fungible(n) => Self::Fungible(n),
 			NonFungible(i) => Self::NonFungible(i.try_into()?),
@@ -358,10 +355,10 @@ pub enum WildFungibility {
 	NonFungible,
 }
 
-impl TryFrom<NewWildFungibilityV4> for WildFungibility {
+impl TryFrom<NewWildFungibility> for WildFungibility {
 	type Error = ();
-	fn try_from(value: NewWildFungibilityV4) -> Result<Self, Self::Error> {
-		use NewWildFungibilityV4::*;
+	fn try_from(value: NewWildFungibility) -> Result<Self, Self::Error> {
+		use NewWildFungibility::*;
 		Ok(match value {
 			Fungible => Self::Fungible,
 			NonFungible => Self::NonFungible,
@@ -408,9 +405,9 @@ impl From<[u8; 32]> for AssetId {
 	}
 }
 
-impl TryFrom<NewAssetIdV4> for AssetId {
+impl TryFrom<NewAssetId> for AssetId {
 	type Error = ();
-	fn try_from(new: NewAssetIdV4) -> Result<Self, Self::Error> {
+	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
 		Ok(Self::Concrete(new.0.try_into()?))
 	}
 }
@@ -547,9 +544,9 @@ impl MultiAsset {
 	}
 }
 
-impl TryFrom<NewMultiAssetV4> for MultiAsset {
+impl TryFrom<NewMultiAsset> for MultiAsset {
 	type Error = ();
-	fn try_from(new: NewMultiAssetV4) -> Result<Self, Self::Error> {
+	fn try_from(new: NewMultiAsset) -> Result<Self, Self::Error> {
 		Ok(Self { id: new.id.try_into()?, fun: new.fun.try_into()? })
 	}
 }
@@ -597,9 +594,9 @@ impl Decode for MultiAssets {
 	}
 }
 
-impl TryFrom<NewMultiAssetsV4> for MultiAssets {
+impl TryFrom<NewMultiAssets> for MultiAssets {
 	type Error = ();
-	fn try_from(new: NewMultiAssetsV4) -> Result<Self, Self::Error> {
+	fn try_from(new: NewMultiAssets) -> Result<Self, Self::Error> {
 		let v = new
 			.into_inner()
 			.into_iter()
@@ -811,10 +808,10 @@ pub enum WildMultiAsset {
 	},
 }
 
-impl TryFrom<NewWildMultiAssetV4> for WildMultiAsset {
+impl TryFrom<NewWildMultiAsset> for WildMultiAsset {
 	type Error = ();
-	fn try_from(new: NewWildMultiAssetV4) -> Result<Self, ()> {
-		use NewWildMultiAssetV4::*;
+	fn try_from(new: NewWildMultiAsset) -> Result<Self, ()> {
+		use NewWildMultiAsset::*;
 		Ok(match new {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			AllOfCounted { id, fun, count } =>
@@ -985,10 +982,10 @@ impl MultiAssetFilter {
 	}
 }
 
-impl TryFrom<NewMultiAssetFilterV4> for MultiAssetFilter {
+impl TryFrom<NewMultiAssetFilter> for MultiAssetFilter {
 	type Error = ();
-	fn try_from(new: NewMultiAssetFilterV4) -> Result<MultiAssetFilter, Self::Error> {
-		use NewMultiAssetFilterV4::*;
+	fn try_from(new: NewMultiAssetFilter) -> Result<MultiAssetFilter, Self::Error> {
+		use NewMultiAssetFilter::*;
 		Ok(match new {
 			Definite(x) => Self::Definite(x.try_into()?),
 			Wild(x) => Self::Wild(x.try_into()?),
