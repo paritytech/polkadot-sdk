@@ -22,7 +22,7 @@ use crate::{
 	Config, H160,
 };
 use alloc::vec::Vec;
-use alloy_core::sol_types::SolValue;
+use alloy_core::sol_types::{private::SolTypeValue, SolValue};
 use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive_uapi::precompiles::system::ISystem;
@@ -106,6 +106,10 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				publicKey,
 			}) => {
 				let ok = env.sr25519_verify(signature, message, publicKey);
+				Ok(ok.abi_encode())
+			},
+			ISystemCalls::EcdsaToEthAddress(ISystem::EcdsaToEthAddressCall { publicKey }) => {
+				let ok = env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
 				Ok(ok.abi_encode())
 			},
 		}

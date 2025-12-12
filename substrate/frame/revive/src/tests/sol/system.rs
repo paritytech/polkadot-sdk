@@ -397,3 +397,29 @@ fn sr25519_verify(fixture_type: FixtureType) {
 		assert!(!result);
 	});
 }
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn ecdsa_to_eth_address(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::EcdsaToEthAddress;
+	let (binary, _) = compile_module_with_type("EcdsaToEthAddress", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: contract_addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		let pubkey_compressed = array_bytes::hex2array_unchecked(
+			"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91",
+		);
+
+		let result = builder::bare_call(contract_addr)
+			.data(EcdsaToEthAddress::convertCall { publicKey: pubkey_compressed }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert_eq!(
+			result.data[..20],
+			array_bytes::hex2array_unchecked::<_, 20>("09231da7b19A016f9e576d23B16277062F4d46A8")
+		);
+	});
+}
