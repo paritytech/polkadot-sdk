@@ -17,6 +17,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! Process child trie data from relay chain state proofs via configurable handler.
+//!
+//! This pallet is heavily opinionated toward a parachain-to-parachain publish-subscribe model.
+//! It assumes ParaId as the identifier for each child trie and is designed specifically for
+//! extracting published data from relay chain proofs in a pubsub mechanism.
 
 extern crate alloc;
 
@@ -59,8 +63,13 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Handler for defining subscriptions and processing received data.
 		type SubscriptionHandler: SubscriptionHandler;
+		/// Weight information for extrinsics and operations.
 		type WeightInfo: WeightInfo;
+		/// Prefix for the child trie storage key used to identify published data.
+		#[pallet::constant]
+		type ChildTriePrefix: Get<&'static [u8]>;
 	}
 
 	/// Child trie roots from previous block for change detection.
@@ -137,7 +146,7 @@ pub mod pallet {
 
 		fn derive_storage_key(publisher_para_id: ParaId) -> Vec<u8> {
 			use codec::Encode;
-			(b"pubsub", publisher_para_id).encode()
+			(T::ChildTriePrefix::get(), publisher_para_id).encode()
 		}
 
 		fn derive_child_info(publisher_para_id: ParaId) -> sp_core::storage::ChildInfo {
