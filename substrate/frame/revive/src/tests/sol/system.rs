@@ -348,7 +348,7 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 	});
 }
 
-// #[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn sr25519_verify(fixture_type: FixtureType) {
 	use pallet_revive_fixtures::Sr25519Verify;
