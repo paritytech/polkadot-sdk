@@ -160,6 +160,8 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 				state.handle_fetched_collation(ctx.sender(), resp).await;
 			},
 			_ = &mut timer => {
+				// We don't need to do anything specific here.
+				// If the timer expires, we only need to trigger the advertisement fetching logic.
 			},
 		}
 
