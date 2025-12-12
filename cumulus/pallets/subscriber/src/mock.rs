@@ -43,9 +43,14 @@ impl SubscriptionHandler for TestHandler {
 	}
 }
 
+parameter_types! {
+	pub const MaxPublishers: u32 = 100;
+}
+
 impl crate::Config for Test {
 	type SubscriptionHandler = TestHandler;
 	type WeightInfo = ();
+	type MaxPublishers = MaxPublishers;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
