@@ -151,6 +151,8 @@ impl<A, F, C> LocalPay<F, A, C> {
 
 	fn match_asset(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
 		match asset {
+			VersionedLocatableAsset::V3 { location, asset_id } if location.is_here() =>
+				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
 			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
 				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
 			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
