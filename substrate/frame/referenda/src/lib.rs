@@ -497,6 +497,7 @@ pub mod pallet {
 		#[cfg(any(feature = "std", test))]
 		fn integrity_test() {
 			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
+			assert(T::MaxDepositContributions::get() > 0, "MaxDepositContributions must be greater than 0");
 		}
 	}
 
