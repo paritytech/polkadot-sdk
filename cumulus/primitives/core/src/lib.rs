@@ -473,8 +473,10 @@ pub enum RelayStorageKey {
 	Top(Vec<u8>),
 	/// Child trie storage key.
 	Child {
-		/// Child trie storage key (unprefixed).
-		info: Vec<u8>,
+		/// Unprefixed storage key identifying the child trie root location.
+		/// Prefix `:child_storage:default:` is added when accessing storage.
+		/// Used to derive `ChildInfo` for reading child trie data.
+		storage_key: Vec<u8>,
 		/// Key within the child trie.
 		key: Vec<u8>,
 	},
@@ -545,10 +547,11 @@ sp_api::decl_runtime_apis! {
 	pub trait KeyToIncludeInRelayProofApi {
 		/// Returns relay chain storage proof requests.
 		///
-		/// The returned structure specifies:
-		/// - `top`: Top-level relay chain storage keys to include in the proof
-		/// - `children_default`: Child trie storage to include, with each entry containing
-		///   the child trie identifier and the keys to prove from that child trie
+		/// The returned `RelayProofRequest` contains a list of storage keys where each key
+		/// can be either:
+		/// - `RelayStorageKey::Top`: Top-level relay chain storage key
+		/// - `RelayStorageKey::Child`: Child trie storage, containing the child trie identifier
+		///   and the key to prove from that child trie
 		///
 		/// The collator generates proofs for these and includes them in the relay chain state proof.
 		fn keys_to_prove() -> RelayProofRequest;

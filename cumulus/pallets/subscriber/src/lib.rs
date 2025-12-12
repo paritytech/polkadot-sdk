@@ -122,11 +122,10 @@ pub mod pallet {
 			let storage_keys = T::SubscriptionHandler::subscriptions()
 				.into_iter()
 				.flat_map(|(para_id, data_keys)| {
-					let child_info = Self::derive_child_info(para_id);
-					let storage_key = child_info.storage_key().to_vec();
+					let storage_key = Self::derive_storage_key(para_id);
 				data_keys.into_iter().map(move |key| {
 					cumulus_primitives_core::RelayStorageKey::Child {
-						info: storage_key.clone(),
+						storage_key: storage_key.clone(),
 						key,
 					}
 				})
@@ -136,9 +135,13 @@ pub mod pallet {
 			cumulus_primitives_core::RelayProofRequest { keys: storage_keys }
 		}
 
-		fn derive_child_info(publisher_para_id: ParaId) -> sp_core::storage::ChildInfo {
+		fn derive_storage_key(publisher_para_id: ParaId) -> Vec<u8> {
 			use codec::Encode;
-			sp_core::storage::ChildInfo::new_default(&(b"pubsub", publisher_para_id).encode())
+			(b"pubsub", publisher_para_id).encode()
+		}
+
+		fn derive_child_info(publisher_para_id: ParaId) -> sp_core::storage::ChildInfo {
+			sp_core::storage::ChildInfo::new_default(&Self::derive_storage_key(publisher_para_id))
 		}
 
 		fn collect_publisher_roots(
