@@ -17,9 +17,10 @@
 
 #![no_std]
 #![no_main]
+
 include!("../panic_handler.rs");
 
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, CallFlags, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,5 +29,14 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	api::return_value(uapi::ReturnFlags::empty(), &2u32.to_le_bytes());
+	input!(
+		256,
+		callee_addr: &[u8; 20],
+		gas: u64,
+	);
+
+	let mut value = [0; 32];
+	api::value_transferred(&mut value);
+
+	api::call_evm(CallFlags::empty(), callee_addr, gas, &value, &[], None).unwrap();
 }

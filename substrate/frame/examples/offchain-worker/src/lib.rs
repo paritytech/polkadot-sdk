@@ -74,11 +74,8 @@ use sp_runtime::{
 		Duration,
 	},
 	traits::Zero,
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
-	},
-	RuntimeDebug,
+	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	Debug,
 };
 
 #[cfg(test)]
@@ -185,7 +182,7 @@ pub mod pallet {
 		/// You can use `Local Storage` API to coordinate runs of the worker.
 		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			// Note that having logs compiled to WASM may cause the size of the blob to increase
-			// significantly. You can use `RuntimeDebug` custom derive to hide details of the types
+			// significantly. You can use `Debug` custom derive to hide details of the types
 			// in WASM. The `sp-api` crate also provides a feature `disable-logging` to disable
 			// all logging and thus, remove any logging from the WASM.
 			log::info!("Hello World from offchain workers!");
@@ -368,7 +365,7 @@ pub mod pallet {
 /// Payload used by this example crate to hold price
 /// data required to submit a transaction.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, scale_info::TypeInfo,
 )]
 pub struct PricePayload<Public, BlockNumber> {
 	block_number: BlockNumber,

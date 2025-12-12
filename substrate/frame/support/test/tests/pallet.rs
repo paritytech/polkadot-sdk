@@ -491,7 +491,7 @@ pub mod pallet {
 	#[pallet::origin]
 	#[derive(
 		EqNoBound,
-		RuntimeDebugNoBound,
+		DebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
 		PartialOrdNoBound,
@@ -564,7 +564,7 @@ pub mod pallet {
 		Staking,
 	}
 
-	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
+	#[derive(codec::Encode, Debug)]
 	#[cfg_attr(feature = "std", derive(codec::Decode))]
 	pub enum InherentError {
 		Fatal,

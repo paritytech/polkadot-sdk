@@ -370,7 +370,7 @@ impl frame_system::Config for Runtime {
 	PartialEq,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 )]
 pub enum FreezeReasonId {
 	Foo,

@@ -27,7 +27,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
-kvdb-rocksdb = { optional = true, workspace = true, features = ["jemalloc"] }
+kvdb-rocksdb = { optional = true, workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
@@ -63,3 +63,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb", "sp-database/rocksdb"]
+jemalloc-allocator = ["kvdb-rocksdb?/jemalloc"]
