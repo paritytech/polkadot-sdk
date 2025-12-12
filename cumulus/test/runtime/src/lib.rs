@@ -403,6 +403,16 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+#[cfg(feature = "slot-duration-18s")]
+parameter_types! {
+	pub const OldSlotDuration: Option<u64> = Some(6000);
+}
+
+#[cfg(not(feature = "slot-duration-18s"))]
+parameter_types! {
+	pub const OldSlotDuration: Option<u64> = None;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -412,6 +422,7 @@ impl pallet_aura::Config for Runtime {
 	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type OldSlotDuration = OldSlotDuration;
 }
 
 impl test_pallet::Config for Runtime {}

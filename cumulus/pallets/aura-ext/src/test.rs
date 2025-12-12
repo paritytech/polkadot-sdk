@@ -122,12 +122,17 @@ impl Get<u64> for TestSlotDuration {
 	}
 }
 
+parameter_types! {
+	pub const NoOldSlotDuration: Option<u64> = None;
+}
+
 impl pallet_aura::Config for Test {
 	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
 	type MaxAuthorities = ConstU32<100_000>;
 	type DisabledValidators = ();
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = TestSlotDuration;
+	type OldSlotDuration = NoOldSlotDuration;
 }
 
 impl pallet_timestamp::Config for Test {

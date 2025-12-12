@@ -118,6 +118,18 @@ pub mod pallet {
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
 		#[pallet::constant]
 		type SlotDuration: Get<<Self as pallet_timestamp::Config>::Moment>;
+
+		/// The old slot duration used before a runtime upgrade that changed the slot duration.
+		///
+		/// If `None`, no migration will be performed. In this case, `pre_upgrade` will verify
+		/// that `current_timestamp / slot_duration == current_slot`, erroring if not.
+		///
+		/// If `Some(old_duration)`, migration will only occur if
+		/// `old_slot == current_timestamp / old_duration`. Otherwise, no migration is performed.
+		///
+		/// This should be set to `Some(old_value)` when changing `SlotDuration`.
+		#[pallet::constant]
+		type OldSlotDuration: Get<Option<<Self as pallet_timestamp::Config>::Moment>>;
 	}
 
 	#[pallet::pallet]
@@ -128,6 +140,17 @@ pub mod pallet {
 		fn on_runtime_upgrade() -> Weight {
 			use pallet_timestamp::Pallet as Timestamp;
 
+			let old_slot_duration = T::OldSlotDuration::get();
+
+			if old_slot_duration.is_none() {
+				log::info!(
+					target: LOG_TARGET,
+					"OldSlotDuration is None, skipping CurrentSlot migration"
+				);
+				return T::DbWeight::get().reads(1)
+			}
+
+			let old_slot_duration = old_slot_duration.expect("checked above; qed");
 			let current_timestamp = Timestamp::<T>::get();
 			let new_slot_duration = T::SlotDuration::get();
 
@@ -139,22 +162,44 @@ pub mod pallet {
 				return T::DbWeight::get().reads(2)
 			}
 
+			let old_slot = CurrentSlot::<T>::get();
+			let expected_old_slot = current_timestamp / old_slot_duration;
+			let expected_old_slot = Slot::from(expected_old_slot.saturated_into::<u64>());
+
+			if old_slot != expected_old_slot {
+				log::warn!(
+					target: LOG_TARGET,
+					"Skipping migration: old_slot ({}) != current_timestamp / old_slot_duration ({}). \
+					This likely means the slot duration was not changed or migration already occurred.",
+					u64::from(old_slot),
+					u64::from(expected_old_slot)
+				);
+				return T::DbWeight::get().reads(2)
+			}
+
 			let new_slot = current_timestamp / new_slot_duration;
 			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
 
-			let old_slot = CurrentSlot::<T>::get();
 			if old_slot != new_slot {
 				CurrentSlot::<T>::put(new_slot);
 				log::info!(
 					target: LOG_TARGET,
-					"Migrated CurrentSlot from {} to {} (timestamp: {:?}, slot_duration: {:?})",
+					"Migrated CurrentSlot from {} to {} (timestamp: {:?}, old_slot_duration: {:?}, new_slot_duration: {:?})",
 					u64::from(old_slot),
 					u64::from(new_slot),
 					current_timestamp,
+					old_slot_duration,
 					new_slot_duration
 				);
+				T::DbWeight::get().reads_writes(2, 1)
+			} else {
+				log::info!(
+					target: LOG_TARGET,
+					"CurrentSlot is already correct ({}), no migration needed",
+					u64::from(old_slot)
+				);
+				T::DbWeight::get().reads(2)
 			}
-			T::DbWeight::get().reads_writes(2, 1)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -169,15 +214,44 @@ pub mod pallet {
 				return Err("Slot duration is zero".into())
 			}
 
-			let new_slot = current_timestamp / new_slot_duration;
-			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
+			let old_slot_duration = T::OldSlotDuration::get();
 
-			log::info!(
-				target: LOG_TARGET,
-				"Pre-upgrade: CurrentSlot will be migrated from {} to {}",
-				u64::from(old_slot),
-				u64::from(new_slot)
-			);
+			if let Some(old_duration) = old_slot_duration {
+				let expected_old_slot = current_timestamp / old_duration;
+				let expected_old_slot = Slot::from(expected_old_slot.saturated_into::<u64>());
+				let new_slot = current_timestamp / new_slot_duration;
+				let new_slot = Slot::from(new_slot.saturated_into::<u64>());
+
+				log::info!(
+					target: LOG_TARGET,
+					"Pre-upgrade: OldSlotDuration is set. CurrentSlot migration will be attempted. \
+					Current slot: {}, expected from old duration: {}, expected from new duration: {}",
+					u64::from(old_slot),
+					u64::from(expected_old_slot),
+					u64::from(new_slot)
+				);
+			} else {
+				let expected_slot = current_timestamp / new_slot_duration;
+				let expected_slot = Slot::from(expected_slot.saturated_into::<u64>());
+
+				if old_slot != expected_slot {
+					return Err(format!(
+						"OldSlotDuration is None, but CurrentSlot ({}) does not match \
+						current_timestamp / slot_duration ({}). If you are intentionally \
+						changing the slot duration, please set OldSlotDuration to the previous value.",
+						u64::from(old_slot),
+						u64::from(expected_slot)
+					)
+					.into())
+				}
+
+				log::info!(
+					target: LOG_TARGET,
+					"Pre-upgrade: OldSlotDuration is None. No migration will be performed. \
+					CurrentSlot matches expected value: {}",
+					u64::from(old_slot)
+				);
+			}
 
 			Ok(vec![])
 		}

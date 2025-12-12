@@ -496,12 +496,17 @@ impl pallet_session::Config for Runtime {
 	type KeyDeposit = ();
 }
 
+parameter_types! {
+	pub const NoOldSlotDuration: Option<u64> = None;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type OldSlotDuration = NoOldSlotDuration;
 }
 
 parameter_types! {

@@ -79,12 +79,17 @@ impl DisabledValidators for MockDisabledValidators {
 	}
 }
 
+parameter_types! {
+	pub const NoOldSlotDuration: Option<u64> = None;
+}
+
 impl pallet_aura::Config for Test {
 	type AuthorityId = AuthorityId;
 	type DisabledValidators = MockDisabledValidators;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type OldSlotDuration = NoOldSlotDuration;
 }
 
 pub fn build_ext(authorities: Vec<u64>) -> sp_io::TestExternalities {

@@ -97,12 +97,17 @@ impl frame_system::Config for Runtime {
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
 
+parameter_types! {
+	pub const NoOldSlotDuration: Option<Moment> = None;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
+	type OldSlotDuration = NoOldSlotDuration;
 }
 
 impl pallet_grandpa::Config for Runtime {
