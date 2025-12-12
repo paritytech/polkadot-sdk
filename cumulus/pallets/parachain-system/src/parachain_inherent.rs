@@ -50,16 +50,7 @@ use sp_core::{bounded::BoundedSlice, Get};
 /// `InboundMessageId {sent_at: 1, reverse_idx: 0}` points to `msgs[4]`
 /// `InboundMessageId {sent_at: 1, reverse_idx: 3}` points to `msgs[1]`
 /// `InboundMessageId {sent_at: 1, reverse_idx: 4}` points to `msgs[0]`
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Default,
-	sp_runtime::RuntimeDebug,
-	PartialEq,
-	TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct InboundMessageId {
 	/// The block number at which this message was added to the message passing queue
 	/// on the relay chain.
@@ -88,13 +79,7 @@ pub trait InboundMessage {
 
 /// A collection of inbound messages.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct InboundMessagesCollection<Message: InboundMessage> {
 	messages: Vec<Message>,
@@ -162,13 +147,7 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 /// The first messages in the collection (up to a limit) contain the full message data.
 /// The messages that exceed that limit are hashed.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct AbridgedInboundMessagesCollection<Message: InboundMessage> {
 	full_messages: Vec<Message>,
@@ -313,13 +292,7 @@ impl AbridgedInboundHrmpMessages {
 /// The basic inherent data that is passed by the collator to the parachain runtime.
 /// This data doesn't contain any messages.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct BasicParachainInherentData {
 	pub validation_data: PersistedValidationData,
@@ -331,13 +304,7 @@ pub struct BasicParachainInherentData {
 /// The messages that are passed by the collator to the parachain runtime as part of the
 /// inherent data.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct InboundMessagesData {
 	pub downward_messages: AbridgedInboundDownwardMessages,

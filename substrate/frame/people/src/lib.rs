@@ -155,7 +155,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
-	ArithmeticError, RuntimeDebug, SaturatedConversion, Saturating,
+	ArithmeticError, Debug, SaturatedConversion, Saturating,
 };
 use verifiable::{Alias, GenerateVerifiable};
 
@@ -453,15 +453,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		MaxEncodedLen,
-		TypeInfo,
-		DecodeWithMemTracking,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 	)]
 	pub enum Origin {
 		PersonalIdentity(PersonalId),
