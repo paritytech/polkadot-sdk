@@ -40,6 +40,8 @@ use sp_std::vec;
 
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
@@ -163,7 +165,7 @@ pub mod pallet {
 			sp_core::storage::ChildInfo::new_default(&Self::derive_storage_key(publisher_para_id))
 		}
 
-		fn collect_publisher_roots(
+		pub fn collect_publisher_roots(
 			relay_state_proof: &RelayChainStateProof,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
 		) -> Vec<(ParaId, Vec<u8>)> {
@@ -183,17 +185,17 @@ pub mod pallet {
 				.collect()
 		}
 
-		fn process_published_data(
+		pub fn process_published_data(
 			relay_state_proof: &RelayChainStateProof,
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
-		) -> Weight {
+		) {
 			// Load roots from previous block for change detection.
 			let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
 			// Early exit if no publishers have any data.
 			if current_roots.is_empty() && previous_roots.is_empty() {
-				return T::DbWeight::get().reads(1);
+				return;
 			}
 
 			// Convert to map for efficient lookup by ParaId.
@@ -261,8 +263,6 @@ pub mod pallet {
 					.try_into()
 					.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
-
-			T::WeightInfo::process_published_data()
 		}
 	}
 
@@ -273,21 +273,50 @@ pub mod pallet {
 		/// Main trie keys in the proof are intentionally ignored.
 		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
 			let subscriptions = T::SubscriptionHandler::subscriptions();
+			let num_publishers = subscriptions.len() as u32;
+			let keys_per_publisher = subscriptions
+				.first()
+				.map(|(_, keys)| keys.len() as u32)
+				.unwrap_or(0);
+
 			let current_roots = Self::collect_publisher_roots(verified_proof, &subscriptions);
-			Self::process_published_data(verified_proof, &current_roots, &subscriptions)
+			Self::process_published_data(verified_proof, &current_roots, &subscriptions);
+
+			// Return total weight for all operations
+			T::WeightInfo::process_relay_proof_keys(num_publishers, keys_per_publisher)
 		}
 	}
 }
 
 pub trait WeightInfo {
-	fn process_published_data() -> Weight;
+	fn get_subscriptions(n: u32, k: u32) -> Weight;
+	fn collect_publisher_roots(n: u32) -> Weight;
+	fn process_published_data(n: u32, k: u32) -> Weight;
 	fn clear_stored_roots() -> Weight;
+
+	/// Total weight consumed by process_relay_proof_keys
+	/// Composes the weights of all sub-operations
+	fn process_relay_proof_keys(num_publishers: u32, keys_per_publisher: u32) -> Weight {
+		Self::get_subscriptions(num_publishers, keys_per_publisher)
+			.saturating_add(Self::collect_publisher_roots(num_publishers))
+			.saturating_add(Self::process_published_data(num_publishers, keys_per_publisher))
+	}
 }
 
 impl WeightInfo for () {
-	fn process_published_data() -> Weight {
+	fn get_subscriptions(_n: u32, _k: u32) -> Weight {
+		// TODO: Replace with proper benchmarked weights
+		Weight::from_parts(5_000, 0)
+	}
+
+	fn collect_publisher_roots(_n: u32) -> Weight {
 		// TODO: Replace with proper benchmarked weights
 		Weight::from_parts(10_000, 0)
+	}
+
+	fn process_published_data(_n: u32, _k: u32) -> Weight {
+		// TODO: Replace with proper benchmarked weights
+		Weight::from_parts(50_000, 0)
 	}
 
 	fn clear_stored_roots() -> Weight {
