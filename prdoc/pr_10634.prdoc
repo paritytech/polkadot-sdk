@@ -12,7 +12,7 @@ doc:
 crates:
   - name: kitchensink-runtime
     bump: none
-  - name: pallet-revive-dev-node-runtime
+  - name: revive-dev-runtime
     bump: none
   - name: frame-support
     bump: none
