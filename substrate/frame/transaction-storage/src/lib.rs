@@ -344,8 +344,7 @@ pub mod pallet {
 			index: u32,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let transactions = Transactions::<T>::get(block).ok_or(Error::<T>::RenewedNotFound)?;
-			let info = transactions.get(index as usize).ok_or(Error::<T>::RenewedNotFound)?;
+			let info = Self::transaction_info(block, index).ok_or(Error::<T>::RenewedNotFound)?;
 
 			// In the case of a regular unsigned transaction, this should have been checked by
 			// pre_dispatch. In the case of a regular signed transaction, this should have been
@@ -558,6 +557,15 @@ pub mod pallet {
 		fn ensure_data_size_ok(size: usize) -> Result<(), Error<T>> {
 			ensure!(Self::data_size_ok(size), Error::<T>::BadDataSize);
 			Ok(())
+		}
+
+		/// Returns the [`TransactionInfo`] for the specified store/renew transaction.
+		fn transaction_info(
+			block_number: BlockNumberFor<T>,
+			index: u32,
+		) -> Option<TransactionInfo> {
+			let transactions = Transactions::<T>::get(block_number)?;
+			transactions.into_iter().nth(index as usize)
 		}
 
 		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
