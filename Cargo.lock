@@ -1403,6 +1403,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-dap",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
@@ -2855,6 +2856,7 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
@@ -3473,6 +3475,7 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
@@ -3919,6 +3922,7 @@ dependencies = [
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-proxy",
@@ -12197,6 +12201,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dap"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-dap-satellite"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-dap",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-default-config-example"
 version = "10.0.0"
 dependencies = [
@@ -13634,6 +13671,7 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-dap",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -13714,6 +13752,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-dap",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
@@ -14912,6 +14951,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-migrations",
@@ -16584,6 +16624,8 @@ dependencies = [
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
+ "pallet-dap",
+ "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -27534,6 +27576,7 @@ dependencies = [
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-conviction-voting",
+ "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",

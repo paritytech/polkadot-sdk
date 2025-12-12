@@ -52,6 +52,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Dap: pallet_dap,
 	}
 );
 
@@ -108,6 +109,10 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+impl pallet_dap::Config for Test {
+	type Currency = Balances;
 }
 
 parameter_types! {
@@ -454,7 +459,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = ();
+	type Slash = pallet_dap::SlashToDap<Test>;
 	type WeightInfo = ();
 }
 

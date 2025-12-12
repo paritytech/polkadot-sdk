@@ -408,6 +408,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_dap_satellite::AccumulateInSatellite<Runtime>;
 }
 
 parameter_types! {
@@ -479,11 +480,20 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
+	/// Percentage of fees that go to DAP satellite (0-100).
+	/// The remainder goes to block author. Tips always go 100% to author.
+	/// Westend: 0% to DAP (preserving original behavior of 100% to author)
+	/// Polkadot/Kusama: configurable (e.g., 80% to DAP, 20% to author)
+	pub const DapSatelliteFeePercent: u32 = 0;
 }
+
+/// Fee handler that splits fees between DAP satellite and block author.
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -1747,6 +1757,10 @@ impl pallet_root_offences::Config for Runtime {
 	type ReportOffence = Offences;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+}
+
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -2026,6 +2040,10 @@ mod runtime {
 	// Root offences pallet
 	#[runtime::pallet_index(105)]
 	pub type RootOffences = pallet_root_offences;
+
+	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	#[runtime::pallet_index(106)]
+	pub type DapSatellite = pallet_dap_satellite;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]

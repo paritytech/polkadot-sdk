@@ -1,0 +1,99 @@
+title: 'First iteration of Dynamic Allocation Pool (DAP): burns -> DAP buffer/satellite'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This initial version makes it possible to collect funds that would otherwise be burned into
+      - the DAP buffer on AssetHub
+      - the DAP satellite on system chains and the RelayChain
+    This is fully configurable, meaning that chains can choose to redirect all, some, or none of the funds that would be burned into DAP.
+
+    The mechanism to periodically transfer funds from the DAP satellite to the DAP buffer via XCM is not yet in place.
+
+    Westend RelayChain and system chains are now integrated with DAP / DAP satellite.
+    - On AssetHub:
+      - treasury unspent and staking slashes are now redirected to the DAP buffer instead of being burned.
+      - All user-initiated burns also go to the DAP buffer instead of reducing total issuance.
+    - On RelayChain, DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the block author is preserved.
+    - On Coretime, revenues that would be transferred daily to XCM and burned, are now redirected to the DAP satellite instead.
+    - On other system chains (People, BridgeHub, Collective), DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the staking pot is preserved.
+
+    Events: `FundsReturned` (pallet-dap) and `FundsAccumulated` (pallet-dap-satellite) are emitted only for explicit user actions (e.g., `burn` extrinsic via `FundingSink`).
+    Automatic system operations like fee handling and slashes via `OnUnbalanced` do NOT emit events to avoid bloating blocks with tons of events per block.
+
+    [Breaking change]: all runtimes must now explicitly configure `BurnDestination`:
+      - Non-DAP runtimes should use `pallet_balances::DirectBurn<Runtime>` for direct burning.
+      - DAP-integrated runtimes use `pallet_dap::ReturnToDap<Runtime>` (on AssetHub) or `pallet_dap_satellite::AccumulateInSatellite<Runtime>` (on other system chains).
+
+    In the next iterations, we will introduce the following:
+      - Make it possible to replace direct minting with requesting funds from DAP buffer.
+      - Make DAP responsible to mint according to the issuance curve defined per chain.
+      - Make it possible to configure the percentage of funds redirected from DAP to different destinations (validators, nominators, treasury, collators, ...).
+      - Support for multiple assets in DAP: native token and stablecoin.
+      - The periodic transfer of funds from DAP satellite to DAP buffer via XCM.
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-assets-freezer
+  bump: patch
+- name: pallet-asset-rewards
+  bump: patch
+- name: pallet-balances
+  bump: major
+- name: pallet-dap
+  bump: patch
+- name: pallet-dap-satellite
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async
+  bump: patch
+- name: coretime-westend-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: major
+- name: polkadot-test-runtime
+  bump: major
+- name: cumulus-test-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: parachain-template-runtime
+  bump: major
+- name: solochain-template-runtime
+  bump: major
+- name: substrate-test-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: staging-xcm-builder
+  bump: patch
+- name: pallet-nis
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor

@@ -229,6 +229,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_balances::DirectBurn<Runtime>;
 }
 
 parameter_types! {
@@ -1195,6 +1196,9 @@ construct_runtime!(
 		Whitelist: pallet_whitelist = 95,
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
+
+		// Dynamic Allocation Pool / Issuance buffer
+		Dap: pallet_dap = 98,
 
 		// Balances.
 		Vesting: pallet_vesting = 100,
