@@ -382,21 +382,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund * 2 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -493,21 +479,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund - fees_after_refund * 8 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -554,21 +526,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(2),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(2),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund - fees_after_refund * 8 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},

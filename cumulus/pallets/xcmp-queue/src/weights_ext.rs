@@ -30,7 +30,11 @@ pub trait WeightInfoExt: WeightInfo {
 		Self::enqueue_n_full_pages(0)
 	}
 
-	fn enqueue_xcmp_messages(first_page_pos: u32, batch_footprint: &BatchFootprint) -> Weight {
+	fn enqueue_xcmp_messages(
+		first_page_pos: u32,
+		batch_footprint: &BatchFootprint,
+		is_first_sender_batch: bool,
+	) -> Weight {
 		let message_count = batch_footprint.msgs_count.saturated_into();
 		let size_in_bytes = batch_footprint.size_in_bytes.saturated_into();
 
@@ -61,8 +65,14 @@ pub trait WeightInfoExt: WeightInfo {
 		// If the messages are not added to the beginning of the first page, the page will be
 		// decoded and re-encoded once. Let's account for this.
 		let pos_overhead = {
-			Self::enqueue_empty_xcmp_message_at(first_page_pos)
-				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0))
+			let mut pos_overhead = Self::enqueue_empty_xcmp_message_at(first_page_pos)
+				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0));
+			// We need to account for the PoV size of the first page in the message queue only the
+			// first time when we access it.
+			if !is_first_sender_batch {
+				pos_overhead = pos_overhead.set_proof_size(0);
+			}
+			pos_overhead
 		};
 
 		pages_overhead
@@ -78,6 +88,7 @@ pub trait WeightInfoExt: WeightInfo {
 			Self::uncached_enqueue_xcmp_messages().saturating_add(Self::enqueue_xcmp_messages(
 				get_average_page_pos(MaxMessageLen::get()),
 				&BatchFootprint { msgs_count: 1000, size_in_bytes: 3000, new_pages_count: 0 },
+				true,
 			));
 		let actual_weight = Self::enqueue_1000_small_xcmp_messages();
 

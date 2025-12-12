@@ -107,6 +107,11 @@ pub trait WeightInfo {
 	fn total_issuance() -> Weight;
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
+	fn set_reserves() -> Weight;
+	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
+		// disabled by default, force explicit benchmarking
+		Weight::MAX
+	}
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -601,6 +606,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+	fn set_reserves() -> Weight {
+		Weight::from_parts(31_972_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1093,5 +1103,10 @@ impl WeightInfo for () {
 		// Minimum execution time: 11_348_000 picoseconds.
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	fn set_reserves() -> Weight {
+		Weight::from_parts(31_972_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

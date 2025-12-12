@@ -19,37 +19,36 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
+	exec::CallResources,
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt_with, Interpreter},
+		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Pallet, Weight, H160, U256,
+	Code, DebugSettings, Error, Pallet, ReentrancyProtection, H160, LOG_TARGET, U256,
 };
-pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
+use alloc::{vec, vec::Vec};
+pub use call_helpers::{charge_call_gas, get_memory_in_and_out_ranges};
 use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::interpreter_action::CallScheme;
+use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
 /// Creates a new contract with provided bytecode.
-pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
-	interpreter: &mut Interpreter<'ext, E>,
+pub fn create<const IS_CREATE2: bool, E: Ext>(
+	interpreter: &mut Interpreter<E>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Halt::StateChangeDuringStaticCall);
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [value, code_offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_or_halt_with(len, || Halt::InvalidOperandOOG)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 
-	// TODO: We do not charge for the new code in storage. When implementing the new gas:
-	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
-	// See #9577 for more context.
-	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::Instantiate {
-		input_data_len: len as u32, // We charge for initcode execution
+	interpreter.ext.charge_or_halt(RuntimeCosts::Create {
+		init_code_len: len as u32,
 		balance_transfer: Pallet::<E::T>::has_balance(value),
 		dust_transfer: Pallet::<E::T>::has_dust(value),
 	})?;
@@ -57,11 +56,13 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 	let mut code = Vec::new();
 	if len != 0 {
 		// EIP-3860: Limit initcode
-		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
-			return ControlFlow::Break(Halt::CreateInitCodeSizeLimit);
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
+			!DebugSettings::is_unlimited_contract_size_allowed::<E::T>()
+		{
+			return ControlFlow::Break(Error::<E::T>::BlobTooLarge.into());
 		}
 
-		let code_offset = as_usize_or_halt_with(code_offset, || Halt::InvalidOperandOOG)?;
+		let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
 		interpreter.memory.resize(code_offset, len)?;
 		code = interpreter.memory.slice_len(code_offset, len).to_vec();
 	}
@@ -74,9 +75,8 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 	};
 
 	let call_result = interpreter.ext.instantiate(
-		Weight::from_parts(u64::MAX, u64::MAX), // TODO: set the right limit
-		U256::MAX,
-		Code::Upload(code.to_vec()),
+		&CallResources::NoLimits,
+		Code::Upload(code),
 		value,
 		vec![],
 		salt.as_ref(),
@@ -87,8 +87,6 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 			let return_value = interpreter.ext.last_frame_output();
 			if return_value.did_revert() {
 				// Contract creation reverted — return data must be propagated
-				let len = return_value.data.len() as u32;
-				interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::CopyToContract(len))?;
 				interpreter.stack.push(U256::zero())
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
@@ -97,8 +95,9 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 			}
 		},
 		Err(err) => {
+			log::debug!(target: LOG_TARGET, "Create failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
-			return crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
+			ControlFlow::Continue(())
 		},
 	}
 }
@@ -106,30 +105,25 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 /// Implements the CALL instruction.
 ///
 /// Message call with value transfer to another account.
-pub fn call<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	let [local_gas_limit, to, value] = interpreter.stack.popn()?;
+pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let [gas_limit, to, value] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
-	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
-
 	let has_transfer = !value.is_zero();
 	if interpreter.ext.is_read_only() && has_transfer {
-		return ControlFlow::Break(Halt::CallNotAllowedInsideStatic);
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-
-	let (input, return_memory_offset) = get_memory_input_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::Call;
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
@@ -139,82 +133,88 @@ pub fn call<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow
 ///
 /// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
 /// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
-pub fn call_code<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(Halt::NotActivated)
+pub fn call_code<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }
 
 /// Implements the DELEGATECALL instruction.
 ///
 /// Message call with alternative account's code but same sender and value.
-pub fn delegate_call<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	let [local_gas_limit, to] = interpreter.stack.popn()?;
+pub fn delegate_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let [gas_limit, to] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
-	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
-
-	let (input, return_memory_offset) = get_memory_input_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::DelegateCall;
 	let value = U256::zero();
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
 /// Implements the STATICCALL instruction.
 ///
 /// Static message call (cannot modify state).
-pub fn static_call<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	let [local_gas_limit, to] = interpreter.stack.popn()?;
+pub fn static_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let [gas_limit, to] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
-	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
-	let (input, return_memory_offset) = get_memory_input_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::StaticCall;
 	let value = U256::zero();
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
 fn run_call<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	callee: H160,
+	gas_limit: U256,
 	input: Vec<u8>,
 	scheme: CallScheme,
-	gas_limit: Weight,
 	value: U256,
-	return_memory_offset: Range<usize>,
+	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
+	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend. This is
+	// just a heuristic.
+	let (add_stipend, reentracy) =
+		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
+		{
+			(false, _) => (true, ReentrancyProtection::AllowReentry),
+			(_, true) => (true, ReentrancyProtection::AllowNext),
+			(_, _) => (false, ReentrancyProtection::AllowReentry),
+		};
+
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			gas_limit,
-			U256::MAX,
+			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
 			&callee,
 			value,
 			input,
-			true,
+			// protect against rex-entrancy when we grant the stipend
+			reentracy,
 			scheme.is_static_call(),
 		),
-		CallScheme::DelegateCall =>
-			interpreter.ext.delegate_call(gas_limit, U256::MAX, callee, input),
+		CallScheme::DelegateCall => interpreter.ext.delegate_call(
+			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+			callee,
+			input,
+		),
 		CallScheme::CallCode => {
 			unreachable!()
 		},
@@ -222,26 +222,29 @@ fn run_call<'a, E: Ext>(
 
 	match call_result {
 		Ok(()) => {
-			let mem_start = return_memory_offset.start;
-			let mem_length = return_memory_offset.len();
+			let mem_start = return_memory_range.start;
+			let mem_length = return_memory_range.len();
 			let returned_len = interpreter.ext.last_frame_output().data.len();
 			let target_len = min(mem_length, returned_len);
 
 			// success or revert
 			interpreter
 				.ext
-				.gas_meter_mut()
-				.charge_evm(RuntimeCosts::CopyToContract(target_len as u32))?;
+				.frame_meter_mut()
+				.charge_or_halt(RuntimeCosts::CopyToContract(target_len as u32))?;
 
 			let return_value = interpreter.ext.last_frame_output();
 			let return_data = &return_value.data;
 			let did_revert = return_value.did_revert();
+
+			// Note: This can't panic because we resized memory with `get_memory_in_and_out_ranges`
 			interpreter.memory.set(mem_start, &return_data[..target_len]);
 			interpreter.stack.push(U256::from(!did_revert as u8))
 		},
 		Err(err) => {
+			log::debug!(target: LOG_TARGET, "Call failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
-			crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
+			ControlFlow::Continue(())
 		},
 	}
 }

@@ -361,11 +361,25 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Vec<(
 			polkadot_primitives::SessionIndex,
 			polkadot_primitives::CandidateHash,
-			slashing::PendingSlashes,
+			slashing::LegacyPendingSlashes,
 		)>,
 		ApiError,
 	> {
 		Ok(self.rpc_client.parachain_host_unapplied_slashes(at).await?)
+	}
+
+	async fn unapplied_slashes_v2(
+		&self,
+		at: Hash,
+	) -> Result<
+		Vec<(
+			polkadot_primitives::SessionIndex,
+			polkadot_primitives::CandidateHash,
+			slashing::PendingSlashes,
+		)>,
+		ApiError,
+	> {
+		Ok(self.rpc_client.parachain_host_unapplied_slashes_v2(at).await?)
 	}
 
 	async fn key_ownership_proof(

@@ -17,10 +17,10 @@
 
 use crate::{
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt_with, Interpreter},
+		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, Interpreter},
 		Ext,
 	},
-	U256,
+	Error, U256,
 };
 use core::{cmp::max, ops::ControlFlow};
 use revm::interpreter::gas::{copy_cost_verylow, BASE, VERYLOW};
@@ -28,10 +28,10 @@ use revm::interpreter::gas::{copy_cost_verylow, BASE, VERYLOW};
 /// Implements the MLOAD instruction.
 ///
 /// Loads a 32-byte word from memory.
-pub fn mload<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+pub fn mload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let ([], top) = interpreter.stack.popn_top()?;
-	let offset = as_usize_or_halt_with(*top, || Halt::InvalidOperandOOG)?;
+	let offset = as_usize_or_halt::<E::T>(*top)?;
 	interpreter.memory.resize(offset, 32)?;
 	*top = U256::from_big_endian(interpreter.memory.slice_len(offset, 32));
 	ControlFlow::Continue(())
@@ -40,10 +40,10 @@ pub fn mload<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlo
 /// Implements the MSTORE instruction.
 ///
 /// Stores a 32-byte word to memory.
-pub fn mstore<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+pub fn mstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let [offset, value] = interpreter.stack.popn()?;
-	let offset = as_usize_or_halt_with(offset, || Halt::InvalidOperandOOG)?;
+	let offset = as_usize_or_halt::<E::T>(offset)?;
 	interpreter.memory.resize(offset, 32)?;
 	interpreter.memory.set(offset, &value.to_big_endian());
 	ControlFlow::Continue(())
@@ -52,10 +52,10 @@ pub fn mstore<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFl
 /// Implements the MSTORE8 instruction.
 ///
 /// Stores a single byte to memory.
-pub fn mstore8<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+pub fn mstore8<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let [offset, value] = interpreter.stack.popn()?;
-	let offset = as_usize_or_halt_with(offset, || Halt::InvalidOperandOOG)?;
+	let offset = as_usize_or_halt::<E::T>(offset)?;
 	interpreter.memory.resize(offset, 1)?;
 	interpreter.memory.set(offset, &[value.byte(0)]);
 	ControlFlow::Continue(())
@@ -64,30 +64,30 @@ pub fn mstore8<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlF
 /// Implements the MSIZE instruction.
 ///
 /// Gets the size of active memory in bytes.
-pub fn msize<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
+pub fn msize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
 	interpreter.stack.push(U256::from(interpreter.memory.size()))
 }
 
 /// Implements the MCOPY instruction.
 ///
 /// EIP-5656: Memory copying instruction that copies memory from one location to another.
-pub fn mcopy<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn mcopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [dst, src, len] = interpreter.stack.popn()?;
 
 	// Into usize or fail
-	let len = as_usize_or_halt_with(len, || Halt::InvalidOperandOOG)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	// Deduce gas
 	let Some(gas_cost) = copy_cost_verylow(len) else {
-		return ControlFlow::Break(Halt::OutOfGas);
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	};
-	interpreter.ext.gas_meter_mut().charge_evm_gas(gas_cost)?;
+	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
 	if len == 0 {
 		return ControlFlow::Continue(());
 	}
 
-	let dst = as_usize_or_halt_with(dst, || Halt::InvalidOperandOOG)?;
-	let src = as_usize_or_halt_with(src, || Halt::InvalidOperandOOG)?;
+	let dst = as_usize_or_halt::<E::T>(dst)?;
+	let src = as_usize_or_halt::<E::T>(src)?;
 	// Resize memory
 	interpreter.memory.resize(max(dst, src), len)?;
 	// Copy memory in place

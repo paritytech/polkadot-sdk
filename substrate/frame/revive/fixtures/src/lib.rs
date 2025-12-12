@@ -22,6 +22,9 @@ extern crate alloc;
 // generated file that tells us where to find the fixtures
 include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 
+#[cfg(feature = "std")]
+pub mod builder;
+
 /// Enum for different fixture types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FixtureType {
@@ -31,6 +34,8 @@ pub enum FixtureType {
 	Resolc,
 	/// Solc (compiled Solidity contracts to EVM bytecode)
 	Solc,
+	/// Solc Runtime (compiled Solidity contracts to EVM runtime bytecode)
+	SolcRuntime,
 }
 
 #[cfg(feature = "std")]
@@ -40,6 +45,7 @@ impl FixtureType {
 			Self::Rust => ".polkavm",
 			Self::Resolc => ".resolc.polkavm",
 			Self::Solc => ".sol.bin",
+			Self::SolcRuntime => ".sol.runtime.bin",
 		}
 	}
 }
@@ -65,17 +71,55 @@ pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H
 	compile_module_with_type(fixture_name, FixtureType::Rust)
 }
 
+/// Try to compile a fixture from the contracts_not_buildable directory.
+/// This replicates the build process but expects it to fail at the linking stage.
+/// Returns Err if compilation/linking fails (which is expected for invalid fixtures).
+#[cfg(feature = "std")]
+pub fn try_compile_invalid_fixture(fixture_name: &str) -> anyhow::Result<Vec<u8>> {
+	use anyhow::bail;
+	use std::{fs, path::PathBuf};
+
+	let manifest_dir = env!("CARGO_MANIFEST_DIR");
+	let fixture_path = PathBuf::from(manifest_dir)
+		.join("contracts_not_buildable")
+		.join(format!("{}.rs", fixture_name));
+
+	if !fixture_path.exists() {
+		bail!("Invalid fixture not found: {:?}", fixture_path);
+	}
+
+	// Create temporary build directory
+	let temp_dir = std::env::temp_dir().join(format!("revive_invalid_fixture_{}", fixture_name));
+	fs::create_dir_all(&temp_dir)?;
+
+	// Use the shared builder module to compile
+	let result = builder::compile_rust_to_polkavm(&fixture_path, fixture_name, &temp_dir);
+
+	// Cleanup
+	let _ = fs::remove_dir_all(&temp_dir);
+
+	result
+}
+
 /// Fixtures used in runtime benchmarks.
 ///
 /// We explicitly include those fixtures into the binary to make them
 /// available in no-std environments (runtime benchmarks).
 pub mod bench {
 	use alloc::vec::Vec;
-	pub const DUMMY: &[u8] = fixture!("dummy");
-	pub const NOOP: &[u8] = fixture!("noop");
+	pub const DUMMY: Option<&[u8]> = fixture!("dummy");
+	pub const NOOP: Option<&[u8]> = fixture!("noop");
+
+	pub fn dummy() -> &'static [u8] {
+		DUMMY.expect("`DUMMY` fixture not available, remove `SKIP_PALLET_REVIVE_FIXTURES` env variable to compile them.")
+	}
+
+	pub fn noop() -> &'static [u8] {
+		NOOP.expect("`NOOP` fixture not available, remove `SKIP_PALLET_REVIVE_FIXTURES` env variable to compile them.")
+	}
 
 	pub fn dummy_unique(replace_with: u32) -> Vec<u8> {
-		let mut dummy = DUMMY.to_vec();
+		let mut dummy = dummy().to_vec();
 		let idx = dummy
 			.windows(4)
 			.position(|w| w == &[0xDE, 0xAD, 0xBE, 0xEF])

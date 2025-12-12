@@ -79,6 +79,7 @@ pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
+pallet-root-offences = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
@@ -177,6 +178,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
@@ -265,6 +267,7 @@ runtime-benchmarks = [
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
+	"pallet-root-offences/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
@@ -327,6 +330,7 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-offences/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",

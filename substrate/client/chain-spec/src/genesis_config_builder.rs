@@ -48,7 +48,7 @@ impl<'a, EHF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, EHF>
 where
 	EHF: HostFunctions,
 {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }

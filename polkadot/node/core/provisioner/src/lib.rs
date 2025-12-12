@@ -21,25 +21,32 @@
 
 use bitvec::vec::BitVec;
 use futures::{
-	channel::oneshot, future::BoxFuture, prelude::*, stream::FuturesUnordered, FutureExt,
+	channel::oneshot::{self, Canceled},
+	future::BoxFuture,
+	prelude::*,
+	stream::FuturesUnordered,
+	FutureExt,
 };
 use futures_timer::Delay;
-
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ProspectiveParachainsMessage, ProvisionableData,
-		ProvisionerInherentData, ProvisionerMessage,
+		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
+		ProvisionableData, ProvisionerInherentData, ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
+	BackedCandidate, CandidateEvent, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
 	SignedAvailabilityBitfield, ValidatorIndex,
 };
-use std::collections::{BTreeMap, HashMap};
-
+use sc_consensus_slots::time_until_next_slot;
+use schnellru::{ByLength, LruMap};
+use std::{
+	collections::{BTreeMap, HashMap},
+	time::Duration,
+};
 mod disputes;
 mod error;
 mod metrics;
@@ -89,6 +96,9 @@ impl PerRelayParent {
 }
 
 type InherentDelays = FuturesUnordered<BoxFuture<'static, Hash>>;
+type SlotDelays = FuturesUnordered<BoxFuture<'static, Hash>>;
+type InherentReceivers =
+	FuturesUnordered<BoxFuture<'static, (Hash, Result<ProvisionerInherentData, Canceled>)>>;
 
 #[overseer::subsystem(Provisioner, error=SubsystemError, prefix=self::overseer)]
 impl<Context> ProvisionerSubsystem {
@@ -107,11 +117,22 @@ impl<Context> ProvisionerSubsystem {
 #[overseer::contextbounds(Provisioner, prefix = self::overseer)]
 async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
 	let mut inherent_delays = InherentDelays::new();
+	let mut inherent_receivers = InherentReceivers::new();
+	let mut slot_delays = SlotDelays::new();
 	let mut per_relay_parent = HashMap::new();
+	let mut inherents = LruMap::new(ByLength::new(16));
 
 	loop {
-		let result =
-			run_iteration(&mut ctx, &mut per_relay_parent, &mut inherent_delays, &metrics).await;
+		let result = run_iteration(
+			&mut ctx,
+			&mut per_relay_parent,
+			&mut inherent_delays,
+			&mut inherent_receivers,
+			&mut inherents,
+			&mut slot_delays,
+			&metrics,
+		)
+		.await;
 
 		match result {
 			Ok(()) => break,
@@ -127,6 +148,9 @@ async fn run_iteration<Context>(
 	ctx: &mut Context,
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
 	inherent_delays: &mut InherentDelays,
+	inherent_receivers: &mut InherentReceivers,
+	inherents: &mut LruMap<Hash, ProvisionerInherentData>,
+	slot_delays: &mut SlotDelays,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	loop {
@@ -135,7 +159,7 @@ async fn run_iteration<Context>(
 				// Map the error to ensure that the subsystem exits when the overseer is gone.
 				match from_overseer.map_err(Error::OverseerExited)? {
 					FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =>
-						handle_active_leaves_update(update, per_relay_parent, inherent_delays).await?,
+						handle_active_leaves_update(ctx, update, per_relay_parent, inherent_delays, slot_delays, inherents, metrics).await?,
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
@@ -143,6 +167,39 @@ async fn run_iteration<Context>(
 					},
 				}
 			},
+			hash = slot_delays.select_next_some() => {
+				gum::debug!(target: LOG_TARGET, leaf_hash=?hash, "Slot start, preparing debug inherent");
+
+				let Some(state) = per_relay_parent.get_mut(&hash) else {
+					continue
+				};
+
+				// Create the inherent data just to record the backed candidates.
+				let (inherent_tx, inherent_rx) = oneshot::channel();
+				let task = async move {
+					match inherent_rx.await {
+						Ok(res) => (hash, Ok(res)),
+						Err(e) => (hash, Err(e)),
+					}
+				}
+				.boxed();
+
+				inherent_receivers.push(task);
+
+				send_inherent_data_bg(ctx, &state, vec![inherent_tx], metrics.clone()).await?;
+			},
+			(hash, inherent_data) = inherent_receivers.select_next_some() => {
+				let Ok(inherent_data) = inherent_data else {
+					continue
+				};
+
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent = ?hash,
+					"Debug Inherent Data became ready"
+				);
+				inherents.insert(hash, inherent_data);
+			}
 			hash = inherent_delays.select_next_some() => {
 				if let Some(state) = per_relay_parent.get_mut(&hash) {
 					state.is_inherent_ready = true;
@@ -163,23 +220,74 @@ async fn run_iteration<Context>(
 	}
 }
 
-async fn handle_active_leaves_update(
+#[overseer::contextbounds(Provisioner, prefix = self::overseer)]
+async fn handle_active_leaves_update<Context>(
+	ctx: &mut Context,
 	update: ActiveLeavesUpdate,
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
 	inherent_delays: &mut InherentDelays,
+	slot_delays: &mut SlotDelays,
+	inherents: &mut LruMap<Hash, ProvisionerInherentData>,
+	metrics: &Metrics,
 ) -> Result<(), Error> {
 	gum::trace!(target: LOG_TARGET, "Handle ActiveLeavesUpdate");
 	for deactivated in &update.deactivated {
 		per_relay_parent.remove(deactivated);
 	}
 
-	if let Some(leaf) = update.activated {
-		gum::trace!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Adding delay");
-		let delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
-		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf));
-		inherent_delays.push(delay_fut);
-	}
+	let Some(leaf) = update.activated else { return Ok(()) };
 
+	gum::trace!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Adding delay");
+	let delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
+	per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf.clone()));
+	inherent_delays.push(delay_fut);
+
+	let slot_delay = time_until_next_slot(Duration::from_millis(6000));
+	gum::debug!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Expecting next slot in {}ms", slot_delay.as_millis());
+
+	let slot_delay_task =
+		Delay::new(slot_delay + PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
+	slot_delays.push(slot_delay_task);
+
+	let Ok(Ok(candidate_events)) =
+		polkadot_node_subsystem_util::request_candidate_events(leaf.hash, ctx.sender())
+			.await
+			.await
+	else {
+		gum::warn!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Failed to fetch candidate events");
+
+		return Ok(())
+	};
+
+	let in_block_count = candidate_events
+		.into_iter()
+		.filter(|event| matches!(event, CandidateEvent::CandidateBacked(_, _, _, _)))
+		.count() as isize;
+
+	let (tx, rx) = oneshot::channel();
+	ctx.send_message(ChainApiMessage::BlockHeader(leaf.hash, tx)).await;
+
+	let Ok(Some(header)) = rx.await.unwrap_or_else(|err| {
+		gum::warn!(target: LOG_TARGET, hash = ?leaf.hash, ?err, "Missing header for block");
+		Ok(None)
+	}) else {
+		return Ok(())
+	};
+
+	gum::trace!(target: LOG_TARGET, hash = ?header.parent_hash, "Looking up debug inherent");
+
+	// Now, let's get the candidate count from our own inherent built earlier.
+	// The inherent is stored under the parent hash.
+	let Some(inherent) = inherents.get(&header.parent_hash) else { return Ok(()) };
+
+	let diff = inherent.backed_candidates.len() as isize - in_block_count;
+	gum::debug!(target: LOG_TARGET, 
+		 ?diff,
+		 ?in_block_count,
+		 local_count = ?inherent.backed_candidates.len(),
+		 leaf_hash=?leaf.hash, "Offchain vs on-chain backing update");
+
+	metrics.observe_backable_vs_in_block(diff);
 	Ok(())
 }
 

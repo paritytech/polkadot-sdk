@@ -15,28 +15,102 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Custom EVM memory implementation using standard Vec<u8>
-
-use crate::vm::evm::Halt;
+use crate::{vm::evm::Halt, Config, Error};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 
-/// EVM memory implementation using standard Vec<u8> and sp_core::U256
+/// EVM memory implementation
 #[derive(Debug, Clone)]
-pub struct Memory(Vec<u8>);
+pub struct Memory<T> {
+	data: Vec<u8>,
+	_phantom: core::marker::PhantomData<T>,
+}
 
-impl Memory {
+impl<T: Config> Memory<T> {
 	/// Create a new empty memory
 	pub fn new() -> Self {
-		Self(Vec::new())
+		Self { data: Vec::with_capacity(4 * 1024), _phantom: core::marker::PhantomData }
 	}
 
 	/// Get a slice of memory for the given range
-	/// TODO same as slice_mut?
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds,if the range is non-empty.
 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
-		let end = core::cmp::min(range.end, self.0.len());
-		let start = core::cmp::min(range.start, end);
-		&self.0[start..end]
+		if range.is_empty() {
+			return &[]
+		}
+		&self.data[range]
+	}
+
+	/// Get a mutable slice of memory for the given range
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
+		&mut self.data[offset..offset + len]
+	}
+
+	fn get_word(&self, offset: usize) -> &[u8; 32] {
+		self.data[offset..offset + 32].try_into().unwrap()
+	}
+
+	/// Get the current memory size in bytes
+	pub fn size(&self) -> usize {
+		self.data.len()
+	}
+
+	/// Resize memory to accommodate the given offset and length
+	pub fn resize(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
+		let current_len = self.data.len();
+		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
+		if target_len > crate::limits::EVM_MEMORY_BYTES as usize {
+			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
+			return ControlFlow::Break(Error::<T>::OutOfGas.into());
+		}
+
+		if target_len > current_len {
+			self.data.resize(target_len, 0);
+		}
+
+		ControlFlow::Continue(())
+	}
+
+	/// Set memory at the given `offset`
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn set(&mut self, offset: usize, data: &[u8]) {
+		if !data.is_empty() {
+			self.data[offset..offset + data.len()].copy_from_slice(data);
+		}
+	}
+
+	/// Set memory from data. Our memory offset+len is expected to be correct but we
+	/// are doing bound checks on data/data_offset/len and zeroing parts that is not copied.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn set_data(&mut self, memory_offset: usize, data_offset: usize, len: usize, data: &[u8]) {
+		if data_offset >= data.len() {
+			// nullify all memory slots
+			self.slice_mut(memory_offset, len).fill(0);
+			return;
+		}
+		let data_end = core::cmp::min(data_offset + len, data.len());
+		let data_len = data_end - data_offset;
+
+		self.slice_mut(memory_offset, data_len)
+			.copy_from_slice(&data[data_offset..data_end]);
+
+		// nullify rest of memory slots
+		// Safety: Memory is assumed to be valid. And it is commented where that assumption is
+		// made
+		self.slice_mut(memory_offset + data_len, len - data_len).fill(0);
 	}
 
 	/// Returns a byte slice of the memory region at the given offset.
@@ -44,91 +118,46 @@ impl Memory {
 	/// # Panics
 	///
 	/// Panics on out of bounds.
-	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
-		&mut self.0[offset..offset + len]
-	}
-
-	pub fn get_word(&self, offset: usize) -> &[u8; 32] {
-		self.0[offset..offset + 32].try_into().unwrap()
-	}
-
-	/// Get the current memory size in bytes
-	pub fn size(&self) -> usize {
-		self.0.len()
-	}
-
-	/// Resize memory to accommodate the given offset and length
-	pub fn resize(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
-		let current_len = self.0.len();
-		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
-		if target_len as u32 > crate::limits::code::BASELINE_MEMORY_LIMIT {
-			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
-			return ControlFlow::Break(Halt::MemoryOOG);
-		}
-
-		if target_len > current_len {
-			self.0.resize(target_len, 0);
-		};
-
-		ControlFlow::Continue(())
-	}
-
-	/// Set memory at the given offset with the provided data
-	pub fn set(&mut self, offset: usize, data: &[u8]) {
-		if data.is_empty() {
-			return;
-		}
-		let end = offset.saturating_add(data.len());
-		if end > self.0.len() {
-			self.0.resize(end, 0);
-		}
-		self.0[offset..end].copy_from_slice(data);
-	}
-
-	/// Set data in memory from another memory's global slice
-	pub fn set_data(&mut self, offset: usize, data_offset: usize, len: usize, data: &[u8]) {
-		if len > 0 && data_offset < data.len() {
-			let copy_len = core::cmp::min(len, data.len() - data_offset);
-			let source = &data[data_offset..data_offset + copy_len];
-			self.set(offset, source);
-		}
-	}
-
-	pub fn slice_len(&self, offset: usize, len: usize) -> &[u8] {
-		self.0.get(offset..offset.saturating_add(len)).unwrap_or(&[])
+	pub fn slice_len(&self, offset: usize, size: usize) -> &[u8] {
+		&self.data[offset..offset + size]
 	}
 
 	/// Copy data within memory from src to dst
+	///
+	/// # Panics
+	///
+	/// Panics if range is out of scope of allocated memory.
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
-		if len == 0 {
-			return;
-		}
-
-		let max_offset = core::cmp::max(dst.saturating_add(len), src.saturating_add(len));
-		if max_offset > self.0.len() {
-			self.0.resize(max_offset, 0);
-		}
-
-		// Handle overlapping memory regions correctly
-		if dst != src {
-			self.0.copy_within(src..src + len, dst);
-		}
+		self.data.copy_within(src..src + len, dst);
 	}
-}
 
-impl Default for Memory {
-	fn default() -> Self {
-		Self::new()
+	/// Returns a closure that returns the memory content in 32-byte chunks up to a specified limit.
+	pub fn bytes_getter(&self) -> impl Fn(usize) -> Vec<crate::evm::Bytes> + '_ {
+		|limit: usize| {
+			let mut memory_bytes = Vec::new();
+
+			// Read memory in 32-byte chunks, limiting to configured size
+			let words_to_read = core::cmp::min((self.size() + 31) / 32, limit);
+
+			for i in 0..words_to_read {
+				// Use get_word to read 32 bytes directly
+				let word = self.get_word(i * 32);
+				memory_bytes.push(crate::evm::Bytes(word.to_vec()));
+			}
+
+			memory_bytes
+		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::tests::Test;
 
 	#[test]
 	fn test_memory_resize() {
-		let mut memory = Memory::new();
+		let mut memory = Memory::<Test>::new();
 		assert_eq!(memory.size(), 0);
 
 		assert!(memory.resize(0, 100).is_continue());
@@ -141,18 +170,19 @@ mod tests {
 
 	#[test]
 	fn test_set_get() {
-		let mut memory = Memory::new();
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
 
 		let data = b"Hello, World!";
 		memory.set(10, data);
 
 		assert_eq!(memory.slice(10..10 + data.len()), data);
-		assert_eq!(memory.size(), 10 + data.len());
 	}
 
 	#[test]
 	fn test_memory_copy() {
-		let mut memory = Memory::new();
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
 
 		// Set some initial data
 		memory.set(0, b"Hello");
@@ -166,20 +196,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_overlapping_copy() {
-		let mut memory = Memory::new();
-
-		memory.set(0, b"HelloWorld");
-
-		// Overlapping copy - move "World" to overlap with "Hello"
-		memory.copy(2, 5, 5);
-
-		assert_eq!(memory.slice(0..10), b"HeWorldrld");
-	}
-
-	#[test]
 	fn test_set_data() {
-		let mut memory = Memory::new();
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
+
 		let source_data = b"Hello World";
 
 		memory.set_data(5, 0, 5, source_data);

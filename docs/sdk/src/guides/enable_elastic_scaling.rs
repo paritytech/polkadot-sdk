@@ -64,14 +64,11 @@
 //! - [high level docs](https://docs.polkadot.com/develop/toolkit/parachains/polkadot-omni-node/)
 //! - [`crate::reference_docs::omni_node`]
 //!
-//! ### Enable UMP signals
+//! ### UMP signals
 //!
-//! The only required change for the runtime is enabling the `experimental-ump-signals` feature of
-//! the `parachain-system` pallet:
-//! `cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"]
-//! }`
-//!
-//! You can find more technical details about UMP signals and their usage for elastic scaling
+//! UMP signals are now enabled by default in the `parachain-system` pallet and are used for
+//! elastic scaling. You can find more technical details about UMP signals and their usage for
+//! elastic scaling
 //! [here](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
 //!
 //! ### Enable the relay parent offset feature
@@ -128,6 +125,26 @@
 //!     >;
 //!
 //!  ```
+//!
+//! ### Parachain Slot Duration
+//!
+//! A common source of confusion is the correct configuration of the `SlotDuration` that is passed
+//! to `pallet-aura`.
+//! ```ignore
+//! impl pallet_aura::Config for Runtime {
+//!     // ...
+//!     type SlotDuration = ConstU64<SLOT_DURATION>;
+//! }
+//! ```
+//!
+//! The slot duration determines the length of each author's turn and is decoupled from the block
+//! production interval. During their slot, authors are allowed to produce multiple blocks. **The
+//! slot duration is required to be at least 6s (same as on the relay chain).**
+//!
+//! **Configuration recommendations:**
+//! - For new parachains starting from genesis: use a slot duration of 24 seconds
+//! - For existing live parachains: leave the slot duration unchanged
+//!
 //!
 //! ## Current limitations
 //!

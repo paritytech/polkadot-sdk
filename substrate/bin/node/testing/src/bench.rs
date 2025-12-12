@@ -444,7 +444,11 @@ impl BenchDb {
 	}
 
 	/// Iterate over some block content with transaction signed using this database keyring.
-	pub fn block_content(&self, content: BlockContent, client: &Client) -> BlockContentIterator {
+	pub fn block_content(
+		&self,
+		content: BlockContent,
+		client: &Client,
+	) -> BlockContentIterator<'_> {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 

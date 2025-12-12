@@ -17,47 +17,46 @@
 
 pub mod i256;
 use i256::{i256_div, i256_mod};
-
 mod modular;
 use modular::Modular;
 
 use crate::{
 	vm::{
-		evm::{interpreter::Halt, Interpreter},
+		evm::{interpreter::Halt, EVMGas, Interpreter},
 		Ext,
 	},
-	U256,
+	Error, U256,
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
 
 /// Implements the ADD instruction - adds two values from stack.
-pub fn add<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+pub fn add<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_add(*op2).0;
 	ControlFlow::Continue(())
 }
 
 /// Implements the MUL instruction - multiplies two values from stack.
-pub fn mul<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn mul<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_mul(*op2).0;
 	ControlFlow::Continue(())
 }
 
 /// Implements the SUB instruction - subtracts two values from stack.
-pub fn sub<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+pub fn sub<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_sub(*op2).0;
 	ControlFlow::Continue(())
 }
 
 /// Implements the DIV instruction - divides two values from stack.
-pub fn div<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn div<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 / *op2;
@@ -68,8 +67,8 @@ pub fn div<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 /// Implements the SDIV instruction.
 ///
 /// Performs signed division of two values from stack.
-pub fn sdiv<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn sdiv<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_div(op1, *op2);
 	ControlFlow::Continue(())
@@ -77,8 +76,8 @@ pub fn sdiv<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow
 /// Implements the MOD instruction.
 ///
 /// Pops two values from stack and pushes the remainder of their division.
-pub fn rem<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn rem<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 % *op2;
@@ -89,8 +88,8 @@ pub fn rem<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 /// Implements the SMOD instruction.
 ///
 /// Performs signed modulo of two values from stack.
-pub fn smod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn smod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_mod(op1, *op2);
 	ControlFlow::Continue(())
@@ -99,8 +98,8 @@ pub fn smod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow
 /// Implements the ADDMOD instruction.
 ///
 /// Pops three values from stack and pushes (a + b) % n.
-pub fn addmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(MID)?;
+pub fn addmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(MID))?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.add_mod(op2, *op3);
 	ControlFlow::Continue(())
@@ -109,21 +108,21 @@ pub fn addmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFl
 /// Implements the MULMOD instruction.
 ///
 /// Pops three values from stack and pushes (a * b) % n.
-pub fn mulmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(MID)?;
+pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(MID))?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.mul_mod(op2, *op3);
 	ControlFlow::Continue(())
 }
 
 /// Implements the EXP instruction - exponentiates two values from stack.
-pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	let Some(gas_cost) = exp_cost(*op2) else {
-		return ControlFlow::Break(Halt::OutOfGas);
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	};
-	interpreter.ext.gas_meter_mut().charge_evm_gas(gas_cost)?;
-	*op2 = op1.pow(*op2);
+	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
+	*op2 = op1.overflowing_pow(*op2).0;
 	ControlFlow::Continue(())
 }
 
@@ -156,8 +155,8 @@ pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 ///
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
-pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+pub fn signextend<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
 	let ([ext], x) = interpreter.stack.popn_top()?;
 	// For 31 we also don't need to do anything.
 	if ext < U256::from(31) {

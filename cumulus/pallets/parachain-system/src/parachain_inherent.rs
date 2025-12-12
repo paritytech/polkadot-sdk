@@ -241,7 +241,7 @@ impl AbridgedInboundDownwardMessages {
 	/// Returns an iterator over the messages that maps them to `BoundedSlices`.
 	pub fn bounded_msgs_iter<MaxMessageLen: Get<u32>>(
 		&self,
-	) -> impl Iterator<Item = BoundedSlice<u8, MaxMessageLen>> {
+	) -> impl Iterator<Item = BoundedSlice<'_, u8, MaxMessageLen>> {
 		self.full_messages
 			.iter()
 			// Note: we are not using `.defensive()` here since that prints the whole value to

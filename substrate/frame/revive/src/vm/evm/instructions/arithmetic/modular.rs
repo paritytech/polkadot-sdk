@@ -53,6 +53,9 @@ impl Modular for U256 {
 	}
 
 	fn add_mod(self, rhs: Self, modulus: Self) -> Self {
+		if modulus.is_zero() {
+			return Self::zero();
+		}
 		// Reduce inputs
 		let lhs = self.reduce_mod(modulus);
 		let rhs = rhs.reduce_mod(modulus);
@@ -94,76 +97,37 @@ impl Modular for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use alloy_core::primitives;
 	use proptest::proptest;
 
+	fn alloy_u256(limbs: [u64; 4]) -> primitives::U256 {
+		primitives::U256::from_limbs(limbs)
+	}
+
 	#[test]
-	fn test_commutative() {
+	fn test_reduce_mod() {
+		proptest!(|(a: [u64; 4], m: [u64; 4])| {
+			let ours = U256(a).reduce_mod(U256(m));
+			let theirs = alloy_u256(a).reduce_mod(alloy_u256(m));
+			assert_eq!(&ours.0, theirs.as_limbs());
+		});
+	}
+
+	#[test]
+	fn test_add_mod() {
 		proptest!(|(a: [u64; 4], b: [u64; 4], m: [u64; 4])| {
-			let (a, b, m) = (U256(a), U256(b), U256(m));
-			assert_eq!(a.mul_mod(b, m), b.mul_mod(a, m));
+			let ours = U256(a).add_mod(U256(b), U256(m));
+			let theirs = alloy_u256(a).add_mod(alloy_u256(b), alloy_u256(m));
+			assert_eq!(&ours.0, theirs.as_limbs());
 		});
 	}
 
 	#[test]
-	fn test_associative() {
-		proptest!(|(a: [u64; 4], b: [u64; 4], c: [u64; 4], m: [u64; 4])| {
-			let (a, b, c, m) = (U256(a), U256(b), U256(c), U256(m));
-			assert_eq!(a.mul_mod(b.mul_mod(c, m), m), a.mul_mod(b, m).mul_mod(c, m));
-		});
-	}
-
-	#[test]
-	fn test_distributive() {
-		proptest!(|(a: [u64; 4], b: [u64; 4], c: [u64; 4], m: [u64; 4])| {
-			let (a, b, c, m) = (U256(a), U256(b), U256(c), U256(m));
-			assert_eq!(a.mul_mod(b.add_mod(c, m), m), a.mul_mod(b, m).add_mod(a.mul_mod(c, m), m));
-		});
-	}
-
-	#[test]
-	fn mul_mod_works() {
-		let a = U256([
-			11233609967592832353,
-			2955691110330445474,
-			11347763303645825691,
-			4193953206527047232,
-		]);
-		let b = U256([
-			921947257126271203,
-			1637924328112375332,
-			9840126700073895953,
-			606138112307409896,
-		]);
-		let c = U256([
-			761033329349325528,
-			1380792689741665104,
-			4216216879054509766,
-			7986343297638637159,
-		]);
-		let m = U256([
-			8095825378722175146,
-			4342717078815881141,
-			5646255581126092077,
-			17584322201065510488,
-		]);
-
-		assert_eq!(a.mul_mod(b.add_mod(c, m), m), a.mul_mod(b, m).add_mod(a.mul_mod(c, m), m));
-	}
-
-	#[test]
-	fn test_add_identity() {
-		proptest!(|(value: [u64; 4], m: [u64; 4])| {
-			let (value, m) = (U256(value), U256(m));
-			assert_eq!(value.add_mod(U256::from(0), m), value.reduce_mod(m));
-		});
-	}
-
-	#[test]
-	fn test_mul_identity() {
-		proptest!(|(value: [u64; 4], m: [u64; 4])| {
-			let (value, m) = (U256(value), U256(m));
-			assert_eq!(value.mul_mod(U256::from(0), m), U256::zero());
-			assert_eq!(value.mul_mod(U256::from(1), m), value.reduce_mod(m));
+	fn test_mul_mod() {
+		proptest!(|(a: [u64; 4], b: [u64; 4], m: [u64; 4])| {
+			let ours = U256(a).mul_mod(U256(b), U256(m));
+			let theirs = alloy_u256(a).mul_mod(alloy_u256(b), alloy_u256(m));
+			assert_eq!(&ours.0, theirs.as_limbs());
 		});
 	}
 }

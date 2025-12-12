@@ -37,7 +37,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
         run: |
@@ -61,7 +61,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     name: Extract runtimes from matrix
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - id: runtime
         run: |
           RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
@@ -88,7 +88,7 @@ jobs:
       RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: script (benchmark ${{ matrix.bench_cmd }})
         id: required
@@ -100,7 +100,7 @@ jobs:
           forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features=${{ matrix.runtime.bench_features }} --quiet
           echo "Running short $BENCH_CMD benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
           ls -lrt $RUNTIME_BLOB_PATH
-          
+
           if [[ "$BENCH_CMD" == "pallet" ]]; then
             cmd="./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1 $FLAGS"
           elif [[ "$BENCH_CMD" == "overhead" ]]; then
@@ -127,7 +127,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

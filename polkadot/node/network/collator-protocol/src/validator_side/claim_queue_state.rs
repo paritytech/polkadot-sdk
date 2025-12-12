@@ -19,7 +19,6 @@
 
 use std::collections::VecDeque;
 
-use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
 
 /// Represents a single claim from the claim queue, mapped to the relay chain block where it could
@@ -166,23 +165,10 @@ impl ClaimQueueState {
 	}
 
 	pub(crate) fn claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			"claim_at"
-		);
 		self.find_a_claim(relay_parent, para_id, true)
 	}
 
 	pub(crate) fn can_claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			"can_claim_at"
-		);
-
 		self.find_a_claim(relay_parent, para_id, false)
 	}
 
@@ -193,15 +179,6 @@ impl ClaimQueueState {
 		let window = self.get_window(relay_parent);
 
 		for w in window {
-			gum::trace!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				claim_info=?w,
-				?claim_it,
-				"Checking claim"
-			);
-
 			if !w.claimed && w.claim == Some(*para_id) {
 				w.claimed = claim_it;
 				return true

@@ -16,8 +16,7 @@
 // limitations under the License.
 use crate::{
 	evm::{tracing::Tracing, Bytes, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
-	vm::evm::{Memory, Stack},
-	DispatchError, ExecReturnValue, Key, Weight,
+	DispatchError, ExecReturnValue, Key,
 };
 use alloc::{
 	collections::BTreeMap,
@@ -29,15 +28,12 @@ use sp_core::{H160, U256};
 
 /// A tracer that traces opcode execution step-by-step.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct OpcodeTracer<Gas, GasMapper> {
-	/// Map Weight to Gas equivalent.
-	gas_mapper: GasMapper,
-
+pub struct OpcodeTracer {
 	/// The tracer configuration.
 	config: OpcodeTracerConfig,
 
 	/// The collected trace steps.
-	steps: Vec<OpcodeStep<Gas>>,
+	steps: Vec<OpcodeStep>,
 
 	/// Current call depth.
 	depth: u32,
@@ -46,7 +42,7 @@ pub struct OpcodeTracer<Gas, GasMapper> {
 	step_count: u64,
 
 	/// Total gas used by the transaction.
-	total_gas_used: Gas,
+	total_gas_used: U256,
 
 	/// Whether the transaction failed.
 	failed: bool,
@@ -55,28 +51,24 @@ pub struct OpcodeTracer<Gas, GasMapper> {
 	return_value: Bytes,
 
 	/// Pending step that's waiting for gas cost to be recorded.
-	pending_step: Option<OpcodeStep<Gas>>,
+	pending_step: Option<OpcodeStep>,
 
 	/// Gas before executing the current pending step.
-	pending_gas_before: Option<Weight>,
+	pending_gas_before: Option<U256>,
 
 	/// List of storage per call
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
 
-impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
+impl OpcodeTracer {
 	/// Create a new [`OpcodeTracer`] instance.
-	pub fn new(config: OpcodeTracerConfig, gas_mapper: GasMapper) -> Self
-	where
-		Gas: Default,
-	{
+	pub fn new(config: OpcodeTracerConfig) -> Self {
 		Self {
-			gas_mapper,
 			config,
 			steps: Vec::new(),
 			depth: 0,
 			step_count: 0,
-			total_gas_used: Gas::default(),
+			total_gas_used: U256::zero(),
 			failed: false,
 			return_value: Bytes::default(),
 			pending_step: None,
@@ -86,7 +78,7 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(self) -> OpcodeTrace<Gas> {
+	pub fn collect_trace(self) -> OpcodeTrace {
 		let Self { steps: struct_logs, return_value, total_gas_used: gas, failed, .. } = self;
 		OpcodeTrace { gas, failed, return_value, struct_logs }
 	}
@@ -109,12 +101,12 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 	}
 
 	/// Set the total gas used by the transaction.
-	pub fn set_total_gas_used(&mut self, gas_used: Gas) {
+	pub fn set_total_gas_used(&mut self, gas_used: U256) {
 		self.total_gas_used = gas_used;
 	}
 }
 
-impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasMapper> {
+impl Tracing for OpcodeTracer {
 	fn is_opcode_tracing_enabled(&self) -> bool {
 		true
 	}
@@ -123,9 +115,9 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		&mut self,
 		pc: u64,
 		opcode: u8,
-		gas_before: Weight,
-		stack: &Stack,
-		memory: &Memory,
+		gas_before: U256,
+		get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
+		get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
 		last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
@@ -134,40 +126,11 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		}
 
 		// Extract stack data if enabled
-		let stack_data = if !self.config.disable_stack {
-			let stack_values = &stack.0;
-			let mut stack_bytes = Vec::new();
-
-			for value in stack_values.iter() {
-				let bytes = value.to_big_endian().to_vec();
-				stack_bytes.push(crate::evm::Bytes(bytes));
-			}
-
-			stack_bytes
-		} else {
-			Vec::new()
-		};
+		let stack_data = if !self.config.disable_stack { get_stack() } else { Vec::new() };
 
 		// Extract memory data if enabled
 		let memory_data = if self.config.enable_memory {
-			let memory_size = memory.size();
-
-			if memory_size == 0 {
-				Vec::new()
-			} else {
-				let mut memory_bytes = Vec::new();
-				// Read memory in 32-byte chunks, limiting to configured size
-				let words_to_read =
-					core::cmp::min((memory_size + 31) / 32, self.config.memory_word_limit as usize);
-
-				for i in 0..words_to_read {
-					// Use get_word to read 32 bytes directly
-					let word = memory.get_word(i * 32);
-					memory_bytes.push(crate::evm::Bytes(word.to_vec()));
-				}
-
-				memory_bytes
-			}
+			get_memory(self.config.memory_word_limit as usize)
 		} else {
 			Vec::new()
 		};
@@ -180,18 +143,17 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		};
 
 		// Create the pending opcode step (without gas cost)
-		let gas_before_mapped = (self.gas_mapper)(gas_before);
 
-		log::trace!(target: crate::LOG_TARGET,
-			"\n[{pc}]: {opcode}\nstack: {stack_data:?}\nmemory: {memory:?}",
-			opcode = revm::bytecode::OpCode::new(opcode)
-				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
-		);
+		// log::trace!(target: crate::LOG_TARGET,
+		// 	"\n[{pc}]: {opcode}\nstack: {stack_data:?}\nmemory: {memory:?}",
+		// 	opcode = revm::bytecode::OpCode::new(opcode)
+		// 		.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
+		// );
 
 		let step = OpcodeStep {
 			pc,
 			op: opcode,
-			gas: gas_before_mapped,
+			gas: gas_before,
 			gas_cost: sp_core::U256::zero(), // Will be set in exit_opcode
 			depth: self.depth,
 			stack: stack_data,
@@ -206,12 +168,11 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		self.step_count += 1;
 	}
 
-	fn exit_opcode(&mut self, gas_left: Weight) {
+	fn exit_opcode(&mut self, gas_left: U256) {
 		if let Some(mut step) = self.pending_step.take() {
 			if let Some(gas_before) = self.pending_gas_before.take() {
 				let gas_cost = gas_before.saturating_sub(gas_left);
-				let gas_cost_mapped = (self.gas_mapper)(gas_cost);
-				step.gas_cost = gas_cost_mapped;
+				step.gas_cost = gas_cost;
 			}
 			self.steps.push(step);
 		}
@@ -221,17 +182,17 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_is_delegate_call: bool,
+		_delegate_call: Option<H160>,
 		_is_read_only: bool,
-		_value: sp_core::U256,
+		_value: U256,
 		_input: &[u8],
-		_gas_left: Weight,
+		_gas_limit: U256,
 	) {
 		self.storages_per_call.push(Default::default());
 		self.depth += 1;
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: U256) {
 		if output.did_revert() {
 			self.record_error("execution reverted".to_string());
 			if self.depth == 0 {
@@ -243,7 +204,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 
 		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
 		if self.depth == 1 {
-			self.set_total_gas_used((self.gas_mapper)(gas_used));
+			self.set_total_gas_used(gas_used);
 		}
 
 		self.storages_per_call.pop();
@@ -253,13 +214,13 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: U256) {
 		self.record_error(format!("{:?}", error));
 
 		// Mark as failed if this is the top-level call
 		if self.depth == 1 {
 			self.mark_failed();
-			self.set_total_gas_used((self.gas_mapper)(gas_used));
+			self.set_total_gas_used(gas_used);
 		}
 
 		if self.depth > 0 {

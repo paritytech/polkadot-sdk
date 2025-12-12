@@ -19,7 +19,7 @@
 use super::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
 use alloy_core::hex;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
 	str::FromStr,
@@ -37,7 +37,7 @@ impl FromStr for Bytes {
 
 macro_rules! impl_hex {
     ($type:ident, $inner:ty, $default:expr) => {
-        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash)]
+        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash, DecodeWithMemTracking)]
         #[doc = concat!("`", stringify!($inner), "`", " wrapper type for encoding and decoding hex strings")]
         pub struct $type(#[serde(with = "crate::evm::api::hex_serde")] pub $inner);
 

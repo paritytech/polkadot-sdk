@@ -26,9 +26,6 @@ pub trait Bits {
 impl Bits for U256 {
 	fn arithmetic_shr(self, rhs: usize) -> Self {
 		const BITS: usize = 256;
-		if BITS == 0 {
-			return Self::zero();
-		}
 		let sign = self.bit(BITS - 1);
 		let mut r = self >> rhs;
 		if sign {
@@ -41,52 +38,14 @@ impl Bits for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	// #[test]
-	// fn test_arithmetic_shr() {
-	// use proptest::proptest;
-	// use core::cmp::min;
-	// 	proptest!(|(limbs: [u64; 4], shift in 0..=258)| {
-	// 		let value = U256(limbs);
-	// 		let shifted = value.arithmetic_shr(shift);
-	// 		let sign_bit = value.bit(255);
-	// 		if sign_bit {
-	// 			// For negative numbers, check that the sign is preserved
-	// 			assert_eq!(shifted.leading_ones(), min(256, shift));
-	// 		} else {
-	// 			// For positive numbers, should behave like logical shift
-	// 			assert_eq!(shifted.leading_zeros(), min(256, value.leading_zeros() + shift));
-	// 		}
-	// 	});
-	// }
+	use proptest::proptest;
 
 	#[test]
-	fn test_arithmetic_shr_positive() {
-		// Test positive number (MSB = 0)
-		let value = U256::from(0x7FFFFFFFu64);
-		let result = value.arithmetic_shr(4);
-		let expected = U256::from(0x07FFFFFFu64);
-		assert_eq!(result, expected);
-	}
-
-	#[test]
-	fn test_arithmetic_shr_negative() {
-		// Test negative number (MSB = 1)
-		let value = U256::MAX; // All bits set
-		let result = value.arithmetic_shr(4);
-		// Should still be all bits set
-		assert_eq!(result, U256::MAX);
-	}
-
-	#[test]
-	fn test_arithmetic_shr_large_shift() {
-		// Test shift larger than bit width
-		let value = U256::MAX;
-		let result = value.arithmetic_shr(300);
-		assert_eq!(result, U256::MAX);
-
-		let positive = U256::from(123u64);
-		let result_pos = positive.arithmetic_shr(300);
-		assert_eq!(result_pos, U256::zero());
+	fn test_arithmetic_shr() {
+		proptest!(|(limbs: [u64; 4], shift in 0usize..=258)| {
+			let ours = U256(limbs).arithmetic_shr(shift);
+			let theirs = alloy_core::primitives::U256::from_limbs(limbs).arithmetic_shr(shift);
+			assert_eq!(&ours.0, theirs.as_limbs());
+		});
 	}
 }

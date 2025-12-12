@@ -1203,7 +1203,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 	let (unpin_sender, _unpin_receiver) = sc_utils::mpsc::tracing_unbounded("test_unpin", 10);
 	finality_notifications_tx
 		.unbounded_send(FinalityNotification::from_summary(
-			FinalizeSummary { header: header.clone(), finalized: vec![], stale_heads: vec![] },
+			FinalizeSummary { header: header.clone(), finalized: vec![], stale_blocks: vec![] },
 			unpin_sender,
 		))
 		.unwrap();

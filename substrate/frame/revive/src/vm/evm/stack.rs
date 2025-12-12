@@ -17,14 +17,17 @@
 
 //! Custom EVM stack implementation using sp_core::U256
 
-use crate::vm::evm::interpreter::Halt;
+use crate::{limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt, Config, Error};
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};
 
 /// EVM stack implementation using sp_core types
 #[derive(Debug, Clone)]
-pub struct Stack(pub Vec<U256>);
+pub struct Stack<T: Config> {
+	stack: Vec<U256>,
+	_phantom: core::marker::PhantomData<T>,
+}
 
 /// A trait for converting types into an unsigned 256-bit integer (`U256`).
 pub trait ToU256 {
@@ -50,53 +53,50 @@ impl ToU256 for H160 {
 	}
 }
 
-impl Stack {
+impl<T: Config> Stack<T> {
 	/// Create a new empty stack
 	pub fn new() -> Self {
-		Self(Vec::with_capacity(32))
+		Self { stack: Vec::with_capacity(32), _phantom: core::marker::PhantomData }
 	}
 
 	/// Push a value onto the stack
-	/// Returns Continue(()) if successful, Break(Halt::StackOverflow) if stack would overflow
 	pub fn push(&mut self, value: impl ToU256) -> ControlFlow<Halt> {
-		if self.0.len() >= 1024 {
-			ControlFlow::Break(Halt::StackOverflow)
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
+			ControlFlow::Break(Error::<T>::StackOverflow.into())
 		} else {
-			self.0.push(value.to_u256());
+			self.stack.push(value.to_u256());
 			ControlFlow::Continue(())
 		}
 	}
 
 	/// Get a reference to the top stack item without removing it
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn top(&self) -> Option<&U256> {
-		self.0.last()
+		self.stack.last()
 	}
 
 	/// Get the current stack size
 	pub fn len(&self) -> usize {
-		self.0.len()
+		self.stack.len()
 	}
 
 	/// Check if stack is empty
 	#[cfg(test)]
 	pub fn is_empty(&self) -> bool {
-		self.0.is_empty()
+		self.stack.is_empty()
 	}
 
 	/// Pop multiple values from the stack
-	/// Returns Continue(array) if successful, Break(Halt::StackUnderflow) if not enough values on
-	/// stack
 	pub fn popn<const N: usize>(&mut self) -> ControlFlow<Halt, [U256; N]> {
-		if self.0.len() < N {
-			return ControlFlow::Break(Halt::StackUnderflow);
+		if self.stack.len() < N {
+			return ControlFlow::Break(Error::<T>::StackUnderflow.into());
 		}
 
 		let mut result: [U256; N] = [U256::zero(); N];
 		for i in 0..N {
-			match self.0.pop() {
+			match self.stack.pop() {
 				Some(value) => result[i] = value,
-				None => return ControlFlow::Break(Halt::StackUnderflow),
+				None => return ControlFlow::Break(Error::<T>::StackUnderflow.into()),
 			}
 		}
 		ControlFlow::Continue(result)
@@ -105,69 +105,124 @@ impl Stack {
 	/// Pop multiple values and return them along with a mutable reference to the new top
 	/// This is used for operations that pop some values and modify the top of the stack
 	pub fn popn_top<const N: usize>(&mut self) -> ControlFlow<Halt, ([U256; N], &mut U256)> {
-		if self.0.len() < N + 1 {
-			return ControlFlow::Break(Halt::StackUnderflow);
+		if self.stack.len() < N + 1 {
+			return ControlFlow::Break(Error::<T>::StackUnderflow.into());
 		}
 
 		let mut popped: [U256; N] = [U256::zero(); N];
 		for i in 0..N {
-			match self.0.pop() {
+			match self.stack.pop() {
 				Some(value) => popped[i] = value,
-				None => return ControlFlow::Break(Halt::StackUnderflow),
+				None => return ControlFlow::Break(Error::<T>::StackUnderflow.into()),
 			}
 		}
 
 		// Get mutable reference to the new top
-		match self.0.last_mut() {
+		match self.stack.last_mut() {
 			Some(top) => ControlFlow::Continue((popped, top)),
-			None => ControlFlow::Break(Halt::StackUnderflow),
+			None => ControlFlow::Break(Error::<T>::StackUnderflow.into()),
 		}
 	}
 
 	/// Duplicate the Nth item from the top and push it onto the stack
-	/// Returns Continue(()) if successful, Break(Halt) if stack would overflow or index is invalid
 	pub fn dup(&mut self, n: usize) -> ControlFlow<Halt> {
-		if n == 0 || n > self.0.len() {
-			return ControlFlow::Break(Halt::StackUnderflow);
+		if n == 0 || n > self.stack.len() {
+			return ControlFlow::Break(Error::<T>::StackUnderflow.into());
 		}
-		if self.0.len() >= 1024 {
-			return ControlFlow::Break(Halt::StackOverflow);
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
+			return ControlFlow::Break(Error::<T>::StackOverflow.into());
 		}
 
-		let idx = self.0.len() - n;
-		let value = self.0[idx];
-		self.0.push(value);
+		let idx = self.stack.len() - n;
+		let value = self.stack[idx];
+		self.stack.push(value);
 		ControlFlow::Continue(())
 	}
 
 	/// Swap the top stack item with the Nth item from the top
-	/// Returns Continue(()) if successful, Break(Halt::StackUnderflow) if indices are invalid
 	pub fn exchange(&mut self, i: usize, j: usize) -> ControlFlow<Halt> {
-		let len = self.0.len();
+		let len = self.stack.len();
 		if i >= len || j >= len {
-			return ControlFlow::Break(Halt::StackUnderflow);
+			return ControlFlow::Break(Error::<T>::StackUnderflow.into());
 		}
 
 		let i_idx = len - 1 - i;
 		let j_idx = len - 1 - j;
-		self.0.swap(i_idx, j_idx);
+		self.stack.swap(i_idx, j_idx);
 		ControlFlow::Continue(())
 	}
-}
 
-impl Default for Stack {
-	fn default() -> Self {
-		Self::new()
+	/// Pushes a slice of bytes onto the stack, padding the last word with zeros
+	/// if necessary.
+	///
+	/// # Panics
+	///
+	/// Panics if slice is longer than 32 bytes.
+	pub fn push_slice(&mut self, slice: &[u8]) -> ControlFlow<Halt> {
+		debug_assert!(slice.len() <= 32, "slice must be at most 32 bytes");
+		if slice.is_empty() {
+			return ControlFlow::Continue(());
+		}
+
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
+			return ControlFlow::Break(Error::<T>::StackOverflow.into());
+		}
+
+		let mut word_bytes = [0u8; 32];
+		let offset = 32 - slice.len();
+		word_bytes[offset..].copy_from_slice(slice);
+
+		self.stack.push(U256::from_big_endian(&word_bytes));
+		return ControlFlow::Continue(());
+	}
+
+	/// Returns a closure that returns a vector of the stack items as `Bytes`.
+	pub fn bytes_getter(&self) -> impl Fn() -> Vec<crate::evm::Bytes> + '_ {
+		|| {
+			let mut stack_bytes = Vec::new();
+			for value in self.stack.iter() {
+				let bytes = value.to_big_endian().to_vec();
+				stack_bytes.push(crate::evm::Bytes(bytes));
+			}
+
+			stack_bytes
+		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::tests::Test;
+
+	#[test]
+	fn test_push_slice() {
+		// No-op
+		let mut stack = Stack::<Test>::new();
+		assert!(stack.push_slice(b"").is_continue());
+		assert!(stack.is_empty());
+
+		// Single byte
+		let mut stack = Stack::<Test>::new();
+		assert!(stack.push_slice(&[42]).is_continue());
+		assert_eq!(stack.stack, vec![U256::from(42)]);
+
+		// 16-byte value (128-bit)
+		let n = 0x1111_2222_3333_4444_5555_6666_7777_8888_u128;
+		let mut stack = Stack::<Test>::new();
+		assert!(stack.push_slice(&n.to_be_bytes()).is_continue());
+		assert_eq!(stack.stack, vec![U256::from(n)]);
+
+		// Full 32-byte value
+		let mut stack = Stack::<Test>::new();
+		let bytes_32 = [42u8; 32];
+		assert!(stack.push_slice(&bytes_32).is_continue());
+		assert_eq!(stack.stack, vec![U256::from_big_endian(&bytes_32)]);
+	}
 
 	#[test]
 	fn test_push_pop() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		// Test push
 		assert!(matches!(stack.push(U256::from(42)), ControlFlow::Continue(())));
@@ -176,12 +231,12 @@ mod tests {
 		// Test pop
 		assert_eq!(stack.popn::<1>(), ControlFlow::Continue([U256::from(42)]));
 		assert_eq!(stack.len(), 0);
-		assert_eq!(stack.popn::<1>(), ControlFlow::Break(Halt::StackUnderflow));
+		assert_eq!(stack.popn::<1>(), ControlFlow::Break(Error::<Test>::StackUnderflow.into()));
 	}
 
 	#[test]
 	fn test_popn() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		// Push some values
 		for i in 1..=3 {
@@ -195,12 +250,12 @@ mod tests {
 
 		// Try to pop more than available
 		let result: ControlFlow<_, [U256; 2]> = stack.popn();
-		assert_eq!(result, ControlFlow::Break(Halt::StackUnderflow));
+		assert_eq!(result, ControlFlow::Break(Error::<Test>::StackUnderflow.into()));
 	}
 
 	#[test]
 	fn test_popn_top() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		// Push some values
 		for i in 1..=4 {
@@ -224,23 +279,23 @@ mod tests {
 
 	#[test]
 	fn test_dup() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		let _ = stack.push(U256::from(1));
 		let _ = stack.push(U256::from(2));
 
 		// Duplicate the top item (index 1)
 		assert!(matches!(stack.dup(1), ControlFlow::Continue(())));
-		assert_eq!(stack.0, vec![U256::from(1), U256::from(2), U256::from(2)]);
+		assert_eq!(stack.stack, vec![U256::from(1), U256::from(2), U256::from(2)]);
 
 		// Duplicate the second item (index 2)
 		assert!(matches!(stack.dup(2), ControlFlow::Continue(())));
-		assert_eq!(stack.0, vec![U256::from(1), U256::from(2), U256::from(2), U256::from(2)]);
+		assert_eq!(stack.stack, vec![U256::from(1), U256::from(2), U256::from(2), U256::from(2)]);
 	}
 
 	#[test]
 	fn test_exchange() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		let _ = stack.push(U256::from(1));
 		let _ = stack.push(U256::from(2));
@@ -248,26 +303,29 @@ mod tests {
 
 		// Swap top (index 0) with second (index 1)
 		assert!(matches!(stack.exchange(0, 1), ControlFlow::Continue(())));
-		assert_eq!(stack.0, vec![U256::from(1), U256::from(3), U256::from(2)]);
+		assert_eq!(stack.stack, vec![U256::from(1), U256::from(3), U256::from(2)]);
 	}
 
 	#[test]
 	fn test_stack_limit() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 
 		// Fill stack to limit
-		for i in 0..1024 {
+		for i in 0..EVM_STACK_LIMIT {
 			assert!(matches!(stack.push(U256::from(i)), ControlFlow::Continue(())));
 		}
 
 		// Should fail to push one more
-		assert_eq!(stack.push(U256::from(9999)), ControlFlow::Break(Halt::StackOverflow));
-		assert_eq!(stack.len(), 1024);
+		assert_eq!(
+			stack.push(U256::from(9999)),
+			ControlFlow::Break(Error::<Test>::StackOverflow.into())
+		);
+		assert_eq!(stack.len(), EVM_STACK_LIMIT as usize);
 	}
 
 	#[test]
 	fn test_top() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 		assert_eq!(stack.top(), None);
 
 		let _ = stack.push(U256::from(42));
@@ -279,7 +337,7 @@ mod tests {
 
 	#[test]
 	fn test_is_empty() {
-		let mut stack = Stack::new();
+		let mut stack = Stack::<Test>::new();
 		assert!(stack.is_empty());
 
 		assert!(stack.push(U256::from(1)).is_continue());

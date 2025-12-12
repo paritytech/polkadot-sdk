@@ -15,11 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	primitives::ExecReturnValue,
-	vm::evm::{Memory, Stack},
-	Code, DispatchError, Key, Weight,
-};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -46,26 +42,6 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
-	/// Check if opcode tracing is enabled.
-	fn is_opcode_tracing_enabled(&self) -> bool {
-		false
-	}
-
-	/// Called before an opcode is executed.
-	fn enter_opcode(
-		&mut self,
-		_pc: u64,
-		_opcode: u8,
-		_gas_before: Weight,
-		_stack: &Stack,
-		_memory: &Memory,
-		_last_frame_output: &crate::ExecReturnValue,
-	) {
-	}
-
-	/// Called after an opcode is executed to record the gas cost.
-	fn exit_opcode(&mut self, _gas_left: Weight) {}
-
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 
@@ -74,11 +50,21 @@ pub trait Tracing {
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_is_delegate_call: bool,
+		_delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas_limit: U256,
+	) {
+	}
+
+	/// Called when a contract calls terminates (selfdestructs)
+	fn terminate(
+		&mut self,
+		_contract_address: H160,
+		_beneficiary_address: H160,
+		_gas_left: U256,
+		_value: U256,
 	) {
 	}
 
@@ -104,8 +90,28 @@ pub trait Tracing {
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
 	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_left: Weight) {}
+	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: U256) {}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_left: Weight) {}
+	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: U256) {}
+
+	/// Check if opcode tracing is enabled.
+	fn is_opcode_tracing_enabled(&self) -> bool {
+		false
+	}
+
+	/// Called before an opcode is executed.
+	fn enter_opcode(
+		&mut self,
+		_pc: u64,
+		_opcode: u8,
+		_gas_before: U256,
+		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
+		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
+		_last_frame_output: &crate::ExecReturnValue,
+	) {
+	}
+
+	/// Called after an opcode is executed to record the gas cost.
+	fn exit_opcode(&mut self, _gas_left: U256) {}
 }

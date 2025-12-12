@@ -838,9 +838,8 @@ impl<T: MinerConfig> Miner<T> {
 		// Ensure that the solution's score can pass absolute min-score.
 		let submitted_score = raw_solution.score;
 		ensure!(
-			minimum_untrusted_score.map_or(true, |min_score| {
-				submitted_score.strict_threshold_better(min_score, sp_runtime::Perbill::zero())
-			}),
+			minimum_untrusted_score
+				.map_or(true, |min_score| { submitted_score.strict_better(min_score) }),
 			FeasibilityError::UntrustedScoreTooLow
 		);
 

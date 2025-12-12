@@ -424,8 +424,18 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
+			.await
+	}
+
+	/// Returns a list of validators that lost a past session dispute and need to be slashed.
+	pub async fn parachain_host_unapplied_slashes_v2(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_unapplied_slashes_v2", at, None::<()>)
 			.await
 	}
 

@@ -26,47 +26,27 @@ use crate::{
 use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Bitwise, FixtureType};
+use test_case::test_case;
 
-#[test]
-fn bitwise_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Bitwise", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn bitwise_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Bitwise", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
+			.build_and_unwrap_result();
 
-			if result.did_revert() {
-				if let Some(revert_msg) = decode_revert_reason(&result.data) {
-					panic!("Revert message: {revert_msg}");
-				} else {
-					panic!("Revert without message, raw data: {:?}", result.data);
-				}
+		if result.did_revert() {
+			if let Some(revert_msg) = decode_revert_reason(&result.data) {
+				panic!("Revert message: {revert_msg}");
+			} else {
+				panic!("Revert without message, raw data: {:?}", result.data);
 			}
-		});
-	}
-}
-
-#[test]
-fn test_me() {
-	use crate::tests::sol::revm_tracing::RevmTracer;
-	use alloy_core::sol_types::SolInterface;
-	use revm::{context::TxEnv, context_interface::TransactTo, primitives::Bytes};
-
-	let (code, _) = compile_module_with_type("Bitwise", FixtureType::Solc).unwrap();
-	let mut tracer = RevmTracer::default();
-	let addr = tracer.deploy(TxEnv { data: Bytes::from(code), ..Default::default() });
-
-	let traces = tracer.call(TxEnv {
-		kind: TransactTo::Call(addr),
-		data: Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {})
-			.abi_encode()
-			.into(),
-		..Default::default()
+		}
 	});
-	std::fs::write("/tmp/trace_ok.json", serde_json::to_string_pretty(&traces).unwrap()).unwrap();
 }

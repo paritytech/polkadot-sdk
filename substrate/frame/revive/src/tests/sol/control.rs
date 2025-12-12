@@ -16,11 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	metering::TransactionLimits,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
-	Code, Config, U256,
+	Code, Config, Error, U256,
 };
-use frame_support::traits::fungible::Mutate;
+use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use revm::bytecode::opcode::*;
@@ -90,17 +91,8 @@ fn jumpdest_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).build();
-
-		assert!(result.result.is_err(), "test did not error");
-		if let Err(err) = result.result {
-			if let sp_runtime::DispatchError::Module(module_error) = err {
-				let message = module_error.message.as_ref().unwrap();
-				assert_eq!(*message, "InvalidInstruction");
-			} else {
-				assert!(false, "unexpected error: {err:?}");
-			}
-		}
+		let result = builder::bare_call(addr).build().result;
+		assert_err!(result, Error::<Test>::InvalidJump);
 	});
 }
 
@@ -262,30 +254,25 @@ fn invalid_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let output = builder::bare_call(addr).gas_limit(expected_gas.into()).data(vec![]).build();
+		let output = builder::bare_call(addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: expected_gas.into(),
+				deposit_limit: Default::default(),
+			})
+			.data(vec![])
+			.build();
 
 		let result = output.result;
-		assert!(result.is_err(), "test did not error");
-		let err = result.err().unwrap();
-		if let sp_runtime::DispatchError::Module(module_error) = err {
-			assert!(module_error.message.is_some(), "no message in module error");
-			assert_eq!(
-				module_error.message.unwrap(),
-				"InvalidInstruction",
-				"Expected InvalidInstruction error"
-			);
-			assert_eq!(
-				output.gas_consumed.ref_time(),
-				expected_gas,
-				"Gas consumed does not match expected gas"
-			);
-			assert_eq!(
-				output.gas_consumed.proof_size(),
-				expected_gas,
-				"Gas consumed does not match expected gas"
-			);
-		} else {
-			panic!("Expected ModuleError, got: {:?}", err);
-		}
+		assert_err!(result, Error::<Test>::InvalidInstruction);
+		assert_eq!(
+			output.weight_consumed.ref_time(),
+			expected_gas,
+			"Gas consumed does not match expected gas"
+		);
+		assert_eq!(
+			output.weight_consumed.proof_size(),
+			expected_gas,
+			"Gas consumed does not match expected gas"
+		);
 	});
 }

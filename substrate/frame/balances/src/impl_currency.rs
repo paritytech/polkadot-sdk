@@ -535,6 +535,29 @@ where
 	}
 }
 
+/// Validates whether an account can create a reserve without violating
+/// liquidity constraints.
+///
+/// This method performs liquidity checks without modifying the account state.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	value: T::Balance,
+	check_existential_deposit: bool,
+) -> DispatchResult {
+	let AccountData { free, .. } = Pallet::<T, I>::account(who);
+
+	// Early validation: Check sufficient free balance
+	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+	// Conditionally validate existential deposit preservation
+	if check_existential_deposit {
+		let existential_deposit = T::ExistentialDeposit::get();
+		ensure!(new_free_balance >= existential_deposit, Error::<T, I>::Expendability);
+	}
+
+	Ok(())
+}
+
 impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -546,11 +569,7 @@ where
 		if value.is_zero() {
 			return true
 		}
-		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() &&
-				Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-					.is_ok()
-		})
+		ensure_can_reserve::<T, I>(who, value, true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -570,7 +589,9 @@ where
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
-			Self::ensure_can_withdraw(&who, value, WithdrawReasons::RESERVE, account.free)
+
+			// Check if it is possible to reserve before trying to mutate the account
+			ensure_can_reserve::<T, I>(who, value, false)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });

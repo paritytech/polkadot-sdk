@@ -13,7 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
+    if: false
     uses: ./.github/workflows/reusable-preflight.yml
 
   # No filter for 'all_security_features_work' and 'nonexistent_cache_dir'
@@ -37,7 +41,7 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
         run: |
@@ -74,7 +78,7 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
         run: |

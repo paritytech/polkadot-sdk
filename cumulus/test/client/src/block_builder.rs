@@ -25,11 +25,13 @@ use sc_block_builder::BlockBuilderBuilder;
 use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
+	pub proof_recorder: ProofRecorder<Block>,
 }
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -48,7 +50,7 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -59,7 +61,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder using the given pre-digests.
 	///
@@ -70,7 +72,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		pre_digests: Vec<DigestItem>,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder_with_timestamp`] besides that it takes
@@ -82,7 +84,7 @@ pub trait InitBlockBuilder {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -95,7 +97,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 }
 
 fn init_block_builder(
@@ -143,14 +145,16 @@ fn init_block_builder(
 			.collect::<Vec<_>>(),
 	};
 
+	let proof_recorder =
+		ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.unwrap_or_default());
+
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
-		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
-			ignored_nodes.unwrap_or_default(),
-		)))
+		.with_proof_recorder(Some(proof_recorder.clone()))
 		.with_inherent_digests(pre_digests)
+		.with_extra_extensions(ProofSizeExt::new(proof_recorder.clone()))
 		.build()
 		.expect("Creates new block builder for test runtime");
 
@@ -186,7 +190,11 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data }
+	BlockBuilderAndSupportData {
+		block_builder,
+		persisted_validation_data: validation_data,
+		proof_recorder,
+	}
 }
 
 impl InitBlockBuilder for Client {
@@ -194,7 +202,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -204,7 +212,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		pre_digests: Vec<DigestItem>,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		let chain_info = self.chain_info();
 		init_block_builder(
 			self,
@@ -222,7 +230,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, None, None, None)
 	}
 
@@ -233,7 +241,7 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(
 			self,
 			at,
@@ -251,7 +259,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(
 			self,
 			at,
@@ -274,11 +282,11 @@ pub trait BuildParachainBlockData {
 
 impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
+		let proof_recorder = self.proof_recorder().expect("Proof recorder is always set");
 		let built_block = self.build().expect("Builds the block");
 
-		let storage_proof = built_block
-			.proof
-			.expect("We enabled proof recording before.")
+		let storage_proof = proof_recorder
+			.drain_storage_proof()
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 

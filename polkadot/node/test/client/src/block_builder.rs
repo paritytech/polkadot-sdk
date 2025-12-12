@@ -34,7 +34,7 @@ pub trait InitPolkadotBlockBuilder {
 	///
 	/// This will automatically create and push the inherents for you to make the block valid for
 	/// the test runtime.
-	fn init_polkadot_block_builder(&self) -> sc_block_builder::BlockBuilder<Block, Client>;
+	fn init_polkadot_block_builder(&self) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 
 	/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
 	///
@@ -43,11 +43,11 @@ pub trait InitPolkadotBlockBuilder {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 }
 
 impl InitPolkadotBlockBuilder for Client {
-	fn init_polkadot_block_builder(&self) -> BlockBuilder<Block, Client> {
+	fn init_polkadot_block_builder(&self) -> BlockBuilder<'_, Block, Client> {
 		let chain_info = self.chain_info();
 		self.init_polkadot_block_builder_at(chain_info.best_hash)
 	}
@@ -55,7 +55,7 @@ impl InitPolkadotBlockBuilder for Client {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> BlockBuilder<Block, Client> {
+	) -> BlockBuilder<'_, Block, Client> {
 		let last_timestamp =
 			self.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
 

@@ -10,7 +10,7 @@ default_args = [
 	"--pool-limit 500000",
 	"--pool-type=fork-aware",
 	"--rpc-max-connections 15000",
-	"--rpc-max-response-size 150",
+	"--rpc-max-response-size 1500",
 	"--rpc-max-subscriptions-per-connection=128000",
 	"--state-pruning=1024",
 	"-lsync=info",

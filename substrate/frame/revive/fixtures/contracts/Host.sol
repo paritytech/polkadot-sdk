@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 contract Host {
-    function balance(address account) public view returns (uint256) {
-        return account.balance;
+    function balance(address account) public view returns (uint64) {
+        return uint64(account.balance);
     }
 
-    function extcodesizeOp(address account) public view returns (uint256) {
+    function extcodesizeOp(address account) public view returns (uint64) {
         uint256 size;
         assembly {
             size := extcodesize(account)
         }
-        return size;
+        return uint64(size);
     }
 
     function extcodehashOp(address account) public view returns (bytes32) {
@@ -22,7 +22,7 @@ contract Host {
         return hash;
     }
 
-    function blockhashOp(uint256 blockNumber) public view returns (bytes32) {
+    function blockhashOp(uint64 blockNumber) public view returns (bytes32) {
         bytes32 hash;
         assembly {
             hash := blockhash(blockNumber)
@@ -30,15 +30,15 @@ contract Host {
         return hash;
     }
 
-    function sloadOp(uint256 slot) public view returns (uint256) {
+    function sloadOp(uint64 slot) public view returns (uint64) {
         uint256 value;
         assembly {
             value := sload(slot)
         }
-        return value;
+        return uint64(value);
     }
 
-    function sstoreOp(uint256 slot, uint256 value) public {
+    function sstoreOp(uint64 slot, uint64 value) public {
         assembly {
             sstore(slot, value)
         }
@@ -54,7 +54,7 @@ contract Host {
         }
     }
 
-    function selfbalance() public view returns (uint256) {
-        return address(this).balance;
+    function selfbalance() public view returns (uint64) {
+        return uint64(address(this).balance);
     }
 }

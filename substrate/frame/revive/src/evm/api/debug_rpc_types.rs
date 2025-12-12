@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
-	de::Deserializer,
+	de::{Deserializer, Error, MapAccess, Visitor},
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
@@ -291,10 +291,12 @@ pub enum CallType {
 	Create,
 	/// A create2 call.
 	Create2,
+	/// A selfdestruct call.
+	Selfdestruct,
 }
 
 /// A Trace
-#[derive(TypeInfo, From, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum Trace {
 	/// A call trace.
@@ -306,7 +308,7 @@ pub enum Trace {
 }
 
 /// A prestate Trace
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(TypeInfo, Encode, Serialize, Decode, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum PrestateTrace {
 	/// The Prestate mode returns the accounts necessary to execute a given transaction
@@ -324,6 +326,68 @@ pub enum PrestateTrace {
 		/// It only contains the specific fields that were actually modified during the transaction
 		post: BTreeMap<H160, PrestateTraceInfo>,
 	},
+}
+
+impl<'de> Deserialize<'de> for PrestateTrace {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct PrestateTraceVisitor;
+
+		impl<'de> Visitor<'de> for PrestateTraceVisitor {
+			type Value = PrestateTrace;
+
+			fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+				formatter.write_str("a map representing either Prestate or DiffMode")
+			}
+
+			fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+			where
+				A: MapAccess<'de>,
+			{
+				let mut pre_map = None;
+				let mut post_map = None;
+				let mut account_map = BTreeMap::new();
+
+				while let Some(key) = map.next_key::<String>()? {
+					match key.as_str() {
+						"pre" => {
+							if pre_map.is_some() {
+								return Err(Error::duplicate_field("pre"));
+							}
+							pre_map = Some(map.next_value::<BTreeMap<H160, PrestateTraceInfo>>()?);
+						},
+						"post" => {
+							if post_map.is_some() {
+								return Err(Error::duplicate_field("post"));
+							}
+							post_map = Some(map.next_value::<BTreeMap<H160, PrestateTraceInfo>>()?);
+						},
+						_ => {
+							let addr: H160 =
+								key.parse().map_err(|_| Error::custom("Invalid address"))?;
+							let info = map.next_value::<PrestateTraceInfo>()?;
+							account_map.insert(addr, info);
+						},
+					}
+				}
+
+				match (pre_map, post_map) {
+					(Some(pre), Some(post)) => {
+						if !account_map.is_empty() {
+							return Err(Error::custom("Mixed diff and prestate mode"));
+						}
+						Ok(PrestateTrace::DiffMode { pre, post })
+					},
+					(None, None) => Ok(PrestateTrace::Prestate(account_map)),
+					_ => Err(Error::custom("diff mode: must have both 'pre' and 'post'")),
+				}
+			}
+		}
+
+		deserializer.deserialize_map(PrestateTraceVisitor)
+	}
 }
 
 impl PrestateTrace {
@@ -353,7 +417,7 @@ pub struct PrestateTraceInfo {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	/// The storage of the contract account.
-	#[serde(skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
+	#[serde(default, skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
 	pub storage: BTreeMap<Bytes, Option<Bytes>>,
 }
 
@@ -386,44 +450,35 @@ where
 
 /// An opcode trace containing the step-by-step execution of EVM instructions.
 /// This matches Geth's structLogger output format.
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(
+	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeTrace<Gas = U256> {
+pub struct OpcodeTrace {
 	/// Total gas used by the transaction.
-	pub gas: Gas,
+	pub gas: U256,
 	/// Whether the transaction failed.
 	pub failed: bool,
 	/// The return value of the transaction.
 	pub return_value: Bytes,
 	/// The list of opcode execution steps (structLogs in Geth).
-	pub struct_logs: Vec<OpcodeStep<Gas>>,
-}
-
-impl<Gas: Default> Default for OpcodeTrace<Gas> {
-	fn default() -> Self {
-		Self {
-			gas: Gas::default(),
-			failed: false,
-			return_value: Bytes::default(),
-			struct_logs: Vec::new(),
-		}
-	}
+	pub struct_logs: Vec<OpcodeStep>,
 }
 
 /// A single opcode execution step.
 /// This matches Geth's structLog format exactly.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeStep<Gas = U256> {
+pub struct OpcodeStep {
 	/// The program counter.
 	pub pc: u64,
 	/// The opcode being executed.
 	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 	pub op: u8,
 	/// Remaining gas before executing this opcode.
-	pub gas: Gas,
+	pub gas: U256,
 	/// Cost of executing this opcode.
-	pub gas_cost: Gas,
+	pub gas_cost: U256,
 	/// Current call depth.
 	pub depth: u32,
 	/// EVM stack contents.
@@ -833,6 +888,9 @@ pub struct CallTrace<Gas = U256> {
 	/// Type of call.
 	#[serde(rename = "type")]
 	pub call_type: CallType,
+	/// Number of child calls entered (for log position calculation)
+	#[serde(skip)]
+	pub child_call_count: u32,
 }
 
 /// A log emitted during a call.

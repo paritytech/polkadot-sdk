@@ -1440,7 +1440,7 @@ impl<T: Config> Pallet<T> {
 		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 	) -> bool {
 		IdentityOf::<T>::get(who)
-			.map_or(false, |registration| (registration.info.has_identity(fields)))
+			.map_or(false, |registration| registration.info.has_identity(fields))
 	}
 
 	/// Calculate the deposit required for an identity.

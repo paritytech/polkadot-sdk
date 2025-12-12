@@ -100,6 +100,8 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
 		keep_finalized_for: None,
+		invulnerable_ah_collators: HashSet::new(),
+		collator_protocol_hold_off: None,
 	};
 
 	match config.network.network_backend {
@@ -207,6 +209,7 @@ pub fn node_config(
 			rate_limit: None,
 			rate_limit_whitelisted_ips: Default::default(),
 			rate_limit_trust_proxy_headers: Default::default(),
+			request_logger_limit: 1024,
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,

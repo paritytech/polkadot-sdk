@@ -18,7 +18,7 @@
 use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt_with, Interpreter},
+		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext,
 	},
 	Pallet, RuntimeCosts,
@@ -28,7 +28,7 @@ use revm::interpreter::interpreter_action::CallScheme;
 use sp_core::{H160, U256};
 
 /// Gets memory input and output ranges for call instructions.
-pub fn get_memory_input_and_out_ranges<'a, E: Ext>(
+pub fn get_memory_in_and_out_ranges<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 ) -> ControlFlow<Halt, (Range<usize>, Range<usize>)> {
 	let [in_offset, in_len, out_offset, out_len] = interpreter.stack.popn()?;
@@ -44,9 +44,9 @@ pub fn resize_memory<'a, E: Ext>(
 	offset: U256,
 	len: U256,
 ) -> ControlFlow<Halt, Range<usize>> {
-	let len = as_usize_or_halt_with(len, || Halt::InvalidOperandOOG)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	if len != 0 {
-		let offset = as_usize_or_halt_with(offset, || Halt::InvalidOperandOOG)?;
+		let offset = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(offset, len)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {
@@ -56,33 +56,35 @@ pub fn resize_memory<'a, E: Ext>(
 }
 
 /// Calculates gas cost and limit for call instructions.
-pub fn calc_call_gas<'a, E: Ext>(
+pub fn charge_call_gas<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	callee: H160,
 	scheme: CallScheme,
 	input_len: usize,
 	value: U256,
-) -> ControlFlow<Halt, u64> {
+) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	match precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
-			interpreter.ext.gas_meter_mut().charge_evm(if precompile.has_contract_info() {
-				RuntimeCosts::PrecompileWithInfoBase
-			} else {
-				RuntimeCosts::PrecompileBase
-			})?;
+			interpreter.ext.frame_meter_mut().charge_or_halt(
+				if precompile.has_contract_info() {
+					RuntimeCosts::PrecompileWithInfoBase
+				} else {
+					RuntimeCosts::PrecompileBase
+				},
+			)?;
 
 			// Cost for decoding input
 			interpreter
 				.ext
-				.gas_meter_mut()
-				.charge_evm(RuntimeCosts::PrecompileDecode(input_len as u32))?;
+				.frame_meter_mut()
+				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.gas_meter_mut().charge_evm(if scheme.is_delegate_call() {
+			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
 				RuntimeCosts::DelegateCallBase
 			} else {
 				RuntimeCosts::CallBase
@@ -90,18 +92,18 @@ pub fn calc_call_gas<'a, E: Ext>(
 
 			interpreter
 				.ext
-				.gas_meter_mut()
-				.charge_evm(RuntimeCosts::CopyFromContract(input_len as u32))?;
+				.frame_meter_mut()
+				.charge_or_halt(RuntimeCosts::CopyFromContract(input_len as u32))?;
 		},
 	};
 	if !value.is_zero() {
 		interpreter
 			.ext
-			.gas_meter_mut()
-			.charge_evm(RuntimeCosts::CallTransferSurcharge {
+			.frame_meter_mut()
+			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
 				dust_transfer: Pallet::<E::T>::has_dust(value),
 			})?;
 	}
 
-	ControlFlow::Continue(u64::MAX) // TODO: Set the right gas limit
+	ControlFlow::Continue(())
 }

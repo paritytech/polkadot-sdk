@@ -205,6 +205,7 @@ struct TestHarness {
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	reputation: ReputationAggregator,
+	ah_invulnerable_collators: HashSet<PeerId>,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
 	sp_tracing::init_for_tests();
@@ -232,6 +233,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Metrics::default(),
 		reputation,
 		REPUTATION_CHANGE_TEST_INTERVAL,
+		ah_invulnerable_collators,
+		HOLD_OFF_DURATION_DEFAULT_VALUE,
 	);
 
 	let test_fut = test(TestHarness { virtual_overseer, keystore });
@@ -470,7 +473,7 @@ async fn advertise_collation(
 fn collator_authentication_verification_works() {
 	let test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let peer_b = PeerId::random();
@@ -520,7 +523,7 @@ fn collator_authentication_verification_works() {
 fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 		let second = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 		let relay_parent = test_state.relay_parent;
@@ -606,7 +609,7 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 fn fetches_next_collation() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let first = test_state.relay_parent;
@@ -723,7 +726,7 @@ fn fetches_next_collation() {
 fn reject_connection_to_next_group() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let relay_parent = test_state.relay_parent;
@@ -762,7 +765,7 @@ fn reject_connection_to_next_group() {
 fn fetch_next_collation_on_invalid_collation() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let relay_parent = test_state.relay_parent;
@@ -860,7 +863,7 @@ fn fetch_next_collation_on_invalid_collation() {
 fn inactive_disconnected() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -899,7 +902,7 @@ fn inactive_disconnected() {
 fn activity_extends_life() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -974,7 +977,7 @@ fn activity_extends_life() {
 fn disconnect_if_no_declare() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let relay_parent = test_state.relay_parent;
@@ -1003,7 +1006,7 @@ fn disconnect_if_no_declare() {
 fn disconnect_if_wrong_declare() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 		let pair = CollatorPair::generate().0;
 		let peer_b = PeerId::random();
@@ -1055,7 +1058,7 @@ fn disconnect_if_wrong_declare() {
 fn delay_reputation_change() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| false), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| false), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 		let pair = CollatorPair::generate().0;
 		let peer_b = PeerId::random();
@@ -1131,7 +1134,7 @@ fn delay_reputation_change() {
 fn view_change_clears_old_collators() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair = CollatorPair::generate().0;

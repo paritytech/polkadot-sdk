@@ -45,6 +45,7 @@ mod force_unstake_kill_stash;
 mod ledger;
 mod payout_stakers;
 mod slashing;
+mod try_state;
 
 #[test]
 fn basic_setup_session_queuing_should_work() {

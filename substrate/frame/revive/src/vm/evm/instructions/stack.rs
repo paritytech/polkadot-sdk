@@ -17,22 +17,19 @@
 
 use crate::{
 	vm::{
-		evm::{instructions::utility::cast_slice_to_u256, interpreter::Halt, Interpreter},
+		evm::{interpreter::Halt, EVMGas, Interpreter},
 		Ext,
 	},
 	U256,
 };
 use core::ops::ControlFlow;
-use revm::interpreter::{
-	gas::{BASE, VERYLOW},
-	interpreter_types::{Immediates, Jumps},
-};
+use revm::interpreter::gas::{BASE, VERYLOW};
 
 /// Implements the POP instruction.
 ///
 /// Removes the top item from the stack.
-pub fn pop<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
+pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
 	let [_] = interpreter.stack.popn()?;
 	ControlFlow::Continue(())
 }
@@ -40,8 +37,8 @@ pub fn pop<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 /// EIP-3855: PUSH0 instruction
 ///
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
-pub fn push0<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
+pub fn push0<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
 	interpreter.stack.push(U256::zero())
 }
 
@@ -51,12 +48,10 @@ pub fn push0<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlo
 pub fn push<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
-	interpreter.stack.push(U256::zero())?;
-	let ([], top) = interpreter.stack.popn_top()?;
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 
-	let imm = interpreter.bytecode.read_slice(N);
-	cast_slice_to_u256(imm, top);
+	let slice = interpreter.bytecode.read_slice(N);
+	interpreter.stack.push_slice(slice)?;
 
 	// Can ignore return. as relative N jump is safe operation
 	interpreter.bytecode.relative_jump(N as isize);
@@ -69,7 +64,7 @@ pub fn push<'ext, const N: usize, E: Ext>(
 pub fn dup<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	interpreter.stack.dup(N)
 }
 
@@ -79,7 +74,7 @@ pub fn dup<'ext, const N: usize, E: Ext>(
 pub fn swap<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	assert!(N != 0);
 	interpreter.stack.exchange(0, N)
 }
