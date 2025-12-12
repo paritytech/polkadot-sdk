@@ -1462,7 +1462,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Slash a deposit, if `Some`.
 	fn slash_deposit(who: T::AccountId, amount: BalanceOf<T, I>) {
-		T::Slash::on_unbalanced(T::Currency::slash_reserved(dbg!(&who), dbg!(amount)).0);
+		T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
 		Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 	}
 
