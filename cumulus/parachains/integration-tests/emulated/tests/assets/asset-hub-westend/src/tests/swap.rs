@@ -392,8 +392,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 	});
 }
 
-// FIXME:
-// #[test]
-// fn xcm_fee_querying_apis_work() {
-// 	test_xcm_fee_querying_apis_work_for_asset_hub!(AssetHubWestend);
-// }
+#[test]
+fn xcm_fee_querying_apis_work() {
+	test_xcm_fee_querying_apis_work_for_asset_hub!(AssetHubWestend);
+}
