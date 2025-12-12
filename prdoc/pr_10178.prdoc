@@ -1,0 +1,15 @@
+title: Add auto retry limit to Coretime autorenewal
+doc:
+- audience: Runtime Dev
+  description: |-
+    BREAKING CHANGE: runtime must define `MaxAutoRenewalRetries`
+
+    Fixes #9548
+    Problem: After auto-renewal fails due to some error, the system disables autorenewal entirely contrary to the documentation.
+    Solution: A more robust retry which is configurable in the pallet config. This is compile time setting currently.
+    Introduce `T::MaxAutoRenewalRetries` constant in `Config` trait track retry count in `AutoRenewalRetries` storage map, increment on each failed renewal attempt. When retries >= max, emit `AutoRenewalFailed`, remove auto-renew record, and reset counter to 0. Add integration tests:
+    - persistent retry when count < max
+    - record removal when count >= max
+crates:
+- name: pallet-broker
+  bump: major

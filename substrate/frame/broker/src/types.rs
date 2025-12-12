@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
-	CORE_MASK_BITS,
-};
+use crate::{Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, RenewalRetriesCount, TaskId, CORE_MASK_BITS};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;

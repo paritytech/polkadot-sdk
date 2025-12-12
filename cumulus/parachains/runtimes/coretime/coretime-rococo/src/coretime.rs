@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::Pallet as System;
 use pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId
 };
 use parachains_common::{AccountId, Balance};
 use rococo_runtime_constants::system_parachain::coretime;
@@ -318,4 +318,5 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<100>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+	type MaxAutoRenewalRetries = ConstU8<2>;
 }
