@@ -188,61 +188,69 @@ pub mod pallet {
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
 		) -> Weight {
+			// Load roots from previous block for change detection.
 			let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
+			// Early exit if no publishers have any data.
 			if current_roots.is_empty() && previous_roots.is_empty() {
 				return T::DbWeight::get().reads(1);
 			}
 
+			// Convert to map for efficient lookup by ParaId.
 			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
 				current_roots.iter().map(|(para_id, root)| (*para_id, root.clone())).collect();
 
+			// Process each subscription.
 			for (publisher, subscription_keys) in subscriptions {
-				let should_update = match previous_roots.get(publisher) {
-					Some(prev_root) => match current_roots_map.get(publisher) {
-						Some(curr_root) if prev_root == curr_root => false,
-						_ => true,
-					},
-					None => true,
-				};
+				// Check if publisher has published data in this block.
+				if let Some(current_root) = current_roots_map.get(publisher) {
+					// Detect if child trie root changed since last block.
+					let should_update = previous_roots
+						.get(publisher)
+						.map_or(true, |prev_root| prev_root.as_slice() != current_root.as_slice());
 
-				if should_update && current_roots_map.contains_key(publisher) {
-					let child_info = Self::derive_child_info(*publisher);
+					// Only process if data changed.
+					if should_update {
+						let child_info = Self::derive_child_info(*publisher);
 
-					for key in subscription_keys.iter() {
-						match relay_state_proof.read_child_storage(&child_info, key) {
-							Ok(Some(encoded_value)) => {
-								match Vec::<u8>::decode(&mut &encoded_value[..]) {
-									Ok(value) => {
-										let value_size = value.len() as u32;
-										T::SubscriptionHandler::on_data_updated(
-											*publisher,
-											key.clone(),
-											value.clone(),
-										);
+						// Read each subscribed key from relay proof.
+						for key in subscription_keys.iter() {
+							match relay_state_proof.read_child_storage(&child_info, key) {
+								Ok(Some(encoded_value)) => {
+									match Vec::<u8>::decode(&mut &encoded_value[..]) {
+										Ok(value) => {
+											let value_size = value.len() as u32;
+											// Notify handler of new data.
+											T::SubscriptionHandler::on_data_updated(
+												*publisher,
+												key.clone(),
+												value.clone(),
+											);
 
-										Self::deposit_event(Event::DataProcessed {
-											publisher: *publisher,
-											key: key.clone(),
-											value_size,
-										});
-									},
-									Err(_) => {
-										defensive!("Failed to decode published data value");
-									},
-								}
-							},
-							Ok(None) => {
-								// Key not published yet - expected
-							},
-							Err(_) => {
-								defensive!("Failed to read child storage from relay chain proof");
-							},
+											Self::deposit_event(Event::DataProcessed {
+												publisher: *publisher,
+												key: key.clone(),
+												value_size,
+											});
+										},
+										Err(_) => {
+											defensive!("Failed to decode published data value");
+										},
+									}
+								},
+								Ok(None) => {
+									// Key not published yet - expected.
+								},
+								Err(_) => {
+									defensive!("Failed to read child storage from relay chain proof");
+								},
+							}
 						}
 					}
 				}
 			}
 
+			// Store current roots for next block's comparison.
 			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, T::MaxPublishers> =
 				current_roots_map
 					.into_iter()
