@@ -19,6 +19,7 @@
 use super::Location;
 pub use crate::v4::{BodyId, BodyPart};
 use crate::{
+	v3::{Junction as OldJunctionV3, NetworkId as OldNetworkIdV3},
 	v4::{Junction as OldJunction, NetworkId as OldNetworkId},
 	VersionedLocation,
 };
@@ -187,6 +188,31 @@ impl From<OldNetworkId> for NetworkId {
 	}
 }
 
+impl From<OldNetworkIdV3> for Option<NetworkId> {
+	fn from(old: OldNetworkIdV3) -> Self {
+		Some(NetworkId::from(old))
+	}
+}
+
+impl From<OldNetworkIdV3> for NetworkId {
+	fn from(old: OldNetworkIdV3) -> Self {
+		use OldNetworkIdV3::*;
+		match old {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
+			Westend => Self::ByGenesis(WESTEND_GENESIS_HASH),
+			Rococo => Self::ByGenesis(ROCOCO_GENESIS_HASH),
+			Wococo => Self::ByGenesis(DUMMY_GENESIS_HASH),
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
+		}
+	}
+}
+
 impl From<NetworkId> for Junction {
 	fn from(n: NetworkId) -> Self {
 		Self::GlobalConsensus(n)
@@ -260,6 +286,25 @@ impl TryFrom<OldJunction> for Junction {
 			OnlyChild => Self::OnlyChild,
 			Plurality { id, part } => Self::Plurality { id, part },
 			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
+		})
+	}
+}
+
+impl TryFrom<OldJunctionV3> for Junction {
+	type Error = ();
+
+	fn try_from(value: OldJunctionV3) -> Result<Self, Self::Error> {
+		use OldJunctionV3::*;
+		Ok(match value {
+			Parachain(id) => Self::Parachain(id),
+			AccountId32 { network, id } => Self::AccountId32 { network: network.try_into()?, id },
+			AccountIndex64 { network, index } =>
+				Self::AccountIndex64 { network: network.try_into()?, index },
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
+			GeneralIndex(id) => Self::GeneralIndex(id),
+			PalletInstance(index) => Self::PalletInstance(index),
+			OnlyChild => Self::OnlyChild,
+			GlobalConsensus(network) => Self::GlobalConsensus(network.try_into()?),
 		})
 	}
 }

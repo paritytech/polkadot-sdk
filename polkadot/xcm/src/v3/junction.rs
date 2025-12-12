@@ -19,6 +19,7 @@
 use super::{Junctions, MultiLocation};
 use crate::{
 	v4::{Junction as NewJunction, NetworkId as NewNetworkId},
+	v5::{Junction as NewJunctionV5, NetworkId as NewNetworkIdV5},
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
@@ -94,6 +95,28 @@ impl From<NewNetworkId> for NetworkId {
 			Westend => Self::Westend,
 			Rococo => Self::Rococo,
 			Wococo => Self::Wococo,
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
+		}
+	}
+}
+
+impl From<NewNetworkIdV5> for Option<NetworkId> {
+	fn from(new: NewNetworkIdV5) -> Self {
+		Some(NetworkId::from(new))
+	}
+}
+
+impl From<NewNetworkIdV5> for NetworkId {
+	fn from(new: NewNetworkIdV5) -> Self {
+		use NewNetworkIdV5::*;
+		match new {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,
@@ -350,6 +373,29 @@ impl TryFrom<NewJunction> for Junction {
 
 	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
 		use NewJunction::*;
+		Ok(match value {
+			Parachain(id) => Self::Parachain(id),
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			PalletInstance(index) => Self::PalletInstance(index),
+			GeneralIndex(id) => Self::GeneralIndex(id),
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
+			OnlyChild => Self::OnlyChild,
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
+		})
+	}
+}
+
+impl TryFrom<NewJunctionV5> for Junction {
+	type Error = ();
+
+	fn try_from(value: NewJunctionV5) -> Result<Self, Self::Error> {
+		use NewJunctionV5::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
 			AccountId32 { network: maybe_network, id } =>

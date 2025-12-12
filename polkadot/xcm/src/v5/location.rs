@@ -17,7 +17,7 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v4::Location as OldLocation, VersionedLocation};
+use crate::{v3::Location as OldLocationV3, v4::Location as OldLocation, VersionedLocation};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
@@ -486,6 +486,20 @@ impl TryFrom<OldLocation> for Option<Location> {
 impl TryFrom<OldLocation> for Location {
 	type Error = ();
 	fn try_from(x: OldLocation) -> result::Result<Self, ()> {
+		Ok(Location { parents: x.parents, interior: x.interior.try_into()? })
+	}
+}
+
+impl TryFrom<OldLocationV3> for Option<Location> {
+	type Error = ();
+	fn try_from(value: OldLocationV3) -> result::Result<Self, Self::Error> {
+		Ok(Some(Location::try_from(value)?))
+	}
+}
+
+impl TryFrom<OldLocationV3> for Location {
+	type Error = ();
+	fn try_from(x: OldLocationV3) -> result::Result<Self, ()> {
 		Ok(Location { parents: x.parents, interior: x.interior.try_into()? })
 	}
 }

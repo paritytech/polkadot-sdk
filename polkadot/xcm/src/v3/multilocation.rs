@@ -17,7 +17,9 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{v4::Location as NewMultiLocation, VersionedLocation};
+use crate::{
+	v4::Location as NewMultiLocation, v5::Location as NewMultiLocationV5, VersionedLocation,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
@@ -473,6 +475,23 @@ impl TryFrom<NewMultiLocation> for Option<MultiLocation> {
 impl TryFrom<NewMultiLocation> for MultiLocation {
 	type Error = ();
 	fn try_from(new: NewMultiLocation) -> result::Result<Self, ()> {
+		Ok(MultiLocation {
+			parents: new.parent_count(),
+			interior: new.interior().clone().try_into()?,
+		})
+	}
+}
+
+impl TryFrom<NewMultiLocationV5> for Option<MultiLocation> {
+	type Error = ();
+	fn try_from(new: NewMultiLocationV5) -> result::Result<Self, Self::Error> {
+		Ok(Some(MultiLocation::try_from(new)?))
+	}
+}
+
+impl TryFrom<NewMultiLocationV5> for MultiLocation {
+	type Error = ();
+	fn try_from(new: NewMultiLocationV5) -> result::Result<Self, ()> {
 		Ok(MultiLocation {
 			parents: new.parent_count(),
 			interior: new.interior().clone().try_into()?,

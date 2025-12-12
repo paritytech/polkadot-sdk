@@ -17,6 +17,7 @@
 //! XCM `Junctions`/`InteriorMultiLocation` datatype.
 
 use super::{Junction, MultiLocation, NetworkId};
+use crate::v5::Junctions as NewJunctionsV5;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{mem, result};
 use scale_info::TypeInfo;
@@ -148,6 +149,81 @@ impl IntoIterator for Junctions {
 	type IntoIter = JunctionsIterator;
 	fn into_iter(self) -> Self::IntoIter {
 		JunctionsIterator(self)
+	}
+}
+
+impl TryFrom<NewJunctionsV5> for Junctions {
+	type Error = ();
+	fn try_from(value: NewJunctionsV5) -> Result<Self, Self::Error> {
+		use NewJunctionsV5::*;
+
+		Ok(match value {
+			Here => Self::Here,
+
+			X1(arr) => {
+				let [a] = *arr;
+				Self::X1(a.try_into()?)
+			},
+
+			X2(arr) => {
+				let [a, b] = *arr;
+				Self::X2(a.try_into()?, b.try_into()?)
+			},
+
+			X3(arr) => {
+				let [a, b, c] = *arr;
+				Self::X3(a.try_into()?, b.try_into()?, c.try_into()?)
+			},
+
+			X4(arr) => {
+				let [a, b, c, d] = *arr;
+				Self::X4(a.try_into()?, b.try_into()?, c.try_into()?, d.try_into()?)
+			},
+
+			X5(arr) => {
+				let [a, b, c, d, e] = *arr;
+				Self::X5(a.try_into()?, b.try_into()?, c.try_into()?, d.try_into()?, e.try_into()?)
+			},
+
+			X6(arr) => {
+				let [a, b, c, d, e, f] = *arr;
+				Self::X6(
+					a.try_into()?,
+					b.try_into()?,
+					c.try_into()?,
+					d.try_into()?,
+					e.try_into()?,
+					f.try_into()?,
+				)
+			},
+
+			X7(arr) => {
+				let [a, b, c, d, e, f, g] = *arr;
+				Self::X7(
+					a.try_into()?,
+					b.try_into()?,
+					c.try_into()?,
+					d.try_into()?,
+					e.try_into()?,
+					f.try_into()?,
+					g.try_into()?,
+				)
+			},
+
+			X8(arr) => {
+				let [a, b, c, d, e, f, g, h] = *arr;
+				Self::X8(
+					a.try_into()?,
+					b.try_into()?,
+					c.try_into()?,
+					d.try_into()?,
+					e.try_into()?,
+					f.try_into()?,
+					g.try_into()?,
+					h.try_into()?,
+				)
+			},
+		})
 	}
 }
 
