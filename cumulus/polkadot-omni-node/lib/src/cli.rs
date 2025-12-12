@@ -36,7 +36,7 @@ use sc_cli::{
 use sc_service::{config::PrometheusConfig, BasePath};
 use sc_storage_monitor::StorageMonitorParams;
 use std::{
-	fmt::{Debug, Display, Formatter},
+	fmt::{Display, Formatter},
 	marker::PhantomData,
 	path::PathBuf,
 };

@@ -51,7 +51,7 @@ async function sendUp(api: TypedApi<typeof parachain>, count: number) {
 				value: [
 					{
 						id: {
-							parents: 1,
+							parents: 0,
 							interior: {
 								type: "Here",
 								value: undefined
@@ -64,16 +64,7 @@ async function sendUp(api: TypedApi<typeof parachain>, count: number) {
 					}
 				]
 			},
-			fee_asset_id: {
-				type: "V5",
-				value: {
-					parents: 1,
-					interior: {
-						type: "Here",
-						value: undefined
-					}
-				},
-			},
+			fee_asset_item: 0,
 		})
 		const dispatchAs = api.tx.Utility.dispatch_as({
 			as_origin: { type: "system", value: { type: "Signed", value: ss58(account.publicKey) } },
@@ -162,16 +153,7 @@ async function sendDown(api: TypedApi<typeof rc>, count: number) {
 					}
 				]
 			},
-			fee_asset_id: {
-				type: "V5",
-				value: {
-					parents: 0,
-					interior: {
-						type: "Here",
-						value: undefined
-					}
-				},
-			},
+			fee_asset_item: 0,
 		})
 		const dispatchAs = api.tx.Utility.dispatch_as({
 			as_origin: { type: "system", value: { type: "Signed", value: ss58(account.publicKey) } },
