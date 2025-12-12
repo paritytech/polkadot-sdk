@@ -37,8 +37,6 @@ use sp_runtime::{
 
 use std::{collections::HashMap, sync::Arc};
 
-use parking_lot::Mutex;
-
 /// Warp proof processing error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
