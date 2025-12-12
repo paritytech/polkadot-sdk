@@ -6,7 +6,6 @@
 use super::*;
 use crate::mock::*;
 use codec::Encode;
-use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessRelayProofKeys;
 use cumulus_primitives_core::ParaId;
 use frame_support::assert_ok;
 
