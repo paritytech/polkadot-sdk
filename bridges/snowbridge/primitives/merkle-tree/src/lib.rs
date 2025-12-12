@@ -26,7 +26,7 @@ use alloc::vec::Vec;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::{RuntimeDebug, H256};
+use sp_core::H256;
 use sp_runtime::traits::Hash;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
@@ -73,7 +73,7 @@ where
 /// A generated merkle proof.
 ///
 /// The structure contains all necessary data to later on verify the proof and the leaf itself.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, TypeInfo)]
 pub struct MerkleProof {
 	/// Root hash of generated merkle tree.
 	pub root: H256,

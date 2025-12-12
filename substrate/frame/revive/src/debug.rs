@@ -20,7 +20,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(
@@ -29,7 +29,7 @@ use sp_runtime::RuntimeDebug;
 	Default,
 	Clone,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
