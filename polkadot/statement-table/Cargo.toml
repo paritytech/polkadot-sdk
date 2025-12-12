@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-primitives.default-features = true
+gum.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true

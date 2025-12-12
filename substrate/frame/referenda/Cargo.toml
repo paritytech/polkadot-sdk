@@ -30,10 +30,10 @@ sp-runtime.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-preimage = { default-features = true, workspace = true }
-pallet-scheduler = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-preimage = { default-features = true, path = "../preimage" }
+pallet-scheduler = { default-features = true, path = "../scheduler" }
+sp-core = { default-features = true, path = "../../primitives/core" }
 
 [features]
 default = ["std"]
@@ -54,16 +54,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-preimage/try-runtime",
-	"pallet-scheduler/try-runtime",
 	"sp-runtime/try-runtime",
 ]

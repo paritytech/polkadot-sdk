@@ -24,16 +24,16 @@ log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 rand_pcg = { workspace = true }
 regex = { workspace = true }
-sc-telemetry.default-features = true
 sc-telemetry.workspace = true
+sc-telemetry.default-features = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-core.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-io.default-features = true
+sp-crypto-hashing.default-features = true
 sp-io.workspace = true
+sp-io.default-features = true
 
 [dev-dependencies]
-sp-runtime = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, path = "../../primitives/runtime" }

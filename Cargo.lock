@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.38.0"
+version = "0.38.1"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -4701,7 +4701,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-parachain-inherent"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4834,7 +4834,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.24.0"
+version = "0.24.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -5279,7 +5279,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
@@ -13845,7 +13845,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -14003,7 +14003,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-client"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -14665,7 +14665,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "27.0.0"
+version = "27.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -29270,7 +29270,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.24.0"
+version = "0.24.1"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",

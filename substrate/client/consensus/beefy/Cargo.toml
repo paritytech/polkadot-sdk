@@ -19,51 +19,51 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-client-api.default-features = true
+prometheus-endpoint.default-features = true
 sc-client-api.workspace = true
-sc-consensus.default-features = true
+sc-client-api.default-features = true
 sc-consensus.workspace = true
-sc-network.default-features = true
+sc-consensus.default-features = true
 sc-network.workspace = true
-sc-network-gossip.default-features = true
+sc-network.default-features = true
 sc-network-gossip.workspace = true
-sc-network-sync.default-features = true
+sc-network-gossip.default-features = true
 sc-network-sync.workspace = true
-sc-network-types.default-features = true
+sc-network-sync.default-features = true
 sc-network-types.workspace = true
-sc-utils.default-features = true
+sc-network-types.default-features = true
 sc-utils.workspace = true
-sp-api.default-features = true
+sc-utils.default-features = true
 sp-api.workspace = true
-sp-application-crypto.default-features = true
+sp-api.default-features = true
 sp-application-crypto.workspace = true
-sp-arithmetic.default-features = true
+sp-application-crypto.default-features = true
 sp-arithmetic.workspace = true
-sp-blockchain.default-features = true
+sp-arithmetic.default-features = true
 sp-blockchain.workspace = true
-sp-consensus.default-features = true
+sp-blockchain.default-features = true
 sp-consensus.workspace = true
-sp-consensus-beefy.default-features = true
+sp-consensus.default-features = true
 sp-consensus-beefy.workspace = true
-sp-core.default-features = true
+sp-consensus-beefy.default-features = true
 sp-core.workspace = true
-sp-keystore.default-features = true
+sp-core.default-features = true
 sp-keystore.workspace = true
-sp-runtime.default-features = true
+sp-keystore.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
 wasm-timer = { workspace = true }
 
 [dev-dependencies]
-sc-block-builder = { default-features = true, workspace = true }
-sc-network-test = { workspace = true }
+sc-block-builder = { default-features = true, path = "../../block-builder" }
+sc-network-test = { path = "../../network/test" }
 serde = { workspace = true, default-features = true }
-sp-mmr-primitives = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sp-mmr-primitives = { default-features = true, path = "../../../primitives/merkle-mountain-range" }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 
 [features]
 # This feature adds BLS crypto primitives. It should not be used in production since
