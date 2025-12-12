@@ -132,7 +132,4 @@ pub struct NodeExtraArgs {
 
 	/// Enable transaction storage inherent data provider.
 	pub enable_tx_storage_idp: bool,
-
-	/// Start the node as an ipfs server.
-	pub ipfs_server: bool,
 }
