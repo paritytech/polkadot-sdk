@@ -189,8 +189,8 @@ async fn collect_relay_storage_proofs(
 	for key in keys {
 		match key {
 			RelayStorageKey::Top(k) => top_keys.push(k),
-			RelayStorageKey::Child { info, key } => {
-				child_keys.entry(info).or_default().push(key);
+			RelayStorageKey::Child { storage_key, key } => {
+				child_keys.entry(storage_key).or_default().push(key);
 			},
 		}
 	}
