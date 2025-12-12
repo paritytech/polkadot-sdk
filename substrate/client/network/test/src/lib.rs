@@ -662,7 +662,7 @@ struct TestVerifier<B: BlockT> {
 
 impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
 	fn verify(
-		&self,
+		&mut self,
 		proof: &EncodedProof,
 	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
@@ -685,9 +685,9 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 		Ok(EncodedProof(best_header.encode()))
 	}
 
-	fn create_verifier(&self) -> Arc<dyn WarpVerifier<B>> {
+	fn create_verifier(&self) -> Box<dyn WarpVerifier<B>> {
 		let genesis_hash = self.0.info().genesis_hash;
-		Arc::new(TestVerifier { genesis_hash })
+		Box::new(TestVerifier { genesis_hash })
 	}
 }
 

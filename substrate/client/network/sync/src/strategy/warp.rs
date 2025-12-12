@@ -63,7 +63,7 @@ pub struct WarpProofRequest<B: BlockT> {
 pub trait Verifier<Block: BlockT>: Send + Sync {
 	/// Verify a warp sync proof.
 	fn verify(
-		&self,
+		&mut self,
 		proof: &EncodedProof,
 	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
 	/// Hash to be used as the starting point for the next proof request.
@@ -87,7 +87,7 @@ pub trait WarpSyncProvider<Block: BlockT>: Send + Sync {
 		start: Block::Hash,
 	) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>>;
 	/// Create a verifier for warp sync proofs.
-	fn create_verifier(&self) -> Arc<dyn Verifier<Block>>;
+	fn create_verifier(&self) -> Box<dyn Verifier<Block>>;
 }
 
 mod rep {
@@ -170,7 +170,7 @@ enum Phase<B: BlockT> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
 	/// Downloading warp proofs.
-	WarpProof { verifier: Arc<dyn Verifier<B>> },
+	WarpProof { verifier: Box<dyn Verifier<B>> },
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -795,7 +795,7 @@ mod test {
 				&self,
 				start: B::Hash,
 			) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>>;
-			fn create_verifier(&self) -> Arc<dyn super::Verifier<B>>;
+			fn create_verifier(&self) -> Box<dyn super::Verifier<B>>;
 		}
 	}
 
@@ -804,7 +804,7 @@ mod test {
 
 		impl<B: BlockT> super::Verifier<B> for Verifier<B> {
 			fn verify(
-				&self,
+				&mut self,
 				proof: &EncodedProof,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
 			fn next_proof_context(&self) -> B::Hash;
@@ -955,8 +955,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1012,8 +1011,7 @@ mod test {
 			verifier
 				.expect_verify()
 				.returning(|_| unreachable!("verify should not be called in this test"));
-			let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-			provider.expect_create_verifier().return_const(verifier_arc);
+			provider.expect_create_verifier().return_once(move || Box::new(verifier));
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 			let mut warp_sync = WarpSync::new(
 				Arc::new(client),
@@ -1042,8 +1040,7 @@ mod test {
 			verifier
 				.expect_verify()
 				.returning(|_| unreachable!("verify should not be called in this test"));
-			let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-			provider.expect_create_verifier().return_const(verifier_arc);
+			provider.expect_create_verifier().return_once(move || Box::new(verifier));
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 			let mut warp_sync = WarpSync::new(
 				Arc::new(client),
@@ -1071,8 +1068,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1124,8 +1120,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1163,8 +1158,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1193,8 +1187,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1226,8 +1219,7 @@ mod test {
 		verifier.expect_verify().return_once(|_proof| {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1291,8 +1283,7 @@ mod test {
 				just_for_verify.clone(),
 			)]))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			client,
@@ -1372,8 +1363,7 @@ mod test {
 				vec![(header_for_verify.clone(), just_for_verify.clone())],
 			))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			client,
@@ -1438,8 +1428,7 @@ mod test {
 		verifier
 			.expect_verify()
 			.returning(|_| unreachable!("verify should not be called in this test"));
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
@@ -1481,8 +1470,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
@@ -1557,8 +1545,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
@@ -1598,8 +1585,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
@@ -1655,8 +1641,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
@@ -1735,8 +1720,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
@@ -1791,8 +1775,7 @@ mod test {
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
-		let verifier_arc: Arc<dyn super::Verifier<Block>> = Arc::new(verifier);
-		provider.expect_create_verifier().return_const(verifier_arc);
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
 			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);

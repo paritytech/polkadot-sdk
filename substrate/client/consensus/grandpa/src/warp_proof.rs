@@ -291,7 +291,7 @@ struct VerifierState<Block: BlockT> {
 
 /// Verifier implementation for GRANDPA warp sync.
 struct GrandpaVerifier<Block: BlockT> {
-	state: Mutex<VerifierState<Block>>,
+	state: VerifierState<Block>,
 	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
 }
 
@@ -300,7 +300,7 @@ where
 	NumberFor<Block>: BlockNumberOps,
 {
 	fn verify(
-		&self,
+		&mut self,
 		proof: &EncodedProof,
 	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(proof) = proof;
@@ -312,20 +312,18 @@ where
 			.map(|p| p.header.clone())
 			.ok_or_else(|| "Empty proof".to_string())?;
 
-		{
-			let mut state = self.state.lock();
-			let (current_set_id, current_authorities) = (state.set_id, state.authorities.clone());
+		let (current_set_id, current_authorities) =
+			(self.state.set_id, self.state.authorities.clone());
 
-			let (next_set_id, next_authorities) = proof
-				.verify(current_set_id, current_authorities, &self.hard_forks)
-				.map_err(Box::new)?;
+		let (next_set_id, next_authorities) = proof
+			.verify(current_set_id, current_authorities, &self.hard_forks)
+			.map_err(Box::new)?;
 
-			*state = VerifierState {
-				set_id: next_set_id,
-				authorities: next_authorities,
-				next_proof_context: last_header.hash(),
-			};
-		}
+		self.state = VerifierState {
+			set_id: next_set_id,
+			authorities: next_authorities,
+			next_proof_context: last_header.hash(),
+		};
 
 		let justifications = proof
 			.proofs
@@ -345,7 +343,7 @@ where
 	}
 
 	fn next_proof_context(&self) -> Block::Hash {
-		self.state.lock().next_proof_context
+		self.state.next_proof_context
 	}
 }
 
@@ -367,15 +365,15 @@ where
 		Ok(EncodedProof(proof.encode()))
 	}
 
-	fn create_verifier(&self) -> Arc<dyn Verifier<Block>> {
+	fn create_verifier(&self) -> Box<dyn Verifier<Block>> {
 		let authority_set = self.authority_set.inner();
 		let genesis_hash = self.backend.blockchain().info().genesis_hash;
-		Arc::new(GrandpaVerifier {
-			state: Mutex::new(VerifierState {
+		Box::new(GrandpaVerifier {
+			state: VerifierState {
 				set_id: authority_set.set_id,
 				authorities: authority_set.current_authorities.clone(),
 				next_proof_context: genesis_hash,
-			}),
+			},
 			hard_forks: self.hard_forks.clone(),
 		})
 	}
