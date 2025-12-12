@@ -8,7 +8,7 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
 use snowbridge_core::{ParaId, TokenId};
-use sp_core::{Get, RuntimeDebug, H160};
+use sp_core::{Get, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
@@ -24,7 +24,7 @@ const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
 /// Representation of an intermediate parsed message, before final
 /// conversion to XCM.
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct PreparedMessage {
 	/// Ethereum account that initiated this messaging operation
 	pub origin: H160,
@@ -39,13 +39,13 @@ pub struct PreparedMessage {
 }
 
 /// An asset transfer instruction
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub enum AssetTransfer {
 	ReserveDeposit(Asset),
 	ReserveWithdraw(Asset),
 }
 
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct CreateAssetCallInfo {
 	pub create_call: CallIndex,
 	pub deposit: u128,
