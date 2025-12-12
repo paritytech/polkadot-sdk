@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, num::NonZeroU16, time::Duration};
-
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2},
@@ -26,6 +24,7 @@ use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 	PersistedValidationData,
 };
+use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
 /// Maximum reputation score. Scores higher than this will be saturated to this value.
 pub const MAX_SCORE: u16 = 5000;
@@ -79,19 +78,16 @@ impl Score {
 	/// Create a new instance. Fail if over the `MAX_SCORE`.
 	pub const fn new(val: u16) -> Option<Self> {
 		if val > MAX_SCORE {
-			None
-		} else {
-			Some(Self(val))
+			return None;
 		}
+
+		Some(Self(val))
 	}
 
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
-		if (self.0 + val) <= MAX_SCORE {
-			self.0 += val;
-		} else {
-			self.0 = MAX_SCORE;
-		}
+		let sum = self.0.saturating_add(val);
+		self.0 = std::cmp::min(sum, MAX_SCORE);
 	}
 
 	/// Subtract `val` from the inner value, saturating at 0.

@@ -23,8 +23,12 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use common::MAX_STORED_SCORES_PER_PARA;
-use futures::{select, FutureExt, StreamExt};
+use crate::LOG_TARGET;
+use collation_manager::CollationManager;
+use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
+use error::{log_error, FatalError, FatalResult, Result};
+use futures::{future::Fuse, select, FutureExt, StreamExt};
+use futures_timer::Delay;
 use polkadot_node_network_protocol::{
 	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, PeerId,
 };
@@ -33,18 +37,13 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal,
 };
 use sp_keystore::KeystorePtr;
-
-use collation_manager::CollationManager;
-use common::ProspectiveCandidate;
-use error::{log_error, FatalError, FatalResult, Result};
+use std::{future, future::Future, pin::Pin, time::Duration};
 
 use peer_manager::{Db, PeerManager};
 
 use state::State;
 
 pub use metrics::Metrics;
-
-use crate::LOG_TARGET;
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -126,8 +125,18 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 	}
 }
 
+fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
+		Some(delay) => Box::pin(Delay::new(delay)),
+		None => Box::pin(future::pending::<()>()),
+	};
+
+	timer.fuse()
+}
+
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResult<()> {
+	let mut timer = create_timer(None);
 	loop {
 		select! {
 			res = ctx.recv().fuse() => {
@@ -149,17 +158,23 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 			},
 			resp = state.collation_response_stream().select_next_some() => {
 				state.handle_fetched_collation(ctx.sender(), resp).await;
-			}
+			},
+			_ = &mut timer => {
+				// We don't need to do anything specific here.
+				// If the timer expires, we only need to trigger the advertisement fetching logic.
+			},
 		}
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
 		// We could optimise to not always re-run this code (have the other functions return
-		// whether or not we should attempt launching fetch requests) However, most messages could
+		// whether we should attempt launching fetch requests) However, most messages could
 		// indeed trigger a new legitimate request.
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
-		state.try_launch_new_fetch_requests(ctx.sender()).await;
+		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
+		timer =
+			create_timer(maybe_delay.map(|delay| std::cmp::max(delay, Duration::from_millis(500))));
 	}
 
 	Ok(())
