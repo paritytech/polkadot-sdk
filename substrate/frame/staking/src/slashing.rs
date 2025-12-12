@@ -63,7 +63,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, RuntimeDebug,
+	Debug, DispatchResult,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -75,7 +75,7 @@ const REWARD_F1: Perbill = Perbill::from_percent(50);
 pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
-#[derive(Encode, Decode, Clone, TypeInfo, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, TypeInfo, Debug, PartialEq, Eq)]
 pub struct SlashingSpan {
 	pub index: SpanIndex,
 	pub start: EraIndex,
@@ -89,7 +89,7 @@ impl SlashingSpan {
 }
 
 /// An encoding of all of a nominator's slashing spans.
-#[derive(Encode, Decode, Clone, TypeInfo, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, TypeInfo, Debug, PartialEq, Eq)]
 pub struct SlashingSpans {
 	// the index of the current slashing span of the nominator. different for
 	// every stash, resets when the account hits free balance 0.
@@ -197,7 +197,7 @@ impl SlashingSpans {
 	MaxEncodedLen,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 )]
 pub struct SpanRecord<Balance> {
 	pub slashed: Balance,

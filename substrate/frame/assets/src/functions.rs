@@ -903,6 +903,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&details.owner,
 				details.deposit.saturating_add(metadata.deposit),
 			);
+			Reserves::<T, I>::remove(&id);
 			Self::deposit_event(Event::Destroyed { asset_id: id });
 
 			Ok(())

@@ -45,7 +45,7 @@ pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Clone,
 	Copy,
 	PartialEq,
@@ -98,7 +98,7 @@ impl PartsOf57600 {
 ///
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 struct Schedule<N> {
 	// Original assignments
 	assignments: Vec<(CoreAssignment, PartsOf57600)>,
@@ -120,7 +120,7 @@ struct Schedule<N> {
 /// Contains pointers to first and last schedule into `CoreSchedules` for that core and keeps track
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
 	queue: Option<QueueDescriptor<N>>,
@@ -133,7 +133,7 @@ struct CoreDescriptor<N> {
 /// Schedules in `CoreSchedules` form a queue. `Schedule::next_schedule` always pointing to the next
 /// item.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 struct QueueDescriptor<N> {
 	/// First scheduled item, that is not yet active.
 	first: N,
@@ -142,7 +142,7 @@ struct QueueDescriptor<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 struct WorkState<N> {
 	/// Assignments with current state.
 	///
@@ -167,7 +167,7 @@ struct WorkState<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone, Copy))]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
