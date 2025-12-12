@@ -13,3 +13,4 @@ mod runtime_upgrade;
 mod statement_store;
 mod statement_store_bench;
 mod sync_blocks;
+mod warp_sync_from_pruned_node;

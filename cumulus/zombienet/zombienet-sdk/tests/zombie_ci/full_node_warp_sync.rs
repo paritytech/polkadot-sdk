@@ -108,6 +108,13 @@
 //! tar -czf eve-db.tgz data/ relay-data/
 //! ```
 //!
+//! And also the pruned node, needed by the related [`super::warp_sync_from_pruned_node`] test:
+//!
+//! ```bash
+//! cd $ZOMBIENET_SDK_BASE_DIR/pruned
+//! tar -czf warp-synced-pruned.tgz data/ relay-data/
+//! ```
+//!
 //! 3. Upload the archives to public URL (CI/CD team can help), and update the const's in this file
 //!    to point to them.
 
@@ -117,8 +124,10 @@ use polkadot_primitives::Id as ParaId;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
+use std::time::Duration;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{backend::rpc::rpc_params, OnlineClient, PolkadotConfig},
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -143,13 +152,59 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	for name in ["two", "three", "four"] {
+	for name in ["two", "three", "four", "pruned"] {
 		log::info!("Checking full node {name} is syncing");
 		assert!(network
 			.get_node(name)?
 			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
 			.await
 			.is_ok());
+	}
+
+	let four = network.get_node("four")?;
+	let pruned = network.get_node("pruned")?;
+
+	log::info!("Waiting for hystorical sync to finish for nodes four and pruned");
+	let result = four
+		.wait_log_line_count_with_timeout(
+			"Block history download is complete",
+			false,
+			LogLineCountOptions::new(|_| true, Duration::from_secs(300), false),
+		)
+		.await?;
+	assert!(result.success(), "four did not finish historical sync: {result:?}");
+	let result = pruned
+		.wait_log_line_count_with_timeout(
+			"Block history download is complete",
+			false,
+			LogLineCountOptions::new(|_| true, Duration::from_secs(300), false),
+		)
+		.await?;
+	assert!(result.success(), "pruned did not finish historical sync: {result:?}");
+
+	let four = four.rpc().await?;
+	let pruned = pruned.rpc().await?;
+
+	log::info!("Checking that warp synced nodes have historical blocks");
+	for block_number in [1, 3, 5, 10] {
+		let block_hash: String =
+			four.request("chain_getBlockHash", rpc_params![block_number]).await?;
+
+		// The non-pruned node should contain block data.
+		let block: Block = four.request("chain_getBlock", rpc_params![block_hash.clone()]).await?;
+		let returned_block_number = u32::from_str_radix(&block.block.header.number[2..], 16)?;
+		assert_eq!(returned_block_number, block_number);
+
+		// The pruned node should not contain block data.
+		let block: Option<Block> =
+			pruned.request("chain_getBlock", rpc_params![block_hash.clone()]).await?;
+		assert!(block.is_none());
+
+		// ...But it should contain headers.
+		let block: Header =
+			pruned.request("chain_getHeader", rpc_params![block_hash.clone()]).await?;
+		let returned_block_number = u32::from_str_radix(&block.number[2..], 16)?;
+		assert_eq!(returned_block_number, block_number);
 	}
 
 	Ok(())
@@ -173,6 +228,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//   - two      - full node
 	//   - three    - full node
 	//   - four     - full node
+	//   - pruned   - full node with block pruning, which will only store headers during gap sync
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
@@ -234,6 +290,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
 					])
 				})
+				.with_collator(|n| {
+					n.with_name("pruned").validator(false).with_args(vec![
+						("-lsync=debug").into(),
+						("--sync", "warp").into(),
+						("--blocks-pruning", "100").into(),
+						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
+					])
+				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -246,4 +310,19 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})?;
 
 	Ok(config)
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Block {
+	block: BlockInner,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct BlockInner {
+	header: Header,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Header {
+	number: String,
 }

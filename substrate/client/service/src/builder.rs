@@ -1050,6 +1050,7 @@ where
 		fork_id,
 		&mut net_config,
 		warp_sync_config,
+		config.blocks_pruning.is_pruned(),
 		block_downloader,
 		client.clone(),
 		&spawn_handle,
@@ -1323,6 +1324,8 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Is block pruning enabled?
+	pub block_pruning_enabled: bool,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1355,6 +1358,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
+		block_pruning_enabled,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1371,6 +1375,7 @@ where
 		fork_id,
 		net_config,
 		warp_sync_config,
+		block_pruning_enabled,
 		block_downloader,
 		client.clone(),
 		spawn_handle,
@@ -1438,6 +1443,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	fork_id: Option<&str>,
 	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
 	warp_sync_config: Option<WarpSyncConfig<Block>>,
+	block_pruning_enabled: bool,
 	block_downloader: Arc<dyn BlockDownloader<Block>>,
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
@@ -1510,6 +1516,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		block_pruning_enabled,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,
