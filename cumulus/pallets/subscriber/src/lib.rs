@@ -22,7 +22,9 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Decode;
-use cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof;
+use cumulus_pallet_parachain_system::relay_state_snapshot::{
+	ProcessRelayProofKeys, RelayChainStateProof,
+};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	defensive,
@@ -33,8 +35,6 @@ use frame_support::{
 use sp_std::vec;
 
 pub use pallet::*;
-
-pub use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessRelayProofKeys;
 
 mod mock;
 #[cfg(test)]

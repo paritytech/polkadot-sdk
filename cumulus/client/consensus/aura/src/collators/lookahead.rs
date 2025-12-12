@@ -36,7 +36,7 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{CollectCollationInfo, KeyToIncludeInRelayProofApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
 
@@ -167,7 +167,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block>,
+		+ KeyToIncludeInRelayProofApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -221,7 +221,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block>,
+		+ KeyToIncludeInRelayProofApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
