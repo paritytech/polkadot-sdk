@@ -249,6 +249,15 @@ jobs:
           echo $result
 
           echo $result > /tmp/cmd/subweight.log
+          # Check if /tmp/cmd/subweight.log is more than 1048576 bytes
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 1048576 ]; then
+            echo "Subweight result is too large, truncating..."
+            result=$(echo "$result" | head -c 100000)
+          fi
+
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
           # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
           if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
             echo "Subweight result is too large, truncating..."
