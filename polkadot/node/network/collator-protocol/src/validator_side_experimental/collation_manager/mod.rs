@@ -1207,3 +1207,155 @@ fn process_collation_fetch_result(
 		},
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::sync::Arc;
+
+	#[tokio::test]
+	async fn pick_best_advertisement_works() {
+		let relay_parent = Hash::random();
+		let para_id = ParaId::new(1);
+
+		let now = Instant::now();
+		let no_fetch_delay = now.checked_sub(UNDER_THRESHOLD_FETCH_DELAY).unwrap();
+		let small_fetch_delay = no_fetch_delay.checked_add(Duration::from_millis(1)).unwrap();
+
+		let peer_1 = PeerId::random();
+		let peer_2 = PeerId::random();
+		let peer_3 = PeerId::random();
+		let peer_4 = PeerId::random();
+		let get_peer_rep = |peer_id: &PeerId, _para_id: &ParaId| -> Option<Score> {
+			match peer_id {
+				peer if peer == &peer_1 => Some(Score::new(50).unwrap()),
+				peer if peer == &peer_2 => Some(Score::new(75).unwrap()),
+				peer if peer == &peer_3 => Some(Score::new(99).unwrap()),
+				peer if peer == &peer_4 => Some(Score::new(100).unwrap()),
+				_ => None,
+			}
+		};
+		let adv = |peer: PeerId| Advertisement {
+			relay_parent,
+			para_id,
+			peer_id: peer,
+			prospective_candidate: None,
+		};
+
+		let mut collation_manager = CollationManager {
+			implicit_view: ImplicitView::new(None),
+			claim_queue_state: PerLeafClaimQueueState::new(),
+			per_relay_parent: HashMap::from([(relay_parent, PerRelayParent::new(0, CoreIndex(0)))]),
+			blocked_from_seconding: HashMap::new(),
+			per_session: LruMap::new(ByLength::new(2)),
+			fetching: PendingRequests::default(),
+			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+		};
+
+		// available advertisements:
+		// - peer 1 (rep: 50), fetch_delay: 1 ms
+		// - peer 1 (rep: 75), fetch_delay: 1 ms
+		// - peer 1 (rep: 99), fetch_delay: 1 ms
+		// - peer 1 (rep: 100), fetch_delay: 1 ms
+		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+		per_rp.add_advertisement(adv(peer_1), small_fetch_delay);
+		per_rp.add_advertisement(adv(peer_2), small_fetch_delay);
+		per_rp.add_advertisement(adv(peer_3), small_fetch_delay);
+		per_rp.add_advertisement(adv(peer_4), small_fetch_delay);
+		// Instant fetch rep: 1000
+		// We shouldn't have any advertisement that can be instantly fetched
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(1000).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Right(small_fetch_delay.duration_since(no_fetch_delay))
+		);
+
+		// available advertisements:
+		// - peer 1 (rep: 50), fetch_delay: 1 ms
+		// - peer 1 (rep: 75), fetch_delay: 1 ms
+		// - peer 1 (rep: 99), fetch_delay: 1 ms
+		// - peer 1 (rep: 100), fetch_delay: 1 ms
+		// Instant fetch rep: 50
+		// All the advertisements can be instantly fetched. We should pick the one with the highest
+		// score.
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(50).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Left(Some(adv(peer_4)))
+		);
+
+		// available advertisements:
+		// - peer 1 (rep: 50), fetch_delay: 1 ms
+		// - peer 1 (rep: 75), fetch_delay: 1 ms
+		// - peer 1 (rep: 99), fetch_delay: 1 ms
+		// - peer 1 (rep: 100), fetch_delay: 1 ms
+		// Instant fetch rep: 100
+		// Only the advertisement with rep 100 can be fetched.
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(100).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Left(Some(adv(peer_4)))
+		);
+
+		// available advertisements:
+		// - peer 1 (rep: 50), fetch_delay: 0 ms
+		// - peer 1 (rep: 75), fetch_delay: 1 ms
+		// - peer 1 (rep: 99), fetch_delay: 1 ms
+		// - peer 1 (rep: 100), fetch_delay: 1 ms
+		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+		per_rp.add_advertisement(adv(peer_1), no_fetch_delay);
+		// Instant fetch rep: 1000
+		// Only the advertisement with no fetch delay can be instantly fetched.
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(1000).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Left(Some(adv(peer_1)))
+		);
+
+		// available advertisements:
+		// - peer 1 (rep: 50), fetch_delay: 0 ms
+		// - peer 2 (rep: 75), fetch_delay: 0 ms
+		// - peer 3 (rep: 99), fetch_delay: 1 ms
+		// - peer 4 (rep: 100), fetch_delay: 1 ms
+		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+		per_rp.add_advertisement(adv(peer_2), no_fetch_delay);
+		// Instant fetch rep: 1000
+		// The advertisement with the highest score out of the 2 with 0 fetch delay should be
+		// fetched.
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(1000).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Left(Some(adv(peer_2)))
+		);
+	}
+}
