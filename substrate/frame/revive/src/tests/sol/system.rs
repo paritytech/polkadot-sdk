@@ -19,10 +19,7 @@
 
 use crate::{
 	evm::fees::InfoT,
-	precompiles::alloy::sol_types::{
-		sol_data::{Bool, FixedBytes},
-		SolType,
-	},
+	precompiles::alloy::sol_types::{sol_data::Bool, SolType},
 	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, ExecConfig, TransactionLimits, TransactionMeter, U256,
