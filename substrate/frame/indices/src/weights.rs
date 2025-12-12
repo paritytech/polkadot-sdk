@@ -61,7 +61,8 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame::weights_prelude::*;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_indices`.
 pub trait WeightInfo {
