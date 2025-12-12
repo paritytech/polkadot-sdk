@@ -17,6 +17,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! Process child trie data from relay chain state proofs via configurable handler.
+//!
+//! This pallet is heavily opinionated toward a parachain-to-parachain publish-subscribe model.
+//! It assumes ParaId as the identifier for each child trie and is designed specifically for
+//! extracting published data from relay chain proofs in a pubsub mechanism.
 
 extern crate alloc;
 
@@ -59,7 +63,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Handler for defining subscriptions and processing received data.
 		type SubscriptionHandler: SubscriptionHandler;
+		/// Weight information for extrinsics and operations.
 		type WeightInfo: WeightInfo;
 	}
 
@@ -80,36 +86,40 @@ pub mod pallet {
 			key: BoundedVec<u8, ConstU32<256>>,
 			value_size: u32,
 		},
-		/// Stored publisher roots were cleared.
-		RootsCleared { count: u32 },
+		/// A stored publisher root was cleared.
+		PublisherRootCleared { publisher: ParaId },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// No stored roots to clear.
-		NoStoredRoots,
+		/// Publisher root not found.
+		PublisherRootNotFound,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Clear all stored publisher roots.
+		/// Clear the stored root for a specific publisher.
 		///
-		/// This forces reprocessing of all subscribed data in the next block.
-		/// Useful for recovery scenarios or manual cache invalidation.
+		/// This forces reprocessing of data from that publisher in the next block.
+		/// Useful for recovery scenarios or when a specific publisher's data needs to be refreshed.
 		///
 		/// - `origin`: Must be root.
+		/// - `publisher`: The ParaId of the publisher whose root should be cleared.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::clear_stored_roots())]
-		pub fn clear_stored_roots(origin: OriginFor<T>) -> DispatchResult {
+		pub fn clear_stored_roots(
+			origin: OriginFor<T>,
+			publisher: ParaId,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let roots = <PreviousPublishedDataRoots<T>>::get();
-			ensure!(!roots.is_empty(), Error::<T>::NoStoredRoots);
+			<PreviousPublishedDataRoots<T>>::mutate(|roots| -> DispatchResult {
+				ensure!(roots.contains_key(&publisher), Error::<T>::PublisherRootNotFound);
+				roots.remove(&publisher);
+				Ok(())
+			})?;
 
-			let count = roots.len() as u32;
-			<PreviousPublishedDataRoots<T>>::kill();
-
-			Self::deposit_event(Event::RootsCleared { count });
+			Self::deposit_event(Event::PublisherRootCleared { publisher });
 			Ok(())
 		}
 	}
@@ -135,6 +145,10 @@ pub mod pallet {
 			cumulus_primitives_core::RelayProofRequest { keys: storage_keys }
 		}
 
+		/// Derives the child trie storage key for a publisher.
+		///
+		/// Uses the same encoding pattern as the broadcaster pallet:
+		/// `(b"pubsub", para_id).encode()` to ensure compatibility.
 		fn derive_storage_key(publisher_para_id: ParaId) -> Vec<u8> {
 			use codec::Encode;
 			(b"pubsub", publisher_para_id).encode()
@@ -174,10 +188,6 @@ pub mod pallet {
 				return T::DbWeight::get().reads(1);
 			}
 
-			let mut p = 0u32;
-			let mut k = 0u32;
-			let mut v = 0u32;
-
 			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
 				current_roots.iter().map(|(para_id, root)| (*para_id, root.clone())).collect();
 
@@ -214,9 +224,6 @@ pub mod pallet {
 												value_size,
 											});
 										}
-
-										v = v.max(value_size);
-										k += 1;
 									},
 									Err(_) => {
 										defensive!("Failed to decode published data value");
@@ -231,8 +238,6 @@ pub mod pallet {
 							},
 						}
 					}
-
-					p += 1;
 				}
 			}
 
@@ -247,7 +252,7 @@ pub mod pallet {
 					.unwrap_or_default();
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
 
-			T::WeightInfo::process_published_data(p, k, v)
+			T::WeightInfo::process_published_data()
 		}
 	}
 
@@ -264,17 +269,14 @@ pub mod pallet {
 }
 
 pub trait WeightInfo {
-	fn process_published_data(p: u32, k: u32, v: u32) -> Weight;
+	fn process_published_data() -> Weight;
 	fn clear_stored_roots() -> Weight;
 }
 
 impl WeightInfo for () {
-	fn process_published_data(_p: u32, k: u32, v: u32) -> Weight {
-		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(5_000 * k as u64, 0))
-			.saturating_add(Weight::from_parts(100 * v as u64, 0))
-			.saturating_add(frame_support::weights::constants::RocksDbWeight::get().reads(1 + k as u64))
-			.saturating_add(frame_support::weights::constants::RocksDbWeight::get().writes(1))
+	fn process_published_data() -> Weight {
+		// TODO: Replace with proper benchmarked weights
+		Weight::from_parts(10_000, 0)
 	}
 
 	fn clear_stored_roots() -> Weight {

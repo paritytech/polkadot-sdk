@@ -101,16 +101,64 @@ fn clear_stored_roots_extrinsic() {
 		let publisher = ParaId::from(1000);
 		TestSubscriptions::set(vec![(publisher, vec![vec![0x01]])]);
 
-		// Store some roots
+		// Store a root for the publisher
 		let proof = build_sproof_with_child_data(publisher, vec![(vec![0x01], vec![0x11].encode())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 
-		assert!(!PreviousPublishedDataRoots::<Test>::get().is_empty());
+		// Verify root is stored
+		assert!(PreviousPublishedDataRoots::<Test>::get().contains_key(&publisher));
 
-		// Clear roots
-		assert_ok!(Pallet::<Test>::clear_stored_roots(frame_system::RawOrigin::Root.into()));
+		// Clear the publisher's root
+		assert_ok!(Pallet::<Test>::clear_stored_roots(
+			frame_system::RawOrigin::Root.into(),
+			publisher
+		));
 
-		assert!(PreviousPublishedDataRoots::<Test>::get().is_empty());
+		// Verify the root was cleared
+		assert!(!PreviousPublishedDataRoots::<Test>::get().contains_key(&publisher));
+	});
+}
+
+#[test]
+fn clear_stored_roots_only_clears_specified_publisher() {
+	new_test_ext().execute_with(|| {
+		let publisher1 = ParaId::from(1000);
+		let publisher2 = ParaId::from(2000);
+
+		// Manually set up storage with 2 publisher roots
+		let mut roots = BoundedBTreeMap::new();
+		roots.try_insert(publisher1, BoundedVec::try_from(vec![0u8; 32]).unwrap()).unwrap();
+		roots.try_insert(publisher2, BoundedVec::try_from(vec![1u8; 32]).unwrap()).unwrap();
+		PreviousPublishedDataRoots::<Test>::put(roots);
+
+		assert_eq!(PreviousPublishedDataRoots::<Test>::get().len(), 2);
+
+		// Clear only publisher1's root
+		assert_ok!(Pallet::<Test>::clear_stored_roots(
+			frame_system::RawOrigin::Root.into(),
+			publisher1
+		));
+
+		// Publisher1's root should be cleared, but publisher2's should remain
+		let roots = PreviousPublishedDataRoots::<Test>::get();
+		assert_eq!(roots.len(), 1);
+		assert!(!roots.contains_key(&publisher1));
+		assert!(roots.contains_key(&publisher2));
+	});
+}
+
+#[test]
+fn clear_stored_roots_fails_if_not_found() {
+	use frame_support::assert_noop;
+
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(1000);
+
+		// Try to clear root for publisher that doesn't exist
+		assert_noop!(
+			Pallet::<Test>::clear_stored_roots(frame_system::RawOrigin::Root.into(), publisher),
+			Error::<Test>::PublisherRootNotFound
+		);
 	});
 }
 
