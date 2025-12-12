@@ -58,9 +58,5 @@ interface ISystem {
 	///
 	/// - `signature`: The signature bytes.
 	/// - `message`: The message bytes.
-	///
-	/// # Errors
-	///
-	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
 	function sr25519Verify(uint8[64] calldata signature, bytes memory message, bytes32 publicKey) external view returns (bool);
 }
