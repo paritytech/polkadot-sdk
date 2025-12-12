@@ -3792,6 +3792,7 @@ dependencies = [
  "rococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
 ]
 
 [[package]]

@@ -15,7 +15,6 @@
 
 #[cfg(test)]
 mod imports {
-
 	// Substrate
 	pub(crate) use frame_support::assert_ok;
 
@@ -29,8 +28,12 @@ mod imports {
 	pub(crate) use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::genesis::ED as ASSET_HUB_ROCOCO_ED,
 		coretime_rococo_emulated_chain::{
-			coretime_rococo_runtime::ExistentialDeposit as CoretimeRococoExistentialDeposit,
-			genesis::ED as CORETIME_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
+			coretime_rococo_runtime::{
+				xcm_config::XcmConfig as CoretimeRococoXcmConfig,
+				ExistentialDeposit as CoretimeRococoExistentialDeposit,
+			},
+			genesis::ED as CORETIME_ROCOCO_ED,
+			CoretimeRococoParaPallet as CoretimeRococoPallet,
 		},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
