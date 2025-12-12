@@ -1447,7 +1447,7 @@ fn note_backable_candidate(
 			chunks_stored: bitvec::bitvec![u8, BitOrderLsb0; 0; num_validators],
 		};
 
-		let prune_at = now + KEEP_UNAVAILABLE_FOR;
+		let prune_at = now + subsystem.pruning_config.keep_unavailable_for;
 
 		write_pruning_key(&mut tx, config, prune_at, &candidate_hash);
 		write_meta(&mut tx, config, &candidate_hash, &meta);

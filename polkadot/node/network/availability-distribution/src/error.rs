@@ -89,9 +89,6 @@ pub enum Error {
 	#[error("Erasure coding error: {0}")]
 	ErasureCoding(#[from] polkadot_erasure_coding::Error),
 
-	#[error("Expected a block header to be returned")]
-	NoSuchBlockHeader,
-
 	#[error("Error from subsystem-util: {0}")]
 	SubsystemUtil(#[from] polkadot_node_subsystem_util::Error),
 
@@ -122,7 +119,6 @@ pub fn log_error(
 				JfyiError::QueryChunkResponseChannel(_) |
 				JfyiError::FailedNodeFeatures(_) |
 				JfyiError::ErasureCoding(_) |
-				JfyiError::NoSuchBlockHeader |
 				JfyiError::SubsystemUtil(_) |
 				JfyiError::AvailabilityStore => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(_) |

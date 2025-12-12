@@ -194,9 +194,12 @@ impl Requester {
 		// now get the backed candidates corresponding to these candidate receipts
 		let (tx, rx) = oneshot::channel();
 		sender
-			.send_message(CandidateBackingMessage::GetBackableCandidates(backable.clone(), tx))
+			.send_message(CandidateBackingMessage::GetBackableCandidates(backable, tx))
 			.await;
 		let candidates = rx.await?;
+
+		let (validator_groups, rotation_info) =
+		recv_runtime(request_validator_groups(leaf, sender).await).await?;
 
 		// Process candidates and collect cores
 		for (_, candidates) in candidates.iter() {
@@ -205,16 +208,15 @@ impl Requester {
 				let Some(core_index) = core_index else { continue };
 
 				let receipt = candidate.candidate();
+
+				let group_responsible = rotation_info.group_for_core(core_index, validator_groups.len());
 				let core = (
 					core_index,
 					CoreInfo {
 						candidate_hash: receipt.hash(),
 						relay_parent: receipt.descriptor.relay_parent(),
 						erasure_root: receipt.descriptor.erasure_root(),
-						group_responsible: get_group_index_for_backed_candidate(
-							sender, core_index, leaf,
-						)
-						.await?,
+						group_responsible: group_responsible,
 						origin: CoreInfoOrigin::Scheduled,
 					},
 				);
@@ -524,28 +526,4 @@ where
 		.map_err(FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApi)?;
 	Ok(ancestors)
-}
-
-/// Request group index assuming you have the core index and relay parent
-async fn get_group_index_for_backed_candidate<Sender>(
-	sender: &mut Sender,
-	core_index: CoreIndex,
-	relay_parent: Hash,
-) -> Result<GroupIndex>
-where
-	Sender:
-		overseer::SubsystemSender<RuntimeApiMessage> + overseer::SubsystemSender<ChainApiMessage>,
-{
-	let (validator_groups, mut rotation_info) =
-		recv_runtime(request_validator_groups(relay_parent, sender).await).await?;
-
-	// Get the block number for the relay_parent to update rotation_info.now
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockHeader(relay_parent, tx)).await;
-	let header = rx.await??;
-	let block_number = header.ok_or_else(|| Error::NoSuchBlockHeader)?.number;
-
-	rotation_info.now = block_number.into(); // Update now to the relay_parent's block number
-
-	Ok(rotation_info.group_for_core(core_index, validator_groups.len()))
 }
