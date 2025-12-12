@@ -6790,7 +6790,7 @@ dependencies = [
  "sp-version",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "thousands",
@@ -13368,7 +13368,7 @@ dependencies = [
  "sp-weights",
  "sqlx",
  "substrate-prometheus-endpoint",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -17425,7 +17425,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "substrate-build-script-utils",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -20897,7 +20897,7 @@ dependencies = [
  "sp-state-machine",
  "sp-version",
  "sp-wasm-interface 20.0.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "thiserror 1.0.65",
 ]
 
@@ -24888,7 +24888,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",
@@ -24953,9 +24953,9 @@ dependencies = [
 
 [[package]]
 name = "subxt"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74791ddeaaa6de42e7cc8a715c83eb73303f513f90af701fd07eb2caad92ed84"
+checksum = "f8c6dc0f90e23c521465b8f7e026af04a48cc6f00c51d88a8d313d33096149de"
 dependencies = [
  "async-trait",
  "derive-where",
@@ -24976,7 +24976,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subxt-core 0.43.0",
  "subxt-lightclient 0.43.0",
- "subxt-macro 0.43.0",
+ "subxt-macro 0.43.1",
  "subxt-metadata 0.43.0",
  "subxt-rpcs 0.43.0",
  "thiserror 2.0.12",
@@ -25134,9 +25134,9 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69516e8ff0e9340a0f21b8398da7f997571af4734ee81deada5150a2668c8443"
+checksum = "c269228a2e5de4c0c61ed872b701967ee761df0f167d5b91ecec1185bca65793"
 dependencies = [
  "darling 0.20.10",
  "parity-scale-codec",
@@ -28713,7 +28713,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sp-core 36.1.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -28776,7 +28776,7 @@ dependencies = [
  "async-trait",
  "futures",
  "lazy_static",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",
