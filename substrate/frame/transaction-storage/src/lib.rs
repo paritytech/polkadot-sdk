@@ -32,7 +32,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, result};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::InvalidTransaction,
@@ -295,12 +295,13 @@ pub mod pallet {
 			// pre_dispatch. In the case of a regular signed transaction, this should have been
 			// checked by pre_dispatch_signed.
 			Self::ensure_data_size_ok(data.len())?;
+			let sender = ensure_signed(origin)?;
 			Self::apply_fee(sender, data.len() as u32)?;
 
 			// Chunk data and compute storage root
 			let chunks: Vec<_> = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
-			let chunk_count = chunks.len();
-			debug_assert_eq!(chunk_count, num_chunks(data.len() as u32) as usize);
+			let chunk_count = chunks.len() as u32;
+			debug_assert_eq!(chunk_count, num_chunks(data.len() as u32));
 			let root = sp_io::trie::blake2_256_ordered_root(chunks, sp_runtime::StateVersion::V1);
 
 			let content_hash = sp_io::hashing::blake2_256(&data);
@@ -349,7 +350,7 @@ pub mod pallet {
 			// In the case of a regular unsigned transaction, this should have been checked by
 			// pre_dispatch. In the case of a regular signed transaction, this should have been
 			// checked by pre_dispatch_signed.
-			Self::ensure_data_size_ok(info.len())?;
+			Self::ensure_data_size_ok(info.size as usize)?;
 
 			let extrinsic_index =
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
