@@ -21,9 +21,8 @@
 
 use crate::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
+use frame_support::traits::{Currency, Get, ReservableCurrency};
 use frame_system::RawOrigin;
-use frame_support::traits::{Currency, ReservableCurrency};
 
 const SEED: u32 = 0;
 
@@ -36,8 +35,7 @@ const SEED: u32 = 0;
 mod benchmarks {
 	use super::*;
 	use crate::migration::v1::MigrateCurrencyToFungibles;
-	use frame_support::weights::WeightMeter;
-	use frame_support::migrations::SteppedMigration;
+	use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 
 	#[benchmark]
 	fn claim() {
@@ -221,19 +219,25 @@ mod benchmarks {
 		);
 
 		// Reserve funds using the old Currency system
-		<pallet_balances::Pallet<T> as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)?;
+		<pallet_balances::Pallet<T> as ReservableCurrency<T::AccountId>>::reserve(
+			&caller, deposit,
+		)?;
 
 		// Insert into the OLD storage (v0) to simulate pre-migration state
 		v0::OldAccounts::<T>::insert(account_index, (caller.clone(), deposit, false));
 
 		#[block]
 		{
-			let _ = MigrateCurrencyToFungibles::<T, pallet_balances::Pallet<T>>::step(None, &mut WeightMeter::new());
+			let _ = MigrateCurrencyToFungibles::<T, pallet_balances::Pallet<T>>::step(
+				None,
+				&mut WeightMeter::new(),
+			);
 		}
 
 		// Verify the account was migrated to the new storage
 		assert!(Accounts::<T>::contains_key(account_index));
-		let (migrated_account, migrated_deposit, frozen) = Accounts::<T>::get(account_index).unwrap();
+		let (migrated_account, migrated_deposit, frozen) =
+			Accounts::<T>::get(account_index).unwrap();
 		assert_eq!(migrated_account, caller);
 		assert_eq!(migrated_deposit, deposit);
 		assert_eq!(frozen, false);

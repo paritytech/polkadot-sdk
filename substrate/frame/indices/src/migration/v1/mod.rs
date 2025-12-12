@@ -94,14 +94,14 @@ use frame_support::{
 use sp_runtime::traits::Zero;
 use std::cmp::min;
 
+#[cfg(any(test, feature = "try-runtime"))]
+use alloc::collections::BTreeMap;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime"))]
-use alloc::collections::BTreeMap;
+use frame_support::traits::fungible::InspectHold;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
-#[cfg(any(test, feature = "try-runtime"))]
-use frame_support::traits::fungible::InspectHold;
 
 // Module containing the OLD (v0) storage items that used Currency trait.
 pub mod v0 {
@@ -156,24 +156,24 @@ where
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
-			// Get the iterator for the OLD accounts to migrate
-			let mut iter = if let Some(Some(last_key)) = cursor {
-				v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
-			} else {
-				v0::OldAccounts::<T>::iter()
-			};
+		// Get the iterator for the OLD accounts to migrate
+		let mut iter = if let Some(Some(last_key)) = cursor {
+			v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
+		} else {
+			v0::OldAccounts::<T>::iter()
+		};
 
-			// If there is a next item in the iterator, perform the migration.
-			if let Some((index, (account, old_deposit, frozen))) = iter.next() {
-				Self::migrate_account(account, index, frozen, old_deposit);
-				cursor = Some(Some(index));
-			} else {
-				// Migration complete
-				println!("Migration completed - no more accounts to migrate");
-				return Ok(None);
-			}
+		// If there is a next item in the iterator, perform the migration.
+		if let Some((index, (account, old_deposit, frozen))) = iter.next() {
+			Self::migrate_account(account, index, frozen, old_deposit);
+			cursor = Some(Some(index));
+		} else {
+			// Migration complete
+			println!("Migration completed - no more accounts to migrate");
+			return Ok(None);
+		}
 
-			meter.consume(min_required);
+		meter.consume(min_required);
 
 		Ok(cursor)
 	}
