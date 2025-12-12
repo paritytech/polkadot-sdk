@@ -34,7 +34,7 @@ use sp_std::vec;
 
 pub use pallet::*;
 
-pub use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessChildTrieData;
+pub use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessRelayProofKeys;
 
 mod mock;
 #[cfg(test)]
@@ -251,8 +251,12 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ProcessChildTrieData for Pallet<T> {
-		fn process_child_trie_data(verified_proof: &RelayChainStateProof) -> Weight {
+	impl<T: Config> ProcessRelayProofKeys for Pallet<T> {
+		/// Process child trie data from the relay proof.
+		///
+		/// Note: This implementation only processes child trie keys (pubsub data).
+		/// Main trie keys in the proof are intentionally ignored.
+		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
 			let current_roots = Self::collect_publisher_roots(verified_proof);
 			Self::process_published_data(verified_proof, &current_roots)
 		}

@@ -27,14 +27,16 @@ use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
-/// Process child trie data from verified relay chain state proofs.
-pub trait ProcessChildTrieData {
-	/// Process child trie data from a verified relay state proof.
-	fn process_child_trie_data(verified_proof: &RelayChainStateProof) -> Weight;
+/// Process keys from verified relay chain state proofs.
+///
+/// This trait allows processing of relay chain storage data from the verified proof.
+pub trait ProcessRelayProofKeys {
+	/// Process keys from a verified relay state proof.
+	fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight;
 }
 
-impl ProcessChildTrieData for () {
-	fn process_child_trie_data(_verified_proof: &RelayChainStateProof) -> Weight {
+impl ProcessRelayProofKeys for () {
+	fn process_relay_proof_keys(_verified_proof: &RelayChainStateProof) -> Weight {
 		Weight::zero()
 	}
 }
