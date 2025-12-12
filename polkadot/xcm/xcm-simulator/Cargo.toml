@@ -13,27 +13,27 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-frame-support.workspace = true
 frame-support.default-features = true
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = true
+frame-system.workspace = true
 paste = { workspace = true, default-features = true }
-polkadot-core-primitives.workspace = true
 polkadot-core-primitives.default-features = true
-polkadot-parachain-primitives.workspace = true
+polkadot-core-primitives.workspace = true
 polkadot-parachain-primitives.default-features = true
-polkadot-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
 polkadot-primitives.default-features = true
-polkadot-runtime-parachains.workspace = true
+polkadot-primitives.workspace = true
 polkadot-runtime-parachains.default-features = true
+polkadot-runtime-parachains.workspace = true
 scale-info = { workspace = true }
-sp-io.workspace = true
 sp-io.default-features = true
-sp-runtime.workspace = true
+sp-io.workspace = true
 sp-runtime.default-features = true
-xcm.workspace = true
+sp-runtime.workspace = true
 xcm.default-features = true
-xcm-builder.workspace = true
+xcm.workspace = true
 xcm-builder.default-features = true
-xcm-executor.workspace = true
+xcm-builder.workspace = true
 xcm-executor.default-features = true
+xcm-executor.workspace = true

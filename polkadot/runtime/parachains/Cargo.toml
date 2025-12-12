@@ -56,18 +56,18 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../primitives" }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 
 assert_matches = { workspace = true }
-frame-support-test = { path = "../../../substrate/frame/support/test" }
+frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
-sc-keystore = { default-features = true, path = "../../../substrate/client/keystore" }
+sc-keystore = { default-features = true, workspace = true }
 serde_json = { workspace = true, default-features = true }
-sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 thousands = { workspace = true }
 
 [features]
@@ -117,6 +117,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -138,6 +139,7 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support?/try-runtime",
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",

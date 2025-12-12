@@ -21,18 +21,18 @@ name = "call"
 path = "src/call.rs"
 
 [dependencies]
-frame-support.workspace = true
 frame-support.default-features = true
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = true
+frame-system.workspace = true
 honggfuzz = { workspace = true }
 pallet-nomination-pools = { features = ["fuzzing"], workspace = true, default-features = true }
-sp-io.workspace = true
 sp-io.default-features = true
-sp-runtime.workspace = true
+sp-io.workspace = true
 sp-runtime.default-features = true
-sp-tracing.workspace = true
+sp-runtime.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
 
 log = { workspace = true, default-features = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
