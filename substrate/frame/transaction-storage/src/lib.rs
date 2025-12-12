@@ -187,8 +187,6 @@ pub mod pallet {
 		NotConfigured,
 		/// Renewed extrinsic is not found.
 		RenewedNotFound,
-		/// Attempting to store an empty transaction
-		EmptyTransaction,
 		/// Proof was not expected in this block.
 		UnexpectedProof,
 		/// Proof failed verification.
@@ -598,7 +596,7 @@ pub mod pallet {
 				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow
 				// empty transactions. Without this check, it would fail anyway below with
 				// `InvalidProof`.
-				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::EmptyTransaction);
+				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::BadDataSize);
 
 				// Convert a global chunk index into a transaction-local one.
 				let tx_chunks = num_chunks(tx_info.size);
