@@ -89,6 +89,7 @@ members = [
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
 	"cumulus/parachains/common",
+	"cumulus/parachains/common/types",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
@@ -828,7 +829,7 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "23.0.0", default-features = false }
+frame-metadata = { version = "23.0.1", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
@@ -1100,6 +1101,7 @@ pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
+parachains-common-types = { path = "cumulus/parachains/common/types", default-features = false }
 parachains-relay = { path = "bridges/relays/parachains" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
@@ -1415,7 +1417,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.43", default-features = false }
+subxt = { version = "0.43.1", default-features = false }
 subxt-metadata = { version = "0.43", default-features = false }
 subxt-signer = { version = "0.43" }
 syn = { version = "2.0.87" }
@@ -1456,8 +1458,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.0" }
-trie-db = { version = "0.30.0", default-features = false }
+trie-bench = { version = "0.42.1" }
+trie-db = { version = "0.31.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }

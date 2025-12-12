@@ -34,7 +34,9 @@ use codec::{
 	Compact, CountedInput, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeLike,
 	Input,
 };
-use core::fmt::{self, Debug};
+use core::fmt::{
+	Debug, {self},
+};
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
 use sp_weights::Weight;

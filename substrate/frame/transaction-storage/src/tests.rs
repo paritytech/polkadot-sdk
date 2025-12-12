@@ -33,11 +33,11 @@ fn discards_data() {
 		let caller = 1;
 		assert_ok!(TransactionStorage::<Test>::store(
 			RawOrigin::Signed(caller).into(),
-			vec![0u8; 2000 as usize]
+			vec![0u8; 2000]
 		));
 		assert_ok!(TransactionStorage::<Test>::store(
 			RawOrigin::Signed(caller).into(),
-			vec![0u8; 2000 as usize]
+			vec![0u8; 2000]
 		));
 		let proof_provider = || {
 			let block_num = frame_system::Pallet::<Test>::block_number();
@@ -176,7 +176,7 @@ fn renews_data() {
 		let caller = 1;
 		assert_noop!(
 			TransactionStorage::<Test>::store(RawOrigin::Signed(caller).into(), vec![]),
-			Error::<Test>::EmptyTransaction
+			Error::<Test>::BadDataSize
 		);
 		assert_ok!(TransactionStorage::<Test>::store(
 			RawOrigin::Signed(caller).into(),
@@ -201,7 +201,7 @@ fn renews_data() {
 		};
 		run_to_block(16, proof_provider);
 		assert!(Transactions::<Test>::get(1).is_none());
-		assert_eq!(Transactions::<Test>::get(6).unwrap().get(0), Some(info).as_ref());
+		assert_eq!(Transactions::<Test>::get(6).unwrap().first(), Some(info).as_ref());
 		run_to_block(17, proof_provider);
 		assert!(Transactions::<Test>::get(6).is_none());
 	});
