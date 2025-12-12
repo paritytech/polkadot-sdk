@@ -43,14 +43,9 @@ impl SubscriptionHandler for TestHandler {
 	}
 }
 
-parameter_types! {
-	pub const TestChildTriePrefix: &'static [u8] = b"pubsub";
-}
-
 impl crate::Config for Test {
 	type SubscriptionHandler = TestHandler;
 	type WeightInfo = ();
-	type ChildTriePrefix = TestChildTriePrefix;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -70,7 +65,7 @@ pub fn build_sproof_with_child_data(
 	let mut backend = TrieBackendBuilder::new(db, root).build();
 
 	// Derive child info same way as pallet
-	let child_info = sp_core::storage::ChildInfo::new_default(&(TestChildTriePrefix::get(), publisher_para_id).encode());
+	let child_info = sp_core::storage::ChildInfo::new_default(&(b"pubsub", publisher_para_id).encode());
 
 	// Insert child trie data
 	let child_kv: Vec<_> = child_data.iter().map(|(k, v)| (k.clone(), Some(v.clone()))).collect();
