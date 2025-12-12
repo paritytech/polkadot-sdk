@@ -23,6 +23,13 @@ sp-std = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
+[dev-dependencies]
+polkadot-primitives = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [

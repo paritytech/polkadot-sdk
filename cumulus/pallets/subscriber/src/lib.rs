@@ -36,6 +36,10 @@ pub use pallet::*;
 
 pub use cumulus_pallet_parachain_system::relay_state_snapshot::ProcessChildTrieData;
 
+mod mock;
+#[cfg(test)]
+mod tests;
+
 /// Define subscriptions and handle received data.
 pub trait SubscriptionHandler {
 	/// List of subscriptions as (ParaId, keys) tuples.

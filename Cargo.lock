@@ -4790,9 +4790,14 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "polkadot-primitives",
  "scale-info",
  "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-std 14.0.0",
+ "sp-trie",
 ]
 
 [[package]]
