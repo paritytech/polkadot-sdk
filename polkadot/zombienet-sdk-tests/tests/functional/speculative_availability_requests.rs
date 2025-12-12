@@ -80,8 +80,8 @@ async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 
 	let scheduled_metric_name =
 		"polkadot_parachain_fetched_chunks_total{origin=\"scheduled\",success=\"succeeded\"}";
-	// scheduled chunk fetches should be more than the asserted para throughput given blocks are
-	// still produced
+	// Scheduled chunk fetches should be more than the asserted para throughput given blocks are
+	// still produced.
 	assert!(
 		relay_node
 			.assert_with(scheduled_metric_name, |v| { v >= 22.0 && v <= 40.0 })
@@ -90,7 +90,7 @@ async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 
 	let occupied_metric_name =
 		"polkadot_parachain_fetched_chunks_total{origin=\"occupied\",success=\"succeeded\"}";
-	// given when speculative availability is requested on active leaves update, there may not be
+	// Given when speculative availability is requested on active leaves update, there may not be
 	// any backable candidates from Prospective Parachains at that the time.
 	assert!(
 		relay_node
