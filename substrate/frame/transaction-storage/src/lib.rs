@@ -201,8 +201,6 @@ pub mod pallet {
 		DoubleCheck,
 		/// Storage proof was not checked in the block.
 		ProofNotChecked,
-		/// Transaction is too large.
-		TransactionTooLarge,
 		/// Authorization was not found.
 		AuthorizationNotFound,
 		/// Authorization has not expired.
