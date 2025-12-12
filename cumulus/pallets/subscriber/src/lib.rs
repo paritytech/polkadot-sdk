@@ -34,7 +34,7 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	storage::bounded_btree_map::BoundedBTreeMap,
-	traits::Get,
+	traits::{Get, StorageVersion},
 };
 use sp_std::vec;
 
@@ -58,7 +58,10 @@ pub mod pallet {
 	use super::*;
 	use frame_system::pallet_prelude::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -67,13 +70,16 @@ pub mod pallet {
 		type SubscriptionHandler: SubscriptionHandler;
 		/// Weight information for extrinsics and operations.
 		type WeightInfo: WeightInfo;
+		/// Maximum number of publishers that can be tracked simultaneously.
+		#[pallet::constant]
+		type MaxPublishers: Get<u32>;
 	}
 
 	/// Child trie roots from previous block for change detection.
 	#[pallet::storage]
 	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 		_,
-		BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, ConstU32<100>>,
+		BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, T::MaxPublishers>,
 		ValueQuery,
 	>;
 
@@ -83,7 +89,7 @@ pub mod pallet {
 		/// Data was received and processed from a publisher.
 		DataProcessed {
 			publisher: ParaId,
-			key: BoundedVec<u8, ConstU32<256>>,
+			key: Vec<u8>,
 			value_size: u32,
 		},
 		/// A stored publisher root was cleared.
@@ -113,9 +119,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<PreviousPublishedDataRoots<T>>::mutate(|roots| -> DispatchResult {
-				ensure!(roots.contains_key(&publisher), Error::<T>::PublisherRootNotFound);
-				roots.remove(&publisher);
+			<PreviousPublishedDataRoots<T>>::try_mutate(|roots| -> DispatchResult {
+				roots.remove(&publisher).ok_or(Error::<T>::PublisherRootNotFound)?;
 				Ok(())
 			})?;
 
@@ -160,20 +165,20 @@ pub mod pallet {
 
 		fn collect_publisher_roots(
 			relay_state_proof: &RelayChainStateProof,
+			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
 		) -> Vec<(ParaId, Vec<u8>)> {
-			let subscriptions = T::SubscriptionHandler::subscriptions();
-
 			subscriptions
-				.into_iter()
+				.iter()
+				.take(T::MaxPublishers::get() as usize)
 				.filter_map(|(publisher_para_id, _keys)| {
-					let child_info = Self::derive_child_info(publisher_para_id);
+					let child_info = Self::derive_child_info(*publisher_para_id);
 					let prefixed_key = child_info.prefixed_storage_key();
 
 					relay_state_proof
 						.read_optional_entry::<[u8; 32]>(&*prefixed_key)
 						.ok()
 						.flatten()
-						.map(|root_hash| (publisher_para_id, root_hash.to_vec()))
+						.map(|root_hash| (*publisher_para_id, root_hash.to_vec()))
 				})
 				.collect()
 		}
@@ -181,6 +186,7 @@ pub mod pallet {
 		fn process_published_data(
 			relay_state_proof: &RelayChainStateProof,
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
+			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
 		) -> Weight {
 			let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
@@ -191,19 +197,17 @@ pub mod pallet {
 			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
 				current_roots.iter().map(|(para_id, root)| (*para_id, root.clone())).collect();
 
-			let subscriptions = T::SubscriptionHandler::subscriptions();
-
 			for (publisher, subscription_keys) in subscriptions {
-				let should_update = match previous_roots.get(&publisher) {
-					Some(prev_root) => match current_roots_map.get(&publisher) {
+				let should_update = match previous_roots.get(publisher) {
+					Some(prev_root) => match current_roots_map.get(publisher) {
 						Some(curr_root) if prev_root == curr_root => false,
 						_ => true,
 					},
 					None => true,
 				};
 
-				if should_update && current_roots_map.contains_key(&publisher) {
-					let child_info = Self::derive_child_info(publisher);
+				if should_update && current_roots_map.contains_key(publisher) {
+					let child_info = Self::derive_child_info(*publisher);
 
 					for key in subscription_keys.iter() {
 						match relay_state_proof.read_child_storage(&child_info, key) {
@@ -212,18 +216,16 @@ pub mod pallet {
 									Ok(value) => {
 										let value_size = value.len() as u32;
 										T::SubscriptionHandler::on_data_updated(
-											publisher,
+											*publisher,
 											key.clone(),
 											value.clone(),
 										);
 
-										if let Ok(bounded_key) = BoundedVec::try_from(key.clone()) {
-											Self::deposit_event(Event::DataProcessed {
-												publisher,
-												key: bounded_key,
-												value_size,
-											});
-										}
+										Self::deposit_event(Event::DataProcessed {
+											publisher: *publisher,
+											key: key.clone(),
+											value_size,
+										});
 									},
 									Err(_) => {
 										defensive!("Failed to decode published data value");
@@ -241,7 +243,7 @@ pub mod pallet {
 				}
 			}
 
-			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, ConstU32<100>> =
+			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, T::MaxPublishers> =
 				current_roots_map
 					.into_iter()
 					.filter_map(|(para_id, root)| {
@@ -249,7 +251,7 @@ pub mod pallet {
 					})
 					.collect::<BTreeMap<_, _>>()
 					.try_into()
-					.unwrap_or_default();
+					.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
 
 			T::WeightInfo::process_published_data()
@@ -262,8 +264,9 @@ pub mod pallet {
 		/// Note: This implementation only processes child trie keys (pubsub data).
 		/// Main trie keys in the proof are intentionally ignored.
 		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
-			let current_roots = Self::collect_publisher_roots(verified_proof);
-			Self::process_published_data(verified_proof, &current_roots)
+			let subscriptions = T::SubscriptionHandler::subscriptions();
+			let current_roots = Self::collect_publisher_roots(verified_proof, &subscriptions);
+			Self::process_published_data(verified_proof, &current_roots, &subscriptions)
 		}
 	}
 }
