@@ -953,25 +953,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
-		// Ensure only amount necessary can be reserved.
 		let mut deposit = deposit.unwrap_or(track.decision_deposit);
 		let remaining = track.decision_deposit.saturating_sub(status.decision_deposit.collected_deposit);
-		let max_needed = if status.decision_deposit.contributors.is_full() {
-			let lowest = status.decision_deposit.contributors[0].1;
-			remaining.saturating_add(lowest)
-		} else {
-			remaining
-		};
-		if deposit > max_needed {
-			deposit = max_needed;
-		}
-
+		
 		if let Some(pos) =
 			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
 		{
+			// Ensure only necessary amount can be reserved.
 			let old_deposit = status.decision_deposit.contributors.remove(pos).1;
-
-			if old_deposit > deposit {
+			let max_needed = old_deposit + remaining;
+			if deposit > max_needed {
+				deposit = max_needed;
+			}
+			
+			if old_deposit >= deposit {
 				return Err(Error::<T, I>::DepositMustIncrease.into());
 			} else {
 				Self::take_deposit(&contributor, deposit - old_deposit)?;
@@ -995,6 +990,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.try_insert(pos, (contributor.clone(), deposit))
 				.expect("We just removed an element, so there is space; qed");
 		} else {
+			// Ensure only necessary amount can be reserved.
+			let max_needed = if status.decision_deposit.contributors.is_full() {
+				let lowest = status.decision_deposit.contributors
+					.first()
+					.map(|c| c.1)
+					.unwrap_or_default();
+				remaining.saturating_add(lowest)
+			} else {
+				remaining
+			};
+			if deposit > max_needed {
+				deposit = max_needed;
+			}
+
 			let pos = status
 				.decision_deposit
 				.contributors
