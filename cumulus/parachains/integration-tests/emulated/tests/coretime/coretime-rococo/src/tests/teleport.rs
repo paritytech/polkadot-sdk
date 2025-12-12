@@ -22,11 +22,12 @@ use emulated_integration_tests_common::{
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 10;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,               // Origin
 		vec![CoretimeRococo], // Destinations
-		amount,
+		(native_asset, amount),
 		limited_teleport_assets
 	);
 
@@ -41,11 +42,12 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 10;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,               // Origin
 		vec![CoretimeRococo], // Destinations
-		amount,
+		(native_asset, amount),
 		transfer_assets
 	);
 
@@ -62,12 +64,10 @@ fn teleport_via_limited_teleport_assets_from_coretime_to_asset_hub() {
 	let amount = ASSET_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CoretimeRococo,       // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -77,12 +77,10 @@ fn teleport_via_transfer_assets_from_coretime_to_asset_hub() {
 	let amount = ASSET_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CoretimeRococo,       // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -92,12 +90,10 @@ fn teleport_via_limited_teleport_assets_from_asset_hub_to_coretime() {
 	let amount = CORETIME_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubRococo,       // Origin
 		vec![CoretimeRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -107,12 +103,10 @@ fn teleport_via_transfer_assets_from_asset_hub_to_coretime() {
 	let amount = CORETIME_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubRococo,       // Origin
 		vec![CoretimeRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
 	);
 }
