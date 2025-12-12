@@ -142,14 +142,6 @@ impl Tracing for OpcodeTracer {
 			crate::evm::Bytes::default()
 		};
 
-		// Create the pending opcode step (without gas cost)
-
-		// log::trace!(target: crate::LOG_TARGET,
-		// 	"\n[{pc}]: {opcode}\nstack: {stack_data:?}\nmemory: {memory:?}",
-		// 	opcode = revm::bytecode::OpCode::new(opcode)
-		// 		.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
-		// );
-
 		let step = OpcodeStep {
 			pc,
 			op: opcode,
