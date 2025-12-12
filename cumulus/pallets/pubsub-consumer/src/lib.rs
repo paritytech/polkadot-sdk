@@ -52,13 +52,12 @@ impl<T: Config> cumulus_pallet_subscriber::SubscriptionHandler for TestSubscript
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::storage]
 	pub type ReceivedData<T: Config> = StorageDoubleMap<
