@@ -100,6 +100,14 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
 			},
+			ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
+				signature,
+				message,
+				publicKey,
+			}) => {
+				let ok = env.sr25519_verify(signature, message, publicKey);
+				Ok(ok.abi_encode())
+			},
 		}
 	}
 }
