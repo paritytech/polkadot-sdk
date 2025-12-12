@@ -770,7 +770,7 @@ pub mod pallet {
 	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
 	/// failed. While these should never occur under normal operation, they are useful for
 	/// diagnosing issues in production or test environments.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// We could not merge the chunks, and therefore dropped the session report.
 		SessionReportIntegrityFailed,

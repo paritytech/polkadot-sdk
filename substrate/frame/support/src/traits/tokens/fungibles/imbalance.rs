@@ -34,7 +34,7 @@ use crate::traits::{
 };
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support_procedural::{DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::Zero;
 
@@ -50,7 +50,7 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(EqNoBound, PartialEqNoBound, DebugNoBound)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,

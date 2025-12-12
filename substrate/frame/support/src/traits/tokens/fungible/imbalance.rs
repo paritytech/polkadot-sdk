@@ -36,7 +36,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support_procedural::{DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::Zero;
 
@@ -60,7 +60,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 #[derive(
 	EqNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

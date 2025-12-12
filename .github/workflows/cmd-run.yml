@@ -157,6 +157,7 @@ jobs:
           IS_PR_AUTHOR: ${{ github.event.inputs.is_pr_author }}
           RUNNER: ${{ github.event.inputs.runner }}
           IMAGE: ${{ github.event.inputs.image }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Running command: '${CMD} ${PR_ARG}' on '${RUNNER}' runner, container: '${IMAGE}'"
           echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"
@@ -248,6 +249,15 @@ jobs:
           echo $result
 
           echo $result > /tmp/cmd/subweight.log
+          # Check if /tmp/cmd/subweight.log is more than 1048576 bytes
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 1048576 ]; then
+            echo "Subweight result is too large, truncating..."
+            result=$(echo "$result" | head -c 100000)
+          fi
+
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
           # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
           if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
             echo "Subweight result is too large, truncating..."
@@ -292,11 +302,18 @@ jobs:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
-      - name: Download all artifacts
+      - name: Download command-diff artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: command-diff
           path: command-diff
+
+      - name: Download command-output artifact
+        if: startsWith(github.event.inputs.cmd, 'label')
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: command-output
+          path: command-output
 
       - name: Apply labels for label command
         if: startsWith(github.event.inputs.cmd, 'label')
@@ -309,7 +326,7 @@ jobs:
             let labels = [];
 
             try {
-              const output = fs.readFileSync('/tmp/cmd/command_output.log', 'utf8');
+              const output = fs.readFileSync('command-output/command_output.log', 'utf8');
 
               // Parse JSON labels from output - look for "LABELS_JSON: {...}"
               const jsonMatch = output.match(/LABELS_JSON: (.+)/);
