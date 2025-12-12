@@ -1010,7 +1010,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.unwrap_or_else(|e| Some(e))
 			{
 				Self::refund_deposit(&who, amount);
-
+				status.decision_deposit.collected_deposit = 
+					status.decision_deposit.collected_deposit.saturating_sub(amount);
 				Self::deposit_event(Event::ReplacedDecisionContributor { who, index, amount });
 			}
 
