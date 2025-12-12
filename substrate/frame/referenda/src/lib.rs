@@ -995,17 +995,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.try_insert(pos, (contributor.clone(), deposit))
 				.expect("We just removed an element, so there is space; qed");
 		} else {
-			Self::take_deposit(&contributor, deposit)?;
 			let pos = status
 				.decision_deposit
 				.contributors
 				.binary_search_by_key(&deposit, |c| c.1)
 				.unwrap_or_else(|e| e);
-
+		
 			if pos == 0 && status.decision_deposit.contributors.is_full() {
 				return Err(Error::<T, I>::DepositTooLow.into());
 			}
-
+		
+			Self::take_deposit(&contributor, deposit)?;
 			status.decision_deposit.collected_deposit =
 				status.decision_deposit.collected_deposit.saturating_add(deposit);
 
