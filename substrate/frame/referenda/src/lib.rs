@@ -482,6 +482,8 @@ pub mod pallet {
 		/// The maximum number of decision depositors is reached and the deposit is too low to
 		/// replace a depositor in the list.
 		DepositTooLow,
+		/// A newly decision deposit contribution must be higher than the user's previous.
+		DepositMustIncrease,
 	}
 
 	#[pallet::hooks]
@@ -959,14 +961,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let old_deposit = status.decision_deposit.contributors.remove(pos).1;
 
 			if old_deposit > deposit {
-				Self::refund_deposit(&contributor, old_deposit - deposit);
-				status.decision_deposit.collected_deposit -= old_deposit - deposit;
-
-				Self::deposit_event(Event::DecisionDepositContributionDecreased {
-					index,
-					who: contributor.clone(),
-					decreased_by: old_deposit - deposit,
-				});
+				return Err(Error::<T, I>::DepositMustIncrease.into());
 			} else {
 				Self::take_deposit(&contributor, deposit - old_deposit)?;
 				status.decision_deposit.collected_deposit += deposit - old_deposit;
