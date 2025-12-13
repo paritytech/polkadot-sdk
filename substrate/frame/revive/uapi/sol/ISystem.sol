@@ -72,5 +72,4 @@ interface ISystem {
 	///
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	function EcdsaToEthAddress(uint8[33] calldata publicKey) external view returns (bytes20);
-
 }
