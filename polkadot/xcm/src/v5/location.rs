@@ -740,6 +740,7 @@ mod tests {
 
 	#[test]
 	fn conversion_from_other_types_works() {
+		use crate::v3;
 		use crate::v4;
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
@@ -758,6 +759,14 @@ mod tests {
 		takes_location((Parent, Here));
 		takes_location(ParentThen([Parachain(75)].into()));
 		takes_location([Parachain(100), PalletInstance(3)]);
+
+		assert_eq!(v3::Location::from(v3::Junctions::Here).try_into(), Ok(Location::here()));
+		assert_eq!(v3::Location::from(v3::Parent).try_into(), Ok(Location::parent()));
+		assert_eq!(
+			v3::Location::from((v3::Parent, v3::Parent, v3::Junction::GeneralIndex(42u128),))
+				.try_into(),
+			Ok(Location { parents: 2, interior: [GeneralIndex(42u128)].into() }),
+		);
 
 		assert_eq!(v4::Location::from(v4::Junctions::Here).try_into(), Ok(Location::here()));
 		assert_eq!(v4::Location::from(v4::Parent).try_into(), Ok(Location::parent()));
