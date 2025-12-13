@@ -22,7 +22,7 @@ use crate::{
 	Config, H160,
 };
 use alloc::vec::Vec;
-use alloy_core::sol_types::{private::SolTypeValue, SolValue};
+use alloy_core::sol_types::SolValue;
 use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive_uapi::precompiles::system::ISystem;
