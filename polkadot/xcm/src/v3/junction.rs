@@ -448,3 +448,21 @@ impl Junction {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	#[test]
+	fn test_conversion_from_other_types_works() {
+		use crate::v5;
+
+		fn takes_junction<Arg: Into<Junction>>(_arg: Arg) {}
+		takes_junction(42u128);
+		takes_junction(100u64);
+		takes_junction([0u8; 32]);
+		takes_junction([1u8; 20]);
+		takes_junction(NetworkId::Polkadot);
+
+		assert_eq!(v5::Junction::from(v5::Junction::Parachain(42)).try_into(), Ok(Junction::Parachain(42)));
+	}
+}
