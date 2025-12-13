@@ -379,7 +379,7 @@ fn sr25519_verify(fixture_type: FixtureType) {
 				.data(
 					Sr25519Verify::verifyCall {
 						signature: signature.into(),
-						message: message.clone().into(),
+						message: (*message).into(),
 						publicKey: public_key.into(),
 					}
 					.abi_encode(),
