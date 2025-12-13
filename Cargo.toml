@@ -766,6 +766,7 @@ cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false }
 cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false }
 cumulus-tic-tac-toe = { path = "cumulus/pallets/testing/tic-tac-toe", default-features = false }
+cumulus-chess = { path = "cumulus/pallets/testing/chess", default-features = false }
 cumulus-primitives-aura = { path = "cumulus/primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "cumulus/primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "cumulus/primitives/parachain-inherent", default-features = false }
@@ -1303,6 +1304,7 @@ serde_yaml = { version = "0.9" }
 sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
+shakmaty = { version = "0.27", default-features = false, features = ["alloc"] }
 shlex = { version = "1.3.0" }
 simple-mermaid = { version = "0.1.1" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }

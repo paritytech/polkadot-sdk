@@ -484,6 +484,22 @@ impl cumulus_tic_tac_toe::Config for Runtime {
 	type RcBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
+parameter_types! {
+	pub const ChessMinimumStake: Balance = YAP / 100; // 0.01 YAP minimum stake
+	/// Milliseconds per block for time calculation on dev chains.
+	/// Set to 500ms to match the actual block time.
+	/// In production with proper timestamps, set to 0 to use UnixTime.
+	pub const ChessMillisecondsPerBlock: u64 = 500;
+}
+
+impl cumulus_chess::Config for Runtime {
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type UnixTime = Timestamp;
+	type MinimumStake = ChessMinimumStake;
+	type MillisecondsPerBlock = ChessMillisecondsPerBlock;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -514,6 +530,9 @@ mod runtime {
 
 	#[runtime::pallet_index(5)]
 	pub type TicTacToe = cumulus_tic_tac_toe;
+
+	#[runtime::pallet_index(6)]
+	pub type Chess = cumulus_chess;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
