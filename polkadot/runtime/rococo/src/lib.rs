@@ -1228,7 +1228,6 @@ impl parachains_slashing::Config for Runtime {
 
 parameter_types! {
 	pub const MaxPublishItems: u32 = 10;
-	pub const MaxKeyLength: u32 = 32;
 	pub const MaxValueLength: u32 = 1024;
 	pub const MaxStoredKeys: u32 = 100;
 	pub const MaxPublishers: u32 = 1000;
@@ -1240,7 +1239,6 @@ impl parachains_broadcaster::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
 	type MaxPublishItems = MaxPublishItems;
-	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
 	type MaxPublishers = MaxPublishers;

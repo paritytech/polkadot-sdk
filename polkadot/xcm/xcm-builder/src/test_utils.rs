@@ -34,7 +34,7 @@ parameter_types! {
 	pub static SubscriptionRequests: Vec<(Location, Option<(QueryId, Weight)>)> = vec![];
 	pub static MaxAssetsIntoHolding: u32 = 4;
 	// Maps ParaId => Vec<(key, value)>
-	pub static PublishedData: BTreeMap<u32, Vec<(Vec<u8>, Vec<u8>)>> = BTreeMap::new();
+	pub static PublishedData: BTreeMap<u32, Vec<([u8; 32], Vec<u8>)>> = BTreeMap::new();
 }
 
 pub struct TestSubscriptionService;
@@ -76,10 +76,10 @@ impl BroadcastHandler for TestBroadcastHandler {
 		};
 
 		let mut published = PublishedData::get();
-		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data
+		let data_vec: Vec<([u8; 32], Vec<u8>)> = data
 			.into_inner()
 			.into_iter()
-			.map(|(k, v)| (k.into_inner(), v.into_inner()))
+			.map(|(k, v)| (k, v.into_inner()))
 			.collect();
 
 		// Merge with existing data for this parachain

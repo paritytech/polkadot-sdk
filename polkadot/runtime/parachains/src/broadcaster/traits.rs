@@ -23,7 +23,10 @@ use sp_runtime::DispatchResult;
 /// Trait for handling publish operations for parachains.
 ///
 /// This trait provides the interface for parachains to publish key-value data.
+/// Keys must be 32-byte hashes.
 pub trait Publish {
 	/// Publish key-value data for a specific parachain.
-	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
+	///
+	/// Keys must be 32-byte hashes.
+	fn publish_data(publisher: ParaId, data: Vec<([u8; 32], Vec<u8>)>) -> DispatchResult;
 }

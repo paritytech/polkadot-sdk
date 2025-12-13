@@ -20,6 +20,7 @@ use super::{Pallet as Broadcaster, *};
 use frame_benchmarking::v2::*;
 use frame_support::traits::fungible::{Inspect as FunInspect, Mutate};
 use polkadot_primitives::Id as ParaId;
+use sp_core::hashing::blake2_256;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -71,8 +72,9 @@ mod benchmarks {
 			let batch_end = (batch_start + max_items).min(k);
 			let mut data = Vec::new();
 			for i in batch_start..batch_end {
-				let mut key = b"key_".to_vec();
-				key.extend_from_slice(&i.to_be_bytes());
+				let mut key_data = b"key_".to_vec();
+				key_data.extend_from_slice(&i.to_be_bytes());
+				let key = blake2_256(&key_data);
 				data.push((key, b"value".to_vec()));
 			}
 			Broadcaster::<T>::handle_publish(para_id, data).unwrap();
