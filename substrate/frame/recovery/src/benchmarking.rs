@@ -17,111 +17,122 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
+extern crate alloc;
 
+use alloc::vec;
+use super::*;
 use crate::Pallet;
-use alloc::{boxed::Box, vec, vec::Vec};
-use frame::benchmarking::prelude::*;
+use frame::{benchmarking::prelude::*, traits::fungible::Mutate};
 
 const SEED: u32 = 0;
-const DEFAULT_DELAY: u32 = 0;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+fn fund_account<T: Config>(who: &T::AccountId) {
+	let balance = BalanceOf::<T>::max_value() / 100u32.into();
+	let _ = T::Currency::mint_into(who, balance);
 }
 
-fn get_total_deposit<T: Config>(
-	bounded_friends: &FriendsOf<T>,
-) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>
-{
-	let friend_deposit = T::FriendDepositFactor::get()
-		.checked_mul(&bounded_friends.len().saturated_into())
-		.unwrap();
-
-	T::ConfigDepositBase::get().checked_add(&friend_deposit)
-}
-
-fn generate_friends<T: Config>(num: u32) -> Vec<<T as frame_system::Config>::AccountId> {
-	// Create friends
-	let mut friends = (0..num).map(|x| account("friend", x, SEED)).collect::<Vec<_>>();
-	// Sort
+fn generate_friends<T: Config>(seed: u32, num: u32) -> Vec<T::AccountId> {
+	let mut friends = (0..num)
+		.map(|x| account("friend", x, seed))
+		.collect::<Vec<_>>();
 	friends.sort();
 
-	for friend in 0..friends.len() {
-		// Top up accounts of friends
-		T::Currency::make_free_balance_be(
-			&friends.get(friend).unwrap(),
-			BalanceOf::<T>::max_value(),
-		);
+	for friend in &friends {
+		fund_account::<T>(friend);
 	}
 
 	friends
 }
 
-fn add_caller_and_generate_friends<T: Config>(
-	caller: T::AccountId,
-	num: u32,
-) -> Vec<<T as frame_system::Config>::AccountId> {
-	// Create friends
-	let mut friends = generate_friends::<T>(num - 1);
+fn create_friend_group<T: Config>(
+	seed: u32,
+	num_friends: u32,
+	threshold: u32,
+	inheritance_order: InheritanceOrder,
+	inheritance_delay: ProvidedBlockNumberOf<T>,
+	cancel_delay: ProvidedBlockNumberOf<T>,
+) -> FriendGroupOf<T> {
+	let friends = generate_friends::<T>(num_friends * seed + 1, num_friends);
+	let inheritor: T::AccountId = account("inheritor", inheritance_order, SEED);
+	fund_account::<T>(&inheritor);
 
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-	friends.push(caller);
-
-	// Sort
-	friends.sort();
-
-	friends
+	FriendGroupOf::<T> {
+		deposit: T::SecurityDeposit::get(),
+		friends: friends.try_into().unwrap(),
+		friends_needed: threshold,
+		inheritor,
+		inheritance_delay,
+		inheritance_order,
+		cancel_delay,
+	}
 }
 
-fn insert_recovery_config_with_max_friends<T: Config>(account: &T::AccountId) {
-	T::Currency::make_free_balance_be(&account, BalanceOf::<T>::max_value());
+fn create_friend_groups<T: Config>(
+	lost: &T::AccountId,
+	num_friends: u32,
+	seed: u32,
+) -> FriendGroupsOf<T> {
+	let mut friend_groups = Vec::new();
 
-	let n = T::MaxFriends::get();
+	for i in 0..MAX_GROUPS_PER_ACCOUNT {
+		friend_groups.push(create_friend_group::<T>(
+			seed + i,
+			num_friends,
+			1,
+			0,
+			10u32.into(),
+			10u32.into(),
+		));
+	}
 
-	let friends = generate_friends::<T>(n);
-
-	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-
-	// Get deposit for recovery
-	let total_deposit = get_total_deposit::<T>(&bounded_friends).unwrap();
-
-	let recovery_config = RecoveryConfig {
-		delay_period: DEFAULT_DELAY.into(),
-		deposit: total_deposit,
-		friends: bounded_friends,
-		threshold: n as u16,
-	};
-
-	// Reserve deposit for recovery
-	T::Currency::reserve(&account, total_deposit).unwrap();
-
-	<Recoverable<T>>::insert(&account, recovery_config);
+	friend_groups.try_into().unwrap()
 }
 
-fn setup_active_recovery_with_max_friends<T: Config>(
-	caller: &T::AccountId,
-	lost_account: &T::AccountId,
+fn setup_friend_groups<T: Config>(
+	lost: &T::AccountId,
+	num_friends: u32,
+	seed: u32,
+) -> FriendGroupsOf<T> {
+	let friend_groups = create_friend_groups::<T>(lost, num_friends, seed);
+
+	let footprint = Pallet::<T>::friend_group_footprint(&friend_groups);
+	let ticket = T::FriendGroupsConsideration::new(lost, footprint).unwrap();
+	FriendGroups::<T>::insert(lost, (&friend_groups, ticket));
+
+	friend_groups
+}
+
+fn setup_attempt<T: Config>(
+	lost: &T::AccountId,
+	initiator: &T::AccountId,
+	friend_group_index: FriendGroupIndex,
+	num_approvals: u32,
 ) {
-	insert_recovery_config_with_max_friends::<T>(&lost_account);
-	let n = T::MaxFriends::get();
-	let friends = generate_friends::<T>(n);
-	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
+	let now = T::BlockNumberProvider::current_block_number();
+	let mut approvals = ApprovalBitfield::default();
 
-	let initial_recovery_deposit = T::RecoveryDeposit::get();
-	T::Currency::reserve(caller, initial_recovery_deposit).unwrap();
+	for i in 0..num_approvals {
+		approvals.set_if_not_set(i as usize).unwrap();
+	}
 
-	let active_recovery = ActiveRecovery {
-		created: DEFAULT_DELAY.into(),
-		deposit: initial_recovery_deposit,
-		friends: bounded_friends,
+	let attempt = AttemptOf::<T> {
+		friend_group_index,
+		initiator: initiator.clone(),
+		init_block: now,
+		last_approval_block: now,
+		approvals,
 	};
-	<ActiveRecoveries<T>>::insert(lost_account, caller, active_recovery);
+
+	let deposit = T::SecurityDeposit::get();
+	T::Currency::hold(&HoldReason::SecurityDeposit.into(), initiator, deposit).unwrap();
+
+	let ticket =
+		AttemptTicketOf::<T>::new(initiator, Pallet::<T>::attempt_footprint(&attempt)).unwrap();
+	crate::pallet::Attempt::<T>::insert(lost, friend_group_index, (&attempt, &ticket, &deposit));
 }
 
 #[benchmarks]
@@ -129,340 +140,163 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn as_recovered() {
-		let caller: T::AccountId = whitelisted_caller();
-		let recovered_account: T::AccountId = account("recovered_account", 0, SEED);
-		let recovered_account_lookup = T::Lookup::unlookup(recovered_account.clone());
-		let call: <T as Config>::RuntimeCall =
-			frame_system::Call::<T>::remark { remark: vec![] }.into();
+	fn control_inherited_account() {
+		let inheritor: T::AccountId = whitelisted_caller();
+		let recovered: T::AccountId = account("recovered", 0, SEED);
+		let recovered_lookup = T::Lookup::unlookup(recovered.clone());
 
-		Proxy::<T>::insert(&caller, &recovered_account);
+		fund_account::<T>(&inheritor);
+
+		let ticket = Pallet::<T>::inheritor_ticket(&inheritor).unwrap();
+		Inheritor::<T>::insert(&recovered, (0u32, &inheritor, ticket));
+
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: Vec::new() }.into();
+		let call_hash = call.using_encoded(&T::Hashing::hash);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), recovered_account_lookup, Box::new(call))
+		_(RawOrigin::Signed(inheritor.clone()), recovered_lookup, Box::new(call));
+
+		assert_last_event::<T>(
+			Event::<T>::RecoveredAccountControlled {
+				recovered,
+				inheritor,
+				call_hash,
+				call_result: Ok(()),
+			}
+			.into(),
+		);
 	}
 
 	#[benchmark]
-	fn set_recovered() {
+	fn set_friend_groups(
+		f: Linear<1, { T::MaxFriendsPerConfig::get() }>,
+	) {
+		let lost: T::AccountId = whitelisted_caller();
+		fund_account::<T>(&lost);
+
+		let old_friend_groups = setup_friend_groups::<T>(&lost, f, 0);
+		let new_friend_groups = create_friend_groups::<T>(&lost, f, 1).into_inner();
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(lost.clone()), new_friend_groups);
+
+		assert_last_event::<T>(Event::<T>::FriendGroupsChanged { lost, old_friend_groups }.into());
+	}
+
+	#[benchmark]
+	fn initiate_attempt() {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
-		let rescuer: T::AccountId = whitelisted_caller();
-		let rescuer_lookup = T::Lookup::unlookup(rescuer.clone());
+		let initiator: T::AccountId = account("friend", 0, 1);
+
+		fund_account::<T>(&lost);
+		fund_account::<T>(&initiator);
+
+		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+
+		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, lost_lookup, rescuer_lookup);
+		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account: lost, rescuer_account: rescuer }.into(),
-		);
+		assert_last_event::<T>(Event::<T>::AttemptInitiated {
+			lost,
+			friend_group_index: 0,
+			initiator,
+		}.into());
 	}
 
 	#[benchmark]
-	fn create_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+	fn approve_attempt() {
+		let lost: T::AccountId = whitelisted_caller();
+		let lost_lookup = T::Lookup::unlookup(lost.clone());
+		let initiator: T::AccountId = account("friend", 0, 1);
+		
+		fund_account::<T>(&lost);
+		fund_account::<T>(&initiator);
 
-		// Create friends
-		let friends = generate_friends::<T>(n);
+		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
+		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), friends, n as u16, DEFAULT_DELAY.into());
+		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(Event::RecoveryCreated { account: caller }.into());
+		assert_last_event::<T>(Event::<T>::AttemptApproved {
+			lost,
+			friend_group_index: 0,
+			friend: initiator,
+		}.into());
 	}
 
 	#[benchmark]
-	fn initiate_recovery() {
-		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		let lost_account: T::AccountId = account("lost_account", 0, SEED);
-		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
-
-		insert_recovery_config_with_max_friends::<T>(&lost_account);
+	fn finish_attempt() {
+		let lost: T::AccountId = whitelisted_caller();
+		let lost_lookup = T::Lookup::unlookup(lost.clone());
+		let initiator: T::AccountId = account("friend", 0, 1);
+		let inheritor: T::AccountId = account("inheritor", 0, SEED);
+		
+		fund_account::<T>(&lost);
+		fund_account::<T>(&initiator);
+		
+		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
+		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		assert_ok!(crate::pallet::Pallet::<T>::approve_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		frame_system::Pallet::<T>::set_block_number(100u32.into());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
+		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(
-			Event::RecoveryInitiated { lost_account, rescuer_account: caller }.into(),
-		);
+		assert_last_event::<T>(Event::<T>::AttemptFinished {
+			lost,
+			friend_group_index: 0,
+			inheritor,
+			previous_inheritor: None,
+		}.into());
 	}
 
 	#[benchmark]
-	fn vouch_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-		let lost_account: T::AccountId = account("lost_account", 0, SEED);
-		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
-		let rescuer_account: T::AccountId = account("rescuer_account", 0, SEED);
-		let rescuer_account_lookup = T::Lookup::unlookup(rescuer_account.clone());
+	fn cancel_attempt() {
+		let lost: T::AccountId = whitelisted_caller();
+		let lost_lookup = T::Lookup::unlookup(lost.clone());
+		let initiator: T::AccountId = account("friend", 0, 1);
+		
+		fund_account::<T>(&lost);
+		fund_account::<T>(&initiator);
 
-		// Create friends
-		let friends = add_caller_and_generate_friends::<T>(caller.clone(), n);
-		let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-
-		// Get deposit for recovery
-		let total_deposit = get_total_deposit::<T>(&bounded_friends).unwrap();
-
-		let recovery_config = RecoveryConfig {
-			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-			threshold: n as u16,
-		};
-
-		// Create the recovery config storage item
-		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
-
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
-
-		// Create an active recovery status
-		let recovery_status = ActiveRecovery {
-			created: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
-			friends: generate_friends::<T>(n - 1).try_into().unwrap(),
-		};
-
-		// Create the active recovery storage item
-		<ActiveRecoveries<T>>::insert(&lost_account, &rescuer_account, recovery_status);
+		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
+		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		frame_system::Pallet::<T>::set_block_number(100u32.into());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup, rescuer_account_lookup);
-		assert_last_event::<T>(
-			Event::RecoveryVouched { lost_account, rescuer_account, sender: caller }.into(),
-		);
+		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
+
+		assert_last_event::<T>(Event::<T>::AttemptCanceled {
+			lost,
+			friend_group_index: 0,
+			canceler: initiator,
+		}.into());
 	}
 
 	#[benchmark]
-	fn claim_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-		let lost_account: T::AccountId = account("lost_account", 0, SEED);
-		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
+	fn slash_attempt() {
+		let lost: T::AccountId = whitelisted_caller();
+		let lost_lookup = T::Lookup::unlookup(lost.clone());
+		let initiator: T::AccountId = account("friend", 0, 1);
+		
+		fund_account::<T>(&lost);
+		fund_account::<T>(&initiator);
 
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		// Create friends
-		let friends = generate_friends::<T>(n);
-		let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-
-		// Get deposit for recovery
-		let total_deposit = get_total_deposit::<T>(&bounded_friends).unwrap();
-
-		let recovery_config = RecoveryConfig {
-			delay_period: 0u32.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-			threshold: n as u16,
-		};
-
-		// Create the recovery config storage item
-		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
-
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
-
-		// Create an active recovery status
-		let recovery_status = ActiveRecovery {
-			created: 0u32.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-		};
-
-		// Create the active recovery storage item
-		<ActiveRecoveries<T>>::insert(&lost_account, &caller, recovery_status);
+		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
+		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
-		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account, rescuer_account: caller }.into(),
-		);
-	}
-
-	#[benchmark]
-	fn close_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-		let rescuer_account: T::AccountId = account("rescuer_account", 0, SEED);
-		let rescuer_account_lookup = T::Lookup::unlookup(rescuer_account.clone());
-
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		T::Currency::make_free_balance_be(&rescuer_account, BalanceOf::<T>::max_value());
-
-		// Create friends
-		let friends = generate_friends::<T>(n);
-		let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-
-		// Get deposit for recovery
-		let total_deposit = get_total_deposit::<T>(&bounded_friends).unwrap();
-
-		let recovery_config = RecoveryConfig {
-			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-			threshold: n as u16,
-		};
-
-		// Create the recovery config storage item
-		<Recoverable<T>>::insert(&caller, recovery_config.clone());
-
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
-
-		// Create an active recovery status
-		let recovery_status = ActiveRecovery {
-			created: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-		};
-
-		// Create the active recovery storage item
-		<ActiveRecoveries<T>>::insert(&caller, &rescuer_account, recovery_status);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), rescuer_account_lookup);
-		assert_last_event::<T>(
-			Event::RecoveryClosed { lost_account: caller, rescuer_account }.into(),
-		);
-	}
-
-	#[benchmark]
-	fn remove_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
-		let caller: T::AccountId = whitelisted_caller();
-
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		// Create friends
-		let friends = generate_friends::<T>(n);
-		let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-
-		// Get deposit for recovery
-		let total_deposit = get_total_deposit::<T>(&bounded_friends).unwrap();
-
-		let recovery_config = RecoveryConfig {
-			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
-			friends: bounded_friends.clone(),
-			threshold: n as u16,
-		};
-
-		// Create the recovery config storage item
-		<Recoverable<T>>::insert(&caller, recovery_config);
-
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()));
-		assert_last_event::<T>(Event::RecoveryRemoved { lost_account: caller }.into());
-	}
-
-	#[benchmark]
-	fn cancel_recovered() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let account: T::AccountId = account("account", 0, SEED);
-		let account_lookup = T::Lookup::unlookup(account.clone());
-
-		frame_system::Pallet::<T>::inc_providers(&caller);
-
-		frame_system::Pallet::<T>::inc_consumers(&caller)?;
-
-		Proxy::<T>::insert(&caller, &account);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), account_lookup);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn poke_deposit(n: Linear<1, { T::MaxFriends::get() }>) -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let lost_account: T::AccountId = account("lost_account", 0, SEED);
-
-		// Fund caller account
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		// 1. Setup recovery config for caller
-		insert_recovery_config_with_max_friends::<T>(&caller);
-
-		// 2. Setup active recovery for lost account
-		setup_active_recovery_with_max_friends::<T>(&caller, &lost_account);
-
-		// 3. Get initial deposits
-		let initial_config = <Recoverable<T>>::get(&caller).unwrap();
-		let initial_config_deposit = initial_config.deposit;
-		let initial_recovery_deposit = T::RecoveryDeposit::get();
-		assert_eq!(
-			T::Currency::reserved_balance(&caller),
-			initial_config_deposit.saturating_add(initial_recovery_deposit)
-		);
-
-		// 4. Artificially increase deposits
-		let increased_config_deposit = initial_config_deposit.saturating_add(2u32.into());
-		let increased_recovery_deposit = initial_recovery_deposit.saturating_add(2u32.into());
-
-		<Recoverable<T>>::try_mutate(&caller, |maybe_config| -> Result<(), BenchmarkError> {
-			let config = maybe_config.as_mut().unwrap();
-			T::Currency::reserve(
-				&caller,
-				increased_config_deposit.saturating_sub(initial_config_deposit),
-			)?;
-			config.deposit = increased_config_deposit;
-			Ok(())
-		})
-		.map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
-
-		<ActiveRecoveries<T>>::try_mutate(
-			&lost_account,
-			&caller,
-			|maybe_recovery| -> Result<(), BenchmarkError> {
-				let recovery = maybe_recovery.as_mut().unwrap();
-				T::Currency::reserve(
-					&caller,
-					increased_recovery_deposit.saturating_sub(initial_recovery_deposit),
-				)?;
-				recovery.deposit = increased_recovery_deposit;
-				Ok(())
-			},
-		)
-		.map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
-
-		// 5. Verify increased deposits
-		assert_eq!(
-			T::Currency::reserved_balance(&caller),
-			increased_config_deposit.saturating_add(increased_recovery_deposit)
-		);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Some(T::Lookup::unlookup(lost_account.clone())));
-
-		// 6. Assert final state
-		assert_eq!(
-			T::Currency::reserved_balance(&caller),
-			initial_config_deposit.saturating_add(initial_recovery_deposit)
-		);
-
-		// 7. Check events were emitted
-		assert_has_event::<T>(
-			Event::DepositPoked {
-				who: caller.clone(),
-				kind: DepositKind::RecoveryConfig,
-				old_deposit: increased_config_deposit,
-				new_deposit: initial_config_deposit,
-			}
-			.into(),
-		);
-		assert_has_event::<T>(
-			Event::DepositPoked {
-				who: caller,
-				kind: DepositKind::ActiveRecoveryFor(lost_account),
-				old_deposit: increased_recovery_deposit,
-				new_deposit: initial_recovery_deposit,
-			}
-			.into(),
-		);
-
-		Ok(())
+		_(RawOrigin::Signed(lost.clone()), 0);
+		assert_last_event::<T>(Event::<T>::AttemptSlashed { lost, friend_group_index: 0 }.into());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

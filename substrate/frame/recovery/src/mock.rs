@@ -55,7 +55,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const MaxFriendsPerConfig: u32 = 128;
-	pub const MaxConfigsPerAccount: u32 = 128;
 
 	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroupsStorage);
 	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::AttemptStorage);
@@ -67,6 +66,7 @@ pub const SECURITY_DEPOSIT: u128 = 100;
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxFriendsPerConfig = MaxFriendsPerConfig;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
 	type FriendGroupsConsideration = HoldConsideration<
@@ -88,8 +88,6 @@ impl Config for Test {
 		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
 	>;
 	type SecurityDeposit = ConstU128<SECURITY_DEPOSIT>;
-	type MaxFriendsPerConfig = MaxFriendsPerConfig;
-	type MaxConfigsPerAccount = MaxConfigsPerAccount;
 	type WeightInfo = ();
 }
 
@@ -123,4 +121,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+// Common test helpers
+#[cfg(test)]
+pub(crate) fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }

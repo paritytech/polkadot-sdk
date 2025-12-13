@@ -86,6 +86,11 @@
 //! *Reading* data can be done through the view functions:
 //! -
 
+#![recursion_limit = "1024"]
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
+use alloc::{boxed::Box, vec::Vec, vec};
+
 use frame::{
 	prelude::*,
 	traits::{
@@ -99,12 +104,13 @@ pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
+pub const MAX_GROUPS_PER_ACCOUNT: u32 = 16;
 
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<AccountIdFor<T>>>::Balance;
@@ -165,7 +171,7 @@ pub type FriendGroupIndex = u32;
 pub type FriendGroupOf<T> =
 	FriendGroup<ProvidedBlockNumberOf<T>, AccountIdFor<T>, BalanceOf<T>, FriendsOf<T>>;
 
-pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, <T as Config>::MaxConfigsPerAccount>;
+pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PER_ACCOUNT>>;
 
 /// Bitfield helper for tracking friend votes.
 ///
@@ -330,14 +336,6 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 		}
 		Ok(())
 	}
-
-	fn burn(self) {
-		if let Some(ticket) = self.ticket {
-			let () = ticket.burn(&self.depositor);
-		}
-
-		()
-	}
 }
 
 pub type AttemptTicketOf<T> =
@@ -392,7 +390,11 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ frame::traits::fungible::Mutate<Self::AccountId>;
 
 		/// Storage consideration for holding friend group configs.
 		type FriendGroupsConsideration: Consideration<Self::AccountId, Footprint>;
@@ -412,12 +414,6 @@ pub mod pallet {
 		/// Reducing this value can cause decoding errors in the bounded vectors.
 		#[pallet::constant]
 		type MaxFriendsPerConfig: Get<u32>;
-
-		/// DO NOT REDUCE THIS VALUE. Maximum number of configs per account.
-		///
-		/// Reducing this value can cause decoding errors in the bounded vectors.
-		#[pallet::constant]
-		type MaxConfigsPerAccount: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -489,6 +485,12 @@ pub mod pallet {
 			friend_group_index: FriendGroupIndex,
 			initiator: T::AccountId,
 		},
+		AttemptFinished {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			inheritor: T::AccountId,
+			previous_inheritor: Option<T::AccountId>,
+		},
 		AttemptSlashed {
 			lost: T::AccountId,
 			friend_group_index: FriendGroupIndex,
@@ -513,8 +515,6 @@ pub mod pallet {
 		AlreadyInitiated,
 		/// The friend already voted for this attempt.
 		AlreadyVoted,
-		/// Duplicate friend groups.
-		DuplicateFriendGroup,
 		/// The lost account has ongoing recovery attempts.
 		HasOngoingAttempts,
 		/// The lost account cannot be a friend of itself.
@@ -597,9 +597,9 @@ pub mod pallet {
 				if inheritor != heir {
 					continue;
 				}
-				if let Err(pos) = inheritance.binary_search(&recovered) {
-					inheritance.insert(pos, recovered);
-				}
+				let Err(pos) = inheritance.binary_search(&recovered) else { continue };
+
+				inheritance.insert(pos, recovered);
 			}
 
 			inheritance
@@ -641,10 +641,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// todo event
 		/// Set the friend groups of the calling account before it lost access.
 		///
-		/// This does not impact or cancel any ongoing recovery attempts.
+		/// This does not impact or cancel any ongoing recovery attempts. The friends of each group will be sorted before being stored. Trying to insert two friend groups with the same set of friends will result in an error.
+		///
+		/// An `FriendGroupsChanged` event is emitted only when the new friends groups differed from the old ones.
 		#[pallet::call_index(2)]
 		#[pallet::weight(0)]
 		pub fn set_friend_groups(
@@ -827,24 +828,33 @@ pub mod pallet {
 			let inheritor = friend_group.inheritor;
 			let inheritance_order = friend_group.inheritance_order;
 
-			// todo event
-			match Inheritor::<T>::get(&lost) {
+			let previous_inheritor = match Inheritor::<T>::get(&lost) {
 				None => {
 					let ticket = Self::inheritor_ticket(&caller)?;
-					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket))
+					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					None
 				},
 				// new recovery has a lower inheritance order, we therefore replace the existing
 				// inheritor
-				Some((old_order, _, ticket)) if inheritance_order < old_order => {
+				Some((old_order, old_inheritor, ticket)) if inheritance_order < old_order => {
 					// We have to update the ticket since we don't know who created it:
 					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;
 					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					Some(old_inheritor)
 				},
 				Some(_) => {
 					// The existing inheritor stays since an equal or worse inheritor contested.
 					// We do not treat this as a poke but just do nothing.
+					None
 				},
-			}
+			};
+
+			Self::deposit_event(Event::<T>::AttemptFinished {
+				lost,
+				friend_group_index: attempt_index,
+				inheritor,
+				previous_inheritor,
+			});
 
 			Ok(())
 		}
@@ -888,8 +898,9 @@ pub mod pallet {
 					.ok_or(ArithmeticError::Overflow)?;
 				ensure!(now >= cancelable_at, Error::<T>::NotYetCancelable);
 			}
-			// NOTE: It is possible to cancel a fully approved attempt, but since we check the cancel
-			// delay, we ensure that every friend had enough time to call `finish_attempt`.
+			// NOTE: It is possible to cancel a fully approved attempt, but since we check the
+			// cancel delay, we ensure that every friend had enough time to call
+			// `finish_attempt`.
 
 			Self::deposit_event(Event::<T>::AttemptCanceled {
 				lost,
@@ -927,6 +938,16 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(
+				T::MaxFriendsPerConfig::get() > 0,
+				"MaxFriendsPerConfig must be greater than 0"
+			);
 		}
 	}
 }
@@ -990,9 +1011,9 @@ impl<T: Config> Pallet<T> {
 	/// Sanity check the friend groups and bound them into a bounded vector.
 	pub fn bound_friend_groups(
 		lost: &T::AccountId,
-		friend_groups: Vec<FriendGroupOf<T>>,
+		mut friend_groups: Vec<FriendGroupOf<T>>,
 	) -> Result<FriendGroupsOf<T>, Error<T>> {
-		for friend_group in &friend_groups {
+		for friend_group in &mut friend_groups {
 			ensure!(
 				friend_group.friends_needed as usize <= friend_group.friends.len(),
 				Error::<T>::TooManyFriendsNeeded
@@ -1000,11 +1021,6 @@ impl<T: Config> Pallet<T> {
 			ensure!(!friend_group.friends.is_empty(), Error::<T>::NoFriends);
 			// cannot contain the lost account itself
 			ensure!(!friend_group.friends.contains(&lost), Error::<T>::LostAccountInFriendGroup);
-		}
-
-		// check that there are no duplicate friend groups
-		if friend_groups.windows(2).any(|window| window[0] == window[1]) {
-			return Err(Error::<T>::DuplicateFriendGroup);
 		}
 
 		friend_groups.try_into().map_err(|_| Error::<T>::TooManyFriendGroups)

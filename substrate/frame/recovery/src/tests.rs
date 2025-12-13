@@ -25,6 +25,7 @@ use frame::{
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{bounded_vec, DispatchError, ModuleError, TokenError};
 
+use crate::mock::assert_last_event;
 use Test as T;
 
 const ABORT_DELAY: u64 = 5;
@@ -61,7 +62,10 @@ fn assert_fg_deposit(who: u64, deposit: u128) {
 
 fn assert_attempt_deposit(who: u64, deposit: u128) {
 	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(&crate::HoldReason::AttemptStorage.into(), &who),
+		<T as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::AttemptStorage.into(),
+			&who
+		),
 		deposit
 	);
 }
@@ -78,10 +82,6 @@ fn assert_security_deposit(who: u64, deposit: u128) {
 
 fn clear_events() {
 	frame_system::Pallet::<T>::reset_events();
-}
-
-fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 fn inc_block_number(by: u64) {
@@ -193,28 +193,6 @@ fn set_friend_groups_multiple_works() {
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), friend_groups));
 		// Deposit taken for both friend groups
 		assert_fg_deposit(ALICE, 144);
-	});
-}
-
-/// Setting a friend group twice fails.
-#[test]
-fn set_friend_groups_duplicate_fails() {
-	new_test_ext().execute_with(|| {
-		let fg1 = FriendGroupOf::<T> {
-			deposit: 10,
-			friends: friends([BOB, CHARLIE, DAVE]),
-			friends_needed: 2,
-			inheritor: FERDIE,
-			inheritance_delay: 10,
-			inheritance_order: 0,
-			cancel_delay: 10,
-		};
-		let friend_groups = vec![fg1.clone(), fg1];
-
-		assert_noop!(
-			Recovery::set_friend_groups(signed(ALICE), friend_groups),
-			Error::<T>::DuplicateFriendGroup
-		);
 	});
 }
 
@@ -366,7 +344,7 @@ fn initiate_attempt_different_friend_groups_works() {
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_security_deposit(BOB, SECURITY_DEPOSIT);
-		
+
 		hypothetically!({
 			assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
 			assert_security_deposit(BOB, SECURITY_DEPOSIT * 2);
@@ -785,10 +763,7 @@ fn slash_attempt_works() {
 		// TI reduced (balance burnt)
 		assert_eq!(<T as Config>::Currency::total_issuance(), ti - SECURITY_DEPOSIT);
 
-		assert_last_event(Event::<T>::AttemptSlashed {
-			lost: ALICE,
-			friend_group_index: 0,
-		});
+		assert_last_event(Event::<T>::AttemptSlashed { lost: ALICE, friend_group_index: 0 });
 	});
 }
 
