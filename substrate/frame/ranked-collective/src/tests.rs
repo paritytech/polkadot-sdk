@@ -411,7 +411,8 @@ fn voting_works() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
-		assert_noop!(Club::vote(RuntimeOrigin::signed(0), 3, true), Error::<Test>::RankTooLow);
+		assert_ok!(Club::vote(RuntimeOrigin::signed(0), 3, true));
+		assert_ok!(Club::vote(RuntimeOrigin::signed(0), 3, false));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 3, true));

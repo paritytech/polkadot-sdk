@@ -648,22 +648,28 @@ pub mod pallet {
 						PollStatus::Ongoing(ref mut tally, class) => {
 							match Voting::<T, I>::get(&poll, &who) {
 								Some(Aye(votes)) => {
-									tally.bare_ayes.saturating_dec();
+									if !votes.is_zero() {
+										tally.bare_ayes.saturating_dec();
+									}
 									tally.ayes.saturating_reduce(votes);
 								},
 								Some(Nay(votes)) => tally.nays.saturating_reduce(votes),
 								None => pays = Pays::No,
 							}
 							let min_rank = T::MinRankOfClass::convert(class);
-							let votes = Self::rank_to_votes(record.rank, min_rank)?;
-							let vote = VoteRecord::from((aye, votes));
-							match aye {
-								true => {
-									tally.bare_ayes.saturating_inc();
-									tally.ayes.saturating_accrue(votes);
+							let vote = match Self::rank_to_votes(record.rank, min_rank) {
+								Some(weight) => {
+									match aye {
+										true => {
+											tally.bare_ayes.saturating_inc();
+											tally.ayes.saturating_accrue(weight);
+										},
+										false => tally.nays.saturating_accrue(weight),
+									}
+									VoteRecord::from((aye, weight))
 								},
-								false => tally.nays.saturating_accrue(votes),
-							}
+								None => VoteRecord::from((aye, 0)),
+							};
 							Voting::<T, I>::insert(&poll, &who, &vote);
 							Ok((tally.clone(), vote))
 						},
@@ -758,9 +764,8 @@ pub mod pallet {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
 		}
 
-		fn rank_to_votes(rank: Rank, min: Rank) -> Result<Votes, DispatchError> {
-			let excess = rank.checked_sub(min).ok_or(Error::<T, I>::RankTooLow)?;
-			Ok(T::VoteWeight::convert(excess))
+		fn rank_to_votes(rank: Rank, min: Rank) -> Option<Votes> {
+			rank.checked_sub(min).map(|excess| T::VoteWeight::convert(excess))
 		}
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
