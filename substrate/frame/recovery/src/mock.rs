@@ -192,7 +192,10 @@ pub fn inc_block_number(by: u64) {
 	);
 }
 
-pub fn can_control_account(inheritor: AccountIdLookupOf<Test>, recovered: AccountIdLookupOf<Test>) -> bool {
+pub fn can_control_account(
+	inheritor: AccountIdLookupOf<Test>,
+	recovered: AccountIdLookupOf<Test>,
+) -> bool {
 	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
 }

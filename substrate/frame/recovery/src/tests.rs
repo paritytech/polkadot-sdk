@@ -18,10 +18,7 @@
 //! Tests for the module.
 
 use crate::{mock::*, Call as RecoveryCall, *};
-use frame::{
-	prelude::fungible::UnbalancedHold,
-	testing_prelude::*,
-};
+use frame::{prelude::fungible::UnbalancedHold, testing_prelude::*};
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{DispatchError, TokenError};
 
