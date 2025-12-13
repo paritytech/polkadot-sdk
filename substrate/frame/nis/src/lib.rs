@@ -302,9 +302,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// A single bid, an item of a *queue* in `Queues`.
-	#[derive(
-		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct Bid<Balance, AccountId> {
 		/// The amount bid.
 		pub amount: Balance,
@@ -313,9 +311,7 @@ pub mod pallet {
 	}
 
 	/// Information representing a receipt.
-	#[derive(
-		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct ReceiptRecord<AccountId, BlockNumber, Balance> {
 		/// The proportion of the effective total issuance.
 		pub proportion: Perquintill,
@@ -338,9 +334,7 @@ pub mod pallet {
 	/// `issuance - frozen + proportion * issuance`
 	///
 	/// where `issuance = active_issuance - IgnoredIssuance`
-	#[derive(
-		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct SummaryRecord<BlockNumber, Balance> {
 		/// The total proportion over all outstanding receipts.
 		pub proportion_owed: Perquintill,

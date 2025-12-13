@@ -545,7 +545,7 @@ def main():
             # Output labels as JSON for GitHub Action
             import json
             labels_output = {"labels": final_labels}
-            print(f"LABELS_JSON: {json.dumps(labels_output)}")
+            print_and_log(f"LABELS_JSON: {json.dumps(labels_output)}")
         except ValueError as e:
             print_and_log(f'❌ {e}')
 

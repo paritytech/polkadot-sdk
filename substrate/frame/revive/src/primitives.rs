@@ -30,7 +30,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -43,7 +43,7 @@ use sp_runtime::{
 /// It has been extended to include `events` at the end of the struct while not bumping the
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct ContractResult<R, Balance> {
 	/// How much weight was consumed during execution.
 	pub weight_consumed: Weight,
@@ -89,7 +89,7 @@ impl<R: Default, B: Balance> Default for ContractResult<R, B> {
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of weight that was necessary to execute the transaction.
 	pub weight_required: Weight,
@@ -104,13 +104,13 @@ pub struct EthTransactInfo<Balance> {
 }
 
 /// Error type of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum EthTransactError {
 	Data(Vec<u8>),
 	Message(String),
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 /// Error encountered while creating a BalanceWithDust from a U256 balance.
 pub enum BalanceConversionError {
 	/// Error encountered while creating the main balance value.
@@ -190,7 +190,7 @@ pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
 pub type SetStorageResult = Result<WriteOutcome, ContractAccessError>;
 
 /// The possible errors that can happen querying the storage of a contract.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum ContractAccessError {
 	/// The given address doesn't point to a contract.
 	DoesntExist,
@@ -201,7 +201,7 @@ pub enum ContractAccessError {
 }
 
 /// Output of a contract call or instantiation which ran to completion.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Default)]
 pub struct ExecReturnValue {
 	/// Flags passed along by `seal_return`. Empty when `seal_return` was never called.
 	pub flags: ReturnFlags,
@@ -217,7 +217,7 @@ impl ExecReturnValue {
 }
 
 /// The result of a successful contract instantiation.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Default)]
 pub struct InstantiateReturnValue {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
@@ -226,7 +226,7 @@ pub struct InstantiateReturnValue {
 }
 
 /// The result of successfully uploading a contract.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub struct CodeUploadReturnValue<Balance> {
 	/// The key under which the new code is stored.
 	pub code_hash: sp_core::H256,
@@ -235,7 +235,7 @@ pub struct CodeUploadReturnValue<Balance> {
 }
 
 /// Reference to an existing code hash or a new vm module.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum Code {
 	/// A vm module as raw bytes.
 	Upload(Vec<u8>),
@@ -244,9 +244,7 @@ pub enum Code {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///
