@@ -17,94 +17,15 @@
 
 //! Tests for the module.
 
-use crate::{frame_system::Origin, mock::*, Call as RecoveryCall, *};
+use crate::{mock::*, Call as RecoveryCall, *};
 use frame::{
-	prelude::fungible::{InspectHold, UnbalancedHold},
+	prelude::fungible::UnbalancedHold,
 	testing_prelude::*,
 };
 use pallet_balances::Call as BalancesCall;
-use sp_runtime::{bounded_vec, DispatchError, ModuleError, TokenError};
+use sp_runtime::{DispatchError, TokenError};
 
-use crate::mock::assert_last_event;
 use Test as T;
-
-const ABORT_DELAY: u64 = 5;
-
-fn friends(friends: impl IntoIterator<Item = u64>) -> FriendsOf<T> {
-	friends.into_iter().map(|f| f.into()).collect::<Vec<_>>().try_into().unwrap()
-}
-
-fn fg(fs: impl IntoIterator<Item = u64>) -> FriendGroupOf<T> {
-	FriendGroupOf::<T> {
-		deposit: 10,
-		friends: friends(fs),
-		friends_needed: 2,
-		inheritor: FERDIE,
-		inheritance_delay: 10,
-		inheritance_order: 0,
-		cancel_delay: ABORT_DELAY,
-	}
-}
-
-fn signed(account: u64) -> RuntimeOrigin {
-	RuntimeOrigin::signed(account)
-}
-
-fn assert_fg_deposit(who: u64, deposit: u128) {
-	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(
-			&crate::HoldReason::FriendGroupsStorage.into(),
-			&who
-		),
-		deposit
-	);
-}
-
-fn assert_attempt_deposit(who: u64, deposit: u128) {
-	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(
-			&crate::HoldReason::AttemptStorage.into(),
-			&who
-		),
-		deposit
-	);
-}
-
-fn assert_security_deposit(who: u64, deposit: u128) {
-	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(
-			&crate::HoldReason::SecurityDeposit.into(),
-			&who
-		),
-		deposit
-	);
-}
-
-fn clear_events() {
-	frame_system::Pallet::<T>::reset_events();
-}
-
-fn inc_block_number(by: u64) {
-	frame_system::Pallet::<T>::set_block_number(
-		frame_system::Pallet::<T>::current_block_number() + by,
-	);
-}
-
-/// Whether `inheritor` can control the `recovered` account.
-fn can_control_account(inheritor: AccountIdLookupOf<T>, recovered: AccountIdLookupOf<T>) -> bool {
-	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
-	let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
-
-	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
-}
-
-/// Storage root excluding System events.
-fn root_without_events() -> Vec<u8> {
-	hypothetically!({
-		clear_events();
-		sp_io::storage::root(sp_runtime::StateVersion::V1)
-	})
-}
 
 #[test]
 fn basic_flow_works() {
@@ -291,12 +212,6 @@ fn set_friend_groups_ongoing_attempt_fails() {
 			Error::<T>::HasOngoingAttempts
 		);
 	});
-}
-
-/// Setup the friend groups for Alice.
-fn setup_alice_fgs(fs: impl IntoIterator<Item = impl IntoIterator<Item = u64>>) {
-	let fgs = fs.into_iter().map(fg).collect::<Vec<_>>();
-	assert_ok!(Recovery::set_friend_groups(signed(ALICE), fgs));
 }
 
 /// Cannot initiate more than one attempt per friend group.
