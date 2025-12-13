@@ -463,6 +463,16 @@ mod tests {
 		takes_junction([1u8; 20]);
 		takes_junction(NetworkId::Polkadot);
 
-		assert_eq!(v5::Junction::from(v5::Junction::Parachain(42)).try_into(), Ok(Junction::Parachain(42)));
+		assert_eq!(
+			v5::Junction::from(v5::Junction::Parachain(42)).try_into(),
+			Ok(Junction::Parachain(42))
+		);
+		assert_eq!(
+			v5::Junction::from(v5::Junction::AccountIndex64 { network: None, index: 5u64 })
+				.try_into(),
+			Ok(Junction::AccountIndex64 { network: None, index: 5u64 })
+		);
+
+		assert_eq!(v5::NetworkId::from(v5::NetworkId::Kusama).try_into(), Ok(NetworkId::Kusama));
 	}
 }

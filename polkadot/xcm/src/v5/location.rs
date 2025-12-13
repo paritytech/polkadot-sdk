@@ -740,8 +740,7 @@ mod tests {
 
 	#[test]
 	fn conversion_from_other_types_works() {
-		use crate::v3;
-		use crate::v4;
+		use crate::{v3, v4};
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 
