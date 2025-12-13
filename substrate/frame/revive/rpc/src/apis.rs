@@ -23,5 +23,5 @@ pub use execution_apis::*;
 mod health_api;
 pub use health_api::*;
 
-mod substrate_api;
-pub use substrate_api::*;
+mod polkadot_api;
+pub use polkadot_api::*;

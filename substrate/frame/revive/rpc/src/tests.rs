@@ -53,7 +53,7 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	tokio::time::timeout(timeout, async {
 		loop {
 			if let Ok(client) = WsClientBuilder::default().build(url).await {
-				return client
+				return client;
 			} else {
 				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			}
@@ -208,8 +208,8 @@ async fn submit_substrate_transactions(
 					log::trace!(target: LOG_TARGET, "Substrate tx {i} submitted");
 					while let Some(status) = progress.next().await {
 						match status {
-							Ok(TxStatus::InFinalizedBlock(block)) |
-							Ok(TxStatus::InBestBlock(block)) => {
+							Ok(TxStatus::InFinalizedBlock(block))
+							| Ok(TxStatus::InBestBlock(block)) => {
 								log::trace!(target: LOG_TARGET,
 									"Substrate tx {i} included in block {:?}",
 									block.block_hash()
@@ -249,8 +249,9 @@ async fn verify_transactions_in_single_block(
 
 	let block_tx_hashes = match &block.transactions {
 		HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		HashesOrTransactionInfos::TransactionInfos(infos) =>
-			infos.iter().map(|info| info.hash).collect(),
+		HashesOrTransactionInfos::TransactionInfos(infos) => {
+			infos.iter().map(|info| info.hash).collect()
+		},
 	};
 
 	if let Some(missing_hash) =

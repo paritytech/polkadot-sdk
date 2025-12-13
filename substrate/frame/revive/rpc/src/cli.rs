@@ -17,8 +17,8 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
-	ReceiptProvider, SubstrateRpcServer, SubstrateRpcServerImpl, SubxtBlockInfoProvider,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, PolkadotRpcServer,
+	PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider,
 	SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
@@ -267,14 +267,14 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
 	let debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
-	let substrate_api = SubstrateRpcServerImpl::new(client).into_rpc();
+	let polkadot_api = PolkadotRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module
-		.merge(substrate_api)
+		.merge(polkadot_api)
 		.map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }
