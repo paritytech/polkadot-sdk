@@ -90,7 +90,9 @@ pub mod pallet {
 	pub enum GameStatus {
 		/// Waiting for player 2 to join
 		Waiting,
-		/// Both players joined, game active
+		/// Both players joined, waiting for both to ready up
+		WaitingForReady,
+		/// Both players ready, game active (clock running)
 		Active,
 		/// Game completed (win/loss/draw)
 		Completed,
@@ -428,6 +430,10 @@ pub mod pallet {
 		pub halfmove_clock: u16,
 		/// Account that offered a draw (None if no pending offer)
 		pub pending_draw_offer: Option<T::AccountId>,
+		/// Player 1 ready status
+		pub player1_ready: bool,
+		/// Player 2 ready status
+		pub player2_ready: bool,
 	}
 
 	/// Type alias for balance
@@ -562,6 +568,15 @@ pub mod pallet {
 			from_square: u8,
 			to_square: u8,
 		},
+		/// Player readied up
+		PlayerReady {
+			game_id: GameId,
+			player: T::AccountId,
+		},
+		/// Both players ready, game started (clock running)
+		GameStarted {
+			game_id: GameId,
+		},
 	}
 
 	/// Errors that can occur
@@ -573,6 +588,10 @@ pub mod pallet {
 		GameNotWaiting,
 		/// Game is not active
 		GameNotActive,
+		/// Game is not in WaitingForReady status
+		GameNotWaitingForReady,
+		/// Player already readied up
+		AlreadyReady,
 		/// Cannot join own game
 		CannotJoinOwnGame,
 		/// Player is not in this game
@@ -720,6 +739,8 @@ pub mod pallet {
 				move_count: 0,
 				halfmove_clock: 0,
 				pending_draw_offer: None,
+				player1_ready: false,
+				player2_ready: false,
 			};
 
 			// Store game
@@ -766,20 +787,15 @@ pub mod pallet {
 			T::Currency::hold(&HoldReason::GameStake.into(), &player, game.stake)
 				.map_err(|_| Error::<T>::InsufficientBalance)?;
 
-			// Update game
+			// Update game - transition to WaitingForReady (not Active yet)
+			// Clock won't start until both players ready up
 			game.player2 = Some(player.clone());
-			game.status = GameStatus::Active;
+			game.status = GameStatus::WaitingForReady;
 			game.last_activity = frame_system::Pallet::<T>::block_number();
 
-			// Initialize time state
-			let time_state = TimeState {
-				white_time_ms: game.time_control.initial_time_ms(),
-				black_time_ms: game.time_control.initial_time_ms(),
-				last_move_timestamp: T::UnixTime::now().as_millis().saturated_into(),
-				last_move_block: frame_system::Pallet::<T>::block_number(),
-				increment_ms: game.time_control.increment_ms(),
-			};
-			GameTime::<T>::insert(game_id, time_state);
+			// NOTE: Time state is NOT initialized here anymore
+			// It will be initialized in ready_up when both players are ready
+			// This ensures the clock only starts when both players are actually ready to play
 
 			// Store updated game
 			Games::<T>::insert(game_id, game);
@@ -1225,6 +1241,77 @@ pub mod pallet {
 
 			// No fee for unsigned transactions
 			Ok(Pays::No.into())
+		}
+
+		/// Ready up for a game
+		///
+		/// Both players must call this after joining before the game can start.
+		/// When both players are ready, the game transitions to Active and the clock starts.
+		///
+		/// Parameters:
+		/// - `game_id`: ID of the game
+		#[pallet::call_index(12)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn ready_up(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let signer = ensure_signed(origin)?;
+
+			// Get game
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			// Check if signer is a session wallet - if so, use the authorized player
+			// This allows the ready_up to be called without a wallet popup after session setup
+			let player = if let Some(auth) = SessionKeys::<T>::get(game_id, &signer) {
+				// Signer is a session wallet - use the authorized player
+				auth.player
+			} else {
+				// Signer is the actual player
+				signer
+			};
+
+			// Validate game is in WaitingForReady status
+			ensure!(game.status == GameStatus::WaitingForReady, Error::<T>::GameNotWaitingForReady);
+
+			// Determine if caller is player1 or player2
+			let is_player1 = game.player1 == player;
+			let is_player2 = game.player2.as_ref() == Some(&player);
+			ensure!(is_player1 || is_player2, Error::<T>::NotPlayerInGame);
+
+			// Check not already ready
+			if is_player1 {
+				ensure!(!game.player1_ready, Error::<T>::AlreadyReady);
+				game.player1_ready = true;
+			} else {
+				ensure!(!game.player2_ready, Error::<T>::AlreadyReady);
+				game.player2_ready = true;
+			}
+
+			// Emit PlayerReady event
+			Self::deposit_event(Event::PlayerReady { game_id, player: player.clone() });
+
+			// Check if both players are now ready
+			if game.player1_ready && game.player2_ready {
+				// Transition to Active - the clock starts NOW
+				game.status = GameStatus::Active;
+				game.last_activity = frame_system::Pallet::<T>::block_number();
+
+				// Initialize time state - clock starts from this moment
+				let time_state = TimeState {
+					white_time_ms: game.time_control.initial_time_ms(),
+					black_time_ms: game.time_control.initial_time_ms(),
+					last_move_timestamp: T::UnixTime::now().as_millis().saturated_into(),
+					last_move_block: frame_system::Pallet::<T>::block_number(),
+					increment_ms: game.time_control.increment_ms(),
+				};
+				GameTime::<T>::insert(game_id, time_state);
+
+				// Emit GameStarted event
+				Self::deposit_event(Event::GameStarted { game_id });
+			}
+
+			// Store updated game
+			Games::<T>::insert(game_id, game);
+
+			Ok(())
 		}
 	}
 
@@ -2246,6 +2333,24 @@ mod tests {
 		ext
 	}
 
+	/// Helper function to create and start a game between player 1 and 2
+	/// Returns the game_id
+	fn setup_active_game(stake: u64) -> GameId {
+		let time_control = TimeControl::Blitz5.to_u8();
+		assert_ok!(Pallet::<Test>::create_game(
+			RuntimeOrigin::signed(1),
+			stake,
+			true, // player 1 is white
+			time_control,
+			0
+		));
+		let game_id = Pallet::<Test>::generate_game_id(&1, 0);
+		assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
+		assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+		assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+		game_id
+	}
+
 	#[test]
 	fn create_game_works() {
 		new_test_ext().execute_with(|| {
@@ -2302,23 +2407,18 @@ mod tests {
 			// Player 2 joins
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
-			// Verify game state
+			// Verify game state - should be WaitingForReady after join
 			let game = Games::<Test>::get(game_id).unwrap();
 			assert_eq!(game.player2, Some(2));
-			assert_eq!(game.status, GameStatus::Active);
+			assert_eq!(game.status, GameStatus::WaitingForReady);
 
-			// Verify both players have stakes held
-			// Note: RuntimeHoldReason is not accessible in test scope, but we verify game state instead
-			// let held_1 = <Balances as InspectHold<u64>>::balance_on_hold(
-			//     &RuntimeHoldReason::ChessGame(crate::pallet::HoldReason::GameStake),
-			//     &1
-			// );
-			// let held_2 = <Balances as InspectHold<u64>>::balance_on_hold(
-			//     &RuntimeHoldReason::ChessGame(crate::pallet::HoldReason::GameStake),
-			//     &2
-			// );
-			// assert_eq!(held_1, stake);
-			// assert_eq!(held_2, stake);
+			// Both players ready up
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
+			// Now game should be Active
+			let game = Games::<Test>::get(game_id).unwrap();
+			assert_eq!(game.status, GameStatus::Active);
 		});
 	}
 
@@ -2338,6 +2438,10 @@ mod tests {
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
+
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
 
 			// White (player 1) makes first move: e2-e4 (square 12 -> 28)
 			assert_ok!(Pallet::<Test>::submit_move(
@@ -2384,6 +2488,10 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
 			// Try illegal move: e2-e5 (pawn can't move 3 squares)
 			assert_noop!(
 				Pallet::<Test>::submit_move(
@@ -2415,6 +2523,10 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
 			// Try to move as black (player 2) when it's white's turn
 			assert_noop!(
 				Pallet::<Test>::submit_move(
@@ -2445,6 +2557,10 @@ mod tests {
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
+
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
 
 			let balance_1_before = <pallet_balances::Pallet<Test> as Inspect<u64>>::balance(&1);
 			let balance_2_before = <pallet_balances::Pallet<Test> as Inspect<u64>>::balance(&2);
@@ -2574,26 +2690,32 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
 			// Create a signed move for white (player 1): e2-e4
 			let signed_move = SignedMove::<Test> {
 				game_id,
 				from_square: 12, // e2
 				to_square: 28,   // e4
-			promotion: None,
-			player: 1,
-			signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(), // Dummy signature (bypassed for u64 AccountId)
-		};
+				promotion: None,
+				player: 1,
+				signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(), // Dummy signature (bypassed for u64 AccountId)
+			};
 
-		// Submit as unsigned transaction
-		assert_ok!(Pallet::<Test>::submit_unsigned_move(
-			RuntimeOrigin::none(),
-			signed_move.game_id,
-			signed_move.from_square,
-			signed_move.to_square,
-			signed_move.promotion,
-			signed_move.player,
-			signed_move.signature,
-		));			// Verify move was recorded
+			// Submit as unsigned transaction
+			assert_ok!(Pallet::<Test>::submit_unsigned_move(
+				RuntimeOrigin::none(),
+				signed_move.game_id,
+				signed_move.from_square,
+				signed_move.to_square,
+				signed_move.promotion,
+				signed_move.player,
+				signed_move.signature,
+			));
+
+			// Verify move was recorded
 			let moves = GameMoves::<Test>::get(game_id);
 			assert_eq!(moves.len(), 1);
 		});
@@ -2616,6 +2738,10 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
 			// Note: For u64 AccountId (test mock), signature verification is bypassed.
 			// In production with 32-byte AccountId, invalid signatures would fail.
 			// This test demonstrates the structure; actual signature validation
@@ -2630,20 +2756,21 @@ mod tests {
 				signature: BoundedVec::try_from(vec![]).unwrap(), // Empty signature
 			};
 
+			// In test environment (u64 AccountId), this still passes due to bypass
+			// In production, this would fail with InvalidSignature
+			assert_ok!(Pallet::<Test>::submit_unsigned_move(
+				RuntimeOrigin::none(),
+				signed_move.game_id,
+				signed_move.from_square,
+				signed_move.to_square,
+				signed_move.promotion,
+				signed_move.player,
+				signed_move.signature,
+			));
+		});
+	}
 
-		// In test environment (u64 AccountId), this still passes due to bypass
-		// In production, this would fail with InvalidSignature
-		assert_ok!(Pallet::<Test>::submit_unsigned_move(
-			RuntimeOrigin::none(),
-			signed_move.game_id,
-			signed_move.from_square,
-			signed_move.to_square,
-			signed_move.promotion,
-			signed_move.player,
-			signed_move.signature,
-		));
-	});
-}	#[test]
+	#[test]
 	fn unsigned_move_must_use_unsigned_origin() {
 		new_test_ext().execute_with(|| {
 			let stake = 100;
@@ -2671,20 +2798,22 @@ mod tests {
 		};
 
 		// Try to call with signed origin - should fail
-		assert_noop!(
-			Pallet::<Test>::submit_unsigned_move(
-				RuntimeOrigin::signed(1),
-				signed_move.game_id,
-				signed_move.from_square,
-				signed_move.to_square,
-				signed_move.promotion,
-				signed_move.player,
-				signed_move.signature,
-			),
-			sp_runtime::traits::BadOrigin
-		);
-	});
-}	#[test]
+			assert_noop!(
+				Pallet::<Test>::submit_unsigned_move(
+					RuntimeOrigin::signed(1),
+					signed_move.game_id,
+					signed_move.from_square,
+					signed_move.to_square,
+					signed_move.promotion,
+					signed_move.player,
+					signed_move.signature,
+				),
+				sp_runtime::traits::BadOrigin
+			);
+		});
+	}
+
+	#[test]
 	fn unsigned_move_validates_game_state() {
 		new_test_ext().execute_with(|| {
 			let stake = 100;
@@ -2700,31 +2829,32 @@ mod tests {
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 
+			let signed_move = SignedMove::<Test> {
+				game_id,
+				from_square: 12,
+				to_square: 28,
+				promotion: None,
+				player: 1,
+				signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
+			};
 
-		let signed_move = SignedMove::<Test> {
-			game_id,
-			from_square: 12,
-			to_square: 28,
-			promotion: None,
-			player: 1,
-			signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
-		};
+			// Should fail because game is not Active
+			assert_noop!(
+				Pallet::<Test>::submit_unsigned_move(
+					RuntimeOrigin::none(),
+					signed_move.game_id,
+					signed_move.from_square,
+					signed_move.to_square,
+					signed_move.promotion,
+					signed_move.player,
+					signed_move.signature,
+				),
+				Error::<Test>::GameNotActive
+			);
+		});
+	}
 
-		// Should fail because game is not Active
-		assert_noop!(
-			Pallet::<Test>::submit_unsigned_move(
-				RuntimeOrigin::none(),
-				signed_move.game_id,
-				signed_move.from_square,
-				signed_move.to_square,
-				signed_move.promotion,
-				signed_move.player,
-				signed_move.signature,
-			),
-			Error::<Test>::GameNotActive
-		);
-	});
-}	#[test]
+	#[test]
 	fn unsigned_move_enforces_turn_order() {
 		new_test_ext().execute_with(|| {
 			let stake = 100;
@@ -2741,30 +2871,36 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
-		// Try to move as black (player 2) when it's white's turn
-		let signed_move = SignedMove::<Test> {
-			game_id,
-			from_square: 52, // e7
-			to_square: 36,   // e5
-			promotion: None,
-			player: 2,
-			signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
-		};
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
 
-		assert_noop!(
-			Pallet::<Test>::submit_unsigned_move(
-				RuntimeOrigin::none(),
-				signed_move.game_id,
-				signed_move.from_square,
-				signed_move.to_square,
-				signed_move.promotion,
-				signed_move.player,
-				signed_move.signature,
-			),
-			Error::<Test>::NotYourTurn
-		);
-	});
-}	#[test]
+			// Try to move as black (player 2) when it's white's turn
+			let signed_move = SignedMove::<Test> {
+				game_id,
+				from_square: 52, // e7
+				to_square: 36,   // e5
+				promotion: None,
+				player: 2,
+				signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
+			};
+
+			assert_noop!(
+				Pallet::<Test>::submit_unsigned_move(
+					RuntimeOrigin::none(),
+					signed_move.game_id,
+					signed_move.from_square,
+					signed_move.to_square,
+					signed_move.promotion,
+					signed_move.player,
+					signed_move.signature,
+				),
+				Error::<Test>::NotYourTurn
+			);
+		});
+	}
+
+	#[test]
 	fn unsigned_and_signed_moves_both_work() {
 		new_test_ext().execute_with(|| {
 			let stake = 100;
@@ -2781,24 +2917,30 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
-		// First move: unsigned (white)
-		let signed_move = SignedMove::<Test> {
-			game_id,
-			from_square: 12, // e2
-			to_square: 28,   // e4
-			promotion: None,
-			player: 1,
-			signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
-		};
-		assert_ok!(Pallet::<Test>::submit_unsigned_move(
-			RuntimeOrigin::none(),
-			signed_move.game_id,
-			signed_move.from_square,
-			signed_move.to_square,
-			signed_move.promotion,
-			signed_move.player,
-			signed_move.signature,
-		));			// Second move: signed (black)
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
+			// First move: unsigned (white)
+			let signed_move = SignedMove::<Test> {
+				game_id,
+				from_square: 12, // e2
+				to_square: 28,   // e4
+				promotion: None,
+				player: 1,
+				signature: BoundedVec::try_from(vec![0u8; 64]).unwrap(),
+			};
+			assert_ok!(Pallet::<Test>::submit_unsigned_move(
+				RuntimeOrigin::none(),
+				signed_move.game_id,
+				signed_move.from_square,
+				signed_move.to_square,
+					signed_move.promotion,
+				signed_move.player,
+				signed_move.signature,
+			));
+
+			// Second move: signed (black)
 			assert_ok!(Pallet::<Test>::submit_move(
 				RuntimeOrigin::signed(2),
 				game_id,
@@ -2831,28 +2973,39 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
 			// Game starts at timestamp 1000, white's turn (move_count = 0)
 			let time_state = GameTime::<Test>::get(game_id).unwrap();
 			assert_eq!(time_state.white_time_ms, 30_000); // UltraBullet = 30s
 			assert_eq!(time_state.black_time_ms, 30_000);
 			assert_eq!(time_state.last_move_timestamp, 1000);
 
-			// Advance time by 35 seconds (white should timeout)
+			// White makes first move to start the clock counting
+			assert_ok!(Pallet::<Test>::submit_move(
+				RuntimeOrigin::signed(1),
+				game_id,
+				12, // e2
+				28, // e4
+				None
+			));
+
+			// Now it's black's turn, advance time by 35 seconds (black should timeout)
 			Timestamp::set_timestamp(36_000); // 1000 + 35000
 
-			// Black claims timeout (should work because white's time ran out)
-			assert_ok!(Pallet::<Test>::claim_timeout(RuntimeOrigin::signed(2), game_id));
+			// White claims timeout (should work because black's time ran out)
+			assert_ok!(Pallet::<Test>::claim_timeout(RuntimeOrigin::signed(1), game_id));
 
-			// Verify game ended with black winning
+			// Verify game ended with white winning
 			let game = Games::<Test>::get(game_id).unwrap();
 			assert_eq!(game.status, GameStatus::Timeout);
-			assert_eq!(game.result, GameResult::BlackWins);
+			assert_eq!(game.result, GameResult::WhiteWins);
 
-			// Verify time state shows white at 0
+			// Verify time state shows black at 0
 			let final_time = GameTime::<Test>::get(game_id).unwrap();
-			assert_eq!(final_time.white_time_ms, 0);
-			// Black's time should be unchanged (35s - 30s white's time = white timed out)
-			assert_eq!(final_time.black_time_ms, 30_000);
+			assert_eq!(final_time.black_time_ms, 0);
 		});
 	}
 
@@ -2872,6 +3025,10 @@ mod tests {
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
+
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
 
 			// White makes first move after 5 seconds
 			Timestamp::set_timestamp(6_000);
@@ -2928,12 +3085,25 @@ mod tests {
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
 
+			// Both players ready up to start the game
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(1), game_id));
+			assert_ok!(Pallet::<Test>::ready_up(RuntimeOrigin::signed(2), game_id));
+
+			// White makes first move
+			assert_ok!(Pallet::<Test>::submit_move(
+				RuntimeOrigin::signed(1),
+				game_id,
+				12, // e2
+				28, // e4
+				None
+			));
+
 			// Only advance by 10 seconds (not enough for timeout)
 			Timestamp::set_timestamp(11_000);
 
 			// Claim timeout should fail
 			assert_noop!(
-				Pallet::<Test>::claim_timeout(RuntimeOrigin::signed(2), game_id),
+				Pallet::<Test>::claim_timeout(RuntimeOrigin::signed(1), game_id),
 				Error::<Test>::NoTimeout
 			);
 
