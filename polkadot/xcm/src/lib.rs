@@ -244,17 +244,18 @@ versioned_type! {
 	}
 }
 
-versioned_type! {
-	/// A single `NetworkId` value, together with its version code.
-	pub enum VersionedNetworkId {
-		#[codec(index = 3)]
-		V3(v3::NetworkId),
-		#[codec(index = 4)]
-		V4(v4::NetworkId),
-		#[codec(index = 5)]
-		V5(v5::NetworkId),
-	}
-}
+// Conflicting with NetworkIdV3 to NetworkIdV5 conversion
+// versioned_type! {
+// 	/// A single `NetworkId` value, together with its version code.
+// 	pub enum VersionedNetworkId {
+// 		#[codec(index = 3)]
+// 		V3(v3::NetworkId),
+// 		#[codec(index = 4)]
+// 		V4(v4::NetworkId),
+// 		#[codec(index = 5)]
+// 		V5(v5::NetworkId),
+// 	}
+// }
 
 versioned_type! {
 	/// A single `Junction` value, together with its version code.

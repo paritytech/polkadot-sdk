@@ -28,13 +28,7 @@
 
 use super::{InteriorLocation, Location, Reanchorable};
 use crate::{
-	v3::{
-		AssetId as OldAssetIdV3, AssetInstance as OldAssetInstanceV3,
-		Fungibility as OldFungibilityV3, MultiAsset as OldAssetV3,
-		MultiAssetFilter as OldAssetFilterV3, MultiAssets as OldAssetsV3,
-		MultiLocation as OldMultiLocationV3, WildFungibility as OldWildFungibilityV3,
-		WildMultiAsset as OldWildAssetV3,
-	},
+	v3::AssetId as OldAssetIdV3,
 	v4::{
 		Asset as OldAsset, AssetFilter as OldAssetFilter, AssetId as OldAssetId,
 		AssetInstance as OldAssetInstance, Assets as OldAssets, Fungibility as OldFungibility,
