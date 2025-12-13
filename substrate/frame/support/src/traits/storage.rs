@@ -27,7 +27,7 @@ pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, Member},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 /// An instance of a pallet in the storage.
@@ -168,7 +168,7 @@ impl WhitelistedStorageKeys for Tuple {
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Decode,
