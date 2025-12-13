@@ -789,3 +789,171 @@ fn slash_attempt_fails_when_initiator_is_missing_deposit() {
 		assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
 	});
 }
+
+/// Bitfield tests
+#[test]
+fn bitfield_default_all_zeros() {
+	// Test with 16 max entries (fits in 1 u16 word)
+	let bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 1);
+
+	// Test with 32 max entries (fits in 2 u16 words)
+	let bitfield: Bitfield<ConstU32<32>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 2);
+
+	// Test with 17 max entries (needs 2 u16 words due to ceiling division)
+	let bitfield: Bitfield<ConstU32<17>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 2);
+}
+
+#[test]
+fn bitfield_set_if_not_set_works() {
+	let mut bitfield: Bitfield<ConstU32<32>> = Bitfield::default();
+
+	// Set bit at index 0
+	assert_ok!(bitfield.set_if_not_set(0));
+	assert_eq!(bitfield.count_ones(), 1);
+
+	// Try to set the same bit again - should fail
+	assert_err!(bitfield.set_if_not_set(0), ());
+	assert_eq!(bitfield.count_ones(), 1);
+
+	// Set bit at index 15 (last bit of first u16 word)
+	assert_ok!(bitfield.set_if_not_set(15));
+	assert_eq!(bitfield.count_ones(), 2);
+
+	// Set bit at index 16 (first bit of second u16 word)
+	assert_ok!(bitfield.set_if_not_set(16));
+	assert_eq!(bitfield.count_ones(), 3);
+
+	// Set bit at index 31 (last bit of second u16 word)
+	assert_ok!(bitfield.set_if_not_set(31));
+	assert_eq!(bitfield.count_ones(), 4);
+}
+
+#[test]
+fn bitfield_set_out_of_bounds_fails() {
+	let mut bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+
+	// Valid indices 0-15
+	assert_ok!(bitfield.set_if_not_set(0));
+	assert_ok!(bitfield.set_if_not_set(15));
+
+	// Index 16 is out of bounds for MaxEntries=16
+	assert_err!(bitfield.set_if_not_set(16), ());
+	assert_err!(bitfield.set_if_not_set(100), ());
+}
+
+#[test]
+fn bitfield_count_ones_works() {
+	let mut bitfield: Bitfield<ConstU32<64>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+
+	// Set bits across multiple u16 words
+	for i in [0, 5, 10, 15, 16, 20, 31, 32, 48, 63] {
+		assert_ok!(bitfield.set_if_not_set(i));
+	}
+
+	assert_eq!(bitfield.count_ones(), 10);
+}
+
+#[test]
+fn bitfield_with_bits_helper_works() {
+	let bitfield: Bitfield<ConstU32<32>> = Bitfield::default().with_bits([0, 5, 10, 15, 20, 25]);
+	assert_eq!(bitfield.count_ones(), 6);
+
+	// Verify individual bits are set
+	let mut test_bitfield = Bitfield::default();
+	assert_ok!(test_bitfield.set_if_not_set(0));
+	assert_ok!(test_bitfield.set_if_not_set(5));
+	assert_ok!(test_bitfield.set_if_not_set(10));
+	assert_ok!(test_bitfield.set_if_not_set(15));
+	assert_ok!(test_bitfield.set_if_not_set(20));
+	assert_ok!(test_bitfield.set_if_not_set(25));
+
+	assert_eq!(bitfield, test_bitfield);
+}
+
+#[test]
+fn bitfield_multiple_words_works() {
+	// Test with exactly 48 entries (3 u16 words)
+	let mut bitfield: Bitfield<ConstU32<48>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 3);
+
+	// Set one bit in each word
+	assert_ok!(bitfield.set_if_not_set(0)); // First word
+	assert_ok!(bitfield.set_if_not_set(16)); // Second word
+	assert_ok!(bitfield.set_if_not_set(32)); // Third word
+	assert_eq!(bitfield.count_ones(), 3);
+
+	// Fill the first word completely (bits 0-15)
+	for i in 0..16 {
+		let _ = bitfield.set_if_not_set(i);
+	}
+	assert_eq!(bitfield.count_ones(), 16 + 1 + 1); // 16 in first word + 1 in second + 1 in third
+}
+
+#[test]
+fn bitfield_already_voted_scenario() {
+	// Simulates the approval scenario from the recovery pallet
+	let mut bitfield: Bitfield<ConstU32<10>> = Bitfield::default();
+
+	// Friend at index 0 votes
+	assert_ok!(bitfield.set_if_not_set(0));
+
+	// Friend at index 0 tries to vote again - should fail
+	assert_err!(bitfield.set_if_not_set(0), ());
+
+	// Friend at index 5 votes
+	assert_ok!(bitfield.set_if_not_set(5));
+
+	// Friend at index 9 votes
+	assert_ok!(bitfield.set_if_not_set(9));
+
+	assert_eq!(bitfield.count_ones(), 3);
+}
+
+#[test]
+fn bitfield_ceiling_division_works() {
+	// Test that ceiling division works correctly for non-multiples of 16
+
+	// 1 entry needs 1 word
+	let bitfield: Bitfield<ConstU32<1>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 15 entries needs 1 word
+	let bitfield: Bitfield<ConstU32<15>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 16 entries needs 1 word
+	let bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 17 entries needs 2 words (ceiling division)
+	let bitfield: Bitfield<ConstU32<17>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 2);
+
+	// 33 entries needs 3 words (ceiling division)
+	let bitfield: Bitfield<ConstU32<33>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 3);
+}
+
+#[test]
+fn bitfield_all_bits_in_word_set() {
+	let mut bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+
+	// Set all 16 bits
+	for i in 0..16 {
+		assert_ok!(bitfield.set_if_not_set(i));
+	}
+
+	assert_eq!(bitfield.count_ones(), 16);
+
+	// All bits should now fail to set again
+	for i in 0..16 {
+		assert_err!(bitfield.set_if_not_set(i), ());
+	}
+}
