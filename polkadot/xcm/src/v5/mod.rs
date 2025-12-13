@@ -188,7 +188,7 @@ pub mod prelude {
 			Junctions::{self, Here},
 			Location, MaxAssetTransferFilters, MaxPublishItems, MaybeErrorCode,
 			NetworkId::{self, *},
-			PublishData,
+			PublishData, PublishKey,
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
 			SendXcm, Weight,
@@ -213,12 +213,14 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 	pub MaxAssetTransferFilters: u32 = 6;
 	pub MaxPublishItems: u32 = 16;
-	pub MaxPublishKeyLength: u32 = 32;
 	pub MaxPublishValueLength: u32 = 1024;
 }
 
+/// Key type for published data - a 32-byte hash
+pub type PublishKey = [u8; 32];
+
 pub type PublishData = BoundedVec<
-	(BoundedVec<u8, MaxPublishKeyLength>, BoundedVec<u8, MaxPublishValueLength>),
+	(PublishKey, BoundedVec<u8, MaxPublishValueLength>),
 	MaxPublishItems,
 >;
 

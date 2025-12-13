@@ -21,12 +21,18 @@ use frame_support::{
 	traits::fungible::{hold::Inspect as HoldInspect, Inspect},
 };
 use polkadot_primitives::Id as ParaId;
+use sp_core::hashing::blake2_256;
 
 const ALICE: u64 = 1;
 const BOB: u64 = 2;
 
 fn setup_account(who: u64, balance: u128) {
 	let _ = Balances::mint_into(&who, balance);
+}
+
+// Helper to create hash keys from strings for tests
+fn hash_key(data: &[u8]) -> [u8; 32] {
+	blake2_256(data)
 }
 
 fn register_test_publisher(para_id: ParaId) {
@@ -151,7 +157,7 @@ fn register_publisher_requires_sufficient_balance() {
 fn publish_requires_registration() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(2000);
-		let data = vec![(b"key".to_vec(), b"value".to_vec())];
+		let data = vec![(hash_key(b"key"), b"value".to_vec())];
 
 		assert_err!(
 			Broadcaster::handle_publish(para_id, data),
@@ -170,10 +176,10 @@ fn registered_publisher_can_publish() {
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 
-		let data = vec![(b"key".to_vec(), b"value".to_vec())];
+		let data = vec![(hash_key(b"key"), b"value".to_vec())];
 		assert_ok!(Broadcaster::handle_publish(para_id, data));
 
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key"), Some(b"value".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key")), Some(b"value".to_vec()));
 	});
 }
 
@@ -189,7 +195,7 @@ fn publish_store_retrieve_and_update_data() {
 		assert!(Broadcaster::get_publisher_child_root(para_id).is_none());
 
 		let initial_data =
-			vec![(b"key1".to_vec(), b"value1".to_vec()), (b"key2".to_vec(), b"value2".to_vec())];
+			vec![(hash_key(b"key1"), b"value1".to_vec()), (hash_key(b"key2"), b"value2".to_vec())];
 		Broadcaster::handle_publish(para_id, initial_data.clone()).unwrap();
 
 		assert!(PublisherExists::<Test>::get(para_id));
@@ -197,13 +203,13 @@ fn publish_store_retrieve_and_update_data() {
 		assert!(root_after_initial.is_some());
 		assert!(!root_after_initial.as_ref().unwrap().is_empty());
 
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), Some(b"value1".to_vec()));
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), Some(b"value2".to_vec()));
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key3"), None);
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key1")), Some(b"value1".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key2")), Some(b"value2".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key3")), None);
 
 		let update_data = vec![
-			(b"key1".to_vec(), b"updated_value1".to_vec()),
-			(b"key3".to_vec(), b"value3".to_vec()),
+			(hash_key(b"key1"), b"updated_value1".to_vec()),
+			(hash_key(b"key3"), b"value3".to_vec()),
 		];
 		Broadcaster::handle_publish(para_id, update_data).unwrap();
 
@@ -212,14 +218,14 @@ fn publish_store_retrieve_and_update_data() {
 		assert_ne!(root_after_initial.unwrap(), root_after_update.unwrap());
 
 		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key1"),
+			Broadcaster::get_published_value(para_id, &hash_key(b"key1")),
 			Some(b"updated_value1".to_vec())
 		);
 		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key2"),
+			Broadcaster::get_published_value(para_id, &hash_key(b"key2")),
 			Some(b"value2".to_vec()) // Should remain unchanged
 		);
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key3"), Some(b"value3".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key3")), Some(b"value3".to_vec()));
 	});
 }
 
@@ -243,22 +249,8 @@ fn handle_publish_respects_max_items_limit() {
 
 		let mut data = Vec::new();
 		for i in 0..17 {
-			data.push((format!("key{}", i).into_bytes(), b"value".to_vec()));
+			data.push((hash_key(&format!("key{}", i).into_bytes()), b"value".to_vec()));
 		}
-
-		let result = Broadcaster::handle_publish(para_id, data);
-		assert!(result.is_err());
-	});
-}
-
-#[test]
-fn handle_publish_respects_key_length_limit() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let para_id = ParaId::from(2000);
-		register_test_publisher(para_id);
-
-		let long_key = vec![b'a'; 257];
-		let data = vec![(long_key, b"value".to_vec())];
 
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
@@ -272,7 +264,7 @@ fn handle_publish_respects_value_length_limit() {
 		register_test_publisher(para_id);
 
 		let long_value = vec![b'v'; 1025];
-		let data = vec![(b"key".to_vec(), long_value)];
+		let data = vec![(hash_key(b"key"), long_value)];
 
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
@@ -290,7 +282,7 @@ fn max_stored_keys_limit_enforced() {
 			for i in 0..16 {
 				let key_num = batch * 16 + i;
 				if key_num < 100 {
-					data.push((format!("key{}", key_num).into_bytes(), b"value".to_vec()));
+					data.push((hash_key(&format!("key{}", key_num).into_bytes()), b"value".to_vec()));
 				}
 			}
 			if !data.is_empty() {
@@ -302,17 +294,17 @@ fn max_stored_keys_limit_enforced() {
 		assert_eq!(published_keys.len(), 100);
 
 		let result =
-			Broadcaster::handle_publish(para_id, vec![(b"new_key".to_vec(), b"value".to_vec())]);
+			Broadcaster::handle_publish(para_id, vec![(hash_key(b"new_key"), b"value".to_vec())]);
 		assert_err!(result, Error::<Test>::TooManyStoredKeys);
 
 		let result = Broadcaster::handle_publish(
 			para_id,
-			vec![(b"key0".to_vec(), b"updated_value".to_vec())],
+			vec![(hash_key(b"key0"), b"updated_value".to_vec())],
 		);
 		assert_ok!(result);
 
 		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key0"),
+			Broadcaster::get_published_value(para_id, &hash_key(b"key0")),
 			Some(b"updated_value".to_vec())
 		);
 	});
@@ -326,15 +318,15 @@ fn published_keys_storage_matches_child_trie() {
 
 		// Publish multiple batches to ensure consistency maintained across updates
 		let data1 = vec![
-			(b"key1".to_vec(), b"value1".to_vec()),
-			(b"key2".to_vec(), b"value2".to_vec()),
+			(hash_key(b"key1"), b"value1".to_vec()),
+			(hash_key(b"key2"), b"value2".to_vec()),
 		];
 		Broadcaster::handle_publish(para_id, data1).unwrap();
 
 		// Update some keys, add new ones
 		let data2 = vec![
-			(b"key1".to_vec(), b"updated_value1".to_vec()),
-			(b"key3".to_vec(), b"value3".to_vec()),
+			(hash_key(b"key1"), b"updated_value1".to_vec()),
+			(hash_key(b"key3"), b"value3".to_vec()),
 		];
 		Broadcaster::handle_publish(para_id, data2).unwrap();
 
@@ -346,16 +338,12 @@ fn published_keys_storage_matches_child_trie() {
 
 		// Every tracked key must exist in child trie
 		for tracked_key in tracked_keys.iter() {
-			let key: Vec<u8> = tracked_key.clone().into();
-			assert!(actual_data.iter().any(|(k, _)| k == &key));
+			assert!(actual_data.iter().any(|(k, _)| k == tracked_key));
 		}
 
 		// Every child trie key must be tracked
 		for (actual_key, _) in actual_data.iter() {
-			assert!(tracked_keys.iter().any(|tracked| {
-				let k: Vec<u8> = tracked.clone().into();
-				&k == actual_key
-			}));
+			assert!(tracked_keys.contains(actual_key));
 		}
 	});
 }
@@ -375,9 +363,9 @@ fn multiple_publishers_in_same_block() {
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(3), para3));
 
 		// Multiple parachains publish data in the same block
-		let data1 = vec![(b"key1".to_vec(), b"value1".to_vec())];
-		let data2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
-		let data3 = vec![(b"key3".to_vec(), b"value3".to_vec())];
+		let data1 = vec![(hash_key(b"key1"), b"value1".to_vec())];
+		let data2 = vec![(hash_key(b"key2"), b"value2".to_vec())];
+		let data3 = vec![(hash_key(b"key3"), b"value3".to_vec())];
 
 		Broadcaster::handle_publish(para1, data1).unwrap();
 		Broadcaster::handle_publish(para2, data2).unwrap();
@@ -389,14 +377,14 @@ fn multiple_publishers_in_same_block() {
 		assert!(PublisherExists::<Test>::get(para3));
 
 		// Verify each para's data is independently accessible
-		assert_eq!(Broadcaster::get_published_value(para1, b"key1"), Some(b"value1".to_vec()));
-		assert_eq!(Broadcaster::get_published_value(para2, b"key2"), Some(b"value2".to_vec()));
-		assert_eq!(Broadcaster::get_published_value(para3, b"key3"), Some(b"value3".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para1, &hash_key(b"key1")), Some(b"value1".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para2, &hash_key(b"key2")), Some(b"value2".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para3, &hash_key(b"key3")), Some(b"value3".to_vec()));
 
 		// Verify no cross-contamination
-		assert_eq!(Broadcaster::get_published_value(para1, b"key2"), None);
-		assert_eq!(Broadcaster::get_published_value(para2, b"key3"), None);
-		assert_eq!(Broadcaster::get_published_value(para3, b"key1"), None);
+		assert_eq!(Broadcaster::get_published_value(para1, &hash_key(b"key2")), None);
+		assert_eq!(Broadcaster::get_published_value(para2, &hash_key(b"key3")), None);
+		assert_eq!(Broadcaster::get_published_value(para3, &hash_key(b"key1")), None);
 	});
 }
 
@@ -411,7 +399,7 @@ fn max_publishers_limit_enforced() {
 				RuntimeOrigin::signed(100 + i as u64),
 				para_id
 			));
-			let data = vec![(b"key".to_vec(), b"value".to_vec())];
+			let data = vec![(hash_key(b"key"), b"value".to_vec())];
 			assert_ok!(Broadcaster::handle_publish(para_id, data));
 		}
 
@@ -429,10 +417,10 @@ fn max_publishers_limit_enforced() {
 
 		// Existing publisher can still update
 		let existing_para = ParaId::from(2000);
-		let update_data = vec![(b"key".to_vec(), b"updated".to_vec())];
+		let update_data = vec![(hash_key(b"key"), b"updated".to_vec())];
 		assert_ok!(Broadcaster::handle_publish(existing_para, update_data));
 		assert_eq!(
-			Broadcaster::get_published_value(existing_para, b"key"),
+			Broadcaster::get_published_value(existing_para, &hash_key(b"key")),
 			Some(b"updated".to_vec())
 		);
 	});
@@ -446,8 +434,8 @@ fn cleanup_published_data_works() {
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 		let data = vec![
-			(b"key1".to_vec(), b"value1".to_vec()),
-			(b"key2".to_vec(), b"value2".to_vec()),
+			(hash_key(b"key1"), b"value1".to_vec()),
+			(hash_key(b"key2"), b"value2".to_vec()),
 		];
 		assert_ok!(Broadcaster::handle_publish(para_id, data));
 
@@ -458,8 +446,8 @@ fn cleanup_published_data_works() {
 
 		assert!(!PublisherExists::<Test>::get(para_id));
 		assert_eq!(PublishedKeys::<Test>::get(para_id).len(), 0);
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), None);
-		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), None);
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key1")), None);
+		assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(b"key2")), None);
 		assert!(RegisteredPublishers::<Test>::get(para_id).is_some());
 	});
 }
@@ -472,7 +460,7 @@ fn cleanup_requires_manager() {
 		setup_account(BOB, 10000);
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
-		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(hash_key(b"key"), b"value".to_vec())]));
 
 		assert_err!(
 			Broadcaster::cleanup_published_data(RuntimeOrigin::signed(BOB), para_id),
@@ -537,7 +525,7 @@ fn deregister_fails_if_data_exists() {
 		setup_account(ALICE, 10000);
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
-		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(hash_key(b"key"), b"value".to_vec())]));
 
 		assert_err!(
 			Broadcaster::deregister_publisher(RuntimeOrigin::signed(ALICE), para_id),
@@ -572,9 +560,9 @@ fn two_phase_cleanup_and_deregister_works() {
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 		let data = vec![
-			(b"key1".to_vec(), b"value1".to_vec()),
-			(b"key2".to_vec(), b"value2".to_vec()),
-			(b"key3".to_vec(), b"value3".to_vec()),
+			(hash_key(b"key1"), b"value1".to_vec()),
+			(hash_key(b"key2"), b"value2".to_vec()),
+			(hash_key(b"key3"), b"value3".to_vec()),
 		];
 		assert_ok!(Broadcaster::handle_publish(para_id, data));
 
@@ -599,8 +587,8 @@ fn force_deregister_works() {
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
 		let data = vec![
-			(b"key1".to_vec(), b"value1".to_vec()),
-			(b"key2".to_vec(), b"value2".to_vec()),
+			(hash_key(b"key1"), b"value1".to_vec()),
+			(hash_key(b"key2"), b"value2".to_vec()),
 		];
 		assert_ok!(Broadcaster::handle_publish(para_id, data));
 
@@ -636,7 +624,7 @@ fn force_deregister_requires_root() {
 		setup_account(ALICE, 10000);
 
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_id));
-		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(hash_key(b"key"), b"value".to_vec())]));
 
 		assert_err!(
 			Broadcaster::force_deregister_publisher(RuntimeOrigin::signed(ALICE), para_id),
@@ -661,7 +649,7 @@ fn cleanup_removes_all_keys_from_child_trie() {
 			let mut data = Vec::new();
 			for i in 0..10 {
 				let key = format!("key_{}_{}", batch, i);
-				data.push((key.as_bytes().to_vec(), b"value".to_vec()));
+				data.push((hash_key(key.as_bytes()), b"value".to_vec()));
 			}
 			assert_ok!(Broadcaster::handle_publish(para_id, data));
 		}
@@ -673,7 +661,7 @@ fn cleanup_removes_all_keys_from_child_trie() {
 		for batch in 0..5 {
 			for i in 0..10 {
 				let key = format!("key_{}_{}", batch, i);
-				assert_eq!(Broadcaster::get_published_value(para_id, key.as_bytes()), None);
+				assert_eq!(Broadcaster::get_published_value(para_id, &hash_key(key.as_bytes())), None);
 			}
 		}
 
@@ -694,7 +682,7 @@ fn force_deregister_with_zero_deposit() {
 			para_id
 		));
 
-		assert_ok!(Broadcaster::handle_publish(para_id, vec![(b"key".to_vec(), b"value".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_id, vec![(hash_key(b"key"), b"value".to_vec())]));
 
 		assert_ok!(Broadcaster::force_deregister_publisher(RuntimeOrigin::root(), para_id));
 
@@ -717,9 +705,9 @@ fn cleanup_outgoing_publishers_works() {
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_b));
 		assert_ok!(Broadcaster::register_publisher(RuntimeOrigin::signed(ALICE), para_c));
 
-		assert_ok!(Broadcaster::handle_publish(para_a, vec![(b"key1".to_vec(), b"value1".to_vec())]));
-		assert_ok!(Broadcaster::handle_publish(para_b, vec![(b"key2".to_vec(), b"value2".to_vec())]));
-		assert_ok!(Broadcaster::handle_publish(para_c, vec![(b"key3".to_vec(), b"value3".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_a, vec![(hash_key(b"key1"), b"value1".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_b, vec![(hash_key(b"key2"), b"value2".to_vec())]));
+		assert_ok!(Broadcaster::handle_publish(para_c, vec![(hash_key(b"key3"), b"value3".to_vec())]));
 
 		let notification = crate::initializer::SessionChangeNotification::default();
 		let outgoing_paras = vec![para_a, para_b];

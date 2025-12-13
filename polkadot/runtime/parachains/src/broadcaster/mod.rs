@@ -130,12 +130,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPublishItems: Get<u32>;
 
-		/// Maximum length of a published key in bytes.
-		///
-		/// Must not exceed `xcm::v5::MaxPublishKeyLength`.
-		#[pallet::constant]
-		type MaxKeyLength: Get<u32>;
-
 		/// Maximum length of a published value in bytes.
 		///
 		/// Must not exceed `xcm::v5::MaxPublishValueLength`.
@@ -202,7 +196,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		ParaId,
-		BoundedBTreeSet<BoundedVec<u8, T::MaxKeyLength>, T::MaxStoredKeys>,
+		BoundedBTreeSet<[u8; 32], T::MaxStoredKeys>,
 		ValueQuery,
 	>;
 
@@ -211,8 +205,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Too many items in a single publish operation.
 		TooManyPublishItems,
-		/// Key length exceeds maximum allowed.
-		KeyTooLong,
 		/// Value length exceeds maximum allowed.
 		ValueTooLong,
 		/// Too many unique keys stored for this publisher.
@@ -239,10 +231,6 @@ pub mod pallet {
 			assert!(
 				T::MaxPublishItems::get() <= xcm::v5::MaxPublishItems::get(),
 				"Broadcaster MaxPublishItems exceeds XCM MaxPublishItems upper bound"
-			);
-			assert!(
-				T::MaxKeyLength::get() <= xcm::v5::MaxPublishKeyLength::get(),
-				"Broadcaster MaxKeyLength exceeds XCM MaxPublishKeyLength upper bound"
 			);
 			assert!(
 				T::MaxValueLength::get() <= xcm::v5::MaxPublishValueLength::get(),
@@ -458,9 +446,8 @@ pub mod pallet {
 			let published_keys = PublishedKeys::<T>::get(para_id);
 
 			// Remove all key-value pairs from the child trie
-			for bounded_key in published_keys.iter() {
-				let key: Vec<u8> = bounded_key.clone().into();
-				frame_support::storage::child::kill(&child_info, &key);
+			for key in published_keys.iter() {
+				frame_support::storage::child::kill(&child_info, key);
 			}
 
 			// Clean up tracking storage
@@ -539,9 +526,11 @@ pub mod pallet {
 		/// Validates the publisher is registered, checks all bounds, and stores the provided
 		/// key-value pairs in the publisher's dedicated child trie. Updates the child trie root
 		/// and published keys tracking.
+		///
+		/// Keys must be 32-byte hashes.
 		pub fn handle_publish(
 			origin_para_id: ParaId,
-			data: Vec<(Vec<u8>, Vec<u8>)>,
+			data: Vec<([u8; 32], Vec<u8>)>,
 		) -> DispatchResult {
 			// Check publisher is registered
 			ensure!(
@@ -557,12 +546,8 @@ pub mod pallet {
 				Error::<T>::TooManyPublishItems
 			);
 
-			// Validate all keys and values before creating publisher entry
-			for (key, value) in &data {
-				ensure!(
-					key.len() <= T::MaxKeyLength::get() as usize,
-					Error::<T>::KeyTooLong
-				);
+			// Validate all values before creating publisher entry
+			for (_key, value) in &data {
 				ensure!(
 					value.len() <= T::MaxValueLength::get() as usize,
 					Error::<T>::ValueTooLong
@@ -574,10 +559,8 @@ pub mod pallet {
 			// Count new unique keys to prevent exceeding MaxStoredKeys
 			let mut new_keys_count = 0u32;
 			for (key, _) in &data {
-				if let Ok(bounded_key) = BoundedVec::try_from(key.clone()) {
-					if !published_keys.contains(&bounded_key) {
-						new_keys_count += 1;
-					}
+				if !published_keys.contains(key) {
+					new_keys_count += 1;
 				}
 			}
 
@@ -593,10 +576,7 @@ pub mod pallet {
 			// Write to child trie and track keys for enumeration
 			for (key, value) in data {
 				frame_support::storage::child::put(&child_info, &key, &value);
-
-				if let Ok(bounded_key) = BoundedVec::try_from(key) {
-					published_keys.try_insert(bounded_key).defensive_ok();
-				}
+				published_keys.try_insert(key).defensive_ok();
 			}
 
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
@@ -648,7 +628,7 @@ pub mod pallet {
 		///
 		/// Iterates over all tracked keys for the publisher and retrieves their values from the
 		/// child trie.
-		pub fn get_all_published_data(para_id: ParaId) -> Vec<(Vec<u8>, Vec<u8>)> {
+		pub fn get_all_published_data(para_id: ParaId) -> Vec<([u8; 32], Vec<u8>)> {
 			if !PublisherExists::<T>::get(para_id) {
 				return Vec::new();
 			}
@@ -658,8 +638,7 @@ pub mod pallet {
 
 			published_keys
 				.into_iter()
-				.filter_map(|bounded_key| {
-					let key: Vec<u8> = bounded_key.into();
+				.filter_map(|key| {
 					frame_support::storage::child::get(&child_info, &key)
 						.map(|value| (key, value))
 				})
@@ -675,7 +654,7 @@ pub mod pallet {
 
 // Implement Publish trait
 impl<T: Config> Publish for Pallet<T> {
-	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult {
+	fn publish_data(publisher: ParaId, data: Vec<([u8; 32], Vec<u8>)>) -> DispatchResult {
 		Self::handle_publish(publisher, data)
 	}
 }
