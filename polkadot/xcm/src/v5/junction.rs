@@ -297,14 +297,18 @@ impl TryFrom<OldJunctionV3> for Junction {
 		use OldJunctionV3::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network, id } => Self::AccountId32 { network: network.try_into()?, id },
-			AccountIndex64 { network, index } =>
-				Self::AccountIndex64 { network: network.try_into()?, index },
-			GeneralKey { length, data } => Self::GeneralKey { length, data },
-			GeneralIndex(id) => Self::GeneralIndex(id),
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
 			PalletInstance(index) => Self::PalletInstance(index),
+			GeneralIndex(id) => Self::GeneralIndex(id),
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
-			GlobalConsensus(network) => Self::GlobalConsensus(network.try_into()?),
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
 		})
 	}
 }

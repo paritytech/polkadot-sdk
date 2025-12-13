@@ -17,6 +17,7 @@
 //! XCM `Junctions`/`InteriorLocation` datatype.
 
 use super::{Junction, Location, NetworkId};
+use crate::v3::Junctions as OldJunctionsV3;
 use alloc::sync::Arc;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{mem, ops::Range, result};
@@ -138,6 +139,56 @@ impl IntoIterator for Junctions {
 	type IntoIter = JunctionsIterator;
 	fn into_iter(self) -> Self::IntoIter {
 		JunctionsIterator { range: 0..self.len(), junctions: self }
+	}
+}
+
+impl TryFrom<OldJunctionsV3> for Junctions {
+	type Error = ();
+	fn try_from(value: OldJunctionsV3) -> Result<Self, Self::Error> {
+		use OldJunctionsV3::*;
+
+		Ok(match value {
+			Here => Self::Here,
+			X1(a) => Self::X1(Arc::new([a.try_into()?])),
+			X2(a, b) => Self::X2(Arc::new([a.try_into()?, b.try_into()?])),
+			X3(a, b, c) => Self::X3(Arc::new([a.try_into()?, b.try_into()?, c.try_into()?])),
+			X4(a, b, c, d) =>
+				Self::X4(Arc::new([a.try_into()?, b.try_into()?, c.try_into()?, d.try_into()?])),
+			X5(a, b, c, d, e) => Self::X5(Arc::new([
+				a.try_into()?,
+				b.try_into()?,
+				c.try_into()?,
+				d.try_into()?,
+				e.try_into()?,
+			])),
+			X6(a, b, c, d, e, f) => Self::X6(Arc::new([
+				a.try_into()?,
+				b.try_into()?,
+				c.try_into()?,
+				d.try_into()?,
+				e.try_into()?,
+				f.try_into()?,
+			])),
+			X7(a, b, c, d, e, f, g) => Self::X7(Arc::new([
+				a.try_into()?,
+				b.try_into()?,
+				c.try_into()?,
+				d.try_into()?,
+				e.try_into()?,
+				f.try_into()?,
+				g.try_into()?,
+			])),
+			X8(a, b, c, d, e, f, g, h) => Self::X8(Arc::new([
+				a.try_into()?,
+				b.try_into()?,
+				c.try_into()?,
+				d.try_into()?,
+				e.try_into()?,
+				f.try_into()?,
+				g.try_into()?,
+				h.try_into()?,
+			])),
+		})
 	}
 }
 
