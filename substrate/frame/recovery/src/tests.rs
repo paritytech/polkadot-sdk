@@ -160,7 +160,7 @@ fn basic_flow_works() {
 		));
 
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 0);
-		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 20_000);
+		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2 * START_BALANCE);
 	});
 }
 
@@ -593,7 +593,7 @@ fn control_inherited_account_works() {
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
 		let call: RuntimeCall =
-			BalancesCall::transfer_allow_death { value: 20_000, dest: FERDIE }.into();
+			BalancesCall::transfer_allow_death { value: 2 * START_BALANCE, dest: FERDIE }.into();
 		let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
 
 		// Outer call works:
@@ -616,7 +616,7 @@ fn cancel_attempt_works() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
-		assert_attempt_deposit(BOB, 2_001);
+		assert_attempt_deposit(BOB, 48);
 
 		// Charlie can never cancel
 		assert_noop!(Recovery::cancel_attempt(signed(CHARLIE), ALICE, 0), Error::<T>::NotCanceller);
@@ -626,7 +626,7 @@ fn cancel_attempt_works() {
 		hypothetically!({
 			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
 			assert_attempt_deposit(BOB, 0);
-			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
 		});
 
 		frame_system::Pallet::<T>::set_block_number(12);
@@ -641,7 +641,7 @@ fn cancel_attempt_works() {
 				canceler: BOB,
 			});
 			assert_attempt_deposit(BOB, 0);
-			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
 		});
 		// Alice could cancel
 		hypothetically!({
@@ -652,7 +652,7 @@ fn cancel_attempt_works() {
 				canceler: ALICE,
 			});
 			assert_attempt_deposit(BOB, 0);
-			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), 10_000);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
 		});
 
 		// Alice or Bob canceling is the exact same thing
@@ -709,7 +709,7 @@ fn cancel_attempt_works_when_initiator_account_is_broken() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
-		assert_attempt_deposit(BOB, 2_001);
+		assert_attempt_deposit(BOB, 48);
 
 		frame_system::Pallet::<T>::set_block_number(12);
 
@@ -775,7 +775,7 @@ fn slash_attempt_fails_when_initiator_is_missing_deposit() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
-		assert_attempt_deposit(BOB, 2_001);
+		assert_attempt_deposit(BOB, 48);
 
 		// Force remove the deposit from bob
 		assert_ok!(<T as Config>::Currency::set_balance_on_hold(

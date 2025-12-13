@@ -19,9 +19,9 @@
 
 extern crate alloc;
 
-use alloc::vec;
 use super::*;
 use crate::Pallet;
+use alloc::vec;
 use frame::{benchmarking::prelude::*, traits::fungible::Mutate};
 
 const SEED: u32 = 0;
@@ -36,9 +36,7 @@ fn fund_account<T: Config>(who: &T::AccountId) {
 }
 
 fn generate_friends<T: Config>(seed: u32, num: u32) -> Vec<T::AccountId> {
-	let mut friends = (0..num)
-		.map(|x| account("friend", x, seed))
-		.collect::<Vec<_>>();
+	let mut friends = (0..num).map(|x| account("friend", x, seed)).collect::<Vec<_>>();
 	friends.sort();
 
 	for friend in &friends {
@@ -169,9 +167,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_friend_groups(
-		f: Linear<1, { T::MaxFriendsPerConfig::get() }>,
-	) {
+	fn set_friend_groups(f: Linear<1, { T::MaxFriendsPerConfig::get() }>) {
 		let lost: T::AccountId = whitelisted_caller();
 		fund_account::<T>(&lost);
 
@@ -193,18 +189,21 @@ mod benchmarks {
 		fund_account::<T>(&lost);
 		fund_account::<T>(&initiator);
 
-		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		let friend_groups =
+			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
 
-		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
+		crate::pallet::Pallet::<T>::set_friend_groups(
+			RawOrigin::Signed(lost.clone()).into(),
+			friend_groups,
+		)
+		.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(Event::<T>::AttemptInitiated {
-			lost,
-			friend_group_index: 0,
-			initiator,
-		}.into());
+		assert_last_event::<T>(
+			Event::<T>::AttemptInitiated { lost, friend_group_index: 0, initiator }.into(),
+		);
 	}
 
 	#[benchmark]
@@ -212,22 +211,30 @@ mod benchmarks {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
 		let initiator: T::AccountId = account("friend", 0, 1);
-		
+
 		fund_account::<T>(&lost);
 		fund_account::<T>(&initiator);
 
-		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
-		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
-		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		let friend_groups =
+			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		crate::pallet::Pallet::<T>::set_friend_groups(
+			RawOrigin::Signed(lost.clone()).into(),
+			friend_groups,
+		)
+		.unwrap();
+		crate::pallet::Pallet::<T>::initiate_attempt(
+			RawOrigin::Signed(initiator.clone()).into(),
+			lost_lookup.clone(),
+			0,
+		)
+		.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(Event::<T>::AttemptApproved {
-			lost,
-			friend_group_index: 0,
-			friend: initiator,
-		}.into());
+		assert_last_event::<T>(
+			Event::<T>::AttemptApproved { lost, friend_group_index: 0, friend: initiator }.into(),
+		);
 	}
 
 	#[benchmark]
@@ -236,25 +243,43 @@ mod benchmarks {
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
 		let initiator: T::AccountId = account("friend", 0, 1);
 		let inheritor: T::AccountId = account("inheritor", 0, SEED);
-		
+
 		fund_account::<T>(&lost);
 		fund_account::<T>(&initiator);
-		
-		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
-		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
-		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
-		assert_ok!(crate::pallet::Pallet::<T>::approve_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+
+		let friend_groups =
+			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		crate::pallet::Pallet::<T>::set_friend_groups(
+			RawOrigin::Signed(lost.clone()).into(),
+			friend_groups,
+		)
+		.unwrap();
+		crate::pallet::Pallet::<T>::initiate_attempt(
+			RawOrigin::Signed(initiator.clone()).into(),
+			lost_lookup.clone(),
+			0,
+		)
+		.unwrap();
+		crate::pallet::Pallet::<T>::approve_attempt(
+			RawOrigin::Signed(initiator.clone()).into(),
+			lost_lookup.clone(),
+			0,
+		)
+		.unwrap();
 		frame_system::Pallet::<T>::set_block_number(100u32.into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(Event::<T>::AttemptFinished {
-			lost,
-			friend_group_index: 0,
-			inheritor,
-			previous_inheritor: None,
-		}.into());
+		assert_last_event::<T>(
+			Event::<T>::AttemptFinished {
+				lost,
+				friend_group_index: 0,
+				inheritor,
+				previous_inheritor: None,
+			}
+			.into(),
+		);
 	}
 
 	#[benchmark]
@@ -262,23 +287,31 @@ mod benchmarks {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
 		let initiator: T::AccountId = account("friend", 0, 1);
-		
+
 		fund_account::<T>(&lost);
 		fund_account::<T>(&initiator);
 
-		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
-		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
-		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		let friend_groups =
+			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		crate::pallet::Pallet::<T>::set_friend_groups(
+			RawOrigin::Signed(lost.clone()).into(),
+			friend_groups,
+		)
+		.unwrap();
+		crate::pallet::Pallet::<T>::initiate_attempt(
+			RawOrigin::Signed(initiator.clone()).into(),
+			lost_lookup.clone(),
+			0,
+		)
+		.unwrap();
 		frame_system::Pallet::<T>::set_block_number(100u32.into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
-		assert_last_event::<T>(Event::<T>::AttemptCanceled {
-			lost,
-			friend_group_index: 0,
-			canceler: initiator,
-		}.into());
+		assert_last_event::<T>(
+			Event::<T>::AttemptCanceled { lost, friend_group_index: 0, canceler: initiator }.into(),
+		);
 	}
 
 	#[benchmark]
@@ -286,13 +319,23 @@ mod benchmarks {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
 		let initiator: T::AccountId = account("friend", 0, 1);
-		
+
 		fund_account::<T>(&lost);
 		fund_account::<T>(&initiator);
 
-		let friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
-		assert_ok!(crate::pallet::Pallet::<T>::set_friend_groups(RawOrigin::Signed(lost.clone()).into(), friend_groups));
-		assert_ok!(crate::pallet::Pallet::<T>::initiate_attempt(RawOrigin::Signed(initiator.clone()).into(), lost_lookup.clone(), 0));
+		let friend_groups =
+			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
+		crate::pallet::Pallet::<T>::set_friend_groups(
+			RawOrigin::Signed(lost.clone()).into(),
+			friend_groups,
+		)
+		.unwrap();
+		crate::pallet::Pallet::<T>::initiate_attempt(
+			RawOrigin::Signed(initiator.clone()).into(),
+			lost_lookup.clone(),
+			0,
+		)
+		.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(lost.clone()), 0);

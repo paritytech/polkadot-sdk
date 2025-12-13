@@ -89,7 +89,7 @@
 #![recursion_limit = "1024"]
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
-use alloc::{boxed::Box, vec::Vec, vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use frame::{
 	prelude::*,
@@ -175,7 +175,7 @@ pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PE
 
 /// Bitfield helper for tracking friend votes.
 ///
-/// Uses a vector of u128 values where each bit represents whether a friend at that index has voted.
+/// Uses a vector of u16 values where each bit represents whether a friend at that index has voted.
 #[derive(
 	CloneNoBound,
 	EqNoBound,
@@ -187,25 +187,37 @@ pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PE
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxEntries))]
-pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u128, BitfieldLenOf<MaxEntries>>);
+pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u16, BitfieldLenOf<MaxEntries>>);
 
-pub type BitfieldLenOf<MaxEntries> = ConstDivCeil<MaxEntries, ConstU32<128>, u32, u32>;
+pub type BitfieldLenOf<MaxEntries> = ConstDivCeil<MaxEntries, ConstU32<16>, u32, u32>;
 
 pub struct ConstDivCeil<Dividend, Divisor, R, T>(
 	pub core::marker::PhantomData<(Dividend, Divisor, R, T)>,
 );
 impl<Dividend: Get<T>, Divisor: Get<T>, R: AtLeast32BitUnsigned, T: Into<R>> Get<R>
 	for ConstDivCeil<Dividend, Divisor, R, T>
+where
+	R: core::ops::Div + core::ops::Rem + Zero + One + Copy,
 {
 	fn get() -> R {
-		123u32.into()
+		let dividend: R = Dividend::get().into();
+		let divisor: R = Divisor::get().into();
+
+		let v = dividend / divisor;
+		let remainder = dividend % divisor;
+
+		if remainder.is_zero() {
+			v
+		} else {
+			v + One::one()
+		}
 	}
 }
 
 impl<MaxEntries: Get<u32>> Default for Bitfield<MaxEntries> {
 	fn default() -> Self {
 		Self(
-			vec![0u128; BitfieldLenOf::<MaxEntries>::get() as usize]
+			vec![0u16; BitfieldLenOf::<MaxEntries>::get() as usize]
 				.try_into()
 				.defensive()
 				.unwrap_or_default(),
@@ -216,12 +228,12 @@ impl<MaxEntries: Get<u32>> Default for Bitfield<MaxEntries> {
 impl<MaxEntries: Get<u32>> Bitfield<MaxEntries> {
 	/// Set the bit at the given index to true (friend has voted).
 	pub fn set_if_not_set(&mut self, index: usize) -> Result<(), ()> {
-		let word_index = index / 128;
-		let bit_index = index % 128;
+		let word_index = index / 16;
+		let bit_index = index % 16;
 
 		let word = self.0.get_mut(word_index).ok_or(())?;
-		if (*word & (1u128 << bit_index)) == 0 {
-			*word |= 1u128 << bit_index;
+		if (*word & (1u16 << bit_index)) == 0 {
+			*word |= 1u16 << bit_index;
 			Ok(())
 		} else {
 			Err(())
@@ -610,7 +622,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		// todo bin search todo copy call filters
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::control_inherited_account())]
 		pub fn control_inherited_account(
 			origin: OriginFor<T>,
 			recovered: AccountIdLookupOf<T>,
@@ -643,11 +655,14 @@ pub mod pallet {
 
 		/// Set the friend groups of the calling account before it lost access.
 		///
-		/// This does not impact or cancel any ongoing recovery attempts. The friends of each group will be sorted before being stored. Trying to insert two friend groups with the same set of friends will result in an error.
+		/// This does not impact or cancel any ongoing recovery attempts. The friends of each group
+		/// will be sorted before being stored. Trying to insert two friend groups with the same set
+		/// of friends will result in an error.
 		///
-		/// An `FriendGroupsChanged` event is emitted only when the new friends groups differed from the old ones.
+		/// An `FriendGroupsChanged` event is emitted only when the new friends groups differed from
+		/// the old ones.
 		#[pallet::call_index(2)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::set_friend_groups(friend_groups.len() as u32))]
 		pub fn set_friend_groups(
 			origin: OriginFor<T>,
 			friend_groups: Vec<FriendGroupOf<T>>,
@@ -697,7 +712,7 @@ pub mod pallet {
 		/// amounts.
 		// TODO event
 		#[pallet::call_index(3)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::initiate_attempt())]
 		pub fn initiate_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
@@ -863,7 +878,7 @@ pub mod pallet {
 		///
 		/// This will release the deposit of the attempt back to the initiator.
 		#[pallet::call_index(6)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::cancel_attempt())]
 		pub fn cancel_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
@@ -912,7 +927,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::slash_attempt())]
 		pub fn slash_attempt(
 			origin: OriginFor<T>,
 			attempt_index: FriendGroupIndex,
