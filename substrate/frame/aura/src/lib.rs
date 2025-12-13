@@ -151,6 +151,15 @@ pub mod pallet {
 			}
 
 			let old_slot_duration = old_slot_duration.expect("checked above; qed");
+
+			if old_slot_duration.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"OldSlotDuration is zero, cannot migrate CurrentSlot"
+				);
+				return T::DbWeight::get().reads(2)
+			}
+
 			let current_timestamp = Timestamp::<T>::get();
 			let new_slot_duration = T::SlotDuration::get();
 
@@ -217,6 +226,10 @@ pub mod pallet {
 			let old_slot_duration = T::OldSlotDuration::get();
 
 			if let Some(old_duration) = old_slot_duration {
+				if old_duration.is_zero() {
+					return Err("OldSlotDuration is zero".into())
+				}
+
 				let expected_old_slot = current_timestamp / old_duration;
 				let expected_old_slot = Slot::from(expected_old_slot.saturated_into::<u64>());
 				let new_slot = current_timestamp / new_slot_duration;
