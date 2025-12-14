@@ -807,11 +807,28 @@ mod tests {
 	#[test]
 	fn test_conversion() {
 		use super::{Junction::*, Junctions::*, NetworkId::*};
+		use crate::v5;
+		use alloc::sync::Arc;
+
 		let x: Junctions = GlobalConsensus(Polkadot).into();
 		assert_eq!(x, X1(GlobalConsensus(Polkadot)));
 		let x: Junctions = Polkadot.into();
 		assert_eq!(x, X1(GlobalConsensus(Polkadot)));
 		let x: Junctions = (Polkadot, Kusama).into();
 		assert_eq!(x, X2(GlobalConsensus(Polkadot), GlobalConsensus(Kusama)));
+
+		let x: Junctions =
+			v5::Junctions::X1(Arc::new([v5::Junction::GlobalConsensus(v5::NetworkId::Polkadot)]))
+				.try_into()
+				.unwrap();
+		assert_eq!(x, X1(GlobalConsensus(Polkadot)));
+
+		let x: Junctions = v5::Junctions::X2(Arc::new([
+			v5::Junction::GlobalConsensus(v5::NetworkId::Polkadot),
+			v5::Junction::PalletInstance(5u8),
+		]))
+		.try_into()
+		.unwrap();
+		assert_eq!(x, X2(GlobalConsensus(Polkadot), PalletInstance(5u8)));
 	}
 }
