@@ -17,9 +17,7 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{
-	v4::Location as NewLocationV4, v5::Location as NewLocationV5, VersionedLocation,
-};
+use crate::{v4::Location as NewLocationV4, v5::Location as NewLocationV5, VersionedLocation};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
@@ -541,11 +539,13 @@ xcm_procedural::impl_conversion_functions_for_multilocation_v3!();
 
 #[cfg(test)]
 mod tests {
-	use crate::v3::prelude::*;
+	use crate::{v3::prelude::*, v5};
 	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {
+		use alloc::sync::Arc;
+
 		let x: MultiLocation = Parent.into();
 		assert_eq!(x, MultiLocation { parents: 1, interior: Here });
 		//		let x: MultiLocation = (Parent,).into();
@@ -558,6 +558,14 @@ mod tests {
 		assert_eq!(x, MultiLocation { parents: 0, interior: OnlyChild.into() });
 		let x: MultiLocation = (OnlyChild,).into();
 		assert_eq!(x, MultiLocation { parents: 0, interior: OnlyChild.into() });
+
+		let x: MultiLocation = v5::Location {
+			parents: 2,
+			interior: v5::Junctions::X1(Arc::new([v5::Junction::OnlyChild])),
+		}
+		.try_into()
+		.unwrap();
+		assert_eq!(x, MultiLocation { parents: 2, interior: OnlyChild.into() });
 	}
 
 	#[test]
