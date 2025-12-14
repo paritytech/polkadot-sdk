@@ -155,7 +155,9 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 }
 
-impl crate::Config for Test {}
+impl crate::Config for Test {
+	type StakingAdapter = crate::PalletStaking<Test>;
+}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
