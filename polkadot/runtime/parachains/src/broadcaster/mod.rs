@@ -286,7 +286,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherRegistered`
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_publisher())]
+		#[pallet::weight(<T as Config>::WeightInfo::register_publisher())]
 		pub fn register_publisher(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -312,7 +312,7 @@ pub mod pallet {
 		/// Events:
 		/// - `PublisherRegistered`
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::force_register_publisher())]
+		#[pallet::weight(<T as Config>::WeightInfo::force_register_publisher())]
 		pub fn force_register_publisher(
 			origin: OriginFor<T>,
 			manager: T::AccountId,
@@ -340,7 +340,7 @@ pub mod pallet {
 		/// - `DataCleanedUp`
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-			T::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
+			<T as Config>::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
 				.saturating_add(T::DbWeight::get().reads(2))
 		)]
 		pub fn cleanup_published_data(
@@ -412,7 +412,7 @@ pub mod pallet {
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(4)]
 		#[pallet::weight(
-			T::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
+			<T as Config>::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
 				.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 		)]
 		pub fn force_deregister_publisher(
@@ -537,7 +537,7 @@ pub mod pallet {
 					let published_keys = PublishedKeys::<T>::get(outgoing_para);
 					let key_count = published_keys.len() as u32;
 					let _ = Self::do_cleanup_publisher(*outgoing_para);
-					T::WeightInfo::do_cleanup_publisher(key_count)
+					<T as Config>::WeightInfo::do_cleanup_publisher(key_count)
 				} else {
 					Weight::zero()
 				};
