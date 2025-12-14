@@ -391,4 +391,27 @@ mod tests {
 		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 	}
+
+	#[test]
+	fn network_round_trip_works() {
+		let n = NetworkId::Polkadot;
+		let m: OldNetworkIdV3 = n.into();
+		let k: NetworkId = m.into();
+		assert_eq!(n, k);
+
+		let n = NetworkId::Kusama;
+		let m: OldNetworkIdV3 = n.into();
+		let k: NetworkId = m.into();
+		assert_eq!(n, k);
+
+		let n = NetworkId::ByGenesis([1u8; 32]);
+		let m: OldNetworkIdV3 = n.into();
+		let k: NetworkId = m.into();
+		assert_eq!(n, k);
+
+		let n = NetworkId::ByFork { block_number: 42, block_hash: [2u8; 32] };
+		let m: OldNetworkIdV3 = n.into();
+		let k: NetworkId = m.into();
+		assert_eq!(n, k);
+	}
 }
