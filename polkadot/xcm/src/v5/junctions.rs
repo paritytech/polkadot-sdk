@@ -748,13 +748,29 @@ mod tests {
 
 	#[test]
 	fn test_conversion() {
-		use super::{Junction::*, NetworkId::*};
+		use super::{Junction::*, Junctions::*, NetworkId::*};
+		use crate::v3;
+
 		let x: Junctions = GlobalConsensus(Polkadot).into();
 		assert_eq!(x, Junctions::from([GlobalConsensus(Polkadot)]));
 		let x: Junctions = Polkadot.into();
 		assert_eq!(x, Junctions::from([GlobalConsensus(Polkadot)]));
 		let x: Junctions = (Polkadot, Kusama).into();
 		assert_eq!(x, Junctions::from([GlobalConsensus(Polkadot), GlobalConsensus(Kusama)]));
+
+		let x: Junctions =
+			v3::Junctions::X1(v3::Junction::GlobalConsensus(v3::NetworkId::Polkadot))
+				.try_into()
+				.unwrap();
+		assert_eq!(x, X1(Arc::new([GlobalConsensus(Polkadot)])));
+
+		let x: Junctions = v3::Junctions::X2(
+			v3::Junction::GlobalConsensus(v3::NetworkId::Polkadot),
+			v3::Junction::PalletInstance(5u8),
+		)
+		.try_into()
+		.unwrap();
+		assert_eq!(x, X2(Arc::new([GlobalConsensus(Polkadot), PalletInstance(5u8)])));
 	}
 
 	#[test]
