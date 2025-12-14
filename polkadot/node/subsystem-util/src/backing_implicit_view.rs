@@ -205,61 +205,6 @@ impl View {
 		}
 	}
 
-	/// Activate a leaf in the view. To be used by the prospective parachains subsystem.
-	///
-	/// This will not request any additional data, as prospective parachains already provides all
-	/// the required info.
-	/// NOTE: using `activate_leaf` instead of this function will result in a
-	/// deadlock, as it calls prospective-parachains under the hood.
-	///
-	/// No-op for known leaves.
-	pub fn activate_leaf_from_prospective_parachains(
-		&mut self,
-		leaf: BlockInfoProspectiveParachains,
-		ancestors: &[BlockInfoProspectiveParachains],
-	) {
-		if self.leaves.contains_key(&leaf.hash) {
-			return
-		}
-
-		// Retain at least `MINIMUM_RETAIN_LENGTH` blocks in storage.
-		// This helps to avoid Chain API calls when activating leaves in the
-		// same chain.
-		let retain_minimum = std::cmp::min(
-			ancestors.last().map(|a| a.number).unwrap_or(0),
-			leaf.number.saturating_sub(MINIMUM_RETAIN_LENGTH),
-		);
-
-		self.leaves.insert(leaf.hash, ActiveLeafPruningInfo { retain_minimum });
-		let mut allowed_relay_parents = AllowedRelayParents {
-			allowed_relay_parents_contiguous: Vec::with_capacity(ancestors.len()),
-			// In this case, initialise this to an empty map, as prospective parachains already has
-			// this data and it won't query the implicit view for it.
-			minimum_relay_parents: HashMap::new(),
-		};
-
-		for ancestor in ancestors {
-			self.block_info_storage.insert(
-				ancestor.hash,
-				BlockInfo {
-					block_number: ancestor.number,
-					maybe_allowed_relay_parents: None,
-					parent_hash: ancestor.parent_hash,
-				},
-			);
-			allowed_relay_parents.allowed_relay_parents_contiguous.push(ancestor.hash);
-		}
-
-		self.block_info_storage.insert(
-			leaf.hash,
-			BlockInfo {
-				block_number: leaf.number,
-				maybe_allowed_relay_parents: Some(allowed_relay_parents),
-				parent_hash: leaf.parent_hash,
-			},
-		);
-	}
-
 	/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.
 	///
 	/// Returns hashes of blocks pruned from storage.

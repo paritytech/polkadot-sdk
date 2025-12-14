@@ -43,7 +43,7 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
+	backing_implicit_view::BlockInfoProspectiveParachains as BlockInfo,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_backing_constraints, request_candidates_pending_availability,
 	request_session_index_for_child,
@@ -83,18 +83,12 @@ struct View {
 	// The hashes of the currently active leaves. This is a subset of the keys in
 	// `per_relay_parent`.
 	active_leaves: HashSet<Hash>,
-	// The backing implicit view.
-	implicit_view: ImplicitView,
 }
 
 impl View {
 	// Initialize with empty values.
 	fn new() -> Self {
-		View {
-			per_relay_parent: HashMap::new(),
-			active_leaves: HashSet::new(),
-			implicit_view: ImplicitView::default(),
-		}
+		View { per_relay_parent: HashMap::new(), active_leaves: HashSet::new() }
 	}
 
 	// Get the fragment chains of this leaf.
@@ -385,20 +379,39 @@ async fn handle_active_leaves_update<Context>(
 		view.per_relay_parent.insert(hash, RelayBlockViewData { fragment_chains });
 
 		view.active_leaves.insert(hash);
-
-		view.implicit_view
-			.activate_leaf_from_prospective_parachains(block_info, &ancestry);
 	}
 
 	for deactivated in update.deactivated {
 		view.active_leaves.remove(&deactivated);
-		view.implicit_view.deactivate_leaf(deactivated);
 	}
 
+	// Prune relay parents that are no longer referenced by any active leaf's fragment chain
+	// scope. Only keep relay parents that are either active leaves or ancestors within the
+	// fragment chain scopes of active leaves.
 	{
-		let remaining: HashSet<_> = view.implicit_view.all_allowed_relay_parents().collect();
+		let mut relay_parents_to_keep = HashSet::new();
 
-		view.per_relay_parent.retain(|r, _| remaining.contains(&r));
+		// Collect all relay parents referenced by active leaves
+		for active_leaf in &view.active_leaves {
+			// Keep the active leaf itself
+			relay_parents_to_keep.insert(*active_leaf);
+
+			// Keep all ancestors referenced in this leaf's fragment chain scopes
+			if let Some(data) = view.per_relay_parent.get(active_leaf) {
+				for chain in data.fragment_chains.values() {
+					let scope = chain.scope();
+					// Check which relay parents in per_relay_parent are ancestors in this scope
+					for relay_parent in view.per_relay_parent.keys() {
+						if scope.ancestor(relay_parent).is_some() {
+							relay_parents_to_keep.insert(*relay_parent);
+						}
+					}
+				}
+			}
+		}
+
+		view.per_relay_parent
+			.retain(|relay_parent, _| relay_parents_to_keep.contains(relay_parent));
 	}
 
 	if metrics.0.is_some() {
