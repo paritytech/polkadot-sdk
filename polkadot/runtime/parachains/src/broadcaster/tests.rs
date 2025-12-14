@@ -230,18 +230,6 @@ fn publish_store_retrieve_and_update_data() {
 }
 
 #[test]
-fn empty_publish_still_creates_publisher() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let para_id = ParaId::from(2000);
-		register_test_publisher(para_id);
-
-		let _ = Broadcaster::handle_publish(para_id, vec![]);
-
-		assert!(PublisherExists::<Test>::get(para_id));
-	});
-}
-
-#[test]
 fn handle_publish_respects_max_items_limit() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(2000);
@@ -751,5 +739,21 @@ fn cleanup_outgoing_publishers_works() {
 		// C unaffected
 		assert!(RegisteredPublishers::<Test>::contains_key(para_c));
 		assert!(PublisherExists::<Test>::get(para_c));
+	});
+}
+
+#[test]
+fn empty_publish_fails() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		register_test_publisher(para_id);
+
+		// Try to publish empty data
+		let empty_data: Vec<([u8; 32], Vec<u8>)> = vec![];
+
+		assert_err!(
+			Broadcaster::handle_publish(para_id, empty_data),
+			Error::<Test>::EmptyPublish
+		);
 	});
 }
