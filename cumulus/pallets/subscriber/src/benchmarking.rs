@@ -51,11 +51,14 @@ mod benchmarks {
 		n: Linear<1, { T::MaxPublishers::get() }>,
 		k: Linear<1, 10>,
 	) {
-		let _subscriptions = create_subscriptions(n, k);
+		let subscriptions = create_subscriptions(n, k);
+		crate::mock::TestSubscriptions::set(subscriptions);
+		let subs;
 		#[block]
 		{
-			let _subs = T::SubscriptionHandler::subscriptions();
+			subs = T::SubscriptionHandler::subscriptions();
 		}
+		assert!(subs.len() == n as usize);
 	}
 
 	/// Benchmark collecting publisher roots from the relay state proof.
@@ -70,11 +73,12 @@ mod benchmarks {
 			.map(|i| (ParaId::from(1000 + i), vec![(vec![i as u8], vec![25u8])]))
 			.collect();
 		let proof = build_sproof_with_child_data(&publishers);
-
+		let roots;
 		#[block]
 		{
-			Subscriber::<T>::collect_publisher_roots(&proof, &subscriptions);
+			roots = Subscriber::<T>::collect_publisher_roots(&proof, &subscriptions);
 		}
+		assert!(roots.len() == n as usize);
 	}
 
 	/// Benchmark processing published data from the relay proof.
@@ -106,6 +110,7 @@ mod benchmarks {
 		{
 			Subscriber::<T>::process_published_data(&proof, &current_roots, &subscriptions);
 		}
+		assert!(PreviousPublishedDataRoots::<T>::get().len() == n as usize);
 	}
 
 	#[benchmark]
