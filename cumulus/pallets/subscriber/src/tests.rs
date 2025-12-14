@@ -19,7 +19,7 @@ fn process_relay_proof_keys_with_new_data_calls_handler() {
 
 		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
 
-		let proof = build_sproof_with_child_data(publisher, vec![(key.clone(), value.clone())]);
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
 
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 
@@ -37,7 +37,7 @@ fn process_empty_subscriptions() {
 		ReceivedData::set(vec![]);
 		TestSubscriptions::set(vec![]);
 
-		let proof = build_sproof_with_child_data(ParaId::from(1000), vec![]);
+		let proof = build_test_proof(ParaId::from(1000), vec![]);
 
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 
@@ -57,13 +57,13 @@ fn root_change_triggers_processing() {
 		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
 
 		// First block
-		let proof1 = build_sproof_with_child_data(publisher, vec![(key.clone(), value1.clone())]);
+		let proof1 = build_test_proof(publisher, vec![(key.clone(), value1.clone())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof1);
 		assert_eq!(ReceivedData::get().len(), 1);
 
 		// Second block with different value (root changed)
 		ReceivedData::set(vec![]);
-		let proof2 = build_sproof_with_child_data(publisher, vec![(key.clone(), value2.clone())]);
+		let proof2 = build_test_proof(publisher, vec![(key.clone(), value2.clone())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof2);
 
 		assert_eq!(ReceivedData::get().len(), 1);
@@ -82,13 +82,13 @@ fn unchanged_root_skips_processing() {
 		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
 
 		// First block
-		let proof = build_sproof_with_child_data(publisher, vec![(key.clone(), value.clone())]);
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 		assert_eq!(ReceivedData::get().len(), 1);
 
 		// Second block with same data (unchanged root)
 		ReceivedData::set(vec![]);
-		let proof2 = build_sproof_with_child_data(publisher, vec![(key.clone(), value)]);
+		let proof2 = build_test_proof(publisher, vec![(key.clone(), value)]);
 		Pallet::<Test>::process_relay_proof_keys(&proof2);
 
 		assert_eq!(ReceivedData::get().len(), 0, "Handler should not be called for unchanged root");
@@ -102,7 +102,7 @@ fn clear_stored_roots_extrinsic() {
 		TestSubscriptions::set(vec![(publisher, vec![vec![0x01]])]);
 
 		// Store a root for the publisher
-		let proof = build_sproof_with_child_data(publisher, vec![(vec![0x01], vec![0x11].encode())]);
+		let proof = build_test_proof(publisher, vec![(vec![0x01], vec![0x11].encode())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 
 		// Verify root is stored
@@ -173,7 +173,7 @@ fn data_processed_event_emitted() {
 
 		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
 
-		let proof = build_sproof_with_child_data(publisher, vec![(key.clone(), value.clone())]);
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 
 		// value_size is the decoded Vec<u8> length, not the encoded length
