@@ -1018,7 +1018,13 @@ mod tests {
 
 	#[test]
 	fn conversion_works() {
+		use crate::v3;
 		let _: Assets = (Here, 1u128).into();
+
+		let asset: AssetId = v3::AssetId::Concrete(v3::Location::new(0, v3::Junctions::Here))
+			.try_into()
+			.unwrap();
+		assert_eq!(asset, AssetId(Location::new(0, Here)));
 	}
 
 	#[test]
