@@ -1230,6 +1230,7 @@ parameter_types! {
 	pub const MaxPublishItems: u32 = 10;
 	pub const MaxValueLength: u32 = 1024;
 	pub const MaxStoredKeys: u32 = 100;
+	pub const MaxTotalStorageSize: u32 = 2048; // 2 KiB
 	pub const MaxPublishers: u32 = 1000;
 	pub const PublisherDeposit: Balance = 100 * UNITS;
 }
@@ -1241,6 +1242,7 @@ impl parachains_broadcaster::Config for Runtime {
 	type MaxPublishItems = MaxPublishItems;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
+	type MaxTotalStorageSize = MaxTotalStorageSize;
 	type MaxPublishers = MaxPublishers;
 	type PublisherDeposit = PublisherDeposit;
 }

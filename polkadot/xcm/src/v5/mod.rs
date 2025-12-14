@@ -1157,6 +1157,8 @@ pub enum Instruction<Call> {
 	/// which are stored in child tries on the relay chain indexed by the publisher's ParaId.
 	///
 	/// - `data`: The key-value pairs to be published, bounded by MaxPublishItems
+	///   - Keys: 32-byte hashes 
+	///   - Values: Bounded by MaxPublishValueLength
 	///
 	/// Safety: Origin must be a parachain (Sovereign Account). The relay chain will validate
 	/// the origin and store data in the appropriate child trie.
@@ -1166,7 +1168,7 @@ pub enum Instruction<Call> {
 	/// Errors:
 	/// - NoPermission: If origin is not authorized by the configured filter
 	/// - BadOrigin: If origin is not a valid parachain
-	/// - PublishFailed: If the underlying handler fails (e.g., key/value too long, too many items)
+	/// - PublishFailed: If the underlying handler fails 
 	Publish { data: PublishData },
 }
 
