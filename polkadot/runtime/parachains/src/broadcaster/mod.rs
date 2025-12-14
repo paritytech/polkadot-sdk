@@ -251,6 +251,8 @@ pub mod pallet {
 		MustCleanupDataFirst,
 		/// No published data to cleanup.
 		NoDataToCleanup,
+		/// Cannot publish empty data.
+		EmptyPublish,
 	}
 
 	#[pallet::hooks]
@@ -566,6 +568,9 @@ pub mod pallet {
 				RegisteredPublishers::<T>::contains_key(origin_para_id),
 				Error::<T>::PublishNotAuthorized
 			);
+
+			// Reject empty publishes to avoid wasting execution weight
+			ensure!(!data.is_empty(), Error::<T>::EmptyPublish);
 
 			let items_count = data.len() as u32;
 
