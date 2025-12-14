@@ -35,6 +35,13 @@
 //! trie root is stored on-chain and can be included in storage proofs to verify
 //! published data.
 //!
+//! Published data uses:
+//! - Keys: 32-byte hashes (fixed size)
+//! - Values: Bounded by `MaxValueLength`
+//! - Total storage limit: `MaxTotalStorageSize` per publisher 
+//!
+//! The total storage size is calculated as the sum of all (32-byte key + value length) pairs.
+//!
 //! ## Storage Lifecycle
 //!
 //! Publishers can deregister to reclaim their deposit and remove their data:
@@ -140,6 +147,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxStoredKeys: Get<u32>;
 
+		/// Maximum total storage size per publisher in bytes.
+		///
+		/// This is the sum of all (32-byte key + value) pairs.
+		/// Typically set to ~2048 bytes (2 KiB) to limit storage overhead per publisher.
+		#[pallet::constant]
+		type MaxTotalStorageSize: Get<u32>;
+
 		/// Maximum number of parachains that can register as publishers.
 		#[pallet::constant]
 		type MaxPublishers: Get<u32>;
@@ -200,6 +214,18 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Total storage size in bytes for each publisher.
+	///
+	/// Calculated as the sum of all (32-byte key + value length) pairs.
+	#[pallet::storage]
+	pub type TotalStorageSize<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		u32,
+		ValueQuery,
+	>;
+
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -209,6 +235,8 @@ pub mod pallet {
 		ValueTooLong,
 		/// Too many unique keys stored for this publisher.
 		TooManyStoredKeys,
+		/// Total storage size exceeds maximum allowed for this publisher.
+		TotalStorageSizeExceeded,
 		/// Maximum number of publishers reached.
 		TooManyPublishers,
 		/// Para is not registered as a publisher.
@@ -452,6 +480,7 @@ pub mod pallet {
 
 			// Clean up tracking storage
 			PublishedKeys::<T>::remove(para_id);
+			TotalStorageSize::<T>::remove(para_id);
 			PublisherExists::<T>::remove(para_id);
 
 			Ok(())
@@ -555,6 +584,7 @@ pub mod pallet {
 			}
 
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
+			let current_total_size = TotalStorageSize::<T>::get(origin_para_id);
 
 			// Count new unique keys to prevent exceeding MaxStoredKeys
 			let mut new_keys_count = 0u32;
@@ -570,6 +600,35 @@ pub mod pallet {
 				Error::<T>::TooManyStoredKeys
 			);
 
+			// Calculate storage delta: each item is 32 bytes (key) + value length
+			let child_info = Self::derive_child_info(origin_para_id);
+			let mut size_delta: i64 = 0;
+
+			for (key, value) in &data {
+				let new_size = 32u32.saturating_add(value.len() as u32);
+
+				// If key already exists, subtract old value size
+				if let Some(old_value) = frame_support::storage::child::get::<Vec<u8>>(&child_info, key) {
+					let old_size = 32u32.saturating_add(old_value.len() as u32);
+					size_delta = size_delta.saturating_add(new_size as i64).saturating_sub(old_size as i64);
+				} else {
+					size_delta = size_delta.saturating_add(new_size as i64);
+				}
+			}
+
+			// Calculate new total size
+			let new_total_size = if size_delta >= 0 {
+				current_total_size.saturating_add(size_delta as u32)
+			} else {
+				current_total_size.saturating_sub((-size_delta) as u32)
+			};
+
+			// Ensure we don't exceed the total storage limit
+			ensure!(
+				new_total_size <= T::MaxTotalStorageSize::get(),
+				Error::<T>::TotalStorageSizeExceeded
+			);
+
 			// Get or create child trie for this publisher
 			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
 
@@ -580,6 +639,7 @@ pub mod pallet {
 			}
 
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
+			TotalStorageSize::<T>::insert(origin_para_id, new_total_size);
 
 			Self::deposit_event(Event::DataPublished { publisher: origin_para_id, items_count });
 

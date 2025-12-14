@@ -272,17 +272,46 @@ fn handle_publish_respects_value_length_limit() {
 }
 
 #[test]
+fn total_storage_size_limit_enforced() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(2000);
+		register_test_publisher(para_id);
+
+		// Try to publish data that exceeds 2048 bytes total
+		// Each item is 32 (key) + 1024 (value) = 1056 bytes
+		// Two items would be 2112 bytes, exceeding the 2048 limit
+		let data1 = vec![(hash_key(b"key1"), vec![b'a'; 1024])];
+		assert_ok!(Broadcaster::handle_publish(para_id, data1));
+
+		// Second item should fail due to total storage size
+		let data2 = vec![(hash_key(b"key2"), vec![b'b'; 1024])];
+		let result = Broadcaster::handle_publish(para_id, data2);
+		assert_err!(result, Error::<Test>::TotalStorageSizeExceeded);
+
+		// But updating the existing key with a smaller value should work
+		let data3 = vec![(hash_key(b"key1"), vec![b'c'; 100])];
+		assert_ok!(Broadcaster::handle_publish(para_id, data3));
+
+		// Now we should have room for more data
+		let data4 = vec![(hash_key(b"key2"), vec![b'd'; 900])];
+		assert_ok!(Broadcaster::handle_publish(para_id, data4));
+	});
+}
+
+#[test]
 fn max_stored_keys_limit_enforced() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(2000);
 		register_test_publisher(para_id);
 
-		for batch in 0..7 {
+		// Publish 50 small items to test MaxStoredKeys without hitting TotalStorageSize limit
+		// Each item is 32 (key) + 1 (value) = 33 bytes, total ~1650 bytes
+		for batch in 0..4 {
 			let mut data = Vec::new();
 			for i in 0..16 {
 				let key_num = batch * 16 + i;
-				if key_num < 100 {
-					data.push((hash_key(&format!("key{}", key_num).into_bytes()), b"value".to_vec()));
+				if key_num < 50 {
+					data.push((hash_key(&format!("key{}", key_num).into_bytes()), b"v".to_vec()));
 				}
 			}
 			if !data.is_empty() {
@@ -291,7 +320,7 @@ fn max_stored_keys_limit_enforced() {
 		}
 
 		let published_keys = PublishedKeys::<Test>::get(para_id);
-		assert_eq!(published_keys.len(), 100);
+		assert_eq!(published_keys.len(), 50);
 
 		let result =
 			Broadcaster::handle_publish(para_id, vec![(hash_key(b"new_key"), b"value".to_vec())]);

@@ -220,7 +220,8 @@ impl crate::shared::Config for Test {
 parameter_types! {
 	pub const MaxPublishItems: u32 = 16;
 	pub const MaxValueLength: u32 = 1024;
-	pub const MaxStoredKeys: u32 = 100;
+	pub const MaxStoredKeys: u32 = 50;  
+	pub const MaxTotalStorageSize: u32 = 2048; // 2 KiB
 	pub const MaxPublishers: u32 = 1000;
 }
 
@@ -235,6 +236,7 @@ impl crate::broadcaster::Config for Test {
 	type MaxPublishItems = MaxPublishItems;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
+	type MaxTotalStorageSize = MaxTotalStorageSize;
 	type MaxPublishers = MaxPublishers;
 	type PublisherDeposit = PublisherDeposit;
 }
