@@ -886,6 +886,47 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
+	pub const RecoveryFriendGroupsDepositBase: Balance = deposit(1, 64);
+	pub const RecoveryFriendGroupsDepositFactor: Balance = deposit(0, 32);
+	pub const RecoveryFriendGroupsHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroups);
+	pub const RecoveryAttemptHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Attempt);
+	pub const RecoveryInheritorHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Inheritor);
+	pub const RecoveryMaxFriendsPerConfig: u32 = 9;
+	pub const RecoveryMaxConfigsPerAccount: u32 = 5;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type Currency = Balances;
+	type FriendGroupsConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryFriendGroupsHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type AttemptConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryAttemptHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type InheritorConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryInheritorHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type MaxFriendsPerConfig = RecoveryMaxFriendsPerConfig;
+	type MaxConfigsPerAccount = RecoveryMaxConfigsPerAccount;
+	type WeightInfo = ();
+}
+
+parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 }
@@ -1355,6 +1396,7 @@ construct_runtime!(
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
 		Indices: pallet_indices = 43,
+		Recovery: pallet_recovery = 44,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,

@@ -1185,22 +1185,44 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ConfigDepositBase: Balance = 500 * CENTS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 500 * CENTS;
+	pub const RecoveryFriendGroupsDepositBase: Balance = 500 * CENTS;
+	pub const RecoveryFriendGroupsDepositFactor: Balance = 50 * CENTS;
+	pub const RecoveryFriendGroupsHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroups);
+	pub const RecoveryAttemptHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Attempt);
+	pub const RecoveryInheritorHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Inheritor);
+	pub const RecoveryMaxFriendsPerConfig: u32 = 9;
+	pub const RecoveryMaxConfigsPerAccount: u32 = 5;
 }
 
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryFriendGroupsHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type AttemptConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryAttemptHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type InheritorConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryInheritorHoldReason,
+		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+	>;
+	type MaxFriendsPerConfig = RecoveryMaxFriendsPerConfig;
+	type MaxConfigsPerAccount = RecoveryMaxConfigsPerAccount;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1291,13 +1313,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				RuntimeCall::Whitelist(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
+				RuntimeCall::Recovery(pallet_recovery::Call::control_inherited_account{..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::approve_attempt{..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::finish_attempt{..}) |
+				// Specifically omitting Recovery `set_friend_groups`, `initiate_attempt`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`

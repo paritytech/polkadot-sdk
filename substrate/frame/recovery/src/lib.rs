@@ -85,6 +85,11 @@
 //!
 //! *Reading* data can be done through the view functions:
 //! -
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec, vec};
 
 use frame::{
 	prelude::*,
