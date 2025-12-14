@@ -18,7 +18,7 @@
 
 use super::{Junction, Junctions};
 use crate::{
-	v4::Location as NewMultiLocation, v5::Location as NewMultiLocationV5, VersionedLocation,
+	v4::Location as NewLocationV4, v5::Location as NewLocationV5, VersionedLocation,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
@@ -465,16 +465,16 @@ impl MultiLocation {
 	}
 }
 
-impl TryFrom<NewMultiLocation> for Option<MultiLocation> {
+impl TryFrom<NewLocationV4> for Option<MultiLocation> {
 	type Error = ();
-	fn try_from(new: NewMultiLocation) -> result::Result<Self, Self::Error> {
+	fn try_from(new: NewLocationV4) -> result::Result<Self, Self::Error> {
 		Ok(Some(MultiLocation::try_from(new)?))
 	}
 }
 
-impl TryFrom<NewMultiLocation> for MultiLocation {
+impl TryFrom<NewLocationV4> for MultiLocation {
 	type Error = ();
-	fn try_from(new: NewMultiLocation) -> result::Result<Self, ()> {
+	fn try_from(new: NewLocationV4) -> result::Result<Self, ()> {
 		Ok(MultiLocation {
 			parents: new.parent_count(),
 			interior: new.interior().clone().try_into()?,
@@ -482,16 +482,16 @@ impl TryFrom<NewMultiLocation> for MultiLocation {
 	}
 }
 
-impl TryFrom<NewMultiLocationV5> for Option<MultiLocation> {
+impl TryFrom<NewLocationV5> for Option<MultiLocation> {
 	type Error = ();
-	fn try_from(new: NewMultiLocationV5) -> result::Result<Self, Self::Error> {
+	fn try_from(new: NewLocationV5) -> result::Result<Self, Self::Error> {
 		Ok(Some(MultiLocation::try_from(new)?))
 	}
 }
 
-impl TryFrom<NewMultiLocationV5> for MultiLocation {
+impl TryFrom<NewLocationV5> for MultiLocation {
 	type Error = ();
-	fn try_from(new: NewMultiLocationV5) -> result::Result<Self, ()> {
+	fn try_from(new: NewLocationV5) -> result::Result<Self, ()> {
 		Ok(MultiLocation {
 			parents: new.parent_count(),
 			interior: new.interior().clone().try_into()?,
