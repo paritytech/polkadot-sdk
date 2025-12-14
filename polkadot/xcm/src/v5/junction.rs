@@ -356,7 +356,15 @@ mod tests {
 	#[test]
 	fn junction_round_trip_works() {
 		let j = Junction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = Junction::try_from(OldJunctionV3::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+
+		let j = Junction::GeneralKey { length: 32, data: [1u8; 32] };
 		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+
+		let j = OldJunctionV3::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = OldJunctionV3::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 
 		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
@@ -364,10 +372,20 @@ mod tests {
 		assert_eq!(j, k);
 
 		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
+		let k = Junction::try_from(OldJunctionV3::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+		let s: BoundedSlice<_, _> = (&k).try_into().unwrap();
+		assert_eq!(s, &[1u8, 2, 3, 4][..]);
+
+		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
 		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 		let s: BoundedSlice<_, _> = (&k).try_into().unwrap();
 		assert_eq!(s, &[1u8, 2, 3, 4][..]);
+
+		let j = OldJunctionV3::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = OldJunctionV3::try_from(Junction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
 
 		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
 		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
