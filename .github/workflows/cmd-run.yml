@@ -133,7 +133,7 @@ jobs:
       subweight: ${{ steps.subweight.outputs.result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
@@ -201,25 +201,25 @@ jobs:
 
       - name: Upload command output
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: command-output
           path: /tmp/cmd/command_output.log
 
       - name: Upload command diff
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: command-diff
           path: /tmp/cmd/command_diff.patch
 
       - name: Upload git status
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: git-status
           path: /tmp/cmd/git_status.log
 
       - name: Upload git diff
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: git-diff
           path: /tmp/cmd/git_diff.log
@@ -273,7 +273,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Upload Subweight
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: startsWith(github.event.inputs.cmd, 'bench')
         with:
           name: subweight
@@ -289,28 +289,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
-      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
       - name: Download command-diff artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: command-diff
           path: command-diff
 
       - name: Download command-output artifact
         if: startsWith(github.event.inputs.cmd, 'label')
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: command-output
           path: command-output
