@@ -42,7 +42,7 @@ pub struct OpcodeTracer {
 	step_count: u64,
 
 	/// Total gas used by the transaction.
-	total_gas_used: U256,
+	total_gas_used: u64,
 
 	/// Whether the transaction failed.
 	failed: bool,
@@ -54,7 +54,7 @@ pub struct OpcodeTracer {
 	pending_step: Option<OpcodeStep>,
 
 	/// Gas before executing the current pending step.
-	pending_gas_before: Option<U256>,
+	pending_gas_before: Option<u64>,
 
 	/// List of storage per call
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
@@ -68,7 +68,7 @@ impl OpcodeTracer {
 			steps: Vec::new(),
 			depth: 0,
 			step_count: 0,
-			total_gas_used: U256::zero(),
+			total_gas_used: 0,
 			failed: false,
 			return_value: Bytes::default(),
 			pending_step: None,
@@ -88,21 +88,6 @@ impl OpcodeTracer {
 		if let Some(last_step) = self.steps.last_mut() {
 			last_step.error = Some(error);
 		}
-	}
-
-	/// Record return data.
-	pub fn record_return_data(&mut self, data: &[u8]) {
-		self.return_value = Bytes(data.to_vec());
-	}
-
-	/// Mark the transaction as failed.
-	pub fn mark_failed(&mut self) {
-		self.failed = true;
-	}
-
-	/// Set the total gas used by the transaction.
-	pub fn set_total_gas_used(&mut self, gas_used: U256) {
-		self.total_gas_used = gas_used;
 	}
 }
 
@@ -156,14 +141,14 @@ impl Tracing for OpcodeTracer {
 		};
 
 		self.pending_step = Some(step);
-		self.pending_gas_before = Some(gas_before);
+		self.pending_gas_before = Some(gas_before.try_into().unwrap_or(u64::MAX));
 		self.step_count += 1;
 	}
 
 	fn exit_opcode(&mut self, gas_left: U256) {
 		if let Some(mut step) = self.pending_step.take() {
 			if let Some(gas_before) = self.pending_gas_before.take() {
-				let gas_cost = gas_before.saturating_sub(gas_left);
+				let gas_cost = gas_before.saturating_sub(gas_left.try_into().unwrap_or(u64::MAX));
 				step.gas_cost = gas_cost.try_into().unwrap_or(u64::MAX);
 			}
 			self.steps.push(step);
@@ -188,15 +173,15 @@ impl Tracing for OpcodeTracer {
 		if output.did_revert() {
 			self.record_error("execution reverted".to_string());
 			if self.depth == 0 {
-				self.mark_failed();
+				self.failed = true;
 			}
 		} else {
-			self.record_return_data(&output.data);
+			self.return_value = Bytes(output.data.to_vec());
 		}
 
 		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
 		if self.depth == 1 {
-			self.set_total_gas_used(gas_used);
+			self.total_gas_used = gas_used.try_into().unwrap_or(u64::MAX);
 		}
 
 		self.storages_per_call.pop();
@@ -211,8 +196,8 @@ impl Tracing for OpcodeTracer {
 
 		// Mark as failed if this is the top-level call
 		if self.depth == 1 {
-			self.mark_failed();
-			self.set_total_gas_used(gas_used);
+			self.failed = true;
+			self.total_gas_used = gas_used.try_into().unwrap_or(u64::MAX);
 		}
 
 		if self.depth > 0 {
@@ -231,7 +216,9 @@ impl Tracing for OpcodeTracer {
 		// Get the last storage map for the current call depth
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
-			let value_bytes = crate::evm::Bytes(new_value.map(|v| v.to_vec()).unwrap_or_default());
+			let value_bytes = crate::evm::Bytes(
+				new_value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]),
+			);
 			storage.insert(key_bytes, value_bytes);
 
 			// Set storage on the pending step
@@ -251,7 +238,7 @@ impl Tracing for OpcodeTracer {
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
 			storage.entry(key_bytes).or_insert_with(|| {
-				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_default())
+				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]))
 			});
 
 			// Set storage on the pending step

@@ -456,7 +456,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct OpcodeTrace {
 	/// Total gas used by the transaction.
-	pub gas: U256,
+	pub gas: u64,
 	/// Whether the transaction failed.
 	pub failed: bool,
 	/// The return value of the transaction.
@@ -488,7 +488,10 @@ pub struct OpcodeStep {
 	#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_memory_no_prefix")]
 	pub memory: Vec<Bytes>,
 	/// Contract storage changes.
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(
+		skip_serializing_if = "Option::is_none",
+		serialize_with = "serialize_storage_no_prefix"
+	)]
 	pub storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
 	/// Return data from last frame output.
 	#[serde(skip_serializing_if = "Bytes::is_empty")]
@@ -938,4 +941,24 @@ where
 {
 	let hex_values: Vec<String> = memory.iter().map(|bytes| bytes.to_hex_no_prefix()).collect();
 	hex_values.serialize(serializer)
+}
+
+/// Serialize storage map without "0x" prefix (like Geth)
+fn serialize_storage_no_prefix<S>(
+	storage: &Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	match storage {
+		None => serializer.serialize_none(),
+		Some(map) => {
+			let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+			for (key, value) in map {
+				ser_map.serialize_entry(&key.to_hex_no_prefix(), &value.to_hex_no_prefix())?;
+			}
+			ser_map.end()
+		},
+	}
 }
