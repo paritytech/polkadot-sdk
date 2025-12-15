@@ -860,7 +860,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This ensures that the reference counter in system is incremented appropriately and as such
 	/// must accept an account ID, rather than a validator ID.
-	fn do_set_keys(account: &T::AccountId, keys: T::Keys) -> DispatchResult {
+	///
+	/// This function is public to allow cross-chain session key management (e.g., from AssetHub
+	/// via `pallet-staking-async-ah-client`).
+	pub fn do_set_keys(account: &T::AccountId, keys: T::Keys) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
@@ -923,7 +926,11 @@ impl<T: Config> Pallet<T> {
 		Ok(old_keys)
 	}
 
-	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
+	/// Purge session keys for an account.
+	///
+	/// This function is public to allow cross-chain session key management (e.g., from AssetHub
+	/// via `pallet-staking-async-ah-client`).
+	pub fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			// `purge_keys` may not have a controller-stash pair any more. If so then we expect the
 			// stash account to be passed in directly and convert that to a `ValidatorId` using the

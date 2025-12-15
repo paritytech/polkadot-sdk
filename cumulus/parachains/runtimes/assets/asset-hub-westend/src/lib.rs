@@ -139,6 +139,20 @@ impl_opaque_keys! {
 	}
 }
 
+// Relay chain validator session keys (forwarded to RC).
+// IMPORTANT: This MUST match the SessionKeys definition in the corresponding Relay Chain runtime
+// (polkadot/runtime/westend/src/lib.rs). If the RC keys change, this must be updated too.
+impl_opaque_keys! {
+	pub struct RCSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
+}
+
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// Note: "westmint" is the legacy name for this chain. It has been renamed to

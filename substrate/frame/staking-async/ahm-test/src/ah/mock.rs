@@ -472,6 +472,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
+	type Keys = crate::rc::SessionKeys;
 }
 
 parameter_types! {
@@ -512,6 +513,33 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 				.unwrap();
 			});
 		}
+		Ok(())
+	}
+
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
+		shared::in_rc(|| {
+			let origin = crate::rc::RuntimeOrigin::root();
+			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
+				origin,
+				stash,
+				keys.clone(),
+				proof.clone(),
+			)
+			.unwrap();
+		});
+		Ok(())
+	}
+
+	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
+		shared::in_rc(|| {
+			let origin = crate::rc::RuntimeOrigin::root();
+			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
+				origin, stash,
+			)
+			.unwrap();
+		});
 		Ok(())
 	}
 }

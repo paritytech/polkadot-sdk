@@ -118,8 +118,13 @@
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use core::fmt::Display;
-use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
-use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
+use frame_support::{
+	pallet_prelude::*, storage::transactional::with_transaction_opaque_err, Parameter,
+};
+use sp_runtime::{
+	traits::{Convert, MaybeSerializeDeserialize, Member, OpaqueKeys},
+	Perbill, TransactionOutcome,
+};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
@@ -153,12 +158,30 @@ pub trait SendToRelayChain {
 	/// Send a new validator set report to relay chain.
 	#[allow(clippy::result_unit_err)]
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()>;
+
+	/// Send session keys to relay chain for registration.
+	///
+	/// The keys are forwarded to `pallet-staking-async-ah-client::set_keys_from_ah` on the RC.
+	#[allow(clippy::result_unit_err)]
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()>;
+
+	/// Send a request to purge session keys on the relay chain.
+	///
+	/// The request is forwarded to `pallet-staking-async-ah-client::purge_keys_from_ah` on the RC.
+	#[allow(clippy::result_unit_err)]
+	fn purge_keys(stash: Self::AccountId) -> Result<(), ()>;
 }
 
 #[cfg(feature = "std")]
 impl SendToRelayChain for () {
 	type AccountId = u64;
 	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
+		unimplemented!();
+	}
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>, _proof: Vec<u8>) -> Result<(), ()> {
+		unimplemented!();
+	}
+	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
 		unimplemented!();
 	}
 }
@@ -746,6 +769,19 @@ pub mod pallet {
 		///
 		/// Must be < SessionsPerEra.
 		type ValidatorSetExportSession: Get<SessionIndex>;
+
+		/// The relay chain session keys type.
+		///
+		/// This should match the SessionKeys type on the Relay Chain. Each runtime
+		/// must define its own keys type (e.g., `RCSessionKeys`) that mirrors the
+		/// Relay Chain's `SessionKeys` structure.
+		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Failed to send XCM message to the Relay Chain.
+		XcmSendFailed,
 	}
 
 	#[pallet::event]
@@ -914,6 +950,52 @@ pub mod pallet {
 			}
 
 			Ok(Some(weight).into())
+		}
+
+		/// Set session keys for a validator. Keys are immediately forwarded to RelayChain.
+		///
+		/// The keys are encoded and sent via XCM to the Relay Chain's `ah-client` pallet,
+		/// which will then forward them to `pallet_session`.
+		///
+		/// Note: No deposit is currently required. Deposit handling will be added once direct
+		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
+		#[pallet::call_index(10)]
+		// TODO: Replace with proper benchmarked weight including XCM overhead.
+		#[pallet::weight(T::DbWeight::get().reads_writes(0, 0))]
+		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
+			let stash = ensure_signed(origin)?;
+
+			// Encode keys as bytes for XCM transport
+			let keys_encoded = keys.encode();
+
+			// Forward keys to RC via XCM
+			T::SendToRelayChain::set_keys(stash.clone(), keys_encoded, proof)
+				.map_err(|()| Error::<T>::XcmSendFailed)?;
+
+			log::info!(target: LOG_TARGET, "Session keys set for {stash:?}, forwarded to RC");
+
+			Ok(())
+		}
+
+		/// Remove session keys for a validator.
+		///
+		/// This purges the keys from the Relay Chain.
+		///
+		/// Note: No deposit is currently held/released. Deposit handling will be added once
+		/// direct `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
+		#[pallet::call_index(11)]
+		// TODO: Replace with proper benchmarked weight including XCM overhead.
+		#[pallet::weight(T::DbWeight::get().reads_writes(0, 0))]
+		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
+			let stash = ensure_signed(origin)?;
+
+			// Forward purge request to RC via XCM
+			T::SendToRelayChain::purge_keys(stash.clone())
+				.map_err(|()| Error::<T>::XcmSendFailed)?;
+
+			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
+
+			Ok(())
 		}
 	}
 }

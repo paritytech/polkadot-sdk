@@ -19,8 +19,28 @@
 
 use crate::*;
 use frame_support::{derive_impl, parameter_types, weights::Weight};
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{traits::OpaqueKeys, BuildStorage, KeyTypeId, Perbill};
 use sp_staking::offence::{OffenceSeverity, OnOffenceHandler};
+
+/// Mock session keys for testing.
+#[derive(Clone, PartialEq, Eq, Debug, codec::Encode, codec::Decode, scale_info::TypeInfo)]
+pub struct MockSessionKeys {
+	pub dummy: [u8; 32],
+}
+
+const MOCK_KEY_TYPE: KeyTypeId = KeyTypeId(*b"mock");
+
+impl OpaqueKeys for MockSessionKeys {
+	type KeyTypeIdProviders = ();
+
+	fn key_ids() -> &'static [KeyTypeId] {
+		&[MOCK_KEY_TYPE]
+	}
+
+	fn get_raw(&self, _: KeyTypeId) -> &[u8] {
+		&self.dummy
+	}
+}
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -41,11 +61,20 @@ impl frame_system::Config for Test {
 pub struct MockSessionInterface;
 impl SessionInterface for MockSessionInterface {
 	type ValidatorId = u64;
+	type AccountId = u64;
+	type Keys = MockSessionKeys;
+
 	fn validators() -> Vec<Self::ValidatorId> {
 		vec![1, 2, 3]
 	}
 	fn prune_up_to(_up_to: u32) {}
 	fn report_offence(_offender: Self::ValidatorId, _severity: OffenceSeverity) {}
+	fn set_keys(_account: &Self::AccountId, _keys: Self::Keys) -> DispatchResult {
+		Ok(())
+	}
+	fn purge_keys(_account: &Self::AccountId) -> DispatchResult {
+		Ok(())
+	}
 }
 
 pub struct MockFallback;

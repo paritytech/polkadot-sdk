@@ -309,6 +309,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<64>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type Keys = RCSessionKeys;
 }
 
 #[derive(Encode, Decode)]
@@ -321,9 +322,15 @@ pub enum RelayChainRuntimePallets {
 
 #[derive(Encode, Decode)]
 pub enum AhClientCalls {
-	// index of `fn validator_set` in `staking-async-ah-client`. It has only one call.
+	// index of `fn validator_set` in `staking-async-ah-client`.
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	// index of `fn set_keys_from_ah` in `staking-async-ah-client`.
+	#[codec(index = 3)]
+	SetKeys { stash: AccountId, keys: Vec<u8>, proof: Vec<u8> },
+	// index of `fn purge_keys_from_ah` in `staking-async-ah-client`.
+	#[codec(index = 4)]
+	PurgeKeys { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
@@ -347,6 +354,64 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	}
 }
 
+/// Message to set session keys on the Relay Chain.
+#[derive(Encode, Decode, Clone)]
+pub struct SetKeysMessage {
+	pub stash: AccountId,
+	pub keys: Vec<u8>,
+	pub proof: Vec<u8>,
+}
+
+pub struct SetKeysToXcm;
+impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
+	fn convert(msg: SetKeysMessage) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys {
+					stash: msg.stash,
+					keys: msg.keys,
+					proof: msg.proof,
+				})
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
+/// Message to purge session keys on the Relay Chain.
+#[derive(Encode, Decode, Clone)]
+pub struct PurgeKeysMessage {
+	pub stash: AccountId,
+}
+
+pub struct PurgeKeysToXcm;
+impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
+	fn convert(msg: PurgeKeysMessage) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys {
+					stash: msg.stash,
+				})
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
 }
@@ -362,6 +427,24 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			SetKeysMessage,
+			SetKeysToXcm,
+		>::send(SetKeysMessage { stash, keys, proof })
+	}
+
+	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			PurgeKeysMessage,
+			PurgeKeysToXcm,
+		>::send(PurgeKeysMessage { stash })
 	}
 }
 

@@ -461,6 +461,13 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 }
 
+// Relay chain session keys type for rc-client.
+// This is a placeholder for test purposes - in production this should match the RC's SessionKeys.
+sp_runtime::impl_opaque_keys! {
+	pub struct RCSessionKeys {
+	}
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -468,6 +475,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<5>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type Keys = RCSessionKeys;
 }
 
 parameter_types! {
@@ -517,6 +525,14 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>, _proof: Vec<u8>) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
+		Ok(())
 	}
 }
 

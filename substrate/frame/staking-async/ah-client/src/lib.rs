@@ -103,6 +103,12 @@ pub trait SessionInterface {
 	/// The validator id type of the session pallet
 	type ValidatorId: Clone;
 
+	/// The account id type
+	type AccountId;
+
+	/// The session keys type
+	type Keys: sp_runtime::traits::OpaqueKeys + codec::Decode;
+
 	fn validators() -> Vec<Self::ValidatorId>;
 
 	/// prune up to the given session index.
@@ -112,12 +118,24 @@ pub trait SessionInterface {
 	///
 	/// This is used to disable validators directly on the RC, until the next validator set.
 	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
+
+	/// Set session keys for an account.
+	///
+	/// This is called when AssetHub forwards a session key registration via XCM.
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
+
+	/// Purge session keys for an account.
+	///
+	/// This is called when AssetHub forwards a session key purge request via XCM.
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
 }
 
 impl<T: Config + pallet_session::Config + pallet_session::historical::Config> SessionInterface
 	for T
 {
 	type ValidatorId = <T as pallet_session::Config>::ValidatorId;
+	type AccountId = <T as frame_system::Config>::AccountId;
+	type Keys = <T as pallet_session::Config>::Keys;
 
 	fn validators() -> Vec<Self::ValidatorId> {
 		pallet_session::Pallet::<T>::validators()
@@ -128,6 +146,14 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	}
 	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
 		pallet_session::Pallet::<T>::report_offence(offender, severity)
+	}
+
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		pallet_session::Pallet::<T>::do_set_keys(account, keys)
+	}
+
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		pallet_session::Pallet::<T>::do_purge_keys(account)
 	}
 }
 
@@ -208,7 +234,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{historical, SessionManager};
 	use pallet_staking_async_rc_client::SessionReport;
-	use sp_runtime::{Perbill, Saturating};
+	use sp_runtime::{traits::OpaqueKeys, Perbill, Saturating};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
 		SessionIndex,
@@ -275,7 +301,10 @@ pub mod pallet {
 		type MaxOffenceBatchSize: Get<u32>;
 
 		/// Interface to talk to the local Session pallet.
-		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
+		type SessionInterface: SessionInterface<
+			ValidatorId = Self::AccountId,
+			AccountId = Self::AccountId,
+		>;
 
 		/// A fallback implementation to delegate logic to when the pallet is in
 		/// [`OperatingMode::Passive`].
@@ -463,6 +492,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Could not process incoming message because incoming messages are blocked.
 		Blocked,
+		/// The session keys could not be decoded.
+		InvalidKeys,
+		/// Invalid ownership proof for the session keys.
+		InvalidProof,
 	}
 
 	#[pallet::event]
@@ -631,6 +664,57 @@ pub mod pallet {
 		pub fn force_on_migration_end(origin: OriginFor<T>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::on_migration_end();
+			Ok(())
+		}
+
+		/// Set session keys for a validator, forwarded from AssetHub.
+		///
+		/// This is called when a validator sets their session keys on AssetHub, which forwards
+		/// the request to the RelayChain via XCM.
+		///
+		/// The `keys` parameter contains the encoded session keys that will be decoded and
+		/// registered with the session pallet.
+		/// The `proof` parameter is validated using the `OpaqueKeys::ownership_proof_is_valid`
+		/// method to verify key ownership.
+		#[pallet::call_index(3)]
+		// TODO: Replace with proper benchmarked weight.
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		pub fn set_keys_from_ah(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			keys: Vec<u8>,
+			proof: Vec<u8>,
+		) -> DispatchResult {
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			log::info!(target: LOG_TARGET, "Received set_keys request from AssetHub for {stash:?}");
+
+			// Decode the keys from bytes
+			let session_keys =
+				<<T as Config>::SessionInterface as SessionInterface>::Keys::decode(&mut &keys[..])
+					.map_err(|_| Error::<T>::InvalidKeys)?;
+
+			ensure!(session_keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
+
+			// Forward to session pallet via SessionInterface
+			T::SessionInterface::set_keys(&stash, session_keys)?;
+
+			Ok(())
+		}
+
+		/// Purge session keys for a validator, forwarded from AssetHub.
+		///
+		/// This is called when a validator purges their session keys on AssetHub, which forwards
+		/// the request to the RelayChain via XCM.
+		#[pallet::call_index(4)]
+		// TODO: Replace with proper benchmarked weight.
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		pub fn purge_keys_from_ah(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
+
+			// Forward to session pallet via SessionInterface
+			T::SessionInterface::purge_keys(&stash)?;
+
 			Ok(())
 		}
 	}
