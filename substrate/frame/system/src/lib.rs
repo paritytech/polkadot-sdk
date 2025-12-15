@@ -157,8 +157,6 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
-#[cfg(test)]
-pub(crate) mod mock_v3;
 
 pub mod offchain;
 
@@ -1634,7 +1632,8 @@ impl<T: Config> Pallet<T> {
 			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
 			if scheduled_at == current_number {
 				UpgradeScheduledAt::<T>::kill();
-				let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
+				let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
+				else {
 					// should never happen
 					defensive!("UpgradeScheduledAt is set but no pending code found");
 					return false
