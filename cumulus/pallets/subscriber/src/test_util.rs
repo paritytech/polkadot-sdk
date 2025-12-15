@@ -1,7 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg(any(test, feature = "runtime-benchmarks"))]
+#![cfg(test)]
 
 use codec::Encode;
 use cumulus_pallet_parachain_system::RelayChainStateProof;
