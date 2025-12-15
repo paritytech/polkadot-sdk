@@ -4,10 +4,18 @@
 #![cfg(test)]
 
 use super::*;
-use crate::mock::*;
+use crate::{mock::*, test_util::build_sproof_with_child_data};
 use codec::Encode;
 use cumulus_primitives_core::ParaId;
 use frame_support::assert_ok;
+
+/// Build a relay chain state proof with child trie data for a single publisher.
+fn build_test_proof(
+	publisher_para_id: ParaId,
+	child_data: Vec<(Vec<u8>, Vec<u8>)>,
+) -> cumulus_pallet_parachain_system::RelayChainStateProof {
+	build_sproof_with_child_data(&[(publisher_para_id, child_data)])
+}
 
 #[test]
 fn process_relay_proof_keys_with_new_data_calls_handler() {
