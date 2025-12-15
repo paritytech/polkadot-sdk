@@ -28,8 +28,9 @@ use polkadot_primitives::{
 	async_backing::{
 		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
 	},
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Header,
-	MutateDescriptorV2, PersistedValidationData, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
+	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
+	Header, MutateDescriptorV2, PersistedValidationData, ValidationCodeHash,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use rstest::rstest;
@@ -243,7 +244,7 @@ async fn handle_leaf_activation(
 	test_state: &TestState,
 	parent_hash_fn: impl Fn(Hash) -> Hash,
 ) {
-	let TestLeaf { number, hash, para_data } = leaf;
+	let TestLeaf { number, hash, para_data: _ } = leaf;
 
 	assert_matches!(
 		virtual_overseer.recv().await,
