@@ -425,6 +425,8 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
 	PhantomData<(P, S, DbWeight)>,
 );
+
+#[allow(deprecated)]
 impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
 {
