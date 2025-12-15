@@ -475,6 +475,17 @@ impl Client {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
 	}
 
+	/// Get The post dispatch weight associated with this Ethereum transaction hash.
+	pub async fn post_dispatch_weight(&self, tx_hash: &H256) -> Option<Weight> {
+		use crate::subxt_client::system::events::ExtrinsicSuccess;
+		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
+		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
+		Some(event.dispatch_info.weight.0)
+	}
+
 	pub async fn sync_state(
 		&self,
 	) -> Result<sc_rpc::system::SyncState<SubstrateBlockNumber>, ClientError> {
