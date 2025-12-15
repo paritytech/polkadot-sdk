@@ -13164,6 +13164,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "once_cell",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",

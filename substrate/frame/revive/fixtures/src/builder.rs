@@ -308,14 +308,64 @@ pub fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
+/// Ensure @openzeppelin/contracts is installed under `contracts_dir/node_modules`.
+fn ensure_openzeppelin(contracts_dir: &Path) -> Result<()> {
+    let node_modules = contracts_dir.join("node_modules");
+    let oz_contracts = node_modules.join("@openzeppelin/contracts");
+
+    // If already present, nothing to do.
+    if oz_contracts.exists() {
+        return Ok(());
+    }
+
+    // Require npm
+    let npm_ok = Command::new("npm").arg("--version").output();
+    if npm_ok.is_err() || !npm_ok.unwrap().status.success() {
+        bail!("npm is required to install @openzeppelin/contracts in {:?}", contracts_dir);
+    }
+
+    // Create a package.json if missing.
+    if !contracts_dir.join("package.json").exists() {
+        let status = Command::new("npm")
+            .current_dir(contracts_dir)
+            .args(["init", "-y"])
+            .status()
+            .with_context(|| "failed to run `npm init -y`")?;
+        if !status.success() {
+            bail!("`npm init -y` failed in {:?}", contracts_dir);
+        }
+    }
+
+    // Install OpenZeppelin contracts (v5.x).
+    let status = Command::new("npm")
+        .current_dir(contracts_dir)
+        .args([
+            "install",
+            "--no-audit",
+            "--no-fund",
+            "--silent",
+            "@openzeppelin/contracts@^5",
+        ])
+        .status()
+        .with_context(|| "failed to run `npm install @openzeppelin/contracts`")?;
+    if !status.success() || !oz_contracts.exists() {
+        bail!("failed to install @openzeppelin/contracts into {:?}", node_modules);
+    }
+
+    Ok(())
+}
+
 /// Compile a Solidity contract using standard JSON interface.
 fn compile_with_standard_json(
 	compiler: &str,
 	contracts_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
-	let remappings = [format!("@revive/={INTERFACE_DIR}")];
-
+	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
+    let oz_root = contracts_dir.join("node_modules/@openzeppelin");
+    if oz_root.exists() {
+        remappings.push("@openzeppelin/=node_modules/@openzeppelin/".to_string());
+    }
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},
@@ -451,6 +501,11 @@ pub fn compile_solidity_contracts(
 	if solidity_entries.is_empty() {
 		return Ok(());
 	}
+    // Install OpenZeppelin so imports like `@openzeppelin/...` resolve.
+    // Skip if fixtures are disabled.
+    // if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
+        let _ = ensure_openzeppelin(contracts_dir);
+    // }
 
 	let evm_only = vec!["HostEvmOnly"];
 	let solidity_entries_pvm: Vec<_> = solidity_entries
@@ -458,9 +513,22 @@ pub fn compile_solidity_contracts(
 		.cloned()
 		.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
 		.collect();
-
+	let pvm_only = vec!["erc20"];
+	let solidity_entries_evm: Vec<_> = solidity_entries
+		.iter()
+		.cloned()
+		.filter(|entry| !pvm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
+		.collect();
+	
+	solidity_entries_evm.iter().for_each(|e| {
+		println!("cargo:warning=Compiling for EVM: {}", e.path());
+	});
+	
+	solidity_entries_pvm.iter().for_each(|e| {
+		println!("cargo:warning=Compiling for PVM: {}", e.path());
+	});
 	// Compile with solc for EVM bytecode
-	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
+	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries_evm)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 

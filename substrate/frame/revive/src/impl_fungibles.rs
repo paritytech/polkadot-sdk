@@ -292,15 +292,22 @@ mod tests {
 		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
 	};
+use once_cell::sync::Lazy;
 	use frame_support::assert_ok;
-	const ERC20_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc20/erc20.polkavm");
+	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
+	// const ERC20_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc20/erc20.polkavm");
 
+	// const ERC20_PVM_CODE: (Vec<u8>, sp_core::H256) = compile_module_with_type("../fixtures/erc20/erc20.sol", FixtureType::Resolc).unwrap();
+static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
+    compile_module_with_type("ERC20", FixtureType::Resolc)
+        .expect("compile ERC20")
+});
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = ERC20_PVM_CODE.0.clone();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -325,7 +332,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = ERC20_PVM_CODE.0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -345,7 +352,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = ERC20_PVM_CODE.0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -363,7 +370,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = ERC20_PVM_CODE.0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -399,7 +406,7 @@ mod tests {
 				&checking_account,
 				1_000_000,
 			);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = ERC20_PVM_CODE.0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.
