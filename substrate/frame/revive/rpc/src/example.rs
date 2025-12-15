@@ -65,7 +65,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 						self.gas() > receipt.gas_used,
 						"Gas used should be less than gas estimated."
 					);
-					return Ok(receipt)
+					return Ok(receipt);
 				} else {
 					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
