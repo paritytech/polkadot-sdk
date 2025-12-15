@@ -1,0 +1,17 @@
+title: Update asset-conversion validation to use strict withdrawal checks
+doc:
+- audience: Todo
+  description: |-
+    ## Description
+
+    Updates the transaction validation logic in `asset-conversion-tx-payment`.
+
+    The validation step currently accepts permissive withdrawal consequences (`ReducedToZero`, `WouldDie`) in [Native assets](https://github.com/paritytech/polkadot-sdk/blob/b76e91acc953e682b3ddcfc45ecacaaf26c694a1/substrate/frame/transaction-payment/asset-conversion-tx-payment/src/payment.rs#L194-L195) and [Exchanged asset ](https://github.com/paritytech/polkadot-sdk/blob/b76e91acc953e682b3ddcfc45ecacaaf26c694a1/substrate/frame/transaction-payment/asset-conversion-tx-payment/src/payment.rs#L212-L213). However, the underlying `withdraw` calls utilize `Preservation::Preserve`, [Native assets](https://github.com/paritytech/polkadot-sdk/blob/b76e91acc953e682b3ddcfc45ecacaaf26c694a1/substrate/frame/transaction-payment/asset-conversion-tx-payment/src/payment.rs#L131) and [Exchanged asset](https://github.com/paritytech/polkadot-sdk/blob/b76e91acc953e682b3ddcfc45ecacaaf26c694a1/substrate/frame/transaction-payment/asset-conversion-tx-payment/src/payment.rs#L150)
+
+    This change updates the match pattern to strictly accept `WithdrawConsequence::Success`, ensuring the validation logic correctly mirrors the strict preservation guarantees of the actual withdrawal
+
+    ## Changes
+    - Restricted `can_withdraw` checks to only accept `Success`.
+crates:
+- name: pallet-asset-conversion-tx-payment
+  bump: major
