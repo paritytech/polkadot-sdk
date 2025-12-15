@@ -337,14 +337,23 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let docs = expand_func_doc(def);
 	let stable_syscalls = expand_func_list(def, false);
 	let all_syscalls = expand_func_list(def, true);
+	let lookup_syscall = expand_func_lookup(def);
 
 	quote! {
+		pub fn all_syscalls() -> &'static [&'static [u8]] {
+			#all_syscalls
+		}
+
 		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
 			if include_unstable {
 				#all_syscalls
 			} else {
 				#stable_syscalls
 			}
+		}
+
+		pub fn lookup_syscall_index(name: &'static str) -> Option<u32> {
+			#lookup_syscall
 		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
@@ -569,6 +578,22 @@ fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
 		{
 			static FUNCS: [&[u8]; #len] = [#(#docs),*];
 			FUNCS.as_slice()
+		}
+	}
+}
+
+fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
+	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let name_str = &f.name;
+		quote! {
+			#name_str => Some(#idx as u32)
+		}
+	});
+
+	quote! {
+		match name {
+			#( #arms, )*
+			_ => None,
 		}
 	}
 }

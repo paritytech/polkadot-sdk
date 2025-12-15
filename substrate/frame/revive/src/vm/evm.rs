@@ -156,11 +156,12 @@ fn run_plain_with_tracing<E: Ext>(
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		tracing::if_tracing(|tracer| {
-			let gas_before = interpreter.ext.gas_left();
+			let meter = interpreter.ext.frame_meter();
 			tracer.enter_opcode(
 				interpreter.bytecode.pc() as u64,
 				opcode,
-				gas_before,
+				meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default(),
+				meter.weight_left().unwrap_or_default(),
 				&interpreter.stack.bytes_getter(),
 				&interpreter.memory.bytes_getter(),
 				interpreter.ext.last_frame_output(),

@@ -515,10 +515,8 @@ pub struct OpcodeStep {
 	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 	pub op: u8,
 	/// Remaining gas before executing this opcode.
-	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
 	/// Cost of executing this opcode.
-	#[serde(with = "super::hex_serde")]
 	pub gas_cost: u64,
 	/// Current call depth.
 	pub depth: u32,
@@ -577,19 +575,28 @@ pub struct SyscallTrace {
 	pub struct_logs: Vec<SyscallStep>,
 }
 
+/// An EVM opcode or PVM syscall.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum Op {
+	/// EVM opcode referenced by its byte value.
+	EVMOpcode(u8),
+	/// A PVM syscall referenced by its index.
+	PvmSyscall(u32),
+}
+
 /// A single syscall execution step.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SyscallStep {
-	/// The syscall name.
-	pub ecall: String,
+	/// The executed operation (EVM opcode or PVM syscall).
+	#[serde(serialize_with = "serialize_op")]
+	pub op: Op,
 	/// Remaining gas before executing this syscall.
-	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
 	/// Weight before executing this syscall.
 	pub weight: Weight,
 	/// Cost of executing this syscall.
-	#[serde(with = "super::hex_serde")]
 	pub gas_cost: u64,
 	/// Weight consumed by executing this syscall (ref_time in nanoseconds).
 	pub weight_cost: Weight,
@@ -781,12 +788,36 @@ define_opcode_functions!(
 	SELFDESTRUCT,
 );
 
+/// Serialize an operation (opcode or syscall)
+fn serialize_op<S>(op: &Op, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	match op {
+		Op::EVMOpcode(byte) => serialize_opcode(byte, serializer),
+		Op::PvmSyscall(index) => serialize_syscall(index, serializer),
+	}
+}
+
 /// Serialize opcode as string using REVM opcode names
 fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
 	let name = get_opcode_name(*opcode);
+	serializer.serialize_str(name)
+}
+
+/// Serialize a syscall
+fn serialize_syscall<S>(idx: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	use crate::vm::pvm::env::all_syscalls;
+	let Some(syscall_name_bytes) = all_syscalls().get(*idx as usize) else {
+		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")))
+	};
+	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
 	serializer.serialize_str(name)
 }
 
@@ -973,7 +1004,7 @@ fn test_gas_fields_serialize_as_hex() {
 
 	// Test SyscallStep gas serialization
 	let syscall_step = SyscallStep {
-		ecall: "test".into(),
+		op: Op::PvmSyscall(0),
 		gas: 60000,
 		weight: Weight::from_parts(1000, 100),
 		gas_cost: 5,

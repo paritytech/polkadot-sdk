@@ -53,9 +53,6 @@ pub struct OpcodeTracer {
 	/// Pending step that's waiting for gas cost to be recorded.
 	pending_step: Option<OpcodeStep>,
 
-	/// Gas before executing the current pending step.
-	pending_gas_before: Option<u64>,
-
 	/// List of storage per call
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
@@ -72,7 +69,6 @@ impl OpcodeTracer {
 			failed: false,
 			return_value: Bytes::default(),
 			pending_step: None,
-			pending_gas_before: None,
 			storages_per_call: alloc::vec![Default::default()],
 		}
 	}
@@ -101,6 +97,7 @@ impl Tracing for OpcodeTracer {
 		pc: u64,
 		opcode: u8,
 		gas_before: u64,
+		_weight_before: crate::Weight,
 		get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
 		get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
 		last_frame_output: &crate::ExecReturnValue,
@@ -141,15 +138,12 @@ impl Tracing for OpcodeTracer {
 		};
 
 		self.pending_step = Some(step);
-		self.pending_gas_before = Some(gas_before);
 		self.step_count += 1;
 	}
 
 	fn exit_opcode(&mut self, gas_left: u64) {
 		if let Some(mut step) = self.pending_step.take() {
-			if let Some(gas_before) = self.pending_gas_before.take() {
-				step.gas_cost = gas_before.saturating_sub(gas_left);
-			}
+			step.gas_cost = step.gas.saturating_sub(gas_left);
 			self.steps.push(step);
 		}
 	}

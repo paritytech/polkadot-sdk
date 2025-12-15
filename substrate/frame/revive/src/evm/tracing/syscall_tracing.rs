@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{tracing::Tracing, Bytes, SyscallStep, SyscallTrace, SyscallTracerConfig},
+	evm::{tracing::Tracing, Bytes, Op, SyscallStep, SyscallTrace, SyscallTracerConfig},
+	vm::pvm::env::lookup_syscall_index,
 	DispatchError, ExecReturnValue, Weight,
 };
 use alloc::{
@@ -51,12 +52,6 @@ pub struct SyscallTracer {
 
 	/// Pending step that's waiting for gas cost to be recorded.
 	pending_step: Option<SyscallStep>,
-
-	/// Gas before executing the current pending step.
-	pending_gas_before: Option<u64>,
-
-	/// Weight before executing the current pending step.
-	pending_weight_before: Option<Weight>,
 }
 
 impl SyscallTracer {
@@ -71,8 +66,6 @@ impl SyscallTracer {
 			failed: false,
 			return_value: Bytes::default(),
 			pending_step: None,
-			pending_gas_before: None,
-			pending_weight_before: None,
 		}
 	}
 
@@ -91,6 +84,10 @@ impl SyscallTracer {
 }
 
 impl Tracing for SyscallTracer {
+	fn is_opcode_tracing_enabled(&self) -> bool {
+		true
+	}
+
 	fn enter_ecall(
 		&mut self,
 		ecall: &'static str,
@@ -111,7 +108,7 @@ impl Tracing for SyscallTracer {
 		};
 
 		let step = SyscallStep {
-			ecall: ecall.to_string(),
+			op: Op::PvmSyscall(lookup_syscall_index(ecall).unwrap_or_default()),
 			gas: gas_before,
 			weight: weight_before,
 			gas_cost: 0u64,                  // Will be set in exit_ecall
@@ -122,19 +119,13 @@ impl Tracing for SyscallTracer {
 		};
 
 		self.pending_step = Some(step);
-		self.pending_gas_before = Some(gas_before);
-		self.pending_weight_before = Some(weight_before);
 		self.step_count += 1;
 	}
 
 	fn exit_ecall(&mut self, gas_left: u64, weight_left: crate::Weight) {
 		if let Some(mut step) = self.pending_step.take() {
-			if let Some(gas_before) = self.pending_gas_before.take() {
-				step.gas_cost = gas_before.saturating_sub(gas_left);
-			}
-			if let Some(weight_before) = self.pending_weight_before.take() {
-				step.weight_cost = weight_before.saturating_sub(weight_left);
-			}
+			step.gas_cost = step.gas.saturating_sub(gas_left);
+			step.weight_cost = step.weight.saturating_sub(weight_left);
 			self.steps.push(step);
 		}
 	}
@@ -142,11 +133,12 @@ impl Tracing for SyscallTracer {
 	fn enter_opcode(
 		&mut self,
 		_pc: u64,
-		_opcode: u8,
+		opcode: u8,
 		gas_before: u64,
+		weight_before: Weight,
 		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
 		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
-		last_frame_output: &crate::ExecReturnValue,
+		_last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
 		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
@@ -155,36 +147,28 @@ impl Tracing for SyscallTracer {
 
 		// Extract return data if enabled
 		let return_data = if self.config.enable_return_data {
-			crate::evm::Bytes(last_frame_output.data.clone())
+			crate::evm::Bytes(_last_frame_output.data.clone())
 		} else {
 			crate::evm::Bytes::default()
 		};
 
-		// TODO fix
-		// let step = SyscallStep {
-		// 	ecall: ecall.to_string(),
-		// 	gas: gas_before,
-		// 	weight: weight_before,
-		// 	gas_cost: 0u64,                  // Will be set in exit_ecall
-		// 	weight_cost: Default::default(), // Will be set in exit_ecall
-		// 	depth: self.depth,
-		// 	return_data,
-		// 	error: None,
-		// };
+		let step = SyscallStep {
+			op: Op::EVMOpcode(opcode),
+			gas: gas_before,
+			weight: weight_before,
+			gas_cost: 0u64,                  // Will be set in exit_ecall
+			weight_cost: Default::default(), // Will be set in exit_ecall
+			depth: self.depth,
+			return_data,
+			error: None,
+		};
 
-		// self.pending_step = Some(step);
-		// self.pending_gas_before = Some(gas_before);
-		// self.pending_weight_before = Some(weight_before);
-		// self.step_count += 1;
+		self.pending_step = Some(step);
+		self.step_count += 1;
 	}
 
 	fn exit_opcode(&mut self, gas_left: u64) {
-		if let Some(mut step) = self.pending_step.take() {
-			if let Some(gas_before) = self.pending_gas_before.take() {
-				step.gas_cost = gas_before.saturating_sub(gas_left);
-			}
-			self.steps.push(step);
-		}
+		self.exit_ecall(gas_left, Default::default());
 	}
 
 	fn enter_child_span(

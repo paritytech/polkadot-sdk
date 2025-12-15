@@ -106,6 +106,7 @@ pub trait Tracing {
 		_pc: u64,
 		_opcode: u8,
 		_gas_before: u64,
+		_weight_before: Weight,
 		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
 		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
 		_last_frame_output: &crate::ExecReturnValue,
