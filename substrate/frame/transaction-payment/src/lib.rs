@@ -400,6 +400,15 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Called at the start of benchmarks to set up any required state.
+		///
+		/// For example, runtimes that distribute fees to block authors may need
+		/// to set the author before the benchmark runs.
+		///
+		/// The default implementation is a no-op.
+		#[cfg(feature = "runtime-benchmarks")]
+		fn setup_benchmark_environment() {}
 	}
 
 	#[pallet::type_value]

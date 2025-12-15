@@ -20,29 +20,13 @@
 extern crate alloc;
 
 use super::*;
+use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
-/// Re-export the pallet for benchmarking with custom Config trait.
-pub struct Pallet<T: Config>(crate::Pallet<T>);
-
-/// Benchmark configuration trait.
-///
-/// This extends the pallet's Config trait to allow runtimes to set up any
-/// required state before running benchmarks. For example, runtimes that
-/// distribute fees to block authors may need to set the author before
-/// the benchmark runs.
-pub trait Config: crate::Config {
-	/// Called at the start of each benchmark to set up any required state.
-	///
-	/// The default implementation is a no-op. Runtimes can override this
-	/// to perform setup like setting the block author for fee distribution.
-	fn setup_benchmark_environment() {}
-}
-
-fn assert_last_event<T: crate::Config>(generic_event: <T as crate::Config>::RuntimeEvent) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -90,7 +74,7 @@ mod benchmarks {
 		// with a 10x buffer to account for any fee multiplier variations.
 		// Ensure we endow at least the existential deposit so the account can exist.
 		let len: u32 = 10;
-		let expected_fee = crate::Pallet::<T>::compute_fee(len, &info, tip);
+		let expected_fee = Pallet::<T>::compute_fee(len, &info, tip);
 		let amount_to_endow = expected_fee.max(existential_deposit).saturating_mul(10u32.into());
 
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
@@ -111,7 +95,7 @@ mod benchmarks {
 		}
 
 		post_info.actual_weight.as_mut().map(|w| w.saturating_accrue(extension_weight));
-		let actual_fee = crate::Pallet::<T>::compute_actual_fee(len, &info, &post_info, tip);
+		let actual_fee = Pallet::<T>::compute_actual_fee(len, &info, &post_info, tip);
 		assert_last_event::<T>(
 			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),
 		);

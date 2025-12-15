@@ -825,7 +825,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
-		[pallet_transaction_payment, TransactionPaymentBench::<Runtime>]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -1112,8 +1112,6 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_transaction_payment::benchmarking::Pallet as TransactionPaymentBench;
-
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
 			// are referenced in that call.
@@ -1136,7 +1134,6 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
-			use pallet_transaction_payment::benchmarking::Pallet as TransactionPaymentBench;
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
@@ -1150,8 +1147,6 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-
-			impl pallet_transaction_payment::benchmarking::Config for Runtime {}
 
 			use xcm_config::WndLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
