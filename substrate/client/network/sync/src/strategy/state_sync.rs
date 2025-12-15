@@ -295,7 +295,7 @@ where
 
 			let (values, completed) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
-				proof,
+				proof.clone(),
 				self.metadata.last_key.as_slice(),
 			) {
 				Err(e) => {
