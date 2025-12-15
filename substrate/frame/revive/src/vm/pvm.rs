@@ -36,7 +36,7 @@ use core::{fmt, marker::PhantomData, mem};
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 
 /// Extracts the code and data from a given program blob.
 pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
@@ -225,7 +225,7 @@ impl From<&ExecReturnValue> for ReturnErrorCode {
 }
 
 /// The data passed through when a contract uses `seal_return`.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ReturnData {
 	/// The flags as passed through by the contract. They are still unchecked and
 	/// will later be parsed into a `ReturnFlags` bitflags struct.
@@ -240,7 +240,7 @@ pub struct ReturnData {
 /// occurred (the SupervisorError variant).
 /// The other case is where the trap does not constitute an error but rather was invoked
 /// as a quick way to terminate the application (all other variants).
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum TrapReason {
 	/// The supervisor trapped the contract because of an error condition occurred during
 	/// execution in privileged code.

@@ -59,7 +59,7 @@ use frame_support::traits::{
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
 	traits::{BlockNumberProvider, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 pub use pallet::*;
