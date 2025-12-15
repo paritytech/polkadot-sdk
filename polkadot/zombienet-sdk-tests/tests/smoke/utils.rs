@@ -13,6 +13,7 @@ pub const PARACHAIN_VALIDATOR_METRIC: &str = "polkadot_node_is_parachain_validat
 pub const ACTIVE_VALIDATOR_METRIC: &str = "polkadot_node_is_active_validator";
 pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
 pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
+pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 
 pub async fn initialize_network(
 	config: NetworkConfig,

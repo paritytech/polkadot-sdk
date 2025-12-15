@@ -93,12 +93,10 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke"
-  test-definition: "0002-parachains-upgrade-smoke-test.zndsl"
-  local-dir: "./polkadot/zombienet_tests/smoke"
+  test-filter: "smoke::parachains_upgrade_smoke::parachains_upgrade_smoke_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
-# TODO: Disabled
 - job-name: "zombienet-polkadot-smoke-0003-deregister-register-validator"
   test-filter: "smoke::deregister_register_validator::deregister_register_validator_smoke_test"
   runner-type: "default"

@@ -15,8 +15,8 @@
 //! and verifies it starts producing blocks.
 
 use super::utils::{
-	env_or_default, fetch_genesis_header, fetch_validation_code, initialize_network, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV,
+	env_or_default, fetch_genesis_header, fetch_validation_code, initialize_network,
+	CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -114,7 +114,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
-	let col_image = env_or_default(COL_IMAGE_ENV, images.cumulus.as_str());
+	let culumus_image = env_or_default(CUMULUS_IMAGE_ENV, images.cumulus.as_str());
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -135,9 +135,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(CORETIME_PARA_ID)
-				.with_chain("coretime-rococo-local")
 				.with_default_command("polkadot-parachain")
-				.with_default_image(col_image.as_str())
+				.with_default_image(culumus_image.as_str())
+				.with_chain("coretime-rococo-local")
 				.with_collator(|n| {
 					n.with_name("coretime-collator")
 						.with_args(vec![("-lruntime=debug,xcm=trace").into()])
@@ -147,7 +147,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(TEST_PARA_ID)
 				.onboard_as_parachain(false)
 				.with_default_command("polkadot-parachain")
-				.with_default_image(col_image.as_str())
+				.with_default_image(culumus_image.as_str())
 				.with_collator(|n| {
 					n.with_name("collator-para-100").with_args(vec![
 						("-lruntime=debug,parachain=trace,aura=trace").into(),

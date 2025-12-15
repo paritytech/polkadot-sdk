@@ -15,3 +15,6 @@ mod deregister_register_validator;
 
 #[cfg(feature = "zombie-ci")]
 mod parachains_smoke;
+
+#[cfg(feature = "zombie-ci")]
+mod parachains_upgrade_smoke;
