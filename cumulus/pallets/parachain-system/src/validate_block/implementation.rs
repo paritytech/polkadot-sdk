@@ -348,6 +348,7 @@ where
 		upward_messages
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
+
 		upward_messages
 			.try_extend(upward_message_signals.into_iter())
 			.expect("UMPSignals does not fit in UMPMessages");

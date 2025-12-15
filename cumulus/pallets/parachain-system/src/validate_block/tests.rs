@@ -16,7 +16,11 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{
+	relay_chain,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreInfo, CoreSelector, ParachainBlockData, PersistedValidationData,
+};
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
@@ -31,14 +35,14 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
-use sp_consensus_slots::SlotDuration;
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_consensus_babe::SlotDuration;
 use sp_core::{Hasher, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	DigestItem,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{env, process::Command};
 
 fn call_validate_block_validation_result(
@@ -555,7 +559,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 12;
-	// disable the core selection logic
 	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
@@ -616,11 +619,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 
 #[test]
 fn validate_block_handles_ump_signal() {
-	use cumulus_primitives_core::{
-		relay_chain::{UMPSignal, UMP_SEPARATOR},
-		ClaimQueueOffset, CoreInfo, CoreSelector,
-	};
-
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();

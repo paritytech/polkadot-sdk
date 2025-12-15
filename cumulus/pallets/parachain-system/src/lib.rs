@@ -63,18 +63,15 @@ use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
+pub mod block_weight;
+pub mod consensus_hook;
 pub mod migration;
 mod mock;
+pub mod relay_state_snapshot;
 #[cfg(test)]
 mod tests;
-pub mod weights;
-
-pub use weights::WeightInfo;
-
 mod unincluded_segment;
-
-pub mod consensus_hook;
-pub mod relay_state_snapshot;
+pub mod weights;
 #[macro_use]
 pub mod validate_block;
 mod descendant_validation;
@@ -108,10 +105,11 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
+pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-const LOG_TARGET: &str = "parachain-system";
+const LOG_TARGET: &str = "runtime::parachain-system";
 
 /// Something that can check the associated relay block number.
 ///
@@ -188,8 +186,9 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::Compact;
 	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
-	use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -369,6 +368,11 @@ pub mod pallet {
 						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
 							.encode(),
 					);
+
+					PreviousCoreCount::<T>::put(core_info.number_of_cores);
+				} else {
+					// Without the digest, we assume that it is `1`.
+					PreviousCoreCount::<T>::put(Compact(1u16));
 				}
 
 				// Send the pending UMP signals.
@@ -481,6 +485,8 @@ pub mod pallet {
 				// Weight used during finalization.
 				weight += T::DbWeight::get().reads_writes(3, 2);
 			}
+
+			BlockWeightMode::<T>::kill();
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
@@ -775,6 +781,24 @@ pub mod pallet {
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
 	}
+
+	/// The current block weight mode.
+	///
+	/// This is used to determine what is the maximum allowed block weight, for more information see
+	/// [`block_weight`].
+	///
+	/// Killed in [`Self::on_initialize`] and set by the [`block_weight`] logic.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type BlockWeightMode<T: Config> =
+		StorageValue<_, block_weight::BlockWeightMode<T>, OptionQuery>;
+
+	/// The core count available to the parachain in the previous block.
+	///
+	/// This is mainly used for offchain functionality to calculate the correct target block weight.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type PreviousCoreCount<T: Config> = StorageValue<_, Compact<u16>, OptionQuery>;
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
 	/// ancestors of the currently executing block which have not been included in the observed
@@ -1406,7 +1430,11 @@ impl<T: Config> Pallet<T> {
 		//
 		// If this fails, the parachain needs to wait for ancestors to be included before
 		// a new block is allowed.
-		assert!(new_len < capacity.get(), "no space left for the block in the unincluded segment");
+		assert!(
+			new_len < capacity.get(),
+			"No space left for the block in the unincluded segment: new_len({new_len}) < capacity({})",
+			capacity.get()
+		);
 		weight_used
 	}
 
@@ -1470,7 +1498,7 @@ impl<T: Config> Pallet<T> {
 		// Ensure that `ValidationData` exists. We do not care about the validation data per se,
 		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
 		// inherent.
-		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable,);
+		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable);
 		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
 
 		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
