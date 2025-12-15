@@ -220,7 +220,7 @@ impl TestState {
 						ParaId::from(i as u32)
 					};
 
-					(para_id, PerParaData::new(1, vec![1, 2, 3].into()))
+					(para_id, PerParaData::new(vec![1, 2, 3].into()))
 				})
 				.collect(),
 			minimum_backing_votes: 2,
@@ -430,13 +430,12 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 }
 
 struct PerParaData {
-	min_relay_parent: BlockNumber,
 	head_data: HeadData,
 }
 
 impl PerParaData {
-	pub fn new(min_relay_parent: BlockNumber, head_data: HeadData) -> Self {
-		Self { min_relay_parent, head_data }
+	pub fn new(head_data: HeadData) -> Self {
+		Self { head_data }
 	}
 }
 
@@ -594,7 +593,7 @@ async fn handle_leaf_activation(
 		number,
 		hash,
 		parent_hash,
-		para_data,
+		para_data: _,
 		session,
 		disabled_validators,
 		minimum_backing_votes,
