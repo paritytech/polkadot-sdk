@@ -192,16 +192,17 @@ pub mod pallet {
 			relay_state_proof: &RelayChainStateProof,
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
-		) -> Weight {
+		) -> (Weight, u32) {
 			// Load roots from previous block for change detection.
 			let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
 			// Early exit if no publishers have any data.
 			if current_roots.is_empty() && previous_roots.is_empty() {
-				return T::DbWeight::get().reads(1);
+				return (T::DbWeight::get().reads(1), 0);
 			}
 
 			let mut total_handler_weight = Weight::zero();
+			let mut total_bytes_decoded = 0u32;
 
 			// Convert to map for efficient lookup by ParaId.
 			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
@@ -224,9 +225,13 @@ pub mod pallet {
 						for key in subscription_keys.iter() {
 							match relay_state_proof.read_child_storage(&child_info, key) {
 								Ok(Some(encoded_value)) => {
+									let encoded_size = encoded_value.len() as u32;
+									total_bytes_decoded = total_bytes_decoded.saturating_add(encoded_size);
+
 									match Vec::<u8>::decode(&mut &encoded_value[..]) {
 										Ok(value) => {
 											let value_size = value.len() as u32;
+
 											// Notify handler of new data.
 											let handler_weight = T::SubscriptionHandler::on_data_updated(
 												*publisher,
@@ -270,7 +275,7 @@ pub mod pallet {
 					.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
 
-			total_handler_weight
+			(total_handler_weight, total_bytes_decoded)
 		}
 	}
 
@@ -282,32 +287,34 @@ pub mod pallet {
 		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
 			let (subscriptions, subscriptions_weight) = T::SubscriptionHandler::subscriptions();
 			let num_publishers = subscriptions.len() as u32;
-			let keys_per_publisher = subscriptions
-				.first()
-				.map(|(_, keys)| keys.len() as u32)
-				.unwrap_or(0);
+			let total_keys = subscriptions.iter().map(|(_, keys)| keys.len() as u32).sum();
 
 			let current_roots = Self::collect_publisher_roots(verified_proof, &subscriptions);
-			let data_processing_weight = Self::process_published_data(verified_proof, &current_roots, &subscriptions);
+			let (handler_weight, total_bytes_decoded) = Self::process_published_data(verified_proof, &current_roots, &subscriptions);
 
 			// Return total weight for all operations
 			subscriptions_weight
-				.saturating_add(data_processing_weight)
-				.saturating_add(T::WeightInfo::process_proof_excluding_handler(num_publishers, keys_per_publisher))
+				.saturating_add(handler_weight)
+				.saturating_add(T::WeightInfo::process_proof_excluding_handler(num_publishers, total_keys, total_bytes_decoded))
 		}
 	}
 }
 
 pub trait WeightInfo {
 	fn collect_publisher_roots(n: u32) -> Weight;
-	fn process_published_data(n: u32, k: u32) -> Weight;
+	fn process_published_data(n: u32, k: u32, s: u32) -> Weight;
 	fn clear_stored_roots() -> Weight;
 
 	/// Weight for processing relay proof excluding handler execution.
 	/// Benchmarked with no-op handler. Handler weights are added at runtime.
-	fn process_proof_excluding_handler(num_publishers: u32, keys_per_publisher: u32) -> Weight {
+	///
+	/// Parameters:
+	/// - `num_publishers`: Number of publishers being processed
+	/// - `num_keys`: Total number of keys across all publishers
+	/// - `total_bytes`: Total bytes of data being decoded
+	fn process_proof_excluding_handler(num_publishers: u32, num_keys: u32, total_bytes: u32) -> Weight {
 		Self::collect_publisher_roots(num_publishers)
-			.saturating_add(Self::process_published_data(num_publishers, keys_per_publisher))
+			.saturating_add(Self::process_published_data(num_publishers, num_keys, total_bytes))
 	}
 }
 
@@ -317,8 +324,9 @@ impl WeightInfo for () {
 		Weight::from_parts(10_000, 0)
 	}
 
-	fn process_published_data(_n: u32, _k: u32) -> Weight {
+	fn process_published_data(_n: u32, _k: u32, _s: u32) -> Weight {
 		// TODO: Replace with proper benchmarked weights
+		// Note: Real benchmarks will add per-byte overhead for _s
 		Weight::from_parts(50_000, 0)
 	}
 
