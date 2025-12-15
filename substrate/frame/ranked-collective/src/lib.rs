@@ -661,7 +661,9 @@ pub mod pallet {
 								Some(weight) => {
 									match aye {
 										true => {
-											tally.bare_ayes.saturating_inc();
+											if !weight.is_zero() {
+												tally.bare_ayes.saturating_inc();
+											}
 											tally.ayes.saturating_accrue(weight);
 										},
 										false => tally.nays.saturating_accrue(weight),
