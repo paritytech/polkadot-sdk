@@ -226,7 +226,6 @@ impl ExtBuilder {
 			stakers: stakers.clone(),
 			// ideal validator count
 			validator_count: 6,
-			invulnerables: Default::default(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
