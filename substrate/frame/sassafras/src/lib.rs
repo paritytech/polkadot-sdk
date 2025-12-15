@@ -1053,7 +1053,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get next epoch configuration.
 	pub fn next_config() -> Option<EpochConfiguration> {
-		NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get())
+		NextEpochConfig::<T>::get()
 	}
 
 	/// Get ring context.
