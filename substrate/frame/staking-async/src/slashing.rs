@@ -296,6 +296,9 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 /// - `ProcessingOffence`
 /// - `OffenceQueue`
 /// - `OffenceQueueEras`
+///
+/// This is called when only validators are slashed.
+/// No nominators exposed to the offending validator are slashed.
 fn next_offence_validator_only<T: Config>(
 ) -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
 	// Try enqueue the next offence
@@ -364,6 +367,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		stash: &offender,
 		slash: offence_record.slash_fraction,
 		prior_slash: offence_record.prior_slash_fraction,
+		// create exposure only from validator state from the overview
 		exposure: &PagedExposure::from_overview(validator_exposure),
 		slash_era: offence_era,
 		reward_proportion,
@@ -383,6 +387,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		offence_era,
 		slash_era,
 		offender: offender.clone(),
+		// validator only slashes are always single paged
 		page: 0,
 	});
 
