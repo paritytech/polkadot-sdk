@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.1.7
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Validate inputs
         id: validate_inputs
@@ -76,7 +76,7 @@ jobs:
             owner: paritytech
 
       - name: Checkout sources
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.1.7
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: master
           token: ${{ steps.generate_write_token.outputs.token }}
