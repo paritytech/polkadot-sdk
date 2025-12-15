@@ -293,20 +293,6 @@ where
 				},
 			};
 
-			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::new(&[]);
-			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
-				&mut partial_state,
-				proof.iter_compact_encoded_nodes(),
-				Some(&self.metadata.target_root()),
-			) {
-				debug!(
-					target: LOG_TARGET,
-					"Error decoding proof to prefixed db: {}",
-					e,
-				);
-				return ImportResult::BadResponse
-			}
-
 			let (values, completed) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
 				proof,
@@ -323,6 +309,20 @@ where
 				Ok(values) => values,
 			};
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
+
+			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::new(&[]);
+			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
+				&mut partial_state,
+				proof.iter_compact_encoded_nodes(),
+				Some(&self.metadata.target_root()),
+			) {
+				debug!(
+					target: LOG_TARGET,
+					"Error decoding proof to prefixed db: {}",
+					e,
+				);
+				return ImportResult::BadResponse
+			}
 
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
