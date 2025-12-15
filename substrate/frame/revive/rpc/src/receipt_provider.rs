@@ -225,9 +225,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
-			BlockNumberOrTag::U256(block_number) => {
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
-			},
+			BlockNumberOrTag::U256(block_number) =>
+				self.receipt_extractor.is_before_earliest_block(block_number.as_u32()),
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
 	}
@@ -618,17 +617,15 @@ mod tests {
 
 	async fn count(pool: &SqlitePool, table: &str, block_hash: Option<H256>) -> usize {
 		let count: i64 = match block_hash {
-			None => {
+			None =>
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
 					.fetch_one(pool)
-					.await
-			},
-			Some(hash) => {
+					.await,
+			Some(hash) =>
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE block_hash = ?"))
 					.bind(hash.as_ref())
 					.fetch_one(pool)
-					.await
-			},
+					.await,
 		}
 		.unwrap();
 
