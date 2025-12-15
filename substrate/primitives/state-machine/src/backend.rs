@@ -396,14 +396,14 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 /// when fetching the runtime code.
 ///
 /// We want to use `:pending_code` in block production and import
-/// but avoid it using in runtime api calls.
+/// but avoid using it in runtime api calls.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/issues/64> for more details.
 #[cfg(feature = "std")]
 pub enum TryPendingCode {
 	/// Used by runtime api calls.
 	No,
-	/// Used by block import and production.
+	/// Used by block import and block production.
 	Yes,
 }
 
@@ -428,8 +428,8 @@ impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 				.flatten()
 				.map(Into::into);
 
-			if let Some(pending_code) = pending_code {
-				return Some(pending_code)
+			if pending_code.is_some() {
+				return pending_code
 			}
 		}
 		self.backend
@@ -450,7 +450,8 @@ where
 		Self { backend, try_pending_code, _marker: PhantomData }
 	}
 
-	/// Return the [`RuntimeCode`] build from the wrapped `backend`.
+	/// Return [`RuntimeCode`] build from the wrapped `backend`.
+	///
 	/// This method takes `:pending_code` into account.
 	pub fn runtime_code(&self) -> Result<RuntimeCode<'_>, &'static str> {
 		let maybe_pending_code_hash = match self.try_pending_code {

@@ -193,6 +193,7 @@ pub mod well_known_keys {
 	pub const CODE: &[u8] = b":code";
 
 	/// New wasm code of the runtime.
+	///
 	/// To be applied in the next block.
 	///
 	/// Stored as a raw byte vector. Required by substrate.

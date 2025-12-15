@@ -205,9 +205,8 @@ where
 
 	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
 		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
-		let try_pending_code = TryPendingCode::No;
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, TryPendingCode::No);
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -228,9 +227,8 @@ where
 
 		let trie_backend = state.as_trie_backend();
 
-		let try_pending_code = TryPendingCode::No;
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, try_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, TryPendingCode::No);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;

@@ -226,11 +226,6 @@ pub trait SetCode<T: Config> {
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		let system_version = T::Version::get().system_version;
-		log::info!(
-			 target: LOG_TARGET,
-			"Setting new code using system_version {}",
-			system_version,
-		);
 		match system_version {
 			0..=2 => {
 				<Pallet<T>>::update_code_in_storage(&code);
@@ -1597,6 +1592,7 @@ impl<T: Config> Pallet<T> {
 	pub fn account_exists(who: &T::AccountId) -> bool {
 		Account::<T>::contains_key(who)
 	}
+
 	/// Write code to the storage and emit related events and digest items.
 	///
 	/// Note this function almost never should be used directly. It is exposed
@@ -1638,8 +1634,7 @@ impl<T: Config> Pallet<T> {
 			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
 			if scheduled_at == current_number {
 				UpgradeScheduledAt::<T>::kill();
-				let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
-				let Some(new_code) = new_code else {
+				let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
 					// should never happen
 					defensive!("UpgradeScheduledAt is set but no pending code found");
 					return false
