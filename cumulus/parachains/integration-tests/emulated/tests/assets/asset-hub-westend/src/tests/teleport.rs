@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{foreign_balance_on, imports::*};
+use crate::{foreign_balance_on, foreign_issuance_on, imports::*};
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -603,6 +603,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendReceiver::get()
 	);
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	penpal_to_ah.set_assertion::<PenpalA>(penpal_to_ah_foreign_assets_sender_assertions);
 	penpal_to_ah.set_assertion::<AssetHubWestend>(penpal_to_ah_foreign_assets_receiver_assertions);
@@ -626,6 +628,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendReceiver::get()
 	);
+	let ah_issuance_after =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	// Sender's balance is reduced
 	assert!(penpal_sender_balance_after < penpal_sender_balance_before);
@@ -640,6 +644,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	assert_eq!(penpal_sender_assets_before - asset_amount_to_send, penpal_sender_assets_after);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + asset_amount_to_send);
+	// AH foreign asset total supply is increased by exact amount
+	assert_eq!(ah_issuance_after, ah_issuance_before + asset_amount_to_send);
 
 	///////////////////////////////////////////////////////////////////////
 	// Now test transferring foreign assets back from AssetHub to Penpal //
@@ -704,6 +710,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
 	});
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	ah_to_penpal.set_assertion::<AssetHubWestend>(ah_to_penpal_foreign_assets_sender_assertions);
 	ah_to_penpal.set_assertion::<PenpalA>(ah_to_penpal_foreign_assets_receiver_assertions);
@@ -723,6 +731,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
 	});
+	let ah_issuance_after = foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub);
 
 	// Sender's balance is reduced
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
@@ -737,6 +746,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	assert_eq!(ah_sender_assets_before - asset_amount_to_send, ah_sender_assets_after);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(penpal_receiver_assets_after, penpal_receiver_assets_before + asset_amount_to_send);
+	// AH foreign asset total supply is decreased by exact amount
+	assert_eq!(ah_issuance_after, ah_issuance_before - asset_amount_to_send);
 }
 
 /// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work

@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use crate::{
+	assets_issuance_on, balances_issuance_on, create_pool_with_wnd_on, foreign_balance_on,
+	foreign_issuance_on, imports::*,
+};
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
@@ -787,6 +790,8 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let sender_balance_before = test.sender.balance;
 	let receiver_assets_before =
 		foreign_balance_on!(PenpalA, relay_native_asset_location.clone(), &receiver);
+	let penpal_issuance_before = foreign_issuance_on!(PenpalA, relay_native_asset_location.clone());
+	let relay_issuance_before = balances_issuance_on!(Westend);
 
 	// Set assertions and dispatchables
 	test.set_assertion::<Westend>(relay_to_para_sender_assertions);
@@ -797,7 +802,9 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	// Query final balances
 	let sender_balance_after = test.sender.balance;
 	let receiver_assets_after =
-		foreign_balance_on!(PenpalA, relay_native_asset_location, &receiver);
+		foreign_balance_on!(PenpalA, relay_native_asset_location.clone(), &receiver);
+	let penpal_issuance_after = foreign_issuance_on!(PenpalA, relay_native_asset_location);
+	let relay_issuance_after = balances_issuance_on!(Westend);
 
 	// Sender's balance is reduced by amount sent plus delivery fees
 	assert!(sender_balance_after < sender_balance_before - amount_to_send);
@@ -807,6 +814,10 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
+	// Penpal mints native asset transferred in
+	assert_eq!(penpal_issuance_after, penpal_issuance_before + amount_to_send);
+	// Relay supply doesn't change (assets move to sovereign account)
+	assert_eq!(relay_issuance_after, relay_issuance_before);
 }
 
 /// Reserve Transfers of native asset from Parachain to Relay should work
@@ -855,6 +866,8 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	let sender_assets_before =
 		foreign_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
 	let receiver_balance_before = test.receiver.balance;
+	let penpal_issuance_before = foreign_issuance_on!(PenpalA, relay_native_asset_location.clone());
+	let relay_issuance_before = balances_issuance_on!(Westend);
 
 	// Set assertions and dispatchables
 	test.set_assertion::<PenpalA>(para_to_relay_sender_assertions);
@@ -863,8 +876,11 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	test.assert();
 
 	// Query final balances
-	let sender_assets_after = foreign_balance_on!(PenpalA, relay_native_asset_location, &sender);
+	let sender_assets_after =
+		foreign_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
 	let receiver_balance_after = test.receiver.balance;
+	let penpal_issuance_after = foreign_issuance_on!(PenpalA, relay_native_asset_location);
+	let relay_issuance_after = balances_issuance_on!(Westend);
 
 	// Sender's balance is reduced by amount sent plus delivery fees
 	assert!(sender_assets_after < sender_assets_before - amount_to_send);
@@ -874,6 +890,11 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
+	// Penpal burns native asset transferred out
+	assert_eq!(penpal_issuance_after, penpal_issuance_before - amount_to_send);
+	// Relay supply is reduced only by burnt fees
+	assert!(relay_issuance_after < relay_issuance_before);
+	assert!(relay_issuance_after > relay_issuance_before - amount_to_send);
 }
 
 // =========================================================================
@@ -911,6 +932,9 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	let sender_balance_before = test.sender.balance;
 	let receiver_assets_before =
 		foreign_balance_on!(PenpalA, system_para_native_asset_location.clone(), &receiver);
+	let penpal_issuance_before =
+		foreign_issuance_on!(PenpalA, system_para_native_asset_location.clone());
+	let ah_issuance_before = balances_issuance_on!(AssetHubWestend);
 
 	// Set assertions and dispatchables
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
@@ -921,7 +945,9 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	// Query final balances
 	let sender_balance_after = test.sender.balance;
 	let receiver_assets_after =
-		foreign_balance_on!(PenpalA, system_para_native_asset_location, &receiver);
+		foreign_balance_on!(PenpalA, system_para_native_asset_location.clone(), &receiver);
+	let penpal_issuance_after = foreign_issuance_on!(PenpalA, system_para_native_asset_location);
+	let ah_issuance_after = balances_issuance_on!(AssetHubWestend);
 
 	// Sender's balance is reduced by amount sent plus delivery fees
 	assert!(sender_balance_after < sender_balance_before - amount_to_send);
@@ -931,6 +957,10 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
+	// Penpal mints native asset transferred in
+	assert_eq!(penpal_issuance_after, penpal_issuance_before + amount_to_send);
+	// Asset Hub supply doesn't change (assets move to sovereign account)
+	assert_eq!(ah_issuance_after, ah_issuance_before);
 }
 
 /// Reserve Transfers of native asset from Parachain to Asset Hub should work
@@ -980,6 +1010,9 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 	let sender_assets_before =
 		foreign_balance_on!(PenpalA, system_para_native_asset_location.clone(), &sender);
 	let receiver_balance_before = test.receiver.balance;
+	let penpal_issuance_before =
+		foreign_issuance_on!(PenpalA, system_para_native_asset_location.clone());
+	let ah_issuance_before = balances_issuance_on!(AssetHubWestend);
 
 	// Set assertions and dispatchables
 	test.set_assertion::<PenpalA>(para_to_system_para_sender_assertions);
@@ -989,8 +1022,10 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 
 	// Query final balances
 	let sender_assets_after =
-		foreign_balance_on!(PenpalA, system_para_native_asset_location, &sender);
+		foreign_balance_on!(PenpalA, system_para_native_asset_location.clone(), &sender);
 	let receiver_balance_after = test.receiver.balance;
+	let penpal_issuance_after = foreign_issuance_on!(PenpalA, system_para_native_asset_location);
+	let ah_issuance_after = balances_issuance_on!(AssetHubWestend);
 
 	// Sender's balance is reduced by amount sent plus delivery fees
 	assert!(sender_assets_after < sender_assets_before - amount_to_send);
@@ -1000,6 +1035,10 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
+	// Penpal burns native asset transferred out
+	assert_eq!(penpal_issuance_after, penpal_issuance_before - amount_to_send);
+	// Asset Hub supply doesn't change (assets move from sovereign account)
+	assert_eq!(ah_issuance_after, ah_issuance_before);
 }
 
 // =========================================================================
@@ -1358,6 +1397,8 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 	});
 	let receiver_initial_balance =
 		foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &receiver);
+	let penpal_usdt_issuance_before = foreign_issuance_on!(PenpalA, usdt_from_asset_hub.clone());
+	let ah_usdt_issuance_before = assets_issuance_on!(AssetHubWestend, usdt_id);
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
 	test.set_assertion::<PenpalA>(system_para_to_penpal_receiver_assertions);
@@ -1372,16 +1413,23 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
 		Balances::free_balance(&sender)
 	});
-	let receiver_after_balance = foreign_balance_on!(PenpalA, usdt_from_asset_hub, &receiver);
+	let receiver_after_balance =
+		foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &receiver);
+	let penpal_usdt_issuance_after = foreign_issuance_on!(PenpalA, usdt_from_asset_hub);
+	let ah_usdt_issuance_after = assets_issuance_on!(AssetHubWestend, usdt_id);
 
-	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we allow payment with different assets locally, this should be the same, since
-	// they aren't used for fees.
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we allow payment with
+	// different assets locally, this should be the same, since they aren't used for fees.
 	assert!(sender_after_native_balance < sender_initial_native_balance);
 	// Sender account's balance decreases.
 	assert_eq!(sender_after_balance, sender_initial_balance - asset_amount_to_send);
 	// Receiver account's balance increases.
 	assert!(receiver_after_balance > receiver_initial_balance);
 	assert!(receiver_after_balance < receiver_initial_balance + asset_amount_to_send);
+	// Penpal mints USDT asset transferred in
+	assert_eq!(penpal_usdt_issuance_after, penpal_usdt_issuance_before + asset_amount_to_send);
+	// Asset Hub supply doesn't change (assets move to sovereign account)
+	assert_eq!(ah_usdt_issuance_after, ah_usdt_issuance_before);
 }
 
 // ===================================================================================
@@ -1481,6 +1529,9 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	let sender_assets_before = foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &sender);
 	let receiver_assets_before =
 		foreign_balance_on!(PenpalB, usdt_from_asset_hub.clone(), &receiver);
+	let penpal_1_usdt_issuance_before = foreign_issuance_on!(PenpalA, usdt_from_asset_hub.clone());
+	let ah_usdt_issuance_before = assets_issuance_on!(AssetHubWestend, usdt_id);
+	let penpal_2_usdt_issuance_before = foreign_issuance_on!(PenpalB, usdt_from_asset_hub.clone());
 	test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
 	test.set_assertion::<AssetHubWestend>(para_to_para_asset_hub_hop_assertions);
 	test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
@@ -1491,12 +1542,29 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 
 	// Query final balances
 	let sender_assets_after = foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &sender);
-	let receiver_assets_after = foreign_balance_on!(PenpalB, usdt_from_asset_hub, &receiver);
+	let receiver_assets_after =
+		foreign_balance_on!(PenpalB, usdt_from_asset_hub.clone(), &receiver);
+	let penpal_1_usdt_issuance_after = foreign_issuance_on!(PenpalA, usdt_from_asset_hub.clone());
+	let ah_usdt_issuance_after = assets_issuance_on!(AssetHubWestend, usdt_id);
+	let penpal_2_usdt_issuance_after = foreign_issuance_on!(PenpalB, usdt_from_asset_hub);
 
 	// Sender's balance is reduced by amount
 	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
+	// PenpalA burns USDT transferred out
+	assert_eq!(
+		penpal_1_usdt_issuance_after,
+		penpal_1_usdt_issuance_before - asset_amount_to_send - fee_amount_to_send
+	);
+	// Asset Hub supply doesn't change (assets move between sovereign accounts)
+	assert_eq!(ah_usdt_issuance_after, ah_usdt_issuance_before);
+	// PenpalB mints USDT asset transferred in (amount plus unspent fees)
+	assert!(penpal_2_usdt_issuance_after > penpal_2_usdt_issuance_before + asset_amount_to_send);
+	assert!(
+		penpal_2_usdt_issuance_after <
+			penpal_2_usdt_issuance_before + asset_amount_to_send + fee_amount_to_send
+	);
 }
 
 /// Reserve Withdraw Native Asset from AssetHub to Parachain fails.

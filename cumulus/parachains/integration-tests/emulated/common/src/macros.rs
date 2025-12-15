@@ -149,10 +149,19 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					//       So this is just workaround, must be investigated
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| { });
 
+					let receiver_total_issuance_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
+						<<$receiver_para as [<$receiver_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance()
+					});
 					// Send XCM message from Origin Parachain
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+						let total_issuance_source_of_truth = <$sender_para as $crate::macros::Chain>::native_total_issuance_source_of_truth();
+						let total_issuance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
 						let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 						$crate::macros::assert_ok!(<_ as $crate::macros::Dispatchable>::dispatch(call, origin));
+						let total_issuance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
 
 						type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
 
@@ -172,6 +181,17 @@ macro_rules! test_parachain_is_trusted_teleporter {
 								},
 							]
 						);
+						if total_issuance_source_of_truth {
+							assert_eq!(
+								total_issuance_after, total_issuance_before,
+								"Unexpected change in sender native token total issuance source of truth"
+							);
+						} else {
+							assert_eq!(
+								total_issuance_after, total_issuance_before - $amount,
+								"Native token total issuance should have decreased on sender"
+							);
+						}
 					});
 
 					// Receive XCM message in Destination Parachain
@@ -191,6 +211,19 @@ macro_rules! test_parachain_is_trusted_teleporter {
 								) => {},
 							]
 						);
+						let receiver_total_issuance_after = <<$receiver_para as [<$receiver_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
+						if <$receiver_para as $crate::macros::Chain>::native_total_issuance_source_of_truth() {
+							assert_eq!(
+								receiver_total_issuance_after, receiver_total_issuance_before,
+								"Unexpected change in receiver native token total issuance source of truth"
+							);
+						} else {
+							assert!(
+								receiver_total_issuance_after > receiver_total_issuance_before,
+								"Native token total issuance should have increased on receiver"
+							);
+						}
 					});
 
 					// Check if balances are updated accordingly in Origin and Destination Parachains
