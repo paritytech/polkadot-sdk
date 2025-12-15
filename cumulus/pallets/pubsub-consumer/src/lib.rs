@@ -29,7 +29,7 @@ pub use pallet::*;
 pub struct TestSubscriptionHandler<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> cumulus_pallet_subscriber::SubscriptionHandler for TestSubscriptionHandler<T> {
-	fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)> {
+	fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight) {
 		// Subscribe to keys from publisher ParaId 1000
 		let key1 = alloc::vec![
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -44,10 +44,10 @@ impl<T: Config> cumulus_pallet_subscriber::SubscriptionHandler for TestSubscript
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
 		];
 
-		alloc::vec![(ParaId::from(1000), alloc::vec![key1, key2])]
+		(alloc::vec![(ParaId::from(1000), alloc::vec![key1, key2])], Weight::zero())
 	}
 
-	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) {
+	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) -> Weight {
 		let bounded_key: BoundedVec<u8, ConstU32<256>> =
 			key.clone().try_into().unwrap_or_default();
 		let bounded_value: BoundedVec<u8, ConstU32<1024>> =
@@ -60,6 +60,8 @@ impl<T: Config> cumulus_pallet_subscriber::SubscriptionHandler for TestSubscript
 			key: bounded_key,
 			value: bounded_value,
 		});
+
+		Weight::zero()
 	}
 }
 
