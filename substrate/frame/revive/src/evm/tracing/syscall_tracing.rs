@@ -139,6 +139,54 @@ impl Tracing for SyscallTracer {
 		}
 	}
 
+	fn enter_opcode(
+		&mut self,
+		_pc: u64,
+		_opcode: u8,
+		gas_before: u64,
+		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
+		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
+		last_frame_output: &crate::ExecReturnValue,
+	) {
+		// Check step limit - if exceeded, don't record anything
+		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
+			return;
+		}
+
+		// Extract return data if enabled
+		let return_data = if self.config.enable_return_data {
+			crate::evm::Bytes(last_frame_output.data.clone())
+		} else {
+			crate::evm::Bytes::default()
+		};
+
+		// TODO fix
+		// let step = SyscallStep {
+		// 	ecall: ecall.to_string(),
+		// 	gas: gas_before,
+		// 	weight: weight_before,
+		// 	gas_cost: 0u64,                  // Will be set in exit_ecall
+		// 	weight_cost: Default::default(), // Will be set in exit_ecall
+		// 	depth: self.depth,
+		// 	return_data,
+		// 	error: None,
+		// };
+
+		// self.pending_step = Some(step);
+		// self.pending_gas_before = Some(gas_before);
+		// self.pending_weight_before = Some(weight_before);
+		// self.step_count += 1;
+	}
+
+	fn exit_opcode(&mut self, gas_left: u64) {
+		if let Some(mut step) = self.pending_step.take() {
+			if let Some(gas_before) = self.pending_gas_before.take() {
+				step.gas_cost = gas_before.saturating_sub(gas_left);
+			}
+			self.steps.push(step);
+		}
+	}
+
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
