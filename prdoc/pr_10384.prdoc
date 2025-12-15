@@ -1,96 +1,101 @@
 title: XCM executor keeps track and resolves all imbalances created by XCM operations
 doc:
-- audience: Runtime Dev
-  description: |-
-    Introduce "ImbalanceAccounting" traits for dynamic dispatch management of imbalances. These are helper traits to be used for generic Imbalance, helpful for tracking multiple concrete types of `Imbalance` using dynamic dispatch of these traits.
+  - audience: Runtime Dev
+    description: |-
+      Introduce "ImbalanceAccounting" traits for dynamic dispatch management of imbalances.
+      These are helper traits to be used for generic Imbalance, helpful for tracking multiple
+      concrete types of `Imbalance` using dynamic dispatch of these traits.
+      
+      `xcm-executor` now tracks imbalances in holding.
+      
+      Change the xcm executor implementation and inner types and adapters so that it keeps
+      track of imbalances across the stack.
+      
+      Previously, XCM operations on fungible assets would break the respective fungibles' total
+      issuance invariants by burning and minting them in different stages of XCM processing pipeline.
+      
+      This commit fixes that by keeping track of the "withdrawn" or "deposited" fungible assets
+      in holding and other XCM registers as imbalances. The imbalances are tied to the underlying
+      pallet managing the asset so that they keep the assets' total issuance correctness throughout
+      the execution of the XCM program.
+      
+      Imbalances in XCM registers are resolved by the underlying pallets managing them whenever they
+      move from XCM registers to other parts of the stack (e.g. deposited to accounts, burned, etc).
 
-    `xcm-executor` now tracks imbalances in holding.
-
-    Change the xcm executor implementation and inner types and adapters so that it keeps track of imbalances across the stack.
-
-    Previously, XCM operations on fungible assets would break the respective fungibles' total issuance invariants by burning and minting them in different stages of XCM processing pipeline.
-
-    This commit fixes that by keeping track of the "withdrawn" or "deposited" fungible assets in holding and other XCM registers as imbalances. The imbalances are tied to the underlying pallet managing the asset so that they keep the assets' total issuance correctness throughout the execution of the XCM program.
-
-    Imbalances in XCM registers are resolved by the underlying pallets managing them whenever they move from XCM registers to other parts of the stack (e.g. deposited to accounts, burned, etc).
-
-    TODO:
-
-    - [ ] all XCM emulated tests should verify total issuance before/after transfers, swaps, traps, claims, etc to guarantee implementation correctness
 crates:
-- name: pallet-assets
-  bump: major
-- name: pallet-balances
-  bump: major
-- name: pallet-contracts-mock-network
-  bump: major
-- name: pallet-derivatives
-  bump: major
-- name: frame-support
-  bump: major
-- name: cumulus-primitives-utility
-  bump: major
-- name: polkadot-runtime-parachains
-  bump: major
-- name: rococo-runtime
-  bump: major
-- name: westend-runtime
-  bump: major
-- name: pallet-xcm-benchmarks
-  bump: major
-- name: pallet-xcm-precompiles
-  bump: major
-- name: pallet-xcm
-  bump: major
-- name: staging-xcm
-  bump: major
-- name: staging-xcm-builder
-  bump: major
-- name: staging-xcm-executor
-  bump: major
-- name: xcm-runtime-apis
-  bump: major
-- name: xcm-simulator-example
-  bump: major
-- name: pallet-xcm-bridge-hub
-  bump: major
-- name: snowbridge-pallet-inbound-queue
-  bump: major
-- name: snowbridge-test-utils
-  bump: major
-- name: emulated-integration-tests-common
-  bump: major
-- name: asset-hub-rococo-runtime
-  bump: major
-- name: asset-hub-westend-runtime
-  bump: major
-- name: assets-common
-  bump: major
-- name: bridge-hub-rococo-runtime
-  bump: major
-- name: bridge-hub-westend-runtime
-  bump: major
-- name: bridge-hub-test-utils
-  bump: major
-- name: collectives-westend-runtime
-  bump: major
-- name: coretime-rococo-runtime
-  bump: major
-- name: coretime-westend-runtime
-  bump: major
-- name: glutton-westend-runtime
-  bump: major
-- name: people-rococo-runtime
-  bump: major
-- name: people-westend-runtime
-  bump: major
-- name: parachains-runtimes-test-utils
-  bump: major
-- name: penpal-runtime
-  bump: major
-- name: rococo-parachain-runtime
-  bump: major
-- name: yet-another-parachain-runtime
-  bump: major
-- name: polkadot-runtime-common
-  bump: major
+  - name: pallet-assets
+    bump: major
+  - name: pallet-balances
+    bump: major
+  - name: pallet-contracts-mock-network
+    bump: major
+  - name: pallet-derivatives
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: cumulus-primitives-utility
+    bump: major
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-xcm-benchmarks
+    bump: major
+  - name: pallet-xcm-precompiles
+    bump: major
+  - name: pallet-xcm
+    bump: major
+  - name: staging-xcm
+    bump: major
+  - name: staging-xcm-builder
+    bump: major
+  - name: staging-xcm-executor
+    bump: major
+  - name: xcm-runtime-apis
+    bump: major
+  - name: xcm-simulator-example
+    bump: major
+  - name: pallet-xcm-bridge-hub
+    bump: major
+  - name: snowbridge-pallet-inbound-queue
+    bump: major
+  - name: snowbridge-test-utils
+    bump: major
+  - name: emulated-integration-tests-common
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: assets-common
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-test-utils
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: glutton-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: parachains-runtimes-test-utils
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: rococo-parachain-runtime
+    bump: major
+  - name: yet-another-parachain-runtime
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
