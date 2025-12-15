@@ -268,7 +268,7 @@ label_example = '''**Examples**:
  %(prog)s T1-FRAME A2-substantial D3-involved
 
 Labels are fetched dynamically from the repository.
-Typos are auto-corrected when confidence is high (>80% similarity).
+Typos are auto-corrected when confidence is high (>80%% similarity).
 For label meanings, see: https://paritytech.github.io/labels/doc_polkadot-sdk.html
 '''
 
