@@ -164,8 +164,8 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{
 		tokens::{
-			fungible, BalanceStatus as Status, DepositConsequence,
-			Fortitude::{self, Force, Polite},
+			fungible, BalanceStatus as Status, DepositConsequence, Fortitude,
+			Fortitude::{Force, Polite},
 			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
@@ -864,7 +864,6 @@ pub mod pallet {
 			#[pallet::compact] value: T::Balance,
 			keep_alive: bool,
 		) -> DispatchResult {
-			use frame_support::traits::tokens::Fortitude;
 			let source = ensure_signed(origin)?;
 			let preservation =
 				if keep_alive { Preservation::Preserve } else { Preservation::Expendable };
