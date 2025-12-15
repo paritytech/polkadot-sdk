@@ -86,7 +86,7 @@ impl PendingRequests {
 		}
 	}
 
-	pub fn completed(&mut self, advertisement: &Advertisement) {
+	pub fn note_completed(&mut self, advertisement: &Advertisement) {
 		self.cancellation_tokens.remove(advertisement);
 	}
 

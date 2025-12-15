@@ -44,26 +44,17 @@ impl ConnectedPeers {
 	) -> Self {
 		debug_assert!(per_para_limit <= overall_limit);
 
-		let limit = std::cmp::min(
-			(u16::from(overall_limit))
-				.checked_div(
-					scheduled_paras
-						.len()
-						.try_into()
-						.expect("Nr of scheduled paras on a core should always fit in a u16"),
-				)
-				.unwrap_or(0),
-			u16::from(per_para_limit),
-		);
-
 		let mut per_para = BTreeMap::new();
-
-		if limit != 0 {
-			for para_id in scheduled_paras {
-				per_para.insert(
-					para_id,
-					PerPara::new(NonZeroU16::new(limit).expect("Just checked that limit is not 0")),
-				);
+		if scheduled_paras.len() > 0 {
+			// Since `overall_limit` and `per_para_limit` are `u16`, `limit` must also fit in `u16`.
+			let limit = std::cmp::min(
+				overall_limit.get() as usize / scheduled_paras.len(),
+				per_para_limit.get() as usize,
+			) as u16;
+			if let Some(non_zero_limit) = NonZeroU16::new(limit) {
+				for para_id in scheduled_paras {
+					per_para.insert(para_id, PerPara::new(non_zero_limit));
+				}
 			}
 		}
 

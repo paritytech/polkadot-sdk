@@ -219,6 +219,18 @@ pub struct SecondingRejectionInfo {
 	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
+impl From<&Advertisement> for SecondingRejectionInfo {
+	fn from(advertisement: &Advertisement) -> Self {
+		SecondingRejectionInfo {
+			relay_parent: advertisement.relay_parent,
+			peer_id: advertisement.peer_id,
+			para_id: advertisement.para_id,
+			maybe_output_head_hash: None,
+			maybe_candidate_hash: advertisement.candidate_hash(),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -464,21 +464,15 @@ impl CollationManager {
 		}
 	}
 
-	pub async fn completed_fetch<Sender: CollatorProtocolSenderTrait>(
+	pub async fn note_fetched<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		res: CollationFetchResponse,
 	) -> CanSecond {
 		let advertisement = res.0;
-		self.fetching.completed(&advertisement);
+		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
 
-		let mut reject_info = SecondingRejectionInfo {
-			relay_parent: advertisement.relay_parent,
-			peer_id: advertisement.peer_id,
-			para_id: advertisement.para_id,
-			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.candidate_hash(),
-		};
+		self.fetching.note_completed(&advertisement);
 
 		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
 			gum::debug!(
@@ -585,15 +579,14 @@ impl CollationManager {
 		}
 	}
 
-	pub fn get_peer_id_of_fetched_collation(
+	pub fn get_fetched_collation_peer_id(
 		&self,
 		relay_parent: &Hash,
 		candidate_hash: &CandidateHash,
-	) -> Option<PeerId> {
+	) -> Option<&PeerId> {
 		self.per_relay_parent
 			.get(relay_parent)
 			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash))
-			.copied()
 	}
 
 	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -604,7 +597,7 @@ impl CollationManager {
 		candidate_hash: &CandidateHash,
 		output_head_hash: Hash,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
-		let peer_id = self.get_peer_id_of_fetched_collation(relay_parent, candidate_hash);
+		let peer_id = self.get_fetched_collation_peer_id(relay_parent, candidate_hash).copied();
 
 		self.claim_queue_state
 			.claim_seconded_slot(relay_parent, para_id, candidate_hash);
@@ -665,8 +658,8 @@ impl CollationManager {
 					return None;
 				}
 
-				let adv_timepstamp = per_rp.advertisement_timestamps.get(adv)?;
-				let duration_since_adv = now.duration_since(*adv_timepstamp);
+				let adv_timestamp = per_rp.advertisement_timestamps.get(adv)?;
+				let duration_since_adv = now.duration_since(*adv_timestamp);
 				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
 					.checked_sub(duration_since_adv)
 					.unwrap_or(Duration::ZERO);
@@ -796,14 +789,25 @@ impl CollationManager {
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
-		let can_second = match fetch_pvd(
+		let fetch_pvd_res = fetch_pvd(
 			sender,
 			&fetched_collation.candidate_receipt,
 			fetched_collation.maybe_parent_head_data_hash,
 			fetched_collation.maybe_parent_head_data.clone(),
 		)
-		.await
-		{
+		.await;
+		let can_second = match fetch_pvd_res {
+			Ok(pvd) => {
+				// Mark this claim with the right candidate hash. This is a no-op if for
+				// protocol v2 but in case of v1, the claim was made on the relay parent but
+				// without a candidate hash.
+				self.claim_queue_state.mark_pending_slot_with_candidate(
+					&relay_parent,
+					&para_id,
+					&candidate_hash,
+				);
+				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
+			},
 			Err(error) => match error {
 				SecondingError::BlockedOnParent(parent) => {
 					gum::debug!(
@@ -833,17 +837,6 @@ impl CollationManager {
 
 					CanSecond::BlockedOnParent(parent, reject_info)
 				},
-				error if error.is_malicious() => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						?relay_parent,
-						?para_id,
-						"Failed persisted validation data checks: {}",
-						error
-					);
-					CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info)
-				},
 				err => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -853,19 +846,13 @@ impl CollationManager {
 						"Failed persisted validation data checks: {}",
 						err
 					);
-					CanSecond::No(None, reject_info)
+
+					let mut slash = None;
+					if err.is_malicious() {
+						slash = Some(FAILED_FETCH_SLASH);
+					}
+					CanSecond::No(slash, reject_info)
 				},
-			},
-			Ok(pvd) => {
-				// Mark this claim with the right candidate hash. This is a no-op if for
-				// protocol v2 but in case of v1, the claim was made on the relay parent but
-				// without a candidate hash.
-				self.claim_queue_state.mark_pending_slot_with_candidate(
-					&relay_parent,
-					&para_id,
-					&candidate_hash,
-				);
-				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},
 		};
 
@@ -1087,23 +1074,15 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 			)
 			.await?;
 
-			let pvd = match (maybe_pvd, &maybe_parent_head_data) {
+			let (expected_hash, pvd) = match (maybe_pvd, &maybe_parent_head_data) {
+				(Some(pvd), Some(parent_head)) => (parent_head.hash(), pvd),
+				(Some(pvd), None) => (pvd.parent_head.hash(), pvd),
 				(None, None) => return Err(SecondingError::BlockedOnParent(parent_head_data_hash)),
-				(Some(pvd), None) => {
-					if parent_head_data_hash != pvd.parent_head.hash() {
-						return Err(SecondingError::ParentHeadDataMismatch)
-					}
-					pvd
-				},
-				(Some(pvd), Some(parent_head)) => {
-					if parent_head.hash() != parent_head_data_hash {
-						return Err(SecondingError::ParentHeadDataMismatch)
-					}
-					pvd
-				},
 				(None, _) => return Err(SecondingError::PersistedValidationDataNotFound),
 			};
-
+			if parent_head_data_hash != expected_hash {
+				return Err(SecondingError::ParentHeadDataMismatch)
+			}
 			pvd
 		},
 		None => {

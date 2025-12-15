@@ -310,8 +310,7 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		let can_second = self.collation_manager.completed_fetch(sender, res).await;
-
+		let can_second = self.collation_manager.note_fetched(sender, res).await;
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
 				sender
@@ -368,7 +367,7 @@ impl<B: Backend> State<B> {
 
 		let Some(peer_id) = self
 			.collation_manager
-			.get_peer_id_of_fetched_collation(&relay_parent, &candidate_hash)
+			.get_fetched_collation_peer_id(&relay_parent, &candidate_hash)
 		else {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -381,7 +380,7 @@ impl<B: Backend> State<B> {
 		};
 
 		self.peer_manager
-			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
+			.slash_reputation(peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
 			.await;
 	}
 
@@ -509,7 +508,7 @@ impl<B: Backend> State<B> {
 					);
 				},
 				CanSecond::No(maybe_slash, reject_info) => {
-					gum::warn!(
+					gum::debug!(
 						target: LOG_TARGET,
 						relay_parent = ?reject_info.relay_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
