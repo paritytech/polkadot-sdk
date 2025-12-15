@@ -22,7 +22,7 @@ use crate::{
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
-	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
+	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
 	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
@@ -171,7 +171,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 }
 
 /// The type of origins supported by the revive pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
@@ -281,10 +281,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
-
-	/// Sets new code hash and immutable data for an existing contract.
-	/// Returns whether the old code was removed as a result of this operation.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 
 	/// Get the length of the immutable data.
 	///
@@ -556,7 +552,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	Clone,
 	PartialEq,
 	Eq,
-	sp_core::RuntimeDebug,
+	Debug,
 	codec::Decode,
 	codec::Encode,
 	codec::MaxEncodedLen,
@@ -678,7 +674,7 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-#[derive(Clone)]
+#[derive(Clone, DebugNoBound)]
 pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
@@ -889,7 +885,7 @@ where
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 					T::AddressMapper::to_address(&dest),
-					false,
+					None,
 					false,
 					value,
 					&input_data,
@@ -1239,7 +1235,7 @@ where
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 				T::AddressMapper::to_address(&frame.account_id),
-				frame.delegate.is_some(),
+				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
@@ -1923,45 +1919,6 @@ where
 		&self.top_frame_mut().contract_info().code_hash
 	}
 
-	/// TODO: This should be changed to run the constructor of the supplied `hash`.
-	///
-	/// Because the immutable data is attached to a contract and not a code,
-	/// we need to update the immutable data too.
-	///
-	/// Otherwise we open a massive footgun:
-	/// If the immutables changed in the new code, the contract will brick.
-	///
-	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
-	/// so that `fn run()` will roll back any changes if this flag is set.
-	///
-	/// After running the constructor, the new immutable data is already stored in
-	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
-	///
-	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
-		let frame = top_frame_mut!(self);
-
-		let info = frame.contract_info();
-
-		let prev_hash = info.code_hash;
-		info.code_hash = hash;
-
-		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
-
-		let old_base_deposit = info.storage_base_deposit();
-		let new_base_deposit = info.update_base_deposit(code_info.deposit());
-		let deposit = StorageDeposit::Charge(new_base_deposit)
-			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
-
-		frame
-			.frame_meter
-			.charge_contract_deposit_and_transfer(frame.account_id.clone(), deposit)?;
-
-		<CodeInfo<T>>::increment_refcount(hash)?;
-		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(removed)
-	}
-
 	fn immutable_data_len(&mut self) -> u32 {
 		self.top_frame_mut().contract_info().immutable_data_len()
 	}
@@ -2123,7 +2080,7 @@ where
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
-						false,
+						None,
 						is_read_only,
 						value,
 						&input_data,

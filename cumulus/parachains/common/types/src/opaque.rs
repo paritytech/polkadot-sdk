@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -14,30 +12,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
 
-#[polkavm_derive::polkavm_import]
-extern "C" {
-	pub fn set_code_hash();
-}
+use super::*;
+use sp_runtime::{generic, traits::BlakeTwo256};
 
-// Export that is never called. We can put code here that should be in the binary
-// but is never supposed to be run.
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call_never() {
-	// make sure it is not optimized away
-	unsafe {
-		set_code_hash();
-	}
-}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {}
+pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+/// Opaque block header type.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+/// Opaque block type.
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+/// Opaque block identifier type.
+pub type BlockId = generic::BlockId<Block>;

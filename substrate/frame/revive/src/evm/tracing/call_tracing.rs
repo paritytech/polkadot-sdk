@@ -74,7 +74,7 @@ impl Tracing for CallTracer {
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
@@ -104,7 +104,7 @@ impl Tracing for CallTracer {
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
-					} else if is_delegate_call {
+					} else if delegate_call.is_some() {
 						CallType::DelegateCall
 					} else {
 						CallType::Call

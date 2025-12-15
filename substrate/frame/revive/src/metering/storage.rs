@@ -27,7 +27,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{traits::Get, DefaultNoBound, RuntimeDebugNoBound};
+use frame_support::{traits::Get, DebugNoBound, DefaultNoBound};
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -71,7 +71,7 @@ pub trait Ext<T: Config> {
 pub enum ReservingExt {}
 
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State> {
 	/// The limit of how much balance this meter is allowed to consume.
 	pub(crate) limit: Option<BalanceOf<T>>,
@@ -97,7 +97,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 }
 
 /// This type is used to describe a storage change when charging from the meter.
-#[derive(Default, RuntimeDebugNoBound)]
+#[derive(Default, DebugNoBound)]
 pub struct Diff {
 	/// How many bytes were added to storage.
 	pub bytes_added: u32,
@@ -181,7 +181,7 @@ impl Diff {
 }
 
 /// The state of a contract.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive { amount: DepositOf<T> },
 	Terminated,
@@ -196,14 +196,14 @@ pub enum ContractState<T: Config> {
 /// The only exception is when a special (tougher) deposit limit is specified for a cross-contract
 /// call. In that case the limit is enforced once the call is returned, rolling it back if
 /// exhausted.
-#[derive(RuntimeDebugNoBound, Clone)]
+#[derive(DebugNoBound, Clone)]
 struct Charge<T: Config> {
 	contract: T::AccountId,
 	state: ContractState<T>,
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),

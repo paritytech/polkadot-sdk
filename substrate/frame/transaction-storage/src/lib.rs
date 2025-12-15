@@ -32,15 +32,16 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::result;
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::GetDispatchInfo,
+	pallet_prelude::InvalidTransaction,
 	traits::{
-		fungible::{hold::Balanced, Inspect, Mutate, MutateHold},
-		tokens::fungible::Credit,
+		fungible::{hold::Balanced, Credit, Inspect, Mutate, MutateHold},
 		OnUnbalanced,
 	},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
 	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
@@ -56,22 +57,59 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+// TODO: https://github.com/paritytech/polkadot-bulletin-chain/issues/139 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
 // Setting higher limit also requires raising the allocator limit.
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 
+/// Encountered an impossible situation, implies a bug.
+pub const IMPOSSIBLE: InvalidTransaction = InvalidTransaction::Custom(0);
+/// Data size is not in the allowed range.
+pub const BAD_DATA_SIZE: InvalidTransaction = InvalidTransaction::Custom(1);
+/// Renewed extrinsic not found.
+pub const RENEWED_NOT_FOUND: InvalidTransaction = InvalidTransaction::Custom(2);
+/// Authorization was not found.
+pub const AUTHORIZATION_NOT_FOUND: InvalidTransaction = InvalidTransaction::Custom(3);
+/// Authorization has not expired.
+pub const AUTHORIZATION_NOT_EXPIRED: InvalidTransaction = InvalidTransaction::Custom(4);
+
+/// Number of transactions and bytes covered by an authorization.
+#[derive(PartialEq, Eq, Debug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+pub struct AuthorizationExtent {
+	/// Number of transactions.
+	pub transactions: u32,
+	/// Number of bytes.
+	pub bytes: u64,
+}
+
+/// Hash of a stored blob of data.
+type ContentHash = [u8; 32];
+
+/// The scope of an authorization.
+#[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+enum AuthorizationScope<AccountId> {
+	/// Authorization for the given account to store arbitrary data.
+	Account(AccountId),
+	/// Authorization for anyone to store data with a specific hash.
+	Preimage(ContentHash),
+}
+
+type AuthorizationScopeFor<T> = AuthorizationScope<<T as frame_system::Config>::AccountId>;
+
+/// An authorization to store data.
+#[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+struct Authorization<BlockNumber> {
+	/// Extent of the authorization (number of transactions/bytes).
+	extent: AuthorizationExtent,
+	/// The block at which this authorization expires.
+	expiration: BlockNumber,
+}
+
+type AuthorizationFor<T> = Authorization<BlockNumberFor<T>>;
+
 /// State data for a stored transaction.
-#[derive(
-	Encode,
-	Decode,
-	Clone,
-	sp_runtime::RuntimeDebug,
-	PartialEq,
-	Eq,
-	scale_info::TypeInfo,
-	MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct TransactionInfo {
 	/// Chunk trie root.
 	chunk_root: <BlakeTwo256 as Hash>::Output,
@@ -83,7 +121,7 @@ pub struct TransactionInfo {
 	/// is used to find transaction info by block chunk index using binary search.
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the
-	/// total chunks value.
+	/// total chunks.
 	block_chunks: ChunkIndex,
 }
 
@@ -130,8 +168,10 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Maximum number of indexed transactions in the block.
+		#[pallet::constant]
 		type MaxBlockTransactions: Get<u32>;
 		/// Maximum data set in a single transaction in bytes.
+		#[pallet::constant]
 		type MaxTransactionSize: Get<u32>;
 	}
 
@@ -147,8 +187,6 @@ pub mod pallet {
 		NotConfigured,
 		/// Renewed extrinsic is not found.
 		RenewedNotFound,
-		/// Attempting to store an empty transaction
-		EmptyTransaction,
 		/// Proof was not expected in this block.
 		UnexpectedProof,
 		/// Proof failed verification.
@@ -161,8 +199,6 @@ pub mod pallet {
 		DoubleCheck,
 		/// Storage proof was not checked in the block.
 		ProofNotChecked,
-		/// Transaction is too large.
-		TransactionTooLarge,
 		/// Authorization was not found.
 		AuthorizationNotFound,
 		/// Authorization has not expired.
@@ -210,6 +246,7 @@ pub mod pallet {
 				},
 				"Storage proof must be checked once in the block"
 			);
+
 			// Insert new transactions, iff they have chunks.
 			let transactions = BlockTransactions::<T>::take();
 			let total_chunks = TransactionInfo::total_chunks(&transactions);
@@ -217,29 +254,50 @@ pub mod pallet {
 				Transactions::<T>::insert(n, transactions);
 			}
 		}
+
+		fn integrity_test() {
+			assert!(
+				!T::MaxBlockTransactions::get().is_zero(),
+				"MaxTransactionSize must be greater than zero"
+			);
+			assert!(
+				!T::MaxTransactionSize::get().is_zero(),
+				"MaxTransactionSize must be greater than zero"
+			);
+			let default_period = sp_transaction_storage_proof::DEFAULT_STORAGE_PERIOD.into();
+			let storage_period = GenesisConfig::<T>::default().storage_period;
+			assert_eq!(
+				storage_period, default_period,
+				"GenesisConfig.storage_period must match DEFAULT_STORAGE_PERIOD"
+			);
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Index and store data off chain. Minimum data size is 1 bytes, maximum is
-		/// `MaxTransactionSize`. Data will be removed after `STORAGE_PERIOD` blocks, unless `renew`
+		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
+		/// `MaxTransactionSize`. Data will be removed after `StoragePeriod` blocks, unless `renew`
 		/// is called.
+		///
+		/// Emits [`Stored`](Event::Stored) when successful.
+		///
 		/// ## Complexity
-		/// - O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
+		///
+		/// O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::store(data.len() as u32))]
 		pub fn store(origin: OriginFor<T>, data: Vec<u8>) -> DispatchResult {
-			ensure!(data.len() > 0, Error::<T>::EmptyTransaction);
-			ensure!(
-				data.len() <= T::MaxTransactionSize::get() as usize,
-				Error::<T>::TransactionTooLarge
-			);
+			// In the case of a regular unsigned transaction, this should have been checked by
+			// pre_dispatch. In the case of a regular signed transaction, this should have been
+			// checked by pre_dispatch_signed.
+			Self::ensure_data_size_ok(data.len())?;
 			let sender = ensure_signed(origin)?;
 			Self::apply_fee(sender, data.len() as u32)?;
 
 			// Chunk data and compute storage root
-			let chunk_count = num_chunks(data.len() as u32);
-			let chunks = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
+			let chunks: Vec<_> = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
+			let chunk_count = chunks.len() as u32;
+			debug_assert_eq!(chunk_count, num_chunks(data.len() as u32));
 			let root = sp_io::trie::blake2_256_ordered_root(chunks, sp_runtime::StateVersion::V1);
 
 			let content_hash = sp_io::hashing::blake2_256(&data);
@@ -261,19 +319,21 @@ pub mod pallet {
 						content_hash: content_hash.into(),
 						block_chunks: total_chunks,
 					})
-					.map_err(|_| Error::<T>::TooManyTransactions)?;
-				Ok(())
+					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Stored { index });
+			Self::deposit_event(Event::Stored { index, content_hash });
 			Ok(())
 		}
 
-		/// Renew previously stored data. Parameters are the block number that contains
-		/// previous `store` or `renew` call and transaction index within that block.
-		/// Transaction index is emitted in the `Stored` or `Renewed` event.
-		/// Applies same fees as `store`.
+		/// Renew previously stored data. Parameters are the block number that contains previous
+		/// `store` or `renew` call and transaction index within that block. Transaction index is
+		/// emitted in the `Stored` or `Renewed` event. Applies same fees as `store`.
+		///
+		/// Emits [`Renewed`](Event::Renewed) when successful.
+		///
 		/// ## Complexity
-		/// - O(1).
+		///
+		/// O(1).
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::renew())]
 		pub fn renew(
@@ -282,14 +342,18 @@ pub mod pallet {
 			index: u32,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let transactions = Transactions::<T>::get(block).ok_or(Error::<T>::RenewedNotFound)?;
-			let info = transactions.get(index as usize).ok_or(Error::<T>::RenewedNotFound)?;
+			let info = Self::transaction_info(block, index).ok_or(Error::<T>::RenewedNotFound)?;
+
+			// In the case of a regular unsigned transaction, this should have been checked by
+			// pre_dispatch. In the case of a regular signed transaction, this should have been
+			// checked by pre_dispatch_signed.
+			Self::ensure_data_size_ok(info.size as usize)?;
+
 			let extrinsic_index =
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
-
 			Self::apply_fee(sender, info.size)?;
-
-			sp_io::transaction_index::renew(extrinsic_index, info.content_hash.into());
+			let content_hash = info.content_hash.into();
+			sp_io::transaction_index::renew(extrinsic_index, content_hash);
 
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
@@ -308,16 +372,16 @@ pub mod pallet {
 					})
 					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Renewed { index });
+			Self::deposit_event(Event::Renewed { index, content_hash });
 			Ok(().into())
 		}
 
-		/// Check storage proof for block number `block_number() - StoragePeriod`.
-		/// If such a block does not exist, the proof is expected to be `None`.
+		/// Check storage proof for block number `block_number() - StoragePeriod`. If such a block
+		/// does not exist, the proof is expected to be `None`.
 		///
 		/// ## Complexity
-		/// - Linear w.r.t the number of indexed transactions in the proved block for random
-		///   probing.
+		///
+		/// Linear w.r.t the number of indexed transactions in the proved block for random probing.
 		/// There's a DB read for each transaction.
 		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::check_proof_max(), DispatchClass::Mandatory))]
@@ -349,12 +413,30 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data under specified index.
-		Stored { index: u32 },
+		Stored { index: u32, content_hash: ContentHash },
 		/// Renewed data under specified index.
-		Renewed { index: u32 },
+		Renewed { index: u32, content_hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
+		/// An account `who` was authorized to store `bytes` bytes in `transactions` transactions.
+		AccountAuthorized { who: T::AccountId, transactions: u32, bytes: u64 },
+		/// An authorization for account `who` was refreshed.
+		AccountAuthorizationRefreshed { who: T::AccountId },
+		/// Authorization was given for a preimage of `content_hash` (not exceeding `max_size`) to
+		/// be stored by anyone.
+		PreimageAuthorized { content_hash: ContentHash, max_size: u64 },
+		/// An authorization for a preimage of `content_hash` was refreshed.
+		PreimageAuthorizationRefreshed { content_hash: ContentHash },
+		/// An expired account authorization was removed.
+		ExpiredAccountAuthorizationRemoved { who: T::AccountId },
+		/// An expired preimage authorization was removed.
+		ExpiredPreimageAuthorizationRemoved { content_hash: ContentHash },
 	}
+
+	/// Authorizations, keyed by scope.
+	#[pallet::storage]
+	pub(super) type Authorizations<T: Config> =
+		StorageMap<_, Blake2_128Concat, AuthorizationScopeFor<T>, AuthorizationFor<T>, OptionQuery>;
 
 	/// Collection of transaction metadata by block number.
 	#[pallet::storage]
@@ -408,9 +490,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			ByteFee::<T>::put(&self.byte_fee);
-			EntryFee::<T>::put(&self.entry_fee);
-			StoragePeriod::<T>::put(&self.storage_period);
+			ByteFee::<T>::put(self.byte_fee);
+			EntryFee::<T>::put(self.entry_fee);
+			StoragePeriod::<T>::put(self.storage_period);
 		}
 	}
 
@@ -427,10 +509,7 @@ pub mod pallet {
 			proof.map(|proof| Call::check_proof { proof })
 		}
 
-		fn check_inherent(
-			_call: &Self::Call,
-			_data: &InherentData,
-		) -> result::Result<(), Self::Error> {
+		fn check_inherent(_call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
 			Ok(())
 		}
 
@@ -467,6 +546,26 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Returns `true` if a blob of the given size can be stored.
+		fn data_size_ok(size: usize) -> bool {
+			(size > 0) && (size <= T::MaxTransactionSize::get() as usize)
+		}
+
+		/// Ensures that the given data size is valid for storage.
+		fn ensure_data_size_ok(size: usize) -> Result<(), Error<T>> {
+			ensure!(Self::data_size_ok(size), Error::<T>::BadDataSize);
+			Ok(())
+		}
+
+		/// Returns the [`TransactionInfo`] for the specified store/renew transaction.
+		fn transaction_info(
+			block_number: BlockNumberFor<T>,
+			index: u32,
+		) -> Option<TransactionInfo> {
+			let transactions = Transactions::<T>::get(block_number)?;
+			transactions.into_iter().nth(index as usize)
+		}
+
 		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
 		/// transactions.
 		pub(crate) fn verify_chunk_proof(
@@ -477,7 +576,7 @@ pub mod pallet {
 			// Get the random chunk index - from all transactions in the block = [0..total_chunks).
 			let total_chunks: ChunkIndex = TransactionInfo::total_chunks(&infos);
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
-			let selected_block_chunk_index = random_chunk(random_hash, total_chunks as _);
+			let selected_block_chunk_index = random_chunk(random_hash, total_chunks);
 
 			// Let's find the corresponding transaction and its "local" chunk index for "global"
 			// `selected_block_chunk_index`.
@@ -497,7 +596,7 @@ pub mod pallet {
 				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow
 				// empty transactions. Without this check, it would fail anyway below with
 				// `InvalidProof`.
-				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::EmptyTransaction);
+				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::BadDataSize);
 
 				// Convert a global chunk index into a transaction-local one.
 				let tx_chunks = num_chunks(tx_info.size);
