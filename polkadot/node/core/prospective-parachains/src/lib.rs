@@ -167,8 +167,6 @@ async fn run_iteration<Context>(
 				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
 					answer_hypothetical_membership_request(&view, request, tx, metrics),
-				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =>
-					answer_minimum_relay_parents_request(&view, relay_parent, tx),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
 					answer_prospective_validation_data_request(&view, request, tx),
 			},
@@ -238,19 +236,25 @@ async fn handle_active_leaves_update<Context>(
 			.await?
 			.saturating_sub(1);
 
-		let ancestry =
-			fetch_ancestry(ctx, &mut temp_header_cache, hash, ancestry_len as usize, session_index)
-				.await?;
+		let ancestors = fetch_ancestors(
+			ctx,
+			&mut temp_header_cache,
+			hash,
+			ancestry_len as usize,
+			session_index,
+		)
+		.await?;
 
-		let prev_fragment_chains =
-			ancestry.first().and_then(|prev_leaf| view.get_fragment_chains(&prev_leaf.hash));
+		let prev_fragment_chains = ancestors
+			.first()
+			.and_then(|prev_leaf| view.get_fragment_chains(&prev_leaf.hash));
 
 		// Create the relay chain scope once for this relay parent.
 		// All paras share the same relay chain ancestry.
 		// The ancestry is already limited by session boundaries and scheduling lookahead.
 		let relay_chain_scope = match fragment_chain::RelayChainScope::with_ancestors(
 			block_info.clone().into(),
-			ancestry
+			ancestors
 				.iter()
 				.map(|a| RelayChainBlockInfo::from(a.clone()))
 				.collect::<Vec<_>>(),
@@ -259,7 +263,7 @@ async fn handle_active_leaves_update<Context>(
 			Err(unexpected_ancestors) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					?ancestry,
+					?ancestors,
 					leaf = ?hash,
 					"Relay chain ancestors have wrong order: {:?}",
 					unexpected_ancestors
@@ -328,7 +332,7 @@ async fn handle_active_leaves_update<Context>(
 			// The runtime's min_relay_parent_number should match: now - ancestry_len
 			let min_relay_parent_number = constraints.min_relay_parent_number;
 			debug_assert_eq!(
-				block_info.number.saturating_sub(ancestry.len() as u32),
+				block_info.number.saturating_sub(ancestors.len() as u32),
 				min_relay_parent_number,
 				"Fetched ancestry length should match runtime's min_relay_parent calculation"
 			);
@@ -342,7 +346,7 @@ async fn handle_active_leaves_update<Context>(
 				min_relay_parent = min_relay_parent_number,
 				max_backable_chain_len,
 				para_id = ?para,
-				ancestors = ?ancestry,
+				ancestors = ?ancestors,
 				"Creating fragment chain"
 			);
 
@@ -847,23 +851,6 @@ fn answer_hypothetical_membership_request(
 	let _ = tx.send(response);
 }
 
-fn answer_minimum_relay_parents_request(
-	view: &View,
-	relay_parent: Hash,
-	tx: oneshot::Sender<Vec<(ParaId, BlockNumber)>>,
-) {
-	let mut v = Vec::new();
-	if view.active_leaves.contains(&relay_parent) {
-		if let Some(leaf_data) = view.per_relay_parent.get(&relay_parent) {
-			for (para_id, fragment_chain) in &leaf_data.fragment_chains {
-				v.push((*para_id, fragment_chain.min_relay_parent_number()));
-			}
-		}
-	}
-
-	let _ = tx.send(v);
-}
-
 fn answer_prospective_validation_data_request(
 	view: &View,
 	request: ProspectiveValidationDataRequest,
@@ -992,9 +979,18 @@ async fn fetch_backing_constraints_and_candidates_inner<Context>(
 	Ok(Some((From::from(constraints), pending_availability)))
 }
 
-// Fetch ancestors in descending order, up to the amount requested.
+/// Fetches block information for ancestors of a given relay chain block.
+///
+/// Returns up to `ancestors` ancestor blocks in descending order (from most recent to oldest),
+/// stopping early if an ancestor is from a different session than `required_session`, if block
+/// info cannot be fetched, or if genesis is reached.
+///
+/// # Returns
+///
+/// A vector of `BlockInfo` containing block hashes, numbers, and storage roots for all
+/// ancestors within `required_session`, in descending order by block number.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_ancestry<Context>(
+async fn fetch_ancestors<Context>(
 	ctx: &mut Context,
 	cache: &mut HashMap<Hash, Header>,
 	relay_hash: Hash,
