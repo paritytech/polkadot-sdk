@@ -42,6 +42,9 @@ pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod test_util;
+#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
@@ -171,7 +174,7 @@ pub mod pallet {
 		pub fn collect_publisher_roots(
 			relay_state_proof: &RelayChainStateProof,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
-		) -> Vec<(ParaId, Vec<u8>)> {
+		) -> BTreeMap<ParaId, Vec<u8>> {
 			subscriptions
 				.iter()
 				.take(T::MaxPublishers::get() as usize)
@@ -190,7 +193,7 @@ pub mod pallet {
 
 		pub fn process_published_data(
 			relay_state_proof: &RelayChainStateProof,
-			current_roots: &Vec<(ParaId, Vec<u8>)>,
+			current_roots: &BTreeMap<ParaId, Vec<u8>>,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
 		) -> (Weight, u32) {
 			// Load roots from previous block for change detection.
@@ -204,14 +207,10 @@ pub mod pallet {
 			let mut total_handler_weight = Weight::zero();
 			let mut total_bytes_decoded = 0u32;
 
-			// Convert to map for efficient lookup by ParaId.
-			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
-				current_roots.iter().map(|(para_id, root)| (*para_id, root.clone())).collect();
-
 			// Process each subscription.
 			for (publisher, subscription_keys) in subscriptions {
 				// Check if publisher has published data in this block.
-				if let Some(current_root) = current_roots_map.get(publisher) {
+				if let Some(current_root) = current_roots.get(publisher) {
 					// Detect if child trie root changed since last block.
 					let should_update = previous_roots
 						.get(publisher)
@@ -265,10 +264,10 @@ pub mod pallet {
 
 			// Store current roots for next block's comparison.
 			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, T::MaxPublishers> =
-				current_roots_map
-					.into_iter()
+				current_roots
+					.iter()
 					.filter_map(|(para_id, root)| {
-						BoundedVec::try_from(root).ok().map(|bounded_root| (para_id, bounded_root))
+						BoundedVec::try_from(root.clone()).ok().map(|bounded_root| (*para_id, bounded_root))
 					})
 					.collect::<BTreeMap<_, _>>()
 					.try_into()

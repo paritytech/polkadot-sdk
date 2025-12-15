@@ -18,7 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{mock::build_sproof_with_child_data, Pallet as Subscriber};
+use crate::{test_util::build_sproof_with_child_data, Pallet as Subscriber};
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
