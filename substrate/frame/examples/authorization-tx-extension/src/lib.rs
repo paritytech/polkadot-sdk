@@ -98,15 +98,7 @@ pub mod pallet_coownership {
 	/// accounts that own something together.
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	pub enum Origin<T: Config> {
 		Coowners(T::AccountId, T::AccountId),
@@ -120,7 +112,7 @@ pub mod pallet_assets {
 	pub type AssetId = u32;
 
 	/// Type that describes possible owners of a particular asset.
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub enum Owner<AccountId> {
 		Single(AccountId),
 		Double(AccountId, AccountId),

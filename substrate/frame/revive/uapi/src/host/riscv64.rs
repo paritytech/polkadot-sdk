@@ -132,7 +132,6 @@ mod sys {
 			message_len: u32,
 			message_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
 		pub fn return_data_size() -> u64;
@@ -508,15 +507,15 @@ impl HostFn for HostFnImpl {
 		unreachable!("consume_all_gas does not return");
 	}
 
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
+	}
+
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn set_code_hash(code_hash: &[u8; 32]) {
-		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
 	}
 
 	#[unstable_hostfn]
@@ -530,11 +529,5 @@ impl HostFn for HostFnImpl {
 			)
 		};
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn terminate(beneficiary: &[u8; 20]) -> ! {
-		unsafe { sys::terminate(beneficiary.as_ptr()) }
-		panic!("terminate does not return");
 	}
 }
