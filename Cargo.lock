@@ -6791,7 +6791,7 @@ dependencies = [
  "sp-version",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "thousands",
@@ -6831,7 +6831,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e56c0e51972d7b26ff76966c4d0f2307030df9daa5ce0885149ece1ab7ca5ad"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -6923,9 +6923,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "23.0.0"
+version = "23.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8c26fcb0454397c522c05fdad5380c4e622f8a875638af33bff5a320d1fc965"
+checksum = "9ba5be0edbdb824843a0f9c6f0906ecfc66c5316218d74457003218b24909ed0"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6940,7 +6940,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-system",
  "log",
@@ -7019,7 +7019,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -7108,7 +7108,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -10324,7 +10324,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -12569,7 +12569,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-system",
  "log",
@@ -13386,7 +13386,7 @@ dependencies = [
  "sp-weights",
  "sqlx",
  "substrate-prometheus-endpoint",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -14445,6 +14445,7 @@ dependencies = [
  "pallet-multi-asset-bounties",
  "pallet-treasury",
  "pallet-xcm",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-common",
@@ -14457,6 +14458,15 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "parachains-common-types"
+version = "0.1.0"
+dependencies = [
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -16151,7 +16161,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parachains-common",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
@@ -16686,6 +16696,7 @@ dependencies = [
  "pallet-xcm-bridge-hub-router",
  "pallet-xcm-precompiles",
  "parachains-common",
+ "parachains-common-types",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
@@ -17435,7 +17446,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "substrate-build-script-utils",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -20907,7 +20918,7 @@ dependencies = [
  "sp-state-machine",
  "sp-version",
  "sp-wasm-interface 20.0.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "thiserror 1.0.65",
 ]
 
@@ -21183,6 +21194,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -21211,6 +21223,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
+ "strum 0.26.3",
  "thiserror 1.0.65",
 ]
 
@@ -22339,6 +22352,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-beacon-primitives",
@@ -23356,6 +23370,7 @@ dependencies = [
 name = "sp-debug-derive"
 version = "14.0.0"
 dependencies = [
+ "proc-macro-warning",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -23472,7 +23487,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -23584,6 +23599,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-weights",
+ "strum 0.26.3",
  "substrate-test-runtime-client",
  "tracing",
  "tuplex",
@@ -24866,7 +24882,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -24893,7 +24909,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",
@@ -24958,14 +24974,14 @@ dependencies = [
 
 [[package]]
 name = "subxt"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74791ddeaaa6de42e7cc8a715c83eb73303f513f90af701fd07eb2caad92ed84"
+checksum = "f8c6dc0f90e23c521465b8f7e026af04a48cc6f00c51d88a8d313d33096149de"
 dependencies = [
  "async-trait",
  "derive-where",
  "either",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "futures",
  "hex",
  "jsonrpsee",
@@ -24981,7 +24997,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subxt-core 0.43.0",
  "subxt-lightclient 0.43.0",
- "subxt-macro 0.43.0",
+ "subxt-macro 0.43.1",
  "subxt-metadata 0.43.0",
  "subxt-rpcs 0.43.0",
  "thiserror 2.0.12",
@@ -25067,7 +25083,7 @@ dependencies = [
  "blake2 0.10.6",
  "derive-where",
  "frame-decode 0.8.3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "hashbrown 0.14.5",
  "hex",
  "impl-serde",
@@ -25139,9 +25155,9 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69516e8ff0e9340a0f21b8398da7f997571af4734ee81deada5150a2668c8443"
+checksum = "c269228a2e5de4c0c61ed872b701967ee761df0f167d5b91ecec1185bca65793"
 dependencies = [
  "darling 0.20.10",
  "parity-scale-codec",
@@ -25176,7 +25192,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c134068711c0c46906abc0e6e4911204420331530738e18ca903a5469364d9f"
 dependencies = [
  "frame-decode 0.8.3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "hashbrown 0.14.5",
  "parity-scale-codec",
  "scale-info",
@@ -25216,7 +25232,7 @@ checksum = "25de7727144780d780a6a7d78bbfd28414b8adbab68b05e87329c367d7705be4"
 dependencies = [
  "derive-where",
  "finito",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "futures",
  "hex",
  "impl-serde",
@@ -26364,9 +26380,9 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.0"
+version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
+checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
 dependencies = [
  "criterion",
  "hash-db",
@@ -26380,9 +26396,9 @@ dependencies = [
 
 [[package]]
 name = "trie-db"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c0670ab45a6b7002c7df369fee950a27cf29ae0474343fd3a15aa15f691e7a6"
+checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
 dependencies = [
  "hash-db",
  "log",
@@ -28718,7 +28734,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sp-core 36.1.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -28781,7 +28797,7 @@ dependencies = [
  "async-trait",
  "futures",
  "lazy_static",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",

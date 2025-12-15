@@ -20,7 +20,7 @@ use frame_support::traits::{
 	tokens::{PayWithSource, PaymentStatus, Preservation},
 };
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
-use sp_runtime::{traits::TypedGet, DispatchError, RuntimeDebug};
+use sp_runtime::{traits::TypedGet, DispatchError};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
@@ -32,7 +32,7 @@ use xcm_executor::traits::ConvertLocation;
 	Eq,
 	PartialEq,
 	Clone,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
