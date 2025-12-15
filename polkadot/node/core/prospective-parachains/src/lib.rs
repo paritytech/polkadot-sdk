@@ -75,10 +75,14 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 struct RelayBlockViewData {
 	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
+	// The relay chain scope containing the relay parent and its allowed ancestors.
+	// This is shared across all paras for this relay parent.
+	relay_chain_scope: fragment_chain::RelayChainScope,
 }
 
 struct View {
-	// Per relay parent fragment chains. These includes all relay parents under the implicit view.
+	// Per relay parent fragment chains. These include all active leaves and their allowed
+	// ancestors.
 	per_relay_parent: HashMap<Hash, RelayBlockViewData>,
 	// The hashes of the currently active leaves. This is a subset of the keys in
 	// `per_relay_parent`.
@@ -184,10 +188,10 @@ async fn handle_active_leaves_update<Context>(
 	// - pre-populate the candidate storage with pending availability candidates and candidates from
 	//   the parent leaf
 	// - populate the fragment chain
-	// - add it to the implicit view
+	// - add it to the active leaves
 	//
-	// Then mark the newly-deactivated leaves as deactivated and update the implicit view.
-	// Finally, remove any relay parents that are no longer part of the implicit view.
+	// Then mark the newly-deactivated leaves as deactivated.
+	// Finally, remove any relay parents that are no longer part of an active leaf's ancestry.
 
 	let _timer = metrics.time_handle_active_leaves_update();
 
@@ -240,6 +244,29 @@ async fn handle_active_leaves_update<Context>(
 
 		let prev_fragment_chains =
 			ancestry.first().and_then(|prev_leaf| view.get_fragment_chains(&prev_leaf.hash));
+
+		// Create the relay chain scope once for this relay parent.
+		// All paras share the same relay chain ancestry.
+		// The ancestry is already limited by session boundaries and scheduling lookahead.
+		let relay_chain_scope = match fragment_chain::RelayChainScope::with_ancestors(
+			block_info.clone().into(),
+			ancestry
+				.iter()
+				.map(|a| RelayChainBlockInfo::from(a.clone()))
+				.collect::<Vec<_>>(),
+		) {
+			Ok(scope) => scope,
+			Err(unexpected_ancestors) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?ancestry,
+					leaf = ?hash,
+					"Relay chain ancestors have wrong order: {:?}",
+					unexpected_ancestors
+				);
+				continue
+			},
+		};
 
 		let mut fragment_chains = HashMap::new();
 		for (para, claims_by_depth) in transposed_claim_queue.iter() {
@@ -297,35 +324,22 @@ async fn handle_active_leaves_update<Context>(
 
 			let max_backable_chain_len =
 				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
-			let scope = match FragmentChainScope::with_ancestors(
-				block_info.clone().into(),
-				constraints,
-				compact_pending,
-				max_backable_chain_len,
-				ancestry
-					.iter()
-					.map(|a| RelayChainBlockInfo::from(a.clone()))
-					.collect::<Vec<_>>(),
-			) {
-				Ok(scope) => scope,
-				Err(unexpected_ancestors) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						para_id = ?para,
-						max_backable_chain_len,
-						?ancestry,
-						leaf = ?hash,
-						"Relay chain ancestors have wrong order: {:?}",
-						unexpected_ancestors
-					);
-					continue
-				},
-			};
+
+			// The runtime's min_relay_parent_number should match: now - ancestry_len
+			let min_relay_parent_number = constraints.min_relay_parent_number;
+			debug_assert_eq!(
+				block_info.number.saturating_sub(ancestry.len() as u32),
+				min_relay_parent_number,
+				"Fetched ancestry length should match runtime's min_relay_parent calculation"
+			);
+
+			let scope =
+				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);
 
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
-				min_relay_parent = scope.earliest_relay_parent().number,
+				min_relay_parent = min_relay_parent_number,
 				max_backable_chain_len,
 				para_id = ?para,
 				ancestors = ?ancestry,
@@ -335,7 +349,8 @@ async fn handle_active_leaves_update<Context>(
 			let number_of_pending_candidates = pending_availability_storage.len();
 
 			// Init the fragment chain with the pending availability candidates.
-			let mut chain = FragmentChain::init(scope, pending_availability_storage);
+			let mut chain =
+				FragmentChain::init(&relay_chain_scope, scope, pending_availability_storage);
 
 			if chain.best_chain_len() < number_of_pending_candidates {
 				gum::warn!(
@@ -353,7 +368,7 @@ async fn handle_active_leaves_update<Context>(
 			if let Some(prev_fragment_chain) =
 				prev_fragment_chains.and_then(|chains| chains.get(para))
 			{
-				chain.populate_from_previous(prev_fragment_chain);
+				chain.populate_from_previous(&relay_chain_scope, prev_fragment_chain);
 			}
 
 			gum::trace!(
@@ -376,7 +391,8 @@ async fn handle_active_leaves_update<Context>(
 			fragment_chains.insert(*para, chain);
 		}
 
-		view.per_relay_parent.insert(hash, RelayBlockViewData { fragment_chains });
+		view.per_relay_parent
+			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope });
 
 		view.active_leaves.insert(hash);
 	}
@@ -385,30 +401,20 @@ async fn handle_active_leaves_update<Context>(
 		view.active_leaves.remove(&deactivated);
 	}
 
-	// Prune relay parents that are no longer referenced by any active leaf's fragment chain
-	// scope. Only keep relay parents that are either active leaves or ancestors within the
-	// fragment chain scopes of active leaves.
+	// Prune relay parents that are no longer referenced by any active leaf.
+	// Collect relay parents to keep: each active leaf plus all ancestors in its relay chain scope.
 	{
-		let mut relay_parents_to_keep = HashSet::new();
-
-		// Collect all relay parents referenced by active leaves
-		for active_leaf in &view.active_leaves {
-			// Keep the active leaf itself
-			relay_parents_to_keep.insert(*active_leaf);
-
-			// Keep all ancestors referenced in this leaf's fragment chain scopes
-			if let Some(data) = view.per_relay_parent.get(active_leaf) {
-				for chain in data.fragment_chains.values() {
-					let scope = chain.scope();
-					// Check which relay parents in per_relay_parent are ancestors in this scope
-					for relay_parent in view.per_relay_parent.keys() {
-						if scope.ancestor(relay_parent).is_some() {
-							relay_parents_to_keep.insert(*relay_parent);
-						}
-					}
-				}
-			}
-		}
+		let relay_parents_to_keep: HashSet<Hash> = view
+			.active_leaves
+			.iter()
+			.filter_map(|leaf| {
+				view.per_relay_parent.get(leaf).map(|data| {
+					// Include the leaf itself and all its allowed ancestors:
+					data.relay_chain_scope.relay_parent_hashes()
+				})
+			})
+			.flatten()
+			.collect();
 
 		view.per_relay_parent
 			.retain(|relay_parent, _| relay_parents_to_keep.contains(relay_parent));
@@ -452,6 +458,27 @@ struct ImportablePendingAvailability {
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+/// Preprocesses candidates pending availability into a format suitable for fragment chain storage.
+///
+/// This function validates and transforms candidates that are pending availability (already
+/// on-chain but not yet included) into the `ImportablePendingAvailability` format needed by
+/// fragment chains.
+///
+/// # Arguments
+/// * `ctx` - Subsystem context for fetching block information
+/// * `cache` - Cache of block headers to avoid redundant fetches
+/// * `constraints` - Base constraints from the latest included candidate
+/// * `pending_availability` - List of candidates pending availability, expected to form a chain
+///
+/// # Returns
+/// A vector of importable pending availability candidates, potentially truncated if any
+/// candidate's relay parent information cannot be fetched.
+///
+/// # Behavior
+/// - Validates that candidates form a valid chain (each output head matches next required parent)
+/// - Fetches relay parent block info for each candidate
+/// - Stops early if any relay parent info is unavailable (logs and returns partial list)
+/// - Constructs PersistedValidationData for each candidate using constraints and relay parent info
 async fn preprocess_candidates_pending_availability<Context>(
 	ctx: &mut Context,
 	cache: &mut HashMap<Hash, Header>,
@@ -537,15 +564,15 @@ async fn handle_introduce_seconded_candidate(
 
 	let mut added = Vec::with_capacity(view.per_relay_parent.len());
 	let mut para_scheduled = false;
-	// We don't iterate only through the active leaves. We also update the deactivated parents in
-	// the implicit view, so that their upcoming children may see these candidates.
+	// We don't iterate only through the active leaves. We also update any ancestor relay parents
+	// that are still retained, so that their upcoming children may see these candidates.
 	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
 		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
 		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
 		para_scheduled = true;
 
-		match chain.try_adding_seconded_candidate(&candidate_entry) {
+		match chain.try_adding_seconded_candidate(&rp_data.relay_chain_scope, &candidate_entry) {
 			Ok(()) => {
 				added.push(*relay_parent);
 			},
@@ -614,8 +641,8 @@ async fn handle_candidate_backed(
 	let mut found_candidate = false;
 	let mut found_para = false;
 
-	// We don't iterate only through the active leaves. We also update the deactivated parents in
-	// the implicit view, so that their upcoming children may see these candidates.
+	// We don't iterate only through the active leaves. We also update any ancestor relay parents
+	// that are still retained, so that their upcoming children may see these candidates.
 	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
 		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
 		let is_active_leaf = view.active_leaves.contains(relay_parent);
@@ -633,7 +660,7 @@ async fn handle_candidate_backed(
 		} else if chain.contains_unconnected_candidate(&candidate_hash) {
 			found_candidate = true;
 			// Mark the candidate as backed. This can recreate the fragment chain.
-			chain.candidate_backed(&candidate_hash);
+			chain.candidate_backed(&rp_data.relay_chain_scope, &candidate_hash);
 
 			gum::trace!(
 				target: LOG_TARGET,
@@ -784,7 +811,8 @@ fn answer_hypothetical_membership_request(
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
 
-			let res = fragment_chain.can_add_candidate_as_potential(candidate);
+			let res = fragment_chain
+				.can_add_candidate_as_potential(&leaf_view.relay_chain_scope, candidate);
 			match res {
 				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
 					membership.push(*active_leaf);
@@ -828,7 +856,7 @@ fn answer_minimum_relay_parents_request(
 	if view.active_leaves.contains(&relay_parent) {
 		if let Some(leaf_data) = view.per_relay_parent.get(&relay_parent) {
 			for (para_id, fragment_chain) in &leaf_data.fragment_chains {
-				v.push((*para_id, fragment_chain.scope().earliest_relay_parent().number));
+				v.push((*para_id, fragment_chain.min_relay_parent_number()));
 			}
 		}
 	}
@@ -848,26 +876,29 @@ fn answer_prospective_validation_data_request(
 		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
 	};
 
+	// Search fragment chains across active leaves to find the head_data, relay_parent_info, and
+	// max_pov_size needed to construct the PersistedValidationData for this candidate:
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
-
-	for fragment_chain in view.active_leaves.iter().filter_map(|x| {
-		view.per_relay_parent
-			.get(&x)
-			.and_then(|data| data.fragment_chains.get(&request.para_id))
+	for (relay_chain_scope, fragment_chain) in view.active_leaves.iter().filter_map(|active_leaf| {
+		view.per_relay_parent.get(active_leaf).and_then(|data| {
+			data.fragment_chains
+				.get(&request.para_id)
+				.map(|chain| (&data.relay_chain_scope, chain))
+		})
 	}) {
 		if head_data.is_some() && relay_parent_info.is_some() && max_pov_size.is_some() {
 			break
 		}
 		if relay_parent_info.is_none() {
-			relay_parent_info = fragment_chain.scope().ancestor(&request.candidate_relay_parent);
+			relay_parent_info = relay_chain_scope.ancestor(&request.candidate_relay_parent);
 		}
 		if head_data.is_none() {
 			head_data = fragment_chain.get_head_data_by_hash(&parent_head_data_hash);
 		}
 		if max_pov_size.is_none() {
 			let contains_ancestor =
-				fragment_chain.scope().ancestor(&request.candidate_relay_parent).is_some();
+				relay_chain_scope.ancestor(&request.candidate_relay_parent).is_some();
 			if contains_ancestor {
 				// We are leaning hard on two assumptions here.
 				// 1. That the fragment chain never contains allowed relay-parents whose session for
