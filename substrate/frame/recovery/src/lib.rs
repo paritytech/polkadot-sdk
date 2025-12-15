@@ -68,12 +68,16 @@
 //! 1. Day 26: *Friends* group gets nothing since inheritance order is higher the one from *Family*.
 //!
 //! In the case above you see how the *Friends* group is now unable to recover Alice account since
-//! the *Family* group already did it and has a higher inheritance order. Now, imagine the case that
-//! the *Friends* group would have started on day 4 and would have already recovered the account on
-//! day 24. Two days later, the *Family* group can take access back and will replace the inheritor
-//! account with their own. The *Friends* group had access for two days since they were faster. If
-//! Alice account has most balance locked in 28 day staking this would not make a big difference,
+//! the *Family* group already did it and has a higher inheritance order.  
+//! Now, imagine the case that the *Friends* group would have started on day 4 and would have
+//! already recovered the account on day 24. Two days later, the *Family* group can take access back
+//! and will replace the inheritor account with their own. The *Friends* group had access for two
+//! days since they were faster.  
+//! If Alice account has most balance locked in 28 day staking this would not make a big difference,
 //! since only the free balance would be immediately transferable.
+//!
+//! After a recovery attempt was completed, friend groups with a higher inheritance order cannot
+//! open a new attempt to recover the account.
 //!
 //! ## Data Structures
 //!
@@ -84,7 +88,12 @@
 //! ## API
 //!
 //! *Reading* data can be done through the view functions:
-//! -
+//!
+//! - `provided_block_number`: The block number that will be used to measure time.
+//! - `friend_groups`: The friend groups of an account that can initiate recovery attempts.
+//! - `attempts`: Ongoing recovery attempts for a lost account.
+//! - `inheritor`: The account that inherited full access to the lost account.
+//! - `inheritance`: All the recovered accounts that an account inherited access to.
 
 #![recursion_limit = "1024"]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -754,7 +763,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(4)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::approve_attempt())]
 		pub fn approve_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
@@ -791,7 +800,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(5)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::finish_attempt())]
 		pub fn finish_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
