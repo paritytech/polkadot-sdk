@@ -364,7 +364,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 						None => {
 							log::debug!(
 								target: LOG_TARGET,
-								"Stopping block import because justification channel was closed!",
+								"Stopping block import because partial state channel was closed!",
 							);
 							return
 						},
