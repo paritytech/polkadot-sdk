@@ -145,8 +145,8 @@ impl Tracing for OpcodeTracer {
 		let step = OpcodeStep {
 			pc,
 			op: opcode,
-			gas: gas_before,
-			gas_cost: sp_core::U256::zero(), // Will be set in exit_opcode
+			gas: gas_before.try_into().unwrap_or(u64::MAX),
+			gas_cost: 0u64, // Will be set in exit_opcode
 			depth: self.depth,
 			stack: stack_data,
 			memory: memory_data,
@@ -164,7 +164,7 @@ impl Tracing for OpcodeTracer {
 		if let Some(mut step) = self.pending_step.take() {
 			if let Some(gas_before) = self.pending_gas_before.take() {
 				let gas_cost = gas_before.saturating_sub(gas_left);
-				step.gas_cost = gas_cost;
+				step.gas_cost = gas_cost.try_into().unwrap_or(u64::MAX);
 			}
 			self.steps.push(step);
 		}

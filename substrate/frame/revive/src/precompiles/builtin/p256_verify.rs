@@ -53,7 +53,7 @@ impl<T: Config> PrimitivePrecompile for P256Verify<T> {
 	) -> Result<Vec<u8>, Error> {
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::P256Verify)?;
 
-		if revm::precompile::secp256r1::verify_impl(&input) {
+		if revm::precompile::secp256r1::verify_impl(&input).is_some() {
 			Ok(U256::one().to_big_endian().to_vec())
 		} else {
 			Ok(Default::default())

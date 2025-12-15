@@ -626,8 +626,8 @@ fn opcode_tracing_works() {
 
 		let mut actual_trace = tracer.collect_trace();
 		actual_trace.struct_logs.iter_mut().for_each(|step| {
-			step.gas = U256::from(0u64);
-			step.gas_cost = U256::from(0u64);
+			step.gas = 0u64;
+			step.gas_cost = 0u64;
 		});
 
 		// Create expected trace structure that matches the exact execution
@@ -639,8 +639,8 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 0,
 					op: PUSH1,
-					gas: U256::from(0u64),
-					gas_cost: U256::from(0u64),
+					gas: 0u64,
+					gas_cost: 0u64,
 					depth: 1,
 					stack: vec![],
 					memory: vec![],
@@ -651,8 +651,8 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 2,
 					op: PUSH1,
-					gas: U256::from(0u64),
-					gas_cost: U256::from(0u64),
+					gas: 0u64,
+					gas_cost: 0u64,
 					depth: 1,
 					stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
 					memory: vec![],
@@ -663,8 +663,8 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 4,
 					op: MSTORE,
-					gas: U256::from(0u64),
-					gas_cost: U256::from(0u64),
+					gas: 0u64,
+					gas_cost: 0u64,
 					depth: 1,
 					stack: vec![
 						crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
@@ -678,8 +678,8 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 5,
 					op: CALLVALUE,
-					gas: U256::from(0u64),
-					gas_cost: U256::from(0u64),
+					gas: 0u64,
+					gas_cost: 0u64,
 					depth: 1,
 					stack: vec![],
 					memory: vec![],
@@ -690,8 +690,8 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 6,
 					op: DUP1,
-					gas: U256::from(0u64),
-					gas_cost: U256::from(0u64),
+					gas: 0u64,
+					gas_cost: 0u64,
 					depth: 1,
 					stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
 					memory: vec![],

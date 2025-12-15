@@ -476,9 +476,9 @@ pub struct OpcodeStep {
 	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 	pub op: u8,
 	/// Remaining gas before executing this opcode.
-	pub gas: U256,
+	pub gas: u64,
 	/// Cost of executing this opcode.
-	pub gas_cost: U256,
+	pub gas_cost: u64,
 	/// Current call depth.
 	pub depth: u32,
 	/// EVM stack contents.
