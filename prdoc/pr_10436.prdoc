@@ -26,4 +26,8 @@ crates:
 - name: pallet-migrations
   bump: minor
 - name: frame-support
-  bump: major
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
