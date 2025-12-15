@@ -53,7 +53,7 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	tokio::time::timeout(timeout, async {
 		loop {
 			if let Ok(client) = WsClientBuilder::default().build(url).await {
-				return client
+				return client;
 			} else {
 				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			}

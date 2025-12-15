@@ -440,7 +440,7 @@ impl EthRpcServerImpl {
 			)
 			.await
 		else {
-			return Ok(None)
+			return Ok(None);
 		};
 		let Some(signed_tx) = self.client.signed_tx_by_hash(&receipt.transaction_hash).await else {
 			return Ok(None);
