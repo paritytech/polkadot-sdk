@@ -7,6 +7,7 @@
 //! It spawns a relay chain with two validators (alice, bob) and registers
 //! parachain 100 using the adder-collator.
 
+use super::utils::{env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
@@ -25,8 +26,7 @@ async fn parachains_smoke_test() -> Result<(), anyhow::Error> {
 	);
 
 	let config = build_network_config()?;
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: zombienet_sdk::subxt::OnlineClient<PolkadotConfig> =
@@ -50,12 +50,14 @@ async fn parachains_smoke_test() -> Result<(), anyhow::Error> {
 
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-	log::info!("Using images: {:?}", images);
+	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
+	let col_image = env_or_default(COL_IMAGE_ENV, images.cumulus.as_str());
+
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
+				.with_default_image(polkadot_image.as_str())
 				.with_node(|node| {
 					node.with_name("alice")
 						.with_args(vec![("-lruntime=debug,parachain=trace").into()])
@@ -67,9 +69,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
+				.cumulus_based(false)
 				.with_default_command("adder-collator")
-				.with_default_image(images.polkadot.as_str())
-				.onboard_as_parachain(false)
+				.with_default_image(col_image.as_str())
 				.with_collator(|n| {
 					n.with_name("collator01")
 						.with_args(vec![("-lruntime=debug,parachain=trace").into()])

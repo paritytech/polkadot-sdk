@@ -8,16 +8,20 @@
 //! validator status metrics update correctly after session boundaries.
 
 use super::utils::{
-	create_deregister_validator_call, create_register_validator_call, ACTIVE_VALIDATOR_METRIC,
-	PARACHAIN_VALIDATOR_METRIC,
+	create_deregister_validator_call, create_register_validator_call, env_or_default,
+	initialize_network, ACTIVE_VALIDATOR_METRIC, INTEGRATION_IMAGE_ENV, PARACHAIN_VALIDATOR_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_nth_session_change,
 };
+use std::str::FromStr;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
+	subxt_signer::{
+		sr25519::{dev, Keypair},
+		SecretUri,
+	},
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -37,15 +41,16 @@ async fn deregister_register_validator_smoke_test() -> Result<(), anyhow::Error>
 	);
 
 	let config = build_network_config()?;
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let alice_node = network.get_node("alice")?;
 	let dave_node = network.get_node("dave")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice_node.wait_client().await?;
 
 	// Get Dave's stash account (//Dave//stash)
-	let dave_stash_account = Value::from_bytes(dev::dave().public_key().0);
+	let dave_stash_uri = SecretUri::from_str("//Dave//stash")?;
+	let dave_stash_keypair = Keypair::from_uri(&dave_stash_uri)?;
+	let dave_stash_account = Value::from_bytes(dave_stash_keypair.public_key().0);
 
 	// Initial check: dave should be in the validator set
 	log::info!("Checking dave is in the validator set");
@@ -123,14 +128,13 @@ async fn deregister_register_validator_smoke_test() -> Result<(), anyhow::Error>
 
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-
-	log::info!("Using images: {:?}", images);
+	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
+				.with_default_image(polkadot_image.as_str())
 				.with_default_args(vec![("-lruntime=debug,parachain=trace").into()])
 				.with_node(|node| node.with_name("alice"))
 				.with_node(|node| node.with_name("bob"))

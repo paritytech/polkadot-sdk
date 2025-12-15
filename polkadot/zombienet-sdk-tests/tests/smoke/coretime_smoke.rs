@@ -14,7 +14,10 @@
 //! It then configures the relay and broker chains to onboard parachain 100
 //! and verifies it starts producing blocks.
 
-use super::utils::{fetch_genesis_header, fetch_validation_code};
+use super::utils::{
+	env_or_default, fetch_genesis_header, fetch_validation_code, initialize_network, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV,
+};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_is_registered, assert_para_throughput,
@@ -45,8 +48,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 	);
 
 	let config = build_network_config()?;
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let coretime_node = network.get_node("coretime-collator")?;
@@ -96,7 +98,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 	.await?;
 	log::info!("Broker chain configured");
 
-	// Wait for parachain 100 to be registered and produce blocks.
+	// Wait for parachain 100 to be registered and produce blocks
 	log::info!("Waiting for parachain {} to be registered", TEST_PARA_ID);
 	assert_para_is_registered(&alice_client, ParaId::from(TEST_PARA_ID), 300).await?;
 	log::info!("Parachain {} is registered", TEST_PARA_ID);
@@ -111,13 +113,14 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-	log::info!("Using images: {:?}", images);
+	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
+	let col_image = env_or_default(COL_IMAGE_ENV, images.cumulus.as_str());
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
+				.with_default_image(polkadot_image.as_str())
 				.with_node(|node| {
 					node.with_name("alice").with_args(vec![("-lruntime=debug,xcm=trace").into()])
 				})
@@ -134,7 +137,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(CORETIME_PARA_ID)
 				.with_chain("coretime-rococo-local")
 				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
+				.with_default_image(col_image.as_str())
 				.with_collator(|n| {
 					n.with_name("coretime-collator")
 						.with_args(vec![("-lruntime=debug,xcm=trace").into()])
@@ -144,7 +147,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(TEST_PARA_ID)
 				.onboard_as_parachain(false)
 				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
+				.with_default_image(col_image.as_str())
 				.with_collator(|n| {
 					n.with_name("collator-para-100").with_args(vec![
 						("-lruntime=debug,parachain=trace,aura=trace").into(),
@@ -163,7 +166,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 }
 
-/// Creates a sudo batch call to configure the relay chain for coretime.
+/// Creates a sudo batch call to configure the relay chain for coretime
 fn create_configure_relay_call(
 	genesis_header: Vec<u8>,
 	validation_code: Vec<u8>,
@@ -173,7 +176,6 @@ fn create_configure_relay_call(
 	let genesis_head_value = Value::from_bytes(&genesis_header);
 	let validation_code_value = Value::from_bytes(&validation_code);
 
-	// Build the calls using the value! macro similar to the helpers.
 	let set_coretime_cores_call = value! {
 		Configuration(set_coretime_cores { new: 1u32 })
 	};
@@ -197,9 +199,8 @@ fn create_configure_relay_call(
 	)
 }
 
-/// Creates a sudo batch call to configure the broker chain.
+/// Creates a sudo batch call to configure the broker chain
 fn create_configure_broker_call(para_id: u32) -> DynamicPayload {
-	// Build the config struct as a named composite using the value! macro.
 	let config_value = value! {
 		{
 			advance_notice: 5u32,
