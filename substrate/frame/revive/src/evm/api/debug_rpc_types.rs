@@ -598,7 +598,7 @@ pub struct SyscallStep {
 	pub weight: Weight,
 	/// Cost of executing this syscall.
 	pub gas_cost: u64,
-	/// Weight consumed by executing this syscall (ref_time in nanoseconds).
+	/// Weight consumed by executing this syscall
 	pub weight_cost: Weight,
 	/// Current call depth.
 	pub depth: u32,
