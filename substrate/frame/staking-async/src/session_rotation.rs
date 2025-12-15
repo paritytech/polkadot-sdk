@@ -202,6 +202,15 @@ impl<T: Config> Eras<T> {
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
 	}
 
+	/// Returns whether nominators are slashable for a specific era.
+	///
+	/// This checks the per-era storage [`ErasNominatorsSlashable`] which captures
+	/// the value of [`AreNominatorsSlashable`] at the start of that era.
+	/// If no entry exists for the era, nominators are assumed to be slashable (default).
+	pub(crate) fn are_nominators_slashable(era: EraIndex) -> bool {
+		ErasNominatorsSlashable::<T>::get(era).unwrap_or(true)
+	}
+
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
@@ -363,6 +372,21 @@ impl<T: Config> Eras<T> {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
 			*total_stake += stake;
 		});
+	}
+
+	/// Snapshot the current [`AreNominatorsSlashable`] setting for this era and clean up old entry.
+	///
+	/// This ensures offences are processed with the rules that were in effect at era start.
+	/// We only need to keep entries for eras within the bonding duration, as offences older
+	/// than that cannot be reported anymore.
+	pub(crate) fn set_nominators_slashable(era: EraIndex) {
+		// Set the new era's value
+		ErasNominatorsSlashable::<T>::insert(era, AreNominatorsSlashable::<T>::get());
+
+		// Clean up old era entry that's now outside the bonding window
+		if let Some(old_era) = era.checked_sub(T::BondingDuration::get() + 1) {
+			ErasNominatorsSlashable::<T>::remove(old_era);
+		}
 	}
 
 	/// Check if the rewards for the given era and page index have been claimed.
@@ -548,12 +572,24 @@ impl<T: Config> Rotator<T> {
 
 				// If we have an active era, bonded eras must always be the range
 				// [active - bonding_duration .. active_era]
+				let bonded_eras: alloc::vec::Vec<_> =
+					bonded.iter().map(|(era, _sess)| *era).collect();
 				ensure!(
-					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+					bonded_eras ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
-							.collect::<Vec<_>>(),
+							.collect::<alloc::vec::Vec<_>>(),
 					"BondedEras range incorrect"
 				);
+
+				// Check ErasNominatorsSlashable entries are within valid range.
+				// Entries are cleaned up at era start for eras outside bonding duration,
+				// so they should only exist for eras in the bonded range.
+				for (era, _) in ErasNominatorsSlashable::<T>::iter() {
+					ensure!(
+						bonded_eras.contains(&era),
+						"ErasNominatorsSlashable entry exists for era outside bonded range"
+					);
+				}
 			},
 			_ => {
 				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
@@ -708,6 +744,9 @@ impl<T: Config> Rotator<T> {
 		// start the next era.
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
+
+		// Snapshot the current nominators slashable setting for this era.
+		Eras::<T>::set_nominators_slashable(starting_era);
 
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();

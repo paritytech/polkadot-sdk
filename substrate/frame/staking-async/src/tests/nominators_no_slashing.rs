@@ -422,3 +422,160 @@ fn nominator_bonding_duration_returns_full_when_slashable() {
 		);
 	});
 }
+
+/// Test that offences from an era where nominators were slashable continue to slash nominators
+/// even after the global `AreNominatorsSlashable` is set to false.
+///
+/// This verifies the era-specific slashing behavior: the rules at the time of the offence apply.
+#[test]
+fn offence_from_slashable_era_slashes_nominators_even_after_setting_changes() {
+	ExtBuilder::default()
+		.validator_count(4)
+		.set_status(41, StakerStatus::Validator)
+		.build_and_execute(|| {
+			// Era 1: nominators are slashable (default)
+			assert!(AreNominatorsSlashable::<Test>::get());
+			assert_eq!(active_era(), 1);
+
+			// Advance to era 2 to ensure ErasNominatorsSlashable is set for era 1
+			Session::roll_until_active_era(2);
+
+			// Verify era 1 was recorded as nominators-slashable
+			assert!(
+				ErasNominatorsSlashable::<Test>::get(1).unwrap_or(true),
+				"Era 1 should have nominators slashable"
+			);
+
+			let nominator_stake_before = Staking::ledger(101.into()).unwrap().active;
+			let validator_stake_before = Staking::ledger(11.into()).unwrap().active;
+
+			// Now change the global setting to false BEFORE the offence is processed
+			AreNominatorsSlashable::<Test>::put(false);
+
+			// Report an offence from era 1 (when nominators WERE slashable)
+			add_slash_in_era(11, 1, Perbill::from_percent(10));
+
+			// Roll one block to process the offence
+			Session::roll_next();
+
+			// Both validator AND nominator should be slashed because the offence
+			// occurred in era 1 when nominators were slashable
+			let validator_stake_after = Staking::ledger(11.into()).unwrap().active;
+			let nominator_stake_after = Staking::ledger(101.into()).unwrap().active;
+
+			assert!(validator_stake_after < validator_stake_before, "Validator should be slashed");
+			assert!(
+				nominator_stake_after < nominator_stake_before,
+				"Nominator should be slashed because the offence was in a slashable era"
+			);
+		});
+}
+
+/// Test that offences from an era where nominators were NOT slashable do not slash nominators
+/// even if the global setting later changes to true.
+///
+/// This verifies the era-specific slashing behavior in the opposite direction.
+#[test]
+fn offence_from_non_slashable_era_does_not_slash_nominators_even_after_setting_changes() {
+	ExtBuilder::default()
+		.validator_count(4)
+		.set_status(41, StakerStatus::Validator)
+		.set_nominators_slashable(false)
+		.build_and_execute(|| {
+			// Era 1: nominators are NOT slashable
+			assert!(!AreNominatorsSlashable::<Test>::get());
+			assert_eq!(active_era(), 1);
+
+			// Advance to era 2
+			Session::roll_until_active_era(2);
+
+			// Verify era 1 was recorded as nominators NOT slashable
+			assert!(
+				!ErasNominatorsSlashable::<Test>::get(1).unwrap_or(true),
+				"Era 1 should have nominators NOT slashable"
+			);
+
+			let nominator_stake_before = Staking::ledger(101.into()).unwrap().active;
+			let validator_stake_before = Staking::ledger(11.into()).unwrap().active;
+
+			// Now change the global setting to true BEFORE the offence is processed
+			AreNominatorsSlashable::<Test>::put(true);
+
+			// Report an offence from era 1 (when nominators were NOT slashable)
+			add_slash_in_era(11, 1, Perbill::from_percent(10));
+
+			// Roll one block to process the offence
+			Session::roll_next();
+
+			// Only validator should be slashed, NOT nominator, because the offence
+			// occurred in era 1 when nominators were NOT slashable
+			let validator_stake_after = Staking::ledger(11.into()).unwrap().active;
+			let nominator_stake_after = Staking::ledger(101.into()).unwrap().active;
+
+			assert!(validator_stake_after < validator_stake_before, "Validator should be slashed");
+			assert_eq!(
+				nominator_stake_after, nominator_stake_before,
+				"Nominator should NOT be slashed because the offence was in a non-slashable era"
+			);
+		});
+}
+
+/// Test that when nominators slashable setting changes mid-era, offences are processed
+/// based on the era they occurred in, not the current setting.
+#[test]
+fn mixed_era_offences_processed_based_on_era_specific_setting() {
+	ExtBuilder::default()
+		.validator_count(4)
+		.set_status(41, StakerStatus::Validator)
+		.build_and_execute(|| {
+			// Era 1: nominators are slashable (default)
+			assert!(AreNominatorsSlashable::<Test>::get());
+			assert_eq!(active_era(), 1);
+
+			// Advance to era 2
+			Session::roll_until_active_era(2);
+			// Era 2 is also slashable
+
+			// Change setting to false for era 3+
+			AreNominatorsSlashable::<Test>::put(false);
+
+			// Advance to era 3
+			Session::roll_until_active_era(3);
+
+			// Verify era-specific settings
+			assert!(
+				ErasNominatorsSlashable::<Test>::get(1).unwrap_or(true),
+				"Era 1 should be slashable"
+			);
+			assert!(
+				ErasNominatorsSlashable::<Test>::get(2).unwrap_or(true),
+				"Era 2 should be slashable"
+			);
+			assert!(
+				!ErasNominatorsSlashable::<Test>::get(3).unwrap_or(true),
+				"Era 3 should NOT be slashable"
+			);
+
+			let nominator_stake_before = Staking::ledger(101.into()).unwrap().active;
+
+			// Report offence from era 1 (slashable) - nominator should be slashed
+			add_slash_in_era(11, 1, Perbill::from_percent(5));
+			Session::roll_next();
+
+			let nominator_stake_after_era1_slash = Staking::ledger(101.into()).unwrap().active;
+			assert!(
+				nominator_stake_after_era1_slash < nominator_stake_before,
+				"Nominator should be slashed for era 1 offence"
+			);
+
+			// Report offence from era 3 (NOT slashable) - nominator should NOT be slashed
+			add_slash_in_era(11, 3, Perbill::from_percent(5));
+			Session::roll_next();
+
+			let nominator_stake_after_era3_slash = Staking::ledger(101.into()).unwrap().active;
+			assert_eq!(
+				nominator_stake_after_era3_slash, nominator_stake_after_era1_slash,
+				"Nominator should NOT be slashed for era 3 offence"
+			);
+		});
+}

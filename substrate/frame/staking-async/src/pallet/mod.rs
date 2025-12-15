@@ -447,6 +447,17 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AreNominatorsSlashable<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
 
+	/// Per-era snapshot of whether nominators are slashable.
+	///
+	/// This is copied from [`AreNominatorsSlashable`] at the start of each era. When processing
+	/// offences, we use the value from this storage for the offence era to ensure that the
+	/// slashing rules at the time of the offence are applied, not the current rules.
+	///
+	/// If an entry does not exist for an era, nominators are assumed to be slashable (default).
+	#[pallet::storage]
+	pub type ErasNominatorsSlashable<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, bool, OptionQuery>;
+
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 	///
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
@@ -1446,12 +1457,8 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// process our queue.
-			let mut consumed_weight = if AreNominatorsSlashable::<T>::get() {
-				slashing::process_offence::<T>()
-			} else {
-				slashing::process_offence_validator_only::<T>()
-			};
+			// Process our queue, using the era-specific nominators slashable setting.
+			let mut consumed_weight = slashing::process_offence_for_era::<T>();
 
 			// apply any pending slashes after `SlashDeferDuration`.
 			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));

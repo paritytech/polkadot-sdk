@@ -439,6 +439,35 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	}
 }
 
+/// Process the next offence in the queue, checking the era-specific nominators slashable setting.
+///
+/// This function decides whether to slash nominators based on the [`ErasNominatorsSlashable`]
+/// value for the offence era, ensuring that the rules at the time of the offence are applied.
+///
+/// If there's an in-progress multi-page offence (in `ProcessingOffence`), it continues processing
+/// that offence with full exposure (nominators were already decided to be slashable).
+pub(crate) fn process_offence_for_era<T: Config>() -> Weight {
+	// Check if there's an in-progress multi-page offence
+	if ProcessingOffence::<T>::exists() {
+		// Continue processing the existing multi-page offence with full exposure
+		return process_offence::<T>();
+	}
+
+	// No in-progress offence - peek at the queue to determine the offence era
+	let Some(eras) = OffenceQueueEras::<T>::get() else {
+		return T::DbWeight::get().reads(2); // ProcessingOffence + OffenceQueueEras
+	};
+	let Some(&oldest_era) = eras.first() else { return T::DbWeight::get().reads(2) };
+
+	// Check the era-specific nominators slashable setting
+	// Additional read for ErasNominatorsSlashable
+	if Eras::<T>::are_nominators_slashable(oldest_era) {
+		process_offence::<T>()
+	} else {
+		process_offence_validator_only::<T>()
+	}
+}
+
 /// Computes a slash of a validator and nominators. It returns an unapplied
 /// record to be applied at some later point. Slashing metadata is updated in storage,
 /// since unapplied records are only rarely intended to be dropped.
