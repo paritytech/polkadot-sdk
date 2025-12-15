@@ -15,25 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{tracing::Tracing, Bytes, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
-	DispatchError, ExecReturnValue, Key,
+	evm::{tracing::Tracing, Bytes, SyscallStep, SyscallTrace, SyscallTracerConfig},
+	DispatchError, ExecReturnValue, Weight,
 };
 use alloc::{
-	collections::BTreeMap,
 	format,
 	string::{String, ToString},
 	vec::Vec,
 };
 use sp_core::{H160, U256};
 
-/// A tracer that traces opcode execution step-by-step.
+/// A tracer that traces syscall execution step-by-step.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct OpcodeTracer {
+pub struct SyscallTracer {
 	/// The tracer configuration.
-	config: OpcodeTracerConfig,
+	config: SyscallTracerConfig,
 
 	/// The collected trace steps.
-	steps: Vec<OpcodeStep>,
+	steps: Vec<SyscallStep>,
 
 	/// Current call depth.
 	depth: u32,
@@ -51,18 +50,18 @@ pub struct OpcodeTracer {
 	return_value: Bytes,
 
 	/// Pending step that's waiting for gas cost to be recorded.
-	pending_step: Option<OpcodeStep>,
+	pending_step: Option<SyscallStep>,
 
 	/// Gas before executing the current pending step.
 	pending_gas_before: Option<u64>,
 
-	/// List of storage per call
-	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
+	/// Weight before executing the current pending step.
+	pending_weight_before: Option<Weight>,
 }
 
-impl OpcodeTracer {
-	/// Create a new [`OpcodeTracer`] instance.
-	pub fn new(config: OpcodeTracerConfig) -> Self {
+impl SyscallTracer {
+	/// Create a new [`SyscallTracer`] instance.
+	pub fn new(config: SyscallTracerConfig) -> Self {
 		Self {
 			config,
 			steps: Vec::new(),
@@ -73,14 +72,14 @@ impl OpcodeTracer {
 			return_value: Bytes::default(),
 			pending_step: None,
 			pending_gas_before: None,
-			storages_per_call: alloc::vec![Default::default()],
+			pending_weight_before: None,
 		}
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(self) -> OpcodeTrace {
+	pub fn collect_trace(self) -> SyscallTrace {
 		let Self { steps: struct_logs, return_value, total_gas_used: gas, failed, .. } = self;
-		OpcodeTrace { gas, failed, return_value, struct_logs }
+		SyscallTrace { gas, failed, return_value, struct_logs }
 	}
 
 	/// Record an error in the current step.
@@ -91,34 +90,18 @@ impl OpcodeTracer {
 	}
 }
 
-impl Tracing for OpcodeTracer {
-	fn is_opcode_tracing_enabled(&self) -> bool {
-		true
-	}
-
-	fn enter_opcode(
+impl Tracing for SyscallTracer {
+	fn enter_ecall(
 		&mut self,
-		pc: u64,
-		opcode: u8,
+		ecall: &'static str,
 		gas_before: u64,
-		get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
-		get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
+		weight_before: crate::Weight,
 		last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
 		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
 			return;
 		}
-
-		// Extract stack data if enabled
-		let stack_data = if !self.config.disable_stack { get_stack() } else { Vec::new() };
-
-		// Extract memory data if enabled
-		let memory_data = if self.config.enable_memory {
-			get_memory(self.config.memory_word_limit as usize)
-		} else {
-			Vec::new()
-		};
 
 		// Extract return data if enabled
 		let return_data = if self.config.enable_return_data {
@@ -127,28 +110,30 @@ impl Tracing for OpcodeTracer {
 			crate::evm::Bytes::default()
 		};
 
-		let step = OpcodeStep {
-			pc,
-			op: opcode,
+		let step = SyscallStep {
+			ecall: ecall.to_string(),
 			gas: gas_before,
-			gas_cost: 0u64, // Will be set in exit_opcode
+			weight: weight_before,
+			gas_cost: 0u64,                  // Will be set in exit_ecall
+			weight_cost: Default::default(), // Will be set in exit_ecall
 			depth: self.depth,
-			stack: stack_data,
-			memory: memory_data,
-			storage: None,
 			return_data,
 			error: None,
 		};
 
 		self.pending_step = Some(step);
 		self.pending_gas_before = Some(gas_before);
+		self.pending_weight_before = Some(weight_before);
 		self.step_count += 1;
 	}
 
-	fn exit_opcode(&mut self, gas_left: u64) {
+	fn exit_ecall(&mut self, gas_left: u64, weight_left: crate::Weight) {
 		if let Some(mut step) = self.pending_step.take() {
 			if let Some(gas_before) = self.pending_gas_before.take() {
 				step.gas_cost = gas_before.saturating_sub(gas_left);
+			}
+			if let Some(weight_before) = self.pending_weight_before.take() {
+				step.weight_cost = weight_before.saturating_sub(weight_left);
 			}
 			self.steps.push(step);
 		}
@@ -164,7 +149,6 @@ impl Tracing for OpcodeTracer {
 		_input: &[u8],
 		_gas_limit: u64,
 	) {
-		self.storages_per_call.push(Default::default());
 		self.depth += 1;
 	}
 
@@ -180,10 +164,8 @@ impl Tracing for OpcodeTracer {
 
 		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
 		if self.depth == 1 {
-			self.total_gas_used = gas_used;
+			self.total_gas_used = gas_used.try_into().unwrap_or(u64::MAX);
 		}
-
-		self.storages_per_call.pop();
 
 		if self.depth > 0 {
 			self.depth -= 1;
@@ -196,54 +178,11 @@ impl Tracing for OpcodeTracer {
 		// Mark as failed if this is the top-level call
 		if self.depth == 1 {
 			self.failed = true;
-			self.total_gas_used = gas_used;
+			self.total_gas_used = gas_used.try_into().unwrap_or(u64::MAX);
 		}
 
 		if self.depth > 0 {
 			self.depth -= 1;
-		}
-
-		self.storages_per_call.pop();
-	}
-
-	fn storage_write(&mut self, key: &Key, _old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
-		// Only track storage if not disabled
-		if self.config.disable_storage {
-			return;
-		}
-
-		// Get the last storage map for the current call depth
-		if let Some(storage) = self.storages_per_call.last_mut() {
-			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
-			let value_bytes = crate::evm::Bytes(
-				new_value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]),
-			);
-			storage.insert(key_bytes, value_bytes);
-
-			// Set storage on the pending step
-			if let Some(ref mut step) = self.pending_step {
-				step.storage = Some(storage.clone());
-			}
-		}
-	}
-
-	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
-		// Only track storage if not disabled
-		if self.config.disable_storage {
-			return;
-		}
-
-		// Get the last storage map for the current call depth
-		if let Some(storage) = self.storages_per_call.last_mut() {
-			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
-			storage.entry(key_bytes).or_insert_with(|| {
-				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]))
-			});
-
-			// Set storage on the pending step
-			if let Some(ref mut step) = self.pending_step {
-				step.storage = Some(storage.clone());
-			}
 		}
 	}
 }

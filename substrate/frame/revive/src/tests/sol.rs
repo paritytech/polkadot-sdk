@@ -607,7 +607,6 @@ fn opcode_tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Test with a specific configuration and verify exact structure
 		let config = OpcodeTracerConfig {
 			enable_memory: false,
 			disable_stack: false,
@@ -630,11 +629,10 @@ fn opcode_tracing_works() {
 			step.gas_cost = 0u64;
 		});
 
-		// Create expected trace structure that matches the exact execution
 		let expected_trace = OpcodeTrace {
-			gas: actual_trace.gas, // Use actual gas since it varies
+			gas: actual_trace.gas,
 			failed: false,
-			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()), /* fib(3) = 2 */
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
 			struct_logs: vec![
 				OpcodeStep {
 					pc: 0,
@@ -696,6 +694,98 @@ fn opcode_tracing_works() {
 					stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
+	});
+}
+
+#[test]
+fn syscall_tracing_works() {
+	use crate::{
+		evm::{SyscallStep, SyscallTrace, SyscallTracer, SyscallTracerConfig},
+		tracing::trace,
+	};
+	use sp_core::U256;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Resolc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = SyscallTracerConfig { enable_return_data: true, limit: Some(5) };
+
+		let mut tracer = SyscallTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut actual_trace = tracer.collect_trace();
+		actual_trace.struct_logs.iter_mut().for_each(|step| {
+			step.gas = 0u64;
+			step.gas_cost = 0u64;
+			step.weight = Weight::default();
+			step.weight_cost = Weight::default();
+		});
+
+		let expected_trace = SyscallTrace {
+			gas: actual_trace.gas,
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				SyscallStep {
+					ecall: "call_data_size".to_string(),
+					gas: 0u64,
+					gas_cost: 0u64,
+					weight: Weight::default(),
+					weight_cost: Weight::default(),
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+				},
+				SyscallStep {
+					ecall: "call_data_load".to_string(),
+					gas: 0u64,
+					gas_cost: 0u64,
+					weight: Weight::default(),
+					weight_cost: Weight::default(),
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+				},
+				SyscallStep {
+					ecall: "value_transferred".to_string(),
+					gas: 0u64,
+					gas_cost: 0u64,
+					weight: Weight::default(),
+					weight_cost: Weight::default(),
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+				},
+				SyscallStep {
+					ecall: "call_data_load".to_string(),
+					gas: 0u64,
+					gas_cost: 0u64,
+					weight: Weight::default(),
+					weight_cost: Weight::default(),
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+				},
+				SyscallStep {
+					ecall: "seal_return".to_string(),
+					gas: 0u64,
+					gas_cost: 0u64,
+					weight: Weight::default(),
+					weight_cost: Weight::default(),
+					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},

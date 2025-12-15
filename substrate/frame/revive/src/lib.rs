@@ -50,7 +50,7 @@ use crate::{
 	evm::{
 		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
 		runtime::SetWeightLimit, CallTracer, CreateCallMode, GenericTransaction, OpcodeTracer,
-		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		PrestateTracer, SyscallTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	storage::{AccountType, DeletionQueueManager},
@@ -2150,6 +2150,8 @@ impl<T: Config> Pallet<T> {
 				PrestateTracer::new(config.unwrap_or_default()).into(),
 			TracerType::StructLogger(config) =>
 				OpcodeTracer::new(config.unwrap_or_default()).into(),
+			TracerType::SyscallTracer(config) =>
+				SyscallTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 

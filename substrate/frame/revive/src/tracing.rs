@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -54,7 +54,7 @@ pub trait Tracing {
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas_limit: U256,
+		_gas_limit: u64,
 	) {
 	}
 
@@ -63,7 +63,7 @@ pub trait Tracing {
 		&mut self,
 		_contract_address: H160,
 		_beneficiary_address: H160,
-		_gas_left: U256,
+		_gas_left: u64,
 		_value: U256,
 	) {
 	}
@@ -90,10 +90,10 @@ pub trait Tracing {
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
 	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: U256) {}
+	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: u64) {}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: U256) {}
+	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: u64) {}
 
 	/// Check if opcode tracing is enabled.
 	fn is_opcode_tracing_enabled(&self) -> bool {
@@ -105,7 +105,7 @@ pub trait Tracing {
 		&mut self,
 		_pc: u64,
 		_opcode: u8,
-		_gas_before: U256,
+		_gas_before: u64,
 		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
 		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
 		_last_frame_output: &crate::ExecReturnValue,
@@ -113,5 +113,18 @@ pub trait Tracing {
 	}
 
 	/// Called after an opcode is executed to record the gas cost.
-	fn exit_opcode(&mut self, _gas_left: U256) {}
+	fn exit_opcode(&mut self, _gas_left: u64) {}
+
+	/// Called before an ecall is executed.
+	fn enter_ecall(
+		&mut self,
+		_ecall: &'static str,
+		_gas_before: u64,
+		_weight_before: Weight,
+		_last_frame_output: &crate::ExecReturnValue,
+	) {
+	}
+
+	/// Called after an ecall is executed to record the gas cost and weight consumed.
+	fn exit_ecall(&mut self, _gas_left: u64, _weight_consumed: Weight) {}
 }

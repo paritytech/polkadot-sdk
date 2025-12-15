@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::Bytes;
+use crate::{evm::Bytes, Weight};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
@@ -39,6 +39,9 @@ pub enum TracerType {
 
 	/// A tracer that traces opcodes.
 	StructLogger(Option<OpcodeTracerConfig>),
+
+	/// A tracer that traces syscalls.
+	SyscallTracer(Option<SyscallTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -56,6 +59,12 @@ impl From<PrestateTracerConfig> for TracerType {
 impl From<OpcodeTracerConfig> for TracerType {
 	fn from(config: OpcodeTracerConfig) -> Self {
 		TracerType::StructLogger(Some(config))
+	}
+}
+
+impl From<SyscallTracerConfig> for TracerType {
+	fn from(config: SyscallTracerConfig) -> Self {
+		TracerType::SyscallTracer(Some(config))
 	}
 }
 
@@ -84,24 +93,39 @@ impl<'de> Deserialize<'de> for TracerConfig {
 	where
 		D: Deserializer<'de>,
 	{
-		#[derive(Default, Deserialize)]
-		#[serde(default, rename_all = "camelCase")]
-		struct TracerConfigInner {
+		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
+		struct TracerConfigWithType {
 			#[serde(flatten)]
-			config: Option<TracerType>,
-
-			#[serde(flatten)]
-			opcode_config: Option<OpcodeTracerConfig>,
-
-			#[serde(with = "humantime_serde")]
+			config: TracerType,
+			#[serde(with = "humantime_serde", default)]
 			timeout: Option<core::time::Duration>,
 		}
 
-		let inner = TracerConfigInner::deserialize(deserializer)?;
-		Ok(TracerConfig {
-			config: inner.config.unwrap_or_else(|| TracerType::StructLogger(inner.opcode_config)),
-			timeout: inner.timeout,
-		})
+		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
+		struct TracerConfigInline {
+			#[serde(flatten, default)]
+			opcode_config: OpcodeTracerConfig,
+			#[serde(with = "humantime_serde", default)]
+			timeout: Option<core::time::Duration>,
+		}
+
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		enum TracerConfigHelper {
+			WithType(TracerConfigWithType),
+			Inline(TracerConfigInline),
+		}
+
+		match TracerConfigHelper::deserialize(deserializer)? {
+			TracerConfigHelper::WithType(cfg) =>
+				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
+			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
+				config: TracerType::StructLogger(Some(cfg.opcode_config)),
+				timeout: cfg.timeout,
+			}),
+		}
 	}
 }
 
@@ -265,6 +289,17 @@ fn test_tracer_config_serialization() {
 				timeout: None,
 			},
 		),
+		(
+			r#"{"tracer": "syscallTracer" }"#,
+			TracerConfig { config: TracerType::SyscallTracer(None), timeout: None },
+		),
+		(
+			r#"{"tracer": "syscallTracer", "tracerConfig": {}}"#,
+			TracerConfig {
+				config: TracerType::SyscallTracer(Some(SyscallTracerConfig::default())),
+				timeout: None,
+			},
+		),
 	];
 
 	for (json_data, expected) in tracers {
@@ -305,6 +340,8 @@ pub enum Trace {
 	Prestate(PrestateTrace),
 	/// An opcode trace.
 	Opcode(OpcodeTrace),
+	/// A syscall trace.
+	Syscall(SyscallTrace),
 }
 
 /// A prestate Trace
@@ -456,6 +493,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct OpcodeTrace {
 	/// Total gas used by the transaction.
+	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
 	/// Whether the transaction failed.
 	pub failed: bool,
@@ -471,13 +509,16 @@ pub struct OpcodeTrace {
 #[serde(rename_all = "camelCase")]
 pub struct OpcodeStep {
 	/// The program counter.
+	#[serde(with = "super::hex_serde")]
 	pub pc: u64,
 	/// The opcode being executed.
 	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 	pub op: u8,
 	/// Remaining gas before executing this opcode.
+	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
 	/// Cost of executing this opcode.
+	#[serde(with = "super::hex_serde")]
 	pub gas_cost: u64,
 	/// Current call depth.
 	pub depth: u32,
@@ -501,339 +542,244 @@ pub struct OpcodeStep {
 	pub error: Option<String>,
 }
 
-/// Get opcode name from byte value using REVM opcode names
-fn get_opcode_name(opcode: u8) -> &'static str {
-	use revm::bytecode::opcode::*;
+/// Configuration for the syscall tracer.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SyscallTracerConfig {
+	/// Whether to enable return data capture
+	pub enable_return_data: bool,
 
-	macro_rules! opcode_match {
-        ($($op:ident),*) => {
-            match opcode {
-                $(
-                    $op => stringify!($op),
-                )*
-                _ => "INVALID",
-            }
-        };
-    }
-
-	opcode_match!(
-		STOP,
-		ADD,
-		MUL,
-		SUB,
-		DIV,
-		SDIV,
-		MOD,
-		SMOD,
-		ADDMOD,
-		MULMOD,
-		EXP,
-		SIGNEXTEND,
-		LT,
-		GT,
-		SLT,
-		SGT,
-		EQ,
-		ISZERO,
-		AND,
-		OR,
-		XOR,
-		NOT,
-		BYTE,
-		SHL,
-		SHR,
-		SAR,
-		KECCAK256,
-		ADDRESS,
-		BALANCE,
-		ORIGIN,
-		CALLER,
-		CALLVALUE,
-		CALLDATALOAD,
-		CALLDATASIZE,
-		CALLDATACOPY,
-		CODESIZE,
-		CODECOPY,
-		GASPRICE,
-		EXTCODESIZE,
-		EXTCODECOPY,
-		RETURNDATASIZE,
-		RETURNDATACOPY,
-		EXTCODEHASH,
-		BLOCKHASH,
-		COINBASE,
-		TIMESTAMP,
-		NUMBER,
-		DIFFICULTY,
-		GASLIMIT,
-		CHAINID,
-		SELFBALANCE,
-		BASEFEE,
-		BLOBHASH,
-		BLOBBASEFEE,
-		POP,
-		MLOAD,
-		MSTORE,
-		MSTORE8,
-		SLOAD,
-		SSTORE,
-		JUMP,
-		JUMPI,
-		PC,
-		MSIZE,
-		GAS,
-		JUMPDEST,
-		TLOAD,
-		TSTORE,
-		MCOPY,
-		PUSH0,
-		PUSH1,
-		PUSH2,
-		PUSH3,
-		PUSH4,
-		PUSH5,
-		PUSH6,
-		PUSH7,
-		PUSH8,
-		PUSH9,
-		PUSH10,
-		PUSH11,
-		PUSH12,
-		PUSH13,
-		PUSH14,
-		PUSH15,
-		PUSH16,
-		PUSH17,
-		PUSH18,
-		PUSH19,
-		PUSH20,
-		PUSH21,
-		PUSH22,
-		PUSH23,
-		PUSH24,
-		PUSH25,
-		PUSH26,
-		PUSH27,
-		PUSH28,
-		PUSH29,
-		PUSH30,
-		PUSH31,
-		PUSH32,
-		DUP1,
-		DUP2,
-		DUP3,
-		DUP4,
-		DUP5,
-		DUP6,
-		DUP7,
-		DUP8,
-		DUP9,
-		DUP10,
-		DUP11,
-		DUP12,
-		DUP13,
-		DUP14,
-		DUP15,
-		DUP16,
-		SWAP1,
-		SWAP2,
-		SWAP3,
-		SWAP4,
-		SWAP5,
-		SWAP6,
-		SWAP7,
-		SWAP8,
-		SWAP9,
-		SWAP10,
-		SWAP11,
-		SWAP12,
-		SWAP13,
-		SWAP14,
-		SWAP15,
-		SWAP16,
-		LOG0,
-		LOG1,
-		LOG2,
-		LOG3,
-		LOG4,
-		CREATE,
-		CALL,
-		CALLCODE,
-		RETURN,
-		DELEGATECALL,
-		CREATE2,
-		STATICCALL,
-		REVERT,
-		INVALID,
-		SELFDESTRUCT
-	)
+	/// Limit number of steps captured
+	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
+	pub limit: Option<u64>,
 }
 
-/// Get opcode byte from name string
-fn get_opcode_byte(name: &str) -> Option<u8> {
-	use revm::bytecode::opcode::*;
-	macro_rules! opcode_byte_match {
-        ($($op:ident),*) => {
-            match name {
-                $(
-                    stringify!($op) => Some($op),
-                )*
-                _ => None,
-            }
-        };
-    }
-	opcode_byte_match!(
-		STOP,
-		ADD,
-		MUL,
-		SUB,
-		DIV,
-		SDIV,
-		MOD,
-		SMOD,
-		ADDMOD,
-		MULMOD,
-		EXP,
-		SIGNEXTEND,
-		LT,
-		GT,
-		SLT,
-		SGT,
-		EQ,
-		ISZERO,
-		AND,
-		OR,
-		XOR,
-		NOT,
-		BYTE,
-		SHL,
-		SHR,
-		SAR,
-		KECCAK256,
-		ADDRESS,
-		BALANCE,
-		ORIGIN,
-		CALLER,
-		CALLVALUE,
-		CALLDATALOAD,
-		CALLDATASIZE,
-		CALLDATACOPY,
-		CODESIZE,
-		CODECOPY,
-		GASPRICE,
-		EXTCODESIZE,
-		EXTCODECOPY,
-		RETURNDATASIZE,
-		RETURNDATACOPY,
-		EXTCODEHASH,
-		BLOCKHASH,
-		COINBASE,
-		TIMESTAMP,
-		NUMBER,
-		DIFFICULTY,
-		GASLIMIT,
-		CHAINID,
-		SELFBALANCE,
-		BASEFEE,
-		BLOBHASH,
-		BLOBBASEFEE,
-		POP,
-		MLOAD,
-		MSTORE,
-		MSTORE8,
-		SLOAD,
-		SSTORE,
-		JUMP,
-		JUMPI,
-		PC,
-		MSIZE,
-		GAS,
-		JUMPDEST,
-		TLOAD,
-		TSTORE,
-		MCOPY,
-		PUSH0,
-		PUSH1,
-		PUSH2,
-		PUSH3,
-		PUSH4,
-		PUSH5,
-		PUSH6,
-		PUSH7,
-		PUSH8,
-		PUSH9,
-		PUSH10,
-		PUSH11,
-		PUSH12,
-		PUSH13,
-		PUSH14,
-		PUSH15,
-		PUSH16,
-		PUSH17,
-		PUSH18,
-		PUSH19,
-		PUSH20,
-		PUSH21,
-		PUSH22,
-		PUSH23,
-		PUSH24,
-		PUSH25,
-		PUSH26,
-		PUSH27,
-		PUSH28,
-		PUSH29,
-		PUSH30,
-		PUSH31,
-		PUSH32,
-		DUP1,
-		DUP2,
-		DUP3,
-		DUP4,
-		DUP5,
-		DUP6,
-		DUP7,
-		DUP8,
-		DUP9,
-		DUP10,
-		DUP11,
-		DUP12,
-		DUP13,
-		DUP14,
-		DUP15,
-		DUP16,
-		SWAP1,
-		SWAP2,
-		SWAP3,
-		SWAP4,
-		SWAP5,
-		SWAP6,
-		SWAP7,
-		SWAP8,
-		SWAP9,
-		SWAP10,
-		SWAP11,
-		SWAP12,
-		SWAP13,
-		SWAP14,
-		SWAP15,
-		SWAP16,
-		LOG0,
-		LOG1,
-		LOG2,
-		LOG3,
-		LOG4,
-		CREATE,
-		CALL,
-		CALLCODE,
-		RETURN,
-		DELEGATECALL,
-		CREATE2,
-		STATICCALL,
-		REVERT,
-		INVALID,
-		SELFDESTRUCT
-	)
+impl Default for SyscallTracerConfig {
+	fn default() -> Self {
+		Self { enable_return_data: false, limit: None }
+	}
 }
+
+/// Full syscall execution trace.
+#[derive(
+	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct SyscallTrace {
+	/// Total gas used by the transaction.
+	#[serde(with = "super::hex_serde")]
+	pub gas: u64,
+	/// Whether the transaction failed.
+	pub failed: bool,
+	/// The return value of the transaction.
+	pub return_value: Bytes,
+	/// The list of syscall execution steps.
+	pub struct_logs: Vec<SyscallStep>,
+}
+
+/// A single syscall execution step.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyscallStep {
+	/// The syscall name.
+	pub ecall: String,
+	/// Remaining gas before executing this syscall.
+	#[serde(with = "super::hex_serde")]
+	pub gas: u64,
+	/// Weight before executing this syscall.
+	pub weight: Weight,
+	/// Cost of executing this syscall.
+	#[serde(with = "super::hex_serde")]
+	pub gas_cost: u64,
+	/// Weight consumed by executing this syscall (ref_time in nanoseconds).
+	pub weight_cost: Weight,
+	/// Current call depth.
+	pub depth: u32,
+	/// Return data from last frame output.
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub return_data: Bytes,
+	/// Any error that occurred during syscall execution.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+}
+
+macro_rules! define_opcode_functions {
+	($($op:ident),* $(,)?) => {
+		/// Get opcode name from byte value using REVM opcode names
+		fn get_opcode_name(opcode: u8) -> &'static str {
+			use revm::bytecode::opcode::*;
+			match opcode {
+				$(
+					$op => stringify!($op),
+				)*
+				_ => "INVALID",
+			}
+		}
+
+		/// Get opcode byte from name string
+		fn get_opcode_byte(name: &str) -> Option<u8> {
+			use revm::bytecode::opcode::*;
+			match name {
+				$(
+					stringify!($op) => Some($op),
+				)*
+				_ => None,
+			}
+		}
+	};
+}
+
+define_opcode_functions!(
+	STOP,
+	ADD,
+	MUL,
+	SUB,
+	DIV,
+	SDIV,
+	MOD,
+	SMOD,
+	ADDMOD,
+	MULMOD,
+	EXP,
+	SIGNEXTEND,
+	LT,
+	GT,
+	SLT,
+	SGT,
+	EQ,
+	ISZERO,
+	AND,
+	OR,
+	XOR,
+	NOT,
+	BYTE,
+	SHL,
+	SHR,
+	SAR,
+	KECCAK256,
+	ADDRESS,
+	BALANCE,
+	ORIGIN,
+	CALLER,
+	CALLVALUE,
+	CALLDATALOAD,
+	CALLDATASIZE,
+	CALLDATACOPY,
+	CODESIZE,
+	CODECOPY,
+	GASPRICE,
+	EXTCODESIZE,
+	EXTCODECOPY,
+	RETURNDATASIZE,
+	RETURNDATACOPY,
+	EXTCODEHASH,
+	BLOCKHASH,
+	COINBASE,
+	TIMESTAMP,
+	NUMBER,
+	DIFFICULTY,
+	GASLIMIT,
+	CHAINID,
+	SELFBALANCE,
+	BASEFEE,
+	BLOBHASH,
+	BLOBBASEFEE,
+	POP,
+	MLOAD,
+	MSTORE,
+	MSTORE8,
+	SLOAD,
+	SSTORE,
+	JUMP,
+	JUMPI,
+	PC,
+	MSIZE,
+	GAS,
+	JUMPDEST,
+	TLOAD,
+	TSTORE,
+	MCOPY,
+	PUSH0,
+	PUSH1,
+	PUSH2,
+	PUSH3,
+	PUSH4,
+	PUSH5,
+	PUSH6,
+	PUSH7,
+	PUSH8,
+	PUSH9,
+	PUSH10,
+	PUSH11,
+	PUSH12,
+	PUSH13,
+	PUSH14,
+	PUSH15,
+	PUSH16,
+	PUSH17,
+	PUSH18,
+	PUSH19,
+	PUSH20,
+	PUSH21,
+	PUSH22,
+	PUSH23,
+	PUSH24,
+	PUSH25,
+	PUSH26,
+	PUSH27,
+	PUSH28,
+	PUSH29,
+	PUSH30,
+	PUSH31,
+	PUSH32,
+	DUP1,
+	DUP2,
+	DUP3,
+	DUP4,
+	DUP5,
+	DUP6,
+	DUP7,
+	DUP8,
+	DUP9,
+	DUP10,
+	DUP11,
+	DUP12,
+	DUP13,
+	DUP14,
+	DUP15,
+	DUP16,
+	SWAP1,
+	SWAP2,
+	SWAP3,
+	SWAP4,
+	SWAP5,
+	SWAP6,
+	SWAP7,
+	SWAP8,
+	SWAP9,
+	SWAP10,
+	SWAP11,
+	SWAP12,
+	SWAP13,
+	SWAP14,
+	SWAP15,
+	SWAP16,
+	LOG0,
+	LOG1,
+	LOG2,
+	LOG3,
+	LOG4,
+	CREATE,
+	CALL,
+	CALLCODE,
+	RETURN,
+	DELEGATECALL,
+	CREATE2,
+	STATICCALL,
+	REVERT,
+	INVALID,
+	SELFDESTRUCT,
+);
 
 /// Serialize opcode as string using REVM opcode names
 fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
@@ -859,13 +805,15 @@ where
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct CallTrace<Gas = U256> {
+pub struct CallTrace {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
-	pub gas: Gas,
+	#[serde(with = "super::hex_serde")]
+	pub gas: u64,
 	/// Amount of gas used.
-	pub gas_used: Gas,
+	#[serde(with = "super::hex_serde")]
+	pub gas_used: u64,
 	/// Address of the receiver.
 	pub to: H160,
 	/// Call input data.
@@ -881,7 +829,7 @@ pub struct CallTrace<Gas = U256> {
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
-	pub calls: Vec<CallTrace<Gas>>,
+	pub calls: Vec<CallTrace>,
 	/// List of logs emitted during the call.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
@@ -961,4 +909,75 @@ where
 			ser_map.end()
 		},
 	}
+}
+
+#[test]
+fn test_gas_fields_serialize_as_hex() {
+	// Test CallTrace gas serialization
+	let call_trace = CallTrace {
+		from: H160::zero(),
+		gas: 21000,
+		gas_used: 20000,
+		to: H160::zero(),
+		input: Bytes::default(),
+		output: Bytes::default(),
+		error: None,
+		revert_reason: None,
+		calls: Vec::new(),
+		logs: Vec::new(),
+		value: None,
+		call_type: CallType::Call,
+		child_call_count: 0,
+	};
+	let json = serde_json::to_string(&call_trace).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0x5208""#), "gas should be hex: {}", json);
+	assert!(json.contains(r#""gasUsed":"0x4e20""#), "gas_used should be hex: {}", json);
+
+	// Test OpcodeTrace gas serialization
+	let opcode_trace = OpcodeTrace { gas: 100000, failed: false, return_value: Bytes::default(), struct_logs: Vec::new() };
+	let json = serde_json::to_string(&opcode_trace).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0x186a0""#), "opcode trace gas should be hex: {}", json);
+
+	// Test OpcodeStep gas serialization
+	let opcode_step = OpcodeStep {
+		pc: 42,
+		op: 0x01,
+		gas: 50000,
+		gas_cost: 3,
+		depth: 1,
+		stack: Vec::new(),
+		memory: Vec::new(),
+		storage: None,
+		return_data: Bytes::default(),
+		error: None,
+	};
+	let json = serde_json::to_string(&opcode_step).expect("Serialization should succeed");
+	assert!(json.contains(r#""pc":"0x2a""#), "pc should be hex: {}", json);
+	assert!(json.contains(r#""gas":"0xc350""#), "opcode step gas should be hex: {}", json);
+	assert!(json.contains(r#""gasCost":"0x3""#), "gas_cost should be hex: {}", json);
+
+	// Test SyscallTrace gas serialization
+	let syscall_trace = SyscallTrace {
+		gas: 75000,
+		failed: false,
+		return_value: Bytes::default(),
+		struct_logs: Vec::new(),
+	};
+	let json = serde_json::to_string(&syscall_trace).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0x124f8""#), "syscall trace gas should be hex: {}", json);
+
+	// Test SyscallStep gas serialization
+	let syscall_step = SyscallStep {
+		ecall: "test".into(),
+		gas: 60000,
+		weight: Weight::from_parts(1000, 100),
+		gas_cost: 5,
+		weight_cost: Weight::from_parts(500, 50),
+		depth: 1,
+		return_data: Bytes::default(),
+		error: None,
+	};
+	let json = serde_json::to_string(&syscall_step).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0xea60""#), "syscall step gas should be hex: {}", json);
+	assert!(json.contains(r#""gasCost":"0x5""#), "syscall step gas_cost should be hex: {}", json);
 }

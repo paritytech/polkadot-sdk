@@ -160,7 +160,7 @@ fn run_plain_with_tracing<E: Ext>(
 			tracer.enter_opcode(
 				interpreter.bytecode.pc() as u64,
 				opcode,
-				gas_before.into(),
+				gas_before,
 				&interpreter.stack.bytes_getter(),
 				&interpreter.memory.bytes_getter(),
 				interpreter.ext.last_frame_output(),

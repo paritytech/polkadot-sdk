@@ -3972,7 +3972,7 @@ fn call_tracing_works() {
 			a.gas_consumed
 		});
 		let gas_trace = tracer.collect_trace().unwrap();
-		assert_eq!(&gas_trace.gas_used, &gas_used.into());
+		assert_eq!(&gas_trace.gas_used, &gas_used);
 
 		for config in tracer_configs {
 			let logs = if config.with_logs {
@@ -4009,8 +4009,8 @@ fn call_tracing_works() {
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							value: Some(U256::from(0)),
-							gas: 0.into(),
-							gas_used: 0.into(),
+							gas: 0,
+							gas_used: 0,
 							..Default::default()
 						},
 						CallTrace {
@@ -4020,8 +4020,8 @@ fn call_tracing_works() {
 							call_type: Call,
 							logs: logs.clone(),
 							value: Some(U256::from(0)),
-							gas: 0.into(),
-							gas_used: 0.into(),
+							gas: 0,
+							gas_used: 0,
 							calls: vec![
 								CallTrace {
 									from: addr,
@@ -4031,8 +4031,8 @@ fn call_tracing_works() {
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
 									value: Some(U256::from(0)),
-									gas: 0.into(),
-									gas_used: 0.into(),
+									gas: 0,
+									gas_used: 0,
 									..Default::default()
 								},
 								CallTrace {
@@ -4042,8 +4042,8 @@ fn call_tracing_works() {
 									call_type: Call,
 									logs: logs.clone(),
 									value: Some(U256::from(0)),
-									gas: 0.into(),
-									gas_used: 0.into(),
+									gas: 0,
+									gas_used: 0,
 									calls: vec![
 										CallTrace {
 											from: addr,
@@ -4052,8 +4052,8 @@ fn call_tracing_works() {
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 0.into(),
-											gas_used: 0.into(),
+											gas: 0,
+											gas_used: 0,
 											..Default::default()
 										},
 										CallTrace {
@@ -4062,8 +4062,8 @@ fn call_tracing_works() {
 											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 0.into(),
-											gas_used: 0.into(),
+											gas: 0,
+											gas_used: 0,
 											calls: vec![
 												CallTrace {
 													from: addr,
@@ -4102,8 +4102,8 @@ fn call_tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
-					gas: 0.into(),
-					gas_used: 0.into(),
+					gas: 0,
+					gas_used: 0,
 					..Default::default()
 				};
 
@@ -5253,12 +5253,12 @@ fn self_destruct_by_syscall_tracing_works() {
 					to: addr,
 					call_type: CallType::Call,
 					value: Some(U256::zero()),
-					gas: 0.into(),
-					gas_used: 0.into(),
+					gas: 0,
+					gas_used: 0,
 					calls: vec![CallTrace {
 						from: addr,
 						to: DJANGO_ADDR,
-						gas: 0.into(),
+						gas: 0,
 
 						call_type: CallType::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
@@ -5269,9 +5269,9 @@ fn self_destruct_by_syscall_tracing_works() {
 			}),
 			modify_trace_fn: Some(Box::new(|mut actual_trace| {
 				if let Trace::Call(trace) = &mut actual_trace {
-					trace.gas = 0.into();
-					trace.gas_used = 0.into();
-					trace.calls[0].gas = 0.into();
+					trace.gas = 0;
+					trace.gas_used = 0;
+					trace.calls[0].gas = 0;
 				}
 				actual_trace
 			})),
@@ -5411,6 +5411,7 @@ fn self_destruct_by_syscall_tracing_works() {
 				crate::evm::Trace::Call(ct) => Trace::Call(ct),
 				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
 				crate::evm::Trace::Opcode(_) => panic!("Opcode trace not expected"),
+				crate::evm::Trace::Syscall(_) => panic!("Syscall trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);

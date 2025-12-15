@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{CallTrace, OpcodeTrace, Trace},
+	evm::{CallTrace, OpcodeTrace, SyscallTrace, Trace},
 	tracing::Tracing,
 	Config,
 };
@@ -29,6 +29,9 @@ pub use prestate_tracing::*;
 mod opcode_tracing;
 pub use opcode_tracing::*;
 
+mod syscall_tracing;
+pub use syscall_tracing::*;
+
 /// A composite tracer.
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
@@ -38,6 +41,8 @@ pub enum Tracer<T> {
 	PrestateTracer(PrestateTracer<T>),
 	/// A tracer that traces opcodes.
 	OpcodeTracer(OpcodeTracer),
+	/// A tracer that traces syscalls.
+	SyscallTracer(SyscallTracer),
 }
 
 impl<T: Config> Tracer<T>
@@ -50,6 +55,7 @@ where
 			Tracer::CallTracer(_) => CallTrace::default().into(),
 			Tracer::PrestateTracer(tracer) => tracer.empty_trace().into(),
 			Tracer::OpcodeTracer(_) => OpcodeTrace::default().into(),
+			Tracer::SyscallTracer(_) => SyscallTrace::default().into(),
 		}
 	}
 
@@ -59,6 +65,7 @@ where
 			Tracer::CallTracer(inner) => inner as &mut dyn Tracing,
 			Tracer::PrestateTracer(inner) => inner as &mut dyn Tracing,
 			Tracer::OpcodeTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::SyscallTracer(inner) => inner as &mut dyn Tracing,
 		}
 	}
 
@@ -68,6 +75,7 @@ where
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),
 			Tracer::OpcodeTracer(inner) => Some(inner.collect_trace().into()),
+			Tracer::SyscallTracer(inner) => Some(inner.collect_trace().into()),
 		}
 	}
 
