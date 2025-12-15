@@ -43,24 +43,6 @@ fn create_subscriptions(n: u32, keys_per_publisher: u32) -> Vec<(ParaId, Vec<Vec
 mod benchmarks {
 	use super::*;
 
-	/// Benchmark calling `SubscriptionHandler::subscriptions()`.
-	///
-	/// Cost scales with both number of publishers `n` and keys per publisher `k`.
-	#[benchmark]
-	fn get_subscriptions(
-		n: Linear<1, { T::MaxPublishers::get() }>,
-		k: Linear<1, 10>,
-	) {
-		let subscriptions = create_subscriptions(n, k);
-		crate::mock::TestSubscriptions::set(subscriptions);
-		let subs;
-		#[block]
-		{
-			subs = T::SubscriptionHandler::subscriptions();
-		}
-		assert!(subs.len() == n as usize);
-	}
-
 	/// Benchmark collecting publisher roots from the relay state proof.
 	///
 	/// Cost scales with the number of publishers `n`.
@@ -106,9 +88,10 @@ mod benchmarks {
 		let proof = build_sproof_with_child_data(&publishers);
 		let current_roots = Subscriber::<T>::collect_publisher_roots(&proof, &subscriptions);
 
+		let _weight;
 		#[block]
 		{
-			Subscriber::<T>::process_published_data(&proof, &current_roots, &subscriptions);
+			_weight = Subscriber::<T>::process_published_data(&proof, &current_roots, &subscriptions);
 		}
 		assert!(PreviousPublishedDataRoots::<T>::get().len() == n as usize);
 	}

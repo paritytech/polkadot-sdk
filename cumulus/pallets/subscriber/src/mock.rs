@@ -34,12 +34,13 @@ parameter_types! {
 
 pub struct TestHandler;
 impl SubscriptionHandler for TestHandler {
-	fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)> {
-		TestSubscriptions::get()
+	fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight) {
+		(TestSubscriptions::get(), Weight::zero())
 	}
 
-	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) {
+	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) -> Weight {
 		ReceivedData::mutate(|d| d.push((publisher, key, value)));
+		Weight::zero()
 	}
 }
 

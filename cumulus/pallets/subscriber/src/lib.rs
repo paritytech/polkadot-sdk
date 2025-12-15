@@ -49,10 +49,12 @@ mod tests;
 /// Define subscriptions and handle received data.
 pub trait SubscriptionHandler {
 	/// List of subscriptions as (ParaId, keys) tuples.
-	fn subscriptions() -> Vec<(ParaId, Vec<Vec<u8>>)>;
+	/// Returns (subscriptions, weight) where weight is the cost of computing the subscriptions.
+	fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight);
 
 	/// Called when subscribed data is updated.
-	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>);
+	/// Returns the weight consumed by processing the data.
+	fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) -> Weight;
 }
 
 #[frame_support::pallet]
@@ -136,7 +138,8 @@ pub mod pallet {
 		///
 		/// Returns a `RelayProofRequest` with child trie proof requests for subscribed data.
 		pub fn get_relay_proof_requests() -> cumulus_primitives_core::RelayProofRequest {
-			let storage_keys = T::SubscriptionHandler::subscriptions()
+			let (subscriptions, _weight) = T::SubscriptionHandler::subscriptions();
+			let storage_keys = subscriptions
 				.into_iter()
 				.flat_map(|(para_id, data_keys)| {
 					let storage_key = Self::derive_storage_key(para_id);
@@ -189,14 +192,16 @@ pub mod pallet {
 			relay_state_proof: &RelayChainStateProof,
 			current_roots: &Vec<(ParaId, Vec<u8>)>,
 			subscriptions: &[(ParaId, Vec<Vec<u8>>)],
-		) {
+		) -> Weight {
 			// Load roots from previous block for change detection.
 			let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
 			// Early exit if no publishers have any data.
 			if current_roots.is_empty() && previous_roots.is_empty() {
-				return;
+				return T::DbWeight::get().reads(1);
 			}
+
+			let mut total_handler_weight = Weight::zero();
 
 			// Convert to map for efficient lookup by ParaId.
 			let current_roots_map: BTreeMap<ParaId, Vec<u8>> =
@@ -223,11 +228,12 @@ pub mod pallet {
 										Ok(value) => {
 											let value_size = value.len() as u32;
 											// Notify handler of new data.
-											T::SubscriptionHandler::on_data_updated(
+											let handler_weight = T::SubscriptionHandler::on_data_updated(
 												*publisher,
 												key.clone(),
 												value.clone(),
 											);
+											total_handler_weight = total_handler_weight.saturating_add(handler_weight);
 
 											Self::deposit_event(Event::DataProcessed {
 												publisher: *publisher,
@@ -263,6 +269,8 @@ pub mod pallet {
 					.try_into()
 					.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
+
+			total_handler_weight
 		}
 	}
 
@@ -272,7 +280,7 @@ pub mod pallet {
 		/// Note: This implementation only processes child trie keys (pubsub data).
 		/// Main trie keys in the proof are intentionally ignored.
 		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
-			let subscriptions = T::SubscriptionHandler::subscriptions();
+			let (subscriptions, subscriptions_weight) = T::SubscriptionHandler::subscriptions();
 			let num_publishers = subscriptions.len() as u32;
 			let keys_per_publisher = subscriptions
 				.first()
@@ -280,35 +288,30 @@ pub mod pallet {
 				.unwrap_or(0);
 
 			let current_roots = Self::collect_publisher_roots(verified_proof, &subscriptions);
-			Self::process_published_data(verified_proof, &current_roots, &subscriptions);
+			let data_processing_weight = Self::process_published_data(verified_proof, &current_roots, &subscriptions);
 
 			// Return total weight for all operations
-			T::WeightInfo::process_relay_proof_keys(num_publishers, keys_per_publisher)
+			subscriptions_weight
+				.saturating_add(data_processing_weight)
+				.saturating_add(T::WeightInfo::process_proof_excluding_handler(num_publishers, keys_per_publisher))
 		}
 	}
 }
 
 pub trait WeightInfo {
-	fn get_subscriptions(n: u32, k: u32) -> Weight;
 	fn collect_publisher_roots(n: u32) -> Weight;
 	fn process_published_data(n: u32, k: u32) -> Weight;
 	fn clear_stored_roots() -> Weight;
 
-	/// Total weight consumed by process_relay_proof_keys
-	/// Composes the weights of all sub-operations
-	fn process_relay_proof_keys(num_publishers: u32, keys_per_publisher: u32) -> Weight {
-		Self::get_subscriptions(num_publishers, keys_per_publisher)
-			.saturating_add(Self::collect_publisher_roots(num_publishers))
+	/// Weight for processing relay proof excluding handler execution.
+	/// Benchmarked with no-op handler. Handler weights are added at runtime.
+	fn process_proof_excluding_handler(num_publishers: u32, keys_per_publisher: u32) -> Weight {
+		Self::collect_publisher_roots(num_publishers)
 			.saturating_add(Self::process_published_data(num_publishers, keys_per_publisher))
 	}
 }
 
 impl WeightInfo for () {
-	fn get_subscriptions(_n: u32, _k: u32) -> Weight {
-		// TODO: Replace with proper benchmarked weights
-		Weight::from_parts(5_000, 0)
-	}
-
 	fn collect_publisher_roots(_n: u32) -> Weight {
 		// TODO: Replace with proper benchmarked weights
 		Weight::from_parts(10_000, 0)
@@ -320,6 +323,7 @@ impl WeightInfo for () {
 	}
 
 	fn clear_stored_roots() -> Weight {
-		frame_support::weights::constants::RocksDbWeight::get().reads_writes(1, 1)
+		// TODO: Replace with proper benchmarked weights
+		Weight::from_parts(50_000, 0)
 	}
 }
