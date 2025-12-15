@@ -65,7 +65,7 @@
 
 use std::{
 	collections::{hash_map, HashMap},
-	fmt::{self, Debug},
+	fmt::{self},
 	pin::Pin,
 	sync::Arc,
 	time::Duration,

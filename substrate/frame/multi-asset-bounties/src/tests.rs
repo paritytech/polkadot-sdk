@@ -262,8 +262,8 @@ fn fund_child_bounty_works() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			Some(s.child_curator),
-			s.metadata
 		));
 		s.child_bounty_id =
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
@@ -322,8 +322,8 @@ fn fund_child_bounty_works() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			None,
-			s.metadata
 		));
 		s.child_bounty_id =
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
@@ -383,8 +383,8 @@ fn fund_child_bounty_fails() {
 				invalid_origin,
 				s.parent_bounty_id,
 				s.child_value,
+				s.metadata,
 				Some(s.child_curator),
-				s.metadata
 			),
 			BadOrigin
 		);
@@ -396,8 +396,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				invalid_parent_index,
 				s.child_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::InvalidIndex
 		);
@@ -409,8 +409,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
 				invalid_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::InvalidValue
 		);
@@ -422,8 +422,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
+				invalid_metadata,
 				None,
-				invalid_metadata
 			),
 			Error::<Test>::PreimageNotExist
 		);
@@ -435,8 +435,8 @@ fn fund_child_bounty_fails() {
 				invalid_origin,
 				s.parent_bounty_id,
 				s.child_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::RequireCurator
 		);
@@ -448,8 +448,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
 				invalid_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::InsufficientBountyValue
 		);
@@ -460,8 +460,8 @@ fn fund_child_bounty_fails() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			None,
-			s.metadata
 		));
 
 		// When/Then
@@ -470,8 +470,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::TooManyChildBounties
 		);
@@ -485,8 +485,8 @@ fn fund_child_bounty_fails() {
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
+				s.metadata,
 				None,
-				s.metadata
 			),
 			Error::<Test>::UnexpectedStatus
 		);
@@ -856,8 +856,8 @@ fn check_status_works() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			None,
-			s.metadata
 		));
 		let child_bounty_account =
 			Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind)
@@ -1381,8 +1381,8 @@ fn accept_curator_works() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			Some(s.child_curator),
-			s.metadata
 		));
 		let child_bounty_id =
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
@@ -1905,8 +1905,8 @@ fn propose_curator_fails() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			Some(s.child_curator),
-			s.metadata
 		));
 
 		// When/Then
@@ -2345,8 +2345,8 @@ fn close_bounty_fails() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			Some(s.child_curator),
-			s.metadata
 		));
 
 		// When/Then
@@ -2457,8 +2457,8 @@ fn fund_and_award_child_bounty_without_curator_works() {
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
+			s.metadata,
 			None,
-			s.metadata
 		));
 		let child_bounty_id = 0;
 		let child_bounty_account =

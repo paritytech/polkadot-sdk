@@ -36,7 +36,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	weights::Weight,
-	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{
@@ -52,7 +52,7 @@ use sp_runtime::{
 		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransactionBuilder},
-	DispatchResult, RuntimeDebug,
+	DispatchResult,
 };
 
 pub use grandpa_adapter::WithGrandpaChainExtensionConfig;
@@ -96,7 +96,7 @@ impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Deb
 }
 
 /// The actions on relayer account that need to be performed because of his actions.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	/// Do nothing with relayer account.
 	None,
@@ -121,7 +121,7 @@ pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	Encode,
 	EqNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Config, LaneId))]

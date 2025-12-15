@@ -24,7 +24,7 @@ use pallet_contracts_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -37,7 +37,7 @@ use sp_runtime::{
 /// It has been extended to include `events` at the end of the struct while not bumping the
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct ContractResult<R, Balance, EventRecord> {
 	/// How much weight was consumed during execution.
 	pub gas_consumed: Weight,
@@ -97,7 +97,7 @@ pub type CodeUploadResult<CodeHash, Balance> =
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
 
 /// The possible errors that can happen querying the storage of a contract.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum ContractAccessError {
 	/// The given address doesn't point to a contract.
 	DoesntExist,
@@ -108,7 +108,7 @@ pub enum ContractAccessError {
 }
 
 /// Output of a contract call or instantiation which ran to completion.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ExecReturnValue {
 	/// Flags passed along by `seal_return`. Empty when `seal_return` was never called.
 	pub flags: ReturnFlags,
@@ -124,7 +124,7 @@ impl ExecReturnValue {
 }
 
 /// The result of a successful contract instantiation.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct InstantiateReturnValue<AccountId> {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
@@ -133,7 +133,7 @@ pub struct InstantiateReturnValue<AccountId> {
 }
 
 /// The result of successfully uploading a contract.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub struct CodeUploadReturnValue<CodeHash, Balance> {
 	/// The key under which the new code is stored.
 	pub code_hash: CodeHash,
@@ -142,7 +142,7 @@ pub struct CodeUploadReturnValue<CodeHash, Balance> {
 }
 
 /// Reference to an existing code hash or a new wasm module.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum Code<Hash> {
 	/// A wasm module as raw bytes.
 	Upload(Vec<u8>),
@@ -151,9 +151,7 @@ pub enum Code<Hash> {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///

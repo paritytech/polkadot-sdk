@@ -1169,7 +1169,7 @@ mod tests {
 			),
 			"Transaction { \
 hash: 4, priority: 1000, valid_till: 64, bytes: 1, propagate: true, \
-source: TimedTransactionSource { source: TransactionSource::External, timestamp: None }, requires: [03, 02], provides: [04], data: [4]}"
+source: TimedTransactionSource { source: External, timestamp: None }, requires: [03, 02], provides: [04], data: [4]}"
 				.to_owned()
 		);
 	}
