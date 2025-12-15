@@ -131,7 +131,7 @@ pub type InheritanceOrder = u32;
 	Encode,
 	Decode,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
@@ -177,14 +177,7 @@ pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PE
 ///
 /// Uses a vector of u16 values where each bit represents whether a friend at that index has voted.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxEntries))]
 pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u16, BitfieldLenOf<MaxEntries>>);
@@ -259,7 +252,7 @@ pub type ApprovalBitfield<MaxFriends> = Bitfield<MaxFriends>;
 pub type ApprovalBitfieldOf<T> = ApprovalBitfield<<T as Config>::MaxFriendsPerConfig>;
 
 /// An attempt to recover an account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Attempt<ProvidedBlockNumber, ApprovalBitfield, AccountId> {
 	pub friend_group_index: FriendGroupIndex,
 	pub initiator: AccountId,
@@ -299,7 +292,7 @@ pub type AttemptOf<T> = Attempt<ProvidedBlockNumberOf<T>, ApprovalBitfieldOf<T>,
 	Encode,
 	Decode,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
