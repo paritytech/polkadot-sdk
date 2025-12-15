@@ -321,8 +321,7 @@ where
 						Config::WeightInfo::block_weight_tx_extension_stays_fraction_of_core(),
 					)
 				},
-				// Now we need to check if the transaction required more weight than a fraction of a
-				// core block.
+				// Now we check if the transaction required more weight than the target weight.
 				BlockWeightMode::<Config>::PotentialFullCore {
 					first_transaction_index,
 					target_weight,
@@ -331,7 +330,11 @@ where
 					let block_weight = frame_system::BlockWeight::<Config>::get();
 					let extrinsic_class_weight = block_weight.get(info.class);
 
-					if extrinsic_class_weight.any_gt(*target_weight) {
+					// The transaction weight after execution is may not above the target weight,
+					// but the full block weight is maybe now above the target weight.
+					if extrinsic_class_weight.any_gt(*target_weight) ||
+						block_weight_over_target_block_weight::<Config, TargetBlockRate>()
+					{
 						log::trace!(
 							target: LOG_TARGET,
 							"Extrinsic class weight {extrinsic_class_weight:?} above target weight {target_weight:?}, enabling `FullCore` mode."
