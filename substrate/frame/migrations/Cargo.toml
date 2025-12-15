@@ -54,6 +54,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"frame/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-glutton/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -62,4 +63,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-glutton/try-runtime",
 ]
