@@ -66,18 +66,22 @@ mod benchmarks {
 	/// Benchmark processing published data from the relay proof.
 	///
 	/// Worst case: all `n` publishers have updated data with `k` keys each that need processing.
+	/// Each value has size `s` bytes. Max is 2048 bytes (2KiB limit per publisher).
 	#[benchmark]
 	fn process_published_data(
 		n: Linear<1, { T::MaxPublishers::get() }>,
 		k: Linear<1, 10>,
+		s: Linear<1, 2048>,
 	) {
 		let subscriptions = create_subscriptions(n, k);
+		// Calculate per-key value size to stay within 2KiB total per publisher
+		let value_size_per_key = (s / k.max(1)) as usize;
 		let publishers: Vec<_> = (0..n)
 			.map(|i| {
 				let para_id = ParaId::from(1000 + i);
 				let child_data: Vec<(Vec<u8>, Vec<u8>)> = (0..k)
 					.map(|j| {
-						let value = vec![25u8; 100];
+						let value = vec![25u8; value_size_per_key];
 						let encoded_value = value.encode();
 						(vec![i as u8, j as u8], encoded_value)
 					})
@@ -88,10 +92,9 @@ mod benchmarks {
 		let proof = build_sproof_with_child_data(&publishers);
 		let current_roots = Subscriber::<T>::collect_publisher_roots(&proof, &subscriptions);
 
-		let _weight;
 		#[block]
 		{
-			_weight = Subscriber::<T>::process_published_data(&proof, &current_roots, &subscriptions);
+			let _ = Subscriber::<T>::process_published_data(&proof, &current_roots, &subscriptions);
 		}
 		assert!(PreviousPublishedDataRoots::<T>::get().len() == n as usize);
 	}
