@@ -134,16 +134,21 @@ where
 	}
 }
 
-/// Clear storage items under a specific storage prefix.
+/// Clear storage items for a specific pallet storage or all pallet storage.
 ///
-/// This migration removes all storage entries that share a common prefix. It uses the multi-block
-/// migration framework, making it safe to use even when clearing large amounts of storage data.
+/// This migration removes all storage entries for a given pallet and optionally a specific
+/// storage name. It uses the multi-block migration framework, making it safe to use even when
+/// clearing large amounts of storage data.
+///
+/// This is the recommended replacement for the deprecated
+/// [`frame_support::migrations::RemoveStorage`].
 ///
 /// # Parameters
 ///
 /// - `T`: The runtime configuration. Used to access weight definitions and other runtime types.
-/// - `StoragePrefix`: A type implementing `Get<[u8; 32]>` that provides the 32-byte storage prefix
-///   of the items to be deleted. This prefix identifies which storage entries will be removed.
+/// - `P`: A type implementing `Get<&'static str>` that provides the pallet name.
+/// - `S`: A type implementing `Get<Option<&'static str>>` that provides the storage name. When
+///   `None`, all storage items for the pallet will be removed.
 ///
 /// # Example
 ///
@@ -152,17 +157,15 @@ where
 /// ```rust,ignore
 /// use frame_support::parameter_types;
 ///
-/// // Define the storage prefix to clear
+/// // Define the pallet and storage names to clear
 /// parameter_types! {
-///     pub StoragePrefixToClear: [u8; 32] = frame_support::storage::storage_prefix(
-///         b"PalletName",
-///         b"StorageName",
-///     );
+///     pub const PalletName: &'static str = "MyPallet";
+///     pub const StorageName: Option<&'static str> = Some("MyStorage");
 /// }
 ///
 /// // Configure the migration
 /// pub type MultiBlockMigrations =
-///     pallet_migrations::ClearStorageByPrefix<Runtime, StoragePrefixToClear>;
+///     pallet_migrations::ClearStorage<Runtime, PalletName, StorageName>;
 ///
 /// impl pallet_migrations::Config for Runtime {
 ///     type Migrations = MultiBlockMigrations;
@@ -170,19 +173,46 @@ where
 /// }
 /// ```
 ///
+/// Clearing all storage items from a pallet:
+///
+/// ```rust,ignore
+/// use frame_support::parameter_types;
+///
+/// parameter_types! {
+///     pub const PalletName: &'static str = "MyPallet";
+///     pub const NoStorage: Option<&'static str> = None;
+/// }
+///
+/// // This will remove ALL storage items from MyPallet
+/// pub type MultiBlockMigrations =
+///     pallet_migrations::ClearStorage<Runtime, PalletName, NoStorage>;
+/// ```
+///
 /// # Notes
 ///
 /// - The migration processes keys in batches based on available weight, preventing block overload.
 /// - Progress is tracked using a boolean cursor: `false` means in progress, `true` means complete.
-pub struct ClearStorageByPrefix<T, StoragePrefix>(PhantomData<(T, StoragePrefix)>);
+/// - When `S` returns `None`, all storage for the pallet is cleared (similar to [`ResetPallet`] but
+///   without updating the storage version).
+pub struct ClearStorage<T, P, S>(PhantomData<(T, P, S)>);
 
-impl<T, StoragePrefix> ClearStorageByPrefix<T, StoragePrefix>
+impl<T, P, S> ClearStorage<T, P, S>
 where
-	StoragePrefix: Get<[u8; 32]>,
+	P: Get<&'static str>,
+	S: Get<Option<&'static str>>,
 {
+	fn storage_prefix() -> alloc::vec::Vec<u8> {
+		match S::get() {
+			Some(storage) =>
+				frame_support::storage::storage_prefix(P::get().as_bytes(), storage.as_bytes())
+					.to_vec(),
+			None => twox_128(P::get().as_bytes()).to_vec(),
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	fn num_keys() -> u64 {
-		let storage_prefix = StoragePrefix::get().to_vec();
+		let storage_prefix = Self::storage_prefix();
 		frame_support::storage::KeyPrefixIterator::new(
 			storage_prefix.clone(),
 			storage_prefix,
@@ -192,16 +222,17 @@ where
 	}
 }
 
-impl<T, StoragePrefix> SteppedMigration for ClearStorageByPrefix<T, StoragePrefix>
+impl<T, P, S> SteppedMigration for ClearStorage<T, P, S>
 where
 	T: Config,
-	StoragePrefix: Get<[u8; 32]>,
+	P: Get<&'static str>,
+	S: Get<Option<&'static str>>,
 {
 	type Cursor = bool;
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
-		("ClearStorageByPrefix", StoragePrefix::get()).using_encoded(twox_128)
+		("ClearStorage", P::get(), S::get()).using_encoded(twox_128)
 	}
 
 	fn step(
@@ -228,7 +259,7 @@ where
 			});
 		}
 
-		let storage_prefix = StoragePrefix::get();
+		let storage_prefix = Self::storage_prefix();
 		let (keys_removed, is_done) = match clear_prefix(&storage_prefix, Some(key_budget)) {
 			KillStorageResult::AllRemoved(value) => (value, true),
 			KillStorageResult::SomeRemaining(value) => (value, false),
@@ -242,10 +273,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let num_keys: u64 = Self::num_keys();
-		log::info!(
-			"ClearStorageByPrefix<{}>: Trying to remove {num_keys} keys.",
-			sp_core::bytes::to_hex(&StoragePrefix::get(), false)
-		);
+		log::info!("ClearStorage<{}, {:?}>: Trying to remove {num_keys} keys.", P::get(), S::get());
 		Ok(num_keys.encode())
 	}
 
@@ -255,16 +283,14 @@ where
 		let keys_before = u64::decode(&mut state.as_ref()).expect("We encoded as u64 above; qed");
 		let keys_now = Self::num_keys();
 		log::info!(
-			"ClearStorageByPrefix<{}>: Keys remaining after migration: {keys_now}",
-			sp_core::bytes::to_hex(&StoragePrefix::get(), false)
+			"ClearStorage<{}, {:?}>: Keys remaining after migration: {keys_now}",
+			P::get(),
+			S::get()
 		);
 
 		if keys_before <= keys_now {
-			log::error!(
-				"ClearStorageByPrefix<{}>: Did not remove any keys.",
-				sp_core::bytes::to_hex(&StoragePrefix::get(), false)
-			);
-			Err("ClearStorageByPrefix failed")?;
+			log::error!("ClearStorage<{}, {:?}>: Did not remove any keys.", P::get(), S::get());
+			Err("ClearStorage failed")?;
 		}
 
 		Ok(())

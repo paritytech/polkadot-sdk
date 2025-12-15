@@ -28,40 +28,57 @@ use sp_core::H256;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub mod runtime_a {
-	use frame_support::{derive_impl, migrations::MultiStepMigrator, weights::Weight};
+	use frame_support::{assert_ok, derive_impl, migrations::MultiStepMigrator, weights::Weight};
+	use sp_arithmetic::fixed_point::FixedU64;
+
+	type Block = frame_system::mocking::MockBlock<RuntimeA>;
 
 	// Configure a mock runtime to test the pallet.
 	frame_support::construct_runtime!(
 		pub enum RuntimeA {
 			System: frame_system,
+			Glutton: pallet_glutton,
 			Migrations: crate,
 		}
 	);
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for RuntimeA {
-		type Block = super::Block;
+		type Block = Block;
 		type PalletInfo = PalletInfo;
 		type MultiBlockMigrator = Migrations;
 	}
 
-	frame_support::parameter_types! {
-		pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
-		pub StoragePrefixToClear: [u8; 32] = frame_support::storage::storage_prefix(
-			b"System",
-			b"Account",
-		);
+	impl pallet_glutton::Config for RuntimeA {
+		type RuntimeEvent = RuntimeEvent;
+		type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+		type WeightInfo = ();
 	}
 
-	pub type MultiBlockMigrations =
-		crate::migrations::ClearStorageByPrefix<RuntimeA, StoragePrefixToClear>;
+	frame_support::parameter_types! {
+		pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
+		// For ClearStorage with Some (specific storage)
+		pub const SystemPalletName: &'static str = "System";
+		pub const AccountStorageName: Option<&'static str> = Some("Account");
+		// For ClearStorage with None (all pallet storage)
+		pub const GluttonPalletName: &'static str = "Glutton";
+		pub const NoStorageName: Option<&'static str> = None;
+	}
+
+	/// Migration to clear a specific storage item (System::Account)
+	pub type ClearSystemAccountStorage =
+		crate::migrations::ClearStorage<RuntimeA, SystemPalletName, AccountStorageName>;
+
+	/// Migration to clear all storage for the Glutton pallet (using None for storage name)
+	pub type ClearAllGluttonStorage =
+		crate::migrations::ClearStorage<RuntimeA, GluttonPalletName, NoStorageName>;
 
 	#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 	impl crate::Config for RuntimeA {
 		#[cfg(feature = "runtime-benchmarks")]
 		type Migrations = crate::mock_helpers::MockedMigrations;
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Migrations = MultiBlockMigrations;
+		type Migrations = (ClearSystemAccountStorage, ClearAllGluttonStorage);
 		type MigrationStatusHandler = ();
 		type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
 	}
@@ -95,6 +112,28 @@ pub mod runtime_a {
 				.collect::<Vec<_>>()
 		);
 		System::reset_events();
+	}
+
+	/// Set Glutton pallet limits using dispatchable calls.
+	/// `1.0` corresponds to `100%`.
+	pub fn set_glutton_limits(compute: f64, storage: f64, block_length: f64) {
+		assert_ok!(Glutton::set_compute(RuntimeOrigin::root(), FixedU64::from_float(compute)));
+		assert_ok!(Glutton::set_storage(RuntimeOrigin::root(), FixedU64::from_float(storage)));
+		assert_ok!(Glutton::set_block_length(
+			RuntimeOrigin::root(),
+			FixedU64::from_float(block_length)
+		));
+	}
+
+	/// Check if Glutton storage values are set (non-zero).
+	pub fn glutton_storage_exists() -> bool {
+		let compute_key = frame_support::storage::storage_prefix(b"Glutton", b"Compute").to_vec();
+		let storage_key = frame_support::storage::storage_prefix(b"Glutton", b"Storage").to_vec();
+		let length_key = frame_support::storage::storage_prefix(b"Glutton", b"Length").to_vec();
+
+		sp_io::storage::get(&compute_key).is_some() ||
+			sp_io::storage::get(&storage_key).is_some() ||
+			sp_io::storage::get(&length_key).is_some()
 	}
 }
 

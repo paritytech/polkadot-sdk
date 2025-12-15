@@ -25,38 +25,55 @@ use crate::{
 	Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
 
+/// Test that `ClearStorage` migrations work correctly:
+/// - `ClearStorage` with `Some(storage_name)` clears only that specific storage
+/// - `ClearStorage` with `None` clears ALL storage under the pallet prefix
 #[test]
-fn clear_storage_by_prefix_migration_works() {
-	use crate::mock::runtime_a::{Migrations as RuntimeAMigrations, System as RuntimeASystem};
+fn clear_storage_migrations_work() {
+	use crate::mock::runtime_a::{
+		glutton_storage_exists, set_glutton_limits, ClearAllGluttonStorage,
+		ClearSystemAccountStorage, Migrations as RuntimeAMigrations, System as RuntimeASystem,
+	};
 	use frame_support::migrations::SteppedMigration;
 	use Event::*;
 
-	test_closure(|| {
+	sp_io::TestExternalities::default().execute_with(|| {
 		RuntimeASystem::set_block_number(1);
 
-		// Set storage
+		// Set System::Account storage (will be cleared by ClearSystemAccountStorage with Some)
 		RuntimeASystem::inc_providers(&1);
 		RuntimeASystem::inc_providers(&2);
 		assert!(RuntimeASystem::account(1).providers == 1);
 		assert!(RuntimeASystem::account(2).providers == 1);
 
-		// Perform migration
-		RuntimeAMigrations::on_runtime_upgrade();
-		crate::mock::runtime_a::run_to_block(3);
+		// Set Glutton pallet storage using dispatchable calls (will be cleared with None)
+		set_glutton_limits(0.5, 0.3, 0.2);
 
-		// Check that the storage was removed.
+		// Verify Glutton storage was set
+		assert!(glutton_storage_exists());
+
+		// Trigger the migrations
+		RuntimeAMigrations::on_runtime_upgrade();
+		crate::mock::runtime_a::run_to_block(5);
+
+		// Check that System::Account storage was cleared (by ClearSystemAccountStorage with Some)
 		assert!(RuntimeASystem::account(1).providers == 0);
 		assert!(RuntimeASystem::account(2).providers == 0);
 
-		// Check that the executed migrations are recorded in `Historical`.
-		assert_eq!(
-			historic(),
-			vec![crate::mock::runtime_a::MultiBlockMigrations::id().as_ref().to_vec()]
-		);
+		// Check that ALL Glutton storage was cleared (by ClearAllGluttonStorage with None)
+		assert!(!glutton_storage_exists());
 
-		// Check that we got all events.
+		// Check that both migrations are recorded in `Historical`.
+		let mut expected_historic = vec![
+			ClearSystemAccountStorage::id().as_ref().to_vec(),
+			ClearAllGluttonStorage::id().as_ref().to_vec(),
+		];
+		expected_historic.sort();
+		assert_eq!(historic(), expected_historic);
+
+		// Check events - both migrations should complete
 		crate::mock::runtime_a::assert_events(vec![
-			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeStarted { migrations: 1 }),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeStarted { migrations: 2 }),
 			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
 				index: 0,
 				took: 1,
@@ -64,6 +81,14 @@ fn clear_storage_by_prefix_migration_works() {
 			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
 				index: 0,
 				took: 2,
+			}),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
+				index: 1,
+				took: 0,
+			}),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
+				index: 1,
+				took: 1,
 			}),
 			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeCompleted),
 		]);
