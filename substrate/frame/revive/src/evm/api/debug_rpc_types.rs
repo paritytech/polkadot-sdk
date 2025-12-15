@@ -934,7 +934,12 @@ fn test_gas_fields_serialize_as_hex() {
 	assert!(json.contains(r#""gasUsed":"0x4e20""#), "gas_used should be hex: {}", json);
 
 	// Test OpcodeTrace gas serialization
-	let opcode_trace = OpcodeTrace { gas: 100000, failed: false, return_value: Bytes::default(), struct_logs: Vec::new() };
+	let opcode_trace = OpcodeTrace {
+		gas: 100000,
+		failed: false,
+		return_value: Bytes::default(),
+		struct_logs: Vec::new(),
+	};
 	let json = serde_json::to_string(&opcode_trace).expect("Serialization should succeed");
 	assert!(json.contains(r#""gas":"0x186a0""#), "opcode trace gas should be hex: {}", json);
 
