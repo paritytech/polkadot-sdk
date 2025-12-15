@@ -65,8 +65,12 @@ mod benchmarks {
 
 	/// Benchmark processing published data from the relay proof.
 	///
-	/// Worst case: all `n` publishers have updated data with `k` keys each that need processing.
-	/// Each value has size `s` bytes. Max is 2048 bytes (2KiB limit per publisher).
+	/// Worst case: all publishers have updated data requiring processing.
+	///
+	/// Parameters:
+	/// - `n`: Number of publishers with updated data
+	/// - `k`: Number of keys per publisher
+	/// - `s`: Total encoded bytes per publisher (max 2KiB)
 	#[benchmark]
 	fn process_published_data(
 		n: Linear<1, { T::MaxPublishers::get() }>,
@@ -74,7 +78,7 @@ mod benchmarks {
 		s: Linear<1, 2048>,
 	) {
 		let subscriptions = create_subscriptions(n, k);
-		// Calculate per-key value size to stay within 2KiB total per publisher
+		// SCALE encoding overhead (1-4 bytes) ignored as negligible compared to data benchmark ranges
 		let value_size_per_key = (s / k.max(1)) as usize;
 		let publishers: Vec<_> = (0..n)
 			.map(|i| {

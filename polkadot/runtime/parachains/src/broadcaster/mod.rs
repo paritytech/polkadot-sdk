@@ -610,6 +610,7 @@ pub mod pallet {
 			let mut size_delta: i64 = 0;
 
 			for (key, value) in &data {
+				// 32 bytes for the hash key
 				let new_size = 32u32.saturating_add(value.len() as u32);
 
 				// If key already exists, subtract old value size
