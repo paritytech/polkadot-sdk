@@ -366,7 +366,7 @@ impl PeerState {
 	fn update_view(&mut self, new_view: View, local_implicit: &ImplicitView) -> Vec<Hash> {
 		let next_implicit = new_view
 			.iter()
-			.flat_map(|x| local_implicit.known_allowed_relay_parents_under(x, None))
+			.flat_map(|x| local_implicit.known_allowed_relay_parents_under(x))
 			.flatten()
 			.cloned()
 			.collect::<HashSet<_>>();

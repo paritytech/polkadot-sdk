@@ -174,17 +174,6 @@ pub(super) async fn update_view(
 					}
 				);
 
-				if requested_len == 0 {
-					assert_matches!(
-						overseer_recv(virtual_overseer).await,
-						AllMessages::ProspectiveParachains(
-							ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
-						) if parent == leaf_hash => {
-							tx.send(test_state.chain_ids.iter().map(|para_id| (*para_id, min_number)).collect()).unwrap();
-						}
-					);
-				}
-
 				requested_len += 1;
 			}
 		}

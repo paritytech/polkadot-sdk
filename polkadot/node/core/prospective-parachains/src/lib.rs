@@ -50,9 +50,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	transpose_claim_queue, BlockNumber, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
-	PersistedValidationData,
+	transpose_claim_queue, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	Hash, Header, Id as ParaId, PersistedValidationData,
 };
 
 use crate::{

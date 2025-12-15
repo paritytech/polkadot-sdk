@@ -413,25 +413,6 @@ async fn handle_leaf_activation(
 			}
 		}
 	}
-
-	// Get minimum relay parents.
-	let (tx, rx) = oneshot::channel();
-	virtual_overseer
-		.send(overseer::FromOrchestra::Communication {
-			msg: ProspectiveParachainsMessage::GetMinimumRelayParents(*hash, tx),
-		})
-		.await;
-
-	let mut resp = rx.await.unwrap();
-
-	resp.sort();
-	// All paras should have the same min_relay_parent_number (it's global, not per-para)
-	let min_relay_parent_number = number.saturating_sub((DEFAULT_SCHEDULING_LOOKAHEAD - 1) as u32);
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, _data)| (*para_id, min_relay_parent_number))
-		.collect();
-	assert_eq!(resp, mrp_response);
 }
 
 async fn deactivate_leaf(virtual_overseer: &mut VirtualOverseer, hash: Hash) {

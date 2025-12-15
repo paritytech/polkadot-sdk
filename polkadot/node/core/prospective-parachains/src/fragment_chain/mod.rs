@@ -801,11 +801,6 @@ impl FragmentChain {
 		self.unconnected.candidates()
 	}
 
-	/// Get the minimum relay parent block number allowed by this fragment chain.
-	pub fn min_relay_parent_number(&self) -> BlockNumber {
-		self.scope.base_constraints.min_relay_parent_number
-	}
-
 	/// Return whether this candidate is backed in this chain or the unconnected storage.
 	pub fn is_candidate_backed(&self, hash: &CandidateHash) -> bool {
 		self.best_chain.candidates.contains(hash) ||
