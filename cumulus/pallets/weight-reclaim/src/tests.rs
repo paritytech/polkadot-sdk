@@ -24,7 +24,7 @@ use frame_support::{
 use sp_runtime::{
 	generic,
 	traits::{Applyable, BlakeTwo256, DispatchTransaction, Get},
-	BuildStorage,
+	BuildStorage, StateVersion,
 };
 use sp_trie::proof_size_extension::ProofSizeExt;
 
@@ -695,7 +695,7 @@ fn test_series() {
 fn storage_size_reported_correctly() {
 	let mut test_ext = setup_test_externalities(&[1000]);
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), Some(1000));
+		assert_eq!(get_proof_size(StateVersion::V1), Some(1000));
 	});
 
 	let mut test_ext = new_test_ext();
@@ -705,7 +705,7 @@ fn storage_size_reported_correctly() {
 	test_ext.register_extension(ProofSizeExt::new(test_recorder));
 
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), Some(0));
+		assert_eq!(get_proof_size(StateVersion::V1), Some(0));
 	});
 }
 
@@ -714,7 +714,7 @@ fn storage_size_disabled_reported_correctly() {
 	let mut test_ext = setup_test_externalities(&[PROOF_RECORDING_DISABLED as usize]);
 
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), None);
+		assert_eq!(get_proof_size(StateVersion::V1), None);
 	});
 }
 

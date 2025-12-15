@@ -176,6 +176,12 @@ where
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
+	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
+		unimplemented!(
+			"compute_pov_size_for_storage_root is not supported in ReadOnlyExternalities"
+		)
+	}
+
 	fn child_storage_root(
 		&mut self,
 		_child_info: &ChildInfo,

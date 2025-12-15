@@ -530,6 +530,28 @@ where
 		self.essence.child_storage_root(child_info, delta, state_version)
 	}
 
+	fn compute_pov_size_for_storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord,
+	{
+		self.essence.compute_pov_size_for_storage_root(delta, state_version)
+	}
+
+	fn compute_pov_size_for_child_storage_root<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord,
+	{
+		self.essence
+			.compute_pov_size_for_child_storage_root(child_info, delta, state_version)
+	}
+
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}
 
 	fn usage_info(&self) -> crate::UsageInfo {

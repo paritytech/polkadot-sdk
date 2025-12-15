@@ -37,7 +37,9 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
+	traits::{
+		DispatchInfoOf, Dispatchable, Get, Implication, PostDispatchInfoOf, TransactionExtension,
+	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
@@ -156,7 +158,7 @@ where
 		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
-		let proof_size = get_proof_size();
+		let proof_size = get_proof_size(T::Version::get().state_version());
 
 		self.0
 			.validate(origin, call, info, len, self_implicit, inherited_implication, source)
@@ -200,9 +202,11 @@ where
 			return Ok(inner_refund);
 		};
 
-		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
-			"Proof recording enabled during prepare, now disabled. This should not happen.",
-		) else {
+		let Some(proof_size_after_dispatch) = get_proof_size(T::Version::get().state_version())
+			.defensive_proof(
+				"Proof recording enabled during prepare, now disabled. This should not happen.",
+			)
+		else {
 			return Ok(inner_refund)
 		};
 
@@ -226,7 +230,7 @@ where
 		} else {
 			log::trace!(
 				target: LOG_TARGET,
-				"Reclaiming storage weight. benchmarked: {benchmarked_actual_proof_size},
+				"Reclaiming storage weight. benchmarked: {benchmarked_actual_proof_size}, \
 				consumed: {measured_proof_size}"
 			);
 		}

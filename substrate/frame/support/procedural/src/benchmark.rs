@@ -808,6 +808,12 @@ pub fn benchmarks(
 						let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
 						let diff_pov = recording.diff_pov().unwrap_or_default();
 
+						// Time the storage root recalculation.
+						let start_storage_root = #krate::current_time();
+						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
+						let finish_storage_root = #krate::current_time();
+						let elapsed_storage_root = finish_storage_root - start_storage_root;
+
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
 						#krate::__private::log::trace!(
@@ -820,11 +826,6 @@ pub fn benchmarks(
 							"Read/Write Count {:?}", read_write_count
 						);
 
-						// Time the storage root recalculation.
-						let start_storage_root = #krate::current_time();
-						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
-						let finish_storage_root = #krate::current_time();
-						let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 						let skip_meta = [ #(#skip_meta_benchmark_names_str),* ];
 						let read_and_written_keys = if skip_meta.contains(&extrinsic) {

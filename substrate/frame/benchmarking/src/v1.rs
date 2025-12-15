@@ -1117,6 +1117,12 @@ macro_rules! impl_benchmark {
 					let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
 					let diff_pov = recording.diff_pov().unwrap_or_default();
 
+					// Time the storage root recalculation.
+					let start_storage_root = $crate::current_time();
+					$crate::__private::storage_root($crate::__private::StateVersion::V1);
+					let finish_storage_root = $crate::current_time();
+					let elapsed_storage_root = finish_storage_root - start_storage_root;
+
 					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();
 					$crate::__private::log::trace!(
@@ -1132,12 +1138,6 @@ macro_rules! impl_benchmark {
 						target: "benchmark",
 						"Proof sizes: before {:?} after {:?} diff {}", recording.start_pov(), recording.end_pov(), &diff_pov
 					);
-
-					// Time the storage root recalculation.
-					let start_storage_root = $crate::current_time();
-					$crate::__private::storage_root($crate::__private::StateVersion::V1);
-					let finish_storage_root = $crate::current_time();
-					let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 					let skip_meta = [ $( stringify!($name_skip_meta).as_ref() ),* ];
 					let read_and_written_keys = if skip_meta.contains(&extrinsic) {

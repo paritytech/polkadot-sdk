@@ -310,6 +310,11 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
+	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
+		// BasicExternalities has no backend with a proof recorder attached,
+		// so PoV size estimation is not supported.
+	}
+
 	fn storage_start_transaction(&mut self) {
 		self.overlay.start_transaction()
 	}

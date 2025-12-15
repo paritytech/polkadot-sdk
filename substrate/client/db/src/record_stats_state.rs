@@ -201,6 +201,24 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
+	fn compute_pov_size_for_storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state.compute_pov_size_for_storage_root(delta, state_version)
+	}
+
+	fn compute_pov_size_for_child_storage_root<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state
+			.compute_pov_size_for_child_storage_root(child_info, delta, state_version)
+	}
+
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
 		self.state.raw_iter(args).map(|inner| RawIter { inner })
 	}

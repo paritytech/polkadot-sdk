@@ -19,6 +19,7 @@
 
 mod changeset;
 mod offchain;
+mod storage_key_delta_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -334,6 +335,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
+		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
@@ -667,6 +669,35 @@ impl<H: Hasher> OverlayedChanges<H> {
 			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
 
 		(root, false)
+	}
+
+	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
+	/// as seen by the current transaction.
+	pub fn compute_pov_size_for_storage_root<B: Backend<H>>(
+		&mut self,
+		backend: &B,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord + Encode + codec::Codec,
+	{
+		let snapshot = self.top.take_delta();
+		let delta = self
+			.top
+			.changes_for_delta_keys(&snapshot)
+			.into_iter()
+			.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
+
+		let child_delta = self.children.values_mut().map(|v| {
+			let child_snapshot = v.0.take_delta();
+			(
+				&v.1,
+				v.0.changes_for_delta_keys(&child_snapshot)
+					.into_iter()
+					.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
+			)
+		});
+
+		backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
 	}
 
 	/// Generate the child storage root using `backend` and all child changes
