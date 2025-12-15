@@ -218,7 +218,7 @@ pub mod pallet {
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
 			weight.saturating_accrue(db_weight.reads(1));
-			let period = StoragePeriod::<T>::get();
+			let period = Self::storage_period();
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
 				weight.saturating_accrue(db_weight.writes(1));
@@ -235,7 +235,7 @@ pub mod pallet {
 				ProofChecked::<T>::take() || {
 					// Proof is not required for early or empty blocks.
 					let number = frame_system::Pallet::<T>::block_number();
-					let period = StoragePeriod::<T>::get();
+					let period = Self::storage_period();
 					let target_number = number.saturating_sub(period);
 
 					target_number.is_zero() || {
@@ -394,7 +394,7 @@ pub mod pallet {
 
 			// Get the target block metadata.
 			let number = frame_system::Pallet::<T>::block_number();
-			let period = StoragePeriod::<T>::get();
+			let period = Self::storage_period();
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
 			let transactions =
@@ -525,13 +525,17 @@ pub mod pallet {
 		) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
 			Transactions::<T>::get(block)
 		}
-		/// Get ByteFee storage information from outside of this pallet.
+		/// Get ByteFee storage information from the outside of this pallet.
 		pub fn byte_fee() -> Option<BalanceOf<T>> {
 			ByteFee::<T>::get()
 		}
-		/// Get EntryFee storage information from outside of this pallet.
+		/// Get EntryFee storage information from the outside of this pallet.
 		pub fn entry_fee() -> Option<BalanceOf<T>> {
 			EntryFee::<T>::get()
+		}
+		/// Get StoragePeriod storage information from the outside of this pallet.
+		pub fn storage_period() -> BlockNumberFor<T> {
+			StoragePeriod::<T>::get()
 		}
 
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {
