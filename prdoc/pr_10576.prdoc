@@ -18,17 +18,8 @@ doc:
     to zero in Westend RC, AssetHub and  collective runtimes. This means no treasury funds are burned at
     the end of spend periods, preserving total issuance.
 
-    NOTE: User-initiated burns (via pallet_balances::burn extrinsic) do NOT go through DAP currently
-    but they burn directly instead, reducing total issuance immediately.
-
-    This is the first deliverable of the DAP system. Future PRs will add:
-    - pallet-dap-satellite for system chains
-    - Integration with other Westend system chains
-    - XCM-based fund transfers from satellites to the DAP buffer
-    - A FundingSource trait to pull funds from DAP, enabling the replacement of direct minting with requests for funds from the DAP buffer
-    - DAP's responsibility to mint according to the issuance curve defined for each chain
-    - The ability to configure the percentage of funds redirected from DAP to various destinations (validators, nominators, treasury, collators, etc)
-    - Support for multiple assets in DAP, including native tokens and stablecoins
+    User and pallet initiated burns do NOT go through DAP currently but they burn directly instead, reducing
+    total issuance immediately. It will be addressed in a follow-up change.
 crates:
 - name: frame-support
   bump: minor

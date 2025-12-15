@@ -337,20 +337,6 @@ pub mod pallet {
 			Self::AccountId,
 			Self::Balance,
 		>;
-
-		// TODO(DAP): Uncomment this when we want user-initiated burns to go through DAP on
-		// runtimes that configure it. When uncommenting, all runtimes will need to specify
-		// this parameter explicitly:
-		// - DAP-enabled runtimes: `type BurnDestination = pallet_dap::ReturnToDap<Runtime>;`
-		// - Other runtimes: `type BurnDestination = DirectBurn<Runtime>;`
-		//
-		// /// Handler for user-initiated burns via the `burn` extrinsic.
-		// ///
-		// /// Runtimes can configure this to redirect burned funds to a buffer account
-		// /// (e.g., DAP buffer on Asset Hub). If not specified, burns reduce total issuance
-		// /// directly.
-		// #[pallet::no_default_bounds]
-		// type BurnDestination: FundingSink<Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
@@ -871,10 +857,6 @@ pub mod pallet {
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
 		/// Currently burns directly, reducing total issuance.
-		///
-		/// TODO(DAP): When `BurnDestination` is uncommented in the Config trait, this should
-		/// use `T::BurnDestination::fill()` instead to allow DAP-enabled runtimes to
-		/// redirect user-initiated burns to the DAP buffer.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(
