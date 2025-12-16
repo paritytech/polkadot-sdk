@@ -61,7 +61,7 @@ impl From<StructLoggerConfig> for TracerType {
 
 impl Default for TracerType {
 	fn default() -> Self {
-		TracerType::CallTracer(Some(CallTracerConfig::default()))
+		TracerType::StructLogger(Some(StructLoggerConfig::default()))
 	}
 }
 
