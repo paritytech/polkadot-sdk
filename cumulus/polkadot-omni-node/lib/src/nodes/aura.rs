@@ -591,8 +591,24 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let enable_tx_storage_idp = node_extra_args.enable_tx_storage_idp;
+		let client_clone = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					if enable_tx_storage_idp {
+						let storage_proof =
+							sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+							)?;
+						Ok(vec![storage_proof])
+					} else {
+						Ok(vec![])
+					}
+				}
+			},
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -618,7 +634,6 @@ where
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
 		// code.
-
 		Self::launch_slot_based_collator(params);
 
 		Ok(())
@@ -716,10 +731,26 @@ where
 			client.clone(),
 		);
 
+		let enable_tx_storage_idp = node_extra_args.enable_tx_storage_idp;
+		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |parent, ()| {
+					let client_clone = client_clone.clone();
+					async move {
+						if enable_tx_storage_idp {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+								)?;
+							Ok(vec![storage_proof])
+						} else {
+							Ok(vec![])
+						}
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
