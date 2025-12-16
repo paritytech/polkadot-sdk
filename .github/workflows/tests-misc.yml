@@ -377,7 +377,7 @@ jobs:
           rustup component add clippy rust-docs rust-src rustfmt rustc rust-std
       - name: Install protobuf
         run: brew install protobuf
-      - name: Install protobuf
+      - name: Install node
         run: brew install node
       - name: Install Solc
         uses: ./.github/actions/get-solc
