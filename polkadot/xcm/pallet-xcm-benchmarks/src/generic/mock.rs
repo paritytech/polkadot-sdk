@@ -198,6 +198,11 @@ impl generic::Config for Test {
 	fn publish_origin() -> Result<Location, BenchmarkError> {
 		Ok(Parachain(1000).into())
 	}
+
+	fn ensure_publisher_registered(_origin: &Location) -> Result<(), BenchmarkError> {
+		// No registration needed for tests
+		Ok(())
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

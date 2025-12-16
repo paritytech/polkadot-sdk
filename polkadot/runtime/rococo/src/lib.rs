@@ -1229,7 +1229,7 @@ impl parachains_slashing::Config for Runtime {
 parameter_types! {
 	pub const MaxPublishItems: u32 = 10;
 	pub const MaxValueLength: u32 = 1024;
-	pub const MaxStoredKeys: u32 = 100;
+	pub const MaxStoredKeys: u32 = 50;
 	pub const MaxTotalStorageSize: u32 = 2048; // 2 KiB
 	pub const MaxPublishers: u32 = 1000;
 	pub const PublisherDeposit: Balance = 100 * UNITS;
@@ -1238,7 +1238,7 @@ parameter_types! {
 impl parachains_broadcaster::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type WeightInfo = ();
+	type WeightInfo = weights::polkadot_runtime_parachains_broadcaster::WeightInfo<Runtime>;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
@@ -2680,6 +2680,47 @@ sp_api::impl_runtime_apis! {
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
+				}
+
+				fn publish_origin() -> Result<Location, BenchmarkError> {
+					Ok(AssetHub::get())
+				}
+
+				fn ensure_publisher_registered(origin: &Location) -> Result<(), BenchmarkError> {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::ensure;
+
+					// Extract parachain ID from origin
+					let para_id = match origin.unpack() {
+						(0, [Junction::Parachain(id)]) => {
+							polkadot_primitives::Id::from(*id)
+						},
+						(1, [Junction::Parachain(id), ..]) => {
+							polkadot_primitives::Id::from(*id)
+						},
+						_ => {
+							return Err(BenchmarkError::Stop("Invalid origin for publisher registration"))
+						},
+					};
+
+					// Force register the publisher with zero deposit for benchmarking
+					let manager: AccountId = whitelisted_caller();
+					Broadcaster::force_register_publisher(
+						RuntimeOrigin::root(),
+						manager,
+						0u128,
+						para_id,
+					)
+					.map_err(|_| BenchmarkError::Stop("Failed to register publisher"))?;
+
+					// Verify registration succeeded
+					let is_registered = parachains_broadcaster::RegisteredPublishers::<Runtime>::contains_key(para_id);
+					ensure!(
+						is_registered,
+						BenchmarkError::Stop("Publisher not registered after force_register")
+					);
+
+					Ok(())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
