@@ -471,7 +471,6 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
-	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
 	/// Whether the transaction failed.
 	pub failed: bool,
@@ -509,7 +508,6 @@ pub enum ExecutionStepKind {
 	/// An EVM opcode execution.
 	EVMOpcode {
 		/// The program counter.
-		#[serde(with = "super::hex_serde")]
 		pc: u64,
 		/// The opcode being executed.
 		#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]

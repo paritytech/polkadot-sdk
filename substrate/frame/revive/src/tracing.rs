@@ -171,7 +171,7 @@ pub trait Tracing {
 	///
 	/// # Returns
 	/// `true` if the tracer wants to trace individual opcodes.
-	fn is_opcode_tracing_enabled(&self) -> bool {
+	fn is_execution_tracing_enabled(&self) -> bool {
 		false
 	}
 

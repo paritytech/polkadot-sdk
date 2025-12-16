@@ -93,7 +93,7 @@ impl ExecutionTracer {
 }
 
 impl Tracing for ExecutionTracer {
-	fn is_opcode_tracing_enabled(&self) -> bool {
+	fn is_execution_tracing_enabled(&self) -> bool {
 		true
 	}
 

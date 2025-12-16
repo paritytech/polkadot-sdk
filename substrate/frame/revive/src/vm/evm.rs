@@ -132,7 +132,7 @@ impl<T: Config> ContractBlob<T> {
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
 	let use_opcode_tracing =
-		tracing::if_tracing(|tracer| tracer.is_opcode_tracing_enabled()).unwrap_or(false);
+		tracing::if_tracing(|tracer| tracer.is_execution_tracing_enabled()).unwrap_or(false);
 
 	let ControlFlow::Break(halt) = if use_opcode_tracing {
 		run_plain_with_tracing(&mut interpreter)
