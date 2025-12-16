@@ -234,8 +234,12 @@ impl<T: Config> Pallet<T> {
 			// above returns earliest era for which offences are NOT processed yet, so we subtract
 			// one from it which gives us the oldest era for which all offences are processed.
 			.saturating_sub(1)
-			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
-			// We do the same to processed offence era so they can be compared.
+			// Unlock chunks are keyed by the era they were initiated plus their unbond duration.
+			// We use full BondingDuration (validator duration) here because:
+			// - For validators: this is their actual unbond duration
+			// - For nominators: when slashable, they use full duration; when not slashable, their
+			//   chunks already have shorter unlock eras (set during unbond), so this calculation
+			//   still correctly allows their withdrawals.
 			.saturating_add(T::BondingDuration::get());
 
 		// If there are unprocessed offences older than the active era, withdrawals are only
@@ -1553,10 +1557,20 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|e| e.into())
 	}
 
+	/// Returns the bonding duration for validators.
+	///
+	/// Validators always need to wait the full [`Config::BondingDuration`] before withdrawing
+	/// unbonded funds, as they may be subject to slashing for offences reported during this period.
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
 	}
 
+	/// Returns the bonding duration for nominators.
+	///
+	/// - When [`AreNominatorsSlashable`] is `true`, nominators follow the same bonding duration as
+	///   validators ([`Config::BondingDuration`]).
+	/// - When [`AreNominatorsSlashable`] is `false`, nominators can unbond in just 1 era since they
+	///   are not subject to slashing and don't need to wait for potential offence reports.
 	fn nominator_bonding_duration() -> EraIndex {
 		if AreNominatorsSlashable::<T>::get() {
 			T::BondingDuration::get()

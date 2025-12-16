@@ -222,6 +222,10 @@ pub mod pallet {
 		type PlanningEraOffset: Get<SessionIndex>;
 
 		/// Number of eras that staked funds must remain bonded for.
+		///
+		/// This is the bonding duration for validators. Nominators may have a shorter bonding
+		/// duration when [`AreNominatorsSlashable`] is set to `false` (see
+		/// [`StakingInterface::nominator_bonding_duration`]).
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
@@ -441,9 +445,10 @@ pub mod pallet {
 
 	/// Whether nominators are slashable or not.
 	///
-	/// - When set to `true` (default), nominators are slashed along with validators and follow same
-	///   bonding duration.
-	/// - When set to `false`, nominators are not slashed, and can unbond at the end of active era.
+	/// - When set to `true` (default), nominators are slashed along with validators and must wait
+	///   the full [`Config::BondingDuration`] before withdrawing unbonded funds.
+	/// - When set to `false`, nominators are not slashed, and can unbond in just 1 era (see
+	///   [`StakingInterface::nominator_bonding_duration`]).
 	#[pallet::storage]
 	pub type AreNominatorsSlashable<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
 
@@ -1658,17 +1663,16 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: we used current era before, but that is meant to be used for only election.
-				// The right value to use here is the active era.
-
-				let bonding_duration = if is_nominator {
+				// Determine unbonding duration: nominators may have shorter duration when not
+				// slashable. Validators always use full BondingDuration.
+				let unbond_duration = if is_nominator {
 					<Self as sp_staking::StakingInterface>::nominator_bonding_duration()
 				} else {
 					T::BondingDuration::get()
 				};
 
 				let era =
-					session_rotation::Rotator::<T>::active_era().saturating_add(bonding_duration);
+					session_rotation::Rotator::<T>::active_era().saturating_add(unbond_duration);
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
