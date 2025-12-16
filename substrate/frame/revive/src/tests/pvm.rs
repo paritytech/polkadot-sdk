@@ -4982,7 +4982,7 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 
 	let genesis_config = GenesisConfig::<Test> {
-		debug_settings: Some(DebugSettings::new(false, true, false)),
+		debug_settings: Some(DebugSettings::default().set_bypass_eip_3607(true)),
 		..Default::default()
 	};
 

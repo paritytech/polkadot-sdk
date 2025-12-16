@@ -131,10 +131,12 @@ impl<T: Config> ContractBlob<T> {
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
-	let use_opcode_tracing =
-		tracing::if_tracing(|tracer| tracer.is_execution_tracing_enabled()).unwrap_or(false);
+	let is_execution_tracing_enabled = tracing::if_tracing(|tracer| {
+		tracer.is_execution_tracer() && DebugSettings::is_execution_tracing_enabled::<E::T>()
+	})
+	.unwrap_or(false);
 
-	let ControlFlow::Break(halt) = if use_opcode_tracing {
+	let ControlFlow::Break(halt) = if is_execution_tracing_enabled {
 		run_plain_with_tracing(&mut interpreter)
 	} else {
 		run_plain(&mut interpreter)

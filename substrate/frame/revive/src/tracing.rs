@@ -116,8 +116,8 @@ pub trait Tracing {
 	/// Called when a contract call terminates with an error
 	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: u64) {}
 
-	/// Check if execution tracing is enabled.
-	fn is_execution_tracing_enabled(&self) -> bool {
+	/// Check if the tracer is an execution tracer.
+	fn is_execution_tracer(&self) -> bool {
 		false
 	}
 
