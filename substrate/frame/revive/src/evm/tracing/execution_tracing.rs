@@ -55,9 +55,6 @@ pub struct ExecutionTracer {
 	/// The return value of the transaction.
 	return_value: Bytes,
 
-	/// Pending step that's waiting for gas cost to be recorded.
-	pending_step: Option<ExecutionStep>,
-
 	/// List of storage per call
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
@@ -73,7 +70,6 @@ impl ExecutionTracer {
 			total_gas_used: 0,
 			failed: false,
 			return_value: Bytes::default(),
-			pending_step: None,
 			storages_per_call: alloc::vec![Default::default()],
 		}
 	}
@@ -98,7 +94,6 @@ impl Tracing for ExecutionTracer {
 	}
 
 	fn enter_opcode(&mut self, pc: u64, opcode: u8, trace_info: &dyn EVMFrameTraceInfo) {
-		// Check step limit - if exceeded, don't record anything
 		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
 			return;
 		}
@@ -123,7 +118,7 @@ impl Tracing for ExecutionTracer {
 
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
-			gas_cost: 0u64, // Will be set in exit_opcode
+			gas_cost: 0u64, // Will be set in exit_step
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -136,14 +131,40 @@ impl Tracing for ExecutionTracer {
 			},
 		};
 
-		self.pending_step = Some(step);
+		self.steps.push(step);
+		self.step_count += 1;
+	}
+
+	fn enter_ecall(&mut self, ecall: &'static str, trace_info: &dyn FrameTraceInfo) {
+		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
+			return;
+		}
+
+		// Extract return data if enabled
+		let return_data = if self.config.enable_return_data {
+			trace_info.last_frame_output()
+		} else {
+			crate::evm::Bytes::default()
+		};
+
+		let step = ExecutionStep {
+			gas: trace_info.gas_left(),
+			gas_cost: 0u64, // Will be set in exit_step
+			depth: self.depth,
+			return_data,
+			error: None,
+			kind: ExecutionStepKind::PVMSyscall {
+				op: lookup_syscall_index(ecall).unwrap_or_default(),
+			},
+		};
+
+		self.steps.push(step);
 		self.step_count += 1;
 	}
 
 	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo) {
-		if let Some(mut step) = self.pending_step.take() {
+		if let Some(step) = self.steps.last_mut() {
 			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
-			self.steps.push(step);
 		}
 	}
 
@@ -171,7 +192,6 @@ impl Tracing for ExecutionTracer {
 			self.return_value = Bytes(output.data.to_vec());
 		}
 
-		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
 		if self.depth == 1 {
 			self.total_gas_used = gas_used;
 		}
@@ -205,7 +225,6 @@ impl Tracing for ExecutionTracer {
 			return;
 		}
 
-		// Get the last storage map for the current call depth
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
 			let value_bytes = crate::evm::Bytes(
@@ -213,8 +232,7 @@ impl Tracing for ExecutionTracer {
 			);
 			storage.insert(key_bytes, value_bytes);
 
-			// Set storage on the pending step if it's an EVM opcode
-			if let Some(ref mut step) = self.pending_step {
+			if let Some(step) = self.steps.last_mut() {
 				if let ExecutionStepKind::EVMOpcode { storage: ref mut step_storage, .. } =
 					step.kind
 				{
@@ -230,15 +248,13 @@ impl Tracing for ExecutionTracer {
 			return;
 		}
 
-		// Get the last storage map for the current call depth
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
 			storage.entry(key_bytes).or_insert_with(|| {
 				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]))
 			});
 
-			// Set storage on the pending step if it's an EVM opcode
-			if let Some(ref mut step) = self.pending_step {
+			if let Some(step) = self.steps.last_mut() {
 				if let ExecutionStepKind::EVMOpcode { storage: ref mut step_storage, .. } =
 					step.kind
 				{
@@ -246,33 +262,5 @@ impl Tracing for ExecutionTracer {
 				}
 			}
 		}
-	}
-
-	fn enter_ecall(&mut self, ecall: &'static str, trace_info: &dyn FrameTraceInfo) {
-		// Check step limit - if exceeded, don't record anything
-		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
-			return;
-		}
-
-		// Extract return data if enabled
-		let return_data = if self.config.enable_return_data {
-			trace_info.last_frame_output()
-		} else {
-			crate::evm::Bytes::default()
-		};
-
-		let step = ExecutionStep {
-			gas: trace_info.gas_left(),
-			gas_cost: 0u64, // Will be set in exit_ecall
-			depth: self.depth,
-			return_data,
-			error: None,
-			kind: ExecutionStepKind::PVMSyscall {
-				op: lookup_syscall_index(ecall).unwrap_or_default(),
-			},
-		};
-
-		self.pending_step = Some(step);
-		self.step_count += 1;
 	}
 }

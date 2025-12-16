@@ -26,8 +26,8 @@ pub use call_tracing::*;
 mod prestate_tracing;
 pub use prestate_tracing::*;
 
-mod opcode_tracing;
-pub use opcode_tracing::*;
+mod execution_tracing;
+pub use execution_tracing::*;
 
 /// A composite tracer.
 #[derive(derive_more::From, Debug)]
