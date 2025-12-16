@@ -63,7 +63,17 @@ pub fn staging_penpal_local_config() -> GenericChainSpec {
 			hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
 				.unchecked_into(),
 		],
-		vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
+		{
+			use sp_keyring::Sr25519Keyring;
+			let mut accounts = vec![hex![
+				"9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"
+			]
+			.into()];
+			// Add well-known accounts for zombienet compatibility (Alice is used for sudo
+			// transactions)
+			accounts.extend(Sr25519Keyring::well_known().map(|k| k.to_account_id()));
+			accounts
+		},
 		1000.into(),
 	))
 	.build()
