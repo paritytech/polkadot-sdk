@@ -1054,6 +1054,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		config.blocks_pruning,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1323,6 +1324,8 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Blocks pruning mode.
+	pub blocks_pruning: BlocksPruning,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1355,6 +1358,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
+		blocks_pruning,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1375,6 +1379,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		blocks_pruning,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1442,6 +1447,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	blocks_pruning: BlocksPruning,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1510,6 +1516,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		blocks_pruning,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

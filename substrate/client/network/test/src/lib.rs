@@ -46,6 +46,7 @@ use sc_client_api::{
 	BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 	FinalityNotifications, ImportNotifications,
 };
+use sc_client_db::BlocksPruning;
 use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxJustificationImport,
 	ForkChoiceStrategy, ImportQueue, ImportResult, JustificationImport, JustificationSyncLink,
@@ -933,6 +934,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			blocks_pruning: BlocksPruning::Some(256),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

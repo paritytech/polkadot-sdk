@@ -50,6 +50,7 @@ use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
+use sc_client_db::BlocksPruning;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
@@ -211,7 +212,7 @@ struct GapSync<B: BlockT> {
 	total_body_bytes: u64,
 	/// Total size of justifications downloaded during gap sync (in bytes)
 	total_justification_bytes: u64,
-	/// Total block bytes recieived over the wire
+	/// Total block bytes received over the wire
 	total_block_bytes: u64,
 }
 
@@ -346,6 +347,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Blocks pruning mode
+	blocks_pruning: BlocksPruning,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -952,6 +955,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
+		blocks_pruning: BlocksPruning,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -975,6 +979,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			blocks_pruning,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1928,6 +1933,7 @@ where
 		let allowed_requests = self.allowed_requests.clone();
 		let max_parallel = if is_major_syncing { 1 } else { self.max_parallel_downloads };
 		let max_blocks_per_request = self.max_blocks_per_request;
+		let blocks_pruning = &self.blocks_pruning;
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
 		let metrics = self.metrics.as_ref();
@@ -2015,6 +2021,7 @@ where
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
+						blocks_pruning,
 					)
 				}) {
 					peer.state = PeerSyncState::DownloadingGap(range.start);
@@ -2321,9 +2328,11 @@ fn peer_gap_block_request<B: BlockT>(
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
+	blocks_pruning: &BlocksPruning,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-	// We want only headers for gap sync
-	let attrs = attrs & !BlockAttributes::BODY;
+	// Skip body requests for gap sync only if not in archive mode.
+	// Archive nodes need bodies to maintain complete block history.
+	let attrs = if blocks_pruning.is_archive() { attrs } else { attrs & !BlockAttributes::BODY };
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,

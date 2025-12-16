@@ -18,6 +18,7 @@
 
 use futures::prelude::*;
 
+use sc_client_db::BlocksPruning;
 use sc_consensus::{ImportQueue, Link};
 use sc_network::{
 	config::{self, FullNetworkConfiguration, MultiaddrWithPeerId, ProtocolId, TransportConfig},
@@ -212,6 +213,7 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			blocks_pruning: BlocksPruning::Some(256),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

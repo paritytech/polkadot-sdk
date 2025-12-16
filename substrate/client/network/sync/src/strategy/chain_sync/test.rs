@@ -93,6 +93,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -158,6 +159,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		8,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -364,6 +366,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -522,6 +525,7 @@ fn can_sync_huge_fork() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -670,6 +674,7 @@ fn syncs_fork_without_duplicate_requests() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -818,6 +823,7 @@ fn removes_target_fork_on_disconnect() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -853,6 +859,7 @@ fn can_import_response_with_missing_blocks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -894,6 +901,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1046,6 +1054,7 @@ fn request_across_forks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1154,6 +1163,7 @@ fn sync_verification_failed_with_gap_filled() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1263,6 +1273,10 @@ fn sync_verification_failed_with_gap_filled() {
 				best_queued_number: 64 as u64,
 				target: 84 as u64,
 				blocks: BlockCollection::new(),
+				total_header_bytes: 0,
+				total_body_bytes: 0,
+				total_justification_bytes: 0,
+				total_block_bytes: 0,
 			});
 		} else if loop_index == 1 {
 			if sync.gap_sync.is_none() {
@@ -1291,6 +1305,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		BlocksPruning::Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1306,6 +1321,10 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
+			total_header_bytes: 0,
+			total_body_bytes: 0,
+			total_justification_bytes: 0,
+			total_block_bytes: 0,
 		});
 
 		// Announce the block as unknown.
@@ -1328,6 +1347,10 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
+			total_header_bytes: 0,
+			total_body_bytes: 0,
+			total_justification_bytes: 0,
+			total_block_bytes: 0,
 		});
 
 		// Announce the block as known.
