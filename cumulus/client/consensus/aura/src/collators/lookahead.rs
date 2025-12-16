@@ -35,10 +35,10 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -66,7 +66,7 @@ use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -93,8 +93,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
+	/// The proposer for building blocks.
+	pub proposer: ProposerFactory,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
@@ -171,7 +171,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -223,7 +223,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,

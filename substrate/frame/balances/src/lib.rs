@@ -183,7 +183,7 @@ use sp_runtime::{
 		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
 		StaticLookup, Zero,
 	},
-	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
+	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
 
 pub use types::{
@@ -428,7 +428,7 @@ pub mod pallet {
 	/// Defensive/unexpected errors/events.
 	///
 	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// Balance was altered/dusted during an operation that should have NOT done so.
 		BalanceUpdated,
