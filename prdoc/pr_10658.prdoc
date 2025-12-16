@@ -2,11 +2,8 @@ title: 'Omninode instant seal: Support relay parent offset'
 doc:
 - audience: Node Dev
   description: |-
-    This brings support for relay parent offset to omni-node instant seal.
+    This brings support for relay parent offset to the omni-node instant seal consensus engine. Before instant seal was not working with relay parent offsets bigger than `0`.
 
-
-
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/9886
 crates:
 - name: cumulus-client-parachain-inherent
   bump: patch
