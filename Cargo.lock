@@ -5142,6 +5142,7 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
+ "proptest",
  "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-runtime",
@@ -21244,6 +21245,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -21272,6 +21274,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
+ "strum 0.26.3",
  "thiserror 1.0.65",
 ]
 
@@ -23642,6 +23645,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-weights",
+ "strum 0.26.3",
  "substrate-test-runtime-client",
  "tracing",
  "tuplex",
