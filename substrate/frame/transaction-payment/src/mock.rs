@@ -139,7 +139,7 @@ impl Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl crate::benchmarking::Config for Runtime {}
+impl crate::BenchmarkConfig for Runtime {}
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext() -> sp_io::TestExternalities {

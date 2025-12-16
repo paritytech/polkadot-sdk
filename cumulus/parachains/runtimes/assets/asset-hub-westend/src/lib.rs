@@ -275,6 +275,9 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 parameter_types! {
 	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 WND deposit to create asset
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);

@@ -26,7 +26,21 @@ use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+/// Benchmark configuration trait.
+///
+/// This extends the pallet's Config trait to allow runtimes to set up any
+/// required state before running benchmarks. For example, runtimes that
+/// distribute fees to block authors may need to set the author before
+/// the benchmark runs.
+pub trait Config: crate::Config {
+	/// Called at the start of each benchmark to set up any required state.
+	///
+	/// The default implementation is a no-op. Runtimes can override this
+	/// to perform setup like setting the block author for fee distribution.
+	fn setup_benchmark_environment() {}
+}
+
+fn assert_last_event<T: crate::Config>(generic_event: <T as crate::Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -44,7 +58,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_transaction_payment() {
-		T::setup_benchmark_environment();
+		<T as Config>::setup_benchmark_environment();
 
 		let caller: T::AccountId = account("caller", 0, 0);
 		let existential_deposit =
