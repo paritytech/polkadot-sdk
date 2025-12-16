@@ -8,6 +8,6 @@ doc:
     - provides an example of using `new_data_provider`, with the node client calling the runtime API when constructing inherent provider data
 crates:
 - name: sp-transaction-storage-proof
-  bump: patch
+  bump: major
 - name: pallet-transaction-storage
-  bump: patch
+  bump: minor
