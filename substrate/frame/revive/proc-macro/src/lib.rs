@@ -345,7 +345,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 			#all_syscalls
 		}
 
-		/// Returns the list of stable syscalls without unstable ones.
+		/// Returns the list of syscalls with or without unstable ones.
 		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
 			if include_unstable {
 				#all_syscalls
