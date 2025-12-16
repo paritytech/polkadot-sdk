@@ -160,7 +160,7 @@ impl Verify for sp_core::ecdsa::Signature {
 impl Verify for sp_core::ecdsa_bls381::Signature {
 	type Signer = sp_core::ecdsa_bls381::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa_bls381::Public) -> bool {
-		sp_core::ecdsa_bls381::Pair::verify(self, msg.get(), signer)
+		<sp_core::ecdsa_bls381::Pair as sp_core::Pair>::verify(self, msg.get(), signer)
 	}
 }
 

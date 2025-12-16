@@ -29,8 +29,8 @@ pallet-session = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
-frame-benchmarking = { optional = true, workspace = true }
 cumulus-pallet-session-benchmarking = { default-features = false, optional = true, workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-aura = { workspace = true, default-features = true }

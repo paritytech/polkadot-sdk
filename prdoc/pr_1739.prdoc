@@ -1,13 +1,12 @@
-title: 'frame-session: Introduce a proper proof of key ownership'
+title: 'Require proof for session key registration'
 doc:
 - audience: Node Operator
   description: |-
-    `frame_session::set_keys` supports providing a `proof` as second parameter. This `proof` was not yet checked. This pull request introduces a verification of this proof and also a way of generating this `proof`. The `proof` in FRAME are concatenated `Signatures`. These `Signatures` are in the same order as the public keys in the `SessionKeys` struct. Each signature is signing the `owner`, proofing that the generating party has access over the private key associated to the public session key. The `owner` in FRAME is the account id of the account that will call `set_keys`, aka the account of the `validator`.
+    Node operators will now need to provide a proof when registering their `SessionKeys` on chain.
+    A new rpc `author_rotateKeysWithOwner` is provided to generate the `SessionKeys` plus the `proof`.
+    Both values then need to be feed into `set_keys` as part of the transaction.
+    `author_rotateKeysWithOwner` is a replacement for `author_rotateKeys`.
 
-    This pull request is changing the `SessionKeys` runtime api. This still requires a RFC, as this is a public interface of the Polkadot runtime.
-
-    @jacogr polkadot-js should provide a way to use the runtime api directly to generate the sessions keys.
-    @paritytech/docs-audit this will require updates of the validator documentation to tell them what to pass for `owner` and that they need to pass `proof` to `set_keys`.
 crates:
 - name: asset-hub-westend-runtime
   bump: major
