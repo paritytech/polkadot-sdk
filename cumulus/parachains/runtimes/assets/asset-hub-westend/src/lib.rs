@@ -916,6 +916,26 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
+	pub const MaxPublishers: u32 = 100;
+}
+
+pub struct NoOpSubscriptionHandler;
+impl cumulus_pallet_subscriber::SubscriptionHandler for NoOpSubscriptionHandler {
+	fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight) {
+		(vec![], Weight::zero())
+	}
+	fn on_data_updated(_publisher: ParaId, _key: Vec<u8>, _value: Vec<u8>) -> Weight {
+		Weight::zero()
+	}
+}
+
+impl cumulus_pallet_subscriber::Config for Runtime {
+	type SubscriptionHandler = NoOpSubscriptionHandler;
+	type WeightInfo = weights::cumulus_pallet_subscriber::WeightInfo<Runtime>;
+	type MaxPublishers = MaxPublishers;
+}
+
+parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
 }
 
@@ -1324,6 +1344,7 @@ construct_runtime!(
 		ParachainInfo: parachain_info = 4,
 		WeightReclaim: cumulus_pallet_weight_reclaim = 5,
 		MultiBlockMigrations: pallet_migrations = 6,
+		Subscriber: cumulus_pallet_subscriber = 255,
 		Preimage: pallet_preimage = 7,
 		Scheduler: pallet_scheduler = 8,
 		Sudo: pallet_sudo = 9,
@@ -1714,6 +1735,7 @@ mod benches {
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
+		[cumulus_pallet_subscriber, Subscriber]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]

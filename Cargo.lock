@@ -1371,6 +1371,7 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-subscriber",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
@@ -4790,6 +4791,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hash-db",
  "parity-scale-codec",
  "polkadot-primitives",
  "scale-info",
@@ -4799,6 +4801,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-trie",
+ "trie-db",
 ]
 
 [[package]]
