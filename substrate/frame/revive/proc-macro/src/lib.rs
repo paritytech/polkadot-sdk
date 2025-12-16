@@ -434,22 +434,13 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
 
 			quote! {
-				crate::tracing::if_tracing(|tracer| {
-					if DebugSettings::is_execution_tracing_enabled::<E::T>() {
-						tracer.enter_ecall(#name, self)
-					}
-				});
+				crate::tracing::if_tracing(|tracer| tracer.enter_ecall(#name, self));
 
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
 				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
 
-				crate::tracing::if_tracing(|tracer| {
-					if DebugSettings::is_execution_tracing_enabled::<E::T>() {
-						tracer.exit_step(self)
-					}
-				});
-
+				crate::tracing::if_tracing(|tracer| tracer.exit_step(self));
 				result
 			}
 		};

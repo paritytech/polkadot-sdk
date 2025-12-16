@@ -598,10 +598,11 @@ fn eth_substrate_call_tracks_weight_correctly() {
 }
 
 #[test]
-fn opcode_tracing_works() {
+fn execution_tracing_works_for_evm() {
 	use crate::{
 		evm::{
-			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig,
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
 		},
 		tracing::trace,
 	};
@@ -612,7 +613,7 @@ fn opcode_tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let config = StructLoggerConfig {
+		let config = ExecutionTracerConfig {
 			enable_memory: false,
 			disable_stack: false,
 			disable_storage: true,
@@ -720,10 +721,11 @@ fn opcode_tracing_works() {
 }
 
 #[test]
-fn syscall_tracing_works() {
+fn execution_tracing_works_for_pvm() {
 	use crate::{
 		evm::{
-			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig,
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
 		},
 		tracing::trace,
 		vm::pvm::env::lookup_syscall_index,
@@ -735,13 +737,10 @@ fn syscall_tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let config = StructLoggerConfig {
-			enable_memory: false,
-			disable_stack: true,
-			disable_storage: true,
+		let config = ExecutionTracerConfig {
 			enable_return_data: true,
 			limit: Some(5),
-			memory_word_limit: 16,
+			..Default::default()
 		};
 
 		let mut tracer = ExecutionTracer::new(config);

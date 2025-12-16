@@ -38,7 +38,7 @@ pub enum TracerType {
 	PrestateTracer(Option<PrestateTracerConfig>),
 
 	/// A tracer that traces opcodes and syscalls.
-	StructLogger(Option<StructLoggerConfig>),
+	ExecutionTracer(Option<ExecutionTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -53,15 +53,15 @@ impl From<PrestateTracerConfig> for TracerType {
 	}
 }
 
-impl From<StructLoggerConfig> for TracerType {
-	fn from(config: StructLoggerConfig) -> Self {
-		TracerType::StructLogger(Some(config))
+impl From<ExecutionTracerConfig> for TracerType {
+	fn from(config: ExecutionTracerConfig) -> Self {
+		TracerType::ExecutionTracer(Some(config))
 	}
 }
 
 impl Default for TracerType {
 	fn default() -> Self {
-		TracerType::StructLogger(Some(StructLoggerConfig::default()))
+		TracerType::ExecutionTracer(Some(ExecutionTracerConfig::default()))
 	}
 }
 
@@ -97,7 +97,7 @@ impl<'de> Deserialize<'de> for TracerConfig {
 		#[serde(rename_all = "camelCase")]
 		struct TracerConfigInline {
 			#[serde(flatten, default)]
-			struct_logger_config: StructLoggerConfig,
+			execution_tracer_config: ExecutionTracerConfig,
 			#[serde(with = "humantime_serde", default)]
 			timeout: Option<core::time::Duration>,
 		}
@@ -113,7 +113,7 @@ impl<'de> Deserialize<'de> for TracerConfig {
 			TracerConfigHelper::WithType(cfg) =>
 				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
 			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
-				config: TracerType::StructLogger(Some(cfg.struct_logger_config)),
+				config: TracerType::ExecutionTracer(Some(cfg.execution_tracer_config)),
 				timeout: cfg.timeout,
 			}),
 		}
@@ -168,10 +168,10 @@ where
 	})
 }
 
-/// The configuration for the struct logger.
+/// The configuration for the execution tracer.
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]
-pub struct StructLoggerConfig {
+pub struct ExecutionTracerConfig {
 	/// Whether to enable memory capture
 	pub enable_memory: bool,
 
@@ -192,7 +192,7 @@ pub struct StructLoggerConfig {
 	pub memory_word_limit: u32,
 }
 
-impl Default for StructLoggerConfig {
+impl Default for ExecutionTracerConfig {
 	fn default() -> Self {
 		Self {
 			enable_memory: false,
@@ -215,7 +215,7 @@ impl Default for StructLoggerConfig {
 /// { "tracer": "callTracer" }
 /// ```
 ///
-/// By default if not specified the tracer is a  StructLogger, and it's config is passed inline
+/// By default if not specified the tracer is an ExecutionTracer, and it's config is passed inline
 ///
 /// ```json
 /// { "tracer": null,  "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true  }
@@ -226,7 +226,7 @@ fn test_tracer_config_serialization() {
 		(
 			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true }"#,
 			TracerConfig {
-				config: TracerType::StructLogger(Some(StructLoggerConfig {
+				config: TracerType::ExecutionTracer(Some(ExecutionTracerConfig {
 					enable_memory: true,
 					disable_stack: false,
 					disable_storage: false,
@@ -240,7 +240,7 @@ fn test_tracer_config_serialization() {
 		(
 			r#"{  }"#,
 			TracerConfig {
-				config: TracerType::StructLogger(Some(StructLoggerConfig::default())),
+				config: TracerType::ExecutionTracer(Some(ExecutionTracerConfig::default())),
 				timeout: None,
 			},
 		),
@@ -270,13 +270,13 @@ fn test_tracer_config_serialization() {
 			},
 		),
 		(
-			r#"{"tracer": "structLogger"}"#,
-			TracerConfig { config: TracerType::StructLogger(None), timeout: None },
+			r#"{"tracer": "ExecutionTracer"}"#,
+			TracerConfig { config: TracerType::ExecutionTracer(None), timeout: None },
 		),
 		(
-			r#"{"tracer": "structLogger", "tracerConfig": { "enableMemory": true }}"#,
+			r#"{"tracer": "ExecutionTracer", "tracerConfig": { "enableMemory": true }}"#,
 			TracerConfig {
-				config: StructLoggerConfig { enable_memory: true, ..Default::default() }.into(),
+				config: ExecutionTracerConfig { enable_memory: true, ..Default::default() }.into(),
 				timeout: None,
 			},
 		),
