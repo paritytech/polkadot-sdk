@@ -83,7 +83,6 @@ members = [
 	"cumulus/pallets/dmp-queue",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
-	"cumulus/pallets/pubsub-consumer",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/subscriber",
@@ -750,7 +749,6 @@ cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features 
 cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
-cumulus-pallet-pubsub-consumer = { path = "cumulus/pallets/pubsub-consumer", default-features = false }
 cumulus-pallet-subscriber = { path = "cumulus/pallets/subscriber", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-features = false }

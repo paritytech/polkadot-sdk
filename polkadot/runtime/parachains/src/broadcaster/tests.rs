@@ -294,10 +294,11 @@ fn max_stored_keys_limit_enforced() {
 
 		// Publish 50 small items to test MaxStoredKeys without hitting TotalStorageSize limit
 		// Each item is 32 (key) + 1 (value) = 33 bytes, total ~1650 bytes
-		for batch in 0..4 {
+		// Publish in batches of 10 items to respect MaxPublishItems = 10
+		for batch in 0..5 {
 			let mut data = Vec::new();
-			for i in 0..16 {
-				let key_num = batch * 16 + i;
+			for i in 0..10 {
+				let key_num = batch * 10 + i;
 				if key_num < 50 {
 					data.push((hash_key(&format!("key{}", key_num).into_bytes()), b"v".to_vec()));
 				}

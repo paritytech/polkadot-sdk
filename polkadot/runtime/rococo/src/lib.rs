@@ -66,8 +66,7 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, broadcaster as parachains_broadcaster,
-	configuration as parachains_configuration,
+	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1199,7 +1198,7 @@ impl parachains_initializer::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::polkadot_runtime_parachains_initializer::WeightInfo<Runtime>;
 	type CoretimeOnNewSession = Coretime;
-	type OnNewSessionOutgoing = Broadcaster;
+	type OnNewSessionOutgoing = ();
 }
 
 impl parachains_disputes::Config for Runtime {
@@ -1224,27 +1223,6 @@ impl parachains_slashing::Config for Runtime {
 	>;
 	type WeightInfo = parachains_slashing::TestWeightInfo;
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
-}
-
-parameter_types! {
-	pub const MaxPublishItems: u32 = 10;
-	pub const MaxValueLength: u32 = 1024;
-	pub const MaxStoredKeys: u32 = 50;
-	pub const MaxTotalStorageSize: u32 = 2048; // 2 KiB
-	pub const MaxPublishers: u32 = 1000;
-	pub const PublisherDeposit: Balance = 100 * UNITS;
-}
-
-impl parachains_broadcaster::Config for Runtime {
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type WeightInfo = weights::polkadot_runtime_parachains_broadcaster::WeightInfo<Runtime>;
-	type MaxPublishItems = MaxPublishItems;
-	type MaxValueLength = MaxValueLength;
-	type MaxStoredKeys = MaxStoredKeys;
-	type MaxTotalStorageSize = MaxTotalStorageSize;
-	type MaxPublishers = MaxPublishers;
-	type PublisherDeposit = PublisherDeposit;
 }
 
 parameter_types! {
@@ -1611,7 +1589,6 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info = 61,
 		ParasDisputes: parachains_disputes = 62,
 		ParasSlashing: parachains_slashing = 63,
-		Broadcaster: parachains_broadcaster = 65,
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
@@ -1876,7 +1853,6 @@ mod benches {
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		[polkadot_runtime_common::slots, Slots]
 		[polkadot_runtime_common::paras_registrar, Registrar]
-		[polkadot_runtime_parachains::broadcaster, Broadcaster]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::coretime, Coretime]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
@@ -2677,47 +2653,6 @@ sp_api::impl_runtime_apis! {
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
-				}
-
-				fn publish_origin() -> Result<Location, BenchmarkError> {
-					Ok(AssetHub::get())
-				}
-
-				fn ensure_publisher_registered(origin: &Location) -> Result<(), BenchmarkError> {
-					use frame_benchmarking::whitelisted_caller;
-					use frame_support::ensure;
-
-					// Extract parachain ID from origin
-					let para_id = match origin.unpack() {
-						(0, [Junction::Parachain(id)]) => {
-							polkadot_primitives::Id::from(*id)
-						},
-						(1, [Junction::Parachain(id), ..]) => {
-							polkadot_primitives::Id::from(*id)
-						},
-						_ => {
-							return Err(BenchmarkError::Stop("Invalid origin for publisher registration"))
-						},
-					};
-
-					// Force register the publisher with zero deposit for benchmarking
-					let manager: AccountId = whitelisted_caller();
-					Broadcaster::force_register_publisher(
-						RuntimeOrigin::root(),
-						manager,
-						0u128,
-						para_id,
-					)
-					.map_err(|_| BenchmarkError::Stop("Failed to register publisher"))?;
-
-					// Verify registration succeeded
-					let is_registered = parachains_broadcaster::RegisteredPublishers::<Runtime>::contains_key(para_id);
-					ensure!(
-						is_registered,
-						BenchmarkError::Stop("Publisher not registered after force_register")
-					);
-
-					Ok(())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
