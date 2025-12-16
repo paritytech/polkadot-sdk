@@ -484,10 +484,15 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 		slash_nominators::<T>(params.clone(), &mut nominators_slashed);
 	reward_payout += nom_reward_payout;
 
+	// If nominators are not slashable for this era, the list must be empty
+	// (because we use `from_overview` which creates empty `others`).
+	debug_assert!(
+		Eras::<T>::are_nominators_slashable(params.slash_era) || nominators_slashed.is_empty()
+	);
+
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
 		own: val_slashed,
-		// TODO(ank4n): don't compute nominators if nominator slashing is disabled.
 		others: WeakBoundedVec::force_from(
 			nominators_slashed,
 			Some("slashed nominators not expected to be larger than the bounds"),
