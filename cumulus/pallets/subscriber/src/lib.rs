@@ -185,7 +185,7 @@ pub mod pallet {
 					let prefixed_key = child_info.prefixed_storage_key();
 
 					relay_state_proof
-						.read_optional_entry::<[u8; 32]>(&*prefixed_key)
+						.read_optional_entry::<[u8; 32]>(&prefixed_key)
 						.ok()
 						.flatten()
 						.map(|root_hash| (*publisher_para_id, root_hash.to_vec()))
