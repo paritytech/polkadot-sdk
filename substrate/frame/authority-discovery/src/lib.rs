@@ -187,6 +187,7 @@ impl<T: Config> Pallet<T> {
 	/// * `Keys` should not contain duplicates.
 	/// * `NextKeys` should not contain duplicates.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
 		let keys = Keys::<T>::get();
 		ensure!(
           keys.len() as u32 <= T::MaxAuthorities::get(),
