@@ -8,6 +8,7 @@ mod chunk_fetching_network_compatibility;
 mod dispute_freshly_finalized;
 mod dispute_old_finalized;
 mod duplicate_collations;
+mod parachains_max_tranche0;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;

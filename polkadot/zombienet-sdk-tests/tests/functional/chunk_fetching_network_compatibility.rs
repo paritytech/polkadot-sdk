@@ -274,10 +274,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.map(|img| format!("{}:master-bde0bbe5", img.split(':').next().unwrap_or(&img)))
 		.unwrap_or_else(|_| "docker.io/parity/polkadot:master-bde0bbe5".to_string());
 
-	let old_polkadot_command = format!("polkadot{}", old_suffix);
+	let old_polkadot_command = format!("polkadot{old_suffix}");
 	let old_collator_image =
 		"docker.io/paritypr/polkadot-parachain-debug:master-bde0bbe5".to_string();
-	let old_collator_command = format!("polkadot-parachain{}", old_suffix);
+	let old_collator_command = format!("polkadot-parachain{old_suffix}");
 
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
 		let r = r
