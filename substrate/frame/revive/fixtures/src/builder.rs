@@ -310,6 +310,7 @@ pub fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 
 /// Ensure @openzeppelin/contracts is installed under `install_dir/node_modules`.
 fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
+	println!("cargo:warning=RVE ensure_openzeppelin( -- install_dir: {}", install_dir.display());
 	let node_modules = install_dir.join("node_modules");
 	let oz_contracts = node_modules.join("@openzeppelin/contracts");
 
@@ -345,6 +346,23 @@ fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
 	if !status.success() || !oz_contracts.exists() {
 		bail!("failed to install @openzeppelin/contracts into {:?}", node_modules);
 	}
+
+	fn print_dir_recursive(base: &Path, dir: &Path) -> std::io::Result<()> {
+		for entry in fs::read_dir(dir)? {
+			let entry = entry?;
+			let path = entry.path();
+			let rel = path.strip_prefix(base).unwrap_or(&path);
+			if path.is_dir() {
+				println!("cargo:warning=DIR  {}", rel.display());
+				print_dir_recursive(base, &path)?;
+			} else {
+				println!("cargo:warning=FILE {}", rel.display());
+			}
+		}
+		Ok(())
+	}
+    println!("cargo:warning=RVE after npm install, contents of {}:", install_dir.display());
+    let _ = print_dir_recursive(install_dir, install_dir);
 
 	Ok(())
 }
@@ -511,11 +529,9 @@ pub fn compile_solidity_contracts(
 	if solidity_entries.is_empty() {
 		return Ok(());
 	}
+
 	// Install OpenZeppelin so imports like `@openzeppelin/...` resolve.
-	// Skip if fixtures are disabled.
-	// if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
-	let _ = ensure_openzeppelin(out_dir);
-	// }
+	ensure_openzeppelin(out_dir).expect("Failed to install openzeppelin");
 
 	let evm_only = vec!["HostEvmOnly"];
 	let solidity_entries_pvm: Vec<_> = solidity_entries

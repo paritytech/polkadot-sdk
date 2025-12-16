@@ -408,7 +408,7 @@ mod tests {
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let _ = <<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(
 				&checking_account,
-				1_000_000_000_000_000_000,
+				1_000_000,
 			);
 			let code = ERC20_PVM_CODE_AND_CODEHASH.0.clone();
 			let amount = 1000;
