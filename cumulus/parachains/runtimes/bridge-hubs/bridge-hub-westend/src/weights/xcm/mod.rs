@@ -272,10 +272,8 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
-	fn publish(data: &PublishData) -> Weight {
-		// TODO: Generate proper weights via benchmarking
-		// For now, use a conservative estimate: base weight + per-item weight
-		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(data.len() as u64))
+	fn publish(_data: &PublishData) -> Weight {
+		// BridgeHubWestend does not currently support Publish operations
+		Weight::MAX
 	}
 }
