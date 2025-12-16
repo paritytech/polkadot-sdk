@@ -169,6 +169,7 @@ wat = { workspace = true }
 node-testing = { workspace = true }
 sc-service-test = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
+substrate-rpc-client = { workspace = true }
 
 [build-dependencies]
 clap = { optional = true, workspace = true }
