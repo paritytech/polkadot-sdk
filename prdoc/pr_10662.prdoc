@@ -1,6 +1,6 @@
 title: "Bulletin as parachain missing features"
 doc:
-- audience: [Runtime Dev]
+- audience: Runtime Dev
   description: |-
     This PR adds the required support and features for running Bulletin as a parachain. It is a top-level PR that merges three partial features:
 
