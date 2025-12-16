@@ -45,7 +45,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError};
 use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
-const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 100_000);
+const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 1000_000);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
@@ -292,22 +292,25 @@ mod tests {
 		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
 	};
-use once_cell::sync::Lazy;
 	use frame_support::assert_ok;
+	use once_cell::sync::Lazy;
 	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
-	// const ERC20_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc20/erc20.polkavm");
 
-	// const ERC20_PVM_CODE: (Vec<u8>, sp_core::H256) = compile_module_with_type("../fixtures/erc20/erc20.sol", FixtureType::Resolc).unwrap();
-static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
-    compile_module_with_type("ERC20", FixtureType::Resolc)
-        .expect("compile ERC20")
-});
+	// ERC20_PVM_CODE_AND_CODEHASH.1 has the codehash
+	static ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
+		compile_module_with_type("MyToken", FixtureType::Resolc).expect("compile ERC20")
+	});
+
+	fn erc20_pvm_code() -> &'static [u8] {
+		&ERC20_PVM_CODE_AND_CODEHASH.0
+	}
+
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.0.clone();
+			let code = erc20_pvm_code().to_vec();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -332,7 +335,7 @@ static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.0.clone();
+			let code = erc20_pvm_code().to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -352,7 +355,7 @@ static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.0.clone();
+			let code = erc20_pvm_code().to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -370,7 +373,7 @@ static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.0.clone();
+			let code = erc20_pvm_code().to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -404,9 +407,9 @@ static ERC20_PVM_CODE: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let _ = <<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(
 				&checking_account,
-				1_000_000,
+				1_000_000_000_000_000_000,
 			);
-			let code = ERC20_PVM_CODE.0.clone();
+			let code = ERC20_PVM_CODE_AND_CODEHASH.0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.

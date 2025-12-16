@@ -56,11 +56,12 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
+use once_cell::sync::Lazy;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
 	Code, TransactionLimits,
 };
-use pallet_revive_fixtures::compile_module;
+use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -86,15 +87,16 @@ const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
 
-const ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/erc20.polkavm");
+static ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> =
+	Lazy::new(|| compile_module_with_type("MyToken", FixtureType::Resolc).expect("compile ERC20"));
 
-const FAKE_ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/fake_erc20.polkavm");
+static FAKE_ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
+	compile_module_with_type("MyTokenFake", FixtureType::Resolc).expect("compile ERC20")
+});
 
-const EXPENSIVE_ERC20_PVM: &[u8] = include_bytes!(
-	"../../../../../../substrate/frame/revive/fixtures/erc20/expensive_erc20.polkavm"
-);
+static EXPENSIVE_ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
+	compile_module_with_type("MyTokenExpensive", FixtureType::Resolc).expect("compile ERC20")
+});
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -1701,7 +1703,7 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = ERC20_PVM.to_vec();
+		let code = ERC20_PVM_CODE_AND_CODEHASH.0.clone();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1875,7 +1877,7 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = FAKE_ERC20_PVM.to_vec();
+		let code = FAKE_ERC20_PVM_CODE_AND_CODEHASH.0.clone();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1934,7 +1936,7 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = EXPENSIVE_ERC20_PVM.to_vec();
+		let code = EXPENSIVE_ERC20_PVM_CODE_AND_CODEHASH.0.clone();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
