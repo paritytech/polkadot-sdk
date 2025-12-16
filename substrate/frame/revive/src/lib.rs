@@ -49,7 +49,7 @@ pub mod weights;
 use crate::{
 	evm::{
 		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit, CallTracer, CreateCallMode, GenericTransaction, ExecutionTracer,
+		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
 		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
