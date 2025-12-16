@@ -1,4 +1,4 @@
-// This file is part of Polkadot Sdk.
+// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
