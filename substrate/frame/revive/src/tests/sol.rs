@@ -597,7 +597,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 #[test]
 fn opcode_tracing_works() {
 	use crate::{
-		evm::{OpcodeStep, OpcodeTrace, OpcodeTracer, OpcodeTracerConfig},
+		evm::{ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, OpcodeTracerConfig},
 		tracing::trace,
 	};
 	use sp_core::U256;
@@ -616,7 +616,7 @@ fn opcode_tracing_works() {
 			memory_word_limit: 16,
 		};
 
-		let mut tracer = OpcodeTracer::new(config);
+		let mut tracer = ExecutionTracer::new(config);
 		let _result = trace(&mut tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
@@ -629,73 +629,83 @@ fn opcode_tracing_works() {
 			step.gas_cost = 0u64;
 		});
 
-		let expected_trace = OpcodeTrace {
+		let expected_trace = ExecutionTrace {
 			gas: actual_trace.gas,
 			failed: false,
 			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
 			struct_logs: vec![
-				OpcodeStep {
-					pc: 0,
-					op: PUSH1,
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
 					depth: 1,
-					stack: vec![],
-					memory: vec![],
-					storage: None,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 0,
+						op: PUSH1,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
 				},
-				OpcodeStep {
-					pc: 2,
-					op: PUSH1,
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
 					depth: 1,
-					stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
-					memory: vec![],
-					storage: None,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 2,
+						op: PUSH1,
+						stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
 				},
-				OpcodeStep {
-					pc: 4,
-					op: MSTORE,
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
 					depth: 1,
-					stack: vec![
-						crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
-						crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
-					],
-					memory: vec![],
-					storage: None,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 4,
+						op: MSTORE,
+						stack: vec![
+							crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
+							crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
+						],
+						memory: vec![],
+						storage: None,
+					},
 				},
-				OpcodeStep {
-					pc: 5,
-					op: CALLVALUE,
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
 					depth: 1,
-					stack: vec![],
-					memory: vec![],
-					storage: None,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 5,
+						op: CALLVALUE,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
 				},
-				OpcodeStep {
-					pc: 6,
-					op: DUP1,
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
 					depth: 1,
-					stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
-					memory: vec![],
-					storage: None,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 6,
+						op: DUP1,
+						stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
 				},
 			],
 		};
@@ -707,8 +717,9 @@ fn opcode_tracing_works() {
 #[test]
 fn syscall_tracing_works() {
 	use crate::{
-		evm::{SyscallStep, SyscallTrace, SyscallTracer, SyscallTracerConfig},
+		evm::{ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, OpcodeTracerConfig},
 		tracing::trace,
+		vm::pvm::env::lookup_syscall_index,
 	};
 	use sp_core::U256;
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Resolc).unwrap();
@@ -717,9 +728,16 @@ fn syscall_tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let config = SyscallTracerConfig { enable_return_data: true, limit: Some(5) };
+		let config = OpcodeTracerConfig {
+			enable_memory: false,
+			disable_stack: true,
+			disable_storage: true,
+			enable_return_data: true,
+			limit: Some(5),
+			memory_word_limit: 16,
+		};
 
-		let mut tracer = SyscallTracer::new(config);
+		let mut tracer = ExecutionTracer::new(config);
 		let _result = trace(&mut tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
@@ -730,64 +748,62 @@ fn syscall_tracing_works() {
 		actual_trace.struct_logs.iter_mut().for_each(|step| {
 			step.gas = 0u64;
 			step.gas_cost = 0u64;
-			step.weight = Weight::default();
-			step.weight_cost = Weight::default();
 		});
 
-		let expected_trace = SyscallTrace {
+		let expected_trace = ExecutionTrace {
 			gas: actual_trace.gas,
 			failed: false,
 			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
 			struct_logs: vec![
-				SyscallStep {
-					ecall: "call_data_size".to_string(),
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
-					weight: Weight::default(),
-					weight_cost: Weight::default(),
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
+					},
 				},
-				SyscallStep {
-					ecall: "call_data_load".to_string(),
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
-					weight: Weight::default(),
-					weight_cost: Weight::default(),
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+					},
 				},
-				SyscallStep {
-					ecall: "value_transferred".to_string(),
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
-					weight: Weight::default(),
-					weight_cost: Weight::default(),
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
+					},
 				},
-				SyscallStep {
-					ecall: "call_data_load".to_string(),
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
-					weight: Weight::default(),
-					weight_cost: Weight::default(),
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+					},
 				},
-				SyscallStep {
-					ecall: "seal_return".to_string(),
+				ExecutionStep {
 					gas: 0u64,
 					gas_cost: 0u64,
-					weight: Weight::default(),
-					weight_cost: Weight::default(),
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("seal_return").unwrap_or_default(),
+					},
 				},
 			],
 		};

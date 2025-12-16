@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, Weight};
+use crate::evm::Bytes;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
@@ -37,11 +37,8 @@ pub enum TracerType {
 	/// A tracer that traces the prestate.
 	PrestateTracer(Option<PrestateTracerConfig>),
 
-	/// A tracer that traces opcodes.
+	/// A tracer that traces opcodes and syscalls.
 	StructLogger(Option<OpcodeTracerConfig>),
-
-	/// A tracer that traces syscalls.
-	SyscallTracer(Option<SyscallTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -59,12 +56,6 @@ impl From<PrestateTracerConfig> for TracerType {
 impl From<OpcodeTracerConfig> for TracerType {
 	fn from(config: OpcodeTracerConfig) -> Self {
 		TracerType::StructLogger(Some(config))
-	}
-}
-
-impl From<SyscallTracerConfig> for TracerType {
-	fn from(config: SyscallTracerConfig) -> Self {
-		TracerType::SyscallTracer(Some(config))
 	}
 }
 
@@ -289,17 +280,6 @@ fn test_tracer_config_serialization() {
 				timeout: None,
 			},
 		),
-		(
-			r#"{"tracer": "syscallTracer" }"#,
-			TracerConfig { config: TracerType::SyscallTracer(None), timeout: None },
-		),
-		(
-			r#"{"tracer": "syscallTracer", "tracerConfig": {}}"#,
-			TracerConfig {
-				config: TracerType::SyscallTracer(Some(SyscallTracerConfig::default())),
-				timeout: None,
-			},
-		),
 	];
 
 	for (json_data, expected) in tracers {
@@ -338,10 +318,8 @@ pub enum Trace {
 	Call(CallTrace),
 	/// A prestate trace.
 	Prestate(PrestateTrace),
-	/// An opcode trace.
-	Opcode(OpcodeTrace),
-	/// A syscall trace.
-	Syscall(SyscallTrace),
+	/// An execution trace (opcodes and syscalls).
+	Execution(ExecutionTrace),
 }
 
 /// A prestate Trace
@@ -485,13 +463,13 @@ where
 	ser_map.end()
 }
 
-/// An opcode trace containing the step-by-step execution of EVM instructions.
+/// An execution trace containing the step-by-step execution of EVM opcodes and PVM syscalls.
 /// This matches Geth's structLogger output format.
 #[derive(
 	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeTrace {
+pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
 	#[serde(with = "super::hex_serde")]
 	pub gas: u64,
@@ -499,115 +477,65 @@ pub struct OpcodeTrace {
 	pub failed: bool,
 	/// The return value of the transaction.
 	pub return_value: Bytes,
-	/// The list of opcode execution steps (structLogs in Geth).
-	pub struct_logs: Vec<OpcodeStep>,
+	/// The list of execution steps (structLogs in Geth).
+	pub struct_logs: Vec<ExecutionStep>,
 }
 
-/// A single opcode execution step.
-/// This matches Geth's structLog format exactly.
+/// An execution step which can be either an EVM opcode or a PVM syscall.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeStep {
-	/// The program counter.
-	#[serde(with = "super::hex_serde")]
-	pub pc: u64,
-	/// The opcode being executed.
-	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
-	pub op: u8,
-	/// Remaining gas before executing this opcode.
+pub struct ExecutionStep {
+	/// Remaining gas before executing this step.
 	pub gas: u64,
-	/// Cost of executing this opcode.
+	/// Cost of executing this step.
 	pub gas_cost: u64,
 	/// Current call depth.
 	pub depth: u32,
-	/// EVM stack contents.
-	#[serde(serialize_with = "serialize_stack_minimal")]
-	pub stack: Vec<Bytes>,
-	/// EVM memory contents.
-	#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_memory_no_prefix")]
-	pub memory: Vec<Bytes>,
-	/// Contract storage changes.
-	#[serde(
-		skip_serializing_if = "Option::is_none",
-		serialize_with = "serialize_storage_no_prefix"
-	)]
-	pub storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
 	/// Return data from last frame output.
 	#[serde(skip_serializing_if = "Bytes::is_empty")]
 	pub return_data: Bytes,
-	/// Any error that occurred during opcode execution.
+	/// Any error that occurred during execution.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
+	/// The kind of execution step (EVM opcode or PVM syscall).
+	#[serde(flatten)]
+	pub kind: ExecutionStepKind,
 }
 
-/// Configuration for the syscall tracer.
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-#[serde(rename_all = "camelCase", default)]
-pub struct SyscallTracerConfig {
-	/// Whether to enable return data capture
-	pub enable_return_data: bool,
-
-	/// Limit number of steps captured
-	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
-	pub limit: Option<u64>,
-}
-
-impl Default for SyscallTracerConfig {
-	fn default() -> Self {
-		Self { enable_return_data: false, limit: None }
-	}
-}
-
-/// Full syscall execution trace.
-#[derive(
-	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct SyscallTrace {
-	/// Total gas used by the transaction.
-	#[serde(with = "super::hex_serde")]
-	pub gas: u64,
-	/// Whether the transaction failed.
-	pub failed: bool,
-	/// The return value of the transaction.
-	pub return_value: Bytes,
-	/// The list of syscall execution steps.
-	pub struct_logs: Vec<SyscallStep>,
-}
-
-/// An EVM opcode or PVM syscall.
+/// The kind of execution step.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
-pub enum Op {
-	/// EVM opcode referenced by its byte value.
-	EVMOpcode(u8),
-	/// A PVM syscall referenced by its index.
-	PvmSyscall(u32),
-}
-
-/// A single syscall execution step.
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SyscallStep {
-	/// The executed operation (EVM opcode or PVM syscall).
-	#[serde(serialize_with = "serialize_op")]
-	pub op: Op,
-	/// Remaining gas before executing this syscall.
-	pub gas: u64,
-	/// Weight before executing this syscall.
-	pub weight: Weight,
-	/// Cost of executing this syscall.
-	pub gas_cost: u64,
-	/// Weight consumed by executing this syscall
-	pub weight_cost: Weight,
-	/// Current call depth.
-	pub depth: u32,
-	/// Return data from last frame output.
-	#[serde(skip_serializing_if = "Bytes::is_empty")]
-	pub return_data: Bytes,
-	/// Any error that occurred during syscall execution.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub error: Option<String>,
+pub enum ExecutionStepKind {
+	/// An EVM opcode execution.
+	EVMOpcode {
+		/// The program counter.
+		#[serde(with = "super::hex_serde")]
+		pc: u64,
+		/// The opcode being executed.
+		#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
+		op: u8,
+		/// EVM stack contents.
+		#[serde(serialize_with = "serialize_stack_minimal")]
+		stack: Vec<Bytes>,
+		/// EVM memory contents.
+		#[serde(
+			skip_serializing_if = "Vec::is_empty",
+			serialize_with = "serialize_memory_no_prefix"
+		)]
+		memory: Vec<Bytes>,
+		/// Contract storage changes.
+		#[serde(
+			skip_serializing_if = "Option::is_none",
+			serialize_with = "serialize_storage_no_prefix"
+		)]
+		storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
+	},
+	/// A PVM syscall execution.
+	PVMSyscall {
+		/// The executed syscall.
+		#[serde(serialize_with = "serialize_syscall_op")]
+		op: u32,
+	},
 }
 
 macro_rules! define_opcode_functions {
@@ -788,17 +716,6 @@ define_opcode_functions!(
 	SELFDESTRUCT,
 );
 
-/// Serialize an operation (opcode or syscall)
-fn serialize_op<S>(op: &Op, serializer: S) -> Result<S::Ok, S::Error>
-where
-	S: serde::Serializer,
-{
-	match op {
-		Op::EVMOpcode(byte) => serialize_opcode(byte, serializer),
-		Op::PvmSyscall(index) => serialize_syscall(index, serializer),
-	}
-}
-
 /// Serialize opcode as string using REVM opcode names
 fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -808,8 +725,8 @@ where
 	serializer.serialize_str(name)
 }
 
-/// Serialize a syscall
-fn serialize_syscall<S>(idx: &u32, serializer: S) -> Result<S::Ok, S::Error>
+/// Serialize a syscall index to its name
+fn serialize_syscall_op<S>(idx: &u32, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
@@ -964,56 +881,46 @@ fn test_gas_fields_serialize_as_hex() {
 	assert!(json.contains(r#""gas":"0x5208""#), "gas should be hex: {}", json);
 	assert!(json.contains(r#""gasUsed":"0x4e20""#), "gas_used should be hex: {}", json);
 
-	// Test OpcodeTrace gas serialization
-	let opcode_trace = OpcodeTrace {
+	// Test ExecutionTrace gas serialization
+	let execution_trace = ExecutionTrace {
 		gas: 100000,
 		failed: false,
 		return_value: Bytes::default(),
 		struct_logs: Vec::new(),
 	};
-	let json = serde_json::to_string(&opcode_trace).expect("Serialization should succeed");
-	assert!(json.contains(r#""gas":"0x186a0""#), "opcode trace gas should be hex: {}", json);
+	let json = serde_json::to_string(&execution_trace).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0x186a0""#), "execution trace gas should be hex: {}", json);
 
-	// Test OpcodeStep gas serialization
-	let opcode_step = OpcodeStep {
-		pc: 42,
-		op: 0x01,
+	// Test ExecutionStep with EVM opcode gas serialization
+	let evm_execution_step = ExecutionStep {
 		gas: 50000,
 		gas_cost: 3,
 		depth: 1,
-		stack: Vec::new(),
-		memory: Vec::new(),
-		storage: None,
 		return_data: Bytes::default(),
 		error: None,
+		kind: ExecutionStepKind::EVMOpcode {
+			pc: 42,
+			op: 0x01,
+			stack: Vec::new(),
+			memory: Vec::new(),
+			storage: None,
+		},
 	};
-	let json = serde_json::to_string(&opcode_step).expect("Serialization should succeed");
+	let json = serde_json::to_string(&evm_execution_step).expect("Serialization should succeed");
 	assert!(json.contains(r#""pc":"0x2a""#), "pc should be hex: {}", json);
-	assert!(json.contains(r#""gas":"0xc350""#), "opcode step gas should be hex: {}", json);
+	assert!(json.contains(r#""gas":"0xc350""#), "evm execution step gas should be hex: {}", json);
 	assert!(json.contains(r#""gasCost":"0x3""#), "gas_cost should be hex: {}", json);
 
-	// Test SyscallTrace gas serialization
-	let syscall_trace = SyscallTrace {
-		gas: 75000,
-		failed: false,
-		return_value: Bytes::default(),
-		struct_logs: Vec::new(),
-	};
-	let json = serde_json::to_string(&syscall_trace).expect("Serialization should succeed");
-	assert!(json.contains(r#""gas":"0x124f8""#), "syscall trace gas should be hex: {}", json);
-
-	// Test SyscallStep gas serialization
-	let syscall_step = SyscallStep {
-		op: Op::PvmSyscall(0),
+	// Test ExecutionStep with PVM syscall gas serialization
+	let pvm_execution_step = ExecutionStep {
 		gas: 60000,
-		weight: Weight::from_parts(1000, 100),
 		gas_cost: 5,
-		weight_cost: Weight::from_parts(500, 50),
 		depth: 1,
 		return_data: Bytes::default(),
 		error: None,
+		kind: ExecutionStepKind::PVMSyscall { op: 0 },
 	};
-	let json = serde_json::to_string(&syscall_step).expect("Serialization should succeed");
-	assert!(json.contains(r#""gas":"0xea60""#), "syscall step gas should be hex: {}", json);
+	let json = serde_json::to_string(&pvm_execution_step).expect("Serialization should succeed");
+	assert!(json.contains(r#""gas":"0xea60""#), "pvm execution step gas should be hex: {}", json);
 	assert!(json.contains(r#""gasCost":"0x5""#), "syscall step gas_cost should be hex: {}", json);
 }

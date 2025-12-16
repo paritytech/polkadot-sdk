@@ -154,27 +154,14 @@ fn run_plain_with_tracing<E: Ext>(
 	interpreter: &mut Interpreter<E>,
 ) -> ControlFlow<Halt, Infallible> {
 	loop {
+		let pc = interpreter.bytecode.pc() as u64;
 		let opcode = interpreter.bytecode.opcode();
-		tracing::if_tracing(|tracer| {
-			let meter = interpreter.ext.frame_meter();
-			tracer.enter_opcode(
-				interpreter.bytecode.pc() as u64,
-				opcode,
-				meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default(),
-				meter.weight_left().unwrap_or_default(),
-				&interpreter.stack.bytes_getter(),
-				&interpreter.memory.bytes_getter(),
-				interpreter.ext.last_frame_output(),
-			);
-		});
+		tracing::if_tracing(|tracer| tracer.enter_opcode(pc, opcode, interpreter));
 
 		interpreter.bytecode.relative_jump(1);
 		let res = exec_instruction(interpreter, opcode);
 
-		tracing::if_tracing(|tracer| {
-			let gas_left = interpreter.ext.gas_left();
-			tracer.exit_opcode(gas_left.into());
-		});
+		tracing::if_tracing(|tracer| tracer.exit_step(interpreter));
 
 		res?;
 	}

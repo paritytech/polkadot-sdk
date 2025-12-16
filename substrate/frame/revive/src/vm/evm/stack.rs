@@ -176,17 +176,15 @@ impl<T: Config> Stack<T> {
 		return ControlFlow::Continue(());
 	}
 
-	/// Returns a closure that returns a vector of the stack items as `Bytes`.
-	pub fn bytes_getter(&self) -> impl Fn() -> Vec<crate::evm::Bytes> + '_ {
-		|| {
-			let mut stack_bytes = Vec::new();
-			for value in self.stack.iter() {
-				let bytes = value.to_big_endian().to_vec();
-				stack_bytes.push(crate::evm::Bytes(bytes));
-			}
-
-			stack_bytes
+	/// Returns a snapshot of the stack as bytes.
+	pub fn snapshot(&self) -> Vec<crate::evm::Bytes> {
+		let mut stack_bytes = Vec::new();
+		for value in self.stack.iter() {
+			let bytes = value.to_big_endian().to_vec();
+			stack_bytes.push(crate::evm::Bytes(bytes));
 		}
+
+		stack_bytes
 	}
 }
 

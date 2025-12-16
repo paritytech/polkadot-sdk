@@ -5410,8 +5410,7 @@ fn self_destruct_by_syscall_tracing_works() {
 			let trace_wrapped = match trace {
 				crate::evm::Trace::Call(ct) => Trace::Call(ct),
 				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
-				crate::evm::Trace::Opcode(_) => panic!("Opcode trace not expected"),
-				crate::evm::Trace::Syscall(_) => panic!("Syscall trace not expected"),
+				crate::evm::Trace::Execution(_) => panic!("Execution trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);

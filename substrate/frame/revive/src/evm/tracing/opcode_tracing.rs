@@ -15,7 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{tracing::Tracing, Bytes, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
+	evm::{
+		tracing::Tracing, Bytes, ExecutionStep, ExecutionStepKind, ExecutionTrace,
+		OpcodeTracerConfig,
+	},
+	tracing::{EVMFrameTraceInfo, FrameTraceInfo},
+	vm::pvm::env::lookup_syscall_index,
 	DispatchError, ExecReturnValue, Key,
 };
 use alloc::{
@@ -26,14 +31,14 @@ use alloc::{
 };
 use sp_core::{H160, U256};
 
-/// A tracer that traces opcode execution step-by-step.
+/// A tracer that traces opcode and syscall execution step-by-step.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct OpcodeTracer {
+pub struct ExecutionTracer {
 	/// The tracer configuration.
 	config: OpcodeTracerConfig,
 
 	/// The collected trace steps.
-	steps: Vec<OpcodeStep>,
+	steps: Vec<ExecutionStep>,
 
 	/// Current call depth.
 	depth: u32,
@@ -51,14 +56,14 @@ pub struct OpcodeTracer {
 	return_value: Bytes,
 
 	/// Pending step that's waiting for gas cost to be recorded.
-	pending_step: Option<OpcodeStep>,
+	pending_step: Option<ExecutionStep>,
 
 	/// List of storage per call
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
 
-impl OpcodeTracer {
-	/// Create a new [`OpcodeTracer`] instance.
+impl ExecutionTracer {
+	/// Create a new [`ExecutionTracer`] instance.
 	pub fn new(config: OpcodeTracerConfig) -> Self {
 		Self {
 			config,
@@ -74,9 +79,9 @@ impl OpcodeTracer {
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(self) -> OpcodeTrace {
+	pub fn collect_trace(self) -> ExecutionTrace {
 		let Self { steps: struct_logs, return_value, total_gas_used: gas, failed, .. } = self;
-		OpcodeTrace { gas, failed, return_value, struct_logs }
+		ExecutionTrace { gas, failed, return_value, struct_logs }
 	}
 
 	/// Record an error in the current step.
@@ -87,63 +92,57 @@ impl OpcodeTracer {
 	}
 }
 
-impl Tracing for OpcodeTracer {
+impl Tracing for ExecutionTracer {
 	fn is_opcode_tracing_enabled(&self) -> bool {
 		true
 	}
 
-	fn enter_opcode(
-		&mut self,
-		pc: u64,
-		opcode: u8,
-		gas_before: u64,
-		_weight_before: crate::Weight,
-		get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
-		get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
-		last_frame_output: &crate::ExecReturnValue,
-	) {
+	fn enter_opcode(&mut self, pc: u64, opcode: u8, trace_info: &dyn EVMFrameTraceInfo) {
 		// Check step limit - if exceeded, don't record anything
 		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
 			return;
 		}
 
 		// Extract stack data if enabled
-		let stack_data = if !self.config.disable_stack { get_stack() } else { Vec::new() };
+		let stack_data =
+			if !self.config.disable_stack { trace_info.stack_snapshot() } else { Vec::new() };
 
 		// Extract memory data if enabled
 		let memory_data = if self.config.enable_memory {
-			get_memory(self.config.memory_word_limit as usize)
+			trace_info.memory_snapshot(self.config.memory_word_limit as usize)
 		} else {
 			Vec::new()
 		};
 
 		// Extract return data if enabled
 		let return_data = if self.config.enable_return_data {
-			crate::evm::Bytes(last_frame_output.data.clone())
+			trace_info.last_frame_output()
 		} else {
 			crate::evm::Bytes::default()
 		};
 
-		let step = OpcodeStep {
-			pc,
-			op: opcode,
-			gas: gas_before,
+		let step = ExecutionStep {
+			gas: trace_info.gas_left(),
 			gas_cost: 0u64, // Will be set in exit_opcode
 			depth: self.depth,
-			stack: stack_data,
-			memory: memory_data,
-			storage: None,
 			return_data,
 			error: None,
+			kind: ExecutionStepKind::EVMOpcode {
+				pc,
+				op: opcode,
+				stack: stack_data,
+				memory: memory_data,
+				storage: None,
+			},
 		};
 
 		self.pending_step = Some(step);
 		self.step_count += 1;
 	}
 
-	fn exit_opcode(&mut self, gas_left: u64) {
+	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo) {
 		if let Some(mut step) = self.pending_step.take() {
-			step.gas_cost = step.gas.saturating_sub(gas_left);
+			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
 			self.steps.push(step);
 		}
 	}
@@ -214,9 +213,13 @@ impl Tracing for OpcodeTracer {
 			);
 			storage.insert(key_bytes, value_bytes);
 
-			// Set storage on the pending step
+			// Set storage on the pending step if it's an EVM opcode
 			if let Some(ref mut step) = self.pending_step {
-				step.storage = Some(storage.clone());
+				if let ExecutionStepKind::EVMOpcode { storage: ref mut step_storage, .. } =
+					step.kind
+				{
+					*step_storage = Some(storage.clone());
+				}
 			}
 		}
 	}
@@ -234,10 +237,42 @@ impl Tracing for OpcodeTracer {
 				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_else(|| alloc::vec![0u8; 32]))
 			});
 
-			// Set storage on the pending step
+			// Set storage on the pending step if it's an EVM opcode
 			if let Some(ref mut step) = self.pending_step {
-				step.storage = Some(storage.clone());
+				if let ExecutionStepKind::EVMOpcode { storage: ref mut step_storage, .. } =
+					step.kind
+				{
+					*step_storage = Some(storage.clone());
+				}
 			}
 		}
+	}
+
+	fn enter_ecall(&mut self, ecall: &'static str, trace_info: &dyn FrameTraceInfo) {
+		// Check step limit - if exceeded, don't record anything
+		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
+			return;
+		}
+
+		// Extract return data if enabled
+		let return_data = if self.config.enable_return_data {
+			trace_info.last_frame_output()
+		} else {
+			crate::evm::Bytes::default()
+		};
+
+		let step = ExecutionStep {
+			gas: trace_info.gas_left(),
+			gas_cost: 0u64, // Will be set in exit_ecall
+			depth: self.depth,
+			return_data,
+			error: None,
+			kind: ExecutionStepKind::PVMSyscall {
+				op: lookup_syscall_index(ecall).unwrap_or_default(),
+			},
+		};
+
+		self.pending_step = Some(step);
+		self.step_count += 1;
 	}
 }

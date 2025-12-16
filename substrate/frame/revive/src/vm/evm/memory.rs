@@ -132,21 +132,19 @@ impl<T: Config> Memory<T> {
 	}
 
 	/// Returns a closure that returns the memory content in 32-byte chunks up to a specified limit.
-	pub fn bytes_getter(&self) -> impl Fn(usize) -> Vec<crate::evm::Bytes> + '_ {
-		|limit: usize| {
-			let mut memory_bytes = Vec::new();
+	pub fn snapshot(&self, limit: usize) -> Vec<crate::evm::Bytes> {
+		let mut memory_bytes = Vec::new();
 
-			// Read memory in 32-byte chunks, limiting to configured size
-			let words_to_read = core::cmp::min((self.size() + 31) / 32, limit);
+		// Read memory in 32-byte chunks, limiting to configured size
+		let words_to_read = core::cmp::min((self.size() + 31) / 32, limit);
 
-			for i in 0..words_to_read {
-				// Use get_word to read 32 bytes directly
-				let word = self.get_word(i * 32);
-				memory_bytes.push(crate::evm::Bytes(word.to_vec()));
-			}
-
-			memory_bytes
+		for i in 0..words_to_read {
+			// Use get_word to read 32 bytes directly
+			let word = self.get_word(i * 32);
+			memory_bytes.push(crate::evm::Bytes(word.to_vec()));
 		}
+
+		memory_bytes
 	}
 }
 

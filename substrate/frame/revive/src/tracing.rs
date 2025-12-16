@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -40,12 +40,48 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 	tracer::with(f)
 }
 
+/// Interface to provide frame trace information for the current execution frame.
+pub trait FrameTraceInfo {
+	/// Get the amount of gas remaining in the current frame.
+	fn gas_left(&self) -> u64;
+
+	/// Get the weight remaining in the current frame.
+	fn weight_left(&self) -> Weight;
+
+	/// Get the output from the last frame.
+	fn last_frame_output(&self) -> Bytes;
+}
+
+/// Interface to provide EVM-specific trace information for the current execution frame.
+pub trait EVMFrameTraceInfo: FrameTraceInfo {
+	/// Get a snapshot of the memory at this point in execution.
+	///
+	/// # Parameters
+	/// - `limit`: Maximum number of memory words to capture.
+	fn memory_snapshot(&self, limit: usize) -> Vec<Bytes>;
+
+	/// Get a snapshot of the stack at this point in execution.
+	fn stack_snapshot(&self) -> Vec<Bytes>;
+}
+
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
 	/// Register an address that should be traced.
+	///
+	/// # Parameters
+	/// - `addr`: The address to watch for tracing.
 	fn watch_address(&mut self, _addr: &H160) {}
 
-	/// Called before a contract call is executed
+	/// Called before a contract call is executed.
+	///
+	/// # Parameters
+	/// - `from`: The address initiating the call.
+	/// - `to`: The address being called.
+	/// - `delegate_call`: The original caller if this is a delegate call.
+	/// - `is_read_only`: Whether this is a static/read-only call.
+	/// - `value`: The amount of value being transferred.
+	/// - `input`: The input data for the call.
+	/// - `gas_limit`: The gas limit for this call.
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
@@ -58,7 +94,13 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Called when a contract calls terminates (selfdestructs)
+	/// Called when a contract terminates (selfdestructs).
+	///
+	/// # Parameters
+	/// - `contract_address`: The address of the contract being destroyed.
+	/// - `beneficiary_address`: The address receiving the contract's remaining balance.
+	/// - `gas_left`: The amount of gas remaining.
+	/// - `value`: The value transferred to the beneficiary.
 	fn terminate(
 		&mut self,
 		_contract_address: H160,
@@ -68,16 +110,33 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Record the next code and salt to be instantiated.
+	/// Record the code and salt for the next contract instantiation.
+	///
+	/// # Parameters
+	/// - `code`: The code being instantiated.
+	/// - `salt`: Optional salt for CREATE2 operations.
 	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}
 
-	/// Called when a balance is read
+	/// Called when a balance is read.
+	///
+	/// # Parameters
+	/// - `addr`: The address whose balance was read.
+	/// - `value`: The balance value.
 	fn balance_read(&mut self, _addr: &H160, _value: U256) {}
 
-	/// Called when storage read is called
+	/// Called when contract storage is read.
+	///
+	/// # Parameters
+	/// - `key`: The storage key being read.
+	/// - `value`: The value read from storage.
 	fn storage_read(&mut self, _key: &Key, _value: Option<&[u8]>) {}
 
-	/// Called when storage write is called
+	/// Called when contract storage is written.
+	///
+	/// # Parameters
+	/// - `key`: The storage key being written.
+	/// - `old_value`: The previous value at this key.
+	/// - `new_value`: The new value being written.
 	fn storage_write(
 		&mut self,
 		_key: &Key,
@@ -86,46 +145,54 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Record a log event
+	/// Record a log event.
+	///
+	/// # Parameters
+	/// - `event`: The address emitting the event.
+	/// - `topics`: The indexed topics for the event.
+	/// - `data`: The event data.
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
-	/// Called after a contract call is executed
+	/// Called after a contract call completes successfully.
+	///
+	/// # Parameters
+	/// - `output`: The return value from the call.
+	/// - `gas_used`: The amount of gas consumed.
 	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: u64) {}
 
-	/// Called when a contract call terminates with an error
+	/// Called when a contract call terminates with an error.
+	///
+	/// # Parameters
+	/// - `error`: The error that occurred.
+	/// - `gas_used`: The amount of gas consumed before the error.
 	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: u64) {}
 
 	/// Check if opcode tracing is enabled.
+	///
+	/// # Returns
+	/// `true` if the tracer wants to trace individual opcodes.
 	fn is_opcode_tracing_enabled(&self) -> bool {
 		false
 	}
 
-	/// Called before an opcode is executed.
-	fn enter_opcode(
-		&mut self,
-		_pc: u64,
-		_opcode: u8,
-		_gas_before: u64,
-		_weight_before: Weight,
-		_get_stack: &dyn Fn() -> Vec<crate::evm::Bytes>,
-		_get_memory: &dyn Fn(usize) -> Vec<crate::evm::Bytes>,
-		_last_frame_output: &crate::ExecReturnValue,
-	) {
-	}
+	/// Called before an EVM opcode is executed.
+	///
+	/// # Parameters
+	/// - `pc`: The current program counter.
+	/// - `opcode`: The opcode being executed.
+	/// - `trace_info`: Information about the current execution frame.
+	fn enter_opcode(&mut self, _pc: u64, _opcode: u8, _trace_info: &dyn EVMFrameTraceInfo) {}
 
-	/// Called after an opcode is executed to record the gas cost.
-	fn exit_opcode(&mut self, _gas_left: u64) {}
+	/// Called before a PVM syscall is executed.
+	///
+	/// # Parameters
+	/// - `ecall`: The name of the syscall being executed.
+	/// - `trace_info`: Information about the current execution frame.
+	fn enter_ecall(&mut self, _ecall: &'static str, _trace_info: &dyn FrameTraceInfo) {}
 
-	/// Called before an ecall is executed.
-	fn enter_ecall(
-		&mut self,
-		_ecall: &'static str,
-		_gas_before: u64,
-		_weight_before: Weight,
-		_last_frame_output: &crate::ExecReturnValue,
-	) {
-	}
-
-	/// Called after an ecall is executed to record the gas cost and weight consumed.
-	fn exit_ecall(&mut self, _gas_left: u64, _weight_consumed: Weight) {}
+	/// Called after an EVM opcode or PVM syscall is executed to record the gas cost.
+	///
+	/// # Parameters
+	/// - `trace_info`: Information about the current execution frame.
+	fn exit_step(&mut self, _trace_info: &dyn FrameTraceInfo) {}
 }
