@@ -371,6 +371,7 @@ fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
 fn compile_with_standard_json(
 	compiler: &str,
 	contracts_dir: &Path,
+	out_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
 	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
@@ -415,12 +416,15 @@ fn compile_with_standard_json(
 	input_json["settings"]["outputSelection"] = serde_json::Value::Object(selection);
 
 	// Allow imports from the interface dir and node_modules if present
-	let node_modules = contracts_dir.join("node_modules");
+	let node_modules = out_dir.join("node_modules");
 	let allow_paths = if node_modules.exists() {
 		format!("{},{}", INTERFACE_DIR, node_modules.display())
 	} else {
 		INTERFACE_DIR.to_string()
 	};
+
+	println!("cargo:warning=RVE after npm install, allow_paths: {}", allow_paths);
+
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
@@ -547,12 +551,12 @@ pub fn compile_solidity_contracts(
 		.collect();
 
 	// Compile with solc for EVM bytecode
-	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries_evm)?;
+	let json = compile_with_standard_json("solc", contracts_dir, out_dir, &solidity_entries_evm)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
-	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
+	let json = compile_with_standard_json("resolc", contracts_dir, out_dir, &solidity_entries_pvm)?;
 	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", EvmByteCodeType::InitCode)?;
 
 	Ok(())
