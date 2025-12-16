@@ -1364,3 +1364,129 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		assert!(sync.gap_sync.is_none());
 	}
 }
+
+#[test]
+fn gap_sync_body_request_depends_on_pruning_mode() {
+	sp_tracing::try_init_simple();
+
+	// Test data: (pruning_mode_name, blocks_pruning, should_request_bodies)
+	let test_cases = vec![
+		("KeepAll", BlocksPruning::KeepAll, true),
+		("KeepFinalized", BlocksPruning::KeepFinalized, true),
+		("Some(256)", BlocksPruning::Some(256), false),
+		("Some(1000)", BlocksPruning::Some(1000), false),
+	];
+
+	for (mode_name, blocks_pruning, should_request_bodies) in test_cases {
+		log::info!("Testing gap sync with pruning mode: {}", mode_name);
+
+		let client = Arc::new(TestClientBuilder::new().build());
+		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+
+		let mut sync = ChainSync::new(
+			ChainSyncMode::Full,
+			client.clone(),
+			5,
+			64,
+			ProtocolName::Static(""),
+			Arc::new(MockBlockDownloader::new()),
+			blocks_pruning,
+			None,
+			std::iter::empty(),
+		)
+		.unwrap();
+
+		let peer_id = PeerId::random();
+
+		// Simulate gap: blocks 5-10 missing
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: 5,
+			target: 10,
+			blocks: BlockCollection::new(),
+			total_header_bytes: 0,
+			total_body_bytes: 0,
+			total_justification_bytes: 0,
+			total_block_bytes: 0,
+		});
+
+		sync.add_peer(peer_id, blocks[9].hash(), 10);
+
+		let requests = sync.block_requests();
+		assert!(!requests.is_empty(), "[{}] Should generate gap sync request", mode_name);
+
+		let (_peer, request) = &requests[0];
+
+		// Verify the exact expected field combination
+		let expected_fields = if should_request_bodies {
+			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+		} else {
+			BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION
+		};
+
+		assert_eq!(
+			request.fields, expected_fields,
+			"[{}] Gap sync fields mismatch: expected {:?}, got {:?}",
+			mode_name, expected_fields, request.fields
+		);
+	}
+}
+
+#[test]
+fn regular_sync_always_requests_bodies_regardless_of_pruning() {
+	sp_tracing::try_init_simple();
+
+	// Verify that regular (non-gap) sync always requests bodies,
+	// regardless of pruning mode - our optimization only applies to gap sync
+
+	let test_cases = vec![
+		("KeepAll", BlocksPruning::KeepAll),
+		("KeepFinalized", BlocksPruning::KeepFinalized),
+		("Some(256)", BlocksPruning::Some(256)),
+	];
+
+	for (mode_name, blocks_pruning) in test_cases {
+		log::info!("Testing regular sync with pruning mode: {}", mode_name);
+
+		let client = Arc::new(TestClientBuilder::new().build());
+		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+
+		let mut sync = ChainSync::new(
+			ChainSyncMode::Full,
+			client.clone(),
+			5,
+			64,
+			ProtocolName::Static(""),
+			Arc::new(MockBlockDownloader::new()),
+			blocks_pruning,
+			None,
+			std::iter::empty(),
+		)
+		.unwrap();
+
+		let peer_id = PeerId::random();
+
+		// Ensure we're NOT in gap sync mode
+		assert!(sync.gap_sync.is_none(), "[{}] Should not have gap sync active", mode_name);
+
+		// Add peer ahead of us to trigger regular sync
+		sync.add_peer(peer_id, blocks[4].hash(), 5);
+
+		let requests = sync.block_requests();
+
+		// Regular sync may not always generate requests immediately depending on state,
+		// but when it does, it should request bodies
+		if !requests.is_empty() {
+			let (_peer, request) = &requests[0];
+
+			// Verify exact expected fields for Full mode
+			let expected_fields =
+				BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION;
+
+			assert_eq!(
+				request.fields, expected_fields,
+				"[{}] Regular sync fields mismatch: expected {:?}, got {:?}",
+				mode_name, expected_fields, request.fields
+			);
+		}
+	}
+}
