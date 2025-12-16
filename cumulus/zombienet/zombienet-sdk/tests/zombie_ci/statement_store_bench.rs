@@ -8,7 +8,7 @@ use codec::{Decode, Encode};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_statement_store::{Channel, Statement, Topic};
+use sp_statement_store::{Channel, Statement, SubmitResult, Topic};
 use std::{cell::Cell, collections::HashMap, env, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
@@ -193,7 +193,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 				loop {
 					let statement_bytes: Bytes = statement.encode().into();
 					let Err(err) = rpc_client
-						.request::<()>("statement_submit", rpc_params![statement_bytes])
+						.request::<SubmitResult>("statement_submit", rpc_params![statement_bytes])
 						.await
 					else {
 						break; // Successfully submitted
@@ -317,7 +317,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
-				.with_chain("rococo-local")
+				.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()]);
@@ -346,9 +346,9 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 		.with_parachain(|p| {
 			let p = p
 				.with_id(2400)
+				.with_chain("people-westend-local")
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
 				.with_default_args(vec![
 					"--force-authoring".into(),
 					"-lstatement-store=info,statement-gossip=info,error".into(),
@@ -543,7 +543,7 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		let _: () = self
+		let _: SubmitResult = self
 			.rpc_client
 			.request("statement_submit", rpc_params![statement_bytes])
 			.await?;
@@ -878,11 +878,20 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 	let barrier = Arc::new(Barrier::new(config.num_clients as usize));
 	let sync_start = std::time::Instant::now();
+
+	// Generate unique test run ID using timestamp to avoid interference with old data
+	let test_run_id = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_micros() as u64;
+	let test_run_id = Arc::new(test_run_id);
+
 	let handles: Vec<_> = (0..config.num_clients)
 		.map(|client_id| {
 			let config = Arc::clone(&config);
 			let barrier = Arc::clone(&barrier);
 			let sync_start = sync_start.clone();
+			let test_run_id = Arc::clone(&test_run_id);
 			let (keyring, _) = sr25519::Pair::generate();
 			let node_idx = (client_id as usize) % config.num_nodes;
 			let rpc_client = rpc_clients[node_idx].clone();
@@ -917,26 +926,40 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
+					if client_id == 0 {
+						info!("Start sending messages");
+					}
+
 					for &(count, size) in config.messages_pattern {
 						for _ in 0..count {
 							let mut statement = Statement::new();
-							let topic = blake2_256(
-								format!("{}-{}-{}", client_id, round, msg_idx).as_bytes(),
-							);
+
+							let topic_str =
+								format!("{}-{}-{}-{}", *test_run_id, client_id, round, msg_idx);
+							let topic = blake2_256(topic_str.as_bytes());
 							let channel = blake2_256(msg_idx.to_le_bytes().as_ref());
 
+							// Use timestamp for priority
+							let timestamp_micros = std::time::SystemTime::now()
+								.duration_since(std::time::UNIX_EPOCH)
+								.unwrap()
+								.as_micros() as u32;
+
 							statement.set_channel(channel);
-							statement.set_priority(round as u32);
+							statement.set_priority(timestamp_micros);
 							statement.set_topic(0, topic);
 							statement.set_plain_data(vec![0u8; size]);
 							statement.sign_sr25519_private(&keyring);
 
 							let encoded: Bytes = statement.encode().into();
-							rpc_client
-								.request::<()>("statement_submit", rpc_params![encoded])
+							let result: SubmitResult = rpc_client
+								.request("statement_submit", rpc_params![encoded])
 								.await?;
 
 							msg_idx += 1;
+							if client_id == 0 {
+								info!("Sent {msg_idx} message(s) {topic_str:?}, {result:?}");
+							}
 						}
 					}
 
@@ -953,10 +976,15 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let mut received_count = 0;
 					let mut receive_attempts = 0;
 
+					if client_id == 0 {
+						info!("Start receiving messages");
+					}
+
 					for msg_idx in 0..config.messages_per_client() as u32 {
-						let topic = blake2_256(
-							format!("{}-{}-{}", neighbour_id, round, msg_idx).as_bytes(),
-						);
+						// Use same test run ID for topic lookup
+						let topic_str =
+							format!("{}-{}-{}-{}", *test_run_id, neighbour_id, round, msg_idx);
+						let topic = blake2_256(topic_str.as_bytes());
 
 						for retry in 0..config.max_retries {
 							receive_attempts += 1;
@@ -971,9 +999,15 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							{
 								Ok(Ok(statements)) if !statements.is_empty() => {
 									received_count += statements.len() as u32;
+									if client_id == 0 {
+										info!("Received {received_count} message(s) {topic_str:?}")
+									}
 									break;
 								},
-								_ if retry < config.max_retries - 1 => {
+								res if retry < config.max_retries - 1 => {
+									if client_id == 0 {
+										info!("Waiting to retry, {res:?} {topic_str:?}")
+									}
 									tokio::time::sleep(Duration::from_millis(
 										config.retry_delay_ms,
 									))
