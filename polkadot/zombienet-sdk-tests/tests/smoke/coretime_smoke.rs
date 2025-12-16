@@ -14,7 +14,7 @@
 //! It then configures the relay and broker chains to onboard parachain 100
 //! and verifies it starts producing blocks.
 
-use super::utils::{
+use crate::utils::{
 	env_or_default, fetch_genesis_header, fetch_validation_code, initialize_network,
 	CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };

@@ -7,7 +7,7 @@
 //! re-registered using the validatorManager pallet. It checks that the
 //! validator status metrics update correctly after session boundaries.
 
-use super::utils::{
+use crate::utils::{
 	create_deregister_validator_call, create_register_validator_call, env_or_default,
 	initialize_network, ACTIVE_VALIDATOR_METRIC, INTEGRATION_IMAGE_ENV, PARACHAIN_VALIDATOR_METRIC,
 };

@@ -6,7 +6,7 @@
 //! This test verifies that a parachain can be registered, produce blocks,
 //! perform a runtime upgrade, and continue producing blocks after the upgrade.
 
-use super::utils::{env_or_default, initialize_network, CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
+use crate::utils::{env_or_default, initialize_network, CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_is_registered, assert_para_throughput, create_runtime_upgrade_call,

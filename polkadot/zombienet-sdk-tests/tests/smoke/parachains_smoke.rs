@@ -7,7 +7,7 @@
 //! It spawns a relay chain with two validators (alice, bob) and registers
 //! parachain 100 using the adder-collator.
 
-use super::utils::{env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
+use crate::utils::{env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;

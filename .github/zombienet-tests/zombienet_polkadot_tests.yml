@@ -32,10 +32,9 @@
   use-zombienet-sdk: false
 
 - job-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
-  test-definition: "0007-dispute-freshly-finalized.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::dispute_freshly_finalized::dispute_freshly_finalized"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
   test-definition: "0013-systematic-chunk-recovery.zndsl"
