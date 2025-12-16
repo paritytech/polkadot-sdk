@@ -1,31 +1,97 @@
 title: '[pallet-revive] opcode tracer'
 doc:
 - audience: Runtime Dev
-  description: "This PR introduces a **Geth-compatible execution tracer** ([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\
-    \ for pallet-revive\n\n The tracer can be used to capture both EVM opcode and\
-    \ PVM syscall.\n It can be used with  the same RPC endpoint as Geth StructLogger.\n\
-    \n\nSince it can be quite resource intensive, It can only be queried from the\
-    \ node when the **DebugSettings** are enabled (This is turned on now by default\
-    \ in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\
-    \n\nexample:\n\n```sh\n\u276F cast rpc debug_traceTransaction \"<TX_HASH>\" |\
-    \ jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\
-    \n \u276F cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\"\
-    : true } } | jq\n```\n\nFor an EVM execution, the output will look like this\n\
-    \n```json\n{\n  \"gas\": 16208049,\n  \"failed\": false,\n  \"returnValue\": \"\
-    0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 14609533,\n      \"gasCost\"\
-    : 1,\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"\
-    stack\": []\n    },\n    {\n      \"gas\": 14609532,\n      \"gasCost\": 1,\n\
-    \      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\"\
-    : [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 14609531,\n    \
-    \  \"gasCost\": 1,\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\"\
-    ,\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n\
-    }\n```\n\nFor a PVM execution the response will look like this\n\n```json\n{\n\
-    \  \"gas\": 279456,\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\"\
-    : [\n    {\n      \"gas\": 27108,\n      \"gasCost\": 7,\n      \"depth\": 1,\n\
-    \      \"op\": \"call_data_size\"\n    },\n    {\n      \"gas\": 26977,\n    \
-    \  \"gasCost\": 7,\n      \"depth\": 1,\n      \"op\": \"call_data_load\"\n  \
-    \  },\n    {\n      \"gas\": 26957,\n      \"gasCost\": 7,\n      \"depth\": 1,\n\
-    \      \"op\": \"value_transferred\"\n    }]\n}\n```"
+  description: |
+    This PR introduces a **Geth-compatible execution tracer** ([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger)) for pallet-revive
+
+    The tracer can be used to capture both EVM opcode and PVM syscall.
+    It can be used with  the same RPC endpoint as Geth StructLogger.
+
+
+    Since it can be quite resource intensive, It can only be queried from the node when the **DebugSettings** are enabled (This is turned on now by default in the dev-node)
+
+    Tested in https://github.com/paritytech/evm-test-suite/pull/138
+
+
+    example:
+
+    ```sh
+    ❯ cast rpc debug_traceTransaction "<TX_HASH>" | jq
+
+    # or with options
+    # See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger
+
+     ❯ cast rpc debug_traceTransaction "<TX_HASH>", { "tracer": { "enableMemory": true } } | jq
+    ```
+
+    For an EVM execution, the output will look like this
+
+    ```json
+    {
+      "gas": 16208049,
+      "failed": false,
+      "returnValue": "0x",
+      "structLogs": [
+        {
+          "gas": 14609533,
+          "gasCost": 1,
+          "depth": 1,
+          "pc": 0,
+          "op": "PUSH1",
+          "stack": []
+        },
+        {
+          "gas": 14609532,
+          "gasCost": 1,
+          "depth": 1,
+          "pc": 2,
+          "op": "PUSH1",
+          "stack": [
+            "0x80"
+          ]
+        },
+        {
+          "gas": 14609531,
+          "gasCost": 1,
+          "depth": 1,
+          "pc": 4,
+          "op": "MSTORE",
+          "stack": [
+            "0x80",
+            "0x40"
+          ]
+        }]
+    }
+    ```
+
+    For a PVM execution the response will look like this
+
+    ```json
+    {
+      "gas": 279456,
+      "failed": false,
+      "returnValue": "0x",
+      "structLogs": [
+        {
+          "gas": 27108,
+          "gasCost": 7,
+          "depth": 1,
+          "op": "call_data_size"
+        },
+        {
+          "gas": 26977,
+          "gasCost": 7,
+          "depth": 1,
+          "op": "call_data_load"
+        },
+        {
+          "gas": 26957,
+          "gasCost": 7,
+          "depth": 1,
+          "op": "value_transferred"
+        }]
+    }
+    ```
 crates:
 - name: pallet-revive
   bump: patch
