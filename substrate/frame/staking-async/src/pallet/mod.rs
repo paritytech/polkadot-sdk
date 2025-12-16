@@ -1620,6 +1620,15 @@ pub mod pallet {
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
 
+			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
+			// errors. This matches the behavior of pallet-staking.
+			let chill_weight = if value >= ledger.active {
+				Self::chill_stash(&stash);
+				T::WeightInfo::chill()
+			} else {
+				Weight::zero()
+			};
+
 			ensure!(
 				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
 				Error::<T>::NoMoreChunks,
@@ -1683,9 +1692,13 @@ pub mod pallet {
 			}
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+				Some(
+					T::WeightInfo::unbond()
+						.saturating_add(withdraw_weight)
+						.saturating_add(chill_weight),
+				)
 			} else {
-				Some(T::WeightInfo::unbond())
+				Some(T::WeightInfo::unbond().saturating_add(chill_weight))
 			};
 
 			Ok(actual_weight.into())
