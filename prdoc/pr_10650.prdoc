@@ -27,12 +27,6 @@ doc:
       This refactoring reduces the codebase by ~170 lines while maintaining the
       same functionality and adding documentation.
 
-      Note: Benchmarks show an unexpected ~46% performance improvement in the
-      availability-distribution subsystem (CPU usage reduced from 0.0131s to
-      0.0070s per block). The exact causal mechanism is unclear, but the
-      improvement is reproducible. While the code is more optimal now, it is
-      unclear how availability-distribution could be affected.
-
 crates:
   - name: polkadot-node-core-backing
     bump: patch
