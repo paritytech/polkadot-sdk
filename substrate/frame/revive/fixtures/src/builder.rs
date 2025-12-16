@@ -310,7 +310,6 @@ pub fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 
 /// Ensure @openzeppelin/contracts is installed under `install_dir/node_modules`.
 fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
-	println!("cargo:warning=RVE ensure_openzeppelin( -- install_dir: {}", install_dir.display());
 	let node_modules = install_dir.join("node_modules");
 	let oz_contracts = node_modules.join("@openzeppelin/contracts");
 
@@ -347,23 +346,6 @@ fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
 		bail!("failed to install @openzeppelin/contracts into {:?}", node_modules);
 	}
 
-	fn print_dir_recursive(base: &Path, dir: &Path) -> std::io::Result<()> {
-		for entry in fs::read_dir(dir)? {
-			let entry = entry?;
-			let path = entry.path();
-			let rel = path.strip_prefix(base).unwrap_or(&path);
-			if path.is_dir() {
-				println!("cargo:warning=DIR  {}", rel.display());
-				print_dir_recursive(base, &path)?;
-			} else {
-				println!("cargo:warning=FILE {}", rel.display());
-			}
-		}
-		Ok(())
-	}
-	println!("cargo:warning=RVE after npm install, contents of {}:", install_dir.display());
-	let _ = print_dir_recursive(install_dir, install_dir);
-
 	Ok(())
 }
 
@@ -375,9 +357,9 @@ fn compile_with_standard_json(
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
 	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
-	let oz_root = contracts_dir.join("node_modules/@openzeppelin");
+	let oz_root = out_dir.join("node_modules/@openzeppelin/");
 	if oz_root.exists() {
-		remappings.push("@openzeppelin/=node_modules/@openzeppelin/".to_string());
+		remappings.push(format!("@openzeppelin/={}", oz_root.display()));
 	}
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
@@ -422,8 +404,6 @@ fn compile_with_standard_json(
 	} else {
 		INTERFACE_DIR.to_string()
 	};
-
-	println!("cargo:warning=RVE after npm install, allow_paths: {}", allow_paths);
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
