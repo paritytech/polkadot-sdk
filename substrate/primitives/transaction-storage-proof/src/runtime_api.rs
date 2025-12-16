@@ -32,8 +32,7 @@ pub mod client {
 	use codec::Decode;
 	use sp_api::{ApiError, CallApiAt, CallApiAtParams};
 	use sp_core::traits::CallContext;
-	use sp_runtime::traits::Block as BlockT;
-	use sp_runtime::traits::NumberFor;
+	use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 	/// An expected state call key.
 	pub const TRANSACTION_STORAGE_API_STORAGE_PERIOD: &'static str =
@@ -45,8 +44,8 @@ pub mod client {
 	/// provided by the runtime.
 	///
 	/// # Arguments
-	/// - `client`: A reference to an object implementing the `CallApiAt` trait,
-	///   used to interact with the runtime API.
+	/// - `client`: A reference to an object implementing the `CallApiAt` trait, used to interact
+	///   with the runtime API.
 	/// - `at_block`: The hash of the specific block for which the storage period is queried.
 	pub fn retrieve_storage_period<B, C>(
 		client: &C,
