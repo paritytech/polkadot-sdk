@@ -190,7 +190,11 @@ jobs:
            echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
 
        - name: Install solc
-         run: brew install solidity
+         run: |
+           # Install solc 0.8.30 or earlier (0.8.31+ not supported by resolc)
+           brew install solidity@8
+           brew link solidity@8 --force --overwrite
+           solc --version
 
        - name: Install resolc
          run: |
