@@ -20,21 +20,26 @@ use crate::{
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
 	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
+	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
+	PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
+};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
-use revm::bytecode::opcode::*;
+use sp_runtime::Weight;
 use test_case::test_case;
+
+use revm::bytecode::opcode::*;
 
 mod arithmetic;
 mod bitwise;
@@ -45,6 +50,7 @@ mod host;
 mod memory;
 mod stack;
 mod system;
+mod terminate;
 mod tx_info;
 
 fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
@@ -111,7 +117,7 @@ fn basic_evm_flow_tracing_works() {
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
@@ -123,8 +129,9 @@ fn basic_evm_flow_tracing_works() {
 		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
+		let call_trace = tracer.collect_trace().unwrap();
 		assert_eq!(
-			tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				from: ALICE_ADDR,
 				call_type: CallType::Create,
@@ -132,11 +139,13 @@ fn basic_evm_flow_tracing_works() {
 				input: code.into(),
 				output: runtime_code.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			}
 		);
 
-		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut call_tracer = CallTracer::new(Default::default());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
@@ -146,8 +155,9 @@ fn basic_evm_flow_tracing_works() {
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded);
 
+		let call_trace = call_tracer.collect_trace().unwrap();
 		assert_eq!(
-			call_tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
@@ -157,6 +167,8 @@ fn basic_evm_flow_tracing_works() {
 					.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			},
 		);
@@ -178,7 +190,7 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false, false)),
 			..Default::default()
 		};
 
@@ -209,6 +221,7 @@ fn upload_evm_runtime_code_works() {
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
+		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -219,11 +232,11 @@ fn upload_evm_runtime_code_works() {
 		let deployer_addr = ALICE_ADDR;
 		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
 
-		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+		let uploaded_blob = Pallet::<Test>::try_upload_code(
 			deployer,
 			runtime_code.clone(),
 			crate::vm::BytecodeType::Evm,
-			u64::MAX,
+			&mut TransactionMeter::new_from_limits(Weight::MAX, BalanceOf::<Test>::MAX).unwrap(),
 			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
@@ -378,12 +391,19 @@ fn prestate_diff_mode_tracing_works() {
 						"{{CONTRACT_ADDR}}": {
 							"balance": "0x0",
 							"nonce": 2,
-							"code": "{{CONTRACT_CODE}}"
+							"code": "{{CONTRACT_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							}
 						},
 						"{{CHILD_ADDR}}": {
 							"balance": "0x0",
 							"nonce": 1,
-							"code": "{{CHILD_CODE}}"
+							"code": "{{CHILD_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+							}
 						}
 					}
 				}"#,
@@ -496,4 +516,80 @@ fn prestate_diff_mode_tracing_works() {
 			);
 		});
 	}
+}
+
+#[test]
+fn eth_substrate_call_dispatches_successfully() {
+	use frame_support::traits::fungible::Inspect;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 100);
+
+		let transfer_call =
+			crate::tests::RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				dest: BOB,
+				value: 50,
+			});
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_none());
+
+		assert_ok!(Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(transfer_call),
+			vec![]
+		));
+
+		// Verify balance changed
+		assert_eq!(<Test as Config>::Currency::balance(&ALICE), 950);
+		assert_eq!(<Test as Config>::Currency::balance(&BOB), 150);
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_some());
+	});
+}
+
+#[test]
+fn eth_substrate_call_requires_eth_origin() {
+	ExtBuilder::default().build().execute_with(|| {
+		let inner_call = frame_system::Call::remark { remark: vec![] };
+
+		// Should fail with non-EthTransaction origin
+		assert_noop!(
+			Pallet::<Test>::eth_substrate_call(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(inner_call.into()),
+				vec![]
+			),
+			sp_runtime::traits::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn eth_substrate_call_tracks_weight_correctly() {
+	use crate::weights::WeightInfo;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+
+		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
+		let transaction_encoded = vec![];
+		let transaction_encoded_len = transaction_encoded.len() as u32;
+
+		let result = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.clone().into()),
+			transaction_encoded,
+		);
+
+		assert_ok!(result);
+		let post_info = result.unwrap();
+
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
+		assert!(
+			expected_weight == post_info.actual_weight.unwrap(),
+			"expected_weight ({}) should be == actual_weight ({})",
+			expected_weight,
+			post_info.actual_weight.unwrap(),
+		);
+	});
 }

@@ -23,6 +23,7 @@ use bp_header_chain::{
 	SubmitFinalityProofInfo,
 };
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -32,12 +33,11 @@ use sp_consensus_grandpa::SetId;
 use sp_runtime::{
 	traits::{CheckedSub, Header, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	RuntimeDebug, SaturatedConversion,
+	SaturatedConversion,
 };
-use sp_std::fmt::Debug;
 
 /// Verified `SubmitFinalityProofInfo<N>`.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct VerifiedSubmitFinalityProofInfo<N: Debug> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,

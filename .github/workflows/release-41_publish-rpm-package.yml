@@ -1,0 +1,29 @@
+name: Release - Publish polkadot RPM package
+
+# This workflow publishes the polkadot RPM package by calling a reusable workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
+        default: polkadot-stable2412
+        required: true
+        type: string
+
+  workflow_call:
+    inputs:
+      tag:
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
+        required: true
+        type: string
+
+jobs:
+  call-publish-workflow:
+    uses: ./.github/workflows/release-reusable-publish-packages.yml
+    with:
+      tag: ${{ inputs.tag }}
+      distribution: ${{ inputs.distribution }}
+      package_type: 'rpm'
+      aws_repo_base_path: "s3://releases-package-repos"
+      cloudfront_distribution_id: "E36FKEYWDXAZYJ"
+    secrets: inherit

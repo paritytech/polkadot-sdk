@@ -42,7 +42,7 @@ pub const CHUNK_SIZE: usize = 256;
 pub type ChunkIndex = u32;
 
 /// Errors that can occur while checking the storage proof.
-#[derive(Encode, sp_runtime::RuntimeDebug)]
+#[derive(Encode, Debug)]
 #[cfg_attr(feature = "std", derive(Decode))]
 pub enum InherentError {
 	InvalidProof,
