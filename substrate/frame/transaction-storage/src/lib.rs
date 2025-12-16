@@ -57,7 +57,7 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-/// Default storage period for data.
+/// Default storage period for data (in blocks).
 pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
 
 // TODO: https://github.com/paritytech/polkadot-bulletin-chain/issues/139 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
