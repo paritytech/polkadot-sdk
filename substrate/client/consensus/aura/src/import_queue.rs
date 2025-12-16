@@ -445,7 +445,9 @@ where
 	) -> Result<ImportResult, Self::Error> {
 		let post_header = block.post_header();
 		let res = self.block_import.import_block(block).await?;
-		self.authorities_tracker.import(&post_header)?;
+		if matches!(res, ImportResult::Imported(..)) {
+			self.authorities_tracker.import(&post_header)?;
+		}
 		Ok(res)
 	}
 }
