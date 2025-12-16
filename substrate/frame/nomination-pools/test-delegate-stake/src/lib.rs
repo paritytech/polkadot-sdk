@@ -34,7 +34,8 @@ use pallet_nomination_pools::{
 	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
 };
 use pallet_staking_async::{
-	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
+	AreNominatorsSlashable, CurrentEra, Error as StakingError, Event as StakingEvent, Payee,
+	RewardDestination,
 };
 
 use pallet_delegated_staking::Event as DelegatedStakingEvent;
@@ -1730,5 +1731,227 @@ fn pool_no_dangling_delegation() {
 		assert_eq!(Balances::total_balance_on_hold(&alice), 0);
 		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
 		assert_eq!(Balances::total_balance_on_hold(&charlie), 0);
+	});
+}
+
+/// When `AreNominatorsSlashable` is false, pool members can unbond and withdraw in 1 era
+/// instead of waiting the full bonding duration.
+#[test]
+fn pool_members_unbond_in_one_era_when_nominators_not_slashable() {
+	new_test_ext().execute_with(|| {
+		// Set nominators as not slashable - this enables fast unbonding.
+		AreNominatorsSlashable::<Runtime>::put(false);
+		assert!(!AreNominatorsSlashable::<Runtime>::get());
+
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(BondingDuration::get(), 3); // Full bonding duration is 3 eras.
+
+		// Create the pool with depositor (10) bonding 50.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// Have the pool nominate.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Member 20 joins with 10.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+
+		// Progress to era 1.
+		set_current_era(1);
+
+		// Member 20 unbonds their 10.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
+
+		// The unbond era should be current_era + 1 = 2 (not current_era + BondingDuration = 4).
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 },
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+				// Unbond era is 2, not 4!
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 2 },
+			]
+		);
+
+		// Cannot withdraw yet - still in era 1.
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0),
+			PoolsError::<Runtime>::CannotWithdrawAny
+		);
+
+		// Progress to era 2 - member should now be able to withdraw.
+		set_current_era(2);
+
+		// Now can withdraw after just 1 era (not 3).
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
+			]
+		);
+
+		// Member 20 is fully withdrawn.
+		assert!(PoolMembers::<Runtime>::get(20).is_none());
+	});
+}
+
+/// When `AreNominatorsSlashable` is false, pool members are NOT slashed even when the
+/// validator they nominated is slashed.
+#[test]
+fn pool_members_not_slashed_when_nominators_not_slashable() {
+	new_test_ext().execute_with(|| {
+		// Set nominators as not slashable.
+		AreNominatorsSlashable::<Runtime>::put(false);
+		assert!(!AreNominatorsSlashable::<Runtime>::get());
+
+		ExistentialDeposit::set(1);
+		assert_eq!(Balances::minimum_balance(), 1);
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+
+		// Create the pool with depositor (10) bonding 40.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
+
+		// Have the pool nominate validator 1.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1]));
+
+		// Members join.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 20, 1));
+
+		let _ = staking_events_since_last_call();
+		let _ = pool_events_since_last_call();
+
+		// Progress to era 1 so the pool is in validator 1's exposure.
+		set_current_era(1);
+
+		// Record pool's total stake before slash.
+		let pool_stake_before =
+			pallet_staking_async::Ledger::<Runtime>::get(&POOL1_BONDED).unwrap().active;
+		assert_eq!(pool_stake_before, 80); // 40 + 20 + 20
+
+		// Slash validator 1 for 50% of their stake.
+		pallet_staking_async::slashing::do_slash::<Runtime>(
+			&1,  // validator
+			500, // slash 500 (50% of validator's 1000)
+			&mut Default::default(),
+			&mut Default::default(),
+			0,
+		);
+
+		// Pool's stake should be unchanged - nominators are not slashed.
+		let pool_stake_after =
+			pallet_staking_async::Ledger::<Runtime>::get(&POOL1_BONDED).unwrap().active;
+		assert_eq!(pool_stake_after, pool_stake_before);
+		assert_eq!(pool_stake_after, 80);
+
+		// Individual pool members' points should also be unchanged.
+		assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 40);
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().points, 20);
+
+		// Members can still unbond and withdraw their full amounts.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 20));
+
+		// Fast forward to withdrawal era (era 1 + 1 = era 2 since nominators not slashable).
+		set_current_era(2);
+
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 0));
+
+		// Members got their full amounts back (no slash applied).
+		assert!(PoolMembers::<Runtime>::get(20).is_none());
+		assert!(PoolMembers::<Runtime>::get(21).is_none());
+
+		// Check that the withdrawn amount was the full 20 each.
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 20, balance: 20, era: 2 },
+				PoolsEvent::Unbonded { member: 21, pool_id: 1, points: 20, balance: 20, era: 2 },
+				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 20, balance: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
+				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 20, balance: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 },
+			]
+		);
+	});
+}
+
+/// Test that pool members still need full bonding duration when `AreNominatorsSlashable` is true.
+/// This is a sanity check to ensure the default behavior is preserved.
+#[test]
+fn pool_members_need_full_bonding_duration_when_nominators_slashable() {
+	new_test_ext().execute_with(|| {
+		// Ensure nominators are slashable (default).
+		assert!(AreNominatorsSlashable::<Runtime>::get());
+
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(BondingDuration::get(), 3);
+
+		// Create the pool.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Member 20 joins.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+
+		let _ = pool_events_since_last_call();
+
+		// Progress to era 1.
+		set_current_era(1);
+
+		// Member 20 unbonds.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
+
+		// The unbond era should be current_era + BondingDuration = 1 + 3 = 4.
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				// Unbond era is 4 (full bonding duration).
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 4 },
+			]
+		);
+
+		// Cannot withdraw in era 2 (only 1 era passed).
+		set_current_era(2);
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0),
+			PoolsError::<Runtime>::CannotWithdrawAny
+		);
+
+		// Cannot withdraw in era 3 (only 2 eras passed).
+		set_current_era(3);
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0),
+			PoolsError::<Runtime>::CannotWithdrawAny
+		);
+
+		// Can finally withdraw in era 4 (full bonding duration passed).
+		set_current_era(4);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+		assert!(PoolMembers::<Runtime>::get(20).is_none());
 	});
 }
