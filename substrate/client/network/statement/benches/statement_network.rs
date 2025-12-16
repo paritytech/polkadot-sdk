@@ -33,7 +33,7 @@ use sc_statement_store::Store;
 use sp_core::Pair;
 use sp_statement_store::{Statement, StatementSource, StatementStore};
 use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc};
-use substrate_test_runtime_client::{DefaultTestClientBuilderExt, TestClientBuilderExt};
+use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
 const STATEMENT_DATA_SIZE: usize = 256;
 
@@ -188,7 +188,12 @@ fn build_handler(
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 
-	let client = Arc::new(substrate_test_runtime_client::TestClientBuilder::new().build());
+	let wasm_executor = WasmExecutor::builder().with_max_runtime_instances(8).build();
+	let (client, _) = substrate_test_runtime_client::TestClientBuilder::new()
+		.build_with_native_executor::<substrate_test_runtime_client::runtime::RuntimeApi, _>(
+		Some(wasm_executor),
+	);
+	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
 	let statement_store = Arc::new(statement_store);
