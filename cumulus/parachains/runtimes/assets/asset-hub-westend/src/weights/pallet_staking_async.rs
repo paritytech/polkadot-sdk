@@ -771,7 +771,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:65 w:65)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(265), added: 2740, mode: `MaxEncodedLen`)
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `214677`
 		//  Estimated: `210810`
