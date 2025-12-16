@@ -68,7 +68,7 @@ test-parachain-halt = { workspace = true }
 libc = { workspace = true }
 procfs = { workspace = true }
 rusty-fork = { workspace = true, default-features = true }
-sc-sysinfo = { default-features = true, workspace = true }
+sc-sysinfo = { workspace = true, default-features = true }
 
 [features]
 ci-only-tests = []
