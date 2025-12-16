@@ -23994,7 +23994,6 @@ dependencies = [
  "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
- "substrate-rpc-client",
  "subxt-signer 0.43.0",
  "tempfile",
  "tokio",
