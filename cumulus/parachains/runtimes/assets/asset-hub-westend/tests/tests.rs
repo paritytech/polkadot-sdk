@@ -87,6 +87,8 @@ const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
 
+// ERC20_PVM_CODE_AND_CODEHASH.0 has the code
+// ERC20_PVM_CODE_AND_CODEHASH.1 has the codehash
 static ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> =
 	Lazy::new(|| compile_module_with_type("MyToken", FixtureType::Resolc).expect("compile ERC20"));
 

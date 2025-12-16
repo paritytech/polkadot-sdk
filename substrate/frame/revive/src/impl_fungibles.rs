@@ -296,6 +296,7 @@ mod tests {
 	use once_cell::sync::Lazy;
 	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
 
+	// ERC20_PVM_CODE_AND_CODEHASH.0 has the code
 	// ERC20_PVM_CODE_AND_CODEHASH.1 has the codehash
 	static ERC20_PVM_CODE_AND_CODEHASH: Lazy<(Vec<u8>, sp_core::H256)> = Lazy::new(|| {
 		compile_module_with_type("MyToken", FixtureType::Resolc).expect("compile ERC20")
