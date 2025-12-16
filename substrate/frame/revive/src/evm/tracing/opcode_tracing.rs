@@ -17,7 +17,7 @@
 use crate::{
 	evm::{
 		tracing::Tracing, Bytes, ExecutionStep, ExecutionStepKind, ExecutionTrace,
-		OpcodeTracerConfig,
+		StructLoggerConfig,
 	},
 	tracing::{EVMFrameTraceInfo, FrameTraceInfo},
 	vm::pvm::env::lookup_syscall_index,
@@ -35,7 +35,7 @@ use sp_core::{H160, U256};
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct ExecutionTracer {
 	/// The tracer configuration.
-	config: OpcodeTracerConfig,
+	config: StructLoggerConfig,
 
 	/// The collected trace steps.
 	steps: Vec<ExecutionStep>,
@@ -64,7 +64,7 @@ pub struct ExecutionTracer {
 
 impl ExecutionTracer {
 	/// Create a new [`ExecutionTracer`] instance.
-	pub fn new(config: OpcodeTracerConfig) -> Self {
+	pub fn new(config: StructLoggerConfig) -> Self {
 		Self {
 			config,
 			steps: Vec::new(),

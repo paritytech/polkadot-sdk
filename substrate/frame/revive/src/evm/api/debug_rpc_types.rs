@@ -38,7 +38,7 @@ pub enum TracerType {
 	PrestateTracer(Option<PrestateTracerConfig>),
 
 	/// A tracer that traces opcodes and syscalls.
-	StructLogger(Option<OpcodeTracerConfig>),
+	StructLogger(Option<StructLoggerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -53,8 +53,8 @@ impl From<PrestateTracerConfig> for TracerType {
 	}
 }
 
-impl From<OpcodeTracerConfig> for TracerType {
-	fn from(config: OpcodeTracerConfig) -> Self {
+impl From<StructLoggerConfig> for TracerType {
+	fn from(config: StructLoggerConfig) -> Self {
 		TracerType::StructLogger(Some(config))
 	}
 }
@@ -97,7 +97,7 @@ impl<'de> Deserialize<'de> for TracerConfig {
 		#[serde(rename_all = "camelCase")]
 		struct TracerConfigInline {
 			#[serde(flatten, default)]
-			opcode_config: OpcodeTracerConfig,
+			struct_logger_config: StructLoggerConfig,
 			#[serde(with = "humantime_serde", default)]
 			timeout: Option<core::time::Duration>,
 		}
@@ -113,7 +113,7 @@ impl<'de> Deserialize<'de> for TracerConfig {
 			TracerConfigHelper::WithType(cfg) =>
 				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
 			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
-				config: TracerType::StructLogger(Some(cfg.opcode_config)),
+				config: TracerType::StructLogger(Some(cfg.struct_logger_config)),
 				timeout: cfg.timeout,
 			}),
 		}
@@ -168,10 +168,10 @@ where
 	})
 }
 
-/// The configuration for the opcode tracer.
+/// The configuration for the struct logger.
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]
-pub struct OpcodeTracerConfig {
+pub struct StructLoggerConfig {
 	/// Whether to enable memory capture
 	pub enable_memory: bool,
 
@@ -192,7 +192,7 @@ pub struct OpcodeTracerConfig {
 	pub memory_word_limit: u32,
 }
 
-impl Default for OpcodeTracerConfig {
+impl Default for StructLoggerConfig {
 	fn default() -> Self {
 		Self {
 			enable_memory: false,
@@ -226,7 +226,7 @@ fn test_tracer_config_serialization() {
 		(
 			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true }"#,
 			TracerConfig {
-				config: TracerType::StructLogger(Some(OpcodeTracerConfig {
+				config: TracerType::StructLogger(Some(StructLoggerConfig {
 					enable_memory: true,
 					disable_stack: false,
 					disable_storage: false,
@@ -240,7 +240,7 @@ fn test_tracer_config_serialization() {
 		(
 			r#"{  }"#,
 			TracerConfig {
-				config: TracerType::StructLogger(Some(OpcodeTracerConfig::default())),
+				config: TracerType::StructLogger(Some(StructLoggerConfig::default())),
 				timeout: None,
 			},
 		),
@@ -276,7 +276,7 @@ fn test_tracer_config_serialization() {
 		(
 			r#"{"tracer": "structLogger", "tracerConfig": { "enableMemory": true }}"#,
 			TracerConfig {
-				config: OpcodeTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				config: StructLoggerConfig { enable_memory: true, ..Default::default() }.into(),
 				timeout: None,
 			},
 		),
@@ -540,7 +540,7 @@ pub enum ExecutionStepKind {
 
 macro_rules! define_opcode_functions {
 	($($op:ident),* $(,)?) => {
-		/// Get opcode name from byte value using REVM opcode names
+		/// Get opcode name from byte value using opcode names
 		fn get_opcode_name(opcode: u8) -> &'static str {
 			use revm::bytecode::opcode::*;
 			match opcode {
