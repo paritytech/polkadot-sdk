@@ -47,12 +47,13 @@ mod pruning;
 mod test;
 
 use codec::Codec;
+use codec::{Decode, Encode};
 use log::trace;
 use noncanonical::NonCanonicalOverlay;
 use parking_lot::RwLock;
 use pruning::{HaveBlock, RefWindow};
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fmt,
 };
 
@@ -63,6 +64,11 @@ const PRUNING_MODE_ARCHIVE: &[u8] = b"archive";
 const PRUNING_MODE_ARCHIVE_CANON: &[u8] = b"archive_canonical";
 const PRUNING_MODE_CONSTRAINED: &[u8] = b"constrained";
 pub(crate) const DEFAULT_MAX_BLOCK_CONSTRAINT: u32 = 256;
+
+/// List of partial state keys already imported per block.
+/// By default ParityDB doesn't support iterating db keys unless `btree_index` is set for column,
+/// so storing list of partial state keys under single meta key.
+const PARTIAL_STATE_KEYS: &[u8] = b"partial_state_keys";
 
 /// Database value type.
 pub type DBValue = Vec<u8>;
@@ -305,6 +311,8 @@ pub struct StateDbSync<BlockHash: Hash, Key: Hash, D: MetaDb> {
 	pruning: Option<RefWindow<BlockHash, Key, D>>,
 	pinned: HashMap<BlockHash, u32>,
 	ref_counting: bool,
+	/// List of partial state keys already imported per block.
+	partial_state_keys: HashMap<BlockHash, HashSet<Key>>,
 }
 
 impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
@@ -315,6 +323,15 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 	) -> Result<StateDbSync<BlockHash, Key, D>, Error<D::Error>> {
 		trace!(target: LOG_TARGET, "StateDb settings: {:?}. Ref-counting: {}", mode, ref_counting);
 
+		let partial_state_keys = if let Some(encoded) = db.get_meta(&to_meta_key(PARTIAL_STATE_KEYS, &())).map_err(Error::Db)? {
+			<Vec<(BlockHash, Vec<Key>)> as Decode>::decode(&mut encoded.as_slice())?
+				.into_iter()
+				.map(|(block_hash, keys)| (block_hash, keys.into_iter().collect()))
+				.collect()
+		} else {
+			Default::default()
+		};
+
 		let non_canonical: NonCanonicalOverlay<BlockHash, Key> = NonCanonicalOverlay::new(&db)?;
 		let pruning: Option<RefWindow<BlockHash, Key, D>> = match mode {
 			PruningMode::Constrained(Constraints { max_blocks }) =>
@@ -322,7 +339,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => None,
 		};
 
-		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default(), ref_counting })
+		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default(), ref_counting, partial_state_keys })
 	}
 
 	fn insert_block(
@@ -521,6 +538,41 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		}
 		db.get(key.as_ref()).map_err(Error::Db)
 	}
+
+	fn write_partial_state_keys(&self, commit: &mut CommitSet<Key>) {
+		commit.meta.inserted.push((
+			PARTIAL_STATE_KEYS.to_vec(),
+			self.partial_state_keys
+				.iter()
+				.map(|(block_hash, keys)| (block_hash, keys.iter().collect::<Vec<_>>()))
+				.collect::<Vec<_>>()
+				.encode(),
+		));
+	}
+
+	pub fn import_partial_state<I: IntoIterator<Item = (Key, Vec<u8>)>>(&mut self, block_hash: &BlockHash, partial_state: I) -> CommitSet<Key> {
+		let mut commit = CommitSet::default();
+		let keys = self.partial_state_keys.entry(block_hash.clone()).or_default();
+		for (key, value) in partial_state {
+			if keys.contains(&key) {
+				continue;
+			}
+			keys.insert(key.clone());
+			commit.data.inserted.push((key, value));
+		}
+		if !commit.data.inserted.is_empty() {
+			self.write_partial_state_keys(&mut commit);
+		}
+		commit
+	}
+
+	pub fn remove_completed_partial_state(&mut self, block_hash: &BlockHash) -> CommitSet<Key> {
+		let mut commit = CommitSet::default();
+		if self.partial_state_keys.remove(block_hash).is_some() {
+			self.write_partial_state_keys(&mut commit);
+		}
+		commit
+	}
 }
 
 /// State DB maintenance. See module description.
@@ -657,6 +709,21 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		let mut state_db = self.db.write();
 		*state_db = StateDbSync::new(state_db.mode.clone(), state_db.ref_counting, db)?;
 		Ok(())
+	}
+
+	/// Inject partial state into the database.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	pub fn import_partial_state<I: IntoIterator<Item = (Key, Vec<u8>)>>(&self, block_hash: &BlockHash, partial_state: I) -> CommitSet<Key> {
+		self.db.write().import_partial_state(block_hash, partial_state)
+	}
+
+	/// Remove partial state keys used for deduplication after completing state sync.
+	pub fn remove_completed_partial_state(&self, block_hash: &BlockHash) -> CommitSet<Key> {
+		self.db.write().remove_completed_partial_state(block_hash)
 	}
 }
 

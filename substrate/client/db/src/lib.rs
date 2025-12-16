@@ -939,8 +939,9 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
-	fn mark_have_state(&mut self) {
+	fn set_partial_state_completed(&mut self) {
 		self.commit_state = true;
+		self.reset_storage = true;
 	}
 
 	fn set_genesis_state(
@@ -1572,6 +1573,11 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let finalized = if operation.commit_state {
+				if operation.reset_storage {
+					let commit = self.storage.state_db.remove_completed_partial_state(&hash);
+					apply_state_commit(&mut transaction, commit);
+				}
+
 				let mut changeset: sc_state_db::ChangeSet<Vec<u8>> =
 					sc_state_db::ChangeSet::default();
 				let mut ops: u64 = 0;
@@ -2638,14 +2644,17 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		)
 	}
 
-	fn import_partial_state(&self, mut partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
-		self.storage.db.commit(Transaction(
+	fn import_partial_state(&self, block_hash: Block::Hash, mut partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		let mut transaction = Transaction::new();
+		let commit = self.storage.state_db.import_partial_state(
+			&block_hash,
 			partial_state
 				.drain()
 				.into_iter()
-				.map(|(key, (value, _))| sp_database::Change::Set(columns::STATE, key, value))
-				.collect(),
-		))?;
+				.map(|(key, (value, _))| (key, value)),
+		);
+		apply_state_commit(&mut transaction, commit);
+		self.storage.db.commit(transaction)?;
 		Ok(())
 	}
 
@@ -5050,10 +5059,6 @@ pub(crate) mod tests {
 		trie.commit();
 		drop(trie);
 
-		let backend = Backend::<Block>::new_test(10, 10);
-		backend.import_partial_state(partial_state).unwrap();
-
-		let mut op = backend.begin_operation().unwrap();
 		let header = Header {
 			number: 1,
 			parent_hash: Default::default(),
@@ -5061,8 +5066,12 @@ pub(crate) mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
+		let backend = Backend::<Block>::new_test(10, 10);
+		backend.import_partial_state(header.hash(), partial_state).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
-		op.mark_have_state();
+		op.set_partial_state_completed();
 		backend.commit_operation(op).unwrap();
 
 		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()

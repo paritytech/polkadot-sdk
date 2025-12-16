@@ -644,8 +644,8 @@ where
 						number,
 					)
 				},
-				SyncingAction::ImportPartialState { partial_state } => {
-					self.import_partial_state(partial_state);
+				SyncingAction::ImportPartialState { block_hash, partial_state } => {
+					self.import_partial_state(block_hash, partial_state);
 
 					trace!(
 						target: LOG_TARGET,
@@ -1148,12 +1148,15 @@ where
 
 	/// Import partial state.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
-	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
-	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
 	fn import_partial_state(
 		&mut self,
+		block_hash: B::Hash,
 		partial_state: PrefixedMemoryDB<HashingFor<B>>,
 	) {
-		self.import_queue.import_partial_state(partial_state);
+		self.import_queue.import_partial_state(block_hash, partial_state);
 	}
 }

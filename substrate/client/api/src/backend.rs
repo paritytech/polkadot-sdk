@@ -211,7 +211,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Used when complete state is available after series of `import_partial_state` calls.
 	/// `sc-client-db` expects blocks with state to be marked.
 	/// Otherwise it complains that state is not found.
-	fn mark_have_state(&mut self);
+	/// Also removes list of partial state node keys from database (used for write deduplication).
+	fn set_partial_state_completed(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(
@@ -688,9 +689,11 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Inject partial state into the database.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
-	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
-	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
-	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

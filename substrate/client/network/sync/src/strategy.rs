@@ -175,6 +175,7 @@ pub enum SyncingAction<B: BlockT> {
 	},
 	/// Import partial state
 	ImportPartialState {
+		block_hash: B::Hash,
 		partial_state: PrefixedMemoryDB<HashingFor<B>>,
 	},
 	/// Strategy finished. Nothing to do, this is handled by `PolkadotSyncingStrategy`.

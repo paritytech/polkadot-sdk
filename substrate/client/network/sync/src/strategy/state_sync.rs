@@ -86,21 +86,21 @@ pub enum ImportResult<B: BlockT> {
 	Import {
 		hash: B::Hash,
 		header: B::Header,
-		partial_state: Option<PrefixedMemoryDB<HashingFor<B>>>,
+		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
 		state: ImportedState<B>,
 		body: Option<Vec<B::Extrinsic>>,
 		justifications: Option<Justifications>,
 	},
 	/// Continue downloading.
 	Continue {
-		partial_state: Option<PrefixedMemoryDB<HashingFor<B>>>,
+		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
 	},
 	/// Bad state chunk.
 	BadResponse,
 }
 
 impl<B: BlockT> ImportResult<B> {
-	pub fn take_partial_state(&mut self) -> Option<PrefixedMemoryDB<HashingFor<B>>> {
+	pub fn take_partial_state(&mut self) -> Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)> {
 		match self {
 			ImportResult::Import { partial_state, .. } | ImportResult::Continue { partial_state } => partial_state.take(),
 			ImportResult::BadResponse => None,
@@ -330,7 +330,7 @@ where
 			};
 
 			self.metadata.imported_bytes += proof_size;
-			(complete, Some(partial_state))
+			(complete, Some((self.target_hash(), partial_state)))
 		} else {
 			(self.process_state_unverified(response), None)
 		};

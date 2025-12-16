@@ -170,10 +170,11 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 
 	fn import_partial_state(
 		&mut self,
+		block_hash: B::Hash,
 		partial_state: PrefixedMemoryDB<HashingFor<B>>,
 	) {
 		let res = self.partial_state_import_sender.unbounded_send(
-			worker_messages::ImportPartialState { partial_state },
+			worker_messages::ImportPartialState { block_hash, partial_state },
 		);
 
 		if res.is_err() {
@@ -233,6 +234,7 @@ mod worker_messages {
 		pub Justification,
 	);
 	pub struct ImportPartialState<B: BlockT> {
+		pub block_hash: B::Hash,
 		pub partial_state: PrefixedMemoryDB<HashingFor<B>>,
 	}
 }
@@ -352,8 +354,8 @@ impl<B: BlockT> BlockImportWorker<B> {
 				// Then process all partial states before importing block
 				while let Poll::Ready(partial_state) = futures::poll!(partial_state_import_receiver.next()) {
 					match partial_state {
-						Some(ImportPartialState { partial_state }) => {
-							if let Err(e) = block_import.import_partial_state(partial_state).await {
+						Some(ImportPartialState { block_hash, partial_state }) => {
+							if let Err(e) = block_import.import_partial_state(block_hash, partial_state).await {
 								log::debug!(
 									target: LOG_TARGET,
 									"Import partial state failed with error: {}",

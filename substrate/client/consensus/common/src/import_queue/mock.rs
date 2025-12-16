@@ -33,7 +33,7 @@ mockall::mock! {
 			number: NumberFor<B>,
 			justifications: Justifications,
 		);
-		fn import_partial_state(&mut self, partial_state: PrefixedMemoryDB<HashingFor<B>>);
+		fn import_partial_state(&mut self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>);
 	}
 }
 

@@ -611,7 +611,7 @@ where
 						Some((main_sc, child_sc))
 					},
 					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
-						operation.op.mark_have_state();
+						operation.op.set_partial_state_completed();
 						None
 					},
 					sc_consensus::StorageChanges::Import(ImportedState::KeyValues { state: changes_state, .. }) => {
@@ -1804,12 +1804,12 @@ where
 		Ok(ImportResult::imported(false))
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
 		// Can't use `lock_import_and_run`.
 		// It requires block to write state changes along with the block.
 		// But partial state implies block is not ready for import yet.
 		let _import_lock = self.backend.get_import_lock().write();
-		self.backend.import_partial_state(partial_state)
+		self.backend.import_partial_state(block_hash, partial_state)
 		.map_err(|e| {
 			warn!("Partial state import error: {}", e);
 			ConsensusError::ClientImport(e.to_string())
@@ -1843,8 +1843,8 @@ where
 		(&self).import_block(import_block).await
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
-		(&self).import_partial_state(partial_state).await
+	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		(&self).import_partial_state(block_hash, partial_state).await
 	}
 }
 

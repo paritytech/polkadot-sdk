@@ -549,7 +549,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
-	fn mark_have_state(&mut self) {
+	fn set_partial_state_completed(&mut self) {
 		// Don't need to do anything,
 		// because in-memory backend doesn't mark blocks with state
 		// like `sc-client-db` backend does.
@@ -773,7 +773,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
-	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+	fn import_partial_state(&self, _block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
 		self.state_db.write().consolidate(partial_state);
 		Ok(())
 	}
@@ -906,10 +906,6 @@ mod tests {
 		trie.commit();
 		drop(trie);
 
-		let backend = super::Backend::<Block>::new();
-		backend.import_partial_state(partial_state).unwrap();
-
-		let mut op = backend.begin_operation().unwrap();
 		let header = Header {
 			number: 1,
 			parent_hash: Default::default(),
@@ -917,8 +913,12 @@ mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
+		let backend = super::Backend::<Block>::new();
+		backend.import_partial_state(header.hash(), partial_state).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
-		op.mark_have_state();
+		op.set_partial_state_completed();
 		backend.commit_operation(op).unwrap();
 
 		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()

@@ -2006,8 +2006,8 @@ where
 			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));
 		};
 
-		if let Some(partial_state) = import_result.take_partial_state() {
-			self.actions.push(SyncingAction::ImportPartialState { partial_state });
+		if let Some((block_hash, partial_state)) = import_result.take_partial_state() {
+			self.actions.push(SyncingAction::ImportPartialState { block_hash, partial_state });
 		}
 
 		match import_result {

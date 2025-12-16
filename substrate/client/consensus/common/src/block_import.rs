@@ -338,9 +338,11 @@ pub trait BlockImport<B: BlockT> {
 
 	/// Import partial state.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
-	/// After downloading all trie nodes it calls `mark_have_state` to mark completely donwloaded state.
-	/// Trie nodes from imported partial state don't belong to single block, they are reused by other blocks.
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error>;
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	async fn import_partial_state(&self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error>;
 }
 
 #[async_trait::async_trait]
@@ -357,8 +359,8 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 		(**self).import_block(block).await
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
-		(**self).import_partial_state(partial_state).await
+	async fn import_partial_state(&self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		(**self).import_partial_state(block_hash, partial_state).await
 	}
 }
 
@@ -374,8 +376,8 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::ArcBlockImport<B> {
 		(**self).import_block(block).await
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
-		(**self).import_partial_state(partial_state).await
+	async fn import_partial_state(&self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		(**self).import_partial_state(block_hash, partial_state).await
 	}
 }
 
@@ -395,8 +397,8 @@ where
 		(&**self).import_block(block).await
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
-		(&**self).import_partial_state(partial_state).await
+	async fn import_partial_state(&self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		(&**self).import_partial_state(block_hash, partial_state).await
 	}
 }
 

@@ -706,8 +706,8 @@ where
 		self.inner.check_block(block).await
 	}
 
-	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
-		self.inner.import_partial_state(partial_state).await
+	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(block_hash, partial_state).await
 	}
 }
 
