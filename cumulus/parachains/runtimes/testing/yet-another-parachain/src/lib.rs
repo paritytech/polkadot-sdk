@@ -568,7 +568,6 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The TransactionExtension to the basic transaction logic.
 /// The extension to the basic transaction logic.
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
