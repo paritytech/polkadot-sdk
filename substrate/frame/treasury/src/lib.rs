@@ -93,7 +93,7 @@ use sp_runtime::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
 		UniqueSaturatedInto, Zero,
 	},
-	PerThing, Permill, RuntimeDebug,
+	Debug, PerThing, Permill,
 };
 
 use frame_support::{
@@ -152,15 +152,7 @@ pub type ProposalIndex = u32;
 /// A spending proposal.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub struct Proposal<AccountId, Balance> {
 	/// The account proposing it.
@@ -176,15 +168,7 @@ pub struct Proposal<AccountId, Balance> {
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub enum PaymentState<Id> {
 	/// Pending claim.
@@ -198,15 +182,7 @@ pub enum PaymentState<Id> {
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
 	// The kind of asset to be spent.
