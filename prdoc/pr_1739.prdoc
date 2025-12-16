@@ -1,0 +1,55 @@
+title: 'frame-session: Introduce a proper proof of key ownership'
+doc:
+- audience: Node Operator
+  description: |-
+    `frame_session::set_keys` supports providing a `proof` as second parameter. This `proof` was not yet checked. This pull request introduces a verification of this proof and also a way of generating this `proof`. The `proof` in FRAME are concatenated `Signatures`. These `Signatures` are in the same order as the public keys in the `SessionKeys` struct. Each signature is signing the `owner`, proofing that the generating party has access over the private key associated to the public session key. The `owner` in FRAME is the account id of the account that will call `set_keys`, aka the account of the `validator`.
+
+    This pull request is changing the `SessionKeys` runtime api. This still requires a RFC, as this is a public interface of the Polkadot runtime.
+
+    @jacogr polkadot-js should provide a way to use the runtime api directly to generate the sessions keys.
+    @paritytech/docs-audit this will require updates of the validator documentation to tell them what to pass for `owner` and that they need to pass `proof` to `set_keys`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: polkadot
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: pallet-session
+  bump: major
+- name: sp-application-crypto
+  bump: major
+- name: sp-runtime
+  bump: major
+- name: sp-session
+  bump: major
+- name: pallet-collator-selection
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: major
+- name: cumulus-pallet-session-benchmarking
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: sp-io
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: revive-dev-runtime
+  bump: major
