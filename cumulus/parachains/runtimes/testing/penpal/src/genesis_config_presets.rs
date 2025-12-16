@@ -84,11 +84,9 @@ fn penpal_parachain_genesis(
 				"pal-2".as_bytes().to_vec(),
 				12,
 			)],
-			accounts: vec![(
-				crate::xcm_config::TELEPORTABLE_ASSET_ID,
-				sudo.clone(),
-				crate::EXISTENTIAL_DEPOSIT * 4096,
-			)]
+			// Don't pre-fund accounts with non-sufficient assets at genesis
+			// They can be minted later if needed
+			accounts: vec![]
 		},
 		foreign_assets: ForeignAssetsConfig {
 			assets: vec![(

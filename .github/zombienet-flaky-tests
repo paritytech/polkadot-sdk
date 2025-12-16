@@ -9,10 +9,3 @@ zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0009-elastic_scaling_pov_recovery:8986
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:8999
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:9980
-# disabled until zombienet support penpal (https://github.com/paritytech/zombienet-sdk/issues/480)
-zombienet-polkadot-shared-core-idle-parachain:10653
-zombienet-polkadot-functional-async-backing-6-seconds-rate:10653
-zombienet-polkadot-elastic-scaling-doesnt-break-parachains:10653
-zombienet-polkadot-smoke-0005-precompile-pvf-smoke:10653
-zombienet-polkadot-smoke-0004-coretime-smoke-test:10653
-zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:10653
