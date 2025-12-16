@@ -39,7 +39,7 @@ use cumulus_client_service::{
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
-use log::info;
+use log::{debug, info};
 use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
