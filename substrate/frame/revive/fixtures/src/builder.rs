@@ -425,7 +425,6 @@ fn compile_with_standard_json(
 
 	println!("cargo:warning=RVE after npm install, allow_paths: {}", allow_paths);
 
-
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
 		.arg("--allow-paths")
