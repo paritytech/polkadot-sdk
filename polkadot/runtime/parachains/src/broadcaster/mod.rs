@@ -636,7 +636,9 @@ pub mod pallet {
 			);
 
 			// Get or create child trie for this publisher
-			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
+			if !PublisherExists::<T>::contains_key(origin_para_id) {
+				PublisherExists::<T>::insert(origin_para_id, true);
+			}
 
 			// Write to child trie and track keys for enumeration
 			for (key, value) in data {
@@ -660,17 +662,6 @@ pub mod pallet {
 				let child_info = Self::derive_child_info(para_id);
 				frame_support::storage::child::root(&child_info, sp_runtime::StateVersion::V1)
 			})
-		}
-
-		/// Gets or creates the child trie info for a publisher.
-		///
-		/// Creates the child trie entry on first publish. The MaxPublishers limit is enforced
-		/// at registration time, so we don't need to check it here.
-		fn get_or_create_publisher_child_info(para_id: ParaId) -> ChildInfo {
-			if !PublisherExists::<T>::contains_key(para_id) {
-				PublisherExists::<T>::insert(para_id, true);
-			}
-			Self::derive_child_info(para_id)
 		}
 
 		/// Derives a deterministic child trie identifier from a parachain ID.
