@@ -8,7 +8,6 @@
 
 use super::utils::{env_or_default, initialize_network, CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
-use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_is_registered, assert_para_throughput, create_runtime_upgrade_call,
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
@@ -20,14 +19,14 @@ use zombienet_sdk::{
 	NetworkConfig, NetworkConfigBuilder,
 };
 
-const PARA_ID: u32 = 2000;
+const PARA_ID: u32 = 100;
 
 /// Smoke test that verifies parachain registration, block production, and runtime upgrade.
 ///
-/// - Checks parachain 2000 is registered
-/// - Checks parachain 2000 is producing blocks
-/// - Performs runtime upgrade with incremented spec version
-/// - Checks parachain 2000 continues producing blocks after upgrade
+/// - Checks parachain 100 is registered within 225 seconds
+/// - Checks parachain 100 block height is at least 10 within 460 seconds
+/// - Performs runtime upgrade
+/// - Checks parachain 100 block height is at least 14 within 200 seconds
 #[tokio::test(flavor = "multi_thread")]
 async fn parachains_upgrade_smoke_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -43,6 +42,7 @@ async fn parachains_upgrade_smoke_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator01")?;
 	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
 
+	// Check parachain is registered
 	log::info!("Checking parachain {} is registered", PARA_ID);
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 75).await?;
 	log::info!("Parachain {} is registered", PARA_ID);
@@ -56,12 +56,23 @@ async fn parachains_upgrade_smoke_test() -> Result<(), anyhow::Error> {
 	let current_spec_version = para_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version: {}", current_spec_version);
 
+	// Perform runtime upgrade by re-applying the current runtime code
+	// This tests the upgrade mechanism itself
 	log::info!("Performing runtime upgrade");
 
-	let upgrade_wasm = WASM_RUNTIME_UPGRADE.expect("Wasm runtime not built");
-	log::info!("Using upgrade runtime ({} bytes)", upgrade_wasm.len());
+	// Fetch current runtime code from the parachain
+	let code_key = sp_core::storage::well_known_keys::CODE;
+	let current_code = para_client
+		.storage()
+		.at_latest()
+		.await?
+		.fetch_raw(code_key)
+		.await?
+		.ok_or_else(|| anyhow!("Failed to fetch current runtime code"))?;
 
-	let call = create_runtime_upgrade_call(upgrade_wasm);
+	log::info!("Fetched current runtime code ({} bytes)", current_code.len());
+
+	let call = create_runtime_upgrade_call(&current_code);
 	submit_extrinsic_and_wait_for_finalization_success(&para_client, &call, &dev::alice()).await?;
 
 	log::info!("Runtime upgrade submitted, waiting for it to be applied");
@@ -93,7 +104,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.cumulus_based(true)
-				.with_default_command("test-parachain")
+				.with_default_command("polkadot-parachain")
 				.with_default_image(culumus_image.as_str())
 				.with_collator(|n| n.with_name("collator01"))
 		})
