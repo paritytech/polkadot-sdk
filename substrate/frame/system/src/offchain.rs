@@ -62,7 +62,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
 	traits::{ExtrinsicLike, IdentifyAccount, One},
-	RuntimeDebug,
+	Debug,
 };
 
 /// Marker struct used to flag using all supported keys to sign a payload.
@@ -102,7 +102,7 @@ where
 /// The signer is then able to:
 /// - Submit a unsigned transaction with a signed payload
 /// - Submit a signed transaction
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct Signer<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X = ForAny> {
 	accounts: Option<Vec<T::Public>>,
 	_phantom: core::marker::PhantomData<(X, C)>,
@@ -320,7 +320,7 @@ impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signatu
 }
 
 /// Details of an account for which a private key is contained in the keystore.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Account<T: SigningTypes> {
 	/// Index on the provided list of accounts or list of all accounts.
 	pub index: usize,

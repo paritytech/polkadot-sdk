@@ -83,7 +83,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
-use sp_core::RuntimeDebug;
+use Debug;
 
 #[cfg(test)]
 mod mock;
@@ -113,7 +113,7 @@ pub use traits::{IdentifierT, PerThing128};
 #[derive(
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	Clone,
 	codec::Encode,
 	codec::Decode,
@@ -183,7 +183,7 @@ pub struct ElectionScore {
 	pub sum_stake: ExtendedBalance,
 	/// The sum squared of the total backing of all winners, aka. the variance.
 	///
-	/// Ths parameter should be minimized.
+	/// This parameter should be minimized.
 	pub sum_stake_squared: ExtendedBalance,
 }
 
@@ -216,7 +216,7 @@ impl ElectionScore {
 
 	/// Compares two sets of election scores based on desirability, returning true if `self` is
 	/// strictly `threshold` better than `other`. In other words, each element of `self` must be
-	/// `self * threshold` better than `other`.
+	/// better than `other` relative to the given `threshold`.
 	///
 	/// Evaluation is done based on the order of significance of the fields of [`ElectionScore`].
 	pub fn strict_threshold_better(self, other: Self, threshold: impl PerThing) -> bool {
@@ -244,6 +244,12 @@ impl ElectionScore {
 			// anything else is not a good score.
 			_ => false,
 		}
+	}
+
+	/// Compares two sets of election scores based on desirability, returning true if `self` is
+	/// strictly better than `other`.
+	pub fn strict_better(self, other: Self) -> bool {
+		self.strict_threshold_better(other, sp_runtime::Perbill::zero())
 	}
 }
 
@@ -276,7 +282,7 @@ pub struct BalancingConfig {
 pub type CandidatePtr<A> = Rc<RefCell<Candidate<A>>>;
 
 /// A candidate entity for the election.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Candidate<AccountId> {
 	/// Identifier.
 	who: AccountId,
@@ -460,7 +466,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 }
 
 /// Final result of the election.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ElectionResult<AccountId, P: PerThing> {
 	/// Just winners zipped with their approval stake. Note that the approval stake is merely the
 	/// sub of their received stake and could be used for very basic sorting and approval voting.
@@ -477,7 +483,7 @@ pub struct ElectionResult<AccountId, P: PerThing> {
 ///
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
-#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Support<AccountId> {
 	/// Total support.
