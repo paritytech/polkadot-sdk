@@ -21,8 +21,8 @@ use crate::{MessageNonce, UnrewardedRelayersState};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
 use sp_std::ops::RangeInclusive;
+use Debug;
 
 /// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -51,7 +51,7 @@ pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 }
 
 /// Generic info about a messages delivery/confirmation proof.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct BaseMessagesProofInfo<LaneId> {
 	/// Message lane, used by the call.
 	pub lane_id: LaneId,
@@ -75,7 +75,7 @@ impl<LaneId> BaseMessagesProofInfo<LaneId> {
 }
 
 /// Occupation state of the unrewarded relayers vector.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 #[cfg_attr(test, derive(Default))]
 pub struct UnrewardedRelayerOccupation {
 	/// The number of remaining unoccupied entries for new relayers.
@@ -85,7 +85,7 @@ pub struct UnrewardedRelayerOccupation {
 }
 
 /// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct ReceiveMessagesProofInfo<LaneId> {
 	/// Base messages proof info
 	pub base: BaseMessagesProofInfo<LaneId>,
@@ -125,7 +125,7 @@ impl<LaneId> ReceiveMessagesProofInfo<LaneId> {
 }
 
 /// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct ReceiveMessagesDeliveryProofInfo<LaneId>(pub BaseMessagesProofInfo<LaneId>);
 
 impl<LaneId> ReceiveMessagesDeliveryProofInfo<LaneId> {
@@ -137,7 +137,7 @@ impl<LaneId> ReceiveMessagesDeliveryProofInfo<LaneId> {
 
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub enum MessagesCallInfo<LaneId: Clone + Copy> {
 	/// Messages delivery call info.
 	ReceiveMessagesProof(ReceiveMessagesProofInfo<LaneId>),
