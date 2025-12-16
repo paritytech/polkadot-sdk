@@ -361,8 +361,8 @@ fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
 		}
 		Ok(())
 	}
-		println!("cargo:warning=RVE after npm install, contents of {}:", install_dir.display());
-		let _ = print_dir_recursive(install_dir, install_dir);
+	println!("cargo:warning=RVE after npm install, contents of {}:", install_dir.display());
+	let _ = print_dir_recursive(install_dir, install_dir);
 
 	Ok(())
 }
