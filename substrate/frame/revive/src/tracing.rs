@@ -64,21 +64,9 @@ pub trait EVMFrameTraceInfo: FrameTraceInfo {
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
 	/// Register an address that should be traced.
-	///
-	/// # Parameters
-	/// - `addr`: The address to watch for tracing.
 	fn watch_address(&mut self, _addr: &H160) {}
 
-	/// Called before a contract call is executed.
-	///
-	/// # Parameters
-	/// - `from`: The address initiating the call.
-	/// - `to`: The address being called.
-	/// - `delegate_call`: The original caller if this is a delegate call.
-	/// - `is_read_only`: Whether this is a static/read-only call.
-	/// - `value`: The amount of value being transferred.
-	/// - `input`: The input data for the call.
-	/// - `gas_limit`: The gas limit for this call.
+	/// Called before a contract call is executed
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
@@ -91,13 +79,7 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Called when a contract terminates (selfdestructs).
-	///
-	/// # Parameters
-	/// - `contract_address`: The address of the contract being destroyed.
-	/// - `beneficiary_address`: The address receiving the contract's remaining balance.
-	/// - `gas_left`: The amount of gas remaining.
-	/// - `value`: The value transferred to the beneficiary.
+	/// Called when a contract calls terminates (selfdestructs)
 	fn terminate(
 		&mut self,
 		_contract_address: H160,
@@ -107,33 +89,16 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Record the code and salt for the next contract instantiation.
-	///
-	/// # Parameters
-	/// - `code`: The code being instantiated.
-	/// - `salt`: Optional salt for CREATE2 operations.
+	/// Record the next code and salt to be instantiated.
 	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}
 
-	/// Called when a balance is read.
-	///
-	/// # Parameters
-	/// - `addr`: The address whose balance was read.
-	/// - `value`: The balance value.
+	/// Called when a balance is read
 	fn balance_read(&mut self, _addr: &H160, _value: U256) {}
 
-	/// Called when contract storage is read.
-	///
-	/// # Parameters
-	/// - `key`: The storage key being read.
-	/// - `value`: The value read from storage.
+	/// Called when storage read is called
 	fn storage_read(&mut self, _key: &Key, _value: Option<&[u8]>) {}
 
-	/// Called when contract storage is written.
-	///
-	/// # Parameters
-	/// - `key`: The storage key being written.
-	/// - `old_value`: The previous value at this key.
-	/// - `new_value`: The new value being written.
+	/// Called when storage write is called
 	fn storage_write(
 		&mut self,
 		_key: &Key,
@@ -142,32 +107,16 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Record a log event.
-	///
-	/// # Parameters
-	/// - `event`: The address emitting the event.
-	/// - `topics`: The indexed topics for the event.
-	/// - `data`: The event data.
+	/// Record a log event
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
-	/// Called after a contract call completes successfully.
-	///
-	/// # Parameters
-	/// - `output`: The return value from the call.
-	/// - `gas_used`: The amount of gas consumed.
+	/// Called after a contract call is executed
 	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: u64) {}
 
-	/// Called when a contract call terminates with an error.
-	///
-	/// # Parameters
-	/// - `error`: The error that occurred.
-	/// - `gas_used`: The amount of gas consumed before the error.
+	/// Called when a contract call terminates with an error
 	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: u64) {}
 
-	/// Check if opcode tracing is enabled.
-	///
-	/// # Returns
-	/// `true` if the tracer wants to trace individual opcodes.
+	/// Check if execution tracing is enabled.
 	fn is_execution_tracing_enabled(&self) -> bool {
 		false
 	}
