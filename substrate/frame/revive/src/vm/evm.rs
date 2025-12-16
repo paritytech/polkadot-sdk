@@ -39,7 +39,6 @@ use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
-
 mod util;
 
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.

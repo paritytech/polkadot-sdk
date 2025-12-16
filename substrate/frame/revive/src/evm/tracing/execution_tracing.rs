@@ -81,7 +81,7 @@ impl ExecutionTracer {
 	}
 
 	/// Record an error in the current step.
-	pub fn record_error(&mut self, error: String) {
+	fn record_error(&mut self, error: String) {
 		if let Some(last_step) = self.steps.last_mut() {
 			last_step.error = Some(error);
 		}
