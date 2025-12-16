@@ -28,7 +28,7 @@ serde_json = { workspace = true, default-features = true }
 
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
-parachains-common = { workspace = true, default-features = true }
+parachains-common-types = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
@@ -123,7 +123,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
@@ -134,7 +133,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"parachains-common/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -72,7 +72,7 @@ pub mod pallet {
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
 
 	/// Represents the current step in the era pruning process
-	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum PruningStep {
 		/// Pruning ErasStakersPaged storage
 		ErasStakersPaged,
@@ -1226,7 +1226,7 @@ pub mod pallet {
 	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
 	/// failed. While these should never occur under normal operation, they are useful for
 	/// diagnosing issues in production or test environments.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// Emitted when calculated era duration exceeds the configured maximum.
 		EraDurationBoundExceeded,

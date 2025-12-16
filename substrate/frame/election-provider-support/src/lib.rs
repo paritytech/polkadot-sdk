@@ -209,10 +209,7 @@ use alloc::{boxed::Box, vec::Vec};
 use core::fmt::Debug;
 use frame_support::traits::{Defensive, DefensiveResult};
 use sp_core::ConstU32;
-use sp_runtime::{
-	traits::{Bounded, Saturating, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::traits::{Bounded, Saturating, Zero};
 
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -275,7 +272,7 @@ pub type PageIndex = u32;
 /// The voter and target identifiers have already been replaced with appropriate indices,
 /// making it fast to repeatedly encode into a `SolutionOf<T>`. This property turns out
 /// to be important when trimming for solution length.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, Encode, Decode))]
 pub struct IndexAssignment<VoterIndex, TargetIndex, P: PerThing> {
 	/// Index of the voter among the voters list.
