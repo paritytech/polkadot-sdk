@@ -37,6 +37,7 @@ sp-io = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { workspace = true }
 sp-weights = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
 simple-mermaid = { workspace = true, optional = true }
@@ -78,6 +79,7 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
+	"strum/std",
 	"tracing/std",
 	"tuplex/std",
 ]
