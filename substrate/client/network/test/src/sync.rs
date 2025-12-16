@@ -1209,6 +1209,7 @@ async fn warp_sync() {
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256),
 		..Default::default()
 	});
 	let gap_end = net.peer(0).push_blocks(63, false).pop().unwrap();
@@ -1281,6 +1282,7 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256),
 		target_header: Some(target_block),
 		..Default::default()
 	});

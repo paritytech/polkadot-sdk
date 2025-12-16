@@ -926,6 +926,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 			<Block as BlockT>::Hash,
 		>>::register_notification_metrics(None);
 
+		let blocks_pruning = if let Some(blocks_pruning) = config.blocks_pruning {
+			BlocksPruning::Some(blocks_pruning)
+		} else {
+			BlocksPruning::KeepAll
+		};
+
 		let syncing_config = PolkadotSyncingStrategyConfig {
 			mode: network_config.sync_mode,
 			max_parallel_downloads: network_config.max_parallel_downloads,
@@ -934,7 +940,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			blocks_pruning: BlocksPruning::Some(256),
+			blocks_pruning,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
