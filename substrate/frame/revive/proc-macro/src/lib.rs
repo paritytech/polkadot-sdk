@@ -340,10 +340,12 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let lookup_syscall = expand_func_lookup(def);
 
 	quote! {
+		/// Returns the list of all syscalls.
 		pub fn all_syscalls() -> &'static [&'static [u8]] {
 			#all_syscalls
 		}
 
+		/// Returns the list of stable syscalls without unstable ones.
 		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
 			if include_unstable {
 				#all_syscalls
@@ -352,6 +354,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 			}
 		}
 
+		/// Return the index of a syscall in the `all_syscalls()` list.
 		pub fn lookup_syscall_index(name: &'static str) -> Option<u32> {
 			#lookup_syscall
 		}
