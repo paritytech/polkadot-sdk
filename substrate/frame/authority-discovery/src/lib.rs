@@ -27,7 +27,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::{
-	ensure,
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
