@@ -188,28 +188,22 @@ impl<T: Config> Pallet<T> {
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use frame_support::ensure;
 		let keys = Keys::<T>::get();
-		ensure!(
-          keys.len() as u32 <= T::MaxAuthorities::get(),
-          "Keys exceeds MaxAuthorities"
-       );
+		ensure!(keys.len() as u32 <= T::MaxAuthorities::get(), "Keys exceeds MaxAuthorities");
 		let mut sorted_keys = keys.to_vec();
 		sorted_keys.sort();
-		ensure!(
-          sorted_keys.windows(2).all(|w| w[0] != w[1]),
-          "Duplicate keys found in Keys"
-       );
+		ensure!(sorted_keys.windows(2).all(|w| w[0] != w[1]), "Duplicate keys found in Keys");
 
 		let next_keys = NextKeys::<T>::get();
 		ensure!(
-          next_keys.len() as u32 <= T::MaxAuthorities::get(),
-          "NextKeys exceeds MaxAuthorities"
-       );
+			next_keys.len() as u32 <= T::MaxAuthorities::get(),
+			"NextKeys exceeds MaxAuthorities"
+		);
 		let mut sorted_next_keys = next_keys.to_vec();
 		sorted_next_keys.sort();
 		ensure!(
-          sorted_next_keys.windows(2).all(|w| w[0] != w[1]),
-          "Duplicate keys found in NextKeys"
-       );
+			sorted_next_keys.windows(2).all(|w| w[0] != w[1]),
+			"Duplicate keys found in NextKeys"
+		);
 
 		Ok(())
 	}
