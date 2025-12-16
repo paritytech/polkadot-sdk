@@ -57,6 +57,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+/// Default storage period for data.
+pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
+
 // TODO: https://github.com/paritytech/polkadot-bulletin-chain/issues/139 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
 // Setting higher limit also requires raising the allocator limit.
@@ -264,7 +267,7 @@ pub mod pallet {
 				!T::MaxTransactionSize::get().is_zero(),
 				"MaxTransactionSize must be greater than zero"
 			);
-			let default_period = sp_transaction_storage_proof::DEFAULT_STORAGE_PERIOD.into();
+			let default_period = DEFAULT_STORAGE_PERIOD.into();
 			let storage_period = GenesisConfig::<T>::default().storage_period;
 			assert_eq!(
 				storage_period, default_period,
@@ -456,8 +459,7 @@ pub mod pallet {
 	/// Storage fee per transaction.
 	pub type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
-	/// Storage period for data in blocks. Should match `sp_storage_proof::DEFAULT_STORAGE_PERIOD`
-	/// for block authoring.
+	/// Storage period for data in blocks.
 	#[pallet::storage]
 	pub type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
@@ -482,7 +484,7 @@ pub mod pallet {
 			Self {
 				byte_fee: 10u32.into(),
 				entry_fee: 1000u32.into(),
-				storage_period: sp_transaction_storage_proof::DEFAULT_STORAGE_PERIOD.into(),
+				storage_period: DEFAULT_STORAGE_PERIOD.into(),
 			}
 		}
 	}
