@@ -136,7 +136,7 @@ impl<T: Config> Memory<T> {
 		let mut memory_bytes = Vec::new();
 
 		// Read memory in 32-byte chunks, limiting to configured size
-		let words_to_read = core::cmp::min((self.size() + 31) / 32, limit);
+		let words_to_read = core::cmp::min(self.size().div_ceil(32), limit);
 
 		for i in 0..words_to_read {
 			// Use get_word to read 32 bytes directly

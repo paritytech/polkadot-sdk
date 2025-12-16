@@ -159,7 +159,7 @@ impl Tracing for CallTracer {
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
 			trace.output = output.data.clone().into();
-			trace.gas_used = gas_used.into();
+			trace.gas_used = gas_used;
 
 			if output.did_revert() {
 				trace.revert_reason = decode_revert_reason(&output.data);
