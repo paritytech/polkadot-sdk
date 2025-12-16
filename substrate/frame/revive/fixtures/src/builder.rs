@@ -370,9 +370,11 @@ fn compile_with_standard_json(
 				"runs": 200
 			},
 			"remappings": remappings,
-			// Will be populated below to include ONLY the provided entry files,
-			// avoiding emission of artifacts for imported libraries (e.g. OpenZeppelin).
-			"outputSelection": {},
+			"outputSelection": serde_json::json!({
+				"*": {
+					"*": ["evm.bytecode", "evm.deployedBytecode"]
+				}
+			}),
 		}
 	});
 
@@ -388,14 +390,6 @@ fn compile_with_standard_json(
 		});
 		file_keys.push(file_key.to_string());
 	}
-
-	// Narrow output selection to just our entry files, so solc/resolc do not
-	// emit bytecode objects for imported libraries like node_modules/@openzeppelin/.
-	let mut selection = serde_json::Map::new();
-	for k in file_keys {
-		selection.insert(k, serde_json::json!({ "*": ["evm.bytecode", "evm.deployedBytecode"] }));
-	}
-	input_json["settings"]["outputSelection"] = serde_json::Value::Object(selection);
 
 	// Allow imports from the interface dir and node_modules if present
 	let node_modules = out_dir.join("node_modules");
