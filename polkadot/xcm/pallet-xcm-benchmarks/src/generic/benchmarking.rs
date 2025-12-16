@@ -965,19 +965,22 @@ mod benchmarks {
 	fn publish(n: Linear<1, { MaxPublishItems::get() }>) -> Result<(), BenchmarkError> {
 		use xcm::latest::MaxPublishValueLength;
 
-		// The `Publish` instruction weight scales with the number of items published.
-		// Each item is benchmarked at maximum value length to represent worst-case
-		// storage operations. The actual weight formula will be `base_weight + n * per_item_weight`.
 		let max_value_len = MaxPublishValueLength::get() as usize;
 
-		// Create publish data: n items, each with a unique hash key and maximum value length
+		// Calculate value size to fit within a conservative 2KB total storage budget
+		const KEY_SIZE: usize = 32;
+		let conservative_total_storage = 2048usize;
+		let value_size = ((conservative_total_storage / n.max(1) as usize).saturating_sub(KEY_SIZE))
+			.min(max_value_len)
+			.max(1);
+
 		let data_vec: Vec<_> = (0..n)
 			.map(|i| {
-				let mut key = [0u8; 32];
+				let mut key = [0u8; KEY_SIZE];
 				key[0] = i as u8;
 				(
 					key,
-					BoundedVec::try_from(vec![i as u8; max_value_len]).unwrap(),
+					BoundedVec::try_from(vec![i as u8; value_size]).unwrap(),
 				)
 			})
 			.collect();
@@ -985,6 +988,8 @@ mod benchmarks {
 		let data = BoundedVec::try_from(data_vec).unwrap();
 
 		let origin = T::publish_origin()?;
+		T::ensure_publisher_registered(&origin)?;
+
 		let mut executor = new_executor::<T>(origin);
 
 		let instruction = Instruction::Publish { data };

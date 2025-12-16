@@ -54,6 +54,7 @@ pub mod polkadot_runtime_common_crowdloan;
 pub mod polkadot_runtime_common_identity_migrator;
 pub mod polkadot_runtime_common_paras_registrar;
 pub mod polkadot_runtime_common_slots;
+pub mod polkadot_runtime_parachains_broadcaster;
 pub mod polkadot_runtime_parachains_configuration;
 pub mod polkadot_runtime_parachains_coretime;
 pub mod polkadot_runtime_parachains_disputes;

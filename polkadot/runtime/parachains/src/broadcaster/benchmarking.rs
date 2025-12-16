@@ -28,6 +28,7 @@ type BalanceOf<T> =
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::vec;
 	use frame_system::RawOrigin;
 
 	#[benchmark]
@@ -66,6 +67,17 @@ mod benchmarks {
 		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller).into(), para_id)
 			.unwrap();
 
+		// Calculate max value size to stay within MaxTotalStorageSize and MaxValueLength
+		// Total size = sum of (32 bytes key + value_len) for all keys
+		let max_total_size = T::MaxTotalStorageSize::get() as usize;
+		let max_value_length = T::MaxValueLength::get() as usize;
+		let key_size = 32usize;
+		let max_value_size = (max_total_size / k as usize)
+			.saturating_sub(key_size)
+			.min(max_value_length)
+			.max(1);
+		let value = vec![0u8; max_value_size];
+
 		// Publish k keys in batches to respect MaxPublishItems limit
 		let max_items = T::MaxPublishItems::get();
 		for batch_start in (0..k).step_by(max_items as usize) {
@@ -75,7 +87,7 @@ mod benchmarks {
 				let mut key_data = b"key_".to_vec();
 				key_data.extend_from_slice(&i.to_be_bytes());
 				let key = blake2_256(&key_data);
-				data.push((key, b"value".to_vec()));
+				data.push((key, value.clone()));
 			}
 			Broadcaster::<T>::handle_publish(para_id, data).unwrap();
 		}

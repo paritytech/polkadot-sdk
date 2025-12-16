@@ -212,7 +212,7 @@ parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
 	pub MaxAssetTransferFilters: u32 = 6;
-	pub MaxPublishItems: u32 = 16;
+	pub MaxPublishItems: u32 = 10;
 	pub MaxPublishValueLength: u32 = 1024;
 }
 

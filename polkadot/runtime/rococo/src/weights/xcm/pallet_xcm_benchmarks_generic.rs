@@ -349,4 +349,27 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 766_000 picoseconds.
 		Weight::from_parts(807_000, 0)
 	}
+	/// Storage: `Broadcaster::RegisteredPublishers` (r:1 w:0)
+	/// Proof: `Broadcaster::RegisteredPublishers` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
+	/// Storage: `Broadcaster::PublishedKeys` (r:1 w:1)
+	/// Proof: `Broadcaster::PublishedKeys` (`max_values`: None, `max_size`: Some(1613), added: 4088, mode: `MaxEncodedLen`)
+	/// Storage: `Broadcaster::TotalStorageSize` (r:1 w:1)
+	/// Proof: `Broadcaster::TotalStorageSize` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `Broadcaster::PublisherExists` (r:1 w:1)
+	/// Proof: `Broadcaster::PublisherExists` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 10]`.
+	pub(crate) fn publish(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `290`
+		//  Estimated: `5078 + n * (372 ±0)`
+		// Minimum execution time: 33_000_000 picoseconds.
+		Weight::from_parts(55_703_232, 5078)
+			// Standard Error: 335_228
+			.saturating_add(Weight::from_parts(5_762_702, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 372).saturating_mul(n.into()))
+	}
 }

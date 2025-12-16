@@ -317,20 +317,73 @@ pub trait WeightInfo {
 	}
 }
 
+/// Weights for cumulus_pallet_subscriber using the Substrate node and recommended hardware.
+pub struct SubstrateWeight<T>(core::marker::PhantomData<T>);
+impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	/// The range of component `n` is `[1, 100]`.
+	fn collect_publisher_roots(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_000_000 picoseconds.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 2_289
+			.saturating_add(Weight::from_parts(1_853_718, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Subscriber::PreviousPublishedDataRoots` (r:1 w:1)
+	/// Proof: `Subscriber::PreviousPublishedDataRoots` (`max_values`: Some(1), `max_size`: Some(3702), added: 4197, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 100]`.
+	/// The range of component `k` is `[1, 10]`.
+	/// The range of component `s` is `[1, 2048]`.
+	fn process_published_data(n: u32, k: u32, _s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `142`
+		//  Estimated: `5187`
+		// Minimum execution time: 51_000_000 picoseconds.
+		Weight::from_parts(51_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5187))
+			// Standard Error: 448_042
+			.saturating_add(Weight::from_parts(33_087_314, 0).saturating_mul(n.into()))
+			// Standard Error: 4_535_424
+			.saturating_add(Weight::from_parts(311_706_924, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Subscriber::PreviousPublishedDataRoots` (r:1 w:1)
+	/// Proof: `Subscriber::PreviousPublishedDataRoots` (`max_values`: Some(1), `max_size`: Some(3702), added: 4197, mode: `MaxEncodedLen`)
+	fn clear_stored_roots() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `206`
+		//  Estimated: `5187`
+		// Minimum execution time: 8_000_000 picoseconds.
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5187))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+}
+
 impl WeightInfo for () {
-	fn collect_publisher_roots(_n: u32) -> Weight {
-		// TODO: Replace with proper benchmarked weights
-		Weight::from_parts(10_000, 0)
+	fn collect_publisher_roots(n: u32) -> Weight {
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(Weight::from_parts(1_853_718, 0).saturating_mul(n.into()))
 	}
 
-	fn process_published_data(_n: u32, _k: u32, _s: u32) -> Weight {
-		// TODO: Replace with proper benchmarked weights
-		// Note: Real benchmarks will add per-byte overhead for _s
-		Weight::from_parts(50_000, 0)
+	fn process_published_data(n: u32, k: u32, _s: u32) -> Weight {
+		Weight::from_parts(51_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5187))
+			.saturating_add(Weight::from_parts(33_087_314, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(311_706_924, 0).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(1_000_000, 0))
+			.saturating_add(Weight::from_parts(1_000_000, 0))
 	}
 
 	fn clear_stored_roots() -> Weight {
-		// TODO: Replace with proper benchmarked weights
-		Weight::from_parts(50_000, 0)
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5187))
+			.saturating_add(Weight::from_parts(1_000_000, 0))
+			.saturating_add(Weight::from_parts(1_000_000, 0))
 	}
 }

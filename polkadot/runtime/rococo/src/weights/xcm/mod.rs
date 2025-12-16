@@ -306,10 +306,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
 	fn publish(data: &PublishData) -> Weight {
-		// TODO: Generate proper weights via benchmarking
-		// For now, use a conservative estimate: base weight + per-item weight
-		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(data.len() as u64))
+		XcmGeneric::<Runtime>::publish(data.len() as u32)
 	}
 }
 
