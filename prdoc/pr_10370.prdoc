@@ -1,9 +1,0 @@
-title: Add `transaction_index::HostFunctions` with NO-OP impl to the polkadot-prepare/execute-worker
-doc:
-- audience:
-  - Runtime Dev
-  - Node Dev
-  description: "This PR adds `sp_io::transaction_index::HostFunctions` as a no-op to the `cumulus-pallet-parachain-system`'s `validate_block`."
-crates:
-- name: cumulus-pallet-parachain-system
-  bump: patch
