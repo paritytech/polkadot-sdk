@@ -2954,7 +2954,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
-						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".to_string()))
+						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
 					}
 
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
