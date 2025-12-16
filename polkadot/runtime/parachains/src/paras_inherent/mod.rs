@@ -84,7 +84,7 @@ const LOG_TARGET: &str = "runtime::inclusion-inherent";
 
 /// A bitfield concerning concluded disputes for candidates
 /// associated to the core index equivalent to the bit position.
-#[derive(Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Default, PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub(crate) struct DisputedBitfield(pub(crate) BitVec<u8, bitvec::order::Lsb0>);
 
 impl From<BitVec<u8, bitvec::order::Lsb0>> for DisputedBitfield {

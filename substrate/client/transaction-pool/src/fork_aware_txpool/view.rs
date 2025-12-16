@@ -452,8 +452,10 @@ where
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
 						let validation_result = (
-							api.validate_transaction(self.at.hash,
-								tx.source.clone().into(), tx.data.clone(),
+							api.validate_transaction(
+								self.at.hash,
+								tx.source.clone().into(),
+								tx.data.clone(),
 								ValidateTransactionPriority::Maintained).await,
 							tx.hash,
 							tx
@@ -492,6 +494,12 @@ where
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"Removing. Transaction is invalid"
+					);
 					invalid_hashes.push(tx_hash);
 				},
 				Ok(Ok(validity)) => {
@@ -507,20 +515,20 @@ where
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(error))) => {
+				Ok(Err(TransactionValidityError::Unknown(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						?error,
+						?validation_result,
 						"Removing. Cannot determine transaction validity"
 					);
 					invalid_hashes.push(tx_hash);
 				},
-				Err(error) => {
+				Err(_) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						%error,
+						?validation_result,
 						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
