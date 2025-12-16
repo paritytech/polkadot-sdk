@@ -621,35 +621,34 @@ impl ClaimQueueState {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::validator_side::claim_queue_state::test::*;
 
 	#[test]
 	fn sane_initial_state() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let candidate = CandidateHash(Hash::from_low_u64_be(101));
 
-		assert!(!state.has_or_can_claim_at(&relay_parent, &para_id, Some(candidate)));
-		assert!(!state.claim_pending_at(&relay_parent, &para_id, Some(candidate)));
-		assert!(state.get_pending_at(&relay_parent).is_empty());
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate)));
+		assert!(!state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate)));
+		assert!(state.get_pending_at(&RelayParentA::get()).is_empty());
 		assert!(state.is_empty());
 	}
 
 	#[test]
 	fn add_leaf_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, None));
-		assert!(state.get_pending_at(&relay_parent_a).is_empty());
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, None));
+		assert!(state.get_pending_at(&RelayParentA::get()).is_empty());
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Free,
@@ -675,25 +674,24 @@ mod test {
 		assert!(state.candidates_per_rp.is_empty());
 
 		// should be no op
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 		assert_eq!(state.block_state.len(), 1);
 		assert_eq!(state.future_blocks.len(), 2);
 
 		// add another leaf
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		state.add_leaf(&relay_parent_b, &claim_queue);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Free,
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Free,
@@ -718,67 +716,64 @@ mod test {
 			])
 		);
 		assert!(state.candidates_per_rp.is_empty());
-		assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id, None));
-		assert!(state.get_pending_at(&relay_parent_b).is_empty());
+		assert!(state.has_or_can_claim_at(&RelayParentB::get(), &para_id, None));
+		assert!(state.get_pending_at(&RelayParentB::get()).is_empty());
 	}
 
 	#[test]
 	fn basic_claims_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
 		// Claiming the same slot again should return true
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
 
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
-		assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_b)));
+		assert!(state.claim_seconded_at(&RelayParentA::get(), &para_id, candidate_b));
 		// Claiming the same slot again should return true
-		assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
+		assert!(state.claim_seconded_at(&RelayParentA::get(), &para_id, candidate_b));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_b)));
 	}
 
 	#[test]
 	fn claims_at_separate_relay_parents_work() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
-		state.add_leaf(&relay_parent_b, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 		// add one claim for a
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a)));
 
 		// and one for b
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(200));
-		assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id, Some(candidate_b)));
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_b)));
+		assert!(state.has_or_can_claim_at(&RelayParentB::get(), &para_id, Some(candidate_b)));
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_b)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a)),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_b)),
@@ -805,8 +800,8 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([
-				(relay_parent_a, HashSet::from_iter(vec![candidate_a])),
-				(relay_parent_b, HashSet::from_iter(vec![candidate_b]))
+				(RelayParentA::get(), HashSet::from_iter(vec![candidate_a])),
+				(RelayParentB::get(), HashSet::from_iter(vec![candidate_b]))
 			])
 		);
 	}
@@ -814,23 +809,22 @@ mod test {
 	#[test]
 	fn claims_are_transferred_to_next_slot() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
 		// add two claims, 2nd should be transferred to a new leaf
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
 
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a2)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -856,19 +850,19 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
 			)])
 		);
 
 		// one more
 		let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a3)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a3)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -894,7 +888,7 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
 			)])
 		);
@@ -902,17 +896,16 @@ mod test {
 		// no more claims
 		let candidate_a4 = CandidateHash(Hash::from_low_u64_be(104));
 
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a4)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(candidate_a4)));
 	}
 
 	#[test]
 	fn claims_are_transferred_to_new_leaves() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
 		let mut candidates = vec![];
 		for i in 0..3 {
@@ -920,13 +913,13 @@ mod test {
 		}
 
 		for c in &candidates {
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(*c)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(*c)));
 		}
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidates[0])),
@@ -951,28 +944,30 @@ mod test {
 		);
 		assert_eq!(
 			state.candidates_per_rp,
-			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(candidates.iter().copied()))])
+			HashMap::from_iter([(
+				RelayParentA::get(),
+				HashSet::from_iter(candidates.iter().copied())
+			)])
 		);
 
 		// no more claims
 		let new_candidate = CandidateHash(Hash::from_low_u64_be(101 + candidates.len() as u64));
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(new_candidate)));
 
 		// new leaf
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		state.add_leaf(&relay_parent_b, &claim_queue);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidates[0])),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidates[1])),
@@ -998,22 +993,22 @@ mod test {
 		);
 
 		// still no claims for a
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id, Some(new_candidate)));
 
 		// but can accept for b
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(new_candidate)));
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(new_candidate)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidates[0])),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidates[1])),
@@ -1040,8 +1035,8 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([
-				(relay_parent_a, HashSet::from_iter(candidates.iter().cloned())),
-				(relay_parent_b, HashSet::from_iter(vec![new_candidate]))
+				(RelayParentA::get(), HashSet::from_iter(candidates.iter().cloned())),
+				(RelayParentB::get(), HashSet::from_iter(vec![new_candidate]))
 			])
 		);
 	}
@@ -1049,21 +1044,20 @@ mod test {
 	#[test]
 	fn two_paras() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_b1 = CandidateHash(Hash::from_low_u64_be(201));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Free,
@@ -1089,17 +1083,17 @@ mod test {
 		assert!(state.candidates_per_rp.is_empty());
 
 		// claim a candidate
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
 
 		// we should still be able to claim candidates for both paras
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -1124,21 +1118,21 @@ mod test {
 		);
 		assert_eq!(
 			state.candidates_per_rp,
-			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),])
+			HashMap::from_iter([(RelayParentA::get(), HashSet::from_iter(vec![candidate_a1])),])
 		);
 
 		// another claim for a
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
 
 		// no more claims for a, but should be able to claim for b
 		let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
-		assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a3)));
+		assert!(state.has_or_can_claim_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -1164,23 +1158,23 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
 			)])
 		);
 
 		// another claim for b
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
 
 		// no more claims neither for a nor for b
 		let candidate_b2 = CandidateHash(Hash::from_low_u64_be(202));
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b2)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a3)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_b, Some(candidate_b2)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -1206,7 +1200,7 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b1])
 			)])
 		);
@@ -1215,24 +1209,23 @@ mod test {
 	#[test]
 	fn claim_queue_changes_unexpectedly() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		state.add_leaf(&RelayParentA::get(), &claim_queue_a);
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(200));
 
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_b, Some(candidate_b)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_b, Some(candidate_b)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -1258,14 +1251,13 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b,])
 			)])
 		);
 
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_a, para_id_a]); // should be [b, a,...]
-		state.add_leaf(&relay_parent_b, &claim_queue_b);
+		state.add_leaf(&RelayParentB::get(), &claim_queue_b);
 
 		// because of the unexpected change in claim queue we lost the claim for paraB and have
 		// one unclaimed for paraA
@@ -1273,13 +1265,13 @@ mod test {
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a1)),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 3,
 					claimed: ClaimState::Free,
@@ -1309,7 +1301,7 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b])
 			)])
 		);
@@ -1318,23 +1310,22 @@ mod test {
 	#[test]
 	fn claim_queue_changes_unexpectedly_with_two_blocks() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_b]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		state.add_leaf(&RelayParentA::get(), &claim_queue_a);
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_b1 = CandidateHash(Hash::from_low_u64_be(201));
 		let candidate_b2 = CandidateHash(Hash::from_low_u64_be(202));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_b, Some(candidate_b2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_b, Some(candidate_b2)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a)),
@@ -1360,14 +1351,13 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a, candidate_b1, candidate_b2])
 			)])
 		);
 
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_a, para_id_a]); // should be [b, b, ...]
-		state.add_leaf(&relay_parent_b, &claim_queue_b);
+		state.add_leaf(&RelayParentB::get(), &claim_queue_b);
 
 		// because of the unexpected change in claim queue we lost both claims for paraB and
 		// have two unclaimed for paraA
@@ -1375,13 +1365,13 @@ mod test {
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a)),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 3,
 					claimed: ClaimState::Free,
@@ -1409,7 +1399,7 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a, candidate_b1, candidate_b2])
 			)])
 		);
@@ -1418,50 +1408,46 @@ mod test {
 	#[test]
 	fn basic_remove_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
-		state.add_leaf(&relay_parent_b, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 		// add one claim per leaf
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_a2)));
 
-		let removed = vec![relay_parent_a];
+		let removed = vec![RelayParentA::get()];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.block_state.len(), 1);
-		assert_eq!(state.block_state[0].hash, Some(relay_parent_b));
+		assert_eq!(state.block_state[0].hash, Some(RelayParentB::get()));
 		assert_eq!(state.future_blocks.len(), 2);
 		assert_eq!(
 			state.candidates_per_rp,
-			HashMap::from_iter([(relay_parent_b, HashSet::from_iter(vec![candidate_a2]))])
+			HashMap::from_iter([(RelayParentB::get(), HashSet::from_iter(vec![candidate_a2]))])
 		);
 	}
 
 	#[test]
 	fn remove_non_first_does_nothing() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
-		state.add_leaf(&relay_parent_b, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 		// add one claim per leaf
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_a2)));
 
-		let removed = vec![relay_parent_b];
+		let removed = vec![RelayParentB::get()];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.block_state.len(), 2);
@@ -1469,8 +1455,8 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([
-				(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
-				(relay_parent_b, HashSet::from_iter(vec![candidate_a2]))
+				(RelayParentA::get(), HashSet::from_iter(vec![candidate_a1])),
+				(RelayParentB::get(), HashSet::from_iter(vec![candidate_a2]))
 			])
 		);
 	}
@@ -1478,49 +1464,45 @@ mod test {
 	#[test]
 	fn remove_multiple_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
-		state.add_leaf(&relay_parent_a, &claim_queue);
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-		state.add_leaf(&relay_parent_b, &claim_queue);
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a2)));
-		state.add_leaf(&relay_parent_c, &claim_queue);
-		assert!(state.claim_pending_at(&relay_parent_c, &para_id, Some(candidate_a3)));
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_a2)));
+		state.add_leaf(&RelayParentC::get(), &claim_queue);
+		assert!(state.claim_pending_at(&RelayParentC::get(), &para_id, Some(candidate_a3)));
 
-		let removed = vec![relay_parent_a, relay_parent_b];
+		let removed = vec![RelayParentA::get(), RelayParentB::get()];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.block_state.len(), 1);
-		assert_eq!(state.block_state[0].hash, Some(relay_parent_c));
+		assert_eq!(state.block_state[0].hash, Some(RelayParentC::get()));
 		assert_eq!(state.future_blocks.len(), 2);
 		assert_eq!(
 			state.candidates_per_rp,
-			HashMap::from_iter([(relay_parent_c, HashSet::from_iter(vec![candidate_a3]))])
+			HashMap::from_iter([(RelayParentC::get(), HashSet::from_iter(vec![candidate_a3]))])
 		);
 	}
 
 	#[test]
 	fn empty_claim_queue() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let claim_queue_a = VecDeque::new();
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 
-		state.add_leaf(&relay_parent_a, &claim_queue_a);
-		assert_eq!(state.get_pending_at(&relay_parent_a), vec![]);
+		state.add_leaf(&RelayParentA::get(), &claim_queue_a);
+		assert_eq!(state.get_pending_at(&RelayParentA::get()), vec![]);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: None,
 				claim_queue_len: 0,
 				claimed: ClaimState::Free,
@@ -1529,24 +1511,23 @@ mod test {
 		// no claim queue so we know nothing about future blocks
 		assert!(state.future_blocks.is_empty());
 
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
-		assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
+		assert!(!state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
 
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let claim_queue_b = VecDeque::from(vec![para_id_a]);
-		state.add_leaf(&relay_parent_b, &claim_queue_b);
+		state.add_leaf(&RelayParentB::get(), &claim_queue_b);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: None,
 					claim_queue_len: 0,
 					claimed: ClaimState::Free,
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 1,
 					claimed: ClaimState::Free,
@@ -1557,33 +1538,32 @@ mod test {
 		assert!(state.future_blocks.is_empty());
 
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
-		assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
+		assert!(!state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
 
-		assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a2)));
-		assert!(state.claim_pending_at(&relay_parent_b, &para_id_a, Some(candidate_a2)));
+		assert!(state.has_or_can_claim_at(&RelayParentB::get(), &para_id_a, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentB::get(), &para_id_a, Some(candidate_a2)));
 
-		let relay_parent_c = Hash::from_low_u64_be(3);
 		let claim_queue_c = VecDeque::from(vec![para_id_a, para_id_a]);
-		state.add_leaf(&relay_parent_c, &claim_queue_c);
+		state.add_leaf(&RelayParentC::get(), &claim_queue_c);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: None,
 					claim_queue_len: 0,
 					claimed: ClaimState::Free,
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 1,
 					claimed: ClaimState::Pending(Some(candidate_a2)),
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_c),
+					hash: Some(RelayParentC::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 2,
 					claimed: ClaimState::Free,
@@ -1603,30 +1583,29 @@ mod test {
 
 		let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
 
-		assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
-		assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
+		assert!(!state.has_or_can_claim_at(&RelayParentA::get(), &para_id_a, Some(candidate_a3)));
+		assert!(!state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a3)));
 
 		// already claimed
-		assert!(!state.has_or_can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a3)));
-		assert!(!state.claim_pending_at(&relay_parent_b, &para_id_a, Some(candidate_a3)));
+		assert!(!state.has_or_can_claim_at(&RelayParentB::get(), &para_id_a, Some(candidate_a3)));
+		assert!(!state.claim_pending_at(&RelayParentB::get(), &para_id_a, Some(candidate_a3)));
 
-		assert!(state.has_or_can_claim_at(&relay_parent_c, &para_id_a, Some(candidate_a3)));
+		assert!(state.has_or_can_claim_at(&RelayParentC::get(), &para_id_a, Some(candidate_a3)));
 	}
 
 	#[test]
 	fn claim_queue_becomes_shorter() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		state.add_leaf(&RelayParentA::get(), &claim_queue_a);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 3,
 				claimed: ClaimState::Free,
@@ -1650,22 +1629,21 @@ mod test {
 			])
 		);
 
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_b]); // should be [b, a, ...]
-		state.add_leaf(&relay_parent_b, &claim_queue_b);
+		state.add_leaf(&RelayParentB::get(), &claim_queue_b);
 
-		// claims for `relay_parent_a` has changed.
+		// claims for `RelayParentA::get()` has changed.
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 3,
 					claimed: ClaimState::Free,
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 2,
 					claimed: ClaimState::Free,
@@ -1686,18 +1664,17 @@ mod test {
 	#[test]
 	fn claim_queue_becomes_shorter_and_drops_future_claims() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a, para_id_b]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		state.add_leaf(&RelayParentA::get(), &claim_queue_a);
 
 		// We start with claim queue len 4.
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id_a),
 				claim_queue_len: 4,
 				claimed: ClaimState::Free,
@@ -1729,23 +1706,22 @@ mod test {
 		);
 
 		// The next claim len is 2, so we loose one future block
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue_b = VecDeque::from(vec![para_id_b, para_id_a]);
-		state.add_leaf(&relay_parent_b, &claim_queue_b);
+		state.add_leaf(&RelayParentB::get(), &claim_queue_b);
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![
 				ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id_a),
 					claim_queue_len: 4,
 					claimed: ClaimState::Free,
 				},
 				ClaimInfo {
-					hash: Some(relay_parent_b),
+					hash: Some(RelayParentB::get()),
 					claim: Some(para_id_b),
 					claim_queue_len: 2,
 					claimed: ClaimState::Free,
@@ -1767,21 +1743,20 @@ mod test {
 	#[test]
 	fn release_claim_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a2)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a2)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -1807,7 +1782,7 @@ mod test {
 		assert_eq!(
 			state.candidates_per_rp,
 			HashMap::from_iter([(
-				relay_parent_a,
+				RelayParentA::get(),
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
 			)])
 		);
@@ -1817,7 +1792,7 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 3,
 				claimed: ClaimState::Free,
@@ -1842,29 +1817,28 @@ mod test {
 		);
 		assert_eq!(
 			state.candidates_per_rp,
-			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a2]))])
+			HashMap::from_iter([(RelayParentA::get(), HashSet::from_iter(vec![candidate_a2]))])
 		);
 	}
 
 	#[test]
 	fn claim_seconded_at_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_a1));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-		assert!(!state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a2)));
+		assert!(state.claim_seconded_at(&RelayParentA::get(), &para_id, candidate_a1));
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+		assert!(!state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a2)));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from(vec![ClaimInfo {
-				hash: Some(relay_parent_a),
+				hash: Some(RelayParentA::get()),
 				claim: Some(para_id),
 				claim_queue_len: 1,
 				claimed: ClaimState::Seconded(candidate_a1),
@@ -1876,31 +1850,32 @@ mod test {
 	#[test]
 	fn get_pending_at_works() {
 		let mut state = ClaimQueueState::new();
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
 		let claim_queue = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
-		state.add_leaf(&relay_parent_a, &claim_queue);
+		state.add_leaf(&RelayParentA::get(), &claim_queue);
 
-		assert!(state.get_pending_at(&relay_parent_a).is_empty());
+		assert!(state.get_pending_at(&RelayParentA::get()).is_empty());
 
 		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
-		assert_eq!(state.get_pending_at(&relay_parent_a), vec![para_id_a]);
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a1)));
+		assert_eq!(state.get_pending_at(&RelayParentA::get()), vec![para_id_a]);
 
 		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
-		assert_eq!(state.get_pending_at(&relay_parent_a), vec![para_id_a, para_id_a]);
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_a, Some(candidate_a2)));
+		assert_eq!(state.get_pending_at(&RelayParentA::get()), vec![para_id_a, para_id_a]);
 
 		let candidate_b1 = CandidateHash(Hash::from_low_u64_be(201));
-		assert!(state.claim_pending_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
-		assert_eq!(state.get_pending_at(&relay_parent_a), vec![para_id_a, para_id_b, para_id_a]);
+		assert!(state.claim_pending_at(&RelayParentA::get(), &para_id_b, Some(candidate_b1)));
+		assert_eq!(
+			state.get_pending_at(&RelayParentA::get()),
+			vec![para_id_a, para_id_b, para_id_a]
+		);
 
-		let relay_parent_b = Hash::from_low_u64_be(2);
 		let claim_queue = VecDeque::from(vec![para_id_b, para_id_a, para_id_b]);
-		state.add_leaf(&relay_parent_b, &claim_queue);
-		assert_eq!(state.get_pending_at(&relay_parent_b), vec![para_id_b, para_id_a]);
+		state.add_leaf(&RelayParentB::get(), &claim_queue);
+		assert_eq!(state.get_pending_at(&RelayParentB::get()), vec![para_id_b, para_id_a]);
 	}
 
 	mod fork {
@@ -1909,41 +1884,38 @@ mod test {
 		#[test]
 		fn candidates_after_the_fork_are_excluded() {
 			let mut state = ClaimQueueState::new();
-			let relay_parent_a = Hash::from_low_u64_be(1);
-			let relay_parent_b = Hash::from_low_u64_be(2);
-			let relay_parent_c = Hash::from_low_u64_be(3);
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-			state.add_leaf(&relay_parent_a, &claim_queue);
-			state.add_leaf(&relay_parent_b, &claim_queue);
-			state.add_leaf(&relay_parent_c, &claim_queue);
+			state.add_leaf(&RelayParentA::get(), &claim_queue);
+			state.add_leaf(&RelayParentB::get(), &claim_queue);
+			state.add_leaf(&RelayParentC::get(), &claim_queue);
 
 			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
 			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
 
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-			assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a2)));
-			assert!(state.claim_pending_at(&relay_parent_c, &para_id, Some(candidate_a3)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+			assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_a2)));
+			assert!(state.claim_pending_at(&RelayParentC::get(), &para_id, Some(candidate_a3)));
 
 			assert_eq!(
 				state.block_state,
 				VecDeque::from(vec![
 					ClaimInfo {
-						hash: Some(relay_parent_a),
+						hash: Some(RelayParentA::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a1)),
 					},
 					ClaimInfo {
-						hash: Some(relay_parent_b),
+						hash: Some(RelayParentB::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a2)),
 					},
 					ClaimInfo {
-						hash: Some(relay_parent_c),
+						hash: Some(RelayParentC::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a3)),
@@ -1970,18 +1942,18 @@ mod test {
 			assert_eq!(
 				state.candidates_per_rp,
 				HashMap::from_iter([
-					(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
-					(relay_parent_b, HashSet::from_iter(vec![candidate_a2])),
-					(relay_parent_c, HashSet::from_iter(vec![candidate_a3]),)
+					(RelayParentA::get(), HashSet::from_iter(vec![candidate_a1])),
+					(RelayParentB::get(), HashSet::from_iter(vec![candidate_a2])),
+					(RelayParentC::get(), HashSet::from_iter(vec![candidate_a3]),)
 				])
 			);
 
-			let fork = state.fork(&relay_parent_a).unwrap();
+			let fork = state.fork(&RelayParentA::get()).unwrap();
 
 			assert_eq!(
 				fork.block_state,
 				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -2006,48 +1978,45 @@ mod test {
 			);
 			assert_eq!(
 				fork.candidates_per_rp,
-				HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1]))])
+				HashMap::from_iter([(RelayParentA::get(), HashSet::from_iter(vec![candidate_a1]))])
 			);
 		}
 
 		#[test]
 		fn candidates_before_the_fork_are_included() {
 			let mut state = ClaimQueueState::new();
-			let relay_parent_a = Hash::from_low_u64_be(1);
-			let relay_parent_b = Hash::from_low_u64_be(2);
-			let relay_parent_c = Hash::from_low_u64_be(3);
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-			state.add_leaf(&relay_parent_a, &claim_queue);
-			state.add_leaf(&relay_parent_b, &claim_queue);
-			state.add_leaf(&relay_parent_c, &claim_queue);
+			state.add_leaf(&RelayParentA::get(), &claim_queue);
+			state.add_leaf(&RelayParentB::get(), &claim_queue);
+			state.add_leaf(&RelayParentC::get(), &claim_queue);
 
 			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
 			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
 
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a2)));
-			assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a3)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a2)));
+			assert!(state.claim_pending_at(&RelayParentB::get(), &para_id, Some(candidate_a3)));
 
 			assert_eq!(
 				state.block_state,
 				VecDeque::from(vec![
 					ClaimInfo {
-						hash: Some(relay_parent_a),
+						hash: Some(RelayParentA::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a1)),
 					},
 					ClaimInfo {
-						hash: Some(relay_parent_b),
+						hash: Some(RelayParentB::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a2)),
 					},
 					ClaimInfo {
-						hash: Some(relay_parent_c),
+						hash: Some(RelayParentC::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a3)),
@@ -2074,17 +2043,17 @@ mod test {
 			assert_eq!(
 				state.candidates_per_rp,
 				HashMap::from_iter([
-					(relay_parent_a, HashSet::from_iter(vec![candidate_a1, candidate_a2])),
-					(relay_parent_b, HashSet::from_iter(vec![candidate_a3]),)
+					(RelayParentA::get(), HashSet::from_iter(vec![candidate_a1, candidate_a2])),
+					(RelayParentB::get(), HashSet::from_iter(vec![candidate_a3]),)
 				])
 			);
 
-			let fork = state.fork(&relay_parent_a).unwrap();
+			let fork = state.fork(&RelayParentA::get()).unwrap();
 
 			assert_eq!(
 				fork.block_state,
 				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -2110,7 +2079,7 @@ mod test {
 			assert_eq!(
 				fork.candidates_per_rp,
 				HashMap::from_iter([(
-					relay_parent_a,
+					RelayParentA::get(),
 					HashSet::from_iter(vec![candidate_a1, candidate_a2])
 				),])
 			);
@@ -2119,33 +2088,31 @@ mod test {
 		#[test]
 		fn future_claims_are_transferred_on_fork() {
 			let mut state = ClaimQueueState::new();
-			let relay_parent_a = Hash::from_low_u64_be(1);
-			let relay_parent_b = Hash::from_low_u64_be(2);
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-			state.add_leaf(&relay_parent_a, &claim_queue);
-			state.add_leaf(&relay_parent_b, &claim_queue);
+			state.add_leaf(&RelayParentA::get(), &claim_queue);
+			state.add_leaf(&RelayParentB::get(), &claim_queue);
 
 			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
 			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
 
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a2)));
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a3)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a1)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a2)));
+			assert!(state.claim_pending_at(&RelayParentA::get(), &para_id, Some(candidate_a3)));
 
 			assert_eq!(
 				state.block_state,
 				VecDeque::from(vec![
 					ClaimInfo {
-						hash: Some(relay_parent_a),
+						hash: Some(RelayParentA::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a1)),
 					},
 					ClaimInfo {
-						hash: Some(relay_parent_b),
+						hash: Some(RelayParentB::get()),
 						claim: Some(para_id),
 						claim_queue_len: 3,
 						claimed: ClaimState::Pending(Some(candidate_a2)),
@@ -2172,17 +2139,17 @@ mod test {
 			assert_eq!(
 				state.candidates_per_rp,
 				HashMap::from_iter([(
-					relay_parent_a,
+					RelayParentA::get(),
 					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
 				),])
 			);
 
-			let fork = state.fork(&relay_parent_a).unwrap();
+			let fork = state.fork(&RelayParentA::get()).unwrap();
 
 			assert_eq!(
 				fork.block_state,
 				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
+					hash: Some(RelayParentA::get()),
 					claim: Some(para_id),
 					claim_queue_len: 3,
 					claimed: ClaimState::Pending(Some(candidate_a1)),
@@ -2208,7 +2175,7 @@ mod test {
 			assert_eq!(
 				fork.candidates_per_rp,
 				HashMap::from_iter([(
-					relay_parent_a,
+					RelayParentA::get(),
 					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
 				),])
 			);
@@ -2217,15 +2184,13 @@ mod test {
 		#[test]
 		fn fork_at_last() {
 			let mut state = ClaimQueueState::new();
-			let relay_parent_a = Hash::from_low_u64_be(1);
-			let relay_parent_b = Hash::from_low_u64_be(2);
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
-			state.add_leaf(&relay_parent_a, &claim_queue);
-			state.add_leaf(&relay_parent_b, &claim_queue);
+			state.add_leaf(&RelayParentA::get(), &claim_queue);
+			state.add_leaf(&RelayParentB::get(), &claim_queue);
 
-			assert!(state.fork(&relay_parent_b).is_none());
+			assert!(state.fork(&RelayParentB::get()).is_none());
 		}
 	}
 }

@@ -105,3 +105,18 @@ impl<'a> ClaimInfoRef for &'a mut ClaimInfo {
 		self.claim_queue_len
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	use sp_core::{parameter_types, H256};
+
+	parameter_types! {
+		pub RootRelayParent: H256 = Hash::from_low_u64_be(0);
+		pub RelayParentA: H256 = Hash::from_low_u64_be(1);
+		pub RelayParentB: H256 = Hash::from_low_u64_be(2);
+		pub RelayParentC: H256 = Hash::from_low_u64_be(3);
+		pub RelayParentD: H256 = Hash::from_low_u64_be(4);
+	}
+}

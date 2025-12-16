@@ -46,7 +46,6 @@ impl PerLeafClaimQueueState {
 			debug_assert!(leaf != parent, "Leaf and parent can't be equal");
 
 			let maybe_path = self.leaves.remove(parent);
-
 			// The new leaf builds on top of previous leaf
 			if let Some(mut path) = maybe_path {
 				path.add_leaf(leaf, claim_queue);
@@ -94,13 +93,13 @@ impl PerLeafClaimQueueState {
 	/// Removes a set of pruned blocks from all paths. If a path becomes empty it is removed from
 	/// the state.
 	pub fn remove_pruned_ancestors(&mut self, removed: &HashSet<Hash>) {
-		// Remove the pruned blocks from the paths
-		for (_, path) in &mut self.leaves {
+		self.leaves.retain(|_, path| {
+			// Remove the pruned blocks from the paths
 			path.remove_pruned_ancestors(removed);
-		}
 
-		// Remove all empty paths
-		self.leaves.retain(|_, p| !p.is_empty());
+			// Remove empty paths
+			!path.is_empty()
+		});
 	}
 
 	/// Releases a claim for a candidate.
@@ -218,7 +217,7 @@ impl PerLeafClaimQueueState {
 	pub fn count_all_slots_for_para_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		self.leaves
 			.values()
-			.map(|s| s.count_all_for_para_at(relay_parent, para_id))
+			.map(|state| state.count_all_for_para_at(relay_parent, para_id))
 			.max()
 			.unwrap_or_default()
 	}
@@ -227,7 +226,7 @@ impl PerLeafClaimQueueState {
 	pub fn all_assignments(&self) -> BTreeSet<ParaId> {
 		self.leaves
 			.values()
-			.flat_map(|claim_queue_state| claim_queue_state.all_assignments())
+			.flat_map(|state| state.all_assignments())
 			.copied()
 			.collect()
 	}
@@ -246,65 +245,59 @@ impl PerLeafClaimQueueState {
 	/// Returns the corresponding para ids for all unclaimed slots in the claim queue for all
 	/// leaves.
 	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
-		self.leaves
-			.values()
-			.flat_map(|claim_queue_state| claim_queue_state.free_slots())
-			.collect()
-	}
-
-	/// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
-	/// `leaf` or if there already is a claimed slot for the candidate.
-	#[cfg(test)]
-	fn has_free_slot_at_leaf_for(
-		&mut self,
-		leaf: &Hash,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		candidate_hash: &CandidateHash,
-	) -> bool {
-		self.leaves.get_mut(leaf).map_or(false, |p: &mut ClaimQueueState| {
-			p.has_or_can_claim_at(relay_parent, para_id, Some(*candidate_hash))
-		})
+		self.leaves.values().flat_map(|state| state.free_slots()).collect()
 	}
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::validator_side::claim_queue_state::test::*;
 
-	use std::vec;
+	impl PerLeafClaimQueueState {
+		/// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue
+		/// for `leaf` or if there already is a claimed slot for the candidate.
+		fn has_free_slot_at_leaf_for(
+			&mut self,
+			leaf: &Hash,
+			relay_parent: &Hash,
+			para_id: &ParaId,
+			candidate_hash: &CandidateHash,
+		) -> bool {
+			let Some(state) = self.leaves.get_mut(leaf) else {
+				return false;
+			};
+			state.has_or_can_claim_at(relay_parent, para_id, Some(*candidate_hash))
+		}
+	}
 
 	#[test]
 	fn add_leaf_works() {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
-		let relay_parent_d = Hash::from_low_u64_be(4);
 
 		//       / -> d
 		// 0 -> a -> b
 		//  \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&Hash::from_low_u64_be(0)));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&relay_parent_a].block_state.len(), 1);
+		assert_eq!(state.leaves[&RelayParentA::get()].block_state.len(), 1);
 
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&relay_parent_b].block_state.len(), 2);
+		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
 
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&Hash::from_low_u64_be(0)));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RootRelayParent::get()));
 		assert_eq!(state.leaves.len(), 2);
-		assert_eq!(state.leaves[&relay_parent_b].block_state.len(), 2);
-		assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 1);
+		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
+		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
 
-		state.add_leaf(&relay_parent_d, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentD::get(), &claim_queue, Some(&RelayParentA::get()));
 		assert_eq!(state.leaves.len(), 3);
-		assert_eq!(state.leaves[&relay_parent_b].block_state.len(), 2);
-		assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 1);
-		assert_eq!(state.leaves[&relay_parent_d].block_state.len(), 2);
+		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
+		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
+		assert_eq!(state.leaves[&RelayParentD::get()].block_state.len(), 2);
 	}
 
 	#[test]
@@ -312,31 +305,28 @@ mod test {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id]);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&Hash::from_low_u64_be(0)));
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
 
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
-		assert!(state.claim_pending_slot(&relay_parent_a, &para_id, Some(candidate_a)));
-		assert!(state.claim_pending_slot(&relay_parent_b, &para_id, Some(candidate_b)));
+		assert!(state.claim_pending_slot(&RelayParentA::get(), &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_slot(&RelayParentB::get(), &para_id, Some(candidate_b)));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_b,
-			&relay_parent_a,
+			&RelayParentB::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&relay_parent_c,
-			&relay_parent_a,
+			&RelayParentC::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
@@ -347,38 +337,34 @@ mod test {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id]);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&Hash::from_low_u64_be(0)));
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
 
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 
-		assert!(state.claim_pending_slot(&relay_parent_a, &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_slot(&RelayParentA::get(), &para_id, Some(candidate_a)));
 
 		// CQ is of size 1. We have claimed one slot at A, so there should be one free slot at
 		// each leaf.
 		assert_eq!(claim_queue.len(), 1);
-		assert_eq!(state.free_slots(&relay_parent_b), vec![para_id]);
-		assert_eq!(state.free_slots(&relay_parent_c), vec![para_id]);
+		assert_eq!(state.free_slots(&RelayParentB::get()), vec![para_id]);
+		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
 		// and the same slots should remain available after seconding candidate_a
-		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
-		assert_eq!(state.free_slots(&relay_parent_b), vec![para_id]);
-		assert_eq!(state.free_slots(&relay_parent_c), vec![para_id]);
+		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
+		assert_eq!(state.free_slots(&RelayParentB::get()), vec![para_id]);
+		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
 
 		// Now claim a seconded slot directly at relay parent b
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_seconded_slot(&relay_parent_b, &para_id, &candidate_b));
+		assert!(state.claim_seconded_slot(&RelayParentB::get(), &para_id, &candidate_b));
 		// which means there are no more free slots at leaf b
-		assert_eq!(state.free_slots(&relay_parent_b), vec![]);
+		assert_eq!(state.free_slots(&RelayParentB::get()), vec![]);
 		// but the free slot at leaf c stays
-		assert_eq!(state.free_slots(&relay_parent_c), vec![para_id]);
+		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
 	}
 
 	#[test]
@@ -386,22 +372,18 @@ mod test {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
-		let root_relay_parent = Hash::from_low_u64_be(0);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 
 		// 0 -> a -> b
 		//  \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&root_relay_parent));
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&root_relay_parent));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RootRelayParent::get()));
 
-		let removed = vec![relay_parent_a, relay_parent_b];
+		let removed = vec![RelayParentA::get(), RelayParentB::get()];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 1);
+		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
 	}
 
 	#[test]
@@ -409,56 +391,52 @@ mod test {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id]);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&Hash::from_low_u64_be(0)));
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
 
-		let relay_parent_a = Hash::from_low_u64_be(1);
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
-		// `relay_parent_a` is not a leaf (b and c are)
+		// `RelayParentA::get()` is not a leaf (b and c are)
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_a,
-			&relay_parent_a,
+			&RelayParentA::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_a
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&relay_parent_b,
-			&relay_parent_a,
+			&RelayParentB::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_a
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&relay_parent_c,
-			&relay_parent_a,
+			&RelayParentC::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_b
 		));
 
-		// Claim a slot at the common ancestor (rpa) and rp b
-		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
-		assert!(state.claim_seconded_slot(&relay_parent_b, &para_id, &candidate_b));
+		// Claim a slot at the common ancestor (rp a) and rp b
+		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
+		assert!(state.claim_seconded_slot(&RelayParentB::get(), &para_id, &candidate_b));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for b and succeed for c
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_b,
-			&relay_parent_a,
+			&RelayParentB::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&relay_parent_c,
-			&relay_parent_a,
+			&RelayParentC::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
@@ -469,35 +447,32 @@ mod test {
 		let mut state = PerLeafClaimQueueState::new();
 		let para_id = ParaId::new(1);
 		let claim_queue = VecDeque::from(vec![para_id, para_id]);
-		let relay_parent_a = Hash::from_low_u64_be(1);
-		let relay_parent_b = Hash::from_low_u64_be(2);
-		let relay_parent_c = Hash::from_low_u64_be(3);
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&relay_parent_a, &claim_queue, Some(&Hash::from_low_u64_be(0)));
-		state.add_leaf(&relay_parent_b, &claim_queue, Some(&relay_parent_a));
-		state.add_leaf(&relay_parent_c, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
 
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
-		// Claim a slot at the common ancestor (rpa) for two candidates
-		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
-		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_b));
+		// Claim a slot at the common ancestor (rp a) for two candidates
+		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
+		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_b));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for both
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_b,
-			&relay_parent_a,
+			&RelayParentB::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_c,
-			&relay_parent_a,
+			&RelayParentC::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
@@ -507,11 +482,10 @@ mod test {
 		//       \-> c
 		//        \-> d
 		// the claim should be transferred there too
-		let relay_parent_d = Hash::from_low_u64_be(4);
-		state.add_leaf(&relay_parent_d, &claim_queue, Some(&relay_parent_a));
+		state.add_leaf(&RelayParentD::get(), &claim_queue, Some(&RelayParentA::get()));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&relay_parent_d,
-			&relay_parent_a,
+			&RelayParentD::get(),
+			&RelayParentA::get(),
 			&para_id,
 			&candidate_c
 		));
