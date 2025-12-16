@@ -46,7 +46,7 @@ mod imbalances {
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
 	#[must_use]
-	#[derive(RuntimeDebug, PartialEq, Eq)]
+	#[derive(Debug, PartialEq, Eq)]
 	pub struct PositiveImbalance<T: Config<I>, I: 'static = ()>(T::Balance);
 
 	impl<T: Config<I>, I: 'static> PositiveImbalance<T, I> {
@@ -59,7 +59,7 @@ mod imbalances {
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been destroyed without any equal and opposite accounting.
 	#[must_use]
-	#[derive(RuntimeDebug, PartialEq, Eq)]
+	#[derive(Debug, PartialEq, Eq)]
 	pub struct NegativeImbalance<T: Config<I>, I: 'static = ()>(T::Balance);
 
 	impl<T: Config<I>, I: 'static> NegativeImbalance<T, I> {

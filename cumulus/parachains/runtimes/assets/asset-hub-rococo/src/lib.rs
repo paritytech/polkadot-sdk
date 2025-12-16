@@ -83,7 +83,7 @@ use parachains_common::{
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::Perbill;
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
@@ -570,7 +570,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1778,7 +1778,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(XcmAssets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let dest = PeopleLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
@@ -1807,7 +1807,7 @@ impl_runtime_apis! {
 					let transfer_asset: Asset = (asset_location, asset_amount).into();
 
 					let assets: XcmAssets = vec![fee_asset.clone(), transfer_asset].into();
-					let fee_asset_id = fee_asset.id;
+					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
 
 					// verify transferred successfully
 					let verify = alloc::boxed::Box::new(move || {
@@ -1820,7 +1820,7 @@ impl_runtime_apis! {
 							initial_asset_amount - asset_amount,
 						);
 					});
-					Some((assets, fee_asset_id, dest, verify))
+					Some((assets, fee_index as u32, dest, verify))
 				}
 
 				fn get_asset() -> Asset {

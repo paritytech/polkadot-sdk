@@ -65,7 +65,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 						self.gas() > receipt.gas_used,
 						"Gas used should be less than gas estimated."
 					);
-					return Ok(receipt)
+					return Ok(receipt);
 				} else {
 					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
@@ -176,7 +176,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.await
 			.with_context(|| "Failed to fetch gas estimate")?;
 
-		println!("Gas estimate: {gas:?}");
 		let mut unsigned_tx = TransactionLegacyUnsigned {
 			gas,
 			nonce,

@@ -29,8 +29,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 
 use alloc::vec::Vec;
-use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
+use Debug;
 
 pub mod runtime_api;
 pub use runtime_api::*;
@@ -47,7 +47,7 @@ pub type ValidatorCount = u32;
 	Eq,
 	PartialEq,
 	Default,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 )]
 pub struct MembershipProof {

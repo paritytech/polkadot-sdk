@@ -71,7 +71,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill, RuntimeDebug,
+	ApplyExtrinsicResult, Debug, DispatchError, MultiAddress, Perbill,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
 #[cfg(feature = "std")]
@@ -477,7 +477,7 @@ impl pallet_multisig::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1047,7 +1047,7 @@ impl_runtime_apis! {
 					))
 				}
 
-				fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
 					let dest = AssetHubLocation::get();
 

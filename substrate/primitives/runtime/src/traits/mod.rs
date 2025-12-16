@@ -43,11 +43,7 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-#[cfg(feature = "bls-experimental")]
-use sp_core::crypto::Pair; /* there is no host function to verify ecdsa_bls381 signature so
-						    * need to get it from core::crypto::Pair */
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
-
+use sp_core::{self, storage::StateVersion, Hasher, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
@@ -205,7 +201,7 @@ where
 }
 
 /// An error type that indicates that the origin is invalid.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct BadOrigin;
 
 impl From<BadOrigin> for &'static str {
@@ -215,7 +211,7 @@ impl From<BadOrigin> for &'static str {
 }
 
 /// An error that indicates that a lookup failed.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct LookupError;
 
 impl From<LookupError> for &'static str {
@@ -1060,7 +1056,7 @@ impl<T> HashOutput for T where
 }
 
 /// Blake2-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlakeTwo256;
 
@@ -1087,7 +1083,7 @@ impl Hash for BlakeTwo256 {
 }
 
 /// Keccak-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Keccak256;
 
@@ -1635,7 +1631,7 @@ impl Dispatchable for () {
 }
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct FakeDispatchable<Inner>(pub Inner);
 impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {
@@ -2159,7 +2155,7 @@ macro_rules! impl_opaque_keys_inner {
 			$crate::codec::Decode,
 			$crate::codec::DecodeWithMemTracking,
 			$crate::scale_info::TypeInfo,
-			$crate::RuntimeDebug,
+			Debug,
 		)]
 		pub struct $name {
 			$(
