@@ -191,9 +191,10 @@ jobs:
 
        - name: Install solc
          run: |
-           # Install solc 0.8.30 or earlier (0.8.31+ not supported by resolc)
-           brew install solidity@8
-           brew link solidity@8 --force --overwrite
+           # Install solc 0.8.30 directly (0.8.31+ not supported by resolc)
+           SOLC_VERSION="0.8.30"
+           curl -L "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-macos" -o /usr/local/bin/solc
+           chmod +x /usr/local/bin/solc
            solc --version
 
        - name: Install resolc
