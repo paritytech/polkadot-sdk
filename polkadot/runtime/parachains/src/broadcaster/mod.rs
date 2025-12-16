@@ -70,7 +70,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
 use polkadot_primitives::Id as ParaId;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::traits::Zero;
 
 pub use pallet::*;
 
@@ -87,7 +87,7 @@ mod benchmarking;
 mod tests;
 
 /// Information about a registered publisher.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PublisherInfo<AccountId, Balance> {
 	/// The account that registered and manages this publisher.
 	pub manager: AccountId,
@@ -346,7 +346,7 @@ pub mod pallet {
 		pub fn cleanup_published_data(
 			origin: OriginFor<T>,
 			para_id: ParaId,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			let info = RegisteredPublishers::<T>::get(para_id)
@@ -355,10 +355,15 @@ pub mod pallet {
 			ensure!(who == info.manager, Error::<T>::NotAuthorized);
 			ensure!(PublisherExists::<T>::get(para_id), Error::<T>::NoDataToCleanup);
 
+			let actual_keys = PublishedKeys::<T>::get(para_id).len() as u32;
 			Self::do_cleanup_publisher(para_id)?;
 
 			Self::deposit_event(Event::DataCleanedUp { para_id });
-			Ok(())
+
+			Ok(Some(
+				<T as Config>::WeightInfo::do_cleanup_publisher(actual_keys)
+					.saturating_add(T::DbWeight::get().reads(2))
+			).into())
 		}
 
 		/// Deregister a publisher and release their deposit.
