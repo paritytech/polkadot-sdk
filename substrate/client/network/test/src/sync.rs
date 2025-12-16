@@ -1225,7 +1225,7 @@ async fn warp_sync() {
 	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
-		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
+		if net.peer(3).has_block(gap_end) && net.peer(3).has_block(target) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1292,7 +1292,7 @@ async fn warp_sync_to_target_block() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		let peer = net.peer(3);
-		if blocks.iter().all(|b| peer.has_body(*b)) {
+		if blocks.iter().all(|b| peer.has_block(*b)) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
