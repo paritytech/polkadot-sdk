@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -44,9 +44,6 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 pub trait FrameTraceInfo {
 	/// Get the amount of gas remaining in the current frame.
 	fn gas_left(&self) -> u64;
-
-	/// Get the weight remaining in the current frame.
-	fn weight_left(&self) -> Weight;
 
 	/// Get the output from the last frame.
 	fn last_frame_output(&self) -> Bytes;

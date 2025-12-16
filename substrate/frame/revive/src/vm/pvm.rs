@@ -820,11 +820,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> FrameTraceInfo for Runtime<'a, E, M> 
 		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
 	}
 
-	fn weight_left(&self) -> Weight {
-		let meter = self.ext.frame_meter();
-		meter.weight_left().unwrap_or_default()
-	}
-
 	fn last_frame_output(&self) -> crate::evm::Bytes {
 		crate::evm::Bytes(self.ext.last_frame_output().data.clone())
 	}

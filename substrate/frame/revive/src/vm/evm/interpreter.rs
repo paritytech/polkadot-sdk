@@ -23,7 +23,7 @@ use crate::{
 		evm::{memory::Memory, stack::Stack},
 		ExecResult, Ext,
 	},
-	Config, DispatchError, Error, Weight,
+	Config, DispatchError, Error,
 };
 use alloc::vec::Vec;
 use pallet_revive_uapi::ReturnFlags;
@@ -80,11 +80,6 @@ impl<E: Ext> FrameTraceInfo for Interpreter<'_, E> {
 	fn gas_left(&self) -> u64 {
 		let meter = self.ext.frame_meter();
 		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
-	}
-
-	fn weight_left(&self) -> Weight {
-		let meter = self.ext.frame_meter();
-		meter.weight_left().unwrap_or_default()
 	}
 
 	fn last_frame_output(&self) -> crate::evm::Bytes {
