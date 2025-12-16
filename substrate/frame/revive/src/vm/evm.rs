@@ -154,9 +154,11 @@ fn run_plain_with_tracing<E: Ext>(
 	interpreter: &mut Interpreter<E>,
 ) -> ControlFlow<Halt, Infallible> {
 	loop {
-		let pc = interpreter.bytecode.pc() as u64;
 		let opcode = interpreter.bytecode.opcode();
-		tracing::if_tracing(|tracer| tracer.enter_opcode(pc, opcode, interpreter));
+		tracing::if_tracing(|tracer| {
+			let pc = interpreter.bytecode.pc() as u64;
+			tracer.enter_opcode(pc, opcode, interpreter)
+		});
 
 		interpreter.bytecode.relative_jump(1);
 		let res = exec_instruction(interpreter, opcode);

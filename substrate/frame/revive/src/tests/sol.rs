@@ -597,7 +597,9 @@ fn eth_substrate_call_tracks_weight_correctly() {
 #[test]
 fn opcode_tracing_works() {
 	use crate::{
-		evm::{ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig},
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig,
+		},
 		tracing::trace,
 	};
 	use sp_core::U256;
@@ -717,7 +719,9 @@ fn opcode_tracing_works() {
 #[test]
 fn syscall_tracing_works() {
 	use crate::{
-		evm::{ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig},
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer, StructLoggerConfig,
+		},
 		tracing::trace,
 		vm::pvm::env::lookup_syscall_index,
 	};
@@ -808,7 +812,6 @@ fn syscall_tracing_works() {
 			],
 		};
 
-		// Single assertion that verifies the complete trace structure matches exactly
 		assert_eq!(actual_trace, expected_trace);
 	});
 }
