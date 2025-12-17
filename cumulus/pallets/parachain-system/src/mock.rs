@@ -99,6 +99,7 @@ impl Config for Test {
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
 	type RelayParentOffset = ConstU32<0>;
+	type RelayProofKeysProcessor = ();
 }
 
 std::thread_local! {

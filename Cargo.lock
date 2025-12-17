@@ -4871,6 +4871,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-state-machine",
+ "sp-storage 19.0.0",
  "sp-version",
  "thiserror 1.0.65",
 ]

@@ -21,10 +21,25 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
+use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+
+/// Process keys from verified relay chain state proofs.
+///
+/// This trait allows processing of relay chain storage data from the verified proof.
+pub trait ProcessRelayProofKeys {
+	/// Process keys from a verified relay state proof.
+	fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight;
+}
+
+impl ProcessRelayProofKeys for () {
+	fn process_relay_proof_keys(_verified_proof: &RelayChainStateProof) -> Weight {
+		Weight::zero()
+	}
+}
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are
@@ -382,5 +397,21 @@ impl RelayChainStateProof {
 		T: Decode,
 	{
 		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
+	}
+
+	/// Read a value from a child trie in the relay chain state proof.
+	///
+	/// Returns `Ok(Some(value))` if the key exists in the child trie,
+	/// `Ok(None)` if the key doesn't exist,
+	/// or `Err` if there was a proof error.
+	pub fn read_child_storage(
+		&self,
+		child_info: &sp_core::storage::ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		use sp_state_machine::Backend;
+		self.trie_backend
+			.child_storage(child_info, key)
+			.map_err(|_| Error::ReadEntry(ReadEntryErr::Proof))
 	}
 }

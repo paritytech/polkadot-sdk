@@ -385,6 +385,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type RelayProofKeysProcessor = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -639,6 +640,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			1
+		}
+	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			Default::default()
 		}
 	}
 }
