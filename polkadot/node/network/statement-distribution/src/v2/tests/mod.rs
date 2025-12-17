@@ -600,6 +600,68 @@ async fn handle_leaf_activation(
 		claim_queue,
 	} = leaf;
 
+	// activate_leaf calls fetch_ancestors first
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) => {
+			tx.send(Ok(*session)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SchedulingLookahead(_, tx),
+		)) => {
+			// Assuming scheduling lookahead of 2 for tests
+			tx.send(Ok(2)).unwrap();
+		}
+	);
+
+	let ancestors = assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ChainApi(ChainApiMessage::Ancestors {
+			k,
+			response_channel: tx,
+			..
+		}) => {
+			// Calculate ancestors based on block number
+			let mut ancestors = Vec::new();
+			let mut current_hash = *parent_hash;
+			let mut current_number = *number - 1;
+
+			for _ in 0..k {
+				if current_number == 0 {
+					break;
+				}
+				ancestors.push(current_hash);
+				// For tests, generate predictable parent hashes
+				current_hash = Hash::repeat_byte(current_hash.as_ref()[0].wrapping_sub(1));
+				current_number -= 1;
+			}
+
+			tx.send(Ok(ancestors.clone())).unwrap();
+			ancestors
+		}
+	);
+
+	// fetch_ancestors checks session for each returned ancestor
+	for _ in 0..ancestors.len() {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				tx.send(Ok(*session)).unwrap();
+			}
+		);
+	}
+
 	let header = Header {
 		parent_hash: *parent_hash,
 		number: *number,

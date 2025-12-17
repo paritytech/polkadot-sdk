@@ -127,11 +127,60 @@ pub(super) async fn update_view(
 		)
 		.await;
 
-		let min_number = leaf_number.saturating_sub(test_state.scheduling_lookahead);
+		// activate_leaf calls fetch_ancestors
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx)
+			)) => {
+				tx.send(Ok(test_state.session_index)).unwrap();
+			}
+		);
 
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SchedulingLookahead(_, tx)
+			)) => {
+				tx.send(Ok(test_state.scheduling_lookahead)).unwrap();
+			}
+		);
+
+		let min_number = leaf_number.saturating_sub(test_state.scheduling_lookahead);
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
 			.take(ancestry_len as usize);
+
+		let returned_ancestors = assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::Ancestors {
+				k,
+				response_channel: tx,
+				..
+			}) => {
+				assert_eq!(k, test_state.scheduling_lookahead.saturating_sub(1) as usize);
+				let hashes: Vec<_> = ancestry_hashes.clone().skip(1).collect();
+				let returned = hashes.clone();
+				tx.send(Ok(hashes)).unwrap();
+				returned
+			}
+		);
+
+		// fetch_ancestors checks session for each ancestor that was returned
+		for _ in 0..returned_ancestors.len() {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionIndexForChild(tx)
+				)) => {
+					tx.send(Ok(test_state.session_index)).unwrap();
+				}
+			);
+		}
+
 		let ancestry_numbers = (min_number..=leaf_number).rev();
 		let ancestry_iter = ancestry_hashes.clone().zip(ancestry_numbers).peekable();
 
@@ -150,7 +199,18 @@ pub(super) async fn update_view(
 
 				let msg = match next_overseer_message.take() {
 					Some(msg) => msg,
-					None => overseer_recv(virtual_overseer).await,
+					None => match overseer_recv_with_timeout(
+						virtual_overseer,
+						Duration::from_millis(50),
+					)
+					.await
+					{
+						Some(msg) => msg,
+						None => {
+							// No message arrived - ancestry is cached
+							break
+						},
+					},
 				};
 
 				if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
