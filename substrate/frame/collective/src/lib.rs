@@ -50,7 +50,7 @@ use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 use frame_support::{
@@ -138,15 +138,7 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 
 /// Origin for the collective module.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
+	PartialEq, Eq, Clone, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
@@ -169,7 +161,7 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 }
 
 /// Info for keeping track of a motion being voted on.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct Votes<AccountId, BlockNumber> {
 	/// The proposal's unique index.
 	index: ProposalIndex,

@@ -64,7 +64,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -87,7 +87,7 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -108,7 +108,7 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 	DecodeWithMemTracking,

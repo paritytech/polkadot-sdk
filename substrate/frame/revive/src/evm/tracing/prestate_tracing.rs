@@ -17,7 +17,7 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -241,7 +241,7 @@ where
 		&mut self,
 		contract_address: H160,
 		beneficiary_address: H160,
-		_gas_left: Weight,
+		_gas_left: U256,
 		_value: U256,
 	) {
 		self.destructed_addrs.insert(contract_address);
@@ -254,30 +254,32 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas_limit: U256,
 	) {
-		if is_delegate_call {
+		if let Some(delegate_call) = delegate_call {
 			self.calls.push(self.current_addr());
+			self.read_account(delegate_call);
 		} else {
 			self.calls.push(to);
+			self.read_account(from);
 		}
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
+		} else {
+			self.read_account(to);
 		}
-		self.read_account(from);
-		self.read_account(to);
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: U256) {
 		self.calls.pop();
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: U256) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return

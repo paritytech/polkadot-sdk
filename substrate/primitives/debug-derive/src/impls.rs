@@ -43,22 +43,6 @@ pub fn debug_derive(ast: DeriveInput) -> proc_macro::TokenStream {
 	gen.into()
 }
 
-#[cfg(all(not(feature = "std"), not(feature = "force-debug")))]
-mod implementation {
-	use super::*;
-
-	/// Derive the inner implementation of `Debug::fmt` function.
-	///
-	/// Non-std environment. We do nothing to prevent bloating the size of runtime.
-	/// Implement `Printable` if you need to print the details.
-	pub fn derive(_name_str: &str, _data: &Data) -> TokenStream {
-		quote! {
-			fmt.write_str("<wasm:stripped>")
-		}
-	}
-}
-
-#[cfg(any(feature = "std", feature = "force-debug"))]
 mod implementation {
 	use super::*;
 	use proc_macro2::Span;

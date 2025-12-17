@@ -20,7 +20,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(
@@ -29,7 +29,7 @@ use sp_runtime::RuntimeDebug;
 	Default,
 	Clone,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -41,11 +41,13 @@ pub struct DebugSettings {
 	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract or
 	/// precompile accounts).
 	bypass_eip_3607: bool,
+	/// Whether to enable PolkaVM logs.
+	pvm_logs: bool,
 }
 
 impl DebugSettings {
-	pub fn new(allow_unlimited_contract_size: bool, bypass_eip_3607: bool) -> Self {
-		Self { allow_unlimited_contract_size, bypass_eip_3607 }
+	pub fn new(allow_unlimited_contract_size: bool, bypass_eip_3607: bool, pvm_logs: bool) -> Self {
+		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs }
 	}
 
 	/// Returns true if unlimited contract size is allowed.
@@ -57,6 +59,11 @@ impl DebugSettings {
 	/// (bypassing EIP-3607)
 	pub fn bypass_eip_3607<T: Config>() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().bypass_eip_3607
+	}
+
+	/// Returns true if PolkaVM logs are enabled.
+	pub fn is_pvm_logs_enabled<T: Config>() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().pvm_logs
 	}
 
 	/// Write the debug settings to storage.
