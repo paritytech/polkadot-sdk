@@ -66,9 +66,9 @@ struct BenchmarkBounty<T: Config<I>, I: 'static> {
 	/// The kind of asset the child-/bounty is rewarded in.
 	asset_kind: T::AssetKind,
 	/// The amount that should be paid if the bounty is rewarded.
-	value: BalanceOf<T, I>,
+	value: T::Balance,
 	/// The amount that should be paid if the child-bounty is rewarded.
-	child_value: BalanceOf<T, I>,
+	child_value: T::Balance,
 	/// The child-/bounty beneficiary account.
 	beneficiary: T::Beneficiary,
 	/// Bounty metadata hash.
@@ -203,8 +203,8 @@ fn create_child_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, 
 		RawOrigin::Signed(s.curator.clone()).into(),
 		s.parent_bounty_id,
 		s.child_value,
-		Some(child_curator_lookup),
 		s.metadata,
+		Some(child_curator_lookup),
 	)?;
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
@@ -345,8 +345,8 @@ mod benchmarks {
 			RawOrigin::Signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
-			Some(child_curator_lookup),
 			s.metadata,
+			Some(child_curator_lookup),
 		);
 
 		let child_bounty_id =

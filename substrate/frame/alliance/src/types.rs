@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// A Multihash instance that only supports the basic functionality and no hashing.
 #[derive(
@@ -28,7 +28,7 @@ use sp_runtime::RuntimeDebug;
 	Eq,
 	PartialOrd,
 	Ord,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -57,7 +57,7 @@ impl Multihash {
 	Eq,
 	PartialOrd,
 	Ord,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -80,7 +80,7 @@ pub enum Version {
 	Eq,
 	PartialOrd,
 	Ord,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -124,7 +124,7 @@ impl Cid {
 	DecodeWithMemTracking,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 	Default,

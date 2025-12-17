@@ -52,6 +52,8 @@ jobs:
     outputs:
       job_url: ${{ steps.build-link.outputs.job_url }}
       run_url: ${{ steps.build-link.outputs.run_url }}
+      repo_labels: ${{ steps.fetch-github-data.outputs.repo_labels }}
+      pr_status: ${{ steps.fetch-github-data.outputs.pr_status }}
     steps:
       - name: Build workflow link
         if: ${{ github.event.inputs.is_quiet == 'false' }}
@@ -111,6 +113,38 @@ jobs:
           echo "Comment ID: $COMMENT_ID"
           echo "Is quiet: $IS_QUIET"
 
+      - name: Fetch GitHub data for cmd
+        if: startsWith(github.event.inputs.cmd, 'label')
+        id: fetch-github-data
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Fetch all labels with pagination
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            const labelNames = labels.map(l => l.name);
+            console.log(`Fetched ${labelNames.length} labels`);
+
+            // Fetch PR status
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ github.event.inputs.pr_num }}
+            });
+            const prStatus = {
+              merged: pr.data.merged,
+              state: pr.data.state,
+              auto_merge: pr.data.auto_merge !== null
+            };
+            console.log(`PR status: ${JSON.stringify(prStatus)}`);
+
+            core.setOutput('repo_labels', JSON.stringify(labelNames));
+            core.setOutput('pr_status', JSON.stringify(prStatus));
+
   cmd:
     needs: [before-cmd]
     env:
@@ -133,7 +167,7 @@ jobs:
       subweight: ${{ steps.subweight.outputs.result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
@@ -157,6 +191,8 @@ jobs:
           IS_PR_AUTHOR: ${{ github.event.inputs.is_pr_author }}
           RUNNER: ${{ github.event.inputs.runner }}
           IMAGE: ${{ github.event.inputs.image }}
+          REPO_LABELS: ${{ needs.before-cmd.outputs.repo_labels }}
+          PR_STATUS: ${{ needs.before-cmd.outputs.pr_status }}
         run: |
           echo "Running command: '${CMD} ${PR_ARG}' on '${RUNNER}' runner, container: '${IMAGE}'"
           echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"
@@ -200,25 +236,25 @@ jobs:
 
       - name: Upload command output
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: command-output
           path: /tmp/cmd/command_output.log
 
       - name: Upload command diff
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: command-diff
           path: /tmp/cmd/command_diff.patch
 
       - name: Upload git status
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: git-status
           path: /tmp/cmd/git_status.log
 
       - name: Upload git diff
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: git-diff
           path: /tmp/cmd/git_diff.log
@@ -248,6 +284,15 @@ jobs:
           echo $result
 
           echo $result > /tmp/cmd/subweight.log
+          # Check if /tmp/cmd/subweight.log is more than 1048576 bytes
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 1048576 ]; then
+            echo "Subweight result is too large, truncating..."
+            result=$(echo "$result" | head -c 100000)
+          fi
+
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
           # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
           if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
             echo "Subweight result is too large, truncating..."
@@ -263,7 +308,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Upload Subweight
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: startsWith(github.event.inputs.cmd, 'bench')
         with:
           name: subweight
@@ -279,24 +324,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
-      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      - name: Download command-diff artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: command-diff
           path: command-diff
+
+      - name: Download command-output artifact
+        if: startsWith(github.event.inputs.cmd, 'label')
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: command-output
+          path: command-output
 
       - name: Apply labels for label command
         if: startsWith(github.event.inputs.cmd, 'label')
@@ -309,7 +361,7 @@ jobs:
             let labels = [];
 
             try {
-              const output = fs.readFileSync('/tmp/cmd/command_output.log', 'utf8');
+              const output = fs.readFileSync('command-output/command_output.log', 'utf8');
 
               // Parse JSON labels from output - look for "LABELS_JSON: {...}"
               const jsonMatch = output.match(/LABELS_JSON: (.+)/);

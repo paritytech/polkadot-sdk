@@ -24,7 +24,7 @@ use frame_support::traits::{
 };
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use sp_runtime::{traits::TryConvert, Perquintill};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -137,7 +137,7 @@ pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	Eq,
 	PartialEq,
 	Clone,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	MaxEncodedLen,
 )]
