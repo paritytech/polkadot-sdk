@@ -25,7 +25,7 @@ use frame_support::{
 
 // Import V4 types - these will be used directly for decoding V3 storage since they're
 // binary-compatible
-use super::assigner_cortime::{CoreDescriptor, Schedule};
+use super::assigner_coretime::{CoreDescriptor, Schedule};
 
 /// V3 storage format - types and storage items before migration to V4.
 pub(super) mod v3 {
