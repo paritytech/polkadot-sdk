@@ -18,8 +18,11 @@
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
 //! This pallet implements `FundingSink` to collect funds into a buffer account instead of burning
-//! them. The buffer account is created via `inc_providers` at genesis or on runtime upgrade,
-//! ensuring it can receive any amount including those below ED.
+//! them. The buffer account is created via `inc_providers` at genesis, ensuring it can receive any
+//! amount including those below ED.
+//!
+//! For existing chains adding DAP, include `dap::migrations::InitBufferAccount` as a permanent
+//! migration. It's idempotent (1 read per upgrade) and ensures the buffer account exists.
 //!
 //! Future phases will add:
 //! - `FundingSource` (request_funds) for pulling funds
@@ -53,12 +56,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
 
-	/// The in-code storage version.
-	const STORAGE_VERSION: frame_support::traits::StorageVersion =
-		frame_support::traits::StorageVersion::new(1);
-
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -86,8 +84,7 @@ pub mod pallet {
 
 		/// Ensure the buffer account exists by incrementing its provider count.
 		///
-		/// This is called at genesis and on runtime upgrade.
-		/// It's idempotent - calling it multiple times is safe.
+		/// This is called at genesis. It's idempotent - calling it multiple times is safe.
 		pub fn ensure_buffer_account_exists() {
 			let buffer = Self::buffer_account();
 			if !frame_system::Pallet::<T>::account_exists(&buffer) {
@@ -97,16 +94,6 @@ pub mod pallet {
 					"Created DAP buffer account: {buffer:?}"
 				);
 			}
-		}
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			// Create the buffer account if it doesn't exist (for chains upgrading to DAP).
-			Self::ensure_buffer_account_exists();
-			// Weight: 1 read (account_exists) + potentially 1 write (inc_providers)
-			T::DbWeight::get().reads_writes(1, 1)
 		}
 	}
 
@@ -125,12 +112,25 @@ pub mod pallet {
 			Pallet::<T>::ensure_buffer_account_exists();
 		}
 	}
+}
 
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// Funds returned to DAP buffer.
-		FundsReturned { from: T::AccountId, amount: BalanceOf<T> },
+/// Migrations for the DAP pallet.
+pub mod migrations {
+	use super::*;
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	/// Permanent migration to ensure the DAP buffer account exists.
+	///
+	/// This should be included as a permanent migration in runtimes using DAP.
+	/// It's idempotent - costs only 1 read per upgrade after the first run.
+	pub struct InitBufferAccount<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for InitBufferAccount<T> {
+		fn on_runtime_upgrade() -> Weight {
+			Pallet::<T>::ensure_buffer_account_exists();
+			// Weight: 1 read (account_exists) + potentially 1 write (inc_providers)
+			T::DbWeight::get().reads_writes(1, 1)
+		}
 	}
 }
 
@@ -142,15 +142,14 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
 		let buffer = Pallet::<T>::buffer_account();
 
-		// Withdraw from source, resolve to buffer, emit event. If withdraw fails, nothing happens.
-		// If resolve fails (should never happen - buffer pre-created at genesis or via runtime
-		// upgrade), funds are burned.
-		T::Currency::withdraw(source, amount, Precision::Exact, preservation, Fortitude::Polite)
-			.ok()
-			.map(|credit| T::Currency::resolve(&buffer, credit))
-			.map(|_| {
-				Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount })
-			});
+		// Withdraw from source and resolve to buffer. If withdraw fails, nothing happens.
+		// If resolve fails (should never happen - buffer pre-created at genesis or via migration),
+		// funds are burned. Balances pallet emits Transfer events.
+		if let Ok(credit) =
+			T::Currency::withdraw(source, amount, Precision::Exact, preservation, Fortitude::Polite)
+		{
+			let _ = T::Currency::resolve(&buffer, credit);
+		}
 	}
 }
 
@@ -170,8 +169,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 		let buffer = Pallet::<T>::buffer_account();
 		let numeric_amount = amount.peek();
 
-		// The buffer account is created at genesis or on_runtime_upgrade, so resolve should
-		// always succeed. If it somehow fails, log the error.
+		// The buffer account is created at genesis (or via migration for existing chains), so
+		// resolve should always succeed. If it somehow fails, log the error.
 		if let Err(remaining) = T::Currency::resolve(&buffer, amount) {
 			let remaining_amount = remaining.peek();
 			if !remaining_amount.is_zero() {
@@ -285,7 +284,6 @@ mod tests {
 	#[test]
 	fn fill_accumulates_from_multiple_sources() {
 		new_test_ext().execute_with(|| {
-			System::set_block_number(1);
 			let buffer = Dap::buffer_account();
 
 			// Given: accounts have balances, buffer has 0
@@ -304,11 +302,6 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 80);
 			assert_eq!(Balances::free_balance(2), 150);
 			assert_eq!(Balances::free_balance(3), 200);
-
-			// ...and all three events are emitted
-			System::assert_has_event(Event::<Test>::FundsReturned { from: 1, amount: 20 }.into());
-			System::assert_has_event(Event::<Test>::FundsReturned { from: 2, amount: 50 }.into());
-			System::assert_has_event(Event::<Test>::FundsReturned { from: 3, amount: 100 }.into());
 		});
 	}
 
@@ -351,7 +344,6 @@ mod tests {
 	#[test]
 	fn fill_with_expendable_allows_full_drain() {
 		new_test_ext().execute_with(|| {
-			System::set_block_number(1);
 			let buffer = Dap::buffer_account();
 
 			// Given: account 1 has 100

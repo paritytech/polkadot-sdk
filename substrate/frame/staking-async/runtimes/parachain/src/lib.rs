@@ -1243,6 +1243,8 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	// permanent
+	pallet_dap::migrations::InitBufferAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
