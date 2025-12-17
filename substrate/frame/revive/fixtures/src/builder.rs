@@ -308,56 +308,14 @@ pub fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
-/// Ensure @openzeppelin/contracts is installed under `install_dir/node_modules`.
-fn ensure_openzeppelin(install_dir: &Path) -> Result<()> {
-	let node_modules = install_dir.join("node_modules");
-	let oz_contracts = node_modules.join("@openzeppelin/contracts");
-
-	// If already present, nothing to do.
-	if oz_contracts.exists() {
-		return Ok(());
-	}
-
-	// Require npm
-	let npm_ok = Command::new("npm").arg("--version").output();
-	if npm_ok.is_err() || !npm_ok.unwrap().status.success() {
-		bail!("npm is required to install @openzeppelin/contracts in {:?}", install_dir);
-	}
-
-	// Create a package.json if missing.
-	if !install_dir.join("package.json").exists() {
-		let status = Command::new("npm")
-			.current_dir(install_dir)
-			.args(["init", "-y"])
-			.status()
-			.with_context(|| "failed to run `npm init -y`")?;
-		if !status.success() {
-			bail!("`npm init -y` failed in {:?}", install_dir);
-		}
-	}
-
-	// Install OpenZeppelin contracts
-	let status = Command::new("npm")
-		.current_dir(install_dir)
-		.args(["install", "--no-audit", "--no-fund", "--silent", "@openzeppelin/contracts@^5"])
-		.status()
-		.with_context(|| "failed to run `npm install @openzeppelin/contracts`")?;
-	if !status.success() || !oz_contracts.exists() {
-		bail!("failed to install @openzeppelin/contracts into {:?}", node_modules);
-	}
-
-	Ok(())
-}
-
 /// Compile a Solidity contract using standard JSON interface.
 fn compile_with_standard_json(
 	compiler: &str,
 	contracts_dir: &Path,
-	out_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
 	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
-	let oz_root = out_dir.join("node_modules/@openzeppelin/");
+	let oz_root = contracts_dir.join("external/openzeppelin/");
 	if oz_root.exists() {
 		remappings.push(format!("@openzeppelin/={}", oz_root.display()));
 	}
@@ -389,13 +347,7 @@ fn compile_with_standard_json(
 		});
 	}
 
-	// Allow imports from the interface dir and node_modules if present
-	let node_modules = out_dir.join("node_modules");
-	let allow_paths = if node_modules.exists() {
-		format!("{},{}", INTERFACE_DIR, node_modules.display())
-	} else {
-		INTERFACE_DIR.to_string()
-	};
+	let allow_paths = INTERFACE_DIR.to_string();
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
@@ -505,9 +457,6 @@ pub fn compile_solidity_contracts(
 		return Ok(());
 	}
 
-	// Install OpenZeppelin so imports like `@openzeppelin/...` resolve.
-	ensure_openzeppelin(out_dir).expect("Failed to install openzeppelin");
-
 	let evm_only = vec!["HostEvmOnly"];
 	let solidity_entries_pvm: Vec<_> = solidity_entries
 		.iter()
@@ -522,12 +471,12 @@ pub fn compile_solidity_contracts(
 		.collect();
 
 	// Compile with solc for EVM bytecode
-	let json = compile_with_standard_json("solc", contracts_dir, out_dir, &solidity_entries_evm)?;
+	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries_evm)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
-	let json = compile_with_standard_json("resolc", contracts_dir, out_dir, &solidity_entries_pvm)?;
+	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
 	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", EvmByteCodeType::InitCode)?;
 
 	Ok(())
