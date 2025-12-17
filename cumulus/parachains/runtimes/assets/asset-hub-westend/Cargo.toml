@@ -139,7 +139,6 @@ snowbridge-runtime-common = { workspace = true }
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { workspace = true, default-features = true }
-once_cell = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
