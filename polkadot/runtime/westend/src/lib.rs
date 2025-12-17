@@ -1184,42 +1184,6 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
-parameter_types! {
-	pub const MaxFriendsPerConfig: u32 = 128;
-
-	pub const SecurityDeposit: Balance = 100;
-	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
-	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
-	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
-}
-
-impl pallet_recovery::Config for Runtime {
-	type RuntimeCall = RuntimeCall;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type BlockNumberProvider = System;
-	type Currency = Balances;
-	type FriendGroupsConsideration = HoldConsideration<
-		AccountId,
-		Balances,
-		FriendGroupsHoldReason,
-		LinearStoragePrice<ConstU128<5>, ConstU128<1>, u128>, // 5 + n
-	>;
-	type AttemptConsideration = HoldConsideration<
-		AccountId,
-		Balances,
-		AttemptHoldReason,
-		LinearStoragePrice<ConstU128<3>, ConstU128<1>, u128>, // 2 + n
-	>;
-	type InheritorConsideration = HoldConsideration<
-		AccountId,
-		Balances,
-		InheritorHoldReason,
-		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
-	>;
-	type SecurityDeposit = SecurityDeposit;
-	type MaxFriendsPerConfig = MaxFriendsPerConfig;
-	type WeightInfo = ();
-}
 
 parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
@@ -1309,8 +1273,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				RuntimeCall::Whitelist(..) |
-				RuntimeCall::Recovery(..) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -1897,10 +1859,6 @@ mod runtime {
 	#[runtime::pallet_index(17)]
 	pub type Identity = pallet_identity;
 
-	// Social recovery module.
-	#[runtime::pallet_index(18)]
-	pub type Recovery = pallet_recovery;
-
 	// Vesting. Usable initially, but removed once all vesting is finished.
 	#[runtime::pallet_index(19)]
 	pub type Vesting = pallet_vesting;
@@ -2083,6 +2041,7 @@ pub type TxExtension = (
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
 	pub const MaxAgentsToMigrate: u32 = 300;
+	pub const RecoveryPalletName: &'static str = "Recovery";
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -2112,6 +2071,11 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// Remove the Recovery pallet.
+		frame_support::migrations::RemovePallet<
+			RecoveryPalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
 	);
 }
 
@@ -2174,7 +2138,6 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
-		[pallet_recovery, Recovery]
 		[pallet_referenda, Referenda]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
