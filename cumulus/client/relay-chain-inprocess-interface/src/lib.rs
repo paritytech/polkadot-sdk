@@ -240,6 +240,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.map_err(RelayChainError::StateMachineError)
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &cumulus_relay_chain_interface::ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+
+		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
+			.map_err(RelayChainError::StateMachineError)
+	}
+
 	/// Wait for a given relay chain block in an async way.
 	///
 	/// The caller needs to pass the hash of a block it waits for and the function will return when

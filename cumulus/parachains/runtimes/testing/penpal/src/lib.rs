@@ -664,6 +664,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	>;
 
 	type RelayParentOffset = ConstU32<0>;
+	type RelayProofKeysProcessor = ();
 }
 
 impl parachain_info::Config for Runtime {}
