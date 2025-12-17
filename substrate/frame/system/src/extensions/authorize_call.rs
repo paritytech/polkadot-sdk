@@ -22,7 +22,7 @@ use frame_support::{
 		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
 	},
 	traits::Authorize,
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::{
 	traits::{
@@ -44,7 +44,7 @@ use sp_runtime::{
 	EqNoBound,
 	PartialEqNoBound,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]

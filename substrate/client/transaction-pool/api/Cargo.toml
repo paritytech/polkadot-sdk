@@ -21,6 +21,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]

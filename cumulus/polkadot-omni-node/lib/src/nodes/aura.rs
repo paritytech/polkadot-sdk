@@ -49,7 +49,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
-	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId, TargetBlockRate,
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId, TargetBlockRate, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -430,11 +430,15 @@ where
 				UniqueSaturatedInto::<u32>::unique_saturated_into(*current_para_head.number()) + 1;
 			log::info!("Current block number: {current_block_number}");
 
+			let relay_parent_offset =
+				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
+
 			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 				current_para_block: current_block_number,
 				para_id,
 				current_para_block_head,
 				relay_blocks_per_para_block: 1,
+				relay_parent_offset,
 				para_blocks_per_relay_epoch: 10,
 				upgrade_go_ahead: should_send_go_ahead.then(|| {
 					log::info!("Detected pending validation code, sending go-ahead signal.");

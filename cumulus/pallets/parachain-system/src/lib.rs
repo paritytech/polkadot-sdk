@@ -57,7 +57,7 @@ use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},
-	FixedU128, RuntimeDebug, SaturatedConversion,
+	Debug, FixedU128, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -1807,7 +1807,7 @@ pub trait OnSystemEvent {
 }
 
 /// Holds the most recent relay-parent state root and block number of the current parachain block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct RelayChainState {
 	/// Current relay chain height.
 	pub number: relay_chain::BlockNumber,

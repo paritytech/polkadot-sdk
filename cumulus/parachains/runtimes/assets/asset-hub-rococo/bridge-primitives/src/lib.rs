@@ -30,7 +30,7 @@ use bp_runtime::{
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+	sp_runtime::{MultiAddress, MultiSigner, StateVersion},
 };
 use testnet_parachains_constants::rococo::currency::UNITS;
 use xcm::latest::prelude::*;
@@ -84,7 +84,7 @@ pub fn build_congestion_message<RuntimeCall>(
 pub const ASSET_HUB_ROCOCO_PARACHAIN_ID: u32 = 1000;
 
 /// AssetHubRococo parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 
 pub struct AssetHubRococo;
 

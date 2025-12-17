@@ -1,0 +1,22 @@
+title: Bump trie-db to 0.31.0
+
+doc:
+  - audience: Node Dev
+    description: |
+      Bumps `trie-db` to 0.31.0 and `trie-bench` to 0.42.1.
+
+crates:
+  - name: sp-trie
+    bump: minor
+  - name: cumulus-pallet-parachain-system
+    bump: none
+    validate: false
+  - name: sp-state-machine
+    bump: none
+    validate: false
+  - name: substrate-state-trie-migration-rpc
+    bump: none
+    validate: false
+  - name: bp-runtime
+    bump: none
+    validate: false

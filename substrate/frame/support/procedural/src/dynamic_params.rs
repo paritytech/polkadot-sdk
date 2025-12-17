@@ -268,7 +268,7 @@ impl ToTokens for DynamicPalletParamAttr {
 					#scrate::__private::codec::Decode,
 					#scrate::__private::codec::DecodeWithMemTracking,
 					#scrate::__private::codec::MaxEncodedLen,
-					#scrate::__private::RuntimeDebug,
+					core::fmt::Debug,
 					#scrate::__private::scale_info::TypeInfo
 				)]
 				#vis enum Parameters {
@@ -287,7 +287,7 @@ impl ToTokens for DynamicPalletParamAttr {
 					#scrate::__private::codec::Decode,
 					#scrate::__private::codec::DecodeWithMemTracking,
 					#scrate::__private::codec::MaxEncodedLen,
-					#scrate::__private::RuntimeDebug,
+					core::fmt::Debug,
 					#scrate::__private::scale_info::TypeInfo
 				)]
 				#vis enum #key_ident {
@@ -306,7 +306,7 @@ impl ToTokens for DynamicPalletParamAttr {
 					#scrate::__private::codec::Decode,
 					#scrate::__private::codec::DecodeWithMemTracking,
 					#scrate::__private::codec::MaxEncodedLen,
-					#scrate::__private::RuntimeDebug,
+					core::fmt::Debug,
 					#scrate::__private::scale_info::TypeInfo
 				)]
 				#vis enum #value_ident {
@@ -341,7 +341,7 @@ impl ToTokens for DynamicPalletParamAttr {
 						#scrate::__private::codec::Decode,
 						#scrate::__private::codec::DecodeWithMemTracking,
 						#scrate::__private::codec::MaxEncodedLen,
-						#scrate::__private::RuntimeDebug,
+						core::fmt::Debug,
 						#scrate::__private::scale_info::TypeInfo
 					)]
 					#vis struct #key_names;
@@ -391,7 +391,7 @@ impl ToTokens for DynamicPalletParamAttr {
 						Clone,
 						PartialEq,
 						Eq,
-						#scrate::sp_runtime::RuntimeDebug,
+						core::fmt::Debug,
 					)]
 					#vis struct #key_values(pub #value_types);
 
@@ -479,7 +479,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::DecodeWithMemTracking,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				core::fmt::Debug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #name {
@@ -499,7 +499,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::DecodeWithMemTracking,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				core::fmt::Debug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #params_key_ident {
@@ -518,7 +518,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::DecodeWithMemTracking,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				core::fmt::Debug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #params_value_ident {

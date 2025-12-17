@@ -24,7 +24,7 @@ use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// The ref time per core in seconds.
 ///
@@ -63,7 +63,7 @@ pub type InboundHrmpMessage = polkadot_primitives::InboundHrmpMessage<relay_chai
 pub type OutboundHrmpMessage = polkadot_primitives::OutboundHrmpMessage<ParaId>;
 
 /// Error description of a message send failure.
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, Encode, Decode)]
 pub enum MessageSendError {
 	/// The dispatch queue is full.
 	QueueFull,
@@ -205,7 +205,7 @@ impl XcmpMessageSource for () {
 }
 
 /// The "quality of service" considerations for message sending.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug)]
 pub enum ServiceQuality {
 	/// Ensure that this message is dispatched in the same relative order as any other messages
 	/// that were also sent with `Ordered`. This only guarantees message ordering on the dispatch

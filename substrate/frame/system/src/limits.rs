@@ -31,7 +31,7 @@ use frame_support::{
 	weights::{constants, Weight},
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Bounded, Perbill, RuntimeDebug};
+use sp_runtime::{traits::Bounded, Perbill};
 
 /// Block length limit configuration.
 #[derive(Debug, Clone, codec::Encode, codec::Decode, TypeInfo)]
@@ -94,7 +94,7 @@ pub type ValidationResult = Result<BlockWeights, ValidationErrors>;
 const DEFAULT_NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 
 /// `DispatchClass`-specific weight configuration.
-#[derive(RuntimeDebug, Clone, codec::Encode, codec::Decode, TypeInfo)]
+#[derive(Debug, Clone, codec::Encode, codec::Decode, TypeInfo)]
 pub struct WeightsPerClass {
 	/// Base weight of single extrinsic of given class.
 	pub base_extrinsic: Weight,

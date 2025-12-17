@@ -57,6 +57,8 @@ fn generate_metadata_file() {
 	ext.execute_with(|| {
 		let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
 		let bytes: &[u8] = &metadata;
-		fs::write("revive_chain.scale", bytes).unwrap();
+		let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
+		let out_path = std::path::Path::new(&out_dir).join("revive_chain.scale");
+		fs::write(out_path, bytes).unwrap();
 	});
 }
