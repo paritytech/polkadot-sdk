@@ -212,6 +212,9 @@ members = [
 	"polkadot/parachain/test-parachains/undying/collator",
 	"polkadot/primitives",
 	"polkadot/primitives/test-helpers",
+	"polkadot/pvq/pvq-executor",
+	"polkadot/pvq/pvq-primitives",
+	"polkadot/pvq/pvq-runtime-api",
 	"polkadot/rpc",
 	"polkadot/runtime/common",
 	"polkadot/runtime/common/slot_range_helper",
@@ -1177,6 +1180,9 @@ prometheus-parse = { version = "0.2.2" }
 proptest = { version = "1" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
+pvq-executor = { path = "polkadot/pvq/pvq-executor", default-features = false }
+pvq-primitives = { path = "polkadot/pvq/pvq-primitives", default-features = false }
+pvq-runtime-api = { path = "polkadot/pvq/pvq-runtime-api", default-features = false }
 pyroscope = { version = "0.5.8" }
 pyroscope_pprofrs = { version = "0.2.8" }
 quick_cache = { version = "0.3" }
