@@ -58,5 +58,5 @@ interface ISystem {
 	///
 	/// - `signature`: The signature bytes.
 	/// - `message`: The message bytes.
-	function sr25519Verify(uint8[64] calldata signature, bytes memory message, bytes32 publicKey) external view returns (bool);
+	function sr25519Verify(uint8[64] calldata signature, bytes calldata message, bytes32 publicKey) external view returns (bool);
 }
