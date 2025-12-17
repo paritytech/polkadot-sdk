@@ -1082,11 +1082,9 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
-	/// At which block a runtime upgrade is scheduled at.
-	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending
-	/// code is set.
+	/// Whether a runtime upgrade is scheduled at the next block.
 	#[pallet::storage]
-	pub(super) type UpgradeScheduledAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub(super) type UpgradeNextBlock<T: Config> = StorageValue<_, (), ValueQuery>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1611,10 +1609,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This function assumes that the current block number has been set.
 	pub fn update_pending_code_in_storage(code: &[u8]) {
-		let current_number = Pallet::<T>::block_number();
-		let scheduled_at = current_number + One::one();
-
-		UpgradeScheduledAt::<T>::put(scheduled_at);
+		UpgradeNextBlock::<T>::put(());
 		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
 	}
 
@@ -1625,13 +1620,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `true` if the pending code upgrade was applied.
 	pub fn maybe_apply_pending_code_upgrade() -> bool {
-		if UpgradeScheduledAt::<T>::exists() {
-			let scheduled_at = UpgradeScheduledAt::<T>::get();
-			let current_number = Pallet::<T>::block_number();
-
-			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
-			if scheduled_at == current_number {
-				UpgradeScheduledAt::<T>::kill();
+		UpgradeNextBlock::<T>::mutate_exists(|maybe_scheduled| {
+			if maybe_scheduled.take().is_some() {
 				let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
 				else {
 					// should never happen
@@ -1645,14 +1635,9 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::CodeUpdated);
 
 				return true
-			} else if scheduled_at != current_number + One::one() {
-				defensive!("pending code scheduled to be applied not in the next block");
-				// should never happen, but if it does, we should clear the pending code
-				storage::unhashed::kill(well_known_keys::PENDING_CODE)
 			}
-		}
-
-		false
+			false
+		})
 	}
 
 	/// Whether all inherents have been applied.
