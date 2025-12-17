@@ -131,7 +131,7 @@ mod test {
 	pub static CANDIDATE_B1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(201)));
 	pub static CANDIDATE_B2: LazyLock<CandidateHash> =
-		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(203)));
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(202)));
 
 	pub static CANDIDATE_C1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(301)));
