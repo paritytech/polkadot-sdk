@@ -47,6 +47,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
@@ -627,11 +628,12 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 							slot_duration,
 						);
 
-					let storage_proof = sp_transaction_storage_proof::registration::new_data_provider(
-						&*client_clone,
-						&parent,
-						sp_transaction_storage_proof::runtime_api::client::retrieve_storage_period(&client_clone, parent)?,
-					)?;
+					let storage_proof =
+						sp_transaction_storage_proof::registration::new_data_provider(
+							&*client_clone,
+							&parent,
+							client_clone.runtime_api().storage_period(parent)?,
+						)?;
 
 					Ok((slot, timestamp, storage_proof))
 				}
