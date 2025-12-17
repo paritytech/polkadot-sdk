@@ -755,5 +755,30 @@ pub mod pallet {
 		pub fn execution_header_gindex() -> usize {
 			config::altair::EXECUTION_HEADER_INDEX
 		}
+
+		// Get latest imported checkpoint root
+		pub fn initial_checkpoint_root() -> H256 {
+			InitialCheckpointRoot::<T>::get()
+		}
+
+		// Get latest imported finalized block root
+		pub fn latest_finalized_block_root() -> H256 {
+			LatestFinalizedBlockRoot::<T>::get()
+		}
+
+		// Get beacon state by finalized block root
+		pub fn finalized_beacon_state(index: H256) -> Option<CompactBeaconState> {
+			FinalizedBeaconState::<T>::get(index)
+		}
+
+		// Get validators root
+		pub fn validators_root() -> H256 {
+			ValidatorsRoot::<T>::get()
+		}
+
+		// Get current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
+		}
 	}
 }
