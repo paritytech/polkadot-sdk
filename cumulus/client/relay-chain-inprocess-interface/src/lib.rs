@@ -33,7 +33,9 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
+};
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
@@ -243,7 +245,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn prove_child_read(
 		&self,
 		relay_parent: PHash,
-		child_info: &cumulus_relay_chain_interface::ChildInfo,
+		child_info: &ChildInfo,
 		child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof> {
 		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;

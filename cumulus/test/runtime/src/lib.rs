@@ -87,7 +87,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId, RelayProofRequest};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -644,7 +644,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
-		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+		fn keys_to_prove() -> RelayProofRequest {
 			Default::default()
 		}
 	}
