@@ -111,7 +111,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::EcdsaToEthAddress(ISystem::EcdsaToEthAddressCall { publicKey }) => {
 				let address =
 					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
-				Ok(address.to_vec())
+				Ok(address.abi_encode())
 			},
 		}
 	}
@@ -267,7 +267,7 @@ mod tests {
 					.unwrap();
 
 			assert_eq!(
-				result,
+				result[..20],
 				array_bytes::hex2array_unchecked::<_, 20>(
 					"09231da7b19A016f9e576d23B16277062F4d46A8"
 				)
