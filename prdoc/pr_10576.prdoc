@@ -7,12 +7,11 @@ doc:
     1. **FundingSink trait** (frame-support): A new trait for returning funds to an issuance system.
        Implementations can either burn directly (`DirectBurn`) or return to a buffer for reuse.
 
-    2. **pallet-dap**: A new pallet that implements `FundingSink` by collecting funds into a buffer
-       account instead of burning them. The buffer account is created via `inc_providers` at genesis
-       or on runtime upgrade, ensuring it can receive any amount including those below ED.
+    2. **pallet-dap**: A new pallet that implements `FundingSink` and `OnUnbalanced`, collecting
+       funds into a buffer account instead of burning them.
 
     3. **AssetHub Westend integration**: The runtime now uses pallet-dap to redirect staking slashes
-       to the DAP buffer (via `SlashToDap`).
+       to the DAP buffer (via `type Slash = Dap`).
 
     **Treasury burns are now disabled** so no need to integrate with DAP: treasury `Burn` parameter is set
     to zero in Westend RC, AssetHub and  collective runtimes. This means no treasury funds are burned at

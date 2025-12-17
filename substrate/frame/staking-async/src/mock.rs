@@ -464,7 +464,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = pallet_dap::SlashToDap<Test>;
+	type Slash = Dap;
 	type WeightInfo = ();
 }
 

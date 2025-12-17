@@ -447,7 +447,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
-	type Slash = pallet_dap::SlashToDap<Runtime>;
+	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;

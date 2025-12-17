@@ -134,13 +134,15 @@ pub mod migrations {
 	}
 }
 
-/// Implementation of FundingSink that fills the DAP buffer.
-/// Funds are transferred to the buffer account instead of being burned.
-pub struct ReturnToDap<T>(core::marker::PhantomData<T>);
+/// Type alias for credit (negative imbalance - funds that were slashed/removed).
+/// This is for the `fungible::Balanced` trait as used by staking-async.
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
-impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
+/// Implementation of FundingSink.
+/// Use as `type Sink = Dap` in runtime config.
+impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
-		let buffer = Pallet::<T>::buffer_account();
+		let buffer = Self::buffer_account();
 
 		// Withdraw from source and resolve to buffer. If withdraw fails, nothing happens.
 		// If resolve fails (should never happen - buffer pre-created at genesis or via migration),
@@ -153,20 +155,11 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 	}
 }
 
-/// Type alias for credit (negative imbalance - funds that were slashed/removed).
-/// This is for the `fungible::Balanced` trait as used by staking-async.
-pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
-/// Use this as `type Slash = SlashToDap<Runtime>` in staking-async config.
-///
-/// Note: This handler does NOT emit events because it can be called very frequently
-/// (e.g., for every fee-paying transaction via fee splitting).
-pub struct SlashToDap<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
+/// Use as `type Slash = Dap` in staking-async config.
+impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
-		let buffer = Pallet::<T>::buffer_account();
+		let buffer = Self::buffer_account();
 		let numeric_amount = amount.peek();
 
 		// The buffer account is created at genesis (or via migration for existing chains), so
@@ -190,9 +183,6 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 
 /// Implementation of OnUnbalanced for the old Currency trait (still used by treasury).
 /// Use this as `type BurnDestination = BurnToDap<Runtime, Balances>` e.g. in treasury config.
-///
-/// Note: This handler does NOT emit events because it can be called very frequently
-/// (e.g., for every fee-paying transaction via fee splitting).
 pub struct BurnToDap<T, C>(core::marker::PhantomData<(T, C)>);
 
 impl<T, C> OnUnbalanced<C::NegativeImbalance> for BurnToDap<T, C>
@@ -293,9 +283,9 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: fill buffer from multiple accounts
-			ReturnToDap::<Test>::fill(&1, 20, Preservation::Preserve);
-			ReturnToDap::<Test>::fill(&2, 50, Preservation::Preserve);
-			ReturnToDap::<Test>::fill(&3, 100, Preservation::Preserve);
+			Dap::fill(&1, 20, Preservation::Preserve);
+			Dap::fill(&2, 50, Preservation::Preserve);
+			Dap::fill(&3, 100, Preservation::Preserve);
 
 			// Then: buffer has accumulated all fills (20 + 50 + 100 = 170)
 			assert_eq!(Balances::free_balance(buffer), 170);
@@ -315,7 +305,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: try to fill 150 (more than balance)
-			ReturnToDap::<Test>::fill(&1, 150, Preservation::Preserve);
+			Dap::fill(&1, 150, Preservation::Preserve);
 
 			// Then: balances unchanged (infallible no-op)
 			assert_eq!(Balances::free_balance(1), 100);
@@ -333,7 +323,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: fill 0 from account 1
-			ReturnToDap::<Test>::fill(&1, 0, Preservation::Preserve);
+			Dap::fill(&1, 0, Preservation::Preserve);
 
 			// Then: balances unchanged (no-op)
 			assert_eq!(Balances::free_balance(1), 100);
@@ -350,7 +340,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(1), 100);
 
 			// When: fill full balance with Expendable (allows going to 0)
-			ReturnToDap::<Test>::fill(&1, 100, Preservation::Expendable);
+			Dap::fill(&1, 100, Preservation::Expendable);
 
 			// Then: account 1 is empty, buffer has 100
 			assert_eq!(Balances::free_balance(1), 0);
@@ -368,20 +358,20 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: try to fill 100 with Preserve (would go below ED)
-			ReturnToDap::<Test>::fill(&1, 100, Preservation::Preserve);
+			Dap::fill(&1, 100, Preservation::Preserve);
 
 			// Then: balances unchanged (infallible - would have killed account)
 			assert_eq!(Balances::free_balance(1), 100);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// But filling 99 works (leaves 1 for ED)
-			ReturnToDap::<Test>::fill(&1, 99, Preservation::Preserve);
+			Dap::fill(&1, 99, Preservation::Preserve);
 			assert_eq!(Balances::free_balance(1), 1);
 			assert_eq!(Balances::free_balance(buffer), 99);
 		});
 	}
 
-	// ===== SlashToDap tests =====
+	// ===== OnUnbalanced (slash) tests =====
 
 	#[test]
 	fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
@@ -393,13 +383,13 @@ mod tests {
 
 			// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
 			let credit1 = <Balances as Balanced<u64>>::issue(30);
-			SlashToDap::<Test>::on_unbalanced(credit1);
+			Dap::on_unbalanced(credit1);
 
 			let credit2 = <Balances as Balanced<u64>>::issue(20);
-			SlashToDap::<Test>::on_unbalanced(credit2);
+			Dap::on_unbalanced(credit2);
 
 			let credit3 = <Balances as Balanced<u64>>::issue(50);
-			SlashToDap::<Test>::on_unbalanced(credit3);
+			Dap::on_unbalanced(credit3);
 
 			// Then: buffer has accumulated all slashes (30 + 20 + 50 = 100)
 			assert_eq!(Balances::free_balance(buffer), 100);
@@ -416,7 +406,7 @@ mod tests {
 
 			// When: slash with zero amount
 			let credit = <Balances as Balanced<u64>>::issue(0);
-			SlashToDap::<Test>::on_unbalanced(credit);
+			Dap::on_unbalanced(credit);
 
 			// Then: buffer still has 0 (no-op)
 			assert_eq!(Balances::free_balance(buffer), 0);
