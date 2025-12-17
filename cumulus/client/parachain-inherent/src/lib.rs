@@ -159,14 +159,14 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Collect storage proofs for relay chain data.
+/// Collect additional storage proofs requested by the runtime.
 ///
 /// Generates proofs for both top-level relay chain storage and child trie data.
 /// Top-level keys are proven directly. Child trie roots are automatically included
 /// from their standard storage locations (`:child_storage:default:` + identifier).
 ///
 /// Returns a merged proof combining all requested data, or `None` if there are no requests.
-async fn collect_relay_storage_proofs(
+async fn collect_additional_storage_proofs(
 	relay_chain_interface: &impl RelayChainInterface,
 	relay_parent: PHash,
 	relay_proof_request: RelayProofRequest,
@@ -176,8 +176,6 @@ async fn collect_relay_storage_proofs(
 	if keys.is_empty() {
 		return None;
 	}
-
-	let mut combined_proof: Option<StorageProof> = None;
 
 	// Group keys by storage type
 	let mut top_keys = Vec::new();
@@ -193,11 +191,14 @@ async fn collect_relay_storage_proofs(
 		}
 	}
 
+	// Collect all storage proofs
+	let mut all_proofs = Vec::new();
+
 	// Collect top-level storage proofs
 	if !top_keys.is_empty() {
 		match relay_chain_interface.prove_read(relay_parent, &top_keys).await {
 			Ok(top_proof) => {
-				combined_proof = Some(top_proof);
+				all_proofs.push(top_proof);
 			},
 			Err(e) => {
 				tracing::error!(
@@ -215,10 +216,7 @@ async fn collect_relay_storage_proofs(
 		let child_info = ChildInfo::new_default(&storage_key);
 		match relay_chain_interface.prove_child_read(relay_parent, &child_info, &data_keys).await {
 			Ok(child_proof) => {
-				combined_proof = match combined_proof {
-					None => Some(child_proof),
-					Some(existing) => Some(StorageProof::merge([existing, child_proof])),
-				};
+				all_proofs.push(child_proof);
 			},
 			Err(e) => {
 				tracing::error!(
@@ -232,7 +230,12 @@ async fn collect_relay_storage_proofs(
 		}
 	}
 
-	combined_proof
+	// Merge all proofs
+	if all_proofs.is_empty() {
+		None
+	} else {
+		Some(StorageProof::merge(all_proofs))
+	}
 }
 
 pub struct ParachainInherentDataProvider;
@@ -279,7 +282,7 @@ impl ParachainInherentDataProvider {
 
 		// Collect additional requested storage proofs (top-level and child tries)
 		if let Some(additional_proofs) =
-			collect_relay_storage_proofs(relay_chain_interface, relay_parent, relay_proof_request)
+			collect_additional_storage_proofs(relay_chain_interface, relay_parent, relay_proof_request)
 				.await
 		{
 			relay_chain_state = StorageProof::merge([relay_chain_state, additional_proofs]);
