@@ -632,7 +632,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 						sp_transaction_storage_proof::registration::new_data_provider(
 							&*client_clone,
 							&parent,
-							client_clone.runtime_api().storage_period(parent)?,
+							client_clone.runtime_api().retention_period(parent)?,
 						)?;
 
 					Ok((slot, timestamp, storage_proof))

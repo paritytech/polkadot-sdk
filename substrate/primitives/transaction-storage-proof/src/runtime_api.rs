@@ -22,7 +22,7 @@ use sp_runtime::traits::NumberFor;
 sp_api::decl_runtime_apis! {
 	/// Runtime API trait for transaction storage support.
 	pub trait TransactionStorageApi {
-		/// Get the actual value of a storage period in blocks.
-		fn storage_period() -> NumberFor<Block>;
+		/// Get the actual value of a retention period in blocks.
+		fn retention_period() -> NumberFor<Block>;
 	}
 }
