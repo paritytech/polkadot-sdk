@@ -34,6 +34,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::IsSubType,
 		weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+		DebugNoBound,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Dispatchable, Implication, TransactionExtension};
@@ -277,13 +278,13 @@ pub mod pallet {
 	}
 
 	#[derive(
+		DebugNoBound,
 		Encode,
 		Decode,
 		CloneNoBound,
 		EqNoBound,
 		PartialEqNoBound,
 		TypeInfo,
-		RuntimeDebugNoBound,
 		DecodeWithMemTracking,
 	)]
 	#[scale_info(skip_type_params(T))]
