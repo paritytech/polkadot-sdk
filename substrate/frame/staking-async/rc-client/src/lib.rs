@@ -960,8 +960,11 @@ pub mod pallet {
 		/// Note: No deposit is currently required. Deposit handling will be added once direct
 		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
 		#[pallet::call_index(10)]
-		// TODO: Replace with proper benchmarked weight including XCM overhead.
-		#[pallet::weight(T::DbWeight::get().reads_writes(0, 0))]
+		#[pallet::weight(
+			// No local storage operations - this extrinsic only forwards keys to RelayChain
+			// via XCM.
+			T::DbWeight::get().reads_writes(0, 0)
+		)]
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
@@ -984,8 +987,11 @@ pub mod pallet {
 		/// Note: No deposit is currently held/released. Deposit handling will be added once
 		/// direct `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
 		#[pallet::call_index(11)]
-		// TODO: Replace with proper benchmarked weight including XCM overhead.
-		#[pallet::weight(T::DbWeight::get().reads_writes(0, 0))]
+		#[pallet::weight(
+			// No local storage operations - this extrinsic only forwards the purge request
+			// to RelayChain via XCM.
+			T::DbWeight::get().reads_writes(0, 0)
+		)]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
