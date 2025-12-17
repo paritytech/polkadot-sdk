@@ -57,8 +57,8 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-/// Default storage period for data (in blocks).
-pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
+/// Default retention period for data (in blocks).
+pub const DEFAULT_RETENTION_PERIOD: u32 = 100800;
 
 // TODO: https://github.com/paritytech/polkadot-bulletin-chain/issues/139 - Clarify purpose of allocator limits and decide whether to remove or use these constants.
 /// Maximum bytes that can be stored in one transaction.
@@ -221,7 +221,7 @@ pub mod pallet {
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
 			weight.saturating_accrue(db_weight.reads(1));
-			let period = Self::storage_period();
+			let period = Self::retention_period();
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
 				weight.saturating_accrue(db_weight.writes(1));
@@ -238,7 +238,7 @@ pub mod pallet {
 				ProofChecked::<T>::take() || {
 					// Proof is not required for early or empty blocks.
 					let number = frame_system::Pallet::<T>::block_number();
-					let period = Self::storage_period();
+					let period = Self::retention_period();
 					let target_number = number.saturating_sub(period);
 
 					target_number.is_zero() || {
@@ -267,11 +267,11 @@ pub mod pallet {
 				!T::MaxTransactionSize::get().is_zero(),
 				"MaxTransactionSize must be greater than zero"
 			);
-			let default_period = DEFAULT_STORAGE_PERIOD.into();
-			let storage_period = GenesisConfig::<T>::default().storage_period;
+			let default_period = DEFAULT_RETENTION_PERIOD.into();
+			let retention_period = GenesisConfig::<T>::default().retention_period;
 			assert_eq!(
-				storage_period, default_period,
-				"GenesisConfig.storage_period must match DEFAULT_STORAGE_PERIOD"
+				retention_period, default_period,
+				"GenesisConfig.retention_period must match DEFAULT_RETENTION_PERIOD"
 			);
 		}
 	}
@@ -279,7 +279,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
-		/// `MaxTransactionSize`. Data will be removed after `StoragePeriod` blocks, unless `renew`
+		/// `MaxTransactionSize`. Data will be removed after `RetentionPeriod` blocks, unless `renew`
 		/// is called.
 		///
 		/// Emits [`Stored`](Event::Stored) when successful.
@@ -379,7 +379,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Check storage proof for block number `block_number() - StoragePeriod`. If such a block
+		/// Check storage proof for block number `block_number() - RetentionPeriod`. If such a block
 		/// does not exist, the proof is expected to be `None`.
 		///
 		/// ## Complexity
@@ -397,7 +397,7 @@ pub mod pallet {
 
 			// Get the target block metadata.
 			let number = frame_system::Pallet::<T>::block_number();
-			let period = Self::storage_period();
+			let period = Self::retention_period();
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
 			let transactions =
@@ -459,9 +459,13 @@ pub mod pallet {
 	/// Storage fee per transaction.
 	pub type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
-	/// Storage period for data in blocks.
+	/// Number of blocks for which stored data must be retained.
+	///
+	/// Data older than `RetentionPeriod` blocks is eligible for removal unless it
+	/// has been explicitly renewed. Validators are required to prove possession of
+	/// data corresponding to block `N - RetentionPeriod` when producing block `N`.
 	#[pallet::storage]
-	pub type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type RetentionPeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	// Intermediates
 	#[pallet::storage]
@@ -476,7 +480,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub byte_fee: BalanceOf<T>,
 		pub entry_fee: BalanceOf<T>,
-		pub storage_period: BlockNumberFor<T>,
+		pub retention_period: BlockNumberFor<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -484,7 +488,7 @@ pub mod pallet {
 			Self {
 				byte_fee: 10u32.into(),
 				entry_fee: 1000u32.into(),
-				storage_period: DEFAULT_STORAGE_PERIOD.into(),
+				retention_period: DEFAULT_RETENTION_PERIOD.into(),
 			}
 		}
 	}
@@ -494,7 +498,7 @@ pub mod pallet {
 		fn build(&self) {
 			ByteFee::<T>::put(self.byte_fee);
 			EntryFee::<T>::put(self.entry_fee);
-			StoragePeriod::<T>::put(self.storage_period);
+			RetentionPeriod::<T>::put(self.retention_period);
 		}
 	}
 
@@ -535,9 +539,9 @@ pub mod pallet {
 		pub fn entry_fee() -> Option<BalanceOf<T>> {
 			EntryFee::<T>::get()
 		}
-		/// Get StoragePeriod storage information from the outside of this pallet.
-		pub fn storage_period() -> BlockNumberFor<T> {
-			StoragePeriod::<T>::get()
+		/// Get RetentionPeriod storage information from the outside of this pallet.
+		pub fn retention_period() -> BlockNumberFor<T> {
+			RetentionPeriod::<T>::get()
 		}
 
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {

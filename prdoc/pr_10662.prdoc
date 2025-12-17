@@ -6,11 +6,11 @@ doc:
 
     1. Add transaction_index::HostFunctions with NO-OP impl to the cumulus ParachainSystem validate_block for polkadot-prepare/execute-worker
     2. Add custom inherent provider for pallet-transaction-storage to omni node
-    3. Configurable StoragePeriod feeded to the inherent provider over runtime API
+    3. Configurable RetentionPeriod feeded to the inherent provider over runtime API
 
-    This PR also refactors `pallet-transaction-storage` and `sp-transaction-storage-proof` (the `new_data_provider` inherent provider), both of which rely on a hard-coded `DEFAULT_STORAGE_PERIOD`. This PR:
-    - adds a new configurable argument `storage_period` to the `new_data_provider`
-    - introduces the `TransactionStorageApi::storage_period` runtime API, which the runtime can specify arbitrary
+    This PR also refactors `pallet-transaction-storage` and `sp-transaction-storage-proof` (the `new_data_provider` inherent provider), both of which rely on a hard-coded `DEFAULT_RETENTION_PERIOD`. This PR:
+    - adds a new configurable argument `retention_period` to the `new_data_provider`
+    - introduces the `TransactionStorageApi::retention_period` runtime API, which the runtime can specify arbitrary
     - provides an example of using `new_data_provider`, with the node client calling the runtime API when constructing inherent provider data
 - audience: [ Node Dev, Node Operator ]
   description: |

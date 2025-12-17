@@ -3777,8 +3777,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<Block> for Runtime {
-		fn storage_period() -> NumberFor<Block> {
-			TransactionStorage::storage_period()
+		fn retention_period() -> NumberFor<Block> {
+			TransactionStorage::retention_period()
 		}
 	}
 

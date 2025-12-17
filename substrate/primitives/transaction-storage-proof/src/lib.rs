@@ -168,14 +168,14 @@ pub mod registration {
 	pub fn new_data_provider<B, C>(
 		client: &C,
 		parent: &B::Hash,
-		storage_period: NumberFor<B>,
+		retention_period: NumberFor<B>,
 	) -> Result<InherentDataProvider, Error>
 	where
 		B: BlockT,
 		C: IndexedBody<B>,
 	{
 		let parent_number = client.number(*parent)?.unwrap_or(Zero::zero());
-		let number = parent_number.saturating_add(One::one()).saturating_sub(storage_period);
+		let number = parent_number.saturating_add(One::one()).saturating_sub(retention_period);
 		if number.is_zero() {
 			// Too early to collect proofs.
 			return Ok(InherentDataProvider::new(None));
