@@ -17,4 +17,8 @@ doc:
     - substream: Fix inbound bandwidth metering  ([#499](https://github.com/paritytech/litep2p/pull/499))
 
     cc @paritytech/sdk-node
-crates: []
+crates:
+- name: sc-network-types
+  bump: patch
+- name: sc-network
+  bump: patch
