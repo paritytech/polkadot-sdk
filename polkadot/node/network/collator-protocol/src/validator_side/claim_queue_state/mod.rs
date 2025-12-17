@@ -135,4 +135,38 @@ mod test {
 
 	pub static CANDIDATE_C1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(301)));
+
+	impl ClaimInfo {
+		fn new(claim_queue_len: usize, claimed: ClaimState) -> Self {
+			Self { hash: None, claim: None, claim_queue_len, claimed }
+		}
+
+		pub fn new_free(claim_queue_len: usize) -> Self {
+			Self::new(claim_queue_len, ClaimState::Free)
+		}
+
+		pub fn new_pending(claim_queue_len: usize, maybe_candidate: Option<CandidateHash>) -> Self {
+			Self::new(claim_queue_len, ClaimState::Pending(maybe_candidate))
+		}
+
+		pub fn new_seconded(claim_queue_len: usize, candidate: CandidateHash) -> Self {
+			Self::new(claim_queue_len, ClaimState::Seconded(candidate))
+		}
+
+		pub fn with_hash(mut self, hash: Hash) -> ClaimInfo {
+			self.hash = Some(hash);
+			self
+		}
+
+		pub fn with_claim(mut self, claim: ParaId) -> ClaimInfo {
+			self.claim = Some(claim);
+			self
+		}
+
+		pub fn with(mut self, hash: Hash, claim: ParaId) -> ClaimInfo {
+			self.hash = Some(hash);
+			self.claim = Some(claim);
+			self
+		}
+	}
 }
