@@ -28,8 +28,6 @@ use core::{marker::PhantomData, num::NonZero};
 use pallet_revive_uapi::precompiles::system::ISystem;
 use sp_core::hexdisplay::AsBytesRef;
 
-use crate::test_utils::ALICE;
-
 pub struct System<T>(PhantomData<T>);
 
 impl<T: Config> BuiltinPrecompile for System<T> {
@@ -131,8 +129,10 @@ mod tests {
 			tests::run_test_vectors,
 			BuiltinPrecompile,
 		},
+		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
 	};
+
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
 
