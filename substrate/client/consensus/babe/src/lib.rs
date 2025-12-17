@@ -1249,13 +1249,13 @@ where
 			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 		let slot = babe_pre_digest.slot();
 
-		// Check inherents.
-		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
-			.await?;
-
 		if block.origin == BlockOrigin::WarpSync {
 			return Ok(());
 		}
+
+		// Check inherents.
+		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
+			.await?;
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
