@@ -59,7 +59,7 @@ pub(crate) const MAX_VALIDATION_CODE_COMPRESSION_RATIO: u32 = 10;
 	Encode,
 	Decode,
 	PartialEq,
-	sp_core::RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,

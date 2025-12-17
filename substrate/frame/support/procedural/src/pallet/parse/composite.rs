@@ -156,7 +156,7 @@ impl CompositeDef {
 					#scrate::__private::codec::DecodeWithMemTracking,
 					#scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
-					#scrate::__private::RuntimeDebug,
+					#scrate::__private::Debug,
 				)]
 			};
 			item.attrs.push(derive_attr);

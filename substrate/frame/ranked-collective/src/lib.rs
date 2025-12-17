@@ -51,14 +51,14 @@ use frame_support::{
 		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
 		RankedMembersSwapHandler, VoteTally,
 	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
-	DispatchError, Perbill, RuntimeDebug,
+	Debug, DispatchError, Perbill,
 };
 
 #[cfg(test)]
@@ -85,7 +85,7 @@ pub type Votes = u32;
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	Encode,
 	Decode,
@@ -175,7 +175,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 }
 
 /// Record needed for every member.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
 	/// The rank of the member.
 	rank: Rank,
@@ -197,7 +197,7 @@ impl MemberRecord {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
