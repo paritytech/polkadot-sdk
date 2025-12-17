@@ -57,11 +57,11 @@ jobs:
       - name: Installing Retester
         run: forklift cargo install --locked --path revive-differential-tests/crates/core
       - name: Creating a workdir for retester
-        run: mkdir -p workdir-${{ matrix.platform }}
+        run: mkdir -p workdir
       - name: Downloading & Initializing the compilation caches
         run: |
           curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.1/cache.tar.gz"
-          tar -zxf cache.tar.gz -C ./workdir-${{ matrix.platform }} > /dev/null 2>&1
+          tar -zxf cache.tar.gz -C ./workdir > /dev/null 2>&1
       - name: Running the Differential Tests
         run: |
           retester test \
@@ -72,14 +72,14 @@ jobs:
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
             --concurrency.number-of-concurrent-tasks 100 \
-            --working-directory ./workdir-${{ matrix.platform }} \
+            --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
             --eth-rpc.path ./target/release/eth-rpc \
             --resolc.path ./resolc
       - name: Creating a markdown report of the test execution
         run: |
-          mv ./workdir-${{ matrix.platform }}/*.json report.json
+          mv ./workdir/*.json report.json
           python3 ./.github/scripts/process-differential-tests-report.py report.json ${{ matrix.platform }}
       # We upload the report as an artifact to the run since there could be
       # certain cases where the report is too long to post as a Github comment.
