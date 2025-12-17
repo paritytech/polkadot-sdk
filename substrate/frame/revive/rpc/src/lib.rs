@@ -180,8 +180,9 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		if !self.allow_unprotected_txs {
 			let signed_transaction = TransactionSigned::decode(transaction.0.as_slice())
-				.inspect_err(|err| {
+				.map_err(|err| {
 					log::trace!(target: LOG_TARGET, "Transaction decoding failed. ethereum_hash: {hash:?}, error: {err:?}");
+					EthRpcError::InvalidTransaction
 				})?;
 
 			let is_chain_id_provided = match signed_transaction {
@@ -199,7 +200,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 			if !is_chain_id_provided {
 				log::trace!(target: LOG_TARGET, "Invalid Transaction: transaction doesn't include a chain-id. ethereum_hash: {hash:?}");
-				return Err(EthRpcError::InvalidTransaction)
+				Err(EthRpcError::InvalidTransaction)?;
 			}
 		}
 
