@@ -1516,8 +1516,6 @@ where
 				))
 			}
 
-			// Use an extra scope to make the compiler happy, because otherwise it complains about
-			// the mutex, even if we dropped it...
 			let mut epoch_changes = self.epoch_changes.shared_data_locked();
 
 			// check if there's any epoch change expected to happen at this slot.
