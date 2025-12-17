@@ -97,7 +97,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256};
+use sp_core::{ConstBool, ConstU128, ConstU8, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
@@ -1185,16 +1185,12 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RecoveryFriendGroupsDepositBase: Balance = 500 * CENTS;
-	pub const RecoveryFriendGroupsDepositFactor: Balance = 50 * CENTS;
-	pub const RecoveryFriendGroupsHoldReason: RuntimeHoldReason =
-		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroups);
-	pub const RecoveryAttemptHoldReason: RuntimeHoldReason =
-		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Attempt);
-	pub const RecoveryInheritorHoldReason: RuntimeHoldReason =
-		RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::Inheritor);
-	pub const RecoveryMaxFriendsPerConfig: u32 = 9;
-	pub const RecoveryMaxConfigsPerAccount: u32 = 5;
+	pub const MaxFriendsPerConfig: u32 = 128;
+
+	pub const SecurityDeposit: Balance = 100;
+	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
+	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
+	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
 }
 
 impl pallet_recovery::Config for Runtime {
@@ -1205,23 +1201,23 @@ impl pallet_recovery::Config for Runtime {
 	type FriendGroupsConsideration = HoldConsideration<
 		AccountId,
 		Balances,
-		RecoveryFriendGroupsHoldReason,
-		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+		FriendGroupsHoldReason,
+		LinearStoragePrice<ConstU128<5>, ConstU128<1>, u128>, // 5 + n
 	>;
 	type AttemptConsideration = HoldConsideration<
 		AccountId,
 		Balances,
-		RecoveryAttemptHoldReason,
-		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+		AttemptHoldReason,
+		LinearStoragePrice<ConstU128<3>, ConstU128<1>, u128>, // 2 + n
 	>;
 	type InheritorConsideration = HoldConsideration<
 		AccountId,
 		Balances,
-		RecoveryInheritorHoldReason,
-		LinearStoragePrice<RecoveryFriendGroupsDepositBase, RecoveryFriendGroupsDepositFactor, Balance>,
+		InheritorHoldReason,
+		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
 	>;
-	type MaxFriendsPerConfig = RecoveryMaxFriendsPerConfig;
-	type MaxConfigsPerAccount = RecoveryMaxConfigsPerAccount;
+	type SecurityDeposit = SecurityDeposit;
+	type MaxFriendsPerConfig = MaxFriendsPerConfig;
 	type WeightInfo = ();
 }
 
@@ -1270,7 +1266,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -1313,10 +1309,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				RuntimeCall::Whitelist(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::control_inherited_account{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::approve_attempt{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::finish_attempt{..}) |
-				// Specifically omitting Recovery `set_friend_groups`, `initiate_attempt`
+				RuntimeCall::Recovery(..) |
+				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -2970,7 +2964,7 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 					// Relay supports only native token, either reserve transfer it to non-system parachains,
 					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.

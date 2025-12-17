@@ -36,7 +36,7 @@ use polkadot_runtime_metrics::get_current_time;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},
-	DispatchError, RuntimeDebug, SaturatedConversion,
+	Debug, DispatchError, SaturatedConversion,
 };
 
 #[cfg(test)]
@@ -55,14 +55,14 @@ pub mod migration;
 const LOG_TARGET: &str = "runtime::disputes";
 
 /// Whether the dispute is local or remote.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum DisputeLocation {
 	Local,
 	Remote,
 }
 
 /// The result of a dispute, whether the candidate is deemed valid (for) or invalid (against).
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum DisputeResult {
 	Valid,
 	Invalid,
@@ -546,7 +546,7 @@ struct ImportSummary<BlockNumber> {
 	new_flags: DisputeStateFlags,
 }
 
-#[derive(RuntimeDebug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum VoteImportError {
 	/// Validator index was outside the range of valid validator indices in the given session.
 	ValidatorIndexOutOfBounds,
@@ -558,7 +558,7 @@ enum VoteImportError {
 	MaliciousBacker,
 }
 
-#[derive(RuntimeDebug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum VoteKind {
 	/// A backing vote that is counted as "for" vote in dispute resolution.
 	Backing,
@@ -607,7 +607,7 @@ impl<T: Config> From<VoteImportError> for Error<T> {
 }
 
 /// A transport statement bit change for a single validator.
-#[derive(RuntimeDebug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct ImportUndo {
 	/// The validator index to which to associate the statement import.
 	validator_index: ValidatorIndex,

@@ -55,14 +55,18 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const MaxFriendsPerConfig: u32 = 128;
-	pub const MaxConfigsPerAccount: u32 = 128;
 
-	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroups);
+	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::FriendGroupsStorage);
+	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::AttemptStorage);
+	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(HoldReason::InheritorStorage);
 }
+
+pub const SECURITY_DEPOSIT: u128 = 100;
 
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxFriendsPerConfig = MaxFriendsPerConfig;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
 	type FriendGroupsConsideration = HoldConsideration<
@@ -71,10 +75,19 @@ impl Config for Test {
 		FriendGroupsHoldReason,
 		LinearStoragePrice<ConstU128<5>, ConstU128<1>, u128>, // 5 + n
 	>;
-	type AttemptConsideration = ();
-	type InheritorConsideration = ();
-	type MaxFriendsPerConfig = MaxFriendsPerConfig;
-	type MaxConfigsPerAccount = MaxConfigsPerAccount;
+	type AttemptConsideration = HoldConsideration<
+		u64,
+		Balances,
+		AttemptHoldReason,
+		LinearStoragePrice<ConstU128<3>, ConstU128<1>, u128>, // 2 + n
+	>;
+	type InheritorConsideration = HoldConsideration<
+		u64,
+		Balances,
+		InheritorHoldReason,
+		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
+	>;
+	type SecurityDeposit = ConstU128<SECURITY_DEPOSIT>;
 	type WeightInfo = ();
 }
 
@@ -88,7 +101,8 @@ pub const DAVE: u64 = 4;
 pub const EVE: u64 = 5;
 pub const FERDIE: u64 = 6;
 
-pub const START_BALANCE: u128 = 1000;
+pub const START_BALANCE: u128 = 10_000;
+pub const ABORT_DELAY: u64 = 5;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -108,4 +122,92 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+// Common test helpers
+pub fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
+
+pub fn friends(friends: impl IntoIterator<Item = u64>) -> FriendsOf<Test> {
+	friends.into_iter().map(|f| f.into()).collect::<Vec<_>>().try_into().unwrap()
+}
+
+pub fn fg(fs: impl IntoIterator<Item = u64>) -> FriendGroupOf<Test> {
+	FriendGroupOf::<Test> {
+		deposit: 10,
+		friends: friends(fs),
+		friends_needed: 2,
+		inheritor: FERDIE,
+		inheritance_delay: 10,
+		inheritance_order: 0,
+		cancel_delay: ABORT_DELAY,
+	}
+}
+
+pub fn signed(account: u64) -> RuntimeOrigin {
+	RuntimeOrigin::signed(account)
+}
+
+pub fn assert_fg_deposit(who: u64, deposit: u128) {
+	use frame::traits::fungible::InspectHold;
+	assert_eq!(
+		<Test as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::FriendGroupsStorage.into(),
+			&who
+		),
+		deposit
+	);
+}
+
+pub fn assert_attempt_deposit(who: u64, deposit: u128) {
+	use frame::traits::fungible::InspectHold;
+	assert_eq!(
+		<Test as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::AttemptStorage.into(),
+			&who
+		),
+		deposit
+	);
+}
+
+pub fn assert_security_deposit(who: u64, deposit: u128) {
+	use frame::traits::fungible::InspectHold;
+	assert_eq!(
+		<Test as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::SecurityDeposit.into(),
+			&who
+		),
+		deposit
+	);
+}
+
+pub fn clear_events() {
+	frame_system::Pallet::<Test>::reset_events();
+}
+
+pub fn inc_block_number(by: u64) {
+	frame_system::Pallet::<Test>::set_block_number(
+		frame_system::Pallet::<Test>::current_block_number() + by,
+	);
+}
+
+pub fn can_control_account(
+	inheritor: AccountIdLookupOf<Test>,
+	recovered: AccountIdLookupOf<Test>,
+) -> bool {
+	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
+}
+
+pub fn root_without_events() -> Vec<u8> {
+	hypothetically!({
+		clear_events();
+		sp_io::storage::root(sp_runtime::StateVersion::V1)
+	})
+}
+
+pub fn setup_alice_fgs(fs: impl IntoIterator<Item = impl IntoIterator<Item = u64>>) {
+	let fgs = fs.into_iter().map(fg).collect::<Vec<_>>();
+	assert_ok!(Recovery::set_friend_groups(signed(ALICE), fgs));
 }

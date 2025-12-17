@@ -110,8 +110,8 @@ use sp_runtime::{
 		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
-	Percent, Permill, Perquintill, RuntimeDebug,
+	ApplyExtrinsicResult, Debug, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
+	Percent, Permill, Perquintill,
 };
 use sp_std::{borrow::Cow, prelude::*};
 #[cfg(any(feature = "std", test))]
@@ -422,7 +422,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1406,6 +1406,8 @@ impl pallet_child_bounties::Config for Runtime {
 
 parameter_types! {
 	pub const CuratorDepositFromValueMultiplier: Permill = Permill::from_percent(10);
+	pub const CuratorHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::MultiAssetBounties(pallet_multi_asset_bounties::HoldReason::CuratorDeposit);
 }
 
 impl pallet_multi_asset_bounties::Config for Runtime {
@@ -1422,18 +1424,28 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
-	type FundingSource =
-		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime>;
-	type BountySource = pallet_multi_asset_bounties::BountySourceAccount<TreasuryPalletId, Runtime>;
-	type ChildBountySource =
-		pallet_multi_asset_bounties::ChildBountySourceAccount<TreasuryPalletId, Runtime>;
+	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
+		TreasuryPalletId,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
+	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
+		TreasuryPalletId,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
+		TreasuryPalletId,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type BalanceConverter = AssetRate;
 	type Preimages = Preimage;
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,
-		ProposalHoldReason,
+		CuratorHoldReason,
 		pallet_multi_asset_bounties::CuratorDepositAmount<
 			CuratorDepositFromValueMultiplier,
 			CuratorDepositMin,
@@ -1539,6 +1551,7 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1742,23 +1755,17 @@ impl pallet_identity::Config for Runtime {
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const ConfigDepositBase: Balance = 5 * DOLLARS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 5 * DOLLARS;
-}
-
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type BlockNumberProvider = System;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = ConstU32<16>;
+	type WeightInfo = ();
 }
 
 parameter_types! {

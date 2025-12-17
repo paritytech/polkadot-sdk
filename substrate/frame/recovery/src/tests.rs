@@ -17,50 +17,12 @@
 
 //! Tests for the module.
 
-use crate::{frame_system::Origin, mock::*, Call as RecoveryCall, *};
-use frame::{prelude::fungible::InspectHold, testing_prelude::*};
+use crate::{mock::*, Call as RecoveryCall, *};
+use frame::{prelude::fungible::UnbalancedHold, testing_prelude::*};
 use pallet_balances::Call as BalancesCall;
-use sp_runtime::{bounded_vec, DispatchError, ModuleError, TokenError};
+use sp_runtime::{DispatchError, TokenError};
 
 use Test as T;
-
-fn friends(friends: impl IntoIterator<Item = u64>) -> FriendsOf<T> {
-	friends.into_iter().map(|f| f.into()).collect::<Vec<_>>().try_into().unwrap()
-}
-
-fn fg(fs: impl IntoIterator<Item = u64>) -> FriendGroupOf<T> {
-	FriendGroupOf::<T> {
-		deposit: 10,
-		friends: friends(fs),
-		friends_needed: 2,
-		inheritor: FERDIE,
-		inheritance_delay: 10,
-		inheritance_order: 0,
-		abort_delay: 10,
-	}
-}
-
-fn signed(account: u64) -> RuntimeOrigin {
-	RuntimeOrigin::signed(account)
-}
-
-fn assert_fg_deposit(who: u64, deposit: u128) {
-	assert_eq!(
-		<T as crate::Config>::Currency::balance_on_hold(
-			&crate::HoldReason::FriendGroups.into(),
-			&who
-		),
-		deposit
-	);
-}
-
-fn clear_events() {
-	frame_system::Pallet::<T>::reset_events();
-}
-
-fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
-}
 
 #[test]
 fn basic_flow_works() {
@@ -73,7 +35,7 @@ fn basic_flow_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
@@ -116,7 +78,7 @@ fn basic_flow_works() {
 		));
 
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 0);
-		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2000);
+		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2 * START_BALANCE);
 	});
 }
 
@@ -132,7 +94,7 @@ fn set_friend_groups_multiple_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let fg2 = FriendGroupOf::<T> {
 			deposit: 10,
@@ -141,7 +103,7 @@ fn set_friend_groups_multiple_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg1, fg2];
 
@@ -149,28 +111,6 @@ fn set_friend_groups_multiple_works() {
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), friend_groups));
 		// Deposit taken for both friend groups
 		assert_fg_deposit(ALICE, 144);
-	});
-}
-
-/// Setting a friend group twice fails.
-#[test]
-fn set_friend_groups_duplicate_fails() {
-	new_test_ext().execute_with(|| {
-		let fg1 = FriendGroupOf::<T> {
-			deposit: 10,
-			friends: friends([BOB, CHARLIE, DAVE]),
-			friends_needed: 2,
-			inheritor: FERDIE,
-			inheritance_delay: 10,
-			inheritance_order: 0,
-			abort_delay: 10,
-		};
-		let friend_groups = vec![fg1.clone(), fg1];
-
-		assert_noop!(
-			Recovery::set_friend_groups(signed(ALICE), friend_groups),
-			Error::<T>::DuplicateFriendGroup
-		);
 	});
 }
 
@@ -185,7 +125,7 @@ fn set_friend_groups_too_many_friends_needed_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg];
 
@@ -207,7 +147,7 @@ fn set_friend_groups_no_friends_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_noop!(Recovery::set_friend_groups(signed(ALICE), vec![fg]), Error::<T>::NoFriends);
@@ -225,7 +165,7 @@ fn set_friend_groups_remove_works() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
@@ -259,7 +199,7 @@ fn set_friend_groups_ongoing_attempt_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg.clone()]));
@@ -269,12 +209,6 @@ fn set_friend_groups_ongoing_attempt_fails() {
 			Error::<T>::HasOngoingAttempts
 		);
 	});
-}
-
-/// Setup the friend groups for Alice.
-fn setup_alice_fgs(fs: impl IntoIterator<Item = impl IntoIterator<Item = u64>>) {
-	let fgs = fs.into_iter().map(fg).collect::<Vec<_>>();
-	assert_ok!(Recovery::set_friend_groups(signed(ALICE), fgs));
 }
 
 /// Cannot initiate more than one attempt per friend group.
@@ -288,7 +222,7 @@ fn initiate_attempt_multiple_fails() {
 			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
-			abort_delay: 10,
+			cancel_delay: 10,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
 
@@ -316,29 +250,39 @@ fn initiate_attempt_no_friend_groups_fails() {
 #[test]
 fn initiate_attempt_different_friend_groups_works() {
 	new_test_ext().execute_with(|| {
-		setup_alice_fgs([[BOB, CHARLIE], [CHARLIE, DAVE]]);
+		setup_alice_fgs([[BOB, DAVE], [BOB, CHARLIE]]);
 
 		frame_system::Pallet::<T>::set_block_number(10);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_security_deposit(BOB, SECURITY_DEPOSIT);
+
+		hypothetically!({
+			assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
+			assert_security_deposit(BOB, SECURITY_DEPOSIT * 2);
+		});
+
 		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
+		assert_security_deposit(CHARLIE, SECURITY_DEPOSIT);
 
 		assert_eq!(
 			Recovery::attempts(ALICE),
 			vec![
 				(
-					fg([BOB, CHARLIE]),
+					fg([BOB, DAVE]),
 					AttemptOf::<T> {
 						friend_group_index: 0,
+						initiator: BOB.into(),
 						init_block: 10,
 						last_approval_block: 10,
 						approvals: ApprovalBitfield::default(),
 					}
 				),
 				(
-					fg([CHARLIE, DAVE]),
+					fg([BOB, CHARLIE]),
 					AttemptOf::<T> {
 						friend_group_index: 1,
+						initiator: CHARLIE.into(),
 						init_block: 10,
 						last_approval_block: 10,
 						approvals: ApprovalBitfield::default(),
@@ -362,6 +306,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 1,
 					approvals: ApprovalBitfield::default(),
@@ -379,6 +324,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 2,
 					approvals: ApprovalBitfield::default().with_bits([0]), // Bob is index 0
@@ -399,6 +345,7 @@ fn approve_attempt_works() {
 				fg([BOB, CHARLIE, DAVE]),
 				AttemptOf::<T> {
 					friend_group_index: 0,
+					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 3,
 					approvals: ApprovalBitfield::default().with_bits([0, 2]), /* Bob is index 0,
@@ -558,7 +505,7 @@ fn control_inherited_account_works() {
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
 		let call: RuntimeCall =
-			BalancesCall::transfer_allow_death { value: 2000, dest: FERDIE }.into();
+			BalancesCall::transfer_allow_death { value: 2 * START_BALANCE, dest: FERDIE }.into();
 		let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
 
 		// Outer call works:
@@ -573,10 +520,352 @@ fn control_inherited_account_works() {
 	});
 }
 
-/// Whether `inheritor` can control the `recovered` account.
-fn can_control_account(inheritor: AccountIdLookupOf<T>, recovered: AccountIdLookupOf<T>) -> bool {
-	let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
-	let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+#[test]
+fn cancel_attempt_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
-	Recovery::control_inherited_account(signed(inheritor), recovered, Box::new(call)).is_ok()
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 48);
+
+		// Charlie can never cancel
+		assert_noop!(Recovery::cancel_attempt(signed(CHARLIE), ALICE, 0), Error::<T>::NotCanceller);
+		// Bob can not yet cancel
+		assert_noop!(Recovery::cancel_attempt(signed(BOB), ALICE, 0), Error::<T>::NotYetCancelable);
+		// Lost could always cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
+		});
+
+		frame_system::Pallet::<T>::set_block_number(12);
+		// Charlie can never cancel
+		assert_noop!(Recovery::cancel_attempt(signed(CHARLIE), ALICE, 0), Error::<T>::NotCanceller);
+		// Bob could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: BOB,
+			});
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
+		});
+		// Alice could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: ALICE,
+			});
+			assert_attempt_deposit(BOB, 0);
+			assert_eq!(<Test as Config>::Currency::total_balance(&BOB), START_BALANCE);
+		});
+
+		// Alice or Bob canceling is the exact same thing
+		let alice_cancel = hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			root_without_events()
+		});
+		let bob_cancel = hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			root_without_events()
+		});
+		assert_eq!(alice_cancel, bob_cancel);
+	});
+}
+
+#[test]
+fn cancel_attempt_extends_delay_after_new_approval() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		// Let's go just before the DELAY expires
+		inc_block_number(ABORT_DELAY - 1);
+		// After one more block, Bob can cancel
+		hypothetically!({
+			inc_block_number(1);
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+		});
+
+		// But if there is a new approval, the delay is extended
+		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
+		hypothetically!({
+			inc_block_number(1);
+			assert_noop!(
+				Recovery::cancel_attempt(signed(BOB), ALICE, 0),
+				Error::<T>::NotYetCancelable
+			);
+		});
+
+		// Bob needs to wait for the DELAY again
+		inc_block_number(ABORT_DELAY);
+		assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+	});
+}
+
+/// Can still cancel an attempt even if the initiator account does not have the deposit anymore.
+#[test]
+fn cancel_attempt_works_when_initiator_account_is_broken() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 48);
+
+		frame_system::Pallet::<T>::set_block_number(12);
+
+		// Force remove the deposit from bob
+		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+			&crate::HoldReason::AttemptStorage.into(),
+			&BOB,
+			0
+		));
+		assert_attempt_deposit(BOB, 0);
+
+		// Bob could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: BOB,
+			});
+		});
+		// Alice could cancel
+		hypothetically!({
+			assert_ok!(Recovery::cancel_attempt(signed(ALICE), ALICE, 0));
+			assert_last_event(Event::<T>::AttemptCanceled {
+				lost: ALICE,
+				friend_group_index: 0,
+				canceler: ALICE,
+			});
+		});
+	});
+}
+
+/// Slashing an attempt will remove it and slash the deposit of the initiator.
+#[test]
+fn slash_attempt_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_security_deposit(BOB, SECURITY_DEPOSIT);
+
+		// Slash the attempt and check that TI decreased
+		let ti = <T as Config>::Currency::total_issuance();
+		assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+		assert_security_deposit(BOB, 0);
+
+		// Bob got slashed
+		assert_eq!(<T as Config>::Currency::total_balance(&BOB), START_BALANCE - SECURITY_DEPOSIT);
+		// TI reduced (balance burnt)
+		assert_eq!(<T as Config>::Currency::total_issuance(), ti - SECURITY_DEPOSIT);
+
+		assert_last_event(Event::<T>::AttemptSlashed { lost: ALICE, friend_group_index: 0 });
+	});
+}
+
+#[test]
+fn slash_attempt_fails_when_initiator_is_missing_deposit() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		assert_attempt_deposit(BOB, 48);
+
+		// Force remove the deposit from bob
+		assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+			&crate::HoldReason::AttemptStorage.into(),
+			&BOB,
+			0
+		));
+		assert_attempt_deposit(BOB, 0);
+
+		// Slash the attempt
+		assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+	});
+}
+
+/// Bitfield tests
+#[test]
+fn bitfield_default_all_zeros() {
+	// Test with 16 max entries (fits in 1 u16 word)
+	let bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 1);
+
+	// Test with 32 max entries (fits in 2 u16 words)
+	let bitfield: Bitfield<ConstU32<32>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 2);
+
+	// Test with 17 max entries (needs 2 u16 words due to ceiling division)
+	let bitfield: Bitfield<ConstU32<17>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+	assert_eq!(bitfield.0.len(), 2);
+}
+
+#[test]
+fn bitfield_set_if_not_set_works() {
+	let mut bitfield: Bitfield<ConstU32<32>> = Bitfield::default();
+
+	// Set bit at index 0
+	assert_ok!(bitfield.set_if_not_set(0));
+	assert_eq!(bitfield.count_ones(), 1);
+
+	// Try to set the same bit again - should fail
+	assert_err!(bitfield.set_if_not_set(0), ());
+	assert_eq!(bitfield.count_ones(), 1);
+
+	// Set bit at index 15 (last bit of first u16 word)
+	assert_ok!(bitfield.set_if_not_set(15));
+	assert_eq!(bitfield.count_ones(), 2);
+
+	// Set bit at index 16 (first bit of second u16 word)
+	assert_ok!(bitfield.set_if_not_set(16));
+	assert_eq!(bitfield.count_ones(), 3);
+
+	// Set bit at index 31 (last bit of second u16 word)
+	assert_ok!(bitfield.set_if_not_set(31));
+	assert_eq!(bitfield.count_ones(), 4);
+}
+
+#[test]
+fn bitfield_set_out_of_bounds_fails() {
+	let mut bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+
+	// Valid indices 0-15
+	assert_ok!(bitfield.set_if_not_set(0));
+	assert_ok!(bitfield.set_if_not_set(15));
+
+	// Index 16 is out of bounds for MaxEntries=16
+	assert_err!(bitfield.set_if_not_set(16), ());
+	assert_err!(bitfield.set_if_not_set(100), ());
+}
+
+#[test]
+fn bitfield_count_ones_works() {
+	let mut bitfield: Bitfield<ConstU32<64>> = Bitfield::default();
+	assert_eq!(bitfield.count_ones(), 0);
+
+	// Set bits across multiple u16 words
+	for i in [0, 5, 10, 15, 16, 20, 31, 32, 48, 63] {
+		assert_ok!(bitfield.set_if_not_set(i));
+	}
+
+	assert_eq!(bitfield.count_ones(), 10);
+}
+
+#[test]
+fn bitfield_with_bits_helper_works() {
+	let bitfield: Bitfield<ConstU32<32>> = Bitfield::default().with_bits([0, 5, 10, 15, 20, 25]);
+	assert_eq!(bitfield.count_ones(), 6);
+
+	// Verify individual bits are set
+	let mut test_bitfield = Bitfield::default();
+	assert_ok!(test_bitfield.set_if_not_set(0));
+	assert_ok!(test_bitfield.set_if_not_set(5));
+	assert_ok!(test_bitfield.set_if_not_set(10));
+	assert_ok!(test_bitfield.set_if_not_set(15));
+	assert_ok!(test_bitfield.set_if_not_set(20));
+	assert_ok!(test_bitfield.set_if_not_set(25));
+
+	assert_eq!(bitfield, test_bitfield);
+}
+
+#[test]
+fn bitfield_multiple_words_works() {
+	// Test with exactly 48 entries (3 u16 words)
+	let mut bitfield: Bitfield<ConstU32<48>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 3);
+
+	// Set one bit in each word
+	assert_ok!(bitfield.set_if_not_set(0)); // First word
+	assert_ok!(bitfield.set_if_not_set(16)); // Second word
+	assert_ok!(bitfield.set_if_not_set(32)); // Third word
+	assert_eq!(bitfield.count_ones(), 3);
+
+	// Fill the first word completely (bits 0-15)
+	for i in 0..16 {
+		let _ = bitfield.set_if_not_set(i);
+	}
+	assert_eq!(bitfield.count_ones(), 16 + 1 + 1); // 16 in first word + 1 in second + 1 in third
+}
+
+#[test]
+fn bitfield_already_voted_scenario() {
+	// Simulates the approval scenario from the recovery pallet
+	let mut bitfield: Bitfield<ConstU32<10>> = Bitfield::default();
+
+	// Friend at index 0 votes
+	assert_ok!(bitfield.set_if_not_set(0));
+
+	// Friend at index 0 tries to vote again - should fail
+	assert_err!(bitfield.set_if_not_set(0), ());
+
+	// Friend at index 5 votes
+	assert_ok!(bitfield.set_if_not_set(5));
+
+	// Friend at index 9 votes
+	assert_ok!(bitfield.set_if_not_set(9));
+
+	assert_eq!(bitfield.count_ones(), 3);
+}
+
+#[test]
+fn bitfield_ceiling_division_works() {
+	// Test that ceiling division works correctly for non-multiples of 16
+
+	// 1 entry needs 1 word
+	let bitfield: Bitfield<ConstU32<1>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 15 entries needs 1 word
+	let bitfield: Bitfield<ConstU32<15>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 16 entries needs 1 word
+	let bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 1);
+
+	// 17 entries needs 2 words (ceiling division)
+	let bitfield: Bitfield<ConstU32<17>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 2);
+
+	// 33 entries needs 3 words (ceiling division)
+	let bitfield: Bitfield<ConstU32<33>> = Bitfield::default();
+	assert_eq!(bitfield.0.len(), 3);
+}
+
+#[test]
+fn bitfield_all_bits_in_word_set() {
+	let mut bitfield: Bitfield<ConstU32<16>> = Bitfield::default();
+
+	// Set all 16 bits
+	for i in 0..16 {
+		assert_ok!(bitfield.set_if_not_set(i));
+	}
+
+	assert_eq!(bitfield.count_ones(), 16);
+
+	// All bits should now fail to set again
+	for i in 0..16 {
+		assert_err!(bitfield.set_if_not_set(i), ());
+	}
 }
