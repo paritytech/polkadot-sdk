@@ -250,7 +250,9 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
-			create_gap: true,
+			// Never create gaps for warp sync imported blocks, because the following
+			// gap sync needs to import all blocks between the warp sync target and genesis.
+			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}
 	}
