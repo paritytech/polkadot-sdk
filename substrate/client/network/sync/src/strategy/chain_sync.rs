@@ -70,7 +70,8 @@ use sp_runtime::{
 use std::{
 	any::Any,
 	collections::{HashMap, HashSet},
-	ops::Range,
+	fmt,
+	ops::{AddAssign, Range},
 	sync::Arc,
 };
 
@@ -202,18 +203,73 @@ impl Default for AllowedRequests {
 	}
 }
 
+/// Statistics for gap sync operations.
+#[derive(Debug, Default, Clone)]
+struct GapSyncStats {
+	/// Size of headers downloaded during gap sync
+	header_bytes: usize,
+	/// Size of bodies downloaded during gap sync
+	body_bytes: usize,
+	/// Size of justifications downloaded during gap sync
+	justification_bytes: usize,
+	/// Block bytes received over the wire
+	block_bytes: usize,
+}
+
+impl GapSyncStats {
+	fn new() -> Self {
+		Self::default()
+	}
+
+	/// Construct `GapSyncStats` from block data
+	fn from_block<B: BlockT>(block: &BlockData<B>) -> Self {
+		let block_bytes = block.encoded_size();
+		let header_bytes = block.header.as_ref().map(|h| h.encoded_size()).unwrap_or(0);
+		let body_bytes = block.body.as_ref().map(|b| b.encoded_size()).unwrap_or(0);
+
+		Self { header_bytes, body_bytes, justification_bytes: 0, block_bytes }
+	}
+
+	fn accumulate_stats(&mut self, other: &Self) {
+		self.header_bytes += other.header_bytes;
+		self.body_bytes += other.body_bytes;
+		self.justification_bytes += other.justification_bytes;
+		self.block_bytes += other.block_bytes;
+	}
+
+	fn bytes_to_mb(bytes: usize) -> f64 {
+		bytes as f64 / (1024.0 * 1024.0)
+	}
+}
+
+impl fmt::Display for GapSyncStats {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(
+			f,
+			"hdr: {}B ({:.2}MB), body: {} B ({:.2} MB), just: {} B ({:.2} MB) | total: {} B ({:.2} MB)",
+			self.header_bytes,
+			Self::bytes_to_mb(self.header_bytes),
+			self.body_bytes,
+			Self::bytes_to_mb(self.body_bytes),
+			self.justification_bytes,
+			Self::bytes_to_mb(self.justification_bytes),
+			self.block_bytes,
+			Self::bytes_to_mb(self.block_bytes),
+		)
+	}
+}
+
+impl AddAssign for GapSyncStats {
+	fn add_assign(&mut self, other: Self) {
+		self.accumulate_stats(&other);
+	}
+}
+
 struct GapSync<B: BlockT> {
 	blocks: BlockCollection<B>,
 	best_queued_number: NumberFor<B>,
 	target: NumberFor<B>,
-	/// Total size of headers downloaded during gap sync (in bytes)
-	total_header_bytes: u64,
-	/// Total size of bodies downloaded during gap sync (in bytes)
-	total_body_bytes: u64,
-	/// Total size of justifications downloaded during gap sync (in bytes)
-	total_justification_bytes: u64,
-	/// Total block bytes received over the wire
-	total_block_bytes: u64,
+	stats: GapSyncStats,
 }
 
 /// Sync operation mode.
@@ -1007,22 +1063,10 @@ where
 		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
 		if gap_sync_complete {
 			if let Some(gap_sync) = &self.gap_sync {
-				let total_bytes = gap_sync.total_header_bytes +
-					gap_sync.total_body_bytes +
-					gap_sync.total_justification_bytes;
 				info!(
 					target: LOG_TARGET,
-					"Block history download is complete. Total downloaded - headers: {} bytes ({:.2} MB), bodies: {} bytes ({:.2} MB), justifications: {} bytes ({:.2} MB), total: {} bytes ({:.2} MB), block: {} bytes ({:.2} MB)",
-					gap_sync.total_header_bytes,
-					gap_sync.total_header_bytes as f64 / (1024.0 * 1024.0),
-					gap_sync.total_body_bytes,
-					gap_sync.total_body_bytes as f64 / (1024.0 * 1024.0),
-					gap_sync.total_justification_bytes,
-					gap_sync.total_justification_bytes as f64 / (1024.0 * 1024.0),
-					total_bytes,
-					total_bytes as f64 / (1024.0 * 1024.0),
-					gap_sync.total_block_bytes,
-					gap_sync.total_block_bytes as f64 / (1024.0 * 1024.0),
+					"Block history download is complete. Total downloaded - {}",
+					gap_sync.stats
 				);
 			} else {
 				info!(
@@ -1218,57 +1262,32 @@ where
 								gap_sync.blocks.insert(start_block, blocks, *peer_id);
 							}
 							gap = true;
-							let mut batch_header_bytes = 0u64;
-							let mut batch_body_bytes = 0u64;
-							let mut batch_justification_bytes = 0u64;
-							let mut batch_block_bytes = 0u64;
+							let mut batch_gap_sync_stats = GapSyncStats::new();
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
 								.into_iter()
 								.map(|block_data| {
-									let block_data_size = block_data.block.encoded_size() as u64;
-
+									let mut gap_sync_stats =
+										GapSyncStats::from_block::<B>(&block_data.block);
 									let justifications =
 										block_data.block.justifications.or_else(|| {
 											legacy_justification_mapping(
 												block_data.block.justification,
 											)
 										});
-
-									// Calculate sizes for each component
-									let header_size = block_data
-										.block
-										.header
+									gap_sync_stats.justification_bytes = justifications
 										.as_ref()
-										.map(|h| h.encoded_size() as u64)
+										.map(|j| j.encoded_size())
 										.unwrap_or(0);
-									let body_size = block_data
-										.block
-										.body
-										.as_ref()
-										.map(|b| b.encoded_size() as u64)
-										.unwrap_or(0);
-									let justification_size = justifications
-										.as_ref()
-										.map(|j| j.encoded_size() as u64)
-										.unwrap_or(0);
-
-									batch_header_bytes += header_size;
-									batch_body_bytes += body_size;
-									batch_justification_bytes += justification_size;
-									batch_block_bytes += block_data_size;
 
 									trace!(
 										target: LOG_TARGET,
-										"Draining gap block {} ({:?}) header: {} bytes, body: {} bytes, justification: {} bytes, block: {} bytes",
+										"Draining gap block {} ({:?}) stats: {gap_sync_stats}",
 										block_data.block.hash,
 										block_data.block.header.as_ref().map(|h| *h.number()),
-										header_size,
-										body_size,
-										justification_size,
-										block_data_size
 									);
+									batch_gap_sync_stats += gap_sync_stats;
 
 									IncomingBlock {
 										hash: block_data.block.hash,
@@ -1284,31 +1303,21 @@ where
 									}
 								})
 								.collect();
-							// Accumulate totals
-							gap_sync.total_header_bytes += batch_header_bytes;
-							gap_sync.total_body_bytes += batch_body_bytes;
-							gap_sync.total_justification_bytes += batch_justification_bytes;
-							gap_sync.total_block_bytes += batch_block_bytes;
 
 							debug!(
 								target: LOG_TARGET,
-								"Drained {} gap blocks from {}, batch sizes - headers: {} bytes, bodies: {} bytes, justifications: {} bytes, block: {} bytes",
+								"Drained {} gap blocks from {}, stats: {batch_gap_sync_stats}",
 								blocks.len(),
 								gap_sync.best_queued_number,
-								batch_header_bytes,
-								batch_body_bytes,
-								batch_justification_bytes,
-								batch_block_bytes,
 							);
+
+							gap_sync.stats += batch_gap_sync_stats;
+
 							if blocks.len() > 0 {
 								debug!(
 									target: LOG_TARGET,
-									"gap sync stats - batch_block: {} bytes; total_block: {} bytes ({:.2} MB), total_header: {} bytes ({:.2} MB)",
-									batch_block_bytes,
-									gap_sync.total_block_bytes,
-									gap_sync.total_block_bytes as f64 / (1024.0 * 1024.0),
-									gap_sync.total_header_bytes,
-									gap_sync.total_header_bytes as f64 / (1024.0 * 1024.0),
+									"Gap sync cumulative stats: {}",
+									gap_sync.stats
 								);
 							}
 							blocks
@@ -1823,10 +1832,7 @@ where
 				best_queued_number: start - One::one(),
 				target: end,
 				blocks: BlockCollection::new(),
-				total_header_bytes: 0,
-				total_body_bytes: 0,
-				total_justification_bytes: 0,
-				total_block_bytes: 0,
+				stats: GapSyncStats::new(),
 			});
 		}
 		trace!(
