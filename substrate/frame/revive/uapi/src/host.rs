@@ -491,19 +491,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Verify a sr25519 signature
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message`: The message bytes.
-	///
-	/// # Errors
-	///
-	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
-	#[unstable_hostfn]
-	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 }
 
 mod private {

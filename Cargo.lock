@@ -5001,6 +5001,7 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
+ "proptest",
  "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-runtime",
@@ -9898,9 +9899,9 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcda6c1f442def15b5e73228ebf669e36f4f7d9d154a0b0190d43a29c4cbeadf"
+checksum = "d903b21d57fae0e8d184c6ea0107fb5303fcab7cd2acaf5d2d9beb2807194b4a"
 dependencies = [
  "async-trait",
  "bs58",
