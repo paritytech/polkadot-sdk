@@ -76,6 +76,7 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
@@ -602,7 +603,7 @@ where
 							sp_transaction_storage_proof::registration::new_data_provider(
 								&*client_clone,
 								&parent,
-								sp_transaction_storage_proof::runtime_api::client::retrieve_storage_period(&client_clone, parent)?,
+								client_clone.runtime_api().retention_period(parent)?,
 							)?;
 						Ok(vec![storage_proof])
 					} else {
@@ -745,7 +746,7 @@ where
 								sp_transaction_storage_proof::registration::new_data_provider(
 									&*client_clone,
 									&parent,
-									sp_transaction_storage_proof::runtime_api::client::retrieve_storage_period(&client_clone, parent)?,
+									client_clone.runtime_api().retention_period(parent)?,
 								)?;
 							Ok(vec![storage_proof])
 						} else {
