@@ -184,7 +184,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			"Migration failed: the number of items in the storage after the migration is not the same as before"
 		);
 
-		let deposit_sum: crate::BalanceOf<T> = Zero::zero();
+		let mut deposit_sum: crate::BalanceOf<T> = Zero::zero();
 
 		for (code_hash, old_code_info) in prev_map {
 			deposit_sum = deposit_sum.saturating_add(old_code_info.deposit);
