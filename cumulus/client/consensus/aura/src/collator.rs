@@ -33,6 +33,7 @@ use cumulus_client_consensus_common::{
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
+	RelayProofRequest,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sc_client_api::BackendTransaction;
@@ -177,7 +178,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
@@ -226,7 +227,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
