@@ -669,7 +669,7 @@ pub mod pallet {
 					);
 					let validation_code = <PendingValidationCode<T>>::take();
 
-					frame_system::Pallet::<T>::update_pending_code_in_storage(&validation_code);
+					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
 					<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
 					Self::deposit_event(Event::ValidationFunctionApplied {
 						relay_chain_block_num: vfp.relay_parent_number,

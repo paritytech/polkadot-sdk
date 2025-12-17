@@ -223,15 +223,7 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		let system_version = T::Version::get().system_version;
-		match system_version {
-			0..=2 => {
-				<Pallet<T>>::update_code_in_storage(&code);
-			},
-			_ => {
-				<Pallet<T>>::update_pending_code_in_storage(&code);
-			},
-		}
+		<Pallet<T>>::update_code_in_storage(&code);
 		Ok(())
 	}
 }
@@ -653,7 +645,7 @@ pub mod pallet {
 		///
 		/// The default (`()`) implementation is responsible for setting the correct storage
 		/// entry and emitting corresponding event and log item. (see
-		/// [`Pallet::update_pending_code_in_storage`]).
+		/// [`Pallet::update_code_in_storage`]).
 		/// It's unlikely that this needs to be customized, unless you are writing a parachain using
 		/// `Cumulus`, where the actual code change is deferred.
 		#[pallet::no_default_bounds]
@@ -1589,28 +1581,25 @@ impl<T: Config> Pallet<T> {
 		Account::<T>::contains_key(who)
 	}
 
-	/// Write code to the storage and emit related events and digest items.
+	/// Write code to the storage and emit related events and digest items. Writes either directly
+	/// to the `:code` storage or to the `:pending_code` storage depending on the system version.
 	///
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
 	pub fn update_code_in_storage(code: &[u8]) {
-		storage::unhashed::put_raw(well_known_keys::CODE, code);
+		match T::Version::get().system_version {
+			0..=2 => {
+				storage::unhashed::put_raw(well_known_keys::CODE, code);
+				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+			},
+			_ => {
+				UpgradeNextBlock::<T>::put(());
+				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+			},
+		}
 
-		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
-	}
-
-	/// Write pending code to the storage for it to be applied in the next block.
-	///
-	/// Note this function almost never should be used directly. It is exposed
-	/// for `OnSetCode` implementations that defer actual code being written to
-	/// the storage (for instance in case of parachains).
-	///
-	/// This function assumes that the current block number has been set.
-	pub fn update_pending_code_in_storage(code: &[u8]) {
-		UpgradeNextBlock::<T>::put(());
-		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit
@@ -1632,7 +1621,6 @@ impl<T: Config> Pallet<T> {
 				storage::unhashed::kill(well_known_keys::PENDING_CODE);
 
 				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-				Self::deposit_event(Event::CodeUpdated);
 
 				return true
 			}
