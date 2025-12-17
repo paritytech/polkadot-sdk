@@ -379,7 +379,6 @@ fn compile_with_standard_json(
 	});
 
 	// Add all Solidity files to the input
-	let mut file_keys: Vec<String> = Vec::new();
 	for entry in solidity_entries {
 		let source_code = fs::read_to_string(entry.path())
 			.with_context(|| format!("Failed to read Solidity source: {}", entry.path()))?;
@@ -388,7 +387,6 @@ fn compile_with_standard_json(
 		input_json["sources"][file_key] = serde_json::json!({
 			"content": source_code
 		});
-		file_keys.push(file_key.to_string());
 	}
 
 	// Allow imports from the interface dir and node_modules if present
