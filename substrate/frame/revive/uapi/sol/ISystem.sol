@@ -66,6 +66,6 @@ interface ISystem {
 	///
 	/// # Parameters
 	///
-	/// - `pubkey`: The public key bytes.
+	/// - `publicKey`: The public key bytes.
 	function EcdsaToEthAddress(uint8[33] calldata publicKey) external view returns (bytes20);
 }
