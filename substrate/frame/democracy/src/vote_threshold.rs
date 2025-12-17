@@ -35,7 +35,7 @@ use sp_runtime::traits::{IntegerSquareRoot, Zero};
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	Decode,
-	sp_runtime::RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

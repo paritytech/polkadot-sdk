@@ -563,7 +563,7 @@ pub mod derive {
 	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
-		PartialOrdNoBound, RuntimeDebugNoBound,
+		PartialOrdNoBound,
 	};
 	pub use scale_info::TypeInfo;
 	pub use serde;
@@ -573,7 +573,6 @@ pub mod derive {
 	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
 	/// to the path where serde can be found.
 	pub use serde::{Deserialize, Serialize};
-	pub use sp_runtime::RuntimeDebug;
 }
 
 /// All hashing related components.

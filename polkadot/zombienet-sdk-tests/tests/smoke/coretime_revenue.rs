@@ -11,13 +11,15 @@
 
 use anyhow::anyhow;
 
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
-mod coretime_rococo {}
+#[zombienet_sdk::subxt::subxt(
+	runtime_metadata_path = "metadata-files/coretime-westend-local.scale"
+)]
+mod coretime_westend {}
 
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
-mod rococo {}
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/westend-local.scale")]
+mod westend {}
 
-use rococo::runtime_types::{
+use westend::runtime_types::{
 	polkadot_parachain_primitives::primitives,
 	staging_xcm::v4::{
 		asset::{Asset, AssetId, Assets, Fungibility},
@@ -25,7 +27,7 @@ use rococo::runtime_types::{
 		junctions::Junctions,
 		location::Location,
 	},
-	xcm::{VersionedAssetId, VersionedAssets, VersionedLocation},
+	xcm::{VersionedAssets, VersionedLocation},
 };
 
 use serde_json::json;
@@ -37,7 +39,7 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-use coretime_rococo::{
+use coretime_westend::{
 	self as coretime_api,
 	broker::events as broker_events,
 	runtime_types::{
@@ -46,9 +48,9 @@ use coretime_rococo::{
 	},
 };
 
-use rococo::on_demand_assignment_provider::events as on_demand_events;
+use westend::on_demand_assignment_provider::events as on_demand_events;
 
-type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
+type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_westend_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;
 type CoretimeBrokerCall = coretime_api::runtime_types::pallet_broker::pallet::Call;
 
@@ -65,7 +67,7 @@ async fn get_total_issuance(
 			.at_latest()
 			.await
 			.unwrap()
-			.fetch(&rococo::storage().balances().total_issuance())
+			.fetch(&westend::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap(),
@@ -207,7 +209,7 @@ async fn ti_watcher<C: zombienet_sdk::subxt::Config + Clone>(
 		let ti = api
 			.storage()
 			.at(block.reference())
-			.fetch(&rococo::storage().balances().total_issuance())
+			.fetch(&westend::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap() as i128;
@@ -229,7 +231,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
+			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_genesis_overrides(
@@ -243,7 +245,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 			p.with_id(1005)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("coretime-rococo-local")
+				.with_chain("coretime-westend-local")
 				.with_collator(|n| n.with_name("coretime"))
 		})
 		.build()
@@ -303,7 +305,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	relay_client
 		.tx()
 		.sign_and_submit_default(
-			&rococo::tx().xcm_pallet().teleport_assets(
+			&westend::tx().xcm_pallet().teleport_assets(
 				VersionedLocation::V4(Location {
 					parents: 0,
 					interior: Junctions::X1([Junction::Parachain(1005)]),
@@ -319,7 +321,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 					id: AssetId(Location { parents: 0, interior: Junctions::Here }),
 					fun: Fungibility::Fungible(1_500_000_000),
 				}])),
-				VersionedAssetId::V4(AssetId(Location { parents: 0, interior: Junctions::Here })),
+				0,
 			),
 			&alice,
 		)
@@ -459,7 +461,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo::tx()
+			&westend::tx()
 				.on_demand_assignment_provider()
 				.place_order_allow_death(100_000_000, primitives::Id(100)),
 			&bob,
@@ -469,7 +471,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<westend::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	// As there's no spot traffic, Bob will only pay base fee
@@ -537,7 +539,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo::tx()
+			&westend::tx()
 				.on_demand_assignment_provider()
 				.place_order_with_credits(100_000_000, primitives::Id(100)),
 			&alice,
@@ -547,7 +549,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<westend::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);

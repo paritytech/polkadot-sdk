@@ -271,7 +271,11 @@ where
 	OriginOf<Block::Extrinsic, Context>: From<Option<System::AccountId>>,
 	UnsignedValidator: ValidateUnsigned<Call = CallOf<Block::Extrinsic, Context>>,
 {
-	fn execute_block(block: Block::LazyBlock) {
+	fn verify_and_remove_seal(_: &mut <Block as traits::Block>::LazyBlock) {
+		// Nothing to do here.
+	}
+
+	fn execute_verified_block(block: Block::LazyBlock) {
 		Executive::<
 			System,
 			Block,
