@@ -41,7 +41,7 @@ pub struct ExecutionTracer {
 	steps: Vec<ExecutionStep>,
 
 	/// Current call depth.
-	depth: u32,
+	depth: u16,
 
 	/// Number of steps captured (for limiting).
 	step_count: u64,
@@ -123,7 +123,7 @@ impl Tracing for ExecutionTracer {
 			return_data,
 			error: None,
 			kind: ExecutionStepKind::EVMOpcode {
-				pc,
+				pc: pc as u32,
 				op: opcode,
 				stack: stack_data,
 				memory: memory_data,

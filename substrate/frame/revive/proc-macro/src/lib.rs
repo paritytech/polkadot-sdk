@@ -355,7 +355,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 		}
 
 		/// Return the index of a syscall in the `all_syscalls()` list.
-		pub fn lookup_syscall_index(name: &'static str) -> Option<u32> {
+		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
 			#lookup_syscall
 		}
 
@@ -573,7 +573,7 @@ fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
 	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
 		let name_str = &f.name;
 		quote! {
-			#name_str => Some(#idx as u32)
+			#name_str => Some(#idx as u8)
 		}
 	});
 

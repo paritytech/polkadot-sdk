@@ -471,6 +471,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
+	#[codec(compact)]
 	pub gas: u64,
 	/// Whether the transaction failed.
 	pub failed: bool,
@@ -485,11 +486,13 @@ pub struct ExecutionTrace {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionStep {
 	/// Remaining gas before executing this step.
+	#[codec(compact)]
 	pub gas: u64,
 	/// Cost of executing this step.
+	#[codec(compact)]
 	pub gas_cost: u64,
 	/// Current call depth.
-	pub depth: u32,
+	pub depth: u16,
 	/// Return data from last frame output.
 	#[serde(skip_serializing_if = "Bytes::is_empty")]
 	pub return_data: Bytes,
@@ -508,7 +511,8 @@ pub enum ExecutionStepKind {
 	/// An EVM opcode execution.
 	EVMOpcode {
 		/// The program counter.
-		pc: u64,
+		#[codec(compact)]
+		pc: u32,
 		/// The opcode being executed.
 		#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 		op: u8,
@@ -532,7 +536,7 @@ pub enum ExecutionStepKind {
 	PVMSyscall {
 		/// The executed syscall.
 		#[serde(serialize_with = "serialize_syscall_op")]
-		op: u32,
+		op: u8,
 	},
 }
 
@@ -724,7 +728,7 @@ where
 }
 
 /// Serialize a syscall index to its name
-fn serialize_syscall_op<S>(idx: &u32, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_syscall_op<S>(idx: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
