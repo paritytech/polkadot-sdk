@@ -347,12 +347,10 @@ fn compile_with_standard_json(
 		});
 	}
 
-	let allow_paths = INTERFACE_DIR.to_string();
-
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
 		.arg("--allow-paths")
-		.arg(allow_paths)
+		.arg(INTERFACE_DIR)
 		.arg("--standard-json")
 		.stdin(std::process::Stdio::piped())
 		.stdout(std::process::Stdio::piped())
@@ -463,15 +461,9 @@ pub fn compile_solidity_contracts(
 		.cloned()
 		.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
 		.collect();
-	let pvm_only = vec!["erc20"];
-	let solidity_entries_evm: Vec<_> = solidity_entries
-		.iter()
-		.cloned()
-		.filter(|entry| !pvm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
-		.collect();
 
 	// Compile with solc for EVM bytecode
-	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries_evm)?;
+	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 

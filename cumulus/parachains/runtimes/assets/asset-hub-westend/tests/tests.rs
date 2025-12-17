@@ -56,7 +56,6 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
-use once_cell::sync::Lazy;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
 	Code, TransactionLimits,
