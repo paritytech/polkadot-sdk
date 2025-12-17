@@ -19,6 +19,6 @@ doc:
     cc @paritytech/sdk-node
 crates:
 - name: sc-network-types
-  bump: patch
+  bump: minor
 - name: sc-network
-  bump: patch
+  bump: minor
