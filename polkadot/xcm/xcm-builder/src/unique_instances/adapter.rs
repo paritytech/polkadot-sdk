@@ -184,7 +184,7 @@ where
 			?what,
 			?who,
 			?context,
-			"deposit_asset",
+			"UniqueInstancesDepositAdapter::deposit_asset",
 		);
 
 		let (id, instance) = match what.non_fungible.first() {
@@ -203,5 +203,16 @@ where
 		))
 		.map(|_reported_id| ())
 		.map_err(|e| (what, XcmError::FailedToTransactAsset(e.into())))
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what,
+			?context,
+			"UniqueInstancesDepositAdapter::mint_asset",
+		);
+		// FIXME: @mrshiposha
+		Err(MatchError::AssetNotHandled.into())
 	}
 }
