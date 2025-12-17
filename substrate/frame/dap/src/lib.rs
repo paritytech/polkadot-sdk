@@ -38,7 +38,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::{Fortitude, FundingSink, Precision, Preservation},
-		Currency, Imbalance, OnUnbalanced,
+		Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
@@ -61,7 +61,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The currency type.
+		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>;
@@ -181,38 +181,12 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-/// Implementation of OnUnbalanced for the old Currency trait (still used by treasury).
-/// Use this as `type BurnDestination = BurnToDap<Runtime, Balances>` e.g. in treasury config.
-pub struct BurnToDap<T, C>(core::marker::PhantomData<(T, C)>);
-
-impl<T, C> OnUnbalanced<C::NegativeImbalance> for BurnToDap<T, C>
-where
-	T: Config,
-	C: Currency<T::AccountId>,
-{
-	fn on_nonzero_unbalanced(amount: C::NegativeImbalance) {
-		let buffer = Pallet::<T>::buffer_account();
-		let numeric_amount = amount.peek();
-
-		// Resolve the imbalance by depositing into the buffer account
-		C::resolve_creating(&buffer, amount);
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Deposited burn of {numeric_amount:?} to DAP buffer"
-		);
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use frame_support::{
 		derive_impl, parameter_types,
-		traits::{
-			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
-			OnUnbalanced, WithdrawReasons,
-		},
+		traits::{fungible::Balanced, tokens::FundingSink, OnUnbalanced},
 	};
 	use sp_runtime::BuildStorage;
 
@@ -410,42 +384,6 @@ mod tests {
 
 			// Then: buffer still has 0 (no-op)
 			assert_eq!(Balances::free_balance(buffer), 0);
-		});
-	}
-
-	// ===== BurnToDap tests =====
-
-	#[test]
-	fn burn_to_dap_accumulates_multiple_burns_to_buffer() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: accounts have balances, buffer has 0
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: create multiple negative imbalances (simulating treasury burns) and send to DAP
-			let imbalance1 = <Balances as CurrencyT<u64>>::withdraw(
-				&1,
-				30,
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)
-			.unwrap();
-			BurnToDap::<Test, Balances>::on_unbalanced(imbalance1);
-
-			let imbalance2 = <Balances as CurrencyT<u64>>::withdraw(
-				&2,
-				50,
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)
-			.unwrap();
-			BurnToDap::<Test, Balances>::on_unbalanced(imbalance2);
-
-			// Then: buffer has accumulated all burns (30 + 50 = 80)
-			assert_eq!(Balances::free_balance(buffer), 80);
-			assert_eq!(Balances::free_balance(1), 70);
-			assert_eq!(Balances::free_balance(2), 150);
 		});
 	}
 }
