@@ -75,6 +75,12 @@ impl SessionInterface for MockSessionInterface {
 	fn purge_keys(_account: &Self::AccountId) -> DispatchResult {
 		Ok(())
 	}
+	fn set_keys_weight() -> Weight {
+		Weight::zero()
+	}
+	fn purge_keys_weight() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub struct MockFallback;

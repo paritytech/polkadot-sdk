@@ -65,6 +65,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveSaturating, RewardsReporter},
 };
+use pallet_session::WeightInfo as SessionWeightInfo;
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::SaturatedConversion;
@@ -128,6 +129,12 @@ pub trait SessionInterface {
 	///
 	/// This is called when AssetHub forwards a session key purge request via XCM.
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
+
+	/// Weight for setting session keys.
+	fn set_keys_weight() -> Weight;
+
+	/// Weight for purging session keys.
+	fn purge_keys_weight() -> Weight;
 }
 
 impl<T: Config + pallet_session::Config + pallet_session::historical::Config> SessionInterface
@@ -154,6 +161,14 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
 		pallet_session::Pallet::<T>::do_purge_keys(account)
+	}
+
+	fn set_keys_weight() -> Weight {
+		<T as pallet_session::Config>::WeightInfo::set_keys()
+	}
+
+	fn purge_keys_weight() -> Weight {
+		<T as pallet_session::Config>::WeightInfo::purge_keys()
 	}
 }
 
@@ -677,8 +692,7 @@ pub mod pallet {
 		/// The `proof` parameter is validated using the `OpaqueKeys::ownership_proof_is_valid`
 		/// method to verify key ownership.
 		#[pallet::call_index(3)]
-		// TODO: Replace with proper benchmarked weight.
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		#[pallet::weight(T::SessionInterface::set_keys_weight())]
 		pub fn set_keys_from_ah(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -706,8 +720,7 @@ pub mod pallet {
 		/// This is called when a validator purges their session keys on AssetHub, which forwards
 		/// the request to the RelayChain via XCM.
 		#[pallet::call_index(4)]
-		// TODO: Replace with proper benchmarked weight.
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		#[pallet::weight(T::SessionInterface::purge_keys_weight())]
 		pub fn purge_keys_from_ah(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
