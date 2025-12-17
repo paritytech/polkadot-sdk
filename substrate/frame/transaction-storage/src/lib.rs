@@ -279,8 +279,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
-		/// `MaxTransactionSize`. Data will be removed after `RetentionPeriod` blocks, unless `renew`
-		/// is called.
+		/// `MaxTransactionSize`. Data will be removed after `RetentionPeriod` blocks, unless
+		/// `renew` is called.
 		///
 		/// Emits [`Stored`](Event::Stored) when successful.
 		///

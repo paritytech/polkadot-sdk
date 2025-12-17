@@ -26,4 +26,4 @@ crates:
 - name: sp-transaction-storage-proof
   bump: major
 - name: pallet-transaction-storage
-  bump: minor
+  bump: major
