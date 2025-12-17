@@ -40,7 +40,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::Saturating,
-	RuntimeDebug,
+	Debug,
 };
 
 pub use pallet_broker::CoreAssignment;
@@ -49,7 +49,7 @@ pub use super::Config;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Clone,
 	Copy,
 	PartialEq,
@@ -108,7 +108,7 @@ impl PartsOf57600 {
 ///
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub(super) struct Schedule<N> {
 	/// Original assignments.
 	assignments: Vec<(CoreAssignment, PartsOf57600)>,
@@ -165,7 +165,7 @@ impl<N> Schedule<N> {
 /// Contains pointers to first and last schedule into `CoreSchedules` for that core and keeps track
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 pub(super) struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
 	queue: Option<QueueDescriptor<N>>,
@@ -206,7 +206,7 @@ impl<N: PartialOrd> CoreDescriptor<N> {
 /// Schedules in `CoreSchedules` form a queue. `Schedule::next_schedule` always pointing to the next
 /// item.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct QueueDescriptor<N> {
 	/// First scheduled item, that is not yet active.
 	pub first: N,
@@ -215,7 +215,7 @@ pub struct QueueDescriptor<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 pub struct WorkState<N> {
 	/// Assignments with current state.
 	///
@@ -240,7 +240,7 @@ pub struct WorkState<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone, Copy))]
 pub struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
@@ -338,7 +338,7 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 	}
 }
 
-#[derive(RuntimeDebug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Error {
 	AssignmentsEmpty,
 	/// assign_core is only allowed to append new assignments at the end of already existing

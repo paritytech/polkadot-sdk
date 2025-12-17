@@ -179,7 +179,7 @@ impl<N> Default for OrderStatus<N> {
 }
 
 /// Errors that can happen during spot traffic calculation.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub enum SpotTrafficCalculationErr {
 	/// The order queue capacity is at 0.
 	QueueCapacityIsZero,

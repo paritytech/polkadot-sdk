@@ -33,7 +33,7 @@ pub(super) mod v3 {
 	use frame_support::pallet_prelude::{OptionQuery, Twox256};
 
 	/// Assignment type used in V2 and V3 storage (before migration to V4).
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq)]
 	pub(crate) enum Assignment {
 		/// A pool assignment (on-demand).
 		Pool { para_id: ParaId, core_index: CoreIndex },
