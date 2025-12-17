@@ -204,8 +204,7 @@ mod tests {
 	}
 	#[test]
 	fn sr25519_verify() {
-		use crate::test_utils::ALICE;
-		use crate::precompiles::alloy::sol_types::sol_data::Bool;
+		use crate::{precompiles::alloy::sol_types::sol_data::Bool, test_utils::ALICE};
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
