@@ -23,7 +23,6 @@
 
 use crate::error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result};
 use futures::{channel::oneshot, prelude::*};
-use gum::CandidateHash;
 use polkadot_node_primitives::{
 	approval::{time::Tick, v1::DelayTranche},
 	SessionWindowSize, DISPUTE_WINDOW,
@@ -37,11 +36,11 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_primitives::{
-	well_known_keys::relay_dispatch_queue_remaining_capacity, AuthorityDiscoveryId, BlockNumber,
-	Hash, Header, SessionIndex, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, BlockNumber,
+	Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, CandidateHash
 };
 use sp_keystore::KeystorePtr;
-use std::collections::{hash_map::Entry, HashMap, HashSet, VecDeque};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
 
 mod approval_voting_metrics;
 mod availability_distribution_metrics;
@@ -71,25 +70,18 @@ pub struct Config {
 	pub verbose_approval_metrics: bool,
 }
 
+#[derive(Debug, Default, Clone)]
 struct PerRelayView {
 	session_index: SessionIndex,
-	parent_hash: Option<Hash>,
-	children: HashSet<Hash>,
 	approvals_stats: HashMap<CandidateHash, ApprovalsStats>,
 }
 
 impl PerRelayView {
-	fn new(parent_hash: Option<Hash>, session_index: SessionIndex) -> Self {
+	fn new(session_index: SessionIndex) -> Self {
 		PerRelayView {
 			session_index,
-			parent_hash,
-			children: HashSet::new(),
 			approvals_stats: HashMap::new(),
 		}
-	}
-
-	fn link_child(&mut self, hash: Hash) {
-		self.children.insert(hash);
 	}
 }
 
@@ -111,42 +103,40 @@ impl PerValidatorTally {
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PerSessionView {
-	authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
+	authorities_ids: Vec<AuthorityDiscoveryId>,
 	validators_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
 }
 
 impl PerSessionView {
-	fn new(authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>) -> Self {
-		Self { authorities_lookup, validators_tallies: HashMap::new() }
+	fn new(authorities_ids: Vec<AuthorityDiscoveryId>) -> Self {
+		Self { authorities_ids, validators_tallies: HashMap::new() }
 	}
 }
 
 /// View holds the subsystem internal state
 struct View {
-	/// roots contains the only unfinalized relay hashes
-	/// is used when finalization happens to prune unneeded forks
-	roots: HashSet<Hash>,
 	/// per_relay holds collected approvals statistics for
 	/// all the candidates under the given unfinalized relay hash
-	per_relay: HashMap<Hash, PerRelayView>,
+	per_relay: HashMap<(Hash, BlockNumber), PerRelayView>,
 	/// per_session holds session information (authorities lookup)
 	/// and approvals tallies which is the aggregation of collected
 	/// approvals statistics under finalized blocks
-	per_session: HashMap<SessionIndex, PerSessionView>,
+	per_session: BTreeMap<SessionIndex, PerSessionView>,
 	/// availability_chunks holds collected upload and download chunks
 	/// statistics per validator
-	availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
+	availability_chunks: BTreeMap<SessionIndex, AvailabilityChunks>,
 	current_session: Option<SessionIndex>,
+	latest_finalized_block: (BlockNumber, Hash),
 }
 
 impl View {
 	fn new() -> Self {
-		return View {
-			roots: HashSet::new(),
+		View {
 			per_relay: HashMap::new(),
-			per_session: HashMap::new(),
-			availability_chunks: HashMap::new(),
+			per_session: BTreeMap::new(),
+			availability_chunks: BTreeMap::new(),
 			current_session: None,
+			latest_finalized_block: (0, Hash::default()),
 		}
 	}
 }
@@ -197,17 +187,15 @@ pub(crate) async fn run_iteration<Context>(
 	view: &mut View,
 	metrics: (&Metrics, bool),
 ) -> Result<()> {
-	let mut sender = ctx.sender().clone();
-	let per_validator_metrics = metrics.1;
 	loop {
 		match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
 					let relay_hash = activated.hash;
+					let relay_number = activated.number;
 
 					let (tx, rx) = oneshot::channel();
-
 					ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
 					let header = rx
 						.map_err(JfyiError::OverseerCommunication)
@@ -220,25 +208,7 @@ pub(crate) async fn run_iteration<Context>(
 						.map_err(JfyiError::OverseerCommunication)?
 						.map_err(JfyiError::RuntimeApiCallError)?;
 
-					if let Some(ref h) = header {
-						let parent_hash = h.parent_hash;
-						let parent_hash = match view.per_relay.get_mut(&parent_hash) {
-							Some(per_relay_view) => {
-								per_relay_view.link_child(relay_hash);
-								Some(parent_hash)
-							},
-							None => {
-								_ = view.roots.insert(relay_hash);
-								None
-							},
-						};
-
-						view.per_relay
-							.insert(relay_hash, PerRelayView::new(parent_hash, session_idx));
-					} else {
-						view.roots.insert(relay_hash);
-						view.per_relay.insert(relay_hash, PerRelayView::new(None, session_idx));
-					}
+					view.per_relay.insert((relay_hash, relay_number), PerRelayView::new(session_idx));
 
 					if !view.per_session.contains_key(&session_idx) {
 						let session_info =
@@ -249,64 +219,49 @@ pub(crate) async fn run_iteration<Context>(
 								.map_err(JfyiError::RuntimeApiCallError)?;
 
 						if let Some(session_info) = session_info {
-							let mut authority_lookup = HashMap::new();
-							for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
-								authority_lookup.insert(ad, ValidatorIndex(i as _));
-							}
-
 							view.per_session
-								.insert(session_idx, PerSessionView::new(authority_lookup));
+								.insert(session_idx, PerSessionView::new(
+									session_info.discovery_keys.iter().cloned().collect(),
+								));
 						}
 					}
 				}
 			},
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, _)) => {
+			FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)) => {
 				// when a block is finalized it performs:
 				// 1. Pruning unneeded forks
 				// 2. Collected statistics that belongs to the finalized chain
 				// 3. After collection of finalized statistics then remove finalized nodes from the
 				//    mapping leaving only the unfinalized blocks after finalization
-				let finalized_hashes = prune_unfinalised_forks(view, fin_block_hash);
+				let (tx, rx) = oneshot::channel();
+				let ancestor_req_message = ChainApiMessage::Ancestors{
+					hash: fin_block_hash,
+					k: fin_block_number.saturating_sub(view.latest_finalized_block.0) as _,
+					response_channel: tx,
+				};
+				ctx.send_message(ancestor_req_message).await;
+				let finalized_hashes = rx
+					.map_err(JfyiError::OverseerCommunication)
+					.await?
+					.map_err(JfyiError::ChainApiCallError)?;
 
-				// so we revert it and check from the oldest to the newest
-				for hash in finalized_hashes.iter().rev() {
-					if let Some((session_idx, approvals_stats)) = view
-						.per_relay
-						.remove(hash)
-						.map(|rb_view| (rb_view.session_index, rb_view.approvals_stats))
-					{
-						if let Some(session_view) = view.per_session.get_mut(&session_idx) {
-							metrics.0.record_approvals_stats(
-								session_idx,
-								approvals_stats.clone(),
-								per_validator_metrics,
-							);
+				let (mut before, after) : (HashMap<_, _>, HashMap<_, _>) = view.per_relay
+					.clone()
+					.into_iter()
+					.partition(|((_, relay_number), _)| *relay_number <= fin_block_number);
 
-							for stats in approvals_stats.values() {
-								// Increment no-show tallies
-								for &validator_idx in &stats.no_shows {
-									session_view
-										.validators_tallies
-										.entry(validator_idx)
-										.or_default()
-										.increment_noshow();
-								}
+				before.retain(|(relay_hash, _), _| finalized_hashes.contains(relay_hash));
+				let finalized_views: HashMap<&Hash, &PerRelayView> = before
+					.iter()
+					.map(|((relay_hash, _), per_relay_view)| (relay_hash, per_relay_view))
+					.collect::<HashMap<_, _>>();
 
-								// Increment approval tallies
-								for &validator_idx in &stats.votes {
-									session_view
-										.validators_tallies
-										.entry(validator_idx)
-										.or_default()
-										.increment_approval();
-								}
-							}
-						}
-					}
-				}
-
+				aggregate_finalized_approvals_stats(view, finalized_views, metrics);
 				log_session_view_general_stats(view);
 				prune_old_session_views(ctx, view, fin_block_hash).await?;
+
+				view.per_relay = after;
+				view.latest_finalized_block = (fin_block_number, fin_block_hash);
 			},
 			FromOrchestra::Communication { msg } => match msg {
 				RewardsStatisticsCollectorMessage::ChunksDownloaded(
@@ -319,90 +274,61 @@ pub(crate) async fn run_iteration<Context>(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					candidate_hash,
 					block_hash,
+					block_number,
 					approvals,
 				) => {
-					handle_candidate_approved(view, block_hash, candidate_hash, approvals);
+					handle_candidate_approved(view, block_hash, block_number, candidate_hash, approvals);
 				},
 				RewardsStatisticsCollectorMessage::NoShows(
 					candidate_hash,
 					block_hash,
+					block_number,
 					no_show_validators,
 				) => {
-					handle_observed_no_shows(view, block_hash, candidate_hash, no_show_validators);
+					handle_observed_no_shows(view, block_hash, block_number, candidate_hash, no_show_validators);
 				},
 			},
 		}
 	}
 }
 
-// prune_unfinalised_forks will remove all the relay chain blocks
-// that are not in the finalized chain and its de   pendants children using the latest finalized
-// block as reference and will return a list of finalized hashes
-fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
-	// since we want to reward only valid approvals, we retain
-	// only finalized chain blocks and its descendants
-	// identify the finalized chain so we don't prune
-	let rb_view = match view.per_relay.get_mut(&fin_block_hash) {
-		Some(per_relay_view) => per_relay_view,
-		None => return Vec::new(),
-	};
+// aggregate_finalized_approvals_stats will iterate over the finalized hashes
+// tallying each collected approval stats on its correct session per validator index
+fn aggregate_finalized_approvals_stats(
+	view: &mut View,
+	finalized_relays: HashMap<&Hash, &PerRelayView>,
+	metrics: (&Metrics, bool),
+) {
+	for (_, per_relay_view) in finalized_relays {
+		if let Some(session_view) = view.per_session.get_mut(&per_relay_view.session_index) {
+			metrics.0.record_approvals_stats(
+				per_relay_view.session_index,
+				per_relay_view.approvals_stats.clone(),
+				// if true will report the metrics per validator index
+				metrics.1,
+			);
 
-	let mut removal_stack = Vec::new();
-	let mut retain_relay_hashes = Vec::new();
-	retain_relay_hashes.push(fin_block_hash);
-
-	let mut current_block_hash = fin_block_hash;
-	let mut current_parent_hash = rb_view.parent_hash;
-	while let Some(parent_hash) = current_parent_hash {
-		match view.per_relay.get_mut(&parent_hash) {
-			Some(parent_view) => {
-				retain_relay_hashes.push(parent_hash.clone());
-
-				if parent_view.children.len() > 1 {
-					let filtered_set = parent_view
-						.children
-						.iter()
-						.filter(|&child_hash| !child_hash.eq(&current_block_hash))
-						.cloned() // Clone the elements to own them in the new HashSet
-						.collect::<Vec<_>>();
-
-					removal_stack.extend(filtered_set);
-
-					// unlink all the other children keeping only
-					// the one that belongs to the finalized chain
-					parent_view.children = HashSet::from_iter(vec![current_block_hash.clone()]);
+			for stats in per_relay_view.approvals_stats.values() {
+				// Increment no-show tallies
+				for &validator_idx in &stats.no_shows {
+					session_view
+						.validators_tallies
+						.entry(validator_idx)
+						.or_default()
+						.increment_noshow();
 				}
-				current_block_hash = parent_hash;
-				current_parent_hash = parent_view.parent_hash;
-			},
-			None => break,
-		};
-	}
 
-	// update the roots to be the children of the latest finalized block
-	if let Some(finalized_hash) = retain_relay_hashes.first() {
-		if let Some(rb_view) = view.per_relay.get(finalized_hash) {
-			view.roots = rb_view.children.clone();
-		}
-	}
-
-	let mut to_prune = HashSet::new();
-	let mut queue: VecDeque<Hash> = VecDeque::from(removal_stack);
-	while let Some(hash) = queue.pop_front() {
-		_ = to_prune.insert(hash);
-
-		if let Some(r_view) = view.per_relay.get(&hash) {
-			for child in &r_view.children {
-				queue.push_back(child.clone());
+				// Increment approval tallies
+				for &validator_idx in &stats.votes {
+					session_view
+						.validators_tallies
+						.entry(validator_idx)
+						.or_default()
+						.increment_approval();
+				}
 			}
 		}
 	}
-
-	for rb_hash in to_prune {
-		view.per_relay.remove(&rb_hash);
-	}
-
-	retain_relay_hashes
 }
 
 // prune_old_session_views avoid the per_session mapping to grow
@@ -423,8 +349,7 @@ async fn prune_old_session_views<Context>(
 	match view.current_session {
 		Some(current_session) if current_session < session_idx => {
 			if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
-				view.per_session
-					.retain(|stored_session_index, _| *stored_session_index > wipe_before);
+				view.per_session = view.per_session.split_off(&wipe_before);
 			}
 			view.current_session = Some(session_idx)
 		},

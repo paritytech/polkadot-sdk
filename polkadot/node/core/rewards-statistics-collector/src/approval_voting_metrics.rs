@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{metrics::Metrics, View};
-use polkadot_primitives::{CandidateHash, Hash, SessionIndex, ValidatorIndex};
+use polkadot_primitives::{BlockNumber, CandidateHash, Hash, SessionIndex, ValidatorIndex};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
@@ -33,10 +33,11 @@ impl ApprovalsStats {
 pub fn handle_candidate_approved(
 	view: &mut View,
 	block_hash: Hash,
+	block_number: BlockNumber,
 	candidate_hash: CandidateHash,
 	approvals: Vec<ValidatorIndex>,
 ) {
-	if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
+	if let Some(relay_view) = view.per_relay.get_mut(&(block_hash, block_number)) {
 		relay_view
 			.approvals_stats
 			.entry(candidate_hash)
@@ -48,10 +49,11 @@ pub fn handle_candidate_approved(
 pub fn handle_observed_no_shows(
 	view: &mut View,
 	block_hash: Hash,
+	block_number: BlockNumber,
 	candidate_hash: CandidateHash,
 	no_show_validators: Vec<ValidatorIndex>,
 ) {
-	if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
+	if let Some(relay_view) = view.per_relay.get_mut(&(block_hash, block_number)) {
 		relay_view
 			.approvals_stats
 			.entry(candidate_hash)

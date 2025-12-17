@@ -3246,14 +3246,28 @@ where
 				"Candidate newly approved, collecting useful approvals..."
 			);
 
-			collect_useful_approvals(sender, &status, block_hash, &candidate_entry);
+			collect_useful_approvals(
+				sender,
+				&status,
+				block_hash,
+				block_number,
+				&candidate_entry,
+			);
 
 			if status.no_show_validators.len() > 0 {
 				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
 					candidate_entry.candidate.hash(),
 					block_hash,
+					block_number,
 					status.no_show_validators,
-				));
+				)).map_err(|_| {
+					gum::warn!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?block_hash,
+						"Failed to send no shows to reward statistics subsystem",
+					);
+				});
 			}
 		}
 
@@ -4111,6 +4125,7 @@ fn collect_useful_approvals<Sender>(
 	sender: &mut Sender,
 	status: &ApprovalStatus,
 	block_hash: Hash,
+	block_number: BlockNumber,
 	candidate_entry: &CandidateEntry,
 ) where
 	Sender: SubsystemSender<RewardsStatisticsCollectorMessage>,
@@ -4124,6 +4139,7 @@ fn collect_useful_approvals<Sender>(
 			gum::warn!(
 				target: LOG_TARGET,
 				?block_hash,
+				?block_number,
 				?candidate_hash,
 				"approval entry not found, cannot collect useful approvals."
 			);
@@ -4143,6 +4159,7 @@ fn collect_useful_approvals<Sender>(
 			gum::warn!(
 				target: LOG_TARGET,
 				?block_hash,
+				?block_number,
 				?candidate_hash,
 				"approval status required tranches still pending when collecting useful approvals"
 			);
@@ -4155,6 +4172,7 @@ fn collect_useful_approvals<Sender>(
 		gum::debug!(
 			target: LOG_TARGET,
 			?block_hash,
+			?block_number,
 			?candidate_hash,
 			?useful_approvals,
 			"collected useful approvals"
@@ -4164,6 +4182,7 @@ fn collect_useful_approvals<Sender>(
 			.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
 				candidate_hash,
 				block_hash,
+				block_number,
 				collected_useful_approvals,
 			))
 			.map_err(|_| {
@@ -4171,7 +4190,7 @@ fn collect_useful_approvals<Sender>(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?block_hash,
-					"Failed to send approvals to statistics subsystem",
+					"Failed to send approvals to rewards statistics subsystem",
 				);
 			});
 	}

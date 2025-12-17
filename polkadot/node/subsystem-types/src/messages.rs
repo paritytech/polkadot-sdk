@@ -1479,8 +1479,8 @@ pub enum RewardsStatisticsCollectorMessage {
 	ChunkUploaded(CandidateHash, HashSet<AuthorityDiscoveryId>),
 
 	// Candidate received enough approval and now is approved
-	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),
+	CandidateApproved(CandidateHash, Hash, BlockNumber, Vec<ValidatorIndex>),
 
 	// Set of candidates that has not shared votes in time
-	NoShows(CandidateHash, Hash, Vec<ValidatorIndex>),
+	NoShows(CandidateHash, Hash, BlockNumber, Vec<ValidatorIndex>),
 }

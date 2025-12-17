@@ -14,18 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{PerSessionView, View};
-use gum::CandidateHash;
-use polkadot_primitives::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex};
+use crate::{PerSessionView, View, LOG_TARGET};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, SessionIndex, ValidatorIndex};
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	ops::Add,
 };
+use std::collections::btree_map;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailabilityChunks {
-	pub downloads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
-	pub uploads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
+	pub downloads_per_candidate: HashMap<CandidateHash, HashMap<AuthorityDiscoveryId, u64>>,
+	pub uploads_per_candidate: HashMap<CandidateHash, HashMap<AuthorityDiscoveryId, u64>>,
 }
 
 impl AvailabilityChunks {
@@ -39,50 +38,47 @@ impl AvailabilityChunks {
 	pub fn note_candidate_chunk_downloaded(
 		&mut self,
 		candidate_hash: CandidateHash,
-		validator_index: ValidatorIndex,
+		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
 		let validator_downloads = self
 			.downloads_per_candidate
 			.entry(candidate_hash)
 			.or_default()
-			.entry(validator_index);
+			.entry(authority_id);
 
-		match validator_downloads {
-			Entry::Occupied(mut validator_downloads) => {
-				*validator_downloads.get_mut() += count;
-			},
-			Entry::Vacant(entry) => {
-				entry.insert(count);
-			},
-		}
+		Self::increment_validator_counter(validator_downloads, count);
 	}
 
 	pub fn note_candidate_chunk_uploaded(
 		&mut self,
 		candidate_hash: CandidateHash,
-		validator_index: ValidatorIndex,
+		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
 		let validator_uploads = self
 			.uploads_per_candidate
 			.entry(candidate_hash)
 			.or_default()
-			.entry(validator_index);
+			.entry(authority_id);
 
-		match validator_uploads {
-			Entry::Occupied(mut validator_uploads) => {
-				*validator_uploads.get_mut() += count;
+		Self::increment_validator_counter(validator_uploads, count);
+	}
+
+	fn increment_validator_counter(stats: Entry<AuthorityDiscoveryId, u64>, increment_by: u64) {
+		match stats {
+			Entry::Occupied(mut validator_stats) => {
+				validator_stats.insert(validator_stats.get().saturating_add(increment_by));
 			},
 			Entry::Vacant(entry) => {
-				entry.insert(count);
+				entry.insert(increment_by);
 			},
 		}
 	}
 }
 
 // whenever chunks are acquired throughout availability
-// recovery we collect the metrics about what validator
+// recovery we collect the metrics about which validator
 // provided and the amount of chunks
 pub fn handle_chunks_downloaded(
 	view: &mut View,
@@ -96,7 +92,25 @@ pub fn handle_chunks_downloaded(
 		.or_insert(AvailabilityChunks::new());
 
 	for (validator_index, download_count) in downloads {
-		av_chunks.note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count)
+		let authority_id = view.per_session
+			.get(&session_index)
+			.and_then(|(session_view)| session_view.authorities_ids.get(validator_index.0 as usize));
+
+		match authority_id {
+			Some(authority_id) => {
+				av_chunks.note_candidate_chunk_downloaded(candidate_hash, authority_id.clone(), download_count);
+			}
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					validator_index = ?validator_index,
+					download_count = download_count,
+					session_idx = ?session_index,
+					candidate_hash = ?candidate_hash,
+					"could not find validator authority id"
+				);
+			}
+		};
 	}
 }
 
@@ -109,33 +123,36 @@ pub fn handle_chunk_uploaded(
 	candidate_hash: CandidateHash,
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
-	let mut sessions: Vec<(&SessionIndex, &PerSessionView)> = view.per_session.iter().collect();
-	sessions.sort_by(|(a, _), (b, _)| a.partial_cmp(&b).unwrap());
+	let auth_id = match authority_ids.iter().next() {
+		Some(authority_id) => authority_id.clone(),
+		None => {
+			gum::debug!(
+				target: LOG_TARGET,
+				"unexpected empty authority ids while handling chunk uploaded"
+			);
 
-	for (session_idx, session_view) in sessions {
-		// Find the first authority with a matching validator index
-		if let Some(validator_idx) = authority_ids
-			.iter()
-			.find_map(|id| session_view.authorities_lookup.get(id).map(|v| v))
-		{
-			let av_chunks = view.availability_chunks.entry(*session_idx);
-			match av_chunks {
-				Entry::Occupied(mut entry) => {
-					entry.get_mut().note_candidate_chunk_uploaded(
-						candidate_hash,
-						*validator_idx,
-						1,
-					);
-				},
-				Entry::Vacant(entry) => {
-					entry.insert(AvailabilityChunks::new()).note_candidate_chunk_uploaded(
-						candidate_hash,
-						*validator_idx,
-						1,
-					);
-				},
-			}
-			break;
+			return;
+		},
+	};
+
+	// aggregate the statistic on the most up-to-date session
+	if let Some((session_idx, session_view)) = view.per_session.iter().next_back() {
+		let av_chunks = view.availability_chunks.entry(*session_idx);
+		match av_chunks {
+			btree_map::Entry::Occupied(mut entry) => {
+				entry.get_mut().note_candidate_chunk_uploaded(
+					candidate_hash,
+					auth_id,
+					1,
+				);
+			},
+			btree_map::Entry::Vacant(entry) => {
+				entry.insert(AvailabilityChunks::new()).note_candidate_chunk_uploaded(
+					candidate_hash,
+					auth_id,
+					1,
+				);
+			},
 		}
 	}
 }
