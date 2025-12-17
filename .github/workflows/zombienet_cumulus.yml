@@ -80,11 +80,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      - name: Download test parachain artifact
         if: ${{ matrix.test.needs-wasm-binary }}
+        uses: ./.github/actions/download-artifact-extract
         with:
-          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifact-name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
       - name: zombienet_test
