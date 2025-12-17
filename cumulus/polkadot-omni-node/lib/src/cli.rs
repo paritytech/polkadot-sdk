@@ -223,7 +223,10 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
-	/// Enable the storage inherent data provider.
+	/// Enable the transaction storage inherent data provider, which adds
+	/// proofs of previous transactions to the new blocks.
+	///
+	/// This is required for chains that use `pallet-transaction-storage`.
 	#[arg(long)]
 	pub enable_tx_storage_idp: bool,
 
