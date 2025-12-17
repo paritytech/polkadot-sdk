@@ -58,7 +58,8 @@ interface ISystem {
 	///
 	/// - `signature`: The signature bytes.
 	/// - `message`: The message bytes.
-	function sr25519Verify(uint8[64] calldata signature, bytes memory message, bytes32 publicKey) external view returns (bool);
+	/// - `publicKey`: The public key bytes.
+	function sr25519Verify(uint8[64] calldata signature, bytes calldata message, bytes32 publicKey) external view returns (bool);
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
@@ -66,10 +67,5 @@ interface ISystem {
 	/// # Parameters
 	///
 	/// - `pubkey`: The public key bytes.
-	/// - `output`: A reference to the output data buffer to write the address.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	function EcdsaToEthAddress(uint8[33] calldata publicKey) external view returns (bytes20);
 }

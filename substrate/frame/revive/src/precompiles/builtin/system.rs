@@ -202,4 +202,45 @@ mod tests {
 			);
 		})
 	}
+	#[test]
+	fn sr25519_verify() {
+		use crate::test_utils::ALICE;
+		use crate::precompiles::alloy::sol_types::sol_data::Bool;
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let mut call_with = |message: &[u8; 11]| {
+				// Alice's signature for "hello world"
+				#[rustfmt::skip]
+				let signature: [u8; 64] = [
+					184, 49, 74, 238, 78, 165, 102, 252, 22, 92, 156, 176, 124, 118, 168, 116, 247,
+					99, 0, 94, 2, 45, 9, 170, 73, 222, 182, 74, 60, 32, 75, 64, 98, 174, 69, 55, 83,
+					85, 180, 98, 208, 75, 231, 57, 205, 62, 4, 105, 26, 136, 172, 17, 123, 99, 90, 255,
+					228, 54, 115, 63, 30, 207, 205, 131,
+				];
+
+				// Alice's public key
+				#[rustfmt::skip]
+				let public_key: [u8; 32] = [
+					212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44,
+					133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
+				];
+
+				let input = ISystem::ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
+					signature,
+					message: (*message).into(),
+					publicKey: public_key.into(),
+				});
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap()
+			};
+			let result = Bool::abi_decode(&call_with(&b"hello world")).expect("decoding failed");
+			assert!(result);
+			let result = Bool::abi_decode(&call_with(&b"hello worlD")).expect("decoding failed");
+			assert!(!result);
+		});
+	}
 }
