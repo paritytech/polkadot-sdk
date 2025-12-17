@@ -26,7 +26,8 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, ChildInfo, CoreIndex, CoreState, PHeader, RelayChainError, RelayChainInterface,
+	RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
@@ -213,7 +214,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn prove_child_read(
 		&self,
 		_relay_parent: RelayHash,
-		_child_info: &cumulus_relay_chain_interface::ChildInfo,
+		_child_info: &ChildInfo,
 		_child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof> {
 		// Not implemented: requires relay chain RPC to expose child trie proof method.
@@ -287,9 +288,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn claim_queue(
 		&self,
 		relay_parent: RelayHash,
-	) -> RelayChainResult<
-		BTreeMap<cumulus_relay_chain_interface::CoreIndex, std::collections::VecDeque<ParaId>>,
-	> {
+	) -> RelayChainResult<BTreeMap<CoreIndex, std::collections::VecDeque<ParaId>>> {
 		self.rpc_client.parachain_host_claim_queue(relay_parent).await
 	}
 

@@ -24,7 +24,7 @@ use cumulus_primitives_core::{
 		self, ApprovedPeerId, Block as RelayBlock, Hash as PHash, Header as RelayHeader,
 		HrmpChannelId,
 	},
-	ParaId, PersistedValidationData,
+	ParaId, PersistedValidationData, RelayProofRequest, RelayStorageKey,
 };
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -44,7 +44,7 @@ async fn collect_relay_storage_proof(
 	include_authorities: bool,
 	include_next_authorities: bool,
 	additional_relay_state_keys: Vec<Vec<u8>>,
-) -> Option<sp_state_machine::StorageProof> {
+) -> Option<StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
 	let ingress_channels = relay_chain_interface
@@ -169,11 +169,9 @@ async fn collect_relay_storage_proof(
 async fn collect_relay_storage_proofs(
 	relay_chain_interface: &impl RelayChainInterface,
 	relay_parent: PHash,
-	relay_proof_request: cumulus_primitives_core::RelayProofRequest,
+	relay_proof_request: RelayProofRequest,
 ) -> Option<StorageProof> {
-	use cumulus_primitives_core::RelayStorageKey;
-
-	let cumulus_primitives_core::RelayProofRequest { keys } = relay_proof_request;
+	let RelayProofRequest { keys } = relay_proof_request;
 
 	if keys.is_empty() {
 		return None;
@@ -250,7 +248,7 @@ impl ParachainInherentDataProvider {
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
 		additional_relay_state_keys: Vec<Vec<u8>>,
-		relay_proof_request: cumulus_primitives_core::RelayProofRequest,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Option<ParachainInherentData> {
 		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
