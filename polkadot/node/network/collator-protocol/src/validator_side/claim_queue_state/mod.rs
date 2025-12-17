@@ -110,13 +110,29 @@ impl<'a> ClaimInfoRef for &'a mut ClaimInfo {
 mod test {
 	use super::*;
 
-	use sp_core::{parameter_types, H256};
+	use sp_core::H256;
+	use std::sync::LazyLock;
 
-	parameter_types! {
-		pub RootRelayParent: H256 = Hash::from_low_u64_be(0);
-		pub RelayParentA: H256 = Hash::from_low_u64_be(1);
-		pub RelayParentB: H256 = Hash::from_low_u64_be(2);
-		pub RelayParentC: H256 = Hash::from_low_u64_be(3);
-		pub RelayParentD: H256 = Hash::from_low_u64_be(4);
-	}
+	pub static ROOT_RELAY_PARENT: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(0));
+	pub static RELAY_PARENT_A: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(1));
+	pub static RELAY_PARENT_B: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(2));
+	pub static RELAY_PARENT_C: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(3));
+	pub static RELAY_PARENT_D: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(4));
+
+	pub static CANDIDATE_A1: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(101)));
+	pub static CANDIDATE_A2: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(102)));
+	pub static CANDIDATE_A3: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(103)));
+	pub static CANDIDATE_A4: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(104)));
+
+	pub static CANDIDATE_B1: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(201)));
+	pub static CANDIDATE_B2: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(203)));
+
+	pub static CANDIDATE_C1: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(301)));
 }

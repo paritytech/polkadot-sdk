@@ -280,24 +280,24 @@ mod test {
 		//       / -> d
 		// 0 -> a -> b
 		//  \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&RelayParentA::get()].block_state.len(), 1);
+		assert_eq!(state.leaves[&RELAY_PARENT_A].block_state.len(), 1);
 
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
+		assert_eq!(state.leaves[&RELAY_PARENT_B].block_state.len(), 2);
 
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&ROOT_RELAY_PARENT));
 		assert_eq!(state.leaves.len(), 2);
-		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
-		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
+		assert_eq!(state.leaves[&RELAY_PARENT_B].block_state.len(), 2);
+		assert_eq!(state.leaves[&RELAY_PARENT_C].block_state.len(), 1);
 
-		state.add_leaf(&RelayParentD::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_D, &claim_queue, Some(&RELAY_PARENT_A));
 		assert_eq!(state.leaves.len(), 3);
-		assert_eq!(state.leaves[&RelayParentB::get()].block_state.len(), 2);
-		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
-		assert_eq!(state.leaves[&RelayParentD::get()].block_state.len(), 2);
+		assert_eq!(state.leaves[&RELAY_PARENT_B].block_state.len(), 2);
+		assert_eq!(state.leaves[&RELAY_PARENT_C].block_state.len(), 1);
+		assert_eq!(state.leaves[&RELAY_PARENT_D].block_state.len(), 2);
 	}
 
 	#[test]
@@ -308,27 +308,23 @@ mod test {
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
-
-		assert!(state.claim_pending_slot(&RelayParentA::get(), &para_id, Some(candidate_a)));
-		assert!(state.claim_pending_slot(&RelayParentB::get(), &para_id, Some(candidate_b)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &para_id, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_B, &para_id, Some(*CANDIDATE_B1)));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentB::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_B,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&RelayParentC::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_C,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 	}
 
@@ -340,31 +336,28 @@ mod test {
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-
-		assert!(state.claim_pending_slot(&RelayParentA::get(), &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &para_id, Some(*CANDIDATE_A1)));
 
 		// CQ is of size 1. We have claimed one slot at A, so there should be one free slot at
 		// each leaf.
 		assert_eq!(claim_queue.len(), 1);
-		assert_eq!(state.free_slots(&RelayParentB::get()), vec![para_id]);
-		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
-		// and the same slots should remain available after seconding candidate_a
-		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
-		assert_eq!(state.free_slots(&RelayParentB::get()), vec![para_id]);
-		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
+		// and the same slots should remain available after seconding CANDIDATE_A1
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
+		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
 
 		// Now claim a seconded slot directly at relay parent b
-		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_seconded_slot(&RelayParentB::get(), &para_id, &candidate_b));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &para_id, &CANDIDATE_B1));
 		// which means there are no more free slots at leaf b
-		assert_eq!(state.free_slots(&RelayParentB::get()), vec![]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![]);
 		// but the free slot at leaf c stays
-		assert_eq!(state.free_slots(&RelayParentC::get()), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
 	}
 
 	#[test]
@@ -375,15 +368,15 @@ mod test {
 
 		// 0 -> a -> b
 		//  \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RootRelayParent::get()));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&ROOT_RELAY_PARENT));
 
-		let removed = vec![RelayParentA::get(), RelayParentB::get()];
+		let removed = vec![*RELAY_PARENT_A, *RELAY_PARENT_B];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.leaves.len(), 1);
-		assert_eq!(state.leaves[&RelayParentC::get()].block_state.len(), 1);
+		assert_eq!(state.leaves[&RELAY_PARENT_C].block_state.len(), 1);
 	}
 
 	#[test]
@@ -394,51 +387,47 @@ mod test {
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
-
-		// `RelayParentA::get()` is not a leaf (b and c are)
+		// `RELAY_PARENT_A` is not a leaf (b and c are)
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentA::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_A,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_a
+			&CANDIDATE_A1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&RelayParentB::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_B,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_a
+			&CANDIDATE_A1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&RelayParentC::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_C,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_b
+			&CANDIDATE_B1
 		));
 
 		// Claim a slot at the common ancestor (rp a) and rp b
-		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
-		assert!(state.claim_seconded_slot(&RelayParentB::get(), &para_id, &candidate_b));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &para_id, &CANDIDATE_B1));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for b and succeed for c
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentB::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_B,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
-			&RelayParentC::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_C,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 	}
 
@@ -450,31 +439,27 @@ mod test {
 
 		// 0 -> a -> b
 		//       \-> c
-		state.add_leaf(&RelayParentA::get(), &claim_queue, Some(&RootRelayParent::get()));
-		state.add_leaf(&RelayParentB::get(), &claim_queue, Some(&RelayParentA::get()));
-		state.add_leaf(&RelayParentC::get(), &claim_queue, Some(&RelayParentA::get()));
-
-		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
+		state.add_leaf(&RELAY_PARENT_A, &claim_queue, Some(&ROOT_RELAY_PARENT));
+		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
+		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
 		// Claim a slot at the common ancestor (rp a) for two candidates
-		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_a));
-		assert!(state.claim_seconded_slot(&RelayParentA::get(), &para_id, &candidate_b));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_B1));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for both
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentB::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_B,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentC::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_C,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 
 		// add one more leaf from a:
@@ -482,12 +467,12 @@ mod test {
 		//       \-> c
 		//        \-> d
 		// the claim should be transferred there too
-		state.add_leaf(&RelayParentD::get(), &claim_queue, Some(&RelayParentA::get()));
+		state.add_leaf(&RELAY_PARENT_D, &claim_queue, Some(&RELAY_PARENT_A));
 		assert!(!state.has_free_slot_at_leaf_for(
-			&RelayParentD::get(),
-			&RelayParentA::get(),
+			&RELAY_PARENT_D,
+			&RELAY_PARENT_A,
 			&para_id,
-			&candidate_c
+			&CANDIDATE_C1
 		));
 	}
 }
