@@ -414,5 +414,15 @@ pub mod pallet {
 			let denom = 10u128.saturating_pow(decimals);
 			value.checked_div(denom).expect("divisor is non-zero; qed").into()
 		}
+
+		// Get message leaves.
+		pub fn message_leaves() -> Vec<H256> {
+			MessageLeaves::<T>::get()
+		}
+
+		// Get current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
+		}
 	}
 }

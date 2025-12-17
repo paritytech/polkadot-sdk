@@ -371,6 +371,11 @@ pub mod pallet {
 			})?;
 			Ok(())
 		}
+
+		// Get current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
+		}
 	}
 
 	/// API for accessing the delivery cost of a message

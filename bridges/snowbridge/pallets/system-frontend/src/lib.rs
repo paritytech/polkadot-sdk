@@ -421,6 +421,11 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// Get current operating mode for exporting to Ethereum.
+		pub fn export_operating_mode() -> OperatingMode {
+			ExportOperatingMode::<T>::get()
+		}
 	}
 
 	impl<T: Config> ExportPausedQuery for Pallet<T> {

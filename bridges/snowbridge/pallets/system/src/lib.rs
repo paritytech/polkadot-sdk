@@ -504,6 +504,21 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// Get agent.
+		pub fn agents(index: AgentId) -> Option<()> {
+			Agents::<T>::get(index)
+		}
+
+		// Get registered channel.
+		pub fn channels(index: ChannelId) -> Option<Channel> {
+			Channels::<T>::get(index)
+		}
+
+		// Get pricing parameters.
+		pub fn parameters() -> PricingParametersOf<T> {
+			PricingParameters::<T>::get()
+		}
 	}
 
 	impl<T: Config> StaticLookup for Pallet<T> {
