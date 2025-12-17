@@ -202,18 +202,10 @@ jobs:
           git config user.name "cmd[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # if the user is not an org member, we need to use the bot's path from master to avoid unwanted modifications
-          if [ "${IS_ORG_MEMBER}" = "true" ]; then
-            # safe to run commands from current branch
-            echo "Using current .github for cmd-bot scripts"
-            BOT_PATH=.github
-          else
-            # going to run commands from cmd-bot
-            echo "Using cmd-bot branch for cmd-bot scripts"
-            TMP_DIR=/tmp/polkadot-sdk
-            git clone --depth 1 --branch cmd-bot https://github.com/paritytech/polkadot-sdk $TMP_DIR
-            BOT_PATH=$TMP_DIR/.github
-          fi
+          echo "Using cmd-bot branch for cmd-bot scripts"
+          TMP_DIR=/tmp/polkadot-sdk
+          git clone --depth 1 --branch cmd-bot https://github.com/paritytech/polkadot-sdk $TMP_DIR
+          BOT_PATH=$TMP_DIR/.github
 
           # install deps and run a command from master
           python3 -m pip install -r $BOT_PATH/scripts/generate-prdoc.requirements.txt
