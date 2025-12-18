@@ -78,16 +78,17 @@ extern crate alloc;
 use super::PALLET_MIGRATIONS_ID;
 use crate::{
 	pallet::{Accounts, Config, HoldReason},
-	BalanceOf,
+	weights::WeightInfo,
+	BalanceOf, Pallet,
 };
 
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
+	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, MutateHold},
 		tokens::{Fortitude, Preservation},
-		Currency, Get, ReservableCurrency,
+		Currency, ReservableCurrency,
 	},
 	weights::WeightMeter,
 };
@@ -148,32 +149,44 @@ where
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		//making sure we are migrating the correct version
+		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+			return Ok(None);
+		}
+
 		// Check if we have minimal weight to proceed
 		// We need at least enough weight to migrate one account to make progress
-		let min_required = T::DbWeight::get().reads(1); //T::WeightInfo::migrate_account_step();
+		let min_required = T::WeightInfo::migrate_account_step();
 
 		if meter.remaining().any_lt(min_required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
-		// Get the iterator for the OLD accounts to migrate
-		let mut iter = if let Some(Some(last_key)) = cursor {
-			v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
-		} else {
-			v0::OldAccounts::<T>::iter()
-		};
+		loop {
+			// Check that we would have enough weight to perform this step
+			if !meter.can_consume(min_required) {
+				break;
+			}
 
-		// If there is a next item in the iterator, perform the migration.
-		if let Some((index, (account, old_deposit, frozen))) = iter.next() {
-			Self::migrate_account(account, index, frozen, old_deposit);
-			cursor = Some(Some(index));
-		} else {
-			// Migration complete
-			println!("Migration completed - no more accounts to migrate");
-			return Ok(None);
+			// Get the iterator for the OLD accounts to migrate
+			let mut iter = if let Some(Some(last_key)) = cursor {
+				v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
+			} else {
+				v0::OldAccounts::<T>::iter()
+			};
+
+			// If there is a next item in the iterator, perform the migration.
+			if let Some((index, (account, old_deposit, frozen))) = iter.next() {
+				Self::migrate_account_step(account, index, frozen, old_deposit);
+				cursor = Some(Some(index));
+				meter.consume(min_required);
+			} else {
+				// Migration complete
+				println!("Migration completed - no more accounts to migrate");
+				StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+				return Ok(None);
+			}
 		}
-
-		meter.consume(min_required);
 
 		Ok(cursor)
 	}
@@ -261,7 +274,7 @@ impl<T: Config, OldCurrency> MigrateCurrencyToFungibles<T, OldCurrency>
 where
 	OldCurrency: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,
 {
-	fn migrate_account(
+	fn migrate_account_step(
 		account: T::AccountId,
 		index: T::AccountIndex,
 		frozen: bool,
