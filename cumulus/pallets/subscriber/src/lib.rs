@@ -20,7 +20,7 @@
 //!
 //! This pallet is heavily opinionated toward a parachain-to-parachain publish-subscribe model.
 //! It assumes ParaId as the identifier for each child trie and is designed specifically for
-//! extracting published data from relay chain proofs in a pubsub mechanism.
+//! extracting published data from relay chain proofs that were stored in child tries in a pubsub mechanism.
 
 extern crate alloc;
 
@@ -283,7 +283,7 @@ pub mod pallet {
 	impl<T: Config> ProcessRelayProofKeys for Pallet<T> {
 		/// Process child trie data from the relay proof.
 		///
-		/// Note: This implementation only processes child trie keys (pubsub data).
+		/// This implementation only processes child trie keys (pubsub data).
 		/// Main trie keys in the proof are intentionally ignored.
 		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
 			let (subscriptions, subscriptions_weight) = T::SubscriptionHandler::subscriptions();
