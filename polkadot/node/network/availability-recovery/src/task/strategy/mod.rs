@@ -649,7 +649,7 @@ mod tests {
 	use polkadot_node_subsystem_test_helpers::{
 		derive_erasure_chunks_with_proofs_and_root, sender_receiver, TestSubsystemSender,
 	};
-	use polkadot_primitives::{CandidateHash, HeadData, PersistedValidationData};
+	use polkadot_primitives::{CandidateHash, HeadData, NodeFeatures, PersistedValidationData};
 	use polkadot_primitives_test_helpers::dummy_hash;
 	use sp_keyring::Sr25519Keyring;
 	use std::sync::Arc;

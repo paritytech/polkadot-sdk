@@ -162,48 +162,6 @@ enum ErasureTask {
 	/// the Merkle tree.
 	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>, NodeFeatures),
 }
-
-/// Re-encode the data into erasure chunks in order to verify
-/// the root hash of the provided Merkle tree, which is built
-/// on-top of the encoded chunks.
-///
-/// This (expensive) check is necessary, as otherwise we can't be sure that some chunks won't have
-/// been tampered with by the backers, which would result in some validators considering the data
-/// valid and some invalid as having fetched different set of chunks. The checking of the Merkle
-/// proof for individual chunks only gives us guarantees, that we have fetched a chunk belonging to
-/// a set the backers have committed to.
-///
-/// NOTE: It is fine to do this check with already decoded data, because if the decoding failed for
-/// some validators, we can be sure that chunks have been tampered with (by the backers) or the
-/// data was invalid to begin with. In the former case, validators fetching valid chunks will see
-/// invalid data as well, because the root won't match. In the latter case the situation is the
-/// same for anyone anyways.
-fn reconstructed_data_matches_root(
-	n_validators: usize,
-	expected_root: &Hash,
-	data: &AvailableData,
-	node_features: &NodeFeatures,
-	metrics: &Metrics,
-) -> bool {
-	let _timer = metrics.time_reencode_chunks();
-
-	let chunks = match polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(n_validators, data, node_features) {
-		Ok(chunks) => chunks,
-		Err(e) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				err = ?e,
-				"Failed to obtain chunks",
-			);
-			return false
-		},
-	};
-
-	let branches = branches(&chunks);
-
-	branches.root() == *expected_root
-}
-
 fn reconstructed_data_matches_root_feature_aware(
 	n_validators: usize,
 	expected_root: &Hash,
