@@ -87,7 +87,6 @@ pub fn create_register_validator_call(stash_account: Value) -> DynamicPayload {
 }
 
 /// Creates a sudo batch call to register a parachain with trusted validation code
-#[allow(dead_code)]
 pub fn create_register_para_call(
 	genesis_header: Vec<u8>,
 	validation_code: Vec<u8>,

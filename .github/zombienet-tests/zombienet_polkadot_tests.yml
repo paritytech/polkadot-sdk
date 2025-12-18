@@ -106,10 +106,9 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-smoke-0005-precompile-pvf-smoke"
-  test-definition: "0005-precompile-pvf-smoke.zndsl"
-  local-dir: "./polkadot/zombienet_tests/smoke"
+  test-filter: "smoke::precompile_pvf_smoke::precompile_pvf_smoke_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 # Misc tests using traditional zombienet
 # TODO: Disabled, occasionally (1 on ~50-70 runs) fails

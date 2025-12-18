@@ -15,3 +15,6 @@ mod parachains_smoke;
 
 #[cfg(feature = "zombie-ci")]
 mod parachains_upgrade_smoke;
+
+#[cfg(feature = "zombie-ci")]
+mod precompile_pvf_smoke;
