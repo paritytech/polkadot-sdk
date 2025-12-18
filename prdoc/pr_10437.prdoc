@@ -4,4 +4,4 @@ doc:
   description: 'Advances #3326'
 crates:
 - name: pallet-mmr
-  bump: major
+  bump: minor
