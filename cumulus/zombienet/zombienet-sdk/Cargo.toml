@@ -30,3 +30,4 @@ rstest = { workspace = true }
 
 [features]
 zombie-ci = []
+snapshot-update-mode = []
