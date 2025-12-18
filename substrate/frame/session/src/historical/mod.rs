@@ -401,7 +401,7 @@ pub(crate) mod tests {
 	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame_support::traits::{KeyOwnerProofSystem, OnGenesis, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
@@ -420,6 +420,9 @@ pub(crate) mod tests {
 		pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
+		BasicExternalities::execute_with_storage(&mut t, || {
+			Session::on_genesis();
+		});
 		sp_io::TestExternalities::new(t)
 	}
 

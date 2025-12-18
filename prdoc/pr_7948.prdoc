@@ -1,0 +1,34 @@
+title: 'frame: Expose `on_genesis` hook'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR enables parachain onboarding directly in the initial session. Previously, we had to wait one full session before a parachain could produce blocks, which created unnecessary delays in zombienet tests during local debugging and CI runs.
+
+    ### Enhanced `on_genesis` Hook
+    A trait for executing code after genesis storage initialization already existed in frame:
+    https://github.com/paritytech/polkadot-sdk/blob/6be44670d248b307d83feb718549b7c91d3bc57b/substrate/frame/support/src/traits/hooks.rs#L162-L165
+
+    However, this trait was not exposed to users through the `Hooks` trait and was only utilized internally by macros:
+    https://github.com/paritytech/polkadot-sdk/blob/6be44670d248b307d83feb718549b7c91d3bc57b/substrate/frame/support/procedural/src/pallet/expand/pallet_struct.rs#L220-L229
+
+    This PR adds an `on_genesis` method to the `Hooks` trait, allowing developers to define custom behavior that executes after each pallet has completed its genesis build process.
+
+    ### Session Handlers Now Called in `on_genesis` Hook
+    The previous inability to onboard parachains at genesis came from an initialization sequence issue. Parachain consensus-related pallets are initialized via the Initializer pallet [here](https://github.com/paritytech/polkadot-sdk/blob/fb19de2bd40de3f3b09009e4fa9237886c1cf3cc/polkadot/runtime/rococo/src/lib.rs#L461-L461), which uses a `SessionHandlers` implementation. Previously, session handlers were called during the genesis build process, before parachain-related storage items were fully set up.
+
+    With this PR, session handlers are now called after the complete genesis state is established, enabling seamless parachain onboarding from the very first session.
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: pallet-aura
+  bump: major
+- name: pallet-session
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major

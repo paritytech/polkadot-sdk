@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
-		RewardsReporter,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnGenesis, OnUnbalanced,
+		OneSessionHandler, RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -38,6 +38,7 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate, StakingAccount,
 };
+use sp_state_machine::BasicExternalities;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -569,6 +570,10 @@ impl ExtBuilder {
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
+
+		BasicExternalities::execute_with_storage(&mut storage, || {
+			<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+		});
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 

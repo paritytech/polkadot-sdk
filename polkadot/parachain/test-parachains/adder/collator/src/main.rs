@@ -68,7 +68,7 @@ fn main() -> Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.base).map_err(|e| {
 				SubstrateCliError::Application(
-					Box::new(e) as Box<(dyn 'static + Send + Sync + std::error::Error)>
+					Box::new(e) as Box<dyn 'static + Send + Sync + std::error::Error>
 				)
 			})?;
 
@@ -121,9 +121,10 @@ fn main() -> Result<()> {
 
 				let config = CollationGenerationConfig {
 					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
+					collator: Some(collator.create_collation_function(
+						full_node.task_manager.spawn_handle(),
+						cli.run.tolerate_state_mismatch,
+					)),
 					para_id,
 				};
 				overseer_handle

@@ -25,11 +25,12 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, OneSessionHandler},
+	traits::{ConstBool, ConstU32, ConstU64, OnGenesis, OneSessionHandler},
 };
 use pallet_staking::{BalanceOf, StakerStatus};
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
+use sp_state_machine::BasicExternalities;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = u64;
@@ -259,6 +260,10 @@ impl ExtBuilder {
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
+
+		BasicExternalities::execute_with_storage(&mut storage, || {
+			<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+		});
 
 		storage.into()
 	}

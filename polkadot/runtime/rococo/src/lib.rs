@@ -457,9 +457,9 @@ impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
 		pub babe: Babe,
-		pub para_validator: Initializer,
-		pub para_assignment: ParaSessionInfo,
 		pub authority_discovery: AuthorityDiscovery,
+		pub para_assignment: ParaSessionInfo,
+		pub para_validator: Initializer,
 		pub beefy: Beefy,
 	}
 }

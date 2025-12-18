@@ -39,6 +39,7 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
 };
+use sp_state_machine::BasicExternalities;
 use std::collections::BTreeMap;
 
 use codec::Decode;
@@ -55,7 +56,10 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use crate::{log, log_current_time};
-use frame_support::{derive_impl, traits::Nothing};
+use frame_support::{
+	derive_impl,
+	traits::{Nothing, OnGenesis},
+};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -625,6 +629,10 @@ impl ExtBuilder {
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
+
+		BasicExternalities::execute_with_storage(&mut storage, || {
+			<pallet_session::Pallet<Runtime> as OnGenesis>::on_genesis();
+		});
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 

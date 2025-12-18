@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnGenesis, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
@@ -42,6 +42,7 @@ use sp_runtime::{
 	BuildStorage, DispatchError, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
+use sp_state_machine::BasicExternalities;
 
 type DummyValidatorId = u64;
 
@@ -247,7 +248,7 @@ pub fn start_session(session_index: SessionIndex) {
 /// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
+	assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, era_index);
 }
 
 pub fn make_primary_pre_digest(
@@ -357,6 +358,9 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	staking_config.assimilate_storage(&mut t).unwrap();
 
+	BasicExternalities::execute_with_storage(&mut t, || {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
 	t.into()
 }
 

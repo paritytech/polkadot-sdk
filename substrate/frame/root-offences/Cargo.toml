@@ -32,6 +32,7 @@ sp-staking = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 
 sp-io = { workspace = true, default-features = true }
 

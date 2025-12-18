@@ -503,31 +503,6 @@ pub mod pallet {
 					frame_system::Pallet::<T>::inc_providers(&account);
 				}
 			}
-
-			let initial_validators_0 =
-				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
-						"No initial validator provided by `SessionManager`, use \
-						session config keys to generate initial validator set.",
-					);
-					self.keys.iter().map(|x| x.1.clone()).collect()
-				});
-
-			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
-				.unwrap_or_else(|| initial_validators_0.clone());
-
-			let queued_keys: Vec<_> = initial_validators_1
-				.into_iter()
-				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
-				.collect();
-
-			// Tell everyone about the genesis session keys
-			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
-
-			Validators::<T>::put(initial_validators_0);
-			QueuedKeys::<T>::put(queued_keys);
-
-			T::SessionManager::start_session(0);
 		}
 	}
 
@@ -607,6 +582,27 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_genesis() {
+			let initial_keys = NextKeys::<T>::iter_keys().collect::<Vec<_>>();
+			let initial_validators_0 =
+				T::SessionManager::new_session_genesis(0).unwrap_or(initial_keys);
+
+			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
+				.unwrap_or_else(|| initial_validators_0.clone());
+
+			let queued_keys: Vec<_> = initial_validators_1
+				.into_iter()
+				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
+				.collect();
+
+			// Tell everyone about the genesis session keys
+			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
+
+			Validators::<T>::put(initial_validators_0);
+			QueuedKeys::<T>::put(queued_keys);
+
+			T::SessionManager::start_session(0);
+		}
 		/// Called when a block is initialized. Will rotate session if it is the last
 		/// block of the current session.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {

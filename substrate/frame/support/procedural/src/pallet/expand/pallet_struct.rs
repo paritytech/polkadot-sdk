@@ -224,17 +224,6 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		// Implement `OnGenesis` for `Pallet`
-		impl<#type_impl_gen> #frame_support::traits::OnGenesis
-			for #pallet_ident<#type_use_gen>
-			#config_where_clause
-		{
-			fn on_genesis() {
-				let storage_version: #frame_support::traits::StorageVersion = #storage_version;
-				storage_version.put::<Self>();
-			}
-		}
-
 		// Implement `PalletInfoAccess` for `Pallet`
 		impl<#type_impl_gen> #frame_support::traits::PalletInfoAccess
 			for #pallet_ident<#type_use_gen>
