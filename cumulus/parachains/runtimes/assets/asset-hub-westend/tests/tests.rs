@@ -1691,7 +1691,9 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = compile_module_with_type("MyToken", FixtureType::Resolc).expect("compile ERC20").0;
+		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1865,7 +1867,9 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc).expect("compile ERC20").0;
+		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1924,7 +1928,9 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc).expect("compile ERC20").0;
+		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
