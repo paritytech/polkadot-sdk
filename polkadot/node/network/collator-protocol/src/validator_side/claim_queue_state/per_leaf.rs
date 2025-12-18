@@ -274,8 +274,7 @@ mod test {
 	#[test]
 	fn add_leaf_works() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1, PARA_1, PARA_1]);
 
 		//       / -> d
 		// 0 -> a -> b
@@ -303,8 +302,7 @@ mod test {
 	#[test]
 	fn claim_pending_slot_works() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id, para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1, PARA_1]);
 
 		// 0 -> a -> b
 		//       \-> c
@@ -312,18 +310,18 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &para_id, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_slot(&RELAY_PARENT_B, &para_id, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_B1)));
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_B,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_C,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 	}
@@ -331,8 +329,7 @@ mod test {
 	#[test]
 	fn seconding_works() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1]);
 
 		// 0 -> a -> b
 		//       \-> c
@@ -340,31 +337,30 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &para_id, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
 
 		// CQ is of size 1. We have claimed one slot at A, so there should be one free slot at
 		// each leaf.
 		assert_eq!(claim_queue.len(), 1);
-		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![para_id]);
-		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![PARA_1]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![PARA_1]);
 		// and the same slots should remain available after seconding CANDIDATE_A1
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
-		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![para_id]);
-		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1));
+		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![PARA_1]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![PARA_1]);
 
 		// Now claim a seconded slot directly at relay parent b
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &para_id, &CANDIDATE_B1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_1, &CANDIDATE_B1));
 		// which means there are no more free slots at leaf b
 		assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![]);
 		// but the free slot at leaf c stays
-		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![para_id]);
+		assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![PARA_1]);
 	}
 
 	#[test]
 	fn remove_pruned_ancestors_works() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1, PARA_1, PARA_1]);
 
 		// 0 -> a -> b
 		//  \-> c
@@ -382,8 +378,7 @@ mod test {
 	#[test]
 	fn different_claims_per_leaf() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id, para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1, PARA_1]);
 
 		// 0 -> a -> b
 		//       \-> c
@@ -395,38 +390,38 @@ mod test {
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_A,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_A1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_B,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_A1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_C,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_B1
 		));
 
 		// Claim a slot at the common ancestor (rp a) and rp b
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &para_id, &CANDIDATE_B1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_1, &CANDIDATE_B1));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for b and succeed for c
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_B,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 		assert!(state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_C,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 	}
@@ -434,8 +429,7 @@ mod test {
 	#[test]
 	fn claims_at_common_ancestor_occupy_all_forks() {
 		let mut state = PerLeafClaimQueueState::new();
-		let para_id = ParaId::new(1);
-		let claim_queue = VecDeque::from(vec![para_id, para_id]);
+		let claim_queue = VecDeque::from(vec![PARA_1, PARA_1]);
 
 		// 0 -> a -> b
 		//       \-> c
@@ -444,21 +438,21 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
 		// Claim a slot at the common ancestor (rp a) for two candidates
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_A1));
-		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &para_id, &CANDIDATE_B1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1));
+		assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_B1));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for both
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_B,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_C,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 
@@ -471,7 +465,7 @@ mod test {
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_D,
 			&RELAY_PARENT_A,
-			&para_id,
+			&PARA_1,
 			&CANDIDATE_C1
 		));
 	}

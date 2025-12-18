@@ -135,6 +135,15 @@ mod test {
 
 	pub static CANDIDATE_C1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(301)));
+	pub static CANDIDATE_C2: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(302)));
+
+	pub static CANDIDATE_D1: LazyLock<CandidateHash> =
+		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(401)));
+
+	pub const PARA_1: ParaId = ParaId::new(1);
+	pub const PARA_2: ParaId = ParaId::new(2);
+	pub const PARA_3: ParaId = ParaId::new(3);
 
 	impl ClaimInfo {
 		fn new(claim_queue_len: usize, claimed: ClaimState) -> Self {
