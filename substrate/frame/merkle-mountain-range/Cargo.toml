@@ -1,6 +1,6 @@
 [package]
 name = "pallet-mmr"
-version = "27.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,11 +19,11 @@ codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-mmr-primitives = { workspace = true }
+sp-mmr-primitives.workspace = true
 
 [dev-dependencies]
 itertools = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]

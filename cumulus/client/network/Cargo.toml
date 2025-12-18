@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-network"
-version = "0.7.0"
+version = "0.28.0"
 authors.workspace = true
 description = "Cumulus-specific networking protocol"
 edition.workspace = true
@@ -18,40 +18,49 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
-
-# Substrate
-sc-client-api = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-
-# Polkadot
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-primitives-test-helpers = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-parachain-primitives.workspace = true
+polkadot-parachain-primitives.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-primitives-test-helpers.workspace = true
+polkadot-primitives-test-helpers.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
 
 [dev-dependencies]
 rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Substrate
-sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-keystore = { default-features = true, path = "../../../substrate/primitives/keystore" }
 
 # Polkadot
-polkadot-test-client = { workspace = true }
+polkadot-test-client = { path = "../../../polkadot/node/test/client" }
 
 # Cumulus
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
-cumulus-test-service = { workspace = true }
+cumulus-primitives-core = { default-features = true, path = "../../primitives/core" }
+cumulus-relay-chain-inprocess-interface = { default-features = true, path = "../relay-chain-inprocess-interface" }
+cumulus-test-service = { path = "../../test/service" }

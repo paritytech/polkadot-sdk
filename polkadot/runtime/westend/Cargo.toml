@@ -1,7 +1,7 @@
 [package]
 name = "westend-runtime"
 build = "build.rs"
-version = "7.0.0"
+version = "30.0.0"
 description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
@@ -20,86 +20,83 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-
-binary-merkle-tree = { workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-authority-discovery = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-core = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-keyring = { workspace = true }
-sp-mmr-primitives = { workspace = true }
-sp-npos-elections = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-staking = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-
-frame-election-provider-support = { workspace = true }
-frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
+binary-merkle-tree.workspace = true
+sp-api.workspace = true
+sp-application-crypto.workspace = true
+sp-arithmetic.workspace = true
+sp-authority-discovery.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-beefy.workspace = true
+sp-consensus-grandpa.workspace = true
+sp-core.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-keyring.workspace = true
+sp-mmr-primitives.workspace = true
+sp-npos-elections.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-staking.workspace = true
+sp-storage.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+frame-election-provider-support.workspace = true
+frame-executive.workspace = true
+frame-metadata-hash-extension.workspace = true
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
-frame-system = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-asset-rate = { workspace = true }
-pallet-authority-discovery = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-babe = { workspace = true }
-pallet-bags-list = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-beefy = { workspace = true }
-pallet-beefy-mmr = { workspace = true }
-pallet-conviction-voting = { workspace = true }
-pallet-delegated-staking = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
-pallet-fast-unstake = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-identity = { workspace = true }
-pallet-indices = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-meta-tx = { workspace = true }
-pallet-migrations = { workspace = true }
-pallet-mmr = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-nomination-pools = { workspace = true }
-pallet-nomination-pools-runtime-api = { workspace = true }
-pallet-offences = { workspace = true }
-pallet-parameters = { workspace = true }
-pallet-preimage = { workspace = true }
-pallet-proxy = { workspace = true }
-pallet-recovery = { workspace = true }
-pallet-referenda = { workspace = true }
-pallet-root-offences = { workspace = true }
-pallet-root-testing = { workspace = true }
-pallet-scheduler = { workspace = true }
-pallet-session = { workspace = true }
-pallet-staking = { workspace = true }
-pallet-staking-async-ah-client = { workspace = true }
-pallet-staking-async-rc-client = { workspace = true }
-pallet-staking-runtime-api = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-verify-signature = { workspace = true }
-pallet-vesting = { workspace = true }
-pallet-whitelist = { workspace = true }
-pallet-xcm = { workspace = true }
+frame-system.workspace = true
+frame-system-rpc-runtime-api.workspace = true
+pallet-asset-rate.workspace = true
+pallet-authority-discovery.workspace = true
+pallet-authorship.workspace = true
+pallet-babe.workspace = true
+pallet-bags-list.workspace = true
+pallet-balances.workspace = true
+pallet-beefy.workspace = true
+pallet-beefy-mmr.workspace = true
+pallet-conviction-voting.workspace = true
+pallet-delegated-staking.workspace = true
+pallet-election-provider-multi-phase.workspace = true
+pallet-fast-unstake.workspace = true
+pallet-grandpa.workspace = true
+pallet-identity.workspace = true
+pallet-indices.workspace = true
+pallet-message-queue.workspace = true
+pallet-meta-tx.workspace = true
+pallet-migrations.workspace = true
+pallet-mmr.workspace = true
+pallet-multisig.workspace = true
+pallet-nomination-pools.workspace = true
+pallet-nomination-pools-runtime-api.workspace = true
+pallet-offences.workspace = true
+pallet-parameters.workspace = true
+pallet-preimage.workspace = true
+pallet-proxy.workspace = true
+pallet-recovery.workspace = true
+pallet-referenda.workspace = true
+pallet-root-offences.workspace = true
+pallet-root-testing.workspace = true
+pallet-scheduler.workspace = true
+pallet-session.workspace = true
+pallet-staking.workspace = true
+pallet-staking-async-ah-client.workspace = true
+pallet-staking-async-rc-client.workspace = true
+pallet-staking-runtime-api.workspace = true
+pallet-sudo.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-treasury.workspace = true
+pallet-utility.workspace = true
+pallet-verify-signature.workspace = true
+pallet-vesting.workspace = true
+pallet-whitelist.workspace = true
+pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
-westend-runtime-constants = { workspace = true }
-
+westend-runtime-constants.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
@@ -108,27 +105,26 @@ pallet-election-provider-support-benchmarking = { optional = true, workspace = t
 pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-offences-benchmarking = { optional = true, workspace = true }
 pallet-session-benchmarking = { optional = true, workspace = true }
-
-polkadot-parachain-primitives = { workspace = true }
-polkadot-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-polkadot-runtime-parachains = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
+polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+polkadot-runtime-parachains.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 approx = { workspace = true }
-remote-externalities = { workspace = true, default-features = true }
+remote-externalities = { default-features = true, path = "../../../substrate/utils/frame/remote-externalities", package = "frame-remote-externalities" }
 serde_json = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]
@@ -225,7 +221,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"westend-runtime-constants/std",

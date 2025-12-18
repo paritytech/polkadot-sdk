@@ -1,6 +1,6 @@
 [package]
 name = "pallet-im-online"
-version = "27.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,20 +18,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
-pallet-authorship = { workspace = true }
+pallet-authorship.workspace = true
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
-sp-io = { workspace = true }
+sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true, default-features = true }
+pallet-balances = { path = "../balances", default-features = false }
+pallet-session = { default-features = true, path = "../session" }
 
 [features]
 default = ["std"]
@@ -42,8 +42,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-authorship/std",
-	"pallet-balances/std",
-	"pallet-session/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
@@ -55,8 +53,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -64,7 +60,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

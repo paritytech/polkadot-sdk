@@ -1,6 +1,6 @@
 [package]
 name = "sp-state-machine"
-version = "0.35.0"
+version = "0.49.0"
 authors.workspace = true
 description = "Substrate State Machine"
 edition.workspace = true
@@ -24,10 +24,10 @@ log = { workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-sp-externalities = { workspace = true }
+sp-core.workspace = true
+sp-externalities.workspace = true
 sp-panic-handler = { optional = true, workspace = true, default-features = true }
-sp-trie = { workspace = true }
+sp-trie.workspace = true
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
@@ -38,7 +38,7 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sp-runtime = { default-features = true, path = "../runtime" }
 
 [features]
 default = ["std"]
@@ -52,7 +52,6 @@ std = [
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-panic-handler",
-	"sp-runtime/std",
 	"sp-trie/std",
 	"thiserror",
 	"tracing",

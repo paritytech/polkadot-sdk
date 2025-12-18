@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bags-list"
-version = "27.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,21 +18,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 # parity
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# primitives
-sp-runtime = { workspace = true }
-
-# FRAME
-frame-election-provider-support = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+sp-runtime.workspace = true
+frame-election-provider-support.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 
 # third party
 aquamarine = { workspace = true }
 docify = { workspace = true }
 log = { workspace = true }
-
-# Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
 pallet-balances = { optional = true, workspace = true }
 sp-core = { optional = true, workspace = true }
@@ -40,13 +34,13 @@ sp-io = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
+frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
+pallet-balances = { default-features = true, path = "../balances" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]

@@ -9,19 +9,20 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
-asset-hub-westend-runtime = { workspace = true }
+asset-hub-westend-runtime.workspace = true
 codec = { workspace = true, features = ["derive"] }
-cumulus-zombienet-sdk-helpers = { workspace = true }
+cumulus-zombienet-sdk-helpers.workspace = true
 env_logger = { workspace = true }
 ethabi = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
 pallet-revive = { workspace = true, features = ["std"] }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sp-core = { workspace = true }
+sp-core.workspace = true
 subxt = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
@@ -33,7 +34,10 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
-sc-executor = { workspace = true, default-features = true }
-sc-runtime-utilities = { workspace = true, default-features = true }
-sp-io = { workspace = true }
-substrate-build-script-utils = { workspace = true, default-features = true }
+sc-executor.workspace = true
+sc-executor.default-features = true
+sc-runtime-utilities.workspace = true
+sc-runtime-utilities.default-features = true
+sp-io.workspace = true
+substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true

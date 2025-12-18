@@ -3,7 +3,7 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "7.0.0"
+version = "25.0.0"
 description = "Benchmarks for the XCM pallet"
 homepage.workspace = true
 repository.workspace = true
@@ -16,20 +16,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-frame-benchmarking = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-benchmarking.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
+sp-io.workspace = true
+sp-runtime.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+xcm = { default-features = true, path = "..", package = "staging-xcm" }
 
 [features]
 default = ["std"]
@@ -48,7 +48,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

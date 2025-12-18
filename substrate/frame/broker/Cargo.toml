@@ -1,6 +1,6 @@
 [package]
 name = "pallet-broker"
-version = "0.6.0"
+version = "0.24.0"
 description = "Brokerage tool for managing Polkadot Core scheduling"
 authors.workspace = true
 homepage.workspace = true
@@ -18,19 +18,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 bitvec = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+sp-api.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -45,7 +45,6 @@ std = [
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-election-provider-multi-block"
-version = "0.9.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,28 +22,24 @@ log = { workspace = true }
 scale-info = { features = [
 	"derive",
 ], workspace = true }
-
-frame-election-provider-support = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-npos-elections = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-
-# Optional imports for benchmarking
+frame-election-provider-support.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-npos-elections.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
+pallet-balances = { default-features = true, path = "../balances" }
 parking_lot = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -54,7 +50,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"rand/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
@@ -63,14 +58,12 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -78,6 +71,5 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

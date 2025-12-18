@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-primitives"
 description = "Primitives types for the Node-side"
-version = "7.0.0"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,16 +17,21 @@ bounded-vec = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-sc-keystore = { workspace = true }
+polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sc-keystore.workspace = true
 schnorrkel = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-consensus-slots = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-consensus-slots.workspace = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-maybe-compressed-blob.workspace = true
+sp-maybe-compressed-blob.default-features = true
 thiserror = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]

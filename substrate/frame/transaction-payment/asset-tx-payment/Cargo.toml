@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-tx-payment"
-version = "28.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,14 +16,12 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-# Substrate dependencies
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
+sp-io.workspace = true
+sp-runtime.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-transaction-payment = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-transaction-payment.workspace = true
 
 # Other dependencies
 codec = { features = ["derive"], workspace = true }
@@ -31,9 +29,9 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-pallet-assets = { workspace = true, default-features = true }
-pallet-authorship = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+pallet-assets = { default-features = true, path = "../../assets" }
+pallet-authorship = { default-features = true, path = "../../authorship" }
+pallet-balances = { default-features = true, path = "../../balances" }
 
 [features]
 default = ["std"]
@@ -52,17 +50,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

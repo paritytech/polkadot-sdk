@@ -1,6 +1,6 @@
 [package]
 name = "pallet-glutton"
-version = "14.0.0"
+version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,14 +19,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 blake2 = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+sp-core.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

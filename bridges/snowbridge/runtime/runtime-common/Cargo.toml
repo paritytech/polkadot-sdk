@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-runtime-common"
 description = "Snowbridge Runtime Common"
-version = "0.2.0"
+version = "0.19.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -16,15 +16,15 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-xcm = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-std = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-xcm.workspace = true
+sp-arithmetic.workspace = true
+sp-std.workspace = true
 tracing = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
 

@@ -1,6 +1,6 @@
 [package]
 name = "asset-test-utils"
-version = "7.0.0"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
@@ -13,37 +13,29 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Cumulus
-assets-common = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
-parachains-runtimes-test-utils = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# Bridges
-pallet-xcm-bridge-hub-router = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-asset-conversion.workspace = true
+pallet-assets.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
+pallet-timestamp.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+assets-common.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-core.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
+parachains-runtimes-test-utils.workspace = true
+pallet-xcm.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
+pallet-xcm-bridge-hub-router.workspace = true
 
 [features]
 default = ["std"]

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-omni-node"
-version = "0.1.0"
+version = "0.13.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -14,15 +14,14 @@ workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-
-# Local
 polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "westend-native"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = []

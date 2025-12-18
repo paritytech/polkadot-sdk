@@ -1,6 +1,6 @@
 [package]
 name = "frame-system"
-version = "28.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,21 +23,21 @@ harness = false
 cfg-if = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-frame-support = { workspace = true }
+frame-support.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
-sp-io = { workspace = true }
+sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-version = { features = ["serde"], workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sp-externalities = { default-features = true, path = "../../primitives/externalities" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 default = ["std"]

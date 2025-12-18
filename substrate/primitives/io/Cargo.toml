@@ -1,6 +1,6 @@
 [package]
 name = "sp-io"
-version = "30.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,21 +21,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
 secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
-sp-core = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-externalities = { workspace = true }
+sp-core.workspace = true
+sp-crypto-hashing.workspace = true
+sp-externalities.workspace = true
 sp-keystore = { optional = true, workspace = true }
-sp-runtime-interface = { workspace = true }
+sp-runtime-interface.workspace = true
 sp-state-machine = { optional = true, workspace = true }
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
-sp-keystore = { workspace = true, default-features = false }
-sp-trie = { workspace = true, default-features = false }
-sp-state-machine = { workspace = true, default-features = false }
+sp-keystore.workspace = true
+sp-keystore.default-features = false
+sp-trie.workspace = true
+sp-trie.default-features = false
+sp-state-machine.workspace = true
+sp-state-machine.default-features = false
 log = { workspace = true, default-features = true }
 libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
 secp256k1 = { workspace = true, default-features = false, features = ["alloc", "recovery"] }

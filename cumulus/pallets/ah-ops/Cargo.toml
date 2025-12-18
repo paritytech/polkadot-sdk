@@ -2,7 +2,7 @@
 name = "pallet-ah-ops"
 description = "Operations cleanup pallet for the post-migration Asset Hub"
 license = "Apache-2.0"
-version = "0.1.0"
+version = "0.5.0"
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -13,18 +13,18 @@ exclude-from-umbrella = true # for AHM only
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-utility = { workspace = true }
+pallet-balances.workspace = true
+pallet-timestamp.workspace = true
+pallet-utility.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
-sp-application-crypto = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+sp-application-crypto.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 
 [features]
 default = ["std"]

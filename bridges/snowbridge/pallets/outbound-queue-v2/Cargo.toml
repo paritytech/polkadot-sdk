@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-outbound-queue-v2"
 description = "Snowbridge Outbound Queue Pallet V2"
-version = "0.2.0"
+version = "0.7.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -24,31 +24,27 @@ ethabi = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-
-bp-relayers = { workspace = true }
-
-snowbridge-beacon-primitives = { workspace = true }
-snowbridge-core = { workspace = true }
-snowbridge-merkle-tree = { workspace = true }
-snowbridge-outbound-queue-primitives = { workspace = true }
-snowbridge-verification-primitives = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+bp-relayers.workspace = true
+snowbridge-beacon-primitives.workspace = true
+snowbridge-core.workspace = true
+snowbridge-merkle-tree.workspace = true
+snowbridge-outbound-queue-primitives.workspace = true
+snowbridge-verification-primitives.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { workspace = true }
-snowbridge-test-utils = { workspace = true }
+pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
+snowbridge-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -60,7 +56,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-message-queue/std",
 	"scale-info/std",
 	"serde/std",
 	"snowbridge-beacon-primitives/std",
@@ -82,9 +77,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -93,6 +86,5 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-message-queue/try-runtime",
 	"sp-runtime/try-runtime",
 ]
