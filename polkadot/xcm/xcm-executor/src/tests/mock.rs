@@ -201,7 +201,7 @@ impl WeightTrader for TestTrader {
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let required: Asset = (Here, amount).into();
 		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
-		self.weight_bought_so_far.saturating_add(weight);
+		self.weight_bought_so_far.saturating_accrue(weight);
 		Ok(unused)
 	}
 
