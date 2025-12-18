@@ -121,7 +121,7 @@ use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder, NetworkNode,
+	AddNodeOptions, NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
 
 const PARA_ID: u32 = 2000;
@@ -245,7 +245,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 
 	log::info!("Spawning network");
 	let config = build_network_config().await?;
-	let network = initialize_network(config).await?;
+	let mut network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
@@ -253,19 +253,56 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	for name in ["dave", "two"] {
+	for name in ["dave", "eve", "four", "five"] {
 		assert_warp_sync(network.get_node(name)?).await?;
 		assert_gap_sync(network.get_node(name)?).await?;
 	}
 
 	// check progress
-	for name in ["two", "three", "four"] {
+	for name in ["dave", "eve", "four", "five"] {
 		log::info!("Checking full node {name} is syncing");
 		network
 			.get_node(name)?
 			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
 			.await?;
 	}
+
+	for name in ["alice", "bob", "one", "two"] {
+		log::info!("Pausing node {name}");
+		network.get_node(name)?.pause().await?;
+	}
+
+	// Add ferdie node dynamically
+	log::info!("Adding ferdie node to the network");
+	let images = zombienet_sdk::environment::get_images_from_env();
+	let ferdie_options = AddNodeOptions {
+		image: Some(images.polkadot.as_str().try_into()?),
+		command: Some("polkadot".try_into()?),
+		subcommand: None,
+		args: vec![
+			"-lparachain=debug,sync=trace".into(),
+			"--no-beefy".into(),
+			("--sync", "warp").into(),
+		],
+		env: vec![],
+		is_validator: true,
+		rpc_port: None,
+		prometheus_port: None,
+		p2p_port: None,
+		chain_spec: Some("tests/zombie_ci/warp-sync-relaychain-spec.json".into()),
+	};
+	network.add_node("ferdie", ferdie_options).await?;
+
+	// Assert warp and gap sync for ferdie
+	let ferdie = network.get_node("ferdie")?;
+	assert_warp_sync(ferdie).await?;
+	assert_gap_sync(ferdie).await?;
+
+	// Check progress for ferdie
+	log::info!("Checking full node ferdie is syncing");
+	ferdie
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
+		.await?;
 
 	Ok(())
 }
@@ -317,6 +354,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("--sync", "warp").into(),
 					])
 				})
+				.with_node(|node| {
+					node.with_name("eve").with_args(vec![
+						("-lparachain=debug,sync=trace").into(),
+						("--no-beefy").into(),
+						("--sync", "warp").into(),
+					])
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -324,31 +368,24 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain_spec_path("tests/zombie_ci/warp-sync-parachain-spec.json")
 				.with_default_args(vec![("-lparachain=debug").into(), ("--").into()])
-				.with_collator(|n| n.with_name("eve").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
-				.with_collator(|n| n.with_name("ferdie").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| n.with_name("one").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
-				.with_collator(|n| {
-					n.with_name("two").validator(false).with_args(vec![
-						("-lsync=trace").into(),
-						("--sync", "warp").into(),
-						("--").into(),
-						("--sync", "warp").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("three").validator(false).with_args(vec![
-						("-lsync=trace").into(),
-						("--sync", "warp").into(),
-						("--relay-chain-rpc-urls", "{{ZOMBIE:alice:ws_uri}}").into(),
-						("--").into(),
-					])
-				})
+				.with_collator(|n| n.with_name("two").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
+				.with_collator(|n| n.with_name("three").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| {
 					n.with_name("four").validator(false).with_args(vec![
 						("-lsync=trace").into(),
 						("--sync", "warp").into(),
-						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
 						("--").into(),
+						("--sync", "warp").into(),
+					])
+				})
+				.with_collator(|n| {
+					n.with_name("five").validator(false).with_args(vec![
+						("-lsync=trace").into(),
+						("--sync", "warp").into(),
+						("--relay-chain-rpc-urls", "{{ZOMBIE:charlie:ws_uri}}").into(),
+						("--").into(),
+						("--sync", "warp").into(),
 					])
 				})
 		})
