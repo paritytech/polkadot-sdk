@@ -24,7 +24,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
 		TransactionSigned, TransactionUnsigned,
 	},
-	exec::{Key, PrecompileExt},
+	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
@@ -312,6 +312,7 @@ mod benchmarks {
 			origin,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			code,
 			input,
 			TransactionSigned::default().signed_payload(),
@@ -454,6 +455,7 @@ mod benchmarks {
 			instance.address,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			data,
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
@@ -781,7 +783,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().gas_left();
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -791,7 +793,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().gas_left();
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
@@ -1227,14 +1229,31 @@ mod benchmarks {
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
+		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let exec_config = ExecConfig::new_substrate_tx();
+		let contract_account = &instance.account_id;
+		let origin = &ExecOrigin::from_account_id(caller);
+		let beneficiary_clone = beneficiary.clone();
+		let trie_id = instance.info()?.trie_id.clone();
+		let code_hash = instance.info()?.code_hash;
+		let only_if_same_tx = false;
+
 		let result;
 		#[block]
 		{
-			result = crate::exec::terminate_contract_for_benchmark::<T>(
-				caller,
-				&instance.account_id,
-				&instance.info()?,
-				beneficiary.clone(),
+			result = crate::exec::bench_do_terminate::<T>(
+				&mut transaction_meter,
+				&exec_config,
+				contract_account,
+				&origin,
+				beneficiary_clone,
+				trie_id,
+				code_hash,
+				only_if_same_tx,
 			);
 		}
 		result.unwrap();
@@ -2467,35 +2486,6 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
-	}
-
-	/// Benchmark the cost of setting the code hash of a contract.
-	///
-	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
-	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let delete_old_code = r == 1;
-		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
-		let old_code_hash = instance.info()?.code_hash;
-
-		// Increment the refcount of the code hash so that it does not get deleted
-		if !delete_old_code {
-			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
-		Ok(())
 	}
 
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.

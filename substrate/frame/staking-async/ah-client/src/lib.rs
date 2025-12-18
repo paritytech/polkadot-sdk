@@ -142,7 +142,7 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 )]
@@ -493,7 +493,7 @@ pub mod pallet {
 	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
 	/// failed. While these should never occur under normal operation, they are useful for
 	/// diagnosing issues in production or test environments.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// A validator set was received while the pallet is in [`OperatingMode::Passive`].
 		ReceivedValidatorSetWhilePassive,

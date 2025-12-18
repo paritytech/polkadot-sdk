@@ -57,7 +57,7 @@ use frame_support::{
 	pallet_prelude::TransactionSource,
 	traits::{Defensive, EstimateCallFee, Get, Imbalance, SuppressedDrop},
 	weights::{Weight, WeightToFee},
-	RuntimeDebugNoBound,
+	DebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
@@ -67,7 +67,7 @@ use sp_runtime::{
 		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
-	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
+	Debug, FixedPointNumber, FixedU128, Perbill, Perquintill,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
@@ -299,7 +299,7 @@ where
 }
 
 /// Storage releases of the pallet.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Releases {
 	/// Original version of the pallet.
 	V1Ancient,
@@ -941,7 +941,7 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Charge {
 		tip: BalanceOf<T>,
