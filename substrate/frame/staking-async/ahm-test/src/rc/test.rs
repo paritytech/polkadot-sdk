@@ -1390,7 +1390,6 @@ mod splitting {
 	}
 }
 
-#[cfg(test)]
 mod key_proofs {
 	use frame::traits::KeyOwnerProofSystem;
 	use frame_support::sp_runtime;
@@ -1460,6 +1459,92 @@ mod key_proofs {
 					.unwrap(),
 					(1, sp_staking::Exposure::default())
 				)
+			})
+	}
+}
+
+mod session_keys {
+	use super::*;
+	use frame::deps::sp_runtime::DispatchError;
+	use frame_support::assert_noop;
+
+	#[test]
+	fn set_and_purge_keys_from_ah_works() {
+		ExtBuilder::default()
+			.session_keys(vec![1, 2, 3, 4])
+			.local_queue()
+			.build()
+			.execute_with(|| {
+				let stash: AccountId = 1;
+				let keys =
+					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let encoded_keys = keys.encode();
+
+				// In mock, AssetHubOrigin = EnsureSigned, so any signed origin works.
+				// In production, this would be restricted to XCM from AssetHub.
+				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
+					RuntimeOrigin::signed(99),
+					stash,
+					encoded_keys,
+					vec![],
+				));
+
+				assert_ok!(ah_client::Pallet::<Runtime>::purge_keys_from_ah(
+					RuntimeOrigin::signed(99),
+					stash,
+				));
+			})
+	}
+
+	#[test]
+	fn set_keys_from_ah_invalid_keys() {
+		ExtBuilder::default()
+			.session_keys(vec![1, 2, 3, 4])
+			.local_queue()
+			.build()
+			.execute_with(|| {
+				let stash: AccountId = 1;
+				let invalid_keys = vec![0xff, 0xfe, 0xfd];
+
+				assert_noop!(
+					ah_client::Pallet::<Runtime>::set_keys_from_ah(
+						RuntimeOrigin::signed(99),
+						stash,
+						invalid_keys,
+						vec![],
+					),
+					ah_client::Error::<Runtime>::InvalidKeys
+				);
+			})
+	}
+
+	#[test]
+	fn set_keys_from_ah_bad_origin() {
+		ExtBuilder::default()
+			.session_keys(vec![1, 2, 3, 4])
+			.local_queue()
+			.build()
+			.execute_with(|| {
+				let stash: AccountId = 1;
+				let keys =
+					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let encoded_keys = keys.encode();
+
+				// RuntimeOrigin::none() is neither AssetHubOrigin nor root
+				assert_noop!(
+					ah_client::Pallet::<Runtime>::set_keys_from_ah(
+						RuntimeOrigin::none(),
+						stash,
+						encoded_keys,
+						vec![],
+					),
+					DispatchError::BadOrigin
+				);
+
+				assert_noop!(
+					ah_client::Pallet::<Runtime>::purge_keys_from_ah(RuntimeOrigin::none(), stash,),
+					DispatchError::BadOrigin
+				);
 			})
 	}
 }
