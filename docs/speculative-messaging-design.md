@@ -251,7 +251,7 @@ struct RequiresCommitment {
 ```
 
 The relay chain verifies matches the "requires" commitment with the
-corresponding"provides" commitmentment. A parachain block will only be made
+corresponding "provides" commitment. A parachain block will only be made
 available/enacted when all its "requires" are provided.
 
 ### Parachain Runtime State (Internal)
