@@ -1498,4 +1498,52 @@ mod session_keys {
 			);
 		});
 	}
+
+	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
+	#[test]
+	fn set_and_purge_keys_e2e() {
+		use crate::{rc, shared};
+		use codec::Encode;
+
+		// Set up both AH and RC states (no local_queue, so XCM messages flow through)
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let validator: AccountId = 1;
+
+		// Create valid encoded SessionKeys for RC
+		let rc_keys =
+			rc::SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+		let encoded_keys = rc_keys.encode();
+
+		// WHEN: Validator sets keys on AH
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				encoded_keys.clone(),
+				vec![],
+			));
+		});
+
+		// THEN: Keys are registered on RC
+		shared::in_rc(|| {
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_some(), "Keys should be set on RC");
+			assert_eq!(
+				next_keys.unwrap().other,
+				frame::deps::sp_runtime::testing::UintAuthorityId(42)
+			);
+		});
+
+		// WHEN: Validator purges keys on AH
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
+		});
+
+		// THEN: Keys are purged on RC
+		shared::in_rc(|| {
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+	}
 }
