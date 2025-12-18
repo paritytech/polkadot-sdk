@@ -252,12 +252,19 @@ pub mod pallet {
 					let payout_block =
 						config.start.saturating_add(config.length).saturating_add(config.delay);
 					if payout_block <= n {
-						let (lottery_account, lottery_balance) = Self::pot();
+						let lottery_account = Self::account_id();
+						let lottery_balance = T::Currency::reducible_balance(
+							&lottery_account,
+							Preservation::Preserve,
+							Fortitude::Polite,
+						);
 
-						let winner = Self::choose_account().unwrap_or(lottery_account);
+						let winner = Self::choose_account().unwrap_or(lottery_account.clone());
 						// Not much we can do if this fails...
+						// TODO: using Preserve for now as i first need to know if this account
+						// needs ED or not.
 						let res = T::Currency::transfer(
-							&Self::account_id(),
+							&lottery_account,
 							&winner,
 							lottery_balance,
 							Preservation::Preserve,
@@ -406,16 +413,6 @@ impl<T: Config> Pallet<T> {
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
-	}
-
-	/// Return the pot account and amount of money in the pot.
-	/// The existential deposit is not part of the pot so lottery account never gets deleted.
-	fn pot() -> (T::AccountId, BalanceOf<T>) {
-		let account_id = Self::account_id();
-		let balance =
-			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite);
-
-		(account_id, balance)
 	}
 
 	/// Converts a vector of calls into a vector of call indices.

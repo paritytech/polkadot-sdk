@@ -53,6 +53,12 @@ fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 	Ok(())
 }
 
+	/// Return the lottery account and amount of money in the pot.
+	/// The existential deposit is not part of the pot so lottery account never gets deleted.
+	fn get_lottery_balance<T: Config>() -> BalanceOf<T> {
+		T::Currency::reducible_balance(&Lottery::<T>::account_id(), Preservation::Preserve, Fortitude::Polite)
+	}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -151,7 +157,7 @@ mod benchmarks {
 		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
-		assert!(!Lottery::<T>::pot().1.is_zero());
+		assert!(!get_lottery_balance::<T>().is_zero());
 
 		#[block]
 		{
@@ -165,7 +171,7 @@ mod benchmarks {
 
 		assert!(crate::Lottery::<T>::get().is_none());
 		assert_eq!(TicketsCount::<T>::get(), 0);
-		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
+		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
 		assert!(!T::Currency::reducible_balance(
 			&winner,
 			Preservation::Expendable,
@@ -192,7 +198,7 @@ mod benchmarks {
 		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
-		assert!(!Lottery::<T>::pot().1.is_zero());
+		assert!(!get_lottery_balance::<T>().is_zero());
 
 		#[block]
 		{
@@ -207,7 +213,7 @@ mod benchmarks {
 		assert!(crate::Lottery::<T>::get().is_some());
 		assert_eq!(LotteryIndex::<T>::get(), 2);
 		assert_eq!(TicketsCount::<T>::get(), 0);
-		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
+		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
 		assert!(!T::Currency::reducible_balance(
 			&winner,
 			Preservation::Expendable,
