@@ -178,9 +178,9 @@ async fn wait_for_event<
 	loop {
 		let mut events = events.write().await;
 		if let Some(entry) = events.iter().find(|&e| {
-			e.1.pallet_name() == pallet
-				&& e.1.variant_name() == variant
-				&& predicate(&e.1.as_event::<E>().unwrap().unwrap())
+			e.1.pallet_name() == pallet &&
+				e.1.variant_name() == variant &&
+				predicate(&e.1.as_event::<E>().unwrap().unwrap())
 		}) {
 			let entry = entry.clone();
 			events.retain(|e| e.0 > entry.0);
