@@ -108,28 +108,26 @@ impl ClaimQueueState {
 			return None
 		}
 
-		// Find the index of the target relay parent in the old state
-		let target_index = self
-			.block_state
-			.iter()
-			.position(|claim_info| claim_info.hash == Some(*target_relay_parent))?;
+		let (window, maybe_target_index) = Self::get_window_and_start_idx(
+			self.block_state.iter(),
+			self.future_blocks.iter(),
+			target_relay_parent,
+		);
 
+		// Only the claims up until the `target_relay_parent` should be included in the
+		// `block_state` of the fork.
+		let target_index = maybe_target_index?;
 		let block_state =
 			self.block_state.iter().cloned().take(target_index + 1).collect::<VecDeque<_>>();
 
-		let rp_in_view = block_state.iter().filter_map(|c| c.hash).collect::<HashSet<_>>();
-
-		let candidates = self
-			.candidates_per_rp
-			.iter()
-			.filter(|(rp, _)| rp_in_view.contains(rp))
-			.map(|(rp, c)| (*rp, c.clone()))
-			.collect::<HashMap<_, _>>();
-
-		let candidates_in_view = candidates.iter().fold(HashSet::new(), |mut acc, (_, c)| {
-			acc.extend(c.iter().cloned());
-			acc
-		});
+		let mut candidates_per_rp = HashMap::new();
+		let mut candidates_in_view = HashSet::new();
+		for rp in block_state.iter().filter_map(|claim| claim.hash) {
+			if let Some(candidates) = self.candidates_per_rp.get(&rp) {
+				candidates_per_rp.insert(rp, candidates.clone());
+				candidates_in_view.extend(candidates);
+			}
+		}
 
 		// Transfer any claims from the target relay parent's ancestors onto the new path.
 		// Example:
@@ -138,8 +136,7 @@ impl ClaimQueueState {
 		// slot at relay parent X we claim it at all possible forks.
 		// Also note that only claims for candidates which fall within new fork's view are
 		// transferred.
-		let future_blocks = self
-			.get_window(target_relay_parent)
+		let future_blocks = window
 			.skip(1)
 			.map(|c| ClaimInfo {
 				hash: None,
@@ -149,7 +146,7 @@ impl ClaimQueueState {
 			})
 			.collect::<VecDeque<_>>();
 
-		Some(ClaimQueueState { block_state, future_blocks, candidates_per_rp: candidates })
+		Some(ClaimQueueState { block_state, future_blocks, candidates_per_rp })
 	}
 
 	/// Appends a new leaf with its corresponding claim queue to the state.
@@ -255,19 +252,43 @@ impl ClaimQueueState {
 		self.candidates_per_rp.entry(relay_parent).or_default().insert(candidate_hash);
 	}
 
-	fn do_get_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
+	fn skip_to_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
+		block_state: I,
+		relay_parent: &Hash,
+	) -> (impl Iterator<Item = T>, Option<usize>) {
+		let mut idx = 0;
+		let mut window = block_state.peekable();
+		while let Some(claim) = window.peek() {
+			if claim.hash_equals(relay_parent) {
+				return (window, Some(idx));
+			}
+
+			idx += 1;
+			window.next();
+		}
+
+		(window, None)
+	}
+
+	fn get_window_and_start_idx<T: ClaimInfoRef, I: Iterator<Item = T>>(
 		block_state: I,
 		future_blocks: I,
 		relay_parent: &Hash,
-	) -> impl Iterator<Item = T> + use<'_, T, I> {
-		let mut window = block_state.skip_while(|info| !info.hash_equals(relay_parent)).peekable();
-		let len = window.peek().map_or(0, |info| info.claim_queue_len());
-		window.chain(future_blocks).take(len)
+	) -> (impl Iterator<Item = T>, Option<usize>) {
+		let (window, maybe_start_idx) = Self::skip_to_window(block_state, relay_parent);
+		let mut window = window.peekable();
+		let len = window.peek().map_or(0, ClaimInfoRef::claim_queue_len);
+		(window.chain(future_blocks).take(len), maybe_start_idx)
 	}
 
 	/// Returns an iterator over the claim queue of `relay_parent`
 	fn get_window<'a>(&'a self, relay_parent: &'a Hash) -> impl Iterator<Item = &'a ClaimInfo> {
-		Self::do_get_window(self.block_state.iter(), self.future_blocks.iter(), relay_parent)
+		Self::get_window_and_start_idx(
+			self.block_state.iter(),
+			self.future_blocks.iter(),
+			relay_parent,
+		)
+		.0
 	}
 
 	/// Returns a mutating iterator over the claim queue of `relay_parent`
@@ -275,11 +296,12 @@ impl ClaimQueueState {
 		&'a mut self,
 		relay_parent: &'a Hash,
 	) -> impl Iterator<Item = &'a mut ClaimInfo> {
-		Self::do_get_window(
+		Self::get_window_and_start_idx(
 			self.block_state.iter_mut(),
 			self.future_blocks.iter_mut(),
 			relay_parent,
 		)
+		.0
 	}
 
 	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
@@ -291,11 +313,11 @@ impl ClaimQueueState {
 		lookup: &[ClaimState],
 		search_in_future_blocks: bool,
 	) -> Option<&'a mut ClaimInfo> {
-		let window = self.get_window_mut(relay_parent);
-		let window: Box<dyn Iterator<Item = &mut ClaimInfo>> = match search_in_future_blocks {
-			true => Box::new(window),
-			false => Box::new(window.take(1)),
-		};
+		let mut window: Box<dyn Iterator<Item = &mut ClaimInfo>> =
+			Box::new(self.get_window_mut(relay_parent));
+		if !search_in_future_blocks {
+			window = Box::new(window.take(1));
+		}
 
 		for info in window {
 			gum::trace!(
@@ -714,6 +736,9 @@ mod test {
 		// Fork at `RELAY_PARENT_D`
 		// Should not be able to fork from the last block
 		assert!(state.fork(&RELAY_PARENT_D).is_none());
+
+		// Forking from an unknown relay parent also shouldn't work
+		assert!(state.fork(&RELAY_PARENT_E).is_none());
 	}
 
 	#[test]

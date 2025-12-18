@@ -110,14 +110,18 @@ impl<'a> ClaimInfoRef for &'a mut ClaimInfo {
 mod test {
 	use super::*;
 
-	use sp_core::H256;
 	use std::sync::LazyLock;
 
-	pub static ROOT_RELAY_PARENT: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(0));
-	pub static RELAY_PARENT_A: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(1));
-	pub static RELAY_PARENT_B: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(2));
-	pub static RELAY_PARENT_C: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(3));
-	pub static RELAY_PARENT_D: LazyLock<H256> = LazyLock::new(|| Hash::from_low_u64_be(4));
+	pub const PARA_1: ParaId = ParaId::new(1);
+	pub const PARA_2: ParaId = ParaId::new(2);
+	pub const PARA_3: ParaId = ParaId::new(3);
+
+	pub static ROOT_RELAY_PARENT: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(0));
+	pub static RELAY_PARENT_A: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(1));
+	pub static RELAY_PARENT_B: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(2));
+	pub static RELAY_PARENT_C: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(3));
+	pub static RELAY_PARENT_D: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(4));
+	pub static RELAY_PARENT_E: LazyLock<Hash> = LazyLock::new(|| Hash::from_low_u64_be(5));
 
 	pub static CANDIDATE_A1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(101)));
@@ -140,10 +144,6 @@ mod test {
 
 	pub static CANDIDATE_D1: LazyLock<CandidateHash> =
 		LazyLock::new(|| CandidateHash(Hash::from_low_u64_be(401)));
-
-	pub const PARA_1: ParaId = ParaId::new(1);
-	pub const PARA_2: ParaId = ParaId::new(2);
-	pub const PARA_3: ParaId = ParaId::new(3);
 
 	impl ClaimInfo {
 		fn new(claim_queue_len: usize, claimed: ClaimState) -> Self {
