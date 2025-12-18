@@ -517,6 +517,9 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()> {
 		Self::ensure_delivery_guard()?;
+		if LocalQueue::get().is_some() {
+			return Ok(());
+		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
 			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
@@ -532,6 +535,9 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
 		Self::ensure_delivery_guard()?;
+		if LocalQueue::get().is_some() {
+			return Ok(());
+		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
 			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(

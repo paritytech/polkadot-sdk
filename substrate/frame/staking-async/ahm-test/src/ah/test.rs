@@ -1397,3 +1397,105 @@ mod poll_operations {
 		});
 	}
 }
+
+mod session_keys {
+	use super::*;
+	use frame_support::assert_noop;
+
+	#[test]
+	fn set_keys_success() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator
+			let validator: AccountId = 1;
+			let keys = vec![1, 2, 3, 4];
+			let proof = vec![5, 6, 7, 8];
+
+			// WHEN: Validator sets session keys
+			// THEN: No error returned (keys forwarded to RC via XCM)
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_not_validator() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 100 is a nominator, not a validator
+			let nominator: AccountId = 100;
+			let keys = vec![1, 2, 3, 4];
+			let proof = vec![5, 6, 7, 8];
+
+			// WHEN: Nominator tries to set keys
+			// THEN: NotValidator error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(nominator), keys, proof,),
+				rc_client::Error::<T>::NotValidator
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_xcm_send_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator and XCM delivery set to fail
+			let validator: AccountId = 1;
+			let keys = vec![1, 2, 3, 4];
+			let proof = vec![5, 6, 7, 8];
+			NextRelayDeliveryFails::set(true);
+
+			// WHEN: set_keys fails with XcmSendFailed
+			// THEN: XcmSendFailed error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof,),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn purge_keys_success() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 3 is a validator
+			let validator: AccountId = 3;
+
+			// WHEN: Validator purges session keys
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
+
+			// THEN: No error returned (purge forwarded to RC via XCM)
+		});
+	}
+
+	#[test]
+	fn purge_keys_not_validator() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 101 is a nominator, not a validator
+			let nominator: AccountId = 101;
+
+			// WHEN: Nominator tries to purge keys
+			// THEN: NotValidator error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator),),
+				rc_client::Error::<T>::NotValidator
+			);
+		});
+	}
+
+	#[test]
+	fn purge_keys_xcm_send_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator and XCM delivery set to fail
+			let validator: AccountId = 5;
+			NextRelayDeliveryFails::set(true);
+
+			// WHEN: Validator purges sesion keys
+			// THEN: XcmSendFailed error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+}
