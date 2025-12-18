@@ -564,6 +564,7 @@ where
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
 
+		let info = self.backend.blockchain().info();
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -571,11 +572,13 @@ where
 			(true, blockchain::BlockStatus::Unknown) => {},
 		}
 
-		let info = self.backend.blockchain().info();
 		let gap_block = info.block_gap.map_or(false, |gap| {
 			let number = *import_headers.post().number();
 			number == gap.start ||
-				// Parent block might have been already in chain (warp sync) and gap was not updated
+				// Gap start advances as blocks are imported during gap sync.
+				// If we're importing gap.start + 1 and its parent already exists, then the import of
+				// parent block was skipped during gap sync (because it was already imported during warp sync),
+				// so gap.start wasn't advanced.
 				(number == gap.start + One::one() && parent_exists)
 		});
 
