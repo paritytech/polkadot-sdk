@@ -4,7 +4,7 @@ doc:
   description: |-
     - Added  session keys handling on AssetHub for staking-async: validators can now call set_keys and purge_keys on AssetHub, which forwards the request to the RelayChain via XCM.
     - Validators are still allowed to call `set_keys` and `purge_keys` via relay-chain pallet-session's related extrinsics. This option will be deprecated in the future.
-      - Until then, no key deposit is set on AssetHub yet
+    - No key deposit is set on AssetHub yet.
 crates:
 - name: asset-hub-westend-runtime
   bump: major
