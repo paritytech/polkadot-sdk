@@ -142,17 +142,14 @@ where
 {
 	let (recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
 
-	let consensus = cumulus_client_consensus_common::run_parachain_consensus(
+	cumulus_client_consensus_common::spawn_parachain_consensus_tasks(
 		para_id,
 		client.clone(),
 		relay_chain_interface.clone(),
 		announce_block.clone(),
 		Some(recovery_chan_tx),
+		task_manager.spawn_essential_handle(),
 	);
-
-	task_manager
-		.spawn_essential_handle()
-		.spawn_blocking("cumulus-consensus", None, consensus);
 
 	let da_recovery_profile = match da_recovery_profile {
 		DARecoveryProfile::Collator => {
@@ -232,7 +229,7 @@ pub async fn build_relay_chain_interface(
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,

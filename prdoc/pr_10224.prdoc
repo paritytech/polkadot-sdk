@@ -1,0 +1,10 @@
+title: make contracts create consider is_unlimited_contract_size_allowed
+doc:
+- audience: Runtime Dev
+  description: |-
+    While running foundry  tests from https://github.com/balancer/balancer-v3-monorepo/tree/main/pkg/pool-weighted, found we hit this limit.
+
+    Foundry environment is configured with unlimited code size, so we need to make sure pallet-revive respects those configurations everywhere.
+crates:
+- name: pallet-revive
+  bump: minor

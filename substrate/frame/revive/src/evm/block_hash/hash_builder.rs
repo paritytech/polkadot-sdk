@@ -252,7 +252,7 @@ impl IncrementalHashBuilder {
 				.take()
 				.expect("First value must be set when processing index 127; qed");
 
-			log::debug!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
+			log::trace!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
 
 			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
@@ -284,7 +284,7 @@ impl IncrementalHashBuilder {
 		// first value index is the last one in the sorted vector
 		// by rlp encoding of the index.
 		if let Some(encoded_value) = self.first_value.take() {
-			log::debug!(target: LOG_TARGET, "Adding first value at index 0 while building the trie");
+			log::trace!(target: LOG_TARGET, "Adding first value at index 0 while building the trie");
 
 			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);

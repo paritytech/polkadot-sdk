@@ -45,7 +45,11 @@ If you encounter a flaky test that needs to be temporarily disabled:
    zombienet-<suite>-<test-name>:<issue-number>
    ```
 3. **Commit and push** the change
-4. The test will be automatically skipped in subsequent CI runs
+4. The CI will automatically validate that:
+   - The entry follows the correct format
+   - The referenced GitHub issue exists
+   - (Warning if the issue is closed)
+5. The test will be automatically skipped in subsequent CI runs
 
 ## Re-enabling a Test
 
@@ -57,8 +61,23 @@ Once a flaky test has been fixed:
 4. **Commit and push** the change
 5. The test will be automatically included in subsequent CI runs
 
+## Validation
+
+The `.github/zombienet-flaky-tests` file is automatically validated in CI whenever it's modified. The validation checks:
+
+- **Format**: Each entry must follow the `<test-name>:<issue-number>` format
+- **Issue vs PR**: The referenced number must be a GitHub Issue, not a Pull Request
+- **Issue existence**: The referenced GitHub issue must exist in the repository
+- **Issue state**: A warning is shown if the referenced issue is closed (suggesting the entry might be outdated)
+
+The validation workflow runs on pull requests that modify:
+- `.github/zombienet-flaky-tests`
+- `.github/scripts/check-zombienet-flaky-tests.sh`
+- `.github/workflows/check-zombienet-flaky-tests.yml`
+
 ## Monitoring
 
 - The number of currently disabled tests is displayed in the CI logs during zombienet test runs
 - You can view the current list at: [`.github/zombienet-flaky-tests`](./zombienet-flaky-tests)
 - Each disabled test should have an associated GitHub issue for tracking
+- The validation script can be run locally: `.github/scripts/check-zombienet-flaky-tests.sh .github/zombienet-flaky-tests`

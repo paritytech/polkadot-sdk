@@ -382,6 +382,9 @@ struct State {
 
 	/// An utility for tracking all collations produced by the collator.
 	collation_tracker: CollationTracker,
+
+	/// Should we be connected to backers ?
+	connect_to_backers: bool,
 }
 
 impl State {
@@ -409,6 +412,7 @@ impl State {
 			advertisement_timeouts: Default::default(),
 			reputation,
 			collation_tracker: Default::default(),
+			connect_to_backers: false,
 		}
 	}
 }
@@ -437,7 +441,15 @@ async fn distribute_collation<Context>(
 
 	// We should already be connected to the validators, but if we aren't, we will try to connect to
 	// them now.
-	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, id).await;
+	update_validator_connections(
+		ctx,
+		&state.peer_ids,
+		&state.implicit_view,
+		&state.per_relay_parent,
+		id,
+		true,
+	)
+	.await;
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
@@ -685,10 +697,14 @@ fn has_assigned_cores(
 	false
 }
 
+/// Get a list of backing validators at all allowed relay parents.
+/// If `pending_collation` is true, we will only return the validators
+/// that have a collation pending.
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	para_id: ParaId,
+	pending_collation: bool,
 ) -> Vec<AuthorityDiscoveryId> {
 	let mut backing_validators = HashSet::new();
 	let Some(implicit_view) = implicit_view else { return vec![] };
@@ -699,7 +715,17 @@ fn list_of_backing_validators_in_view(
 			.unwrap_or_default();
 
 		for allowed_relay_parent in allowed_ancestry {
-			if let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) {
+			let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) else { continue };
+
+			if pending_collation {
+				// Check if there is any collation for this relay parent.
+				for collation_data in relay_parent.collations.values() {
+					let core_index = collation_data.core_index();
+					if let Some(group) = relay_parent.validator_group.get(core_index) {
+						backing_validators.extend(group.validators.iter().cloned());
+					}
+				}
+			} else {
 				for group in relay_parent.validator_group.values() {
 					backing_validators.extend(group.validators.iter().cloned());
 				}
@@ -710,41 +736,66 @@ fn list_of_backing_validators_in_view(
 	backing_validators.into_iter().collect()
 }
 
-/// Updates a set of connected validators based on their advertisement-bits
-/// in a validators buffer.
+/// Connect or disconnect to/from all backers at all viable relay parents.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn connect_to_validators<Context>(
+async fn update_validator_connections<Context>(
 	ctx: &mut Context,
+	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	para_id: ParaId,
+	connect: bool,
 ) {
-	let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
-	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
-	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
-	// to the last requested validators until a new request is issued.
-	let validator_ids = if cores_assigned {
-		list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id)
+	gum::trace!(target: LOG_TARGET, ?para_id, ?connect, "update_validator_connections");
+
+	// Ignore address resolution failure, will reissue a new request on new collation.
+	let (failed, _) = oneshot::channel();
+
+	let msg = if connect {
+		let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
+		// If no cores are assigned to the para, we still need to send a ConnectToValidators request
+		// to the network bridge passing an empty list of validator ids. Otherwise, it will keep
+		// connecting to the last requested validators until a new request is issued.
+		let validator_ids = if cores_assigned {
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, false)
+		} else {
+			Vec::new()
+		};
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?cores_assigned,
+			"Sending connection request to validators: {:?}",
+			validator_ids,
+		);
+		NetworkBridgeTxMessage::ConnectToValidators {
+			validator_ids,
+			peer_set: PeerSet::Collation,
+			failed,
+		}
 	} else {
-		Vec::new()
+		if peer_ids.is_empty() {
+			return
+		}
+
+		let validator_ids =
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, true);
+
+		gum::trace!(
+			target: LOG_TARGET,
+			"Keeping connections to validators with pending collations: {:?}",
+			validator_ids,
+		);
+
+		// Disconnect from all validators with no pending collations.
+		NetworkBridgeTxMessage::ConnectToValidators {
+			validator_ids,
+			peer_set: PeerSet::Collation,
+			failed,
+		}
 	};
 
-	gum::trace!(
-		target: LOG_TARGET,
-		?cores_assigned,
-		"Sending connection request to validators: {:?}",
-		validator_ids,
-	);
-
-	// ignore address resolution failure
-	// will reissue a new request on new collation
-	let (failed, _) = oneshot::channel();
-	ctx.send_message(NetworkBridgeTxMessage::ConnectToValidators {
-		validator_ids,
-		peer_set: PeerSet::Collation,
-		failed,
-	})
-	.await;
+	ctx.send_message(msg).await;
 }
 
 /// Advertise collation to the given `peer`.
@@ -839,6 +890,44 @@ async fn process_msg<Context>(
 	use CollatorProtocolMessage::*;
 
 	match msg {
+		ConnectToBackingGroups => {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Received PreConnectToBackingGroups message."
+			);
+			state.connect_to_backers = true;
+
+			if let Some(para_id) = state.collating_on {
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
+			}
+		},
+		DisconnectFromBackingGroups => {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Received DisconnectFromBackingGroups message."
+			);
+			state.connect_to_backers = false;
+
+			if let Some(para_id) = state.collating_on {
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
+			}
+		},
 		CollateOn(id) => {
 			state.collating_on = Some(id);
 			state.implicit_view = Some(ImplicitView::new(Some(id)));
@@ -1312,8 +1401,15 @@ async fn handle_network_msg<Context>(
 			handle_our_view_change(ctx, runtime, state, view).await?;
 			// Connect only if we are collating on a para.
 			if let Some(para_id) = state.collating_on {
-				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
-					.await;
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
 			}
 		},
 		PeerMessage(remote, msg) => {
@@ -1868,10 +1964,17 @@ async fn run_inner<Context>(
 				);
 			}
 			_ = reconnect_timeout => {
-
 				// Connect only if we are collating on a para.
 				if let Some(para_id) = state.collating_on {
-					connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent, para_id).await;
+					update_validator_connections(
+						&mut ctx,
+						&state.peer_ids,
+						&state.implicit_view,
+						&state.per_relay_parent,
+						para_id,
+						state.connect_to_backers,
+					)
+					.await;
 				}
 
 				gum::trace!(

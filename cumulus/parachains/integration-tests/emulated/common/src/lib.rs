@@ -79,6 +79,10 @@ impl Convert<(BlockNumber, RelayBlockNumber), Digest> for AuraDigestProvider {
 }
 
 parameter_types! {
+	pub PenpalALocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
+	pub PenpalBLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
 	pub PenpalATeleportableAssetLocation: xcm::v5::Location
 		= xcm::v5::Location::new(1, [
 				xcm::v5::Junction::Parachain(PENPAL_A_ID),

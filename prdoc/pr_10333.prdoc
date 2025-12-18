@@ -1,0 +1,11 @@
+title: 'parachain-consensus: Do not pin blocks on the relay chain during syncing'
+doc:
+- audience: Node Operator
+  description: |-
+    The parachain-consensus component in parachain nodes was hogging finality notifications. This is now fixed. 
+    The finality notifications where keeping blocks pinned in memory, causing unnecessary memory usage.
+crates:
+- name: cumulus-client-consensus-common
+  bump: major
+- name: cumulus-client-service
+  bump: patch

@@ -1,0 +1,9 @@
+title: "revive-eth-rpc: fix blocks pruning"
+doc:
+- audience: Node Dev
+  description: |
+      Fixes the blocks pruning for the revive eth rpc in case of forks or chain reversions.
+      
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
