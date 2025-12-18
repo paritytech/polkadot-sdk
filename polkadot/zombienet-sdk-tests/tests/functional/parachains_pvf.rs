@@ -22,6 +22,8 @@ use zombienet_sdk::{
 	NetworkConfigBuilder, NetworkNode, RegistrationStrategy,
 };
 
+use crate::utils::initialize_network;
+
 // Test configuration constants
 const NUM_VALIDATORS: usize = 8;
 const FIRST_PARA_ID: u32 = 2000;
@@ -69,56 +71,64 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let col_image = std::env::var("COL_IMAGE")
-		.unwrap_or_else(|_| "docker.io/paritypr/colander:8541-1320dced".to_string());
+		.unwrap_or_else(|_| "docker.io/paritypr/colander:latest".to_string());
 
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
-				.with_default_resources(|resources| {
-					resources
-						.with_limit_memory("4G")
-						.with_limit_cpu("2")
-						.with_request_memory("2G")
-						.with_request_cpu("1")
-				})
-				.with_node(|node| node.with_name("alice").validator(true))
-				.with_node(|node| node.with_name("bob").validator(true))
-				.with_node(|node| node.with_name("charlie").validator(true))
-				.with_node(|node| node.with_name("dave").validator(true))
-				.with_node(|node| node.with_name("ferdie").validator(true))
-				.with_node(|node| node.with_name("eve").validator(true))
-				.with_node(|node| node.with_name("one").validator(true))
-				.with_node(|node| node.with_name("two").validator(true))
-		});
-
-	// Add parachains with varying configurations
-	let config = PARACHAIN_CONFIGS.iter().fold(config, |config, &(id, pov_size, complexity, collator)| {
-		let genesis_cmd = format!(
-			"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
-			pov_size, complexity
-		);
-		config.with_parachain(|p| {
-			p.with_id(id)
-				.with_genesis_state_generator(genesis_cmd.as_str())
-				.with_default_command("undying-collator")
-				.with_default_image(col_image.as_str())
-				.cumulus_based(false)
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_registration_strategy(RegistrationStrategy::InGenesis)
-				.with_collator(|n| n.with_name(collator))
-		})
+	let builder = NetworkConfigBuilder::new().with_relaychain(|r| {
+		r.with_chain("rococo-local")
+			.with_default_command("polkadot")
+			.with_default_image(images.polkadot.as_str())
+			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+			.with_default_resources(|resources| {
+				resources
+					.with_limit_memory("4G")
+					.with_limit_cpu("2")
+					.with_request_memory("2G")
+					.with_request_cpu("1")
+			})
+			.with_node(|node| node.with_name("alice").validator(true))
+			.with_node(|node| node.with_name("bob").validator(true))
+			.with_node(|node| node.with_name("charlie").validator(true))
+			.with_node(|node| node.with_name("dave").validator(true))
+			.with_node(|node| node.with_name("ferdie").validator(true))
+			.with_node(|node| node.with_name("eve").validator(true))
+			.with_node(|node| node.with_name("one").validator(true))
+			.with_node(|node| node.with_name("two").validator(true))
 	});
 
-	let config = config.build().map_err(|e| {
+	// Add parachains with varying configurations
+	let mut builder =
+		PARACHAIN_CONFIGS
+			.iter()
+			.fold(builder, |builder, &(id, pov_size, complexity, collator)| {
+				let genesis_cmd = format!(
+					"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
+					pov_size, complexity
+				);
+				builder.with_parachain(|p| {
+					p.with_id(id)
+						.with_genesis_state_generator(genesis_cmd.as_str())
+						.with_default_command("undying-collator")
+						.with_default_image(col_image.as_str())
+						.cumulus_based(false)
+						.with_default_args(vec!["-lparachain=debug".into()])
+						.with_registration_strategy(RegistrationStrategy::InGenesis)
+						.with_collator(|n| n.with_name(collator))
+				})
+			});
+
+	builder = builder.with_global_settings(|global_settings| {
+		match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+			Ok(val) => global_settings.with_base_dir(val),
+			_ => global_settings,
+		}
+	});
+
+	let config = builder.build().map_err(|e| {
 		let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
 		anyhow!("config errs: {errs}")
 	})?;
 
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	// Check authority status (node_roles = 4 means authority)
 	log::info!("Checking validator node roles");
@@ -135,8 +145,12 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 	// Ensure parachains are registered on the relay chain before waiting for throughput
 	log::info!("Checking parachain registration");
 	for id in FIRST_PARA_ID..(FIRST_PARA_ID + NUM_PARACHAINS) {
-		assert_para_is_registered(&relay_client, ParaId::from(id), PARA_REGISTRATION_TIMEOUT_BLOCKS)
-			.await?;
+		assert_para_is_registered(
+			&relay_client,
+			ParaId::from(id),
+			PARA_REGISTRATION_TIMEOUT_BLOCKS,
+		)
+		.await?;
 	}
 	log::info!("All parachains registered");
 
