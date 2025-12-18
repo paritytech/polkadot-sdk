@@ -7,8 +7,6 @@ import argparse
 import _help
 import importlib.util
 import re
-import urllib.request
-import urllib.parse
 import difflib
 
 _HelpAction = _help._HelpAction
@@ -35,80 +33,40 @@ def setup_logging():
     open('/tmp/cmd/command_output.log', 'w')
 
 def fetch_repo_labels():
-    """Fetch current labels from the GitHub repository"""
-    try:
-        # Use GitHub API to get current labels
-        repo_owner = os.environ.get('GITHUB_REPOSITORY_OWNER', 'paritytech')
-        repo_name = os.environ.get('GITHUB_REPOSITORY', 'paritytech/polkadot-sdk').split('/')[-1]
-
-        api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/labels?per_page=100"
-
-        # Add GitHub token if available for higher rate limits
-        headers = {'User-Agent': 'polkadot-sdk-cmd-bot'}
-        github_token = os.environ.get('GITHUB_TOKEN')
-        if github_token:
-            headers['Authorization'] = f'token {github_token}'
-
-        req = urllib.request.Request(api_url, headers=headers)
-
-        with urllib.request.urlopen(req) as response:
-            if response.getcode() == 200:
-                labels_data = json.loads(response.read().decode())
-                label_names = [label['name'] for label in labels_data]
-                print_and_log(f"Fetched {len(label_names)} labels from repository")
-                return label_names
-            else:
-                print_and_log(f"Failed to fetch labels: HTTP {response.getcode()}")
-                return None
-    except Exception as e:
-        print_and_log(f"Error fetching labels from repository: {e}")
+    """Fetch labels from environment (pre-fetched by workflow)"""
+    labels_json = os.environ.get('REPO_LABELS')
+    if labels_json:
+        try:
+            labels = json.loads(labels_json)
+            print_and_log(f"Loaded {len(labels)} labels from environment")
+            return labels
+        except json.JSONDecodeError as e:
+            print_and_log(f"Error parsing REPO_LABELS: {e}")
+            return None
+    else:
+        print_and_log("REPO_LABELS not set in environment")
         return None
 
 
 def check_pr_status(pr_number):
-    """Check if PR is merged or in merge queue"""
+    """Check PR status from environment (pre-fetched by workflow)"""
+    status_json = os.environ.get('PR_STATUS')
+    if not status_json:
+        print_and_log("Error: PR_STATUS not set, cannot verify PR status")
+        return False
+
     try:
-        # Get GitHub token from environment
-        github_token = os.environ.get('GITHUB_TOKEN')
-        if not github_token:
-            print_and_log("Error: GITHUB_TOKEN not set, cannot verify PR status")
-            return False  # Prevent labeling if we can't check status
-
-        repo_owner = os.environ.get('GITHUB_REPOSITORY_OWNER', 'paritytech')
-        repo_name = os.environ.get('GITHUB_REPOSITORY', 'paritytech/polkadot-sdk').split('/')[-1]
-        api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
-
-        headers = {
-            'User-Agent': 'polkadot-sdk-cmd-bot',
-            'Authorization': f'token {github_token}',
-            'Accept': 'application/vnd.github.v3+json'
-        }
-
-        req = urllib.request.Request(api_url, headers=headers)
-
-        with urllib.request.urlopen(req) as response:
-            if response.getcode() == 200:
-                data = json.loads(response.read().decode())
-
-                # Check if PR is merged
-                if data.get('merged', False):
-                    return False
-
-                # Check if PR is closed
-                if data.get('state') == 'closed':
-                    return False
-
-                # Check if PR is in merge queue (auto_merge enabled)
-                if data.get('auto_merge') is not None:
-                    return False
-
-                return True  # PR is open and not in merge queue
-            else:
-                print_and_log(f"Failed to fetch PR status: HTTP {response.getcode()}")
-                return False  # Prevent labeling if we can't check status
-    except Exception as e:
-        print_and_log(f"Error checking PR status: {e}")
-        return False  # Prevent labeling if we can't check status
+        data = json.loads(status_json)
+        if data.get('merged', False):
+            return False
+        if data.get('state') == 'closed':
+            return False
+        if data.get('auto_merge', False):
+            return False
+        return True
+    except json.JSONDecodeError as e:
+        print_and_log(f"Error parsing PR_STATUS: {e}")
+        return False
 
 
 def find_closest_labels(invalid_label, valid_labels, max_suggestions=3, cutoff=0.6):
@@ -310,7 +268,7 @@ label_example = '''**Examples**:
  %(prog)s T1-FRAME A2-substantial D3-involved
 
 Labels are fetched dynamically from the repository.
-Typos are auto-corrected when confidence is high (>80% similarity).
+Typos are auto-corrected when confidence is high (>80%% similarity).
 For label meanings, see: https://paritytech.github.io/labels/doc_polkadot-sdk.html
 '''
 
