@@ -572,8 +572,8 @@ pub enum AvailabilityStoreMessage {
 		tx: oneshot::Sender<Result<(), ()>>,
 	},
 
-	/// Note that a set of candidates is backable. Only used by Speculative Availability to signal 
-	/// to Availability Store that it should keep track of this candidate and it is highly likely 
+	/// Note that a set of candidates is backable. Only used by Speculative Availability to signal
+	/// to Availability Store that it should keep track of this candidate and it is highly likely
 	/// the candidate will be backed.
 	NoteBackableCandidates {
 		/// A hash of the backable candidate.

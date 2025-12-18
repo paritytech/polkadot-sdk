@@ -56,6 +56,9 @@ pub struct SessionInfo {
 	/// validators.
 	pub validator_groups: Vec<Vec<AuthorityDiscoveryId>>,
 
+	/// Number of validators in this session.
+	pub num_validators: usize,
+
 	/// Information about ourselves:
 	pub our_index: ValidatorIndex,
 
@@ -207,12 +210,15 @@ impl SessionCache {
 				})
 				.collect();
 
+			let num_validators = info.session_info.validators.len();
+
 			let info = SessionInfo {
 				validator_groups,
 				our_index,
 				session_index,
 				our_group,
 				node_features,
+				num_validators,
 			};
 			return Ok(Some(info))
 		}

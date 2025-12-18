@@ -199,24 +199,28 @@ impl Requester {
 		let candidates = rx.await?;
 
 		let (validator_groups, rotation_info) =
-		recv_runtime(request_validator_groups(leaf, sender).await).await?;
+			recv_runtime(request_validator_groups(leaf, sender).await).await?;
 
 		// Process candidates and collect cores
 		for (_, candidates) in candidates.iter() {
 			for candidate in candidates {
 				let (_, core_index) = candidate.validator_indices_and_core_index();
+				// This should always be Some, given the `BackedCandidate` was returned from
+				// `CandidateBackingSubystem` where all tracked candidates should have the core
+				// index injected.
 				let Some(core_index) = core_index else { continue };
 
 				let receipt = candidate.candidate();
 
-				let group_responsible = rotation_info.group_for_core(core_index, validator_groups.len());
+				let group_responsible =
+					rotation_info.group_for_core(core_index, validator_groups.len());
 				let core = (
 					core_index,
 					CoreInfo {
 						candidate_hash: receipt.hash(),
 						relay_parent: receipt.descriptor.relay_parent(),
 						erasure_root: receipt.descriptor.erasure_root(),
-						group_responsible: group_responsible,
+						group_responsible,
 						origin: CoreInfoOrigin::Scheduled,
 					},
 				);
@@ -286,6 +290,11 @@ impl Requester {
 			return Ok(())
 		}
 
+		// NOTE: For speculative availability, we only request chunks for the new head, and update
+		// the book-keeping in `self.fetches` for new heads if and only if the candidate occupies
+		// the core in the next active leaf head.  If the candidate is not occupied in the next
+		// core, the `FetchTask` will not be retained, and will need to be retried if the
+		// candidate occupies a core in a future active leaf head.
 		let scheduled_cores = self.request_backable_candidates_core_info(ctx, new_head).await?;
 		if scheduled_cores.is_empty() {
 			return Ok(());
@@ -324,12 +333,7 @@ impl Requester {
 			})?;
 
 		if let Some(session_info) = session_info {
-			let num_validators =
-				session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
-					acc = acc.saturating_add(group.len());
-					acc
-				});
-
+			let num_validators = session_info.num_validators;
 			let (tx, rx) = oneshot::channel();
 			sender
 				.send_message(AvailabilityStoreMessage::NoteBackableCandidates {
@@ -400,14 +404,9 @@ impl Requester {
 					})?;
 
 				if let Some(session_info) = session_info {
-					let n_validators =
-						session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
-							acc = acc.saturating_add(group.len());
-							acc
-						});
 					let chunk_index = availability_chunk_index(
 						session_info.node_features.as_ref(),
-						n_validators,
+						session_info.num_validators,
 						core_index,
 						session_info.our_index,
 					)?;
