@@ -1365,7 +1365,7 @@ also advertise the collation, this is also much harder to achieve.
 {#equivocations-&-nothing-at-stake-problem}
 
 We are having multiple blocks per slot, so the classic: multiple blocks per slot
-\== equivocation does not work. Luckily this and the “Nothing at stake” problem
+equals equivocation does not work. Luckily this and the “Nothing at stake” problem
 are a non-issue for (low-latency) parachains:
 
 - Low-latency is based on acknowledgements. Here we are enforcing to only sign
