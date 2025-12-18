@@ -816,7 +816,7 @@ mod test {
 				proof: &EncodedProof,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
 			fn next_proof_context(&self) -> B::Hash;
-            fn status_text(&self) -> Option<String>;
+            fn status(&self) -> Option<String>;
 		}
 	}
 
