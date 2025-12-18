@@ -38,6 +38,7 @@ mod test;
 pub use crate::weights::WeightInfo;
 use bp_relayers::RewardLedger;
 use frame_system::ensure_signed;
+use frame_support::dispatch::PostDispatchInfo;
 use snowbridge_core::{
 	reward::{AddTip, AddTipError},
 	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
@@ -181,8 +182,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::submit().saturating_add(T::MessageProcessor::worst_case_message_processor_weight()))]
+		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
@@ -212,7 +213,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResult {
+		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResultWithPostInfo {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
 
@@ -224,7 +225,7 @@ pub mod pallet {
 			// Mark message as received
 			Nonce::<T>::set(nonce);
 
-			let message_id = T::MessageProcessor::process_message(relayer.clone(), message)
+			let (message_id, maybe_corrected_weight) = T::MessageProcessor::process_message(relayer.clone(), message)
 				.map_err(|e| match e {
 					MessageProcessorError::ProcessMessage(e) => e,
 					MessageProcessorError::ConvertMessage(e) => Error::<T>::from(e).into(),
@@ -241,7 +242,16 @@ pub mod pallet {
 			// Emit event with the message_id
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 
-			Ok(())
+			if let Some(corrected_weight) = maybe_corrected_weight {
+				Ok(PostDispatchInfo {
+					actual_weight: Some(corrected_weight.saturating_add(T::WeightInfo::submit())),
+					..Default::default()
+				})
+			}
+			else {
+				// Pays fees and non-corrected-weight
+				Ok(().into())
+			}
 		}
 	}
 
