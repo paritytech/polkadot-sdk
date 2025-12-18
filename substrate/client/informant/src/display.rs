@@ -136,13 +136,12 @@ impl<B: BlockT> InformantDisplay<B> {
 					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
 			};
 
-		let (show_best_block, show_finalized_block) = match sync_status.warp_sync {
-			Some(warp) if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
-				(false, false),
-			_ => (true, true),
+		let show_block_info = match sync_status.warp_sync {
+			Some(warp) if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) => false,
+			_ => true,
 		};
 
-		if show_best_block && show_finalized_block {
+		if show_block_info {
 			// Show full log with best/finalized blocks
 			info!(
 				target: "substrate",
