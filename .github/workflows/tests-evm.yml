@@ -57,7 +57,7 @@ jobs:
       - name: Installing Retester
         run: forklift cargo install --locked --path revive-differential-tests/crates/core
       - name: Creating a workdir for retester
-        run: mkdir -p workdir
+        run: mkdir workdir
       - name: Downloading & Initializing the compilation caches
         run: |
           curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.1/cache.tar.gz"
