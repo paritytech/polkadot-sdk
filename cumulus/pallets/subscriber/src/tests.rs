@@ -69,7 +69,7 @@ fn root_change_triggers_processing() {
 		Pallet::<Test>::process_relay_proof_keys(&proof1);
 		assert_eq!(ReceivedData::get().len(), 1);
 
-		// Second block with different value (root changed)
+		// Second block with different value
 		ReceivedData::set(vec![]);
 		let proof2 = build_test_proof(publisher, vec![(key.clone(), value2.clone())]);
 		Pallet::<Test>::process_relay_proof_keys(&proof2);
@@ -94,7 +94,7 @@ fn unchanged_root_skips_processing() {
 		Pallet::<Test>::process_relay_proof_keys(&proof);
 		assert_eq!(ReceivedData::get().len(), 1);
 
-		// Second block with same data (unchanged root)
+		// Second block with same data
 		ReceivedData::set(vec![]);
 		let proof2 = build_test_proof(publisher, vec![(key.clone(), value)]);
 		Pallet::<Test>::process_relay_proof_keys(&proof2);

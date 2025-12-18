@@ -28,7 +28,7 @@ pub trait WeightInfo {
 	fn do_cleanup_publisher(k: u32) -> Weight;
 }
 
-/// Placeholder weights (to be replaced with benchmarked values).
+/// Placeholder weights to be replaced with benchmarked values.
 impl WeightInfo for () {
 	fn register_publisher() -> Weight {
 		Weight::zero()

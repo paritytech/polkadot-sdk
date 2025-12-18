@@ -94,7 +94,7 @@ pub mod bench_proof_builder {
 		Ok(recorder.into_raw_storage_proof())
 	}
 
-	/// Build relay chain state proof w/ child trie data
+	/// Build relay chain state proof with child trie data
 	pub fn build_sproof_with_child_data(
 		publishers: &[(ParaId, Vec<(Vec<u8>, Vec<u8>)>)],
 	) -> RelayChainStateProof {
@@ -132,7 +132,7 @@ pub mod bench_proof_builder {
 			child_roots.push((prefixed_key.to_vec(), child_root.encode()));
 		}
 
-		// Build main trie w/ child roots
+		// Build main trie with child roots
 		use hash_db::{HashDB, EMPTY_PREFIX};
 
 		let empty_root = empty_trie_root::<LayoutV1<BlakeTwo256>>();
