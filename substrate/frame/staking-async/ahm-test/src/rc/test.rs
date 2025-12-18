@@ -1469,43 +1469,73 @@ mod session_keys {
 	use frame_support::assert_noop;
 
 	#[test]
-	fn set_and_purge_keys_from_ah_works() {
+	fn set_update_purge_keys_from_ah_works() {
 		ExtBuilder::default()
-			.session_keys(vec![1, 2, 3, 4])
+			.session_keys(vec![1])
 			.local_queue()
 			.build()
 			.execute_with(|| {
-				let stash: AccountId = 1;
-				let keys =
-					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
-				let encoded_keys = keys.encode();
-
+				// GIVEN: A valid validator stash account.
 				// In mock, AssetHubOrigin = EnsureSigned, so any signed origin works.
 				// In production, this would be restricted to XCM from AssetHub.
+				let stash: AccountId = 1;
+				let keys1 =
+					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+
+				// WHEN: Setting initial keys from AH.
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
 					RuntimeOrigin::signed(99),
 					stash,
-					encoded_keys,
+					keys1.encode(),
 					vec![],
 				));
 
+				// THEN: Keys are registered.
+				assert_eq!(
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
+					frame::deps::sp_runtime::testing::UintAuthorityId(42)
+				);
+
+				// WHEN: Updating to different keys.
+				let keys2 =
+					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(99) };
+				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
+					RuntimeOrigin::signed(99),
+					stash,
+					keys2.encode(),
+					vec![],
+				));
+
+				// THEN: Keys are updated.
+				assert_eq!(
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
+					frame::deps::sp_runtime::testing::UintAuthorityId(99)
+				);
+
+				// WHEN: Purging keys.
 				assert_ok!(ah_client::Pallet::<Runtime>::purge_keys_from_ah(
 					RuntimeOrigin::signed(99),
 					stash,
 				));
+
+				// THEN: Keys are removed.
+				assert!(pallet_session::NextKeys::<Runtime>::get(stash).is_none());
 			})
 	}
 
 	#[test]
 	fn set_keys_from_ah_invalid_keys() {
 		ExtBuilder::default()
-			.session_keys(vec![1, 2, 3, 4])
+			.session_keys(vec![1])
 			.local_queue()
 			.build()
 			.execute_with(|| {
+				// GIVEN: A valid stash and malformed keys that cannot be decoded.
 				let stash: AccountId = 1;
 				let invalid_keys = vec![0xff, 0xfe, 0xfd];
 
+				// WHEN: Setting invalid keys.
+				// THEN: Fails with InvalidKeys error.
 				assert_noop!(
 					ah_client::Pallet::<Runtime>::set_keys_from_ah(
 						RuntimeOrigin::signed(99),
@@ -1521,16 +1551,18 @@ mod session_keys {
 	#[test]
 	fn set_keys_from_ah_bad_origin() {
 		ExtBuilder::default()
-			.session_keys(vec![1, 2, 3, 4])
+			.session_keys(vec![1])
 			.local_queue()
 			.build()
 			.execute_with(|| {
+				// GIVEN: Valid stash and keys but an invalid origin (none).
 				let stash: AccountId = 1;
 				let keys =
 					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
 				let encoded_keys = keys.encode();
 
-				// RuntimeOrigin::none() is neither AssetHubOrigin nor root
+				// WHEN: Using RuntimeOrigin::none() which is neither AssetHubOrigin nor root.
+				// THEN: Fails with BadOrigin.
 				assert_noop!(
 					ah_client::Pallet::<Runtime>::set_keys_from_ah(
 						RuntimeOrigin::none(),
@@ -1544,6 +1576,56 @@ mod session_keys {
 				assert_noop!(
 					ah_client::Pallet::<Runtime>::purge_keys_from_ah(RuntimeOrigin::none(), stash,),
 					DispatchError::BadOrigin
+				);
+			})
+	}
+
+	#[test]
+	fn purge_keys_from_ah_no_keys() {
+		ExtBuilder::default()
+			.session_keys(vec![1])
+			.local_queue()
+			.build()
+			.execute_with(|| {
+				// GIVEN: Account 99 is a valid validator (ValidatorIdOf converts any AccountId)
+				// but has never set session keys.
+				let stash: AccountId = 99;
+
+				// WHEN: Purging keys for an account that has none.
+				// THEN: Fails with NoKeys.
+				assert_noop!(
+					ah_client::Pallet::<Runtime>::purge_keys_from_ah(
+						RuntimeOrigin::signed(1),
+						stash,
+					),
+					pallet_session::Error::<Runtime>::NoKeys
+				);
+			})
+	}
+
+	#[test]
+	fn set_keys_from_ah_nonexistent_account() {
+		ExtBuilder::default()
+			.session_keys(vec![1])
+			.local_queue()
+			.build()
+			.execute_with(|| {
+				// GIVEN: Account 999 doesn't exist on RC (not funded, no reference count).
+				let nonexistent: AccountId = 999;
+				let keys =
+					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let encoded_keys = keys.encode();
+
+				// WHEN: Setting keys for a nonexistent account.
+				// THEN: Fails with NoAccount.
+				assert_noop!(
+					ah_client::Pallet::<Runtime>::set_keys_from_ah(
+						RuntimeOrigin::signed(1),
+						nonexistent,
+						encoded_keys,
+						vec![],
+					),
+					pallet_session::Error::<Runtime>::NoAccount
 				);
 			})
 	}
