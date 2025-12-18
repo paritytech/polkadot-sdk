@@ -11,8 +11,10 @@ crates:
 - name: westend-runtime
   bump: major
 - name: pallet-session
-  bump: major
+  bump: minor
 - name: pallet-staking-async-ah-client
   bump: major
 - name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async
   bump: major
