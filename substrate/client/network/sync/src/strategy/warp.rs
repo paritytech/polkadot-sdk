@@ -68,6 +68,8 @@ pub trait Verifier<Block: BlockT>: Send + Sync {
 	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
 	/// Hash to be used as the starting point for the next proof request.
 	fn next_proof_context(&self) -> Block::Hash;
+    /// Get status text for progress reporting
+    fn status(&self) -> Option<String>;
 }
 
 /// Proof verification result.
@@ -153,10 +155,8 @@ pub struct WarpSyncProgress<Block: BlockT> {
 	pub phase: WarpSyncPhase<Block>,
 	/// Total bytes downloaded so far.
 	pub total_bytes: u64,
-	/// Number of eras that have been verified and synced.
-	pub eras_synced: u64,
-  /// Optional status text from the verifier.
-  pub status_text: Option<String>,
+    /// Optional status text from the verifier.
+    pub status: Option<String>,
 }
 
 /// Warp sync configuration as accepted by [`WarpSync`].
@@ -217,7 +217,6 @@ pub struct WarpSync<B: BlockT> {
 	result: Option<WarpSyncResult<B>>,
 	/// Number of peers that need to be connected before warp sync is started.
 	min_peers_to_start_warp_sync: usize,
-	eras_synced: u64,
 }
 
 impl<B> WarpSync<B>
@@ -258,7 +257,6 @@ where
 				actions: vec![SyncingAction::Finished],
 				result: None,
 				min_peers_to_start_warp_sync,
-				eras_synced: 0,
 			}
 		}
 
@@ -279,7 +277,6 @@ where
 			actions: Vec::new(),
 			result: None,
 			min_peers_to_start_warp_sync,
-			eras_synced: 0,
 		}
 	}
 
@@ -434,11 +431,6 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-				// Get status text from verifier to update eras_synced if available
-        if let Some(status_text) = verifier.status_text() {
-            // TODO: Parse eras synced from status text
-            self.eras_synced += 1;
-        }
 			},
 			Ok(VerificationResult::Complete(header, proofs)) => {
 				debug!(
@@ -453,11 +445,6 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-				// Get final status from verifier
-        if let Some(status_text) = verifier.status_text() {
-            // TODO: Parse eras synced from status text
-            self.eras_synced += 1;
-        }
 			},
 		}
 	}
@@ -652,22 +639,22 @@ where
 					required_peers: self.min_peers_to_start_warp_sync,
 				},
 				total_bytes: self.total_proof_bytes,
-				eras_synced: self.eras_synced,
+                status: None,
 			},
-			Phase::WarpProof { .. } => WarpSyncProgress {
+			Phase::WarpProof { verifier } => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingWarpProofs,
 				total_bytes: self.total_proof_bytes,
-				eras_synced: self.eras_synced,
+                status: verifier.status(),
 			},
 			Phase::TargetBlock(_) => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: self.total_proof_bytes,
-				eras_synced: self.eras_synced,
+                status: None,
 			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
-				eras_synced: self.eras_synced,
+                status: None,
 			},
 		}
 	}
@@ -829,6 +816,7 @@ mod test {
 				proof: &EncodedProof,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
 			fn next_proof_context(&self) -> B::Hash;
+            fn status_text(&self) -> Option<String>;
 		}
 	}
 

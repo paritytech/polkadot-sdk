@@ -34,6 +34,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, One},
 	Justifications,
 };
+use sp_arithmetic::traits::Zero;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -291,7 +292,7 @@ struct VerifierState<Block: BlockT> {
 struct GrandpaVerifier<Block: BlockT> {
 	state: VerifierState<Block>,
 	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
-  eras_synced: u64,
+    eras_synced: u64,
 }
 
 impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
@@ -324,6 +325,9 @@ where
 			next_proof_context: last_header.hash(),
 		};
 
+        // Track eras synced
+        self.eras_synced += proof.proofs.len() as u64;
+
 		let justifications = proof
 			.proofs
 			.into_iter()
@@ -333,9 +337,6 @@ where
 				(p.header, justifications)
 			})
 			.collect::<Vec<_>>();
-    
-    // Track eras synced    
-    self.eras_synced += proof.proofs.len() as u64;
 
 		if proof.is_finished {
 			Ok(VerificationResult::Complete(last_header, justifications))
@@ -348,7 +349,8 @@ where
 		self.state.next_proof_context
 	}
 
-  fn status_text(&self) -> Option<String> {
+  
+    fn status(&self) -> Option<String> {
         if self.eras_synced > 0 {
             Some(format!("{} eras synced", self.eras_synced))
         } else {
@@ -385,6 +387,7 @@ where
 				next_proof_context: genesis_hash,
 			},
 			hard_forks: self.hard_forks.clone(),
+            eras_synced: Zero::zero(),
 		})
 	}
 }
