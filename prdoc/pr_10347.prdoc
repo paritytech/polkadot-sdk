@@ -1,0 +1,8 @@
+title: Don't require PR for uploading comment for DT CI
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Small PR that changes the DT CI to not require a PR for uploading the report to the CI job.
+crates: []

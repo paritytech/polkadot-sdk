@@ -16,7 +16,7 @@
 
 pub(crate) mod imports {
 	pub use cumulus_primitives_core::ParaId;
-	pub use parachains_common::{AccountId, Balance, Nonce};
+	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
 		traits::Block as BlockT,
@@ -242,8 +242,8 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::SlotSchedule<$block> for $runtime {
-				fn next_slot_schedule(_: u32) -> cumulus_primitives_core::NextSlotSchedule {
+			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
+				fn target_block_rate() -> u32 {
 					unimplemented!()
 				}
 			}

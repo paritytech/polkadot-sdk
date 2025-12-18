@@ -48,6 +48,7 @@ pub mod xcm_config;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
@@ -55,7 +56,6 @@ use assets_common::{
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -82,7 +82,9 @@ use pallet_revive::evm::runtime::EthExtra;
 use parachains_common::{
 	impls::{AssetsToBlockAuthor, NonZeroIssuance},
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 };
+use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -94,15 +96,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedU128,
 };
 pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactDispatchOrigin};
-
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use testnet_parachains_constants::westend::{consensus::*, time::*};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::{AssetId as AssetLocationId, BodyId},
@@ -114,8 +108,14 @@ use xcm_runtime_apis::{
 	fees::Error as XcmPaymentApiError,
 };
 
-use parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature};
-use testnet_parachains_constants::westend::{consensus::*, time::*};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
+use xcm_config::{
+	ForeignAssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
+};
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -470,6 +470,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type AssetIdParameter = codec::Compact<AssetId>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -506,6 +507,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = ForeignAssetsAssetId;
 	type AssetIdParameter = ForeignAssetsAssetId;
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
 	// This is to allow any other remote location to create foreign assets. Used in tests, not
 	// recommended on real chains.
@@ -525,7 +527,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 parameter_types! {
@@ -547,6 +549,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
@@ -839,6 +842,7 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1070,10 +1074,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			use crate::xcm_config::XcmConfig;
-
 			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
-
 			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
@@ -1081,8 +1082,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
 

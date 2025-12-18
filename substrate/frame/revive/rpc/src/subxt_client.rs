@@ -20,7 +20,7 @@
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
-	runtime_metadata_path = "revive_chain.scale",
+	runtime_metadata_path = "$OUT_DIR/revive_chain.scale",
 	// TODO remove once subxt use the same U256 type
 	substitute_type(
 		path = "primitive_types::U256",
@@ -46,6 +46,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types::DryRunConfig<M>",
+		with = "::subxt::utils::Static<::pallet_revive::evm::DryRunConfig<M>>"
 	),
 	substitute_type(
 		path = "pallet_revive::primitives::EthTransactInfo<B>",

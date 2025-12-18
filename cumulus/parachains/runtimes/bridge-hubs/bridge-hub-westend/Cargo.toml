@@ -315,6 +315,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-inbound-queue-primitives/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
 	"snowbridge-pallet-inbound-queue-v2/try-runtime",
 	"snowbridge-pallet-inbound-queue/try-runtime",
@@ -325,9 +326,12 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = []
+on-chain-release-build = ["metadata-hash"]
 
 fast-runtime = []

@@ -31,10 +31,9 @@ mod tests;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{Diff, Token},
 	vm::RuntimeCosts,
-	AddressMapper,
+	AddressMapper, TransactionLimits,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
@@ -136,6 +135,19 @@ impl From<DispatchError> for Error {
 impl<T: Config> From<CrateError<T>> for Error {
 	fn from(error: CrateError<T>) -> Self {
 		Self::Error(DispatchError::from(error).into())
+	}
+}
+
+impl Error {
+	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
+		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
+		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let message = match () {
+			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ => return e.into(),
+		};
+		Self::Revert(message.into())
 	}
 }
 
@@ -618,7 +630,10 @@ pub mod run {
 		E: ExtWithInfo,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
-			.ok_or(DispatchError::from("No pre-compile at address"))?;
+			.ok_or(DispatchError::from("No pre-compile at address"))
+			.inspect_err(|_| {
+				log::debug!(target: crate::LOG_TARGET, "No pre-compile at address {address:?}");
+			})?;
 		precompile.call(input, ext)
 	}
 }
