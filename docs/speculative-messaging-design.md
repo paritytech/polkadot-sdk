@@ -574,7 +574,7 @@ on the current block `B`, because it did not exist when `A` was built. This
 holds even for multi-party communication.
 
 Conclusion: By not allowing intra-block communication, no cycles between blocks
-can exist and above acknowledgment procedure is sound. For Basti blocks, we
+can exist and above acknowledgment procedure is sound. For Basti Blocks, we
 will end up with cycles between POVs, but those don't seem problematic, apart
 from the fact that those candidates can only become available atomically: All
 or nothing.
