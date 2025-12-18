@@ -77,9 +77,21 @@ thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+	pub static ASSET_BALANCES: RefCell<BTreeMap<u32, u64>> = RefCell::new(BTreeMap::new());
+	pub static CATEGORY_ASSETS: RefCell<BTreeMap<Vec<u8>, Vec<u32>>> = RefCell::new(BTreeMap::new());
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
+}
+
+/// Set asset balance for testing
+fn set_asset_balance(asset_id: u32, balance: u64) {
+	ASSET_BALANCES.with(|b| b.borrow_mut().insert(asset_id, balance));
+}
+
+/// Set assets in a category
+fn set_category_assets(category: &[u8], assets: Vec<u32>) {
+	CATEGORY_ASSETS.with(|c| c.borrow_mut().insert(category.to_vec(), assets));
 }
 
 /// paid balance for a given account and asset ids
@@ -134,6 +146,19 @@ impl Pay for TestPay {
 	}
 }
 
+pub struct TestAssetCategoryManager;
+impl AssetCategoryManager for TestAssetCategoryManager {
+	type AssetKind = u32;
+	type Balance = u64;
+
+	fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+		CATEGORY_ASSETS.with(|c| c.borrow().get(category).cloned().unwrap_or_default())
+	}
+
+	fn available_balance(asset: &Self::AssetKind) -> Self::Balance {
+		ASSET_BALANCES.with(|b| b.borrow().get(asset).cloned().unwrap_or(0))
+	}
+}
 parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
@@ -196,6 +221,7 @@ impl Config for Test {
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
+	type AssetCategories = TestAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -207,6 +233,22 @@ impl Default for ExtBuilder {
 		#[cfg(feature = "runtime-benchmarks")]
 		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = false);
 
+		// Setup default categories for tests
+		CATEGORY_ASSETS.with(|c| {
+			let mut map = c.borrow_mut();
+			map.insert(b"USD*".to_vec(), vec![1, 2, 3]);
+			map.insert(b"EUR*".to_vec(), vec![4, 5]);
+		});
+
+		ASSET_BALANCES.with(|b| {
+			let mut map = b.borrow_mut();
+			map.insert(1, 100);
+			map.insert(2, 100);
+			map.insert(3, 100);
+			map.insert(4, 100);
+			map.insert(5, 100);
+		});
+
 		Self {}
 	}
 }
@@ -215,6 +257,16 @@ impl ExtBuilder {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn spend_origin_succesful_origin_err(self) -> Self {
 		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
+	pub fn with_asset_balance(self, asset_id: u32, balance: u64) -> Self {
+		set_asset_balance(asset_id, balance);
+		self
+	}
+
+	pub fn with_category_assets(self, category: &[u8], assets: Vec<u32>) -> Self {
+		set_category_assets(category, assets);
 		self
 	}
 
@@ -228,6 +280,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
+
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
@@ -237,8 +290,18 @@ impl ExtBuilder {
 fn get_payment_id(i: SpendIndex) -> Option<u64> {
 	let spend = Spends::<Test, _>::get(i).expect("no spend");
 	match spend.status {
-		PaymentState::Attempted { id } => Some(id),
+		PaymentState::Attempted { executions, .. } =>
+			executions.first().map(|exec| exec.payment_id),
 		_ => None,
+	}
+}
+
+fn get_all_payment_ids(i: SpendIndex) -> Vec<u64> {
+	let spend = Spends::<Test, _>::get(i).expect("no spend");
+	match &spend.status {
+		PaymentState::Attempted { executions, .. } =>
+			executions.iter().map(|exec| exec.payment_id).collect(),
+		_ => vec![],
 	}
 }
 
@@ -534,13 +597,13 @@ fn spending_in_batch_respects_max_total() {
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
 			calls: vec![
 				RuntimeCall::from(TreasuryCall::spend {
-					asset_kind: Box::new(1),
+					asset: Box::new(SpendAsset::Specific(1)),
 					amount: 1,
 					beneficiary: Box::new(100),
 					valid_from: None,
 				}),
 				RuntimeCall::from(TreasuryCall::spend {
-					asset_kind: Box::new(1),
+					asset: Box::new(SpendAsset::Specific(1)),
 					amount: 1,
 					beneficiary: Box::new(101),
 					valid_from: None,
@@ -553,13 +616,13 @@ fn spending_in_batch_respects_max_total() {
 			RuntimeCall::from(UtilityCall::batch_all {
 				calls: vec![
 					RuntimeCall::from(TreasuryCall::spend {
-						asset_kind: Box::new(1),
+						asset: Box::new(SpendAsset::Specific(1)),
 						amount: 2,
 						beneficiary: Box::new(100),
 						valid_from: None,
 					}),
 					RuntimeCall::from(TreasuryCall::spend {
-						asset_kind: Box::new(1),
+						asset: Box::new(SpendAsset::Specific(1)),
 						amount: 2,
 						beneficiary: Box::new(101),
 						valid_from: None,
@@ -575,20 +638,62 @@ fn spending_in_batch_respects_max_total() {
 #[test]
 fn spend_origin_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None));
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			1,
+			Box::new(6),
+			None
+		));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 3, Box::new(6), None),
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Specific(1)),
+				3,
+				Box::new(6),
+				None
+			),
 			Error::<Test, _>::InsufficientPermission
 		);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(11), Box::new(1), 5, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(11),
+			Box::new(SpendAsset::Specific(1)),
+			5,
+			Box::new(6),
+			None
+		));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(11), Box::new(1), 6, Box::new(6), None),
+			Treasury::spend(
+				RuntimeOrigin::signed(11),
+				Box::new(SpendAsset::Specific(1)),
+				6,
+				Box::new(6),
+				None
+			),
 			Error::<Test, _>::InsufficientPermission
 		);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(12), Box::new(1), 10, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(12),
+			Box::new(SpendAsset::Specific(1)),
+			10,
+			Box::new(6),
+			None
+		));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(12), Box::new(1), 11, Box::new(6), None),
+			Treasury::spend(
+				RuntimeOrigin::signed(12),
+				Box::new(SpendAsset::Specific(1)),
+				11,
+				Box::new(6),
+				None
+			),
 			Error::<Test, _>::InsufficientPermission
 		);
 
@@ -601,13 +706,19 @@ fn spend_origin_works() {
 fn spend_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 
 		assert_eq!(SpendCount::<Test, _>::get(), 1);
 		assert_eq!(
 			Spends::<Test, _>::get(0).unwrap(),
 			SpendStatus {
-				asset_kind: 1,
+				asset: SpendAsset::Specific(1),
 				amount: 2,
 				beneficiary: 6,
 				valid_from: 1,
@@ -618,7 +729,7 @@ fn spend_works() {
 		System::assert_last_event(
 			Event::<Test, _>::AssetSpendApproved {
 				index: 0,
-				asset_kind: 1,
+				asset: SpendAsset::Specific(1),
 				amount: 2,
 				beneficiary: 6,
 				valid_from: 1,
@@ -636,13 +747,25 @@ fn spend_expires() {
 
 		// spend `0` expires in 5 blocks after the creating.
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		System::set_block_number(6);
 		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::SpendExpired);
 
 		// spend cannot be approved since its already expired.
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), Some(0)),
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Specific(1)),
+				2,
+				Box::new(6),
+				Some(0)
+			),
 			Error::<Test, _>::SpendExpired
 		);
 	});
@@ -654,14 +777,26 @@ fn spend_payout_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
 		// approve a `2` coins spend of asset `1` to beneficiary `6`, the spend valid from now.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		// payout the spend.
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 		// beneficiary received `2` coins of asset `1`.
 		assert_eq!(paid(6, 1), 2);
 		assert_eq!(SpendCount::<Test, _>::get(), 1);
 		let payment_id = get_payment_id(0).expect("no payment attempt");
-		System::assert_last_event(Event::<Test, _>::Paid { index: 0, payment_id }.into());
+		System::assert_last_event(
+			Event::<Test, _>::Paid {
+				index: 0,
+				execution: PaymentExecution { asset: 1, amount: 2, payment_id },
+			}
+			.into(),
+		);
 		set_status(payment_id, PaymentStatus::Success);
 		// the payment succeed.
 		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
@@ -677,7 +812,13 @@ fn payout_extends_expiry() {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
 
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		// Fail a payout at block 4
 		System::set_block_number(4);
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
@@ -704,7 +845,13 @@ fn payout_extends_expiry() {
 fn payout_retry_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 		assert_eq!(paid(6, 1), 2);
 		let payment_id = get_payment_id(0).expect("no payment attempt");
@@ -734,7 +881,7 @@ fn spend_valid_from_works() {
 		// spend valid from block `2`.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(1),
+			Box::new(SpendAsset::Specific(1)),
 			2,
 			Box::new(6),
 			Some(2)
@@ -747,7 +894,7 @@ fn spend_valid_from_works() {
 		// spend approved even if `valid_from` in the past since the payout period has not passed.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(1),
+			Box::new(SpendAsset::Specific(1)),
 			2,
 			Box::new(6),
 			Some(4)
@@ -764,7 +911,7 @@ fn void_spend_works() {
 		// spend cannot be voided if already attempted.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(1),
+			Box::new(SpendAsset::Specific(1)),
 			2,
 			Box::new(6),
 			Some(1)
@@ -778,7 +925,7 @@ fn void_spend_works() {
 		// void spend.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(1),
+			Box::new(SpendAsset::Specific(1)),
 			2,
 			Box::new(6),
 			Some(10)
@@ -795,14 +942,26 @@ fn check_status_works() {
 		System::set_block_number(1);
 
 		// spend `0` expired and can be removed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		System::set_block_number(7);
 		let info = Treasury::check_status(RuntimeOrigin::signed(1), 0).unwrap();
 		assert_eq!(info.pays_fee, Pays::No);
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 0 }.into());
 
 		// spend `1` payment failed and expired hence can be removed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_noop!(
 			Treasury::check_status(RuntimeOrigin::signed(1), 1),
 			Error::<Test, _>::NotAttempted
@@ -820,7 +979,13 @@ fn check_status_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 1 }.into());
 
 		// spend `2` payment succeed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 2));
 		let payment_id = get_payment_id(2).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
@@ -829,7 +994,13 @@ fn check_status_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 2 }.into());
 
 		// spend `3` payment in process.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 3));
 		let payment_id = get_payment_id(3).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
@@ -839,7 +1010,13 @@ fn check_status_works() {
 		);
 
 		// spend `4` removed since the payment status is unknown.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Specific(1)),
+			2,
+			Box::new(6),
+			None
+		));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 4));
 		let payment_id = get_payment_id(4).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Unknown);
@@ -939,7 +1116,13 @@ fn try_state_spends_invariant_1_works() {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Specific(1)),
+				1,
+				Box::new(6),
+				None,
+			)
 		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		assert_eq!(SpendCount::<Test>::get(), 1);
@@ -961,7 +1144,7 @@ fn try_state_spends_invariant_2_works() {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
+			Treasury::spend(RuntimeOrigin::signed(10), Box::new(SpendAsset::Specific(1)), 1, Box::new(6), None)
 		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		let current_spend_count = SpendCount::<Test>::get();
@@ -990,7 +1173,13 @@ fn try_state_spends_invariant_3_works() {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Specific(1)),
+				1,
+				Box::new(6),
+				None,
+			)
 		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		let current_spend_count = SpendCount::<Test>::get();
@@ -1044,5 +1233,522 @@ fn multiple_spend_periods_work() {
 		assert_eq!(Treasury::pot(), 64);
 		// Even though we are on block 9, the last spend period was block 8.
 		assert_eq!(LastSpendPeriod::<Test>::get(), Some(8));
+	});
+}
+
+// New tests for category spends
+#[test]
+fn category_spend_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// Create a category spend for USD* category
+		let category = b"USD*".to_vec();
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Category(bounded_category.clone())),
+			2, // Request 5 USD*
+			Box::new(6),
+			None
+		));
+
+		assert_eq!(SpendCount::<Test, _>::get(), 1);
+		let spend = Spends::<Test, _>::get(0).unwrap();
+
+		match spend.asset {
+			SpendAsset::Category(cat) => assert_eq!(cat, bounded_category),
+			_ => panic!("Expected Category asset"),
+		}
+
+		assert_eq!(spend.amount, 2);
+		assert_eq!(spend.beneficiary, 6);
+		assert_eq!(spend.status, PaymentState::Pending);
+
+		System::assert_last_event(
+			Event::<Test, _>::AssetSpendApproved {
+				index: 0,
+				asset: SpendAsset::Category(bounded_category),
+				amount: 2,
+				beneficiary: 6,
+				valid_from: 1,
+				expire_at: 6,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn category_payout_distributes_across_assets() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 20)
+		.with_asset_balance(3, 30)
+		.with_asset_balance(2, 10)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			// Create a category spend for USD* category
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			// Request 50 USD* - should use all available balances
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				50,
+				Box::new(6),
+				None
+			));
+
+			// Payout the spend
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+			assert_eq!(paid(6, 1), 20);
+			assert_eq!(paid(6, 2), 10);
+			assert_eq!(paid(6, 3), 20);
+
+			// Check spend status
+			let spend = Spends::<Test, _>::get(0).unwrap();
+			match &spend.status {
+				PaymentState::Attempted { executions, remaining_amount } => {
+					assert_eq!(executions.len(), 3);
+					assert_eq!(*remaining_amount, 0);
+
+					// Check execution details
+					let mut asset_payments = std::collections::BTreeMap::new();
+					for exec in executions.iter() {
+						asset_payments.insert(exec.asset, exec.amount);
+					}
+
+					assert_eq!(asset_payments.get(&1), Some(&20));
+					assert_eq!(asset_payments.get(&2), Some(&10));
+					assert_eq!(asset_payments.get(&3), Some(&20));
+				},
+				_ => panic!("Expected Attempted status"),
+			}
+		});
+}
+
+#[test]
+fn category_payout_partial_fulfillment() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 10)
+		.with_asset_balance(2, 15)
+		.with_asset_balance(3, 5)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			// Request 50 USD* spend to a 30 USD* pool
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				50,
+				Box::new(6),
+				None
+			));
+
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+			// Check partial payment
+			assert_eq!(paid(6, 1), 10);
+			assert_eq!(paid(6, 2), 15);
+			assert_eq!(paid(6, 3), 5);
+
+			let spend = Spends::<Test, _>::get(0).unwrap();
+			match &spend.status {
+				PaymentState::Attempted { executions, remaining_amount } => {
+					assert_eq!(executions.len(), 3);
+					assert_eq!(*remaining_amount, 20);
+
+					let mut asset_payments = std::collections::BTreeMap::new();
+					for exec in executions.iter() {
+						asset_payments.insert(exec.asset, exec.amount);
+					}
+
+					assert_eq!(asset_payments.get(&1), Some(&10));
+					assert_eq!(asset_payments.get(&2), Some(&15));
+					assert_eq!(asset_payments.get(&3), Some(&5));
+				},
+				_ => panic!("Expected Attempted status"),
+			}
+		});
+}
+
+#[test]
+fn category_payout_skips_assets_with_no_balance() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 0)
+		.with_asset_balance(2, 40)
+		.with_asset_balance(3, 0)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				30,
+				Box::new(6),
+				None
+			));
+
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+			// Only AssetId = 2 should be used
+			assert_eq!(paid(6, 1), 0);
+			assert_eq!(paid(6, 2), 30);
+			assert_eq!(paid(6, 3), 0);
+
+			let spend = Spends::<Test, _>::get(0).unwrap();
+			match &spend.status {
+				PaymentState::Attempted { executions, remaining_amount } => {
+					assert_eq!(executions.len(), 1); // Only USDC used
+					assert_eq!(*remaining_amount, 0); // Full amount paid
+
+					assert_eq!(executions[0].asset, 2);
+					assert_eq!(executions[0].amount, 30);
+				},
+				_ => panic!("Expected Attempted status"),
+			}
+		});
+}
+
+#[test]
+fn category_payout_fails_when_no_assets_available() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 0)
+		.with_asset_balance(2, 0)
+		.with_asset_balance(3, 0)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(13),
+				Box::new(SpendAsset::Category(bounded_category)),
+				10,
+				Box::new(6),
+				None
+			));
+
+			// Payout should fail - no assets have balance
+			assert_noop!(
+				Treasury::payout(RuntimeOrigin::signed(1), 0),
+				Error::<Test, _>::PayoutError
+			);
+		});
+}
+
+#[test]
+fn category_spend_with_unknown_category() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// Try to spend from a non-existent category
+		let category = b"GBP*".to_vec(); // No GBP assets defined
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		// Should fail during conversion because category has no assets
+		assert_noop!(
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Category(bounded_category)),
+				10,
+				Box::new(6),
+				None
+			),
+			Error::<Test, _>::EmptyAssetCategory
+		);
+	});
+}
+
+#[test]
+fn mixed_specific_and_category_spends() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 100)
+		.with_asset_balance(2, 100)
+		.with_asset_balance(4, 100)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			// Specific asset spend
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Specific(4)),
+				25,
+				Box::new(7),
+				None
+			));
+
+			// Category spend
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				30,
+				Box::new(8),
+				None
+			));
+
+			// Payout specific spend
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+			assert_eq!(paid(7, 4), 25);
+
+			// Payout category spend
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+
+			// Category spend should use USD assets
+			let paid_usd = paid(8, 1) + paid(8, 2);
+			assert_eq!(paid_usd, 30);
+
+			// Check counts
+			assert_eq!(SpendCount::<Test, _>::get(), 2);
+			assert_eq!(Spends::<Test, _>::iter().count(), 2);
+		});
+}
+
+#[test]
+fn category_check_status_with_multiple_executions() {
+	ExtBuilder::default()
+		.with_asset_balance(1, 20)
+		.with_asset_balance(2, 20)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"USD*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			// Request 40 USD* from a 40 USD* pool
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				40,
+				Box::new(6),
+				None
+			));
+
+			// Payout the spend
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+			// Get payment IDs
+			let payment_ids = get_all_payment_ids(0);
+			assert_eq!(payment_ids.len(), 2);
+
+			assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		});
+}
+
+#[test]
+fn category_spend_with_custom_category() {
+	ExtBuilder::default()
+		.with_category_assets(b"STABLE*", vec![10, 11, 12])
+		.with_asset_balance(10, 50)
+		.with_asset_balance(11, 30)
+		.with_asset_balance(12, 20)
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"STABLE*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			// Request 80 USD* from a 100 USD* pool
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(14),
+				Box::new(SpendAsset::Category(bounded_category)),
+				80,
+				Box::new(6),
+				None
+			));
+
+			// Payout - uses 2 out of 3 assets
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+			assert_eq!(paid(6, 10), 50);
+			assert_eq!(paid(6, 11), 30);
+			assert_eq!(paid(6, 12), 0);
+
+			let spend = Spends::<Test, _>::get(0).unwrap();
+			match &spend.status {
+				PaymentState::Attempted { executions, remaining_amount } => {
+					assert_eq!(executions.len(), 2);
+					assert_eq!(*remaining_amount, 0);
+				},
+				_ => panic!("Expected Attempted status"),
+			}
+		});
+}
+
+#[test]
+fn category_spend_respects_spend_origin_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let category = b"USD*".to_vec();
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(SpendAsset::Category(bounded_category.clone())),
+			2,
+			Box::new(6),
+			None
+		));
+
+		assert_noop!(
+			Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(SpendAsset::Category(bounded_category)),
+				3,
+				Box::new(6),
+				None
+			),
+			Error::<Test, _>::InsufficientPermission
+		);
+	});
+}
+
+#[test]
+fn category_spend_with_empty_category_assets() {
+	ExtBuilder::default()
+		.with_category_assets(b"EMPTY*", vec![]) // Empty category
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let category = b"EMPTY*".to_vec();
+			let bounded_category: BoundedVec<u8, ConstU32<32>> =
+				BoundedVec::try_from(category.clone()).unwrap();
+
+			assert_noop!(
+				Treasury::spend(
+					RuntimeOrigin::signed(14),
+					Box::new(SpendAsset::Category(bounded_category)),
+					10,
+					Box::new(6),
+					None
+				),
+				Error::<Test, _>::EmptyAssetCategory
+			);
+		});
+}
+
+#[test]
+fn category_spend_cannot_void_after_payout() {
+	ExtBuilder::default().with_asset_balance(1, 50).build().execute_with(|| {
+		System::set_block_number(1);
+
+		let category = b"USD*".to_vec();
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(14),
+			Box::new(SpendAsset::Category(bounded_category)),
+			50,
+			Box::new(6),
+			None
+		));
+
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+		// Cannot void after payout
+		assert_noop!(
+			Treasury::void_spend(RuntimeOrigin::root(), 0),
+			Error::<Test, _>::AlreadyAttempted
+		);
+	});
+}
+
+#[test]
+fn category_spend_expiry_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
+
+		System::set_block_number(1);
+		let category = b"USD*".to_vec();
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		// Create category spend
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(14),
+			Box::new(SpendAsset::Category(bounded_category)),
+			50,
+			Box::new(6),
+			None
+		));
+
+		// Should expire after 5 blocks
+		System::set_block_number(6);
+		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::SpendExpired);
+	});
+}
+
+#[test]
+fn category_spend_valid_from_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let category = b"USD*".to_vec();
+		let bounded_category: BoundedVec<u8, ConstU32<32>> =
+			BoundedVec::try_from(category.clone()).unwrap();
+
+		// Create category spend valid from block 3
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(14),
+			Box::new(SpendAsset::Category(bounded_category)),
+			50,
+			Box::new(6),
+			Some(3)
+		));
+
+		// Cannot payout before valid_from
+		System::set_block_number(2);
+		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::EarlyPayout);
+
+		// Can payout at valid_from
+		System::set_block_number(3);
+
+		set_asset_balance(1, 50);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+
+		assert_eq!(paid(6, 1), 50);
+
+		let spend = Spends::<Test, _>::get(0).unwrap();
+		match &spend.status {
+			PaymentState::Attempted { executions, remaining_amount } => {
+				assert_eq!(executions.len(), 1);
+				assert_eq!(*remaining_amount, 0);
+			},
+			_ => panic!("Expected Attempted status"),
+		}
 	});
 }
