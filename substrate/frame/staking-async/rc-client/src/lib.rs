@@ -118,13 +118,8 @@
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use core::fmt::Display;
-use frame_support::{
-	pallet_prelude::*, storage::transactional::with_transaction_opaque_err, Parameter,
-};
-use sp_runtime::{
-	traits::{Convert, MaybeSerializeDeserialize, Member, OpaqueKeys},
-	Perbill, TransactionOutcome,
-};
+use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
+use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
@@ -774,13 +769,6 @@ pub mod pallet {
 		///
 		/// Must be < SessionsPerEra.
 		type ValidatorSetExportSession: Get<SessionIndex>;
-
-		/// The relay chain session keys type.
-		///
-		/// This should match the SessionKeys type on the Relay Chain. Each runtime
-		/// must define its own keys type (e.g., `RCSessionKeys`) that mirrors the
-		/// Relay Chain's `SessionKeys` structure.
-		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
 	}
 
 	#[pallet::error]
@@ -961,8 +949,12 @@ pub mod pallet {
 
 		/// Set session keys for a validator. Keys are immediately forwarded to RelayChain.
 		///
-		/// The keys are encoded and sent via XCM to the Relay Chain's `ah-client` pallet,
+		/// The keys are sent via XCM to the Relay Chain's `ah-client` pallet,
 		/// which will then forward them to `pallet_session`.
+		///
+		/// Keys are accepted as raw bytes (output of `author_rotateKeys`) to avoid adding
+		/// dependencies on specific key types (grandpa, beefy, etc.). The Relay Chain's
+		/// `pallet_session` will decode and validate the keys.
 		///
 		/// Note: No deposit is currently required. Deposit handling will be added once direct
 		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
@@ -971,17 +963,14 @@ pub mod pallet {
 			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
 			T::DbWeight::get().reads(1)
 		)]
-		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
+		pub fn set_keys(origin: OriginFor<T>, keys: Vec<u8>, proof: Vec<u8>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
-			// Encode keys as bytes for XCM transport
-			let keys_encoded = keys.encode();
-
 			// Forward keys to RC via XCM
-			T::SendToRelayChain::set_keys(stash.clone(), keys_encoded, proof)
+			T::SendToRelayChain::set_keys(stash.clone(), keys, proof)
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
 
 			log::info!(target: LOG_TARGET, "Session keys set for {stash:?}, forwarded to RC");
