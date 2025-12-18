@@ -950,14 +950,18 @@ pub mod pallet {
 		/// Set session keys for a validator. Keys are immediately forwarded to RelayChain.
 		///
 		/// The keys are sent via XCM to the Relay Chain's `ah-client` pallet,
-		/// which will then forward them to `pallet_session`.
+		/// which will then forward them to `pallet_session`. This is a fire-and-forget approach:
+		/// no XCM round-trip confirmation is performed to avoid additional complexity (and extra
+		/// cost on caller's side who would have to pay for that).
 		///
 		/// Keys are accepted as raw bytes (output of `author_rotateKeys`) to avoid adding
 		/// dependencies on specific key types (grandpa, beefy, etc.). The Relay Chain's
 		/// `pallet_session` will decode and validate the keys.
 		///
-		/// Note: No deposit is currently required. Deposit handling will be added once direct
-		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
+		/// Note: no deposit is currently required. Deposit handling may be introduced once direct
+		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled. However, it might not be
+		/// necessary at all, as only validators can set keys, and they are already required to
+		/// maintain a minimum validator bond.
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
@@ -982,8 +986,7 @@ pub mod pallet {
 		///
 		/// This purges the keys from the Relay Chain.
 		///
-		/// Note: No deposit is currently held/released. Deposit handling will be added once
-		/// direct `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
+		/// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
