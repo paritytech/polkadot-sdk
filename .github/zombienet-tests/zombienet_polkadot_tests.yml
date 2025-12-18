@@ -1,10 +1,8 @@
 # Functional tests using traditional zombienet
 - job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
-  test-definition: "0001-parachains-pvf.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::parachains_pvf::parachains_pvf_test"
   runner-type: "default"
-  concurrency: 1
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
   test-definition: "0002-parachains-disputes.zndsl"
