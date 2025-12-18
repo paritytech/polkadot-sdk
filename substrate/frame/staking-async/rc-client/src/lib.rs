@@ -596,6 +596,11 @@ pub trait AHStakingInterface {
 	///
 	/// Returns the first session index of the currently active era.
 	fn active_era_start_session_index() -> SessionIndex;
+
+	/// Check if an account is a registered validator.
+	///
+	/// Returns true if the account has called `validate()` and is in the `Validators` storage.
+	fn is_validator(who: &Self::AccountId) -> bool;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -782,6 +787,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Failed to send XCM message to the Relay Chain.
 		XcmSendFailed,
+		/// The caller is not a registered validator.
+		NotValidator,
 	}
 
 	#[pallet::event]
@@ -961,12 +968,14 @@ pub mod pallet {
 		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
 		#[pallet::call_index(10)]
 		#[pallet::weight(
-			// No local storage operations - this extrinsic only forwards keys to RelayChain
-			// via XCM.
-			T::DbWeight::get().reads_writes(0, 0)
+			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
+			T::DbWeight::get().reads(1)
 		)]
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+
+			// Only registered validators can set session keys
+			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
 			// Encode keys as bytes for XCM transport
 			let keys_encoded = keys.encode();
@@ -988,12 +997,14 @@ pub mod pallet {
 		/// direct `set_keys`/`purge_keys` calls on the Relay Chain are disabled.
 		#[pallet::call_index(11)]
 		#[pallet::weight(
-			// No local storage operations - this extrinsic only forwards the purge request
-			// to RelayChain via XCM.
-			T::DbWeight::get().reads_writes(0, 0)
+			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
+			T::DbWeight::get().reads(1)
 		)]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+
+			// Only registered validators can purge session keys
+			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
 			// Forward purge request to RC via XCM
 			T::SendToRelayChain::purge_keys(stash.clone())

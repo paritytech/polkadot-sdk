@@ -1333,6 +1333,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn active_era_start_session_index() -> SessionIndex {
 		Rotator::<T>::active_era_start_session_index()
 	}
+
+	fn is_validator(who: &Self::AccountId) -> bool {
+		Validators::<T>::contains_key(who)
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
