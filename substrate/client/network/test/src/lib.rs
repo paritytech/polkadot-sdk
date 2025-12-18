@@ -674,7 +674,7 @@ impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
 		self.genesis_hash
 	}
 
-    fn status_text(&self) -> Option<String> {
+    fn status(&self) -> Option<String> {
         None
     }
 }
