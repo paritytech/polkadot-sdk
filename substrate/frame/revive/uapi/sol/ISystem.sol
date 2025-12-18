@@ -51,4 +51,12 @@ interface ISystem {
 	/// - called from delegate context
 	/// - the contract introduced balance locks
 	function terminate(address beneficiary) external;
+
+	/// Verify a sr25519 signature
+	///
+	/// # Parameters
+	///
+	/// - `signature`: The signature bytes.
+	/// - `message`: The message bytes.
+	function sr25519Verify(uint8[64] calldata signature, bytes calldata message, bytes32 publicKey) external view returns (bool);
 }
