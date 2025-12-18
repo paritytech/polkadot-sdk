@@ -1397,7 +1397,6 @@ dependencies = [
  "pallet-staking-async",
  "pallet-staking-async-rc-client",
  "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
