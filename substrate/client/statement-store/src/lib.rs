@@ -51,25 +51,32 @@ mod metrics;
 
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 
+use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_keystore::LocalKeystore;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
+use sp_core::{
+	crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Bytes, Decode, Encode,
+};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, Proof, RejectionReason,
-	Result, Statement, SubmitResult, Topic,
+	AccountId, BlockHash, Channel, CheckedTopicFilter, DecryptionKey, Hash, InvalidReason, Proof,
+	RejectionReason, Result, Statement, SubmitResult, Topic, MAX_ANY_TOPICS,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::Arc,
 };
+
+pub use subscription::StatementStoreSubscriptionApi;
+
+mod subscription;
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 1;
@@ -88,6 +95,9 @@ pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 pub const MAX_STATEMENT_SIZE: usize =
 	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
+/// Number of subscription filter worker tasks.
+const NUM_FILTER_WORKERS: usize = 4;
+
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
 mod col {
@@ -99,7 +109,7 @@ mod col {
 }
 
 #[derive(Eq, PartialEq, Debug, Ord, PartialOrd, Clone, Copy)]
-struct Priority(u32);
+struct Priority(u64);
 
 #[derive(PartialEq, Eq)]
 struct PriorityKey {
@@ -202,6 +212,7 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
+	subscription_manager: SubscriptionsHandle,
 	validate_fn: Box<
 		dyn Fn(
 				Option<BlockHash>,
@@ -241,7 +252,7 @@ impl Index {
 		if nt > 0 || key.is_some() {
 			self.topics_and_keys.insert(hash, (all_topics, key));
 		}
-		let priority = Priority(statement.priority().unwrap_or(0));
+		let priority = Priority(statement.expiry());
 		self.entries.insert(hash, (account, priority, statement.data_len()));
 		self.recent.insert(hash);
 		self.total_size += statement.data_len();
@@ -270,6 +281,69 @@ impl Index {
 	}
 
 	fn iterate_with(
+		&self,
+		key: Option<DecryptionKey>,
+		topic: &CheckedTopicFilter,
+		f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		match topic {
+			CheckedTopicFilter::Any => self.iterate_with_any(key, f),
+			CheckedTopicFilter::MatchAll(topics) => self.iterate_with_match_all(key, topics, f),
+			CheckedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
+		}
+	}
+
+	fn iterate_with_match_any(
+		&self,
+		key: Option<DecryptionKey>,
+		match_any_topics: &[Topic],
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		if match_any_topics.len() > MAX_ANY_TOPICS {
+			return Ok(())
+		}
+
+		let key_set = self.by_dec_key.get(&key);
+		if key_set.map_or(0, |s| s.len()) == 0 {
+			// Key does not exist in the index.
+			return Ok(())
+		}
+
+		for t in match_any_topics.iter() {
+			let set = self.by_topic.get(t);
+
+			for item in set.iter().map(|set| set.iter()).flatten() {
+				if key_set.map_or(false, |s| s.contains(item)) {
+					log::trace!(
+						target: LOG_TARGET,
+						"Iterating by topic/key: statement {:?}",
+						HexDisplay::from(item)
+					);
+					f(item)?
+				}
+			}
+		}
+		Ok(())
+	}
+
+	fn iterate_with_any(
+		&self,
+		key: Option<DecryptionKey>,
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		let key_set = self.by_dec_key.get(&key);
+		if key_set.map_or(0, |s| s.len()) == 0 {
+			// Key does not exist in the index.
+			return Ok(())
+		}
+
+		for item in key_set.map(|hashes| hashes.iter()).into_iter().flatten() {
+			f(item)?
+		}
+		Ok(())
+	}
+
+	fn iterate_with_match_all(
 		&self,
 		key: Option<DecryptionKey>,
 		match_all_topics: &[Topic],
@@ -399,7 +473,7 @@ impl Index {
 
 		let mut evicted = HashSet::new();
 		let mut would_free_size = 0;
-		let priority = Priority(statement.priority().unwrap_or(0));
+		let priority = Priority(statement.expiry());
 		let (max_size, max_count) = (validation.max_size as usize, validation.max_count as usize);
 		// It may happen that we can't delete enough lower priority messages
 		// to satisfy size constraints. We check for that before deleting anything,
@@ -417,8 +491,8 @@ impl Index {
 							channel_record.priority,
 						);
 						return Err(RejectionReason::ChannelPriorityTooLow {
-							submitted_priority: priority.0,
-							min_priority: channel_record.priority.0,
+							submitted_expiry: priority.0,
+							min_expiry: channel_record.priority.0,
 						});
 					} else {
 						// Would replace channel message. Still need to check for size constraints
@@ -463,8 +537,8 @@ impl Index {
 						entry.priority,
 					);
 					return Err(RejectionReason::AccountFull {
-						submitted_priority: priority.0,
-						min_priority: entry.priority.0,
+						submitted_expiry: priority.0,
+						min_expiry: entry.priority.0,
 					});
 				}
 				evicted.insert(entry.hash);
@@ -502,7 +576,7 @@ impl Store {
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
-		task_spawner: &dyn SpawnNamed,
+		task_spawner: Box<dyn SpawnNamed>,
 	) -> Result<Arc<Store>>
 	where
 		Block: BlockT,
@@ -510,7 +584,8 @@ impl Store {
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
-		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
+		let store =
+			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -538,6 +613,7 @@ impl Store {
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
+		task_spawner: Box<dyn SpawnNamed>,
 	) -> Result<Store>
 	where
 		Block: BlockT,
@@ -588,6 +664,10 @@ impl Store {
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
+			subscription_manager: SubscriptionsHandle::new(
+				task_spawner.clone(),
+				NUM_FILTER_WORKERS,
+			),
 		};
 		store.populate()?;
 		Ok(store)
@@ -645,15 +725,15 @@ impl Store {
 		Ok(())
 	}
 
-	fn collect_statements<R>(
+	fn collect_statements_locked<R>(
 		&self,
 		key: Option<DecryptionKey>,
-		match_all_topics: &[Topic],
+		topic_filter: &CheckedTopicFilter,
+		index: &Index,
+		result: &mut Vec<R>,
 		mut f: impl FnMut(Statement) -> Option<R>,
-	) -> Result<Vec<R>> {
-		let mut result = Vec::new();
-		let index = self.index.read();
-		index.iterate_with(key, match_all_topics, |hash| {
+	) -> Result<()> {
+		index.iterate_with(key, topic_filter, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
 					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
@@ -680,6 +760,18 @@ impl Store {
 			}
 			Ok(())
 		})?;
+		Ok(())
+	}
+
+	fn collect_statements<R>(
+		&self,
+		key: Option<DecryptionKey>,
+		topic_filter: &CheckedTopicFilter,
+		f: impl FnMut(Statement) -> Option<R>,
+	) -> Result<Vec<R>> {
+		let mut result = Vec::new();
+		let index = self.index.read();
+		self.collect_statements_locked(key, topic_filter, &index, &mut result, f)?;
 		Ok(result)
 	}
 
@@ -736,45 +828,49 @@ impl Store {
 		// Map the statement and the decrypted data to the desired result.
 		mut map_f: impl FnMut(Statement, Vec<u8>) -> R,
 	) -> Result<Vec<R>> {
-		self.collect_statements(Some(dest), match_all_topics, |statement| {
-			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
-				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
-				let public: sp_statement_store::ed25519::Public = public.into();
-				match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
-					Err(e) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore error: {:?}, for statement {:?}",
-							e,
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(None) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore is missing key for statement {:?}",
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
-						Ok(r) => r.map(|data| map_f(statement, data)),
+		self.collect_statements(
+			Some(dest),
+			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			|statement| {
+				if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
+					let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
+					let public: sp_statement_store::ed25519::Public = public.into();
+					match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
 						Err(e) => {
 							log::debug!(
 								target: LOG_TARGET,
-								"Decryption error: {:?}, for statement {:?}",
+								"Keystore error: {:?}, for statement {:?}",
 								e,
 								HexDisplay::from(&statement.hash())
 							);
 							None
 						},
-					},
+						Ok(None) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Keystore is missing key for statement {:?}",
+								HexDisplay::from(&statement.hash())
+							);
+							None
+						},
+						Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
+							Ok(r) => r.map(|data| map_f(statement, data)),
+							Err(e) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"Decryption error: {:?}, for statement {:?}",
+									e,
+									HexDisplay::from(&statement.hash())
+								);
+								None
+							},
+						},
+					}
+				} else {
+					None
 				}
-			} else {
-				None
-			}
-		})
+			},
+		)
 	}
 }
 
@@ -851,14 +947,22 @@ impl StatementStore for Store {
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(None, match_all_topics, |statement| statement.into_data())
+		self.collect_statements(
+			None,
+			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			|statement| statement.into_data(),
+		)
 	}
 
 	/// Return the data of all known statements whose decryption key is identified as `dest` (this
 	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
 	/// private key for symmetric ciphers).
 	fn posted(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(Some(dest), match_all_topics, |statement| statement.into_data())
+		self.collect_statements(
+			Some(dest),
+			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			|statement| statement.into_data(),
+		)
 	}
 
 	/// Return the decrypted data of all known statements whose decryption key is identified as
@@ -870,14 +974,22 @@ impl StatementStore for Store {
 	/// Return all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(None, match_all_topics, |statement| Some(statement.encode()))
+		self.collect_statements(
+			None,
+			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			|statement| Some(statement.encode()),
+		)
 	}
 
 	/// Return all known statements whose decryption key is identified as `dest` (this
 	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
 	/// private key for symmetric ciphers).
 	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(Some(dest), match_all_topics, |statement| Some(statement.encode()))
+		self.collect_statements(
+			Some(dest),
+			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			|statement| Some(statement.encode()),
+		)
 	}
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
@@ -898,6 +1010,15 @@ impl StatementStore for Store {
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let hash = statement.hash();
+		// Get unix timestamp
+		if self.timestamp() >= statement.get_expiration_timestamp_secs().into() {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is already expired: {:?}",
+				HexDisplay::from(&hash),
+			);
+			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
+		}
 		let encoded_size = statement.encoded_size();
 		if encoded_size > MAX_STATEMENT_SIZE {
 			log::debug!(
@@ -942,6 +1063,7 @@ impl StatementStore for Store {
 			None
 		};
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
+
 		let validation = match validation_result {
 			Ok(validation) => validation,
 			Err(InvalidStatement::BadProof) => {
@@ -991,6 +1113,7 @@ impl StatementStore for Store {
 				);
 				return SubmitResult::InternalError(Error::Db(e.to_string()))
 			}
+			self.subscription_manager.notify(statement);
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
@@ -1049,15 +1172,39 @@ impl StatementStore for Store {
 	}
 }
 
+impl StatementStoreSubscriptionApi for Store {
+	fn subscribe_statement(
+		&self,
+		topic_filter: CheckedTopicFilter,
+	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)> {
+		// Keep the index read lock until after we have subscribed to avoid missing statements.
+		let mut existing_statements = Vec::new();
+		let (subscription_sender, subscription_stream) = {
+			let index = self.index.read();
+			self.collect_statements_locked(
+				None,
+				&topic_filter,
+				&index,
+				&mut existing_statements,
+				|statement| Some(statement.encode()),
+			)?;
+			self.subscription_manager.subscribe(topic_filter, existing_statements.len())
+		};
+		Ok((existing_statements, subscription_sender, subscription_stream))
+	}
+}
+
 #[cfg(test)]
 mod tests {
+	use core::num;
+
 	use crate::Store;
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, CheckedTopicFilter, DecryptionKey, Proof, SignatureVerificationResult,
+		Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1152,11 +1299,19 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = Store::new(
+			&path,
+			Default::default(),
+			client,
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
 	}
 
-	fn signed_statement(data: u8) -> Statement {
+	pub fn signed_statement(data: u8) -> Statement {
 		signed_statement_with_topics(data, &[], None)
 	}
 
@@ -1167,6 +1322,8 @@ mod tests {
 	) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_plain_data(vec![data]);
+		statement.set_expiry(u64::MAX);
+
 		for i in 0..topics.len() {
 			statement.set_topic(i, topics[i]);
 		}
@@ -1207,7 +1364,7 @@ mod tests {
 		let mut data = Vec::new();
 		data.resize(data_len, 0);
 		statement.set_plain_data(data);
-		statement.set_priority(priority);
+		statement.set_expiry_from_parts(u32::MAX, priority);
 		if let Some(c) = c {
 			statement.set_channel(channel(c));
 		}
@@ -1246,7 +1403,15 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = Store::new(
+			&path,
+			Default::default(),
+			client,
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
@@ -1450,7 +1615,15 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store = Store::new(
+			&path,
+			Default::default(),
+			client,
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
 		assert_eq!(store.index.read().expired.len(), 0);
 	}

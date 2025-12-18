@@ -19,25 +19,10 @@
 //! Substrate Statement Store RPC API.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
-use sp_statement_store::SubmitResult;
+use sp_statement_store::{SubmitResult, TopicFilter};
 
 pub mod error;
-
-/// Filter for subscribing to statements with different topics.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TopicFilter {
-	/// Matches all topics.
-	Any,
-	/// Matches only statements including all of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
-	MatchAll(Vec<Bytes>),
-	/// Matches statements including any of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
-	MatchAny(Vec<Bytes>),
-}
 
 /// Substrate statement RPC API
 #[rpc(client, server)]

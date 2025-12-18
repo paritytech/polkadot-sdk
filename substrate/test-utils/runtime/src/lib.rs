@@ -46,10 +46,12 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::Ss58Codec;
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
-
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
+use sp_statement_store::{
+	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
+	Proof, SignatureVerificationResult, Statement,
+};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
@@ -822,6 +824,26 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<PresetId> {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
+		}
+	}
+
+	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+		fn validate_statement(
+			_source: StatementSource,
+			statement: Statement,
+		) -> core::result::Result<ValidStatement, InvalidStatement> {
+			match statement.verify_signature() {
+				SignatureVerificationResult::Valid(_) =>
+					Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
+				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				SignatureVerificationResult::NoSignature => {
+					if let Some(Proof::OnChain { block_hash: _, .. }) = statement.proof() {
+							Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+					} else {
+						Err(InvalidStatement::BadProof)
+					}
+				},
+			}
 		}
 	}
 }
