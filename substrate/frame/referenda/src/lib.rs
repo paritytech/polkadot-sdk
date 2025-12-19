@@ -140,7 +140,7 @@ pub mod pallet {
 	/// A reason for holding funds.
 	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum HoldReason<I: 'static = ()> {
 		/// The account has deposited tokens to place a decision deposit.
 		DecisionDeposit,
 	}
@@ -174,8 +174,8 @@ pub mod pallet {
 		type NativeBalance: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
-			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
-			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
+			+ InspectHold<Self::AccountId, Reason: From<HoldReason<I>>>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason<I>>>;
 		// Origins and unbalances.
 		/// Origin from which proposals may be submitted.
 		type SubmitOrigin: EnsureOriginWithArg<
@@ -1302,7 +1302,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		amount: BalanceOf<T, I>,
 	) -> Result<Deposit<T::AccountId, BalanceOf<T, I>>, DispatchError> {
-		T::NativeBalance::hold(&HoldReason::DecisionDeposit.into(), &who, amount)?;
+		T::NativeBalance::hold(&HoldReason::<I>::DecisionDeposit.into(), &who, amount)?;
 		Ok(Deposit { who, amount })
 	}
 
@@ -1312,7 +1312,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
 			T::NativeBalance::release(
-				&HoldReason::DecisionDeposit.into(),
+				&HoldReason::<I>::DecisionDeposit.into(),
 				&who,
 				amount,
 				Precision::BestEffort,
@@ -1327,7 +1327,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
 			T::NativeBalance::burn_held(
-				&HoldReason::DecisionDeposit.into(),
+				&HoldReason::<I>::DecisionDeposit.into(),
 				&who,
 				amount,
 				Precision::Exact,
