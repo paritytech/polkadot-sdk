@@ -249,6 +249,7 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
+			time_hashing: 0,
 		};
 
 		Ok(handler)
@@ -285,6 +286,7 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	pub time_hashing: u64,
 }
 
 /// Peer information
@@ -335,6 +337,7 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
+			time_hashing: 0,
 		}
 	}
 
@@ -469,6 +472,8 @@ where
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
 			for s in statements {
+				let start = std::time::Instant::now();
+
 				if self.pending_statements.len() > MAX_PENDING_STATEMENTS {
 					log::debug!(
 						target: LOG_TARGET,
@@ -481,7 +486,6 @@ where
 					});
 					break
 				}
-
 				let hash = s.hash();
 				peer.known_statements.insert(hash);
 
@@ -506,6 +510,8 @@ where
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
+						self.time_hashing += start.elapsed().as_nanos() as u64;
+
 						let (completion_sender, completion_receiver) = oneshot::channel();
 						match self.queue_sender.try_send((s, completion_sender)) {
 							Ok(()) => {
@@ -533,6 +539,8 @@ where
 						}
 					},
 					Entry::Occupied(mut entry) => {
+						self.time_hashing += start.elapsed().as_nanos() as u64;
+
 						if !entry.get_mut().insert(who) {
 							// Already received this from the same peer.
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
@@ -1000,6 +1008,7 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
+			time_hashing: 0,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}

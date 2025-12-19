@@ -36,7 +36,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lparachain=debug".into(),
+					"-lstatement-gossip=trace,statement-store=trace".into(),
 					"--enable-statement-store".into(),
 				])
 				.with_collator(|n| n.with_name("charlie"))

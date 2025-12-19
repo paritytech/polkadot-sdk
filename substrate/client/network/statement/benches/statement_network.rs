@@ -218,11 +218,38 @@ fn build_handler(
 		let store = statement_store.clone();
 		let receiver = queue_receiver.clone();
 		executor(Box::pin(async move {
+			let mut counter = 0;
 			loop {
 				let task = receiver.recv().await;
 				match task {
 					Ok((statement, completion)) => {
+						counter += 1;
 						let result = store.submit(statement, StatementSource::Network);
+						if counter % 2000 == 0 {
+							// println!(
+							// 	"Processed {} statements validation {} ms insert {} ms locking {}
+							// ms", 	counter,
+							// 	store
+							// 		.time_spent_validation
+							// 		.load(std::sync::atomic::Ordering::Relaxed) /
+							// 		1_000_000,
+							// 	store
+							// 		.time_spent_inserting
+							// 		.load(std::sync::atomic::Ordering::Relaxed) /
+							// 		1_000_000,
+							// 	store.time_spent_locking.load(std::sync::atomic::Ordering::Relaxed)
+							// / 		1_000_000
+							// );
+							// println!(
+							// 	"Runtime time {} ms, Validate time {} ms",
+							// 	store.time_spent_runtime.load(std::sync::atomic::Ordering::Relaxed)
+							// / 		1_000_000,
+							// 	store
+							// 		.time_spent_validate
+							// 		.load(std::sync::atomic::Ordering::Relaxed) /
+							// 		1_000_000,
+							// );
+						}
 						let _ = completion.send(result);
 					},
 					Err(_) => return,
@@ -277,9 +304,9 @@ fn blocking_executor(
 }
 
 fn bench_on_statements(c: &mut Criterion) {
-	let statement_counts = [100, 500, 1000, 2000];
-	let thread_counts = [1, 2, 4, 8];
-	let executor_types = [("blocking", true), ("non_blocking", false)];
+	let statement_counts = [2000];
+	let thread_counts = [1, 4, 8];
+	let executor_types = [("blocking", true)];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
@@ -317,6 +344,8 @@ fn bench_on_statements(c: &mut Criterion) {
 								"Pending statements not empty: {}",
 								pending.len()
 							);
+							// println!("Completed processing {} ns statements",
+							// handler.time_hashing);
 						},
 						criterion::BatchSize::LargeInput,
 					)

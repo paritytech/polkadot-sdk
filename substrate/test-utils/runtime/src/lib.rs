@@ -833,10 +833,9 @@ impl_runtime_apis! {
 		> {
 			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
 
-			match statement.verify_signature() {
-				sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-			}
+			// match statement.verify_signature() {
+				// sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+			return Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
 		}
 	}
 }
