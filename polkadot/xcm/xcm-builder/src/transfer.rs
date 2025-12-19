@@ -346,11 +346,6 @@ fn remote_transfer_xcm_paying_fees(
 		WithdrawAsset(vec![remote_fee.clone()].into()),
 		PayFees { asset: remote_fee },
 		SetAppendix(Xcm(vec![
-			ReportError(QueryResponseInfo {
-				destination: origin_relative_to_remote.clone(),
-				query_id,
-				max_weight: Weight::MAX,
-			}),
 			RefundSurplus,
 			DepositAsset { assets: AssetFilter::Wild(WildAsset::All), beneficiary: from_at_target },
 		])),
