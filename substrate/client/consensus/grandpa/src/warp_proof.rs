@@ -27,6 +27,7 @@ use sc_client_api::Backend as ClientBackend;
 use sc_network_sync::strategy::warp::{
 	EncodedProof, VerificationResult, Verifier, WarpSyncProvider,
 };
+use sp_arithmetic::traits::Zero;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -34,7 +35,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, One},
 	Justifications,
 };
-use sp_arithmetic::traits::Zero;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -292,7 +292,7 @@ struct VerifierState<Block: BlockT> {
 struct GrandpaVerifier<Block: BlockT> {
 	state: VerifierState<Block>,
 	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
-    eras_synced: u64,
+	eras_synced: u64,
 }
 
 impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
@@ -325,8 +325,8 @@ where
 			next_proof_context: last_header.hash(),
 		};
 
-        // Track eras synced
-        self.eras_synced += proof.proofs.len() as u64;
+		// Track eras synced
+		self.eras_synced += proof.proofs.len() as u64;
 
 		let justifications = proof
 			.proofs
@@ -349,14 +349,13 @@ where
 		self.state.next_proof_context
 	}
 
-  
-    fn status(&self) -> Option<String> {
-        if self.eras_synced > 0 {
-            Some(format!("{} eras synced", self.eras_synced))
-        } else {
-            None
-        }
-    }
+	fn status(&self) -> Option<String> {
+		if self.eras_synced > 0 {
+			Some(format!(" {} eras synced", self.eras_synced))
+		} else {
+			None
+		}
+	}
 }
 
 impl<Block: BlockT, Backend: ClientBackend<Block>> WarpSyncProvider<Block>
@@ -387,7 +386,7 @@ where
 				next_proof_context: genesis_hash,
 			},
 			hard_forks: self.hard_forks.clone(),
-            eras_synced: Zero::zero(),
+			eras_synced: Zero::zero(),
 		})
 	}
 }

@@ -107,11 +107,12 @@ impl<B: BlockT> InformantDisplay<B> {
 				(_, _, Some(warp))
 					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
 				{
-                    let mut progress_text = format!(", {:.2} Mib", (warp.total_bytes as f32) / (1024f32 * 1024f32));
+					let mut progress_text =
+						format!(" {:.2} Mib", (warp.total_bytes as f32) / (1024f32 * 1024f32));
 
-                    if let Some(ref status) = warp.status {
-                        progress_text = format!("{}, {}", status, progress_text);
-                    }
+					if let Some(ref status) = warp.status {
+						progress_text = format!("{}, {}", status, progress_text);
+					}
 
 					("⏩", "Warping".into(), progress_text)
 				},
