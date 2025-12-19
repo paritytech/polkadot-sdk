@@ -2739,6 +2739,7 @@ mod tests {
 		signature_verify_test!(ecdsa);
 	}
 
+	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_verify_works() {
 		signature_verify_test!(ecdsa_bls381);
