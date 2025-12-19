@@ -68,6 +68,43 @@ impl<P, Client> Author<P, Client> {
 	}
 }
 
+impl<P, Client> Author<P, Client>
+where
+	P: TransactionPool + Sync + Send + 'static,
+	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
+	Client::Api: SessionKeys<P::Block>,
+	P::Hash: Unpin,
+	<P::Block as BlockT>::Hash: Unpin,
+{
+	fn rotate_keys_impl(&self, owner: Vec<u8>) -> Result<GeneratedSessionKeys> {
+		let best_block_hash = self.client.info().best_hash;
+		let mut runtime_api = self.client.runtime_api();
+
+		runtime_api.register_extension(KeystoreExt::from(self.keystore.clone()));
+
+		let version = runtime_api
+			.api_version::<dyn SessionKeys<P::Block>>(best_block_hash)
+			.map_err(|api_err| Error::Client(Box::new(api_err)))?
+			.ok_or_else(|| Error::MissingSessionKeysApi)?;
+
+		if version < 2 {
+			#[allow(deprecated)]
+			runtime_api
+				.generate_session_keys_before_version_2(best_block_hash, None)
+				.map(|sk| GeneratedSessionKeys { keys: sk.into(), proof: None })
+				.map_err(|api_err| Error::Client(Box::new(api_err)).into())
+		} else {
+			runtime_api
+				.generate_session_keys(best_block_hash, owner, None)
+				.map(|sk| GeneratedSessionKeys {
+					keys: sk.keys.into(),
+					proof: Some(sk.proof.into()),
+				})
+				.map_err(|api_err| Error::Client(Box::new(api_err)).into())
+		}
+	}
+}
+
 /// Currently we treat all RPC transactions as externals.
 ///
 /// Possibly in the future we could allow opt-in for special treatment
@@ -117,15 +154,17 @@ where
 	fn rotate_keys(&self, ext: &Extensions) -> Result<Bytes> {
 		check_if_safe(ext)?;
 
-		let best_block_hash = self.client.info().best_hash;
-		let mut runtime_api = self.client.runtime_api();
+		self.rotate_keys_impl(Vec::new()).map(|k| k.keys)
+	}
 
-		runtime_api.register_extension(KeystoreExt::from(self.keystore.clone()));
+	fn rotate_keys_with_owner(
+		&self,
+		ext: &Extensions,
+		owner: Bytes,
+	) -> Result<GeneratedSessionKeys> {
+		check_if_safe(ext)?;
 
-		runtime_api
-			.generate_session_keys(best_block_hash, None)
-			.map(Into::into)
-			.map_err(|api_err| Error::Client(Box::new(api_err)).into())
+		self.rotate_keys_impl(owner.0)
 	}
 
 	fn has_session_keys(&self, ext: &Extensions, session_keys: Bytes) -> Result<bool> {
