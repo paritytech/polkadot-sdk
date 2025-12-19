@@ -1403,9 +1403,11 @@ mod session_keys {
 	use codec::Encode;
 	use frame_support::assert_noop;
 
-	// Helper to create properly encoded session keys that match AHSessionKeys
-	fn make_session_keys(value: u64) -> Vec<u8> {
-		AHSessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(value) }.encode()
+	/// Helper to create properly encoded session keys and ownership proof.
+	/// The `owner` is the account that will call `set_keys` (must match the signer).
+	fn make_session_keys_and_proof(owner: AccountId) -> (Vec<u8>, Vec<u8>) {
+		let generated = AHSessionKeys::generate(&owner.encode(), None);
+		(generated.keys.encode(), generated.proof.encode())
 	}
 
 	#[test]
@@ -1413,8 +1415,7 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 1 is a validator
 			let validator: AccountId = 1;
-			let keys = make_session_keys(42);
-			let proof = vec![];
+			let (keys, proof) = make_session_keys_and_proof(validator);
 
 			// WHEN: Validator sets session keys
 			// THEN: No error returned (keys forwarded to RC via XCM)
@@ -1431,8 +1432,7 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 100 is a nominator, not a validator
 			let nominator: AccountId = 100;
-			let keys = make_session_keys(42);
-			let proof = vec![];
+			let (keys, proof) = make_session_keys_and_proof(nominator);
 
 			// WHEN: Nominator tries to set keys
 			// THEN: NotValidator error is returned
@@ -1448,8 +1448,7 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator and XCM delivery set to fail
 			let validator: AccountId = 1;
-			let keys = make_session_keys(42);
-			let proof = vec![];
+			let (keys, proof) = make_session_keys_and_proof(validator);
 			NextRelayDeliveryFails::set(true);
 
 			// WHEN: set_keys fails with XcmSendFailed
@@ -1478,6 +1477,27 @@ mod session_keys {
 					proof,
 				),
 				rc_client::Error::<T>::InvalidKeys
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_invalid_proof() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with valid keys but wrong proof
+			let validator: AccountId = 1;
+			// Generate keys for a different account (2) so the proof is invalid for validator (1)
+			let (keys, wrong_proof) = make_session_keys_and_proof(2);
+
+			// WHEN: Validator tries to set keys with invalid proof
+			// THEN: InvalidProof error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					wrong_proof,
+				),
+				rc_client::Error::<T>::InvalidProof
 			);
 		});
 	}
@@ -1530,7 +1550,6 @@ mod session_keys {
 	#[test]
 	fn set_and_purge_keys_e2e() {
 		use crate::{rc, shared};
-		use codec::Encode;
 
 		// Set up both AH and RC states (no local_queue, so XCM messages flow through)
 		shared::put_ah_state(ExtBuilder::default().build());
@@ -1538,28 +1557,22 @@ mod session_keys {
 
 		let validator: AccountId = 1;
 
-		// Create valid encoded SessionKeys for RC
-		let rc_keys =
-			rc::SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
-		let encoded_keys = rc_keys.encode();
+		// Generate valid keys and proof for AH validation (must match AHSessionKeys structure)
+		let (encoded_keys, proof) = make_session_keys_and_proof(validator);
 
 		// WHEN: Validator sets keys on AH
 		shared::in_ah(|| {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				encoded_keys.clone(),
-				vec![],
+				proof.clone(),
 			));
 		});
 
-		// THEN: Keys are registered on RC
+		// THEN: Keys are registered on RC (RC uses UintAuthorityId directly)
 		shared::in_rc(|| {
 			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
 			assert!(next_keys.is_some(), "Keys should be set on RC");
-			assert_eq!(
-				next_keys.unwrap().other,
-				frame::deps::sp_runtime::testing::UintAuthorityId(42)
-			);
 		});
 
 		// WHEN: Validator purges keys on AH

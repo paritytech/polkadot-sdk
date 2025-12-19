@@ -1479,8 +1479,7 @@ mod session_keys {
 				// In mock, AssetHubOrigin = EnsureSigned, so any signed origin works.
 				// In production, this would be restricted to XCM from AssetHub.
 				let stash: AccountId = 1;
-				let keys1 =
-					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let keys1 = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 
 				// WHEN: Setting initial keys from AH.
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
@@ -1491,13 +1490,12 @@ mod session_keys {
 
 				// THEN: Keys are registered.
 				assert_eq!(
-					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap(),
 					frame::deps::sp_runtime::testing::UintAuthorityId(42)
 				);
 
 				// WHEN: Updating to different keys.
-				let keys2 =
-					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(99) };
+				let keys2 = frame::deps::sp_runtime::testing::UintAuthorityId(99);
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
 					RuntimeOrigin::signed(99),
 					stash,
@@ -1506,7 +1504,7 @@ mod session_keys {
 
 				// THEN: Keys are updated.
 				assert_eq!(
-					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap(),
 					frame::deps::sp_runtime::testing::UintAuthorityId(99)
 				);
 
@@ -1554,8 +1552,7 @@ mod session_keys {
 			.execute_with(|| {
 				// GIVEN: Valid stash and keys but an invalid origin (none).
 				let stash: AccountId = 1;
-				let keys =
-					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let keys = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 				let encoded_keys = keys.encode();
 
 				// WHEN: Using RuntimeOrigin::none() which is neither AssetHubOrigin nor root.
@@ -1608,8 +1605,7 @@ mod session_keys {
 			.execute_with(|| {
 				// GIVEN: Account 999 doesn't exist on RC (not funded, no reference count).
 				let nonexistent: AccountId = 999;
-				let keys =
-					SessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(42) };
+				let keys = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 				let encoded_keys = keys.encode();
 
 				// WHEN: Setting keys for a nonexistent account.

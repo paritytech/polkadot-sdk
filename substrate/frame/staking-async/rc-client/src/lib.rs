@@ -997,7 +997,10 @@ pub mod pallet {
 				T::SessionKeys::decode(&mut &keys[..]).map_err(|_| Error::<T>::InvalidKeys)?;
 
 			// Validate ownership proof
-			ensure!(session_keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
+			ensure!(
+				session_keys.ownership_proof_is_valid(&stash.encode(), &proof),
+				Error::<T>::InvalidProof
+			);
 
 			// Forward validated keys to RC (no proof needed, already validated)
 			T::SendToRelayChain::set_keys(stash.clone(), keys)
