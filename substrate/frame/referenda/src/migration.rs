@@ -733,11 +733,6 @@ pub mod test {
 			// Verify storage version updated to 2
 			assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 2);
 
-			// Note: In modern pallet-balances, holds ARE reserves under the hood.
-			// After migration, the funds are held with HoldReason::DecisionDeposit,
-			// which means they still appear in reserved_balance (since holds use the reserved
-			// mechanism). The key change is that now they are TRACKED with a specific reason.
-
 			// Verify holds are now in place with the correct reason
 			let submitter_held = <Balances<T> as InspectHold<u64>>::balance_on_hold(
 				&HoldReason::DecisionDeposit.into(),
