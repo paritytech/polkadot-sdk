@@ -163,6 +163,7 @@ std = [
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
+	"pallet-vaults?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting?/std",
 	"pallet-whitelist?/std",
@@ -211,6 +212,7 @@ std = [
 	"sp-mmr-primitives?/std",
 	"sp-npos-elections?/std",
 	"sp-offchain?/std",
+	"sp-pusd?/std",
 	"sp-runtime-interface?/std",
 	"sp-runtime?/std",
 	"sp-session?/std",
@@ -345,6 +347,7 @@ runtime-benchmarks = [
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
+	"pallet-vaults?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
@@ -489,6 +492,7 @@ try-runtime = [
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
+	"pallet-vaults?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting?/try-runtime",
 	"pallet-whitelist?/try-runtime",
@@ -717,6 +721,7 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-vaults",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-whitelist",
@@ -765,6 +770,7 @@ runtime-full = [
 	"sp-mmr-primitives",
 	"sp-npos-elections",
 	"sp-offchain",
+	"sp-pusd",
 	"sp-runtime",
 	"sp-runtime-interface",
 	"sp-runtime-interface-proc-macro",
@@ -1822,6 +1828,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/utility"
 
+[dependencies.pallet-vaults]
+default-features = false
+optional = true
+path = "../substrate/frame/vaults"
+
 [dependencies.pallet-verify-signature]
 default-features = false
 optional = true
@@ -2851,6 +2862,11 @@ path = "../substrate/primitives/maybe-compressed-blob"
 default-features = false
 optional = true
 path = "../substrate/primitives/panic-handler"
+
+[dependencies.sp-pusd]
+default-features = false
+optional = true
+path = "../substrate/primitives/pusd"
 
 [dependencies.sp-rpc]
 default-features = false

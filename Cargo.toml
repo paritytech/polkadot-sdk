@@ -474,6 +474,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/vaults",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/whitelist",
@@ -517,6 +518,7 @@ members = [
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
+	"substrate/primitives/pusd",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
@@ -1079,6 +1081,7 @@ pallet-treasury = { path = "substrate/frame/treasury", default-features = false 
 pallet-tx-pause = { default-features = false, path = "substrate/frame/tx-pause" }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-vaults = { path = "substrate/frame/vaults", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
@@ -1356,6 +1359,7 @@ sp-mmr-primitives = { path = "substrate/primitives/merkle-mountain-range", defau
 sp-npos-elections = { path = "substrate/primitives/npos-elections", default-features = false }
 sp-offchain = { path = "substrate/primitives/offchain", default-features = false }
 sp-panic-handler = { path = "substrate/primitives/panic-handler", default-features = false }
+sp-pusd = { path = "substrate/primitives/pusd", default-features = false }
 sp-rpc = { path = "substrate/primitives/rpc", default-features = false }
 sp-runtime = { path = "substrate/primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "substrate/primitives/runtime-interface", default-features = false }
