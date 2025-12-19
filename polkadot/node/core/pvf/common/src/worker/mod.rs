@@ -82,7 +82,7 @@ macro_rules! decl_worker_main {
 					println!("{}", get_full_version());
 					return
 				},
-				"--check-all" => {
+				"--check-security-features" => {
 					do_security_checks = true;
 				},
 				"--check-can-enable-landlock" => {

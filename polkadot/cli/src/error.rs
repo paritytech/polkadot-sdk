@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::path::PathBuf;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
@@ -53,6 +55,9 @@ pub enum Error {
 
 	#[error("This subcommand is only available when compiled with `{feature}`")]
 	FeatureNotEnabled { feature: &'static str },
+
+	#[error("Execute worker binary failed security checks, binary path: {worker_path:?}, directory path: {worker_dir_path:?}")]
+	ExecuteWorkerFailedSecurityChecks { worker_path: PathBuf, worker_dir_path: PathBuf },
 }
 
 impl From<String> for Error {

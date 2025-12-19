@@ -31,6 +31,7 @@ use sc_cli::SubstrateCli;
 use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
+use std::process::Command;
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
@@ -312,6 +313,25 @@ where
 pub fn run() -> Result<()> {
 	let cli: Cli = Cli::from_args();
 
+	if cli.run.workers_path.is_some() {
+		let worker_path = cli.run.workers_path.clone().unwrap();
+		let mut binary_path = worker_path.clone();
+		binary_path.push("execute-worker");
+		let exit_status = Command::new(&binary_path)
+			.arg("--worker-dir-path")
+			.arg(worker_path.as_os_str())
+			.arg("--check-security-features")
+			.status()
+			.unwrap();
+
+		if !exit_status.success() {
+			return Err(Error::ExecuteWorkerFailedSecurityChecks {
+				worker_path: binary_path,
+				worker_dir_path: worker_path,
+			});
+		}
+	}
+
 	#[cfg(feature = "pyroscope")]
 	let mut pyroscope_agent_maybe = if let Some(ref agent_addr) = cli.run.pyroscope_server {
 		let address = agent_addr
@@ -333,7 +353,7 @@ pub fn run() -> Result<()> {
 
 	#[cfg(not(feature = "pyroscope"))]
 	if cli.run.pyroscope_server.is_some() {
-		return Err(Error::PyroscopeNotCompiledIn)
+		return Err(Error::PyroscopeNotCompiledIn);
 	}
 
 	match &cli.subcommand {
