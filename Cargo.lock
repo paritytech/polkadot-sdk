@@ -1927,6 +1927,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "battleship-runtime"
+version = "0.0.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "hex-literal",
+ "log",
+ "pallet-battleship",
+ "pallet-statement",
+ "pallet-transaction-storage",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "serde_json",
+ "smallvec",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
@@ -11670,6 +11688,20 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "paste",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-battleship"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
  "sp-io",

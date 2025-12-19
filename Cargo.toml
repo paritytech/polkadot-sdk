@@ -576,6 +576,8 @@ members = [
 	"templates/solochain/pallets/template",
 	"templates/solochain/runtime",
 	"templates/zombienet",
+	"battleship-game/pallets/battleship",
+	"battleship-game/runtime",
 	"umbrella",
 ]
 
@@ -681,6 +683,7 @@ blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
 bounded-collections = { version = "0.3.2", default-features = false }
 bounded-vec = { version = "0.7" }
+battleship-runtime = { path = "battleship-game/runtime" }
 bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
 bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
@@ -957,6 +960,7 @@ pallet-babe = { path = "substrate/frame/babe", default-features = false }
 pallet-bags-list = { path = "substrate/frame/bags-list", default-features = false }
 pallet-bags-list-remote-tests = { path = "substrate/frame/bags-list/remote-tests" }
 pallet-balances = { path = "substrate/frame/balances", default-features = false }
+pallet-battleship = { path = "battleship-game/pallets/battleship", default-features = false }
 pallet-beefy = { path = "substrate/frame/beefy", default-features = false }
 pallet-beefy-mmr = { path = "substrate/frame/beefy-mmr", default-features = false }
 pallet-bounties = { path = "substrate/frame/bounties", default-features = false }

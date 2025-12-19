@@ -526,12 +526,6 @@ where
 		for (who, peer) in self.peers.iter_mut() {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
 
-			// never send statements to light nodes
-			if peer.role.is_light() {
-				log::trace!(target: LOG_TARGET, "{} is a light node, skipping propagation", who);
-				continue
-			}
-
 			let to_send = statements
 				.iter()
 				.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
