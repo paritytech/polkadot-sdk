@@ -68,7 +68,7 @@ use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::Environment;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
@@ -77,7 +77,6 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
-use sp_api::ApiExt;
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
