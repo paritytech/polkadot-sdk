@@ -269,7 +269,7 @@ pub mod pallet {
 		///
 		/// This allows parachains to process data from the relay chain state proof,
 		/// including both child trie keys and main trie keys that were requested
-		/// via `KeyToIncludeInRelayProofApi`.
+		/// via `KeyToIncludeInRelayProof`.
 		type RelayProofKeysProcessor: relay_state_snapshot::ProcessRelayProofKeys;
 	}
 
