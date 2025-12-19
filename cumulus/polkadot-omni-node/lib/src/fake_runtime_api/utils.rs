@@ -176,7 +176,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<$block> for $runtime {
+			impl cumulus_primitives_core::KeyToIncludeInRelayProof<$block> for $runtime {
 				fn keys_to_prove() -> RelayProofRequest {
 					unimplemented!()
 				}

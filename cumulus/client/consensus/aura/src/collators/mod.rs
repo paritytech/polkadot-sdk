@@ -26,7 +26,7 @@ use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProofApi, RelayProofRequest,
+	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
@@ -677,7 +677,7 @@ fn get_relay_proof_request<Block, Client>(
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: KeyToIncludeInRelayProofApi<Block>,
+	Client::Api: KeyToIncludeInRelayProof<Block>,
 {
 	client
 		.runtime_api()

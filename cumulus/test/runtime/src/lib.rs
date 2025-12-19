@@ -643,7 +643,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
 		fn keys_to_prove() -> RelayProofRequest {
 			Default::default()
 		}
