@@ -1,6 +1,6 @@
 [package]
 name = "pallet-assets-freezer"
-version = "0.1.0"
+version = "0.13.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-pallet-assets = { workspace = true }
+pallet-assets.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true }
+pallet-balances = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

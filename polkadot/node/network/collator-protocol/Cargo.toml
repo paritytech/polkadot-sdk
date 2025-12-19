@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "7.0.0"
+version = "28.0.0"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true
@@ -16,19 +16,27 @@ async-trait = { workspace = true, optional = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.default-features = true
+gum.workspace = true
 schnellru = { workspace = true }
-
-sp-core = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sp-core.default-features = true
+sp-core.workspace = true
+sp-keystore.default-features = true
+sp-keystore.workspace = true
+sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 fatality = { workspace = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-network-protocol.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-primitives.default-features = true
+polkadot-primitives.workspace = true
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
 # This should have really been a dev-dependency but clippy is complaining that it's not used with
@@ -39,13 +47,13 @@ tokio = { features = ["macros"], workspace = true, default-features = true, opti
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sp-tracing = { workspace = true }
+sp-tracing = { workspace = true, default-features = false }
 
 codec = { features = ["std"], workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+sc-keystore = { default-features = true, workspace = true }
+sc-network = { default-features = true, workspace = true }
+sp-core = { features = ["std"], default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
 itertools = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }

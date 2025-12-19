@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-aura-ext"
-version = "0.7.0"
+version = "0.25.0"
 authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
@@ -13,32 +13,28 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-aura.workspace = true
+pallet-timestamp.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
+sp-application-crypto.workspace = true
+sp-consensus-aura.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 rstest = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { default-features = true, workspace = true }
+cumulus-primitives-core = { default-features = true, workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
 
 # Substrate
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

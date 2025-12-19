@@ -1,6 +1,6 @@
 [package]
 name = "pallet-transaction-storage"
-version = "27.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,15 +19,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 array-bytes = { optional = true, workspace = true, default-features = true }
 codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-transaction-storage-proof = { workspace = true }
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-transaction-storage-proof.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]

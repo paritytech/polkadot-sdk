@@ -1,6 +1,6 @@
 [package]
 name = "sc-transaction-pool"
-version = "28.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -28,18 +28,29 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
+prometheus-endpoint.default-features = true
+prometheus-endpoint.workspace = true
+sc-client-api.default-features = true
+sc-client-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-utils.default-features = true
+sc-utils.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
+sp-api.default-features = true
+sp-api.workspace = true
+sp-blockchain.default-features = true
+sp-blockchain.workspace = true
+sp-core.default-features = true
+sp-core.workspace = true
+sp-crypto-hashing.default-features = true
+sp-crypto-hashing.workspace = true
+sp-runtime.default-features = true
+sp-runtime.workspace = true
+sp-tracing.default-features = true
+sp-tracing.workspace = true
+sp-transaction-pool.default-features = true
+sp-transaction-pool.workspace = true
 strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
@@ -51,13 +62,13 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
-cumulus-zombienet-sdk-helpers = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true, default-features = false }
 env_logger = { workspace = true }
 rstest = { workspace = true }
-sc-block-builder = { workspace = true, default-features = true }
+sc-block-builder = { default-features = true, workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sp-consensus = { workspace = true, default-features = true }
+sp-consensus = { default-features = true, workspace = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }

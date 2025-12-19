@@ -1,7 +1,7 @@
 [package]
 description = "FRAME's mixnet pallet"
 name = "pallet-mixnet"
-version = "0.4.0"
+version = "0.21.0"
 license = "Apache-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
@@ -21,8 +21,8 @@ frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
-sp-application-crypto = { workspace = true }
-sp-mixnet = { workspace = true }
+sp-application-crypto.workspace = true
+sp-mixnet.workspace = true
 
 [features]
 default = ["std"]

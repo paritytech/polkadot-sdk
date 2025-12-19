@@ -1,7 +1,7 @@
 [package]
 name = "bp-relayers"
 description = "Primitives of relayers module."
-version = "0.7.0"
+version = "0.25.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -11,21 +11,17 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+bp-header-chain.workspace = true
+bp-messages.workspace = true
+bp-parachains.workspace = true
+bp-runtime.workspace = true
 codec = { features = ["bit-vec", "derive"], workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-utility.workspace = true
 scale-info = { features = ["bit-vec", "derive"], workspace = true }
-
-# Bridge Dependencies
-bp-header-chain = { workspace = true }
-bp-messages = { workspace = true }
-bp-parachains = { workspace = true }
-bp-runtime = { workspace = true }
-
-# Substrate Dependencies
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-utility = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+sp-runtime.workspace = true
+sp-std.workspace = true
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }

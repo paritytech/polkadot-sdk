@@ -1,7 +1,7 @@
 [package]
 name = "frame-storage-access-test-runtime"
 description = "A runtime for testing storage access on block validation"
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -16,10 +16,10 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 cumulus-pallet-parachain-system = { workspace = true, optional = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-state-machine = { workspace = true }
-sp-trie = { workspace = true }
+sp-core.workspace = true
+sp-runtime.workspace = true
+sp-state-machine.workspace = true
+sp-trie.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

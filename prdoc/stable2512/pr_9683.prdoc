@@ -10,3 +10,5 @@ doc:
 crates:
 - name: pallet-revive
   bump: major
+- name: pallet-revive-proc-macro
+  bump: major

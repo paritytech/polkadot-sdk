@@ -189,12 +189,20 @@ jobs:
            touch ~/.gnupg/dirmngr.conf
            echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
 
+      #  - name: Install solc
+      #    run: brew install solidity
        - name: Install solc
-         run: brew install solidity
+         run: |
+           # Install solc 0.8.30 directly (0.8.31+ not supported by resolc)
+           SOLC_VERSION="0.8.30"
+           curl -Lsf --show-error -o $HOME/.cargo/bin/solc "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-macos"
+           chmod +x $HOME/.cargo/bin/solc
+           xattr -c $HOME/.cargo/bin/solc
+           $HOME/.cargo/bin/solc --version
 
        - name: Install resolc
          run: |
-            VERSION="0.3.0"
+            VERSION="0.5.0"
             ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
             echo "Downloading resolc v$VERSION from $ASSET_URL"
             curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"

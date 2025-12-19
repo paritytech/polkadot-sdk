@@ -1,6 +1,6 @@
 [package]
 name = "frame-support"
-version = "28.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,13 +17,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true }
-binary-merkle-tree = { workspace = true }
+binary-merkle-tree.workspace = true
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
 environmental = { workspace = true }
 frame-metadata = { features = ["current", "unstable"], workspace = true }
-frame-support-procedural = { workspace = true }
+frame-support-procedural.workspace = true
 impl-trait-for-tuples = { workspace = true }
 k256 = { features = ["ecdsa"], workspace = true }
 log = { workspace = true }
@@ -33,31 +33,32 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 sp-api = { features = ["frame-metadata"], workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
-sp-debug-derive = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-metadata-ir = { workspace = true }
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-crypto-hashing-proc-macro.default-features = true
+sp-crypto-hashing-proc-macro.workspace = true
+sp-debug-derive.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-metadata-ir.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
-sp-staking = { workspace = true }
+sp-staking.workspace = true
 sp-state-machine = { optional = true, workspace = true }
-sp-std = { workspace = true }
-sp-tracing = { workspace = true }
-sp-trie = { workspace = true }
-sp-weights = { workspace = true }
+sp-std.workspace = true
+sp-tracing.workspace = true
+sp-trie.workspace = true
+sp-weights.workspace = true
 tt-call = { workspace = true }
 
 aquamarine = { workspace = true }
 
 [dev-dependencies]
 Inflector = { workspace = true }
-frame-system = { workspace = true, default-features = true }
+frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-timestamp = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -67,7 +68,6 @@ std = [
 	"environmental/std",
 	"frame-metadata/std",
 	"frame-support-procedural/std",
-	"frame-system/std",
 	"k256/std",
 	"log/std",
 	"scale-info/std",
