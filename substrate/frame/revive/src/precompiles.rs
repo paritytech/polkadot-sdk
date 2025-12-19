@@ -470,8 +470,8 @@ impl<T: Config> Precompiles<T> for Tuple {
 }
 
 pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
-    // This references the private trait inside the crate.
-    let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
+	// This references the private trait inside the crate.
+	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
