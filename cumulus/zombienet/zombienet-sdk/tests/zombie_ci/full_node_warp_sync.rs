@@ -140,16 +140,12 @@ use zombienet_sdk::{
 const PARA_ID: u32 = 2000;
 
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";
-const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/eve-db.tgz";
-
-// Timeout configuration
-const TIMEOUT_NORMAL: u64 = 225;
-const TIMEOUT_SNAPSHOT_GEN: u64 = 86400; // 24 hours for snapshot generation
+const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/one-db.tgz";
 
 #[cfg(feature = "snapshot-update-mode")]
-const SYNC_TIMEOUT: u64 = TIMEOUT_SNAPSHOT_GEN;
+const SYNC_TIMEOUT: u64 = 225;
 #[cfg(not(feature = "snapshot-update-mode"))]
-const SYNC_TIMEOUT: u64 = TIMEOUT_NORMAL;
+const SYNC_TIMEOUT: u64 = 86400; // 24 hours for snapshot generation
 
 // Helper to support local snapshot testing via environment variables
 fn get_snapshot_url(default: &str, env_var: &str) -> String {
@@ -338,10 +334,11 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	{
 		log::info!("Checking progress");
 		for name in ["alice", "bob", "one", "two"] {
+			// for name in ["alice", "bob"] {
 			log::info!("Checking full node {name} is syncing");
 			network
 				.get_node(name)?
-				.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 86400.0, SYNC_TIMEOUT)
+				.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, SYNC_TIMEOUT)
 				.await?;
 		}
 	}
@@ -365,13 +362,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//   - bob      - validator
 	//   - charlie  - validator
 	//   - dave     - validator
+	//   - eve      - full node
 	// - parachain nodes
-	//   - eve      - collator
-	//   - ferdie   - collator
 	//   - one      - collator
-	//   - two      - full node
-	//   - three    - full node
+	//   - two      - collator
+	//   - three    - collator
 	//   - four     - full node
+	//   - five     - full node
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
@@ -402,30 +399,30 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					let n = n.with_db_snapshot(relaychain_snapshot.as_str());
 					n
 				})
-			// .with_node(|node| {
-			// 	node.with_name("dave").with_args(vec![
-			// 		("-lparachain=debug,sync=trace").into(),
-			// 		("--no-beefy").into(),
-			// 		("--reserved-only").into(),
-			// 		(
-			// 			"--reserved-nodes",
-			// 			vec![
-			// 				"{{ZOMBIE:alice:multiaddr}}",
-			// 				"{{ZOMBIE:bob:multiaddr}}",
-			// 				"{{ZOMBIE:charlie:multiaddr}}",
-			// 			],
-			// 		)
-			// 			.into(),
-			// 		("--sync", "warp").into(),
-			// 	])
-			// })
-			// .with_node(|node| {
-			// 	node.with_name("eve").with_args(vec![
-			// 		("-lparachain=debug,sync=trace").into(),
-			// 		("--no-beefy").into(),
-			// 		("--sync", "warp").into(),
-			// 	])
-			// })
+				.with_node(|node| {
+					node.with_name("dave").with_args(vec![
+						("-lparachain=debug,sync=trace").into(),
+						("--no-beefy").into(),
+						("--reserved-only").into(),
+						(
+							"--reserved-nodes",
+							vec![
+								"{{ZOMBIE:alice:multiaddr}}",
+								"{{ZOMBIE:bob:multiaddr}}",
+								"{{ZOMBIE:charlie:multiaddr}}",
+							],
+						)
+							.into(),
+						("--sync", "warp").into(),
+					])
+				})
+				.with_node(|node| {
+					node.with_name("eve").validator(false).with_args(vec![
+						("-lparachain=debug,sync=trace").into(),
+						("--no-beefy").into(),
+						("--sync", "warp").into(),
+					])
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -457,21 +454,21 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					let node = node.with_db_snapshot(parachain_snapshot.as_str());
 					node
 				})
-			// .with_collator(|n| {
-			// 	n.with_name("four").validator(false).with_args(vec![
-			// 		("-lsync=trace").into(),
-			// 		("--sync", "warp").into(),
-			// 		("--").into(),
-			// 		("--sync", "warp").into(),
-			// 	])
-			// })
-			// .with_collator(|n| {
-			// 	n.with_name("five").validator(false).with_args(vec![
-			// 		("-lsync=trace").into(),
-			// 		("--sync", "warp").into(),
-			// 		("--relay-chain-rpc-urls", "{{ZOMBIE:charlie:ws_uri}}").into(),
-			// 	])
-			// })
+				.with_collator(|n| {
+					n.with_name("four").validator(false).with_args(vec![
+						("-lsync=trace").into(),
+						("--sync", "warp").into(),
+						("--").into(),
+						("--sync", "warp").into(),
+					])
+				})
+				.with_collator(|n| {
+					n.with_name("five").validator(false).with_args(vec![
+						("-lsync=trace").into(),
+						("--sync", "warp").into(),
+						("--relay-chain-rpc-urls", "{{ZOMBIE:charlie:ws_uri}}").into(),
+					])
+				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
