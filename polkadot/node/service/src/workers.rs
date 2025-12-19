@@ -127,7 +127,7 @@ pub fn determine_workers_paths(
 		.status()
 		.unwrap();
 
-	if exit_status.success() == false {
+	if !exit_status.success() {
 		return Err(Error::PrepareWorkerFailedSecurityChecks {
 			prep_worker_path,
 			prep_worker_dir_path
