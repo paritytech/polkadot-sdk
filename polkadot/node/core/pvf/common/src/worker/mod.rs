@@ -196,7 +196,7 @@ macro_rules! decl_worker_main {
 					socket_path.clone(),
 					worker_dir_path.clone(),
 					node_version,
-					None
+					None,
 				);
 			}
 
@@ -330,7 +330,7 @@ pub fn run_worker<F>(
 ) where
 	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
-	let ( stream, worker_info, security_status )  = do_security_checks(
+	let (stream, worker_info, security_status) = do_security_checks(
 		worker_kind,
 		socket_path,
 		worker_dir_path.clone(),
@@ -485,7 +485,7 @@ pub fn do_security_checks(
 		}
 	}
 
-	( stream, worker_info, security_status )
+	(stream, worker_info, security_status)
 }
 
 /// Provide a consistent message on unexpected worker shutdown.
