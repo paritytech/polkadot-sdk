@@ -53,11 +53,15 @@ fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 	Ok(())
 }
 
-	/// Return the lottery account and amount of money in the pot.
-	/// The existential deposit is not part of the pot so lottery account never gets deleted.
-	fn get_lottery_balance<T: Config>() -> BalanceOf<T> {
-		T::Currency::reducible_balance(&Lottery::<T>::account_id(), Preservation::Preserve, Fortitude::Polite)
-	}
+/// Return the lottery account and amount of money in the pot.
+/// The existential deposit is not part of the pot so lottery account never gets deleted.
+fn get_lottery_balance<T: Config>() -> BalanceOf<T> {
+	T::Currency::reducible_balance(
+		&Lottery::<T>::account_id(),
+		Preservation::Preserve,
+		Fortitude::Polite,
+	)
+}
 
 #[benchmarks]
 mod benchmarks {
