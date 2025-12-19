@@ -22,7 +22,7 @@ use zombienet_sdk::{
 
 pub const PARA_ID: u32 = 2000;
 
-pub const PARA_BEST_BLOCK_TO_WAIT_FOR: f64 = 40.0;
+pub const PARA_BEST_BLOCK_TO_WAIT_FOR: f64 = 930.0;
 pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";

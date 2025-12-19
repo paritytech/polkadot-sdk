@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARACHAIN_SPEC="$SCRIPT_DIR/warp-sync-parachain-spec.json"
 RELAYCHAIN_SPEC="$SCRIPT_DIR/warp-sync-relaychain-spec.json"
 TARGET_DIR=$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release
-ZOMBIENET_SDK_BASE_DIR="${ZOMBIENET_SDK_BASE_DIR:-/tmp/zombienet-warp-sync}"
+SNAPSHOT_DIR="${ZOMBIENET_SDK_BASE_DIR:-/tmp/zombienet-warp-sync}"
 
 usage() {
     cat <<EOF
@@ -24,7 +24,7 @@ Phases:
   all                    Run all phases
 
 Environment:
-  ZOMBIENET_SDK_BASE_DIR  Snapshot directory (default: /tmp/zombienet-warp-sync)
+  SNAPSHOT_DIR  Snapshot directory (default: /tmp/zombienet-warp-sync)
 EOF
     exit 1
 }
@@ -59,36 +59,36 @@ chainspec_relaychain() {
     echo "Created: $RELAYCHAIN_SPEC"
 }
 
-snapshots_run() {
+snapshots_generate() {
     echo "==> Running test to generate snapshots (24h)"
-    echo "Output directory: $ZOMBIENET_SDK_BASE_DIR"
+    echo "Output directory: $SNAPSHOT_DIR"
 
-    mkdir -p "$ZOMBIENET_SDK_BASE_DIR"
+    mkdir -p "$SNAPSHOT_DIR"
 
     export PATH="$TARGET_DIR:$PATH"
     export RUST_LOG=info,zombienet_orchestrator=debug
     export ZOMBIE_PROVIDER=native
-    export ZOMBIENET_SDK_BASE_DIR
+    export ZOMBIENET_SDK_BASE_DIR=$SNAPSHOT_DIR
 
-    cargo nextest run --release \
+    echo cargo nextest run --release \
         -p cumulus-zombienet-sdk-tests \
         --features zombie-ci,generate-snapshots \
         --no-capture \
         -- full_node_warp_sync::generate_snapshots
     unset ZOMBIENET_SDK_BASE_DIR
 
-    echo "Snapshots ready in: $ZOMBIENET_SDK_BASE_DIR"
+    echo "Snapshots ready in: $SNAPSHOT_DIR"
 }
 
 snapshots_archive() {
     echo "==> Archiving databases"
 
-    [[ -d "$ZOMBIENET_SDK_BASE_DIR/alice/data" ]] || { echo "Error: alice database not found" >&2; exit 1; }
-    [[ -d "$ZOMBIENET_SDK_BASE_DIR/one/data" ]] || { echo "Error: one database not found" >&2; exit 1; }
+    [[ -d "$SNAPSHOT_DIR/alice/data" ]] || { echo "Error: alice database not found" >&2; exit 1; }
+    [[ -d "$SNAPSHOT_DIR/one/data" ]] || { echo "Error: one database not found" >&2; exit 1; }
 
     cd "$SCRIPT_DIR"
-    tar -czf alice-db.tgz -C "$ZOMBIENET_SDK_BASE_DIR/alice" data/
-    tar -czf one-db.tgz -C "$ZOMBIENET_SDK_BASE_DIR/one" data/ relay-data/
+    tar -czf alice-db.tgz -C "$SNAPSHOT_DIR/alice" data/
+    tar -czf one-db.tgz -C "$SNAPSHOT_DIR/one" data/ relay-data/
 
     echo "Created: $SCRIPT_DIR/alice-db.tgz ($(du -h alice-db.tgz | cut -f1))"
     echo "Created: $SCRIPT_DIR/one-db.tgz ($(du -h one-db.tgz | cut -f1))"
@@ -102,7 +102,6 @@ snapshots_test_local() {
     [[ -f "$SCRIPT_DIR/alice-db.tgz" ]] || { echo "Error: alice-db.tgz not found" >&2; exit 1; }
     [[ -f "$SCRIPT_DIR/one-db.tgz" ]] || { echo "Error: one-db.tgz not found" >&2; exit 1; }
 
-    set -x
     export DB_SNAPSHOT_RELAYCHAIN_OVERRIDE="$SCRIPT_DIR/alice-db.tgz"
     export DB_SNAPSHOT_PARACHAIN_OVERRIDE="$SCRIPT_DIR/one-db.tgz"
     export PATH="$TARGET_DIR:$PATH"
@@ -122,7 +121,7 @@ all() {
     build_binaries
     chainspec_parachain
     chainspec_relaychain
-    snapshots_run
+    snapshots_generate
     snapshots_archive
     snapshots_test_local
     echo "All phases complete"
@@ -135,7 +134,7 @@ case "$1" in
     build)                build_binaries ;;
     chainspec-parachain)  chainspec_parachain ;;
     chainspec-relaychain) chainspec_relaychain ;;
-    snapshots-run)        snapshots_run ;;
+    snapshots-generate)   snapshots_generate ;;
     snapshots-archive)    snapshots_archive ;;
     snapshots-test-local) snapshots_test_local ;;
     all)                  all ;;

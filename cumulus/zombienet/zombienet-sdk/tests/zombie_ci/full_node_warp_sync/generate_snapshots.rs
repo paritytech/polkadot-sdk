@@ -125,7 +125,7 @@
 //!    to point to them.
 use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
-	zombie_ci::full_node_warp_sync::common::{build_network_config, BEST_BLOCK_TO_WAIT_FOR},
+	zombie_ci::full_node_warp_sync::common::{build_network_config, PARA_BEST_BLOCK_TO_WAIT_FOR},
 };
 
 #[tokio::test(flavor = "multi_thread")]
@@ -143,7 +143,11 @@ async fn generate_snapshots() -> Result<(), anyhow::Error> {
 		log::info!("Checking full node {name} is syncing");
 		network
 			.get_node(name)?
-			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= BEST_BLOCK_TO_WAIT_FOR, 86000u64) // Wait up to 24h
+			.wait_metric_with_timeout(
+				BEST_BLOCK_METRIC,
+				|b| b >= PARA_BEST_BLOCK_TO_WAIT_FOR,
+				86000u64, // Wait up to 24h
+			)
 			.await?;
 	}
 
