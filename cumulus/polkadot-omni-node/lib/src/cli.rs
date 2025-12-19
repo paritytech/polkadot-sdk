@@ -223,13 +223,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
-	/// Enable the transaction storage inherent data provider, which adds
-	/// proofs of previous transactions to the new blocks.
-	///
-	/// This is required for chains that use `pallet-transaction-storage`.
-	#[arg(long)]
-	pub enable_tx_storage_idp: bool,
-
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -276,7 +269,6 @@ impl<Config: CliConfig> Cli<Config> {
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
 			storage_monitor: self.storage_monitor.clone(),
-			enable_tx_storage_idp: self.enable_tx_storage_idp,
 		}
 	}
 

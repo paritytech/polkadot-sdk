@@ -77,6 +77,7 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
+use sp_api::ApiExt;
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -597,13 +598,16 @@ where
 		);
 
 		let client_for_aura = client.clone();
-		let enable_tx_storage_idp = node_extra_args.enable_tx_storage_idp;
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
 				async move {
-					if enable_tx_storage_idp {
+					let has_tx_storage_api = client_clone
+						.runtime_api()
+						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.unwrap_or(false);
+					if has_tx_storage_api {
 						let storage_proof =
 							sp_transaction_storage_proof::registration::new_data_provider(
 								&*client_clone,
@@ -738,7 +742,6 @@ where
 			client.clone(),
 		);
 
-		let enable_tx_storage_idp = node_extra_args.enable_tx_storage_idp;
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
@@ -746,7 +749,11 @@ where
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
 					async move {
-						if enable_tx_storage_idp {
+						let has_tx_storage_api = client_clone
+							.runtime_api()
+							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.unwrap_or(false);
+						if has_tx_storage_api {
 							let storage_proof =
 								sp_transaction_storage_proof::registration::new_data_provider(
 									&*client_clone,
