@@ -180,6 +180,224 @@ pub mod v1 {
 	}
 }
 
+pub mod v2 {
+    use super::*;
+    use frame_support::traits::{
+        fungible::MutateHold,
+        tokens::{Precision, Preservation},
+        Currency, ReservableCurrency,
+    };
+
+    /// The log target.
+    const TARGET: &'static str = "runtime::referenda::migration::v2";
+
+    /// Migrate from the old `Currency` reserve system to the new `fungible` hold system.
+    ///
+    /// This migration:
+    /// 1. Iterates through all referenda with deposits
+    /// 2. Unreserves the old reserved balance
+    /// 3. Places a hold with the new `HoldReason::DecisionDeposit`
+    pub struct MigrateV1ToV2<T, I, OldCurrency>(PhantomData<(T, I, OldCurrency)>);
+
+    impl<T, I, OldCurrency> OnRuntimeUpgrade for MigrateV1ToV2<T, I, OldCurrency>
+    where
+        T: Config<I>,
+        I: 'static,
+        OldCurrency: ReservableCurrency<T::AccountId, Balance = BalanceOf<T, I>>,
+    {
+        #[cfg(feature = "try-runtime")]
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+            let referendum_count = ReferendumInfoFor::<T, I>::iter().count();
+            log::info!(
+                target: TARGET,
+                "pre-upgrade state contains '{}' referendums.",
+                referendum_count
+            );
+
+            // Count deposits that need migration
+            let mut deposit_count = 0u32;
+            for (_, info) in ReferendumInfoFor::<T, I>::iter() {
+                match info {
+                    ReferendumInfo::Ongoing(status) => {
+                        if status.submission_deposit.amount > Zero::zero() {
+                            deposit_count += 1;
+                        }
+                        if let Some(ref d) = status.decision_deposit {
+                            if d.amount > Zero::zero() {
+                                deposit_count += 1;
+                            }
+                        }
+                    },
+                    ReferendumInfo::Approved(_, ref s, ref d)
+                    | ReferendumInfo::Rejected(_, ref s, ref d)
+                    | ReferendumInfo::Cancelled(_, ref s, ref d)
+                    | ReferendumInfo::TimedOut(_, ref s, ref d) => {
+                        if let Some(ref submission) = s {
+                            if submission.amount > Zero::zero() {
+                                deposit_count += 1;
+                            }
+                        }
+                        if let Some(ref decision) = d {
+                            if decision.amount > Zero::zero() {
+                                deposit_count += 1;
+                            }
+                        }
+                    },
+                    ReferendumInfo::Killed(_) => {},
+                }
+            }
+
+            log::info!(
+                target: TARGET,
+                "pre-upgrade: '{}' deposits to migrate.",
+                deposit_count
+            );
+
+            Ok((referendum_count as u32, deposit_count).encode())
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            let in_code_version = Pallet::<T, I>::in_code_storage_version();
+            let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+            let mut weight = T::DbWeight::get().reads(1);
+
+            log::info!(
+                target: TARGET,
+                "running migration with in-code storage version {:?} / onchain {:?}.",
+                in_code_version,
+                on_chain_version
+            );
+
+            if on_chain_version != 1 {
+                log::warn!(target: TARGET, "skipping migration from v1 to v2.");
+                return weight;
+            }
+
+            let mut migrated_deposits = 0u32;
+
+            for (index, info) in ReferendumInfoFor::<T, I>::iter() {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+                let deposits_to_migrate = Self::collect_deposits(&info);
+
+                for Deposit { who, amount } in deposits_to_migrate {
+                    if amount.is_zero() {
+                        continue;
+                    }
+
+                    // Unreserve the old reserved balance
+                    let remaining = OldCurrency::unreserve(&who, amount);
+                    if !remaining.is_zero() {
+                        log::warn!(
+                            target: TARGET,
+                            "referendum #{:?}: could not fully unreserve for {:?}. Remaining: {:?}",
+                            index,
+                            who,
+                            remaining
+                        );
+                    }
+
+                    // Hold with the new HoldReason
+                    let amount_to_hold = amount.saturating_sub(remaining);
+                    if !amount_to_hold.is_zero() {
+                        if let Err(e) = T::NativeBalance::hold(
+                            &HoldReason::DecisionDeposit.into(),
+                            &who,
+                            amount_to_hold,
+                        ) {
+                            log::error!(
+                                target: TARGET,
+                                "referendum #{:?}: failed to hold {:?} for {:?}: {:?}",
+                                index,
+                                amount_to_hold,
+                                who,
+                                e
+                            );
+                        } else {
+                            migrated_deposits += 1;
+                            log::info!(
+                                target: TARGET,
+                                "referendum #{:?}: migrated deposit of {:?} for {:?}",
+                                index,
+                                amount_to_hold,
+                                who
+                            );
+                        }
+                    }
+
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                }
+            }
+
+            StorageVersion::new(2).put::<Pallet<T, I>>();
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+            log::info!(
+                target: TARGET,
+                "migration complete. Migrated {} deposits.",
+                migrated_deposits
+            );
+
+            weight
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+            let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+            ensure!(on_chain_version == 2, "must upgrade from version 1 to 2.");
+
+            let (pre_referendum_count, _pre_deposit_count): (u32, u32) =
+                Decode::decode(&mut &state[..])
+                    .expect("failed to decode the state from pre-upgrade.");
+
+            let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
+            ensure!(
+                post_referendum_count == pre_referendum_count,
+                "referendum count must remain the same."
+            );
+
+            log::info!(target: TARGET, "migration verification complete.");
+            Ok(())
+        }
+    }
+
+    impl<T, I, OldCurrency> MigrateV1ToV2<T, I, OldCurrency>
+    where
+        T: Config<I>,
+        I: 'static,
+    {
+        /// Collect all deposits from a referendum that need migration.
+        fn collect_deposits(
+            info: &ReferendumInfoOf<T, I>,
+        ) -> Vec<Deposit<T::AccountId, BalanceOf<T, I>>> {
+            let mut deposits = Vec::new();
+
+            match info {
+                ReferendumInfo::Ongoing(status) => {
+                    deposits.push(status.submission_deposit.clone());
+                    if let Some(ref d) = status.decision_deposit {
+                        deposits.push(d.clone());
+                    }
+                },
+                ReferendumInfo::Approved(_, ref s, ref d)
+                | ReferendumInfo::Rejected(_, ref s, ref d)
+                | ReferendumInfo::Cancelled(_, ref s, ref d)
+                | ReferendumInfo::TimedOut(_, ref s, ref d) => {
+                    if let Some(ref submission) = s {
+                        deposits.push(submission.clone());
+                    }
+                    if let Some(ref decision) = d {
+                        deposits.push(decision.clone());
+                    }
+                },
+                ReferendumInfo::Killed(_) => {},
+            }
+
+            deposits
+        }
+    }
+}
+
 /// Migration for when changing the block number provider.
 ///
 /// This migration is not guarded
