@@ -24,4 +24,6 @@ impl<T: Config> PrimitivePrecompile for PrecompileB<T> {
 
 const _: (PrecompileA<Runtime>, PrecompileB<Runtime>) = (PrecompileA(PhantomData::<Runtime>), PrecompileB(PhantomData::<Runtime>));
 
+const _: () = polkadot_sdk::pallet_revive::precompiles::check_collision_for::<Runtime, (PrecompileA<Runtime>, PrecompileB<Runtime>)>();
+
 fn main() {}
