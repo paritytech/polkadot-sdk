@@ -116,6 +116,9 @@ pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "ui-test")]
+pub use crate::precompiles as precompiles_test;
+
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
 

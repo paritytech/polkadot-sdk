@@ -128,7 +128,7 @@ pub fn stop<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.frame_meter_mut().consume_all_weight();
-	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
+	ControlFlow::Break(Error::<E::T>::ContractReverted.into())
 }
 
 /// bench_init opcode.

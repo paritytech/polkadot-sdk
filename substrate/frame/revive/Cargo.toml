@@ -74,7 +74,6 @@ pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 test-case = { workspace = true }
-trybuild = { workspace = true }
 rustversion = { workspace = true }
 
 
@@ -164,3 +163,4 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+ui-test = []

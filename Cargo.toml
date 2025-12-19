@@ -431,6 +431,7 @@ members = [
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
 	"substrate/frame/revive/uapi",
+	"substrate/frame/revive/ui-tests",
 	"substrate/frame/root-offences",
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",

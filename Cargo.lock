@@ -13332,7 +13332,6 @@ dependencies = [
  "substrate-bn",
  "subxt-signer 0.43.0",
  "test-case",
- "trybuild",
 ]
 
 [[package]]
@@ -26524,6 +26523,19 @@ name = "ucd-trie"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
+
+[[package]]
+name = "ui-tests"
+version = "0.0.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "serde_json",
+ "sp-debug-derive 14.0.0",
+ "trybuild",
+]
 
 [[package]]
 name = "uint"
