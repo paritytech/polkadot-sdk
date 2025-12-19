@@ -101,8 +101,6 @@ pub fn determine_workers_paths(
 	let mut exec_worker_dir_path = exec_worker_path.clone();
 	let _ =  exec_worker_dir_path.pop();
 	let exit_status = Command::new(&exec_worker_path)
-	    // .arg("--socket-path")
-        // .arg(socket_path.as_ref().as_os_str())
         .arg("--worker-dir-path")
         .arg(exec_worker_dir_path.as_os_str())
 		.arg("--check-all")
