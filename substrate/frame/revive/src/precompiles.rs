@@ -469,7 +469,6 @@ impl<T: Config> Precompiles<T> for Tuple {
 	}
 }
 
-// #[cfg(feature = "ui-test")]
 pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
     // This references the private trait inside the crate.
     let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
