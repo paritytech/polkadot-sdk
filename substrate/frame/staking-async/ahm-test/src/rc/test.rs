@@ -1436,7 +1436,7 @@ mod key_proofs {
 				// generate the proof for one of the validators
 				use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, traits::OpaqueKeys};
 
-				let key_ids = <SessionKeys as OpaqueKeys>::key_ids();
+				let key_ids = <UintAuthorityId as OpaqueKeys>::key_ids();
 				assert_eq!(key_ids.len(), 1, "we have inserted only one key type in mock");
 
 				let keys = pallet_session::Pallet::<T>::load_keys(&1).unwrap();
