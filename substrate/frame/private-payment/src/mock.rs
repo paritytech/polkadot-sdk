@@ -19,13 +19,18 @@
 
 use crate as pallet_private_payment;
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl,
+	parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU8},
 	PalletId,
 };
-use sp_runtime::{traits::AccountIdConversion, BuildStorage};
+use sp_runtime::{testing::UintAuthorityId, traits::AccountIdConversion, BuildStorage};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type TransactionExtension = frame_system::AuthorizeCall<Test>;
+pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+pub type UncheckedExtrinsic =
+	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, UintAuthorityId, TransactionExtension>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -70,6 +75,7 @@ impl pallet_private_payment::Config for Test {
 	type Assets = Assets;
 	type AssetId = u32;
 	type Balance = u128;
+	type Signature = UintAuthorityId;
 	type BackingAssetId = BackingAssetId;
 	type BaseValue = BaseValue;
 	type PalletId = PrivatePaymentPalletId;

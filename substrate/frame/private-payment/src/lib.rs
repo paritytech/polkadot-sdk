@@ -45,14 +45,16 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedSub};
+use sp_runtime::{
+	traits::{
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedSub, IdentifyAccount, Verify,
+	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 
 /// Coin value exponent type (non-negative).
 /// Value = BASE * 2^exponent where BASE = $0.01
 pub type CoinExponent = u8;
-
-/// Public key placeholder (32 bytes).
-pub type PublicKey = [u8; 32];
 
 /// Member key placeholder for ring-vrf.
 pub type MemberKey = [u8; 32];
@@ -72,6 +74,18 @@ pub struct Coin {
 	pub value_exponent: CoinExponent,
 	/// Number of times this coin has been transferred.
 	pub age: u16,
+}
+
+impl Coin {
+	/// Returns the age bumped by one.
+	fn age_bumped_by_one(&self) -> u16 {
+		self.age.saturating_add(1)
+	}
+
+	/// Bump the age by one.
+	fn bump_age_by_one(&mut self) {
+		self.age = self.age_bumped_by_one()
+	}
 }
 
 /// Token used to claim from the recycler.
@@ -126,6 +140,12 @@ pub mod pallet {
 			+ CheckedSub
 			+ From<u128>;
 
+		/// The signature type for coin authorization.
+		/// Must implement `Verify` where the signer identifies as `Self::AccountId`.
+		type Signature: Parameter
+			+ Member
+			+ Verify<Signer: IdentifyAccount<AccountId = Self::AccountId>>;
+
 		/// The asset ID of the backing stablecoin.
 		#[pallet::constant]
 		type BackingAssetId: Get<Self::AssetId>;
@@ -142,9 +162,9 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Coins owned by public keys.
+	/// Coins owned by accounts.
 	#[pallet::storage]
-	pub type CoinsByOwner<T: Config> = StorageMap<_, Blake2_128Concat, PublicKey, Coin>;
+	pub type CoinsByOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Coin>;
 
 	/// Recycler rings by coin exponent.
 	/// Maps exponent -> list of member keys waiting in recycler.
@@ -178,13 +198,17 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new coin was minted.
-		CoinMinted { owner: PublicKey, value_exponent: CoinExponent },
+		CoinMinted { owner: T::AccountId, value_exponent: CoinExponent },
 		/// A coin was split into smaller denominations.
-		CoinSplit { from: PublicKey, into: Vec<(PublicKey, CoinExponent)> },
+		CoinSplit { from: T::AccountId, into: Vec<(T::AccountId, CoinExponent)> },
 		/// A coin was transferred to a new owner.
-		CoinTransferred { from: PublicKey, to: PublicKey, value_exponent: CoinExponent },
+		CoinTransferred { from: T::AccountId, to: T::AccountId, value_exponent: CoinExponent },
 		/// A coin was loaded into the recycler.
-		RecyclerLoadedWithCoin { value_exponent: CoinExponent, member_key: MemberKey },
+		RecyclerLoadedWithCoin {
+			coin: T::AccountId,
+			value_exponent: CoinExponent,
+			member_key: MemberKey,
+		},
 		/// External asset was loaded into the recycler.
 		RecyclerLoadedWithAsset {
 			who: T::AccountId,
@@ -195,7 +219,7 @@ pub mod pallet {
 		RecyclerUnloadedIntoCoin {
 			value_exponent: CoinExponent,
 			voucher_count: u32,
-			dest: PublicKey,
+			dest: T::AccountId,
 		},
 		/// External asset was unloaded from the recycler.
 		RecyclerUnloadedIntoAsset {
@@ -213,8 +237,8 @@ pub mod pallet {
 		CoinNotFound,
 		/// The coin is too young to be recycled.
 		CoinTooYoungToRecycle,
-		/// The coin is too old to be transferred.
-		CoinTooOldToTransfer,
+		/// The coin is too old and first needs to be recycled.
+		CoinTooOld,
 		/// The split amounts don't sum to the original coin value.
 		InvalidSplitAmount,
 		/// The coin denomination (exponent) is invalid.
@@ -243,49 +267,53 @@ pub mod pallet {
 		///
 		/// The sum of output coin values must equal the input coin value.
 		/// All output coins will have age = input_age + 1.
+		/// This is an unsigned call authorized by the coin's signature.
 		///
-		/// - `coin`: The public key of the coin to split.
+		/// - `coin`: The account holding the coin to split.
 		/// - `split_into`: Vector of (exponent, destinations) pairs.
+		/// - `signature`: Signature by coin over `("split", split_into)`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::split(split_into.len() as u32))]
+		#[pallet::authorize(|_source, coin, split_into, signature| {
+			Pallet::<T>::authorize_coin_call(coin, &(b"split", split_into).encode(), signature)
+		})]
+		#[pallet::weight_of_authorize(Weight::from_parts(10_000, 0))]
 		pub fn split(
 			origin: OriginFor<T>,
-			coin: PublicKey,
-			split_into: Vec<(CoinExponent, Vec<PublicKey>)>,
+			coin: T::AccountId,
+			split_into: Vec<(CoinExponent, Vec<T::AccountId>)>,
+			_signature: T::Signature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			ensure_authorized(origin)?;
 
-			let original = CoinsByOwner::<T>::get(coin).ok_or(Error::<T>::CoinNotFound)?;
+			let original = CoinsByOwner::<T>::take(&coin).ok_or(Error::<T>::CoinNotFound)?;
 
-			// Calculate original value: BASE * 2^exponent
+			if original.age_bumped_by_one() >= T::MaximumAge::get() {
+				return Err(Error::<T>::CoinTooOld.into())
+			}
+
 			let original_value = Self::coin_value(original.value_exponent)?;
 
 			// Calculate sum of split values
 			let mut total_split_value: u128 = 0;
-			let mut outputs: Vec<(PublicKey, CoinExponent)> = Vec::new();
+			let mut outputs: Vec<(T::AccountId, CoinExponent)> = Vec::new();
 
-			for (exponent, destinations) in &split_into {
-				ensure!(
-					*exponent <= T::MaxCoinExponent::get(),
-					Error::<T>::InvalidCoinDenomination
-				);
-				let value = Self::coin_value(*exponent)?;
+			for (exponent, destinations) in split_into {
+				ensure!(exponent <= T::MaxCoinExponent::get(), Error::<T>::InvalidCoinDenomination);
+				let value = Self::coin_value(exponent)?;
 				for dest in destinations {
 					total_split_value = total_split_value
 						.checked_add(value)
 						.ok_or(Error::<T>::ArithmeticOverflow)?;
-					outputs.push((*dest, *exponent));
+					outputs.push((dest, exponent));
 				}
 			}
 
 			ensure!(outputs.len() <= 100, Error::<T>::TooManyOutputCoins);
 			ensure!(total_split_value == original_value, Error::<T>::InvalidSplitAmount);
 
-			// Remove original coin
-			CoinsByOwner::<T>::remove(coin);
-
 			// Create new coins with incremented age
-			let new_age = original.age.saturating_add(1);
+			let new_age = original.age_bumped_by_one();
 			for (dest, exponent) in &outputs {
 				CoinsByOwner::<T>::insert(dest, Coin { value_exponent: *exponent, age: new_age });
 			}
@@ -298,24 +326,35 @@ pub mod pallet {
 		///
 		/// The coin's age will be incremented by 1.
 		/// Fails if the coin's age >= MaximumAge.
+		/// This is an unsigned call authorized by the coin's signature.
 		///
-		/// - `coin`: The public key of the coin to transfer.
-		/// - `to`: The new owner's public key.
+		/// - `coin`: The account holding the coin to transfer.
+		/// - `to`: The new owner's account.
+		/// - `signature`: Signature by coin over `("transfer", to)`.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::transfer())]
-		pub fn transfer(origin: OriginFor<T>, coin: PublicKey, to: PublicKey) -> DispatchResult {
-			ensure_signed(origin)?;
+		#[pallet::authorize(|_source, coin, to, signature| {
+			Pallet::<T>::authorize_coin_call(coin, &(b"transfer", to).encode(), signature)
+		})]
+		#[pallet::weight_of_authorize(Weight::from_parts(10_000, 0))]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			coin: T::AccountId,
+			to: T::AccountId,
+			_signature: T::Signature,
+		) -> DispatchResult {
+			ensure_authorized(origin)?;
 
-			let mut coin_data = CoinsByOwner::<T>::get(coin).ok_or(Error::<T>::CoinNotFound)?;
+			let mut coin_data = CoinsByOwner::<T>::get(&coin).ok_or(Error::<T>::CoinNotFound)?;
 
-			ensure!(coin_data.age < T::MaximumAge::get(), Error::<T>::CoinTooOldToTransfer);
+			ensure!(coin_data.age_bumped_by_one() < T::MaximumAge::get(), Error::<T>::CoinTooOld);
 
 			// Remove from old owner
-			CoinsByOwner::<T>::remove(coin);
+			CoinsByOwner::<T>::remove(&coin);
 
 			// Increment age and insert for new owner
-			coin_data.age = coin_data.age.saturating_add(1);
-			CoinsByOwner::<T>::insert(to, coin_data.clone());
+			coin_data.bump_age_by_one();
+			CoinsByOwner::<T>::insert(&to, coin_data.clone());
 
 			Self::deposit_event(Event::CoinTransferred {
 				from: coin,
@@ -329,34 +368,37 @@ pub mod pallet {
 		///
 		/// The coin is burned and a voucher is created for the member_key.
 		/// The coin must have age >= MinimumAgeForRecycling.
+		/// This is an unsigned call authorized by the coin's signature.
 		///
-		/// - `coin`: The public key of the coin to recycle.
+		/// - `coin`: The account holding the coin to recycle.
 		/// - `member_key`: The ring-vrf member key to receive the voucher.
+		/// - `signature`: Signature by coin over `("load_recycler", member_key)`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::load_recycler_with_coin())]
+		#[pallet::authorize(|_source, coin, member_key, signature| {
+			Pallet::<T>::authorize_coin_call(coin, &(b"load_recycler", member_key).encode(), signature)
+		})]
+		#[pallet::weight_of_authorize(Weight::from_parts(10_000, 0))]
 		pub fn load_recycler_with_coin(
 			origin: OriginFor<T>,
-			coin: PublicKey,
+			coin: T::AccountId,
 			member_key: MemberKey,
+			_signature: T::Signature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			ensure_authorized(origin)?;
 
-			let coin_data = CoinsByOwner::<T>::get(coin).ok_or(Error::<T>::CoinNotFound)?;
+			let coin_data = CoinsByOwner::<T>::take(&coin).ok_or(Error::<T>::CoinNotFound)?;
 
 			ensure!(
 				coin_data.age >= T::MinimumAgeForRecycling::get(),
 				Error::<T>::CoinTooYoungToRecycle
 			);
 
-			// Remove coin
-			CoinsByOwner::<T>::remove(coin);
-
 			// Add member key to recycler ring
 			let exponent = coin_data.value_exponent;
-			RecyclerRings::<T>::try_mutate(exponent, |ring| -> DispatchResult {
+			RecyclerRings::<T>::try_mutate(exponent, |ring| {
 				let ring = ring.get_or_insert_with(|| BoundedVec::default());
-				ring.try_push(member_key).map_err(|_| Error::<T>::RecyclerRingFull)?;
-				Ok(())
+				ring.try_push(member_key).map_err(|_| Error::<T>::RecyclerRingFull)
 			})?;
 
 			// Create voucher (dummy: use member_key as alias)
@@ -365,6 +407,7 @@ pub mod pallet {
 			RecyclerRingIndex::<T>::insert(exponent, ring_index.saturating_add(1));
 
 			Self::deposit_event(Event::RecyclerLoadedWithCoin {
+				coin,
 				value_exponent: exponent,
 				member_key,
 			});
@@ -405,10 +448,9 @@ pub mod pallet {
 			)?;
 
 			// Add member key to recycler ring
-			RecyclerRings::<T>::try_mutate(recycler_value, |ring| -> DispatchResult {
-				let ring = ring.get_or_insert_with(|| BoundedVec::default());
-				ring.try_push(member_key).map_err(|_| Error::<T>::RecyclerRingFull)?;
-				Ok(())
+			RecyclerRings::<T>::try_mutate(recycler_value, |ring| {
+				let ring = ring.get_or_insert_default();
+				ring.try_push(member_key).map_err(|_| Error::<T>::RecyclerRingFull)
 			})?;
 
 			// Create voucher
@@ -430,7 +472,7 @@ pub mod pallet {
 		/// - `vouchers`: The voucher aliases to consume.
 		/// - `recycler_value`: The coin exponent of the recycler.
 		/// - `_recycler_index`: The recycler ring index (unused in dummy).
-		/// - `dest`: The destination public key for the new coin.
+		/// - `dest`: The destination account for the new coin.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::unload_recycler_into_coin(vouchers.len() as u32))]
 		pub fn unload_recycler_into_coin(
@@ -439,7 +481,7 @@ pub mod pallet {
 			vouchers: Vec<Alias>,
 			recycler_value: CoinExponent,
 			_recycler_index: u32,
-			dest: PublicKey,
+			dest: T::AccountId,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
@@ -464,7 +506,7 @@ pub mod pallet {
 			let new_exponent = Self::calculate_combined_exponent(recycler_value, voucher_count)?;
 
 			// Mint new coin with age 0
-			CoinsByOwner::<T>::insert(dest, Coin { value_exponent: new_exponent, age: 0 });
+			CoinsByOwner::<T>::insert(&dest, Coin { value_exponent: new_exponent, age: 0 });
 
 			Self::deposit_event(Event::RecyclerUnloadedIntoCoin {
 				value_exponent: new_exponent,
@@ -629,27 +671,34 @@ pub mod pallet {
 		}
 
 		/// Pay for a recycler claim token using a coin.
+		/// This is an unsigned call authorized by the coin's signature.
 		///
-		/// - `coin`: The coin to pay with (must cover the fee).
+		/// - `coin`: The account holding the coin to pay with.
 		/// - `member_key`: The member key to add to the paid token ring.
+		/// - `signature`: Signature by coin over `("pay_claim_token", member_key)`.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::pay_for_recycler_claim_token())]
+		#[pallet::authorize(|_source, coin, member_key, signature| {
+			Pallet::<T>::authorize_coin_call(coin, &(b"pay_claim_token", member_key).encode(), signature)
+		})]
+		#[pallet::weight_of_authorize(Weight::from_parts(10_000, 0))]
 		pub fn pay_for_recycler_claim_token_in_coin(
 			origin: OriginFor<T>,
-			coin: PublicKey,
+			coin: T::AccountId,
 			member_key: MemberKey,
+			_signature: T::Signature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			ensure_authorized(origin)?;
 
-			// Verify coin exists
-			let _coin_data = CoinsByOwner::<T>::get(coin).ok_or(Error::<T>::CoinNotFound)?;
+			if !CoinsByOwner::<T>::contains_key(&coin) {
+				return Err(Error::<T>::CoinNotFound.into())
+			}
 
 			// Dummy: burn the coin and add to paid token ring
-			CoinsByOwner::<T>::remove(coin);
+			CoinsByOwner::<T>::remove(&coin);
 
-			PaidTokenRing::<T>::try_mutate(|ring| -> DispatchResult {
-				ring.try_push(member_key).map_err(|_| Error::<T>::PaidTokenRingFull)?;
-				Ok(())
+			PaidTokenRing::<T>::try_mutate(|ring| {
+				ring.try_push(member_key).map_err(|_| Error::<T>::PaidTokenRingFull)
 			})?;
 
 			let _index = PaidTokenRingIndex::<T>::get();
@@ -664,6 +713,39 @@ pub mod pallet {
 		/// Get the pallet's account ID.
 		pub fn account_id() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Authorize a coin call by verifying the signature.
+		///
+		/// The signature must be valid over the message, signed by the coin's key.
+		/// Returns a `ValidTransaction` that provides the coin and has priority based on coin
+		/// value.
+		pub fn authorize_coin_call(
+			coin: &T::AccountId,
+			message: &[u8],
+			signature: &T::Signature,
+		) -> Result<
+			(sp_runtime::transaction_validity::ValidTransaction, Weight),
+			TransactionValidityError,
+		> {
+			// Verify coin exists and get its data
+			let coin_data = CoinsByOwner::<T>::get(coin)
+				.ok_or(TransactionValidityError::Invalid(InvalidTransaction::UnknownOrigin))?;
+			// Verify signature
+			if !signature.verify(message, coin) {
+				return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof));
+			}
+
+			let coin_value = Self::coin_value(coin_data.value_exponent)
+				.map_err(|_| InvalidTransaction::Custom(0))?;
+			let priority = coin_value.saturating_mul(1000).min(u64::MAX as u128) as u64;
+
+			let valid_tx = sp_runtime::transaction_validity::ValidTransaction {
+				priority,
+				provides: vec![coin.encode()],
+				..Default::default()
+			};
+			Ok((valid_tx, Weight::zero()))
 		}
 
 		/// Calculate coin value as u128 from exponent.
