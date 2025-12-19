@@ -387,6 +387,145 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
+pub trait SessionHandlerWeights {
+	/// Weight consumed by all `on_before_session_ending` implementations combined.
+	/// This is called once per session rotation before the session ends.
+	fn on_before_session_ending() -> Weight;
+
+	/// Weight consumed by all `on_new_session` implementations combined.
+	/// This is called once per session rotation with the new validator set.
+	fn on_new_session(validator_count: u32, queued_count: u32, changed: bool) -> Weight;
+
+	/// Weight consumed by all `on_disabled` implementations combined.
+	/// This is called each time a validator is disabled 
+	fn on_disabled() -> Weight;
+}
+
+
+pub trait SessionManagerWeights {
+	/// Weight consumed by `new_session`.
+	/// This is called to plan the next session and potentially return a new validator set.
+	fn new_session(validator_count: u32) -> Weight;
+
+	/// Weight consumed by `end_session`.
+	/// This is called when a session ends, before starting the new one.
+	fn end_session() -> Weight;
+
+	/// Weight consumed by `start_session`.
+	/// This is called when a new session starts and validators begin their duties.
+	fn start_session() -> Weight;
+}
+
+/// Default implementation returning zero weights.
+///
+/// This implementation returns `Weight::zero()` for all handler operations. This is
+/// **intentionally incomplete** 
+///
+/// ## Why Zero Weights?
+///
+/// Properly accounting for handler weights requires benchmarking **each individual handler
+/// pallet** (ImOnline, BABE, GRANDPA, AuthorityDiscovery, Beefy).
+/// This is **out of scope** for the Session pallet itself, as it would require:
+/// 1. Adding new benchmarks to 7+ different pallets
+/// 2. Coordinating changes across multiple pallet teams
+/// 3. Significant cross-pallet integration work
+///
+/// ## Current Impact
+///
+/// Using `()` as `SessionHandlerWeights` will cause blocks during session rotation to be
+/// **under-weighted** because handler operations (which can be substantial) are not accounted
+/// for in the block weight calculation.
+///
+/// ## Migration Path (Future Work)
+///
+/// The proper solution involves:
+/// 1. **Per-handler benchmarks**: Each handler pallet (BABE, GRANDPA, etc.) implements
+///    benchmarks for their session handler methods
+/// 2. **Trait implementations**: Each pallet implements `SessionHandlerWeights` with
+///    benchmarked values
+/// 3. **Runtime configuration**: Runtimes use tuple aggregation to combine all handlers:
+///    ```ignore
+///    type SessionHandlerWeights = (BABEWeights, GRANDPAWeights, ...);
+///    ```
+impl SessionHandlerWeights for () {
+	fn on_before_session_ending() -> Weight {
+		Weight::zero()
+	}
+
+	fn on_new_session(_: u32, _: u32, _: bool) -> Weight {
+		Weight::zero()
+	}
+
+	fn on_disabled() -> Weight {
+		Weight::zero()
+	}
+}
+
+/// Default implementation returning zero weights.
+/// This implementation returns `Weight::zero()` for all session manager operations. This is
+/// **intentionally incomplete** 
+///
+/// ## Why Zero Weights?
+///
+/// Properly accounting for session manager weights requires benchmarking the actual session
+/// manager implementations (typically in the BABE pallet or custom managers). This is
+/// **out of scope** for the Session pallet itself.
+///
+/// ## Current Impact
+///
+/// Session manager operations are typically lightweight compared to handler operations
+/// (validator set selection vs. full authority set updates), so the impact of zero weights
+/// here is less severe than for handlers. However, blocks during session rotation will still
+/// be slightly under-weighted.
+///
+/// ## Migration Path (Future Work)
+///
+/// The proper solution involves:
+/// 1. **Manager benchmarks**: Session manager implementations (e.g., in BABE pallet)
+///    add benchmarks for `new_session`, `end_session`, `start_session`
+/// 2. **Trait implementations**: Manager pallets implement `SessionManagerWeights`
+/// 3. **Runtime configuration**: Runtimes specify the actual manager:
+///    ```ignore
+///    type SessionManagerWeights = BABESessionManagerWeights;
+///    ```
+impl SessionManagerWeights for () {
+	fn new_session(_: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn end_session() -> Weight {
+		Weight::zero()
+	}
+
+	fn start_session() -> Weight {
+		Weight::zero()
+	}
+}
+
+
+#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+impl SessionHandlerWeights for Tuple {
+	fn on_before_session_ending() -> Weight {
+		let mut total = Weight::zero();
+		for_tuples!( #( total = total.saturating_add(Tuple::on_before_session_ending()); )* );
+		total
+	}
+
+	fn on_new_session(validator_count: u32, queued_count: u32, changed: bool) -> Weight {
+		let mut total = Weight::zero();
+		for_tuples!(
+			#( total = total.saturating_add(Tuple::on_new_session(validator_count, queued_count, changed)); )*
+		);
+		total
+	}
+
+	fn on_disabled() -> Weight {
+		let mut total = Weight::zero();
+		for_tuples!( #( total = total.saturating_add(Tuple::on_disabled()); )* );
+		total
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -445,6 +584,10 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		type SessionHandlerWeights: SessionHandlerWeights;
+
+		type SessionManagerWeights: SessionManagerWeights;
 
 		/// The currency type for placing holds when setting keys.
 		type Currency: Mutate<Self::AccountId>
@@ -611,8 +754,50 @@ pub mod pallet {
 		/// block of the current session.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			if T::ShouldEndSession::should_end_session(n) {
+				// Gather runtime parameters needed for weight calculation
+				let validator_count = Validators::<T>::decode_len()
+					.defensive_unwrap_or(0) as u32;
+				let queued_count = QueuedKeys::<T>::decode_len()
+					.defensive_unwrap_or(0) as u32;
+				let changed = QueuedChanged::<T>::get();
+
+				// Calculate total weight BEFORE executing rotation
+				// This ensures we account for all work that will be done
+				let mut total_weight = Weight::zero();
+
+				// 1. Session pallet's internal rotation logic
+				total_weight = total_weight.saturating_add(
+					T::WeightInfo::rotate_session(validator_count)
+				);
+
+				// 2. SessionHandler weights (aggregated across all handlers)
+				total_weight = total_weight.saturating_add(
+					T::SessionHandlerWeights::on_before_session_ending()
+				);
+				total_weight = total_weight.saturating_add(
+					T::SessionHandlerWeights::on_new_session(
+						validator_count,
+						queued_count,
+						changed,
+					)
+				);
+
+				// 3. SessionManager weights
+				total_weight = total_weight.saturating_add(
+					T::SessionManagerWeights::end_session()
+				);
+				total_weight = total_weight.saturating_add(
+					T::SessionManagerWeights::start_session()
+				);
+				// new_session is called with validator_count for the NEXT session
+				total_weight = total_weight.saturating_add(
+					T::SessionManagerWeights::new_session(validator_count)
+				);
+				// Now perform the actual rotation
 				Self::rotate_session();
-				T::BlockWeights::get().max_block
+
+				// Return the calculated weight instead of max_block
+				total_weight
 			} else {
 				// NOTE: the non-database part of the weight for `should_end_session(n)` is
 				// included as weight for empty block, the database part is expected to be in
