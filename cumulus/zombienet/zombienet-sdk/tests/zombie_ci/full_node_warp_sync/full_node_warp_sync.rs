@@ -132,14 +132,15 @@ use polkadot_primitives::Id as ParaId;
 use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
 	zombie_ci::full_node_warp_sync::common::{
-		build_network_config, BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
+		add_parachain_collator_and_wait, add_relaychain_node_and_wait, build_network_config,
+		PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID, RELAY_BEST_BLOCK_TO_WAIT_FOR,
 	},
 };
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	AddNodeOptions, NetworkNode,
+	NetworkNode,
 };
 
 // Asserting Warp sync requires at least sync=debug level
@@ -271,12 +272,29 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		assert_gap_sync(network.get_node(name)?).await?;
 	}
 
-	// check progress
+	// check relaychain progress
+	for name in ["dave", "eve"] {
+		log::info!("Checking full node {name} is syncing");
+		network
+			.get_node(name)?
+			.wait_metric_with_timeout(
+				BEST_BLOCK_METRIC,
+				|b| b >= RELAY_BEST_BLOCK_TO_WAIT_FOR,
+				225u64,
+			)
+			.await?;
+	}
+
+	// check parachain progress
 	for name in ["one", "two", "three", "four", "five"] {
 		log::info!("Checking full node {name} is syncing");
 		network
 			.get_node(name)?
-			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= BEST_BLOCK_TO_WAIT_FOR, 225u64)
+			.wait_metric_with_timeout(
+				BEST_BLOCK_METRIC,
+				|b| b >= PARA_BEST_BLOCK_TO_WAIT_FOR,
+				225u64,
+			)
 			.await?;
 	}
 
@@ -285,39 +303,29 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		network.get_node(name)?.pause().await?;
 	}
 
-	// // Add ferdie node dynamically
-	// log::info!("Adding ferdie node to the network");
-	// let images = zombienet_sdk::environment::get_images_from_env();
-	// let ferdie_options = AddNodeOptions {
-	// 	image: Some(images.polkadot.as_str().try_into()?),
-	// 	command: Some("polkadot".try_into()?),
-	// 	subcommand: None,
-	// 	args: vec![
-	// 		"-lparachain=debug,sync=trace".into(),
-	// 		"--no-beefy".into(),
-	// 		("--sync", "warp").into(),
-	// 	],
-	// 	env: vec![],
-	// 	is_validator: true,
-	// 	rpc_port: None,
-	// 	prometheus_port: None,
-	// 	p2p_port: None,
-	// 	chain_spec: Some(
-	// 		"tests/zombie_ci/full_node_warp_sync/warp-sync-relaychain-spec.json".into(),
-	// 	),
-	// };
-	// network.add_node("ferdie", ferdie_options).await?;
+	// Add ferdie and six dynamically
+	add_relaychain_node_and_wait(&mut network, "ferdie", true).await?;
+	add_parachain_collator_and_wait(&mut network, "six", true).await?;
 
-	// // Assert warp and gap sync for ferdie
-	// let ferdie = network.get_node("ferdie")?;
-	// assert_warp_sync(ferdie).await?;
-	// assert_gap_sync(ferdie).await?;
+	// Assert warp and gap sync for ferdie
+	for name in ["ferdie", "six"] {
+		assert_warp_sync(network.get_node(name)?).await?;
+		assert_gap_sync(network.get_node(name)?).await?;
+	}
 
-	// // Check progress for ferdie
-	// log::info!("Checking full node ferdie is syncing");
-	// ferdie
-	// 	.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
-	// 	.await?;
+	// Check progress for ferdie
+	log::info!("Checking full node ferdie  is syncing");
+	network
+		.get_node("ferdie")?
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= RELAY_BEST_BLOCK_TO_WAIT_FOR, 225u64)
+		.await?;
+
+	// Check progress for six
+	log::info!("Checking full node six is syncing");
+	network
+		.get_node("six")?
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= PARA_BEST_BLOCK_TO_WAIT_FOR, 225u64)
+		.await?;
 
 	Ok(())
 }

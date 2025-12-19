@@ -15,11 +15,15 @@
 // limitations under the License.
 
 use anyhow::anyhow;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	AddCollatorOptions, AddNodeOptions, LocalFileSystem, Network, NetworkConfig,
+	NetworkConfigBuilder,
+};
 
 pub const PARA_ID: u32 = 2000;
 
-pub const BEST_BLOCK_TO_WAIT_FOR: f64 = 40.0;
+pub const PARA_BEST_BLOCK_TO_WAIT_FOR: f64 = 40.0;
+pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";
 const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/eve-db.tgz";
@@ -180,4 +184,90 @@ pub(crate) async fn build_network_config(
 		})?;
 
 	Ok(config)
+}
+
+/// Add a relaychain node to the network and wait until it is up.
+///
+/// # Arguments
+/// * `network` - The zombienet network
+/// * `name` - Name of the node to add
+/// * `is_validator` - Whether the node is a validator
+///
+/// # Returns
+/// Reference to the added node
+pub async fn add_relaychain_node_and_wait<'a>(
+	network: &mut Network<LocalFileSystem>,
+	name: &str,
+	is_validator: bool,
+) -> Result<(), anyhow::Error> {
+	log::info!("Adding {} node to the network", name);
+	let images = zombienet_sdk::environment::get_images_from_env();
+	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
+
+	let options = AddNodeOptions {
+		image: Some(images.polkadot.as_str().try_into()?),
+		command: Some("polkadot".try_into()?),
+		subcommand: None,
+		args: vec![
+			"-lparachain=debug,sync=trace".into(),
+			"--no-beefy".into(),
+			("--sync", "warp").into(),
+		],
+		env: vec![],
+		is_validator,
+		rpc_port: None,
+		prometheus_port: None,
+		p2p_port: None,
+		chain_spec: Some(format!("{base_dir}/rococo-local.json").into()),
+	};
+
+	network.add_node(name, options).await?;
+	let node = network.get_node(name)?;
+	node.wait_until_is_up(20u64).await?;
+
+	Ok(())
+}
+
+/// Add a parachain collator to the network and wait until it is up.
+///
+/// # Arguments
+/// * `network` - The zombienet network
+/// * `name` - Name of the node to add
+/// * `is_validator` - Whether the node is a validator
+///
+/// # Returns
+/// Reference to the added node
+pub async fn add_parachain_collator_and_wait<'a>(
+	network: &mut Network<LocalFileSystem>,
+	name: &str,
+	is_validator: bool,
+) -> Result<(), anyhow::Error> {
+	log::info!("Adding {} collator to the network", name);
+	let images = zombienet_sdk::environment::get_images_from_env();
+	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
+
+	let options = AddCollatorOptions {
+		image: Some(images.polkadot.as_str().try_into()?),
+		command: Some("test-parachain".try_into()?),
+		subcommand: None,
+		args: vec![
+			("-lsync=trace").into(),
+			("--sync", "warp").into(),
+			("--").into(),
+			("--sync", "warp").into(),
+		],
+		env: vec![],
+		is_validator,
+		rpc_port: None,
+		prometheus_port: None,
+		p2p_port: None,
+		chain_spec: Some(format!("{base_dir}/{PARA_ID}.json").into()),
+		chain_spec_relay: Some(format!("{base_dir}/rococo-local.json").into()),
+	};
+
+	network.add_collator(name, options, PARA_ID).await?;
+	let node = network.get_node(name)?;
+	node.wait_until_is_up(20u64).await?;
+
+	Ok(())
 }
