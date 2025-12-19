@@ -30,7 +30,7 @@ xcm-procedural.workspace = true
 xcm-procedural.default-features = true
 
 [dev-dependencies]
-sp-io = { default-features = true, path = "../../substrate/primitives/io" }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

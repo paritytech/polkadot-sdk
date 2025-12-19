@@ -43,4 +43,4 @@ sp-state-machine.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sp-test-primitives = { path = "../../../primitives/test-primitives" }
+sp-test-primitives = { workspace = true }

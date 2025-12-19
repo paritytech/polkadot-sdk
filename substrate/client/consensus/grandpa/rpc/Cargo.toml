@@ -34,9 +34,9 @@ sp-runtime.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sc-block-builder = { default-features = true, path = "../../../block-builder" }
-sc-rpc = { features = ["test-helpers"], default-features = true, path = "../../../rpc" }
-sp-consensus-grandpa = { default-features = true, path = "../../../../primitives/consensus/grandpa" }
-sp-keyring = { default-features = true, path = "../../../../primitives/keyring" }
-substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
+sc-block-builder = { default-features = true, workspace = true }
+sc-rpc = { features = ["test-helpers"], default-features = true, workspace = true }
+sp-consensus-grandpa = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }

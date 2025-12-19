@@ -61,8 +61,8 @@ futures-timer = { workspace = true }
 tokio = { features = ["macros"], workspace = true }
 
 # Substrate
-sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sp-tracing = { default-features = true, workspace = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../../test/client" }
-cumulus-test-relay-sproof-builder = { default-features = true, path = "../../../test/relay-sproof-builder" }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }

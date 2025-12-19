@@ -38,10 +38,10 @@ sp-weights.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { path = "../../primitives/test-utils", default-features = false }
-pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
-pallet-bridge-messages = { features = ["std", "test-helpers"], path = "../../modules/messages", default-features = false }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+bp-test-utils = { workspace = true, default-features = false }
+pallet-balances = { default-features = true, workspace = true }
+pallet-bridge-messages = { features = ["std", "test-helpers"], workspace = true, default-features = false }
+sp-core = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

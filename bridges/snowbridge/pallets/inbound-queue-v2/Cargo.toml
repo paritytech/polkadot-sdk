@@ -41,10 +41,10 @@ snowbridge-pallet-inbound-queue-v2-fixtures = { optional = true, workspace = tru
 bp-relayers.workspace = true
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }
+frame-benchmarking = { default-features = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
-snowbridge-test-utils = { path = "../../test-utils" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+snowbridge-test-utils = { workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

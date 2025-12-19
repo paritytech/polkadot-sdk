@@ -46,6 +46,6 @@ sp-trie.default-features = true
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
-sc-client-api = { default-features = true, path = "../api" }
-sc-transaction-pool = { default-features = true, path = "../transaction-pool" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sc-client-api = { default-features = true, workspace = true }
+sc-transaction-pool = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }

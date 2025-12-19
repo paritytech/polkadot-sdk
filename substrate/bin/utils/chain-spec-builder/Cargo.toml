@@ -39,7 +39,7 @@ sp-tracing.default-features = true
 [dev-dependencies]
 cmd_lib = { workspace = true }
 pretty_assertions = { workspace = true }
-substrate-test-runtime = { path = "../../../test-utils/runtime" }
+substrate-test-runtime = { workspace = true }
 
 [features]
 # `cargo build --feature=generate-readme` updates the `README.md` file.

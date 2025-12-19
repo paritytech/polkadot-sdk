@@ -31,8 +31,8 @@ schnellru = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], path = "../../../primitives", default-features = false }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }

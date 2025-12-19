@@ -28,9 +28,9 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-pallet-assets = { path = "../assets", default-features = false }
-pallet-assets-freezer = { path = "../assets-freezer", default-features = false }
-pallet-balances = { path = "../balances", default-features = false }
+pallet-assets = { workspace = true, default-features = false }
+pallet-assets-freezer = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 primitive-types = { workspace = true, features = ["codec", "num-traits", "scale-info"] }
 
 [features]

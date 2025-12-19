@@ -54,10 +54,10 @@ cumulus-relay-chain-streams.default-features = true
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sc-utils = { default-features = true, path = "../../../substrate/client/utils" }
-sp-blockchain = { default-features = true, path = "../../../substrate/primitives/blockchain" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sc-utils = { default-features = true, workspace = true }
+sp-blockchain = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../test/client" }
+cumulus-test-client = { workspace = true }

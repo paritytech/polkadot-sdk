@@ -60,10 +60,10 @@ tokio-stream = { workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
-sc-block-builder = { default-features = true, path = "../../block-builder" }
-sp-test-primitives = { path = "../../../primitives/test-primitives" }
-sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+sc-block-builder = { default-features = true, workspace = true }
+sp-test-primitives = { workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [build-dependencies]
 prost-build = { workspace = true }

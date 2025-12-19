@@ -26,7 +26,7 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
-cumulus-test-runtime = { path = "../../../../cumulus/test/runtime" }
-sc-chain-spec = { path = "../../../client/chain-spec", default-features = false }
-sp-genesis-builder = { default-features = true, path = "../../../primitives/genesis-builder" }
+cumulus-test-runtime = { workspace = true }
+sc-chain-spec = { workspace = true, default-features = false }
+sp-genesis-builder = { default-features = true, workspace = true }
 tempfile = { workspace = true }

@@ -63,11 +63,11 @@ tokio = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-sc-network = { default-features = true, path = "../network" }
-sc-transaction-pool = { default-features = true, path = "../transaction-pool" }
-sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sc-network = { default-features = true, workspace = true }
+sc-transaction-pool = { default-features = true, workspace = true }
+sp-consensus = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 test-helpers = []

@@ -64,5 +64,5 @@ sp-runtime.default-features = true
 sp-trie.workspace = true
 
 [dev-dependencies]
-relay-substrate-client = { features = ["test-helpers"], path = "../client-substrate" }
+relay-substrate-client = { features = ["test-helpers"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

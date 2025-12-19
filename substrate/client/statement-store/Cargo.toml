@@ -41,7 +41,7 @@ tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-tracing = { path = "../../primitives/tracing", default-features = false }
+sp-tracing = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 
 [[bench]]

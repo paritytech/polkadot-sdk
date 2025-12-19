@@ -33,8 +33,8 @@ sp-state-machine.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pallet-balances = { path = "../balances", default-features = false }
-sp-staking = { default-features = true, path = "../../primitives/staking" }
+pallet-balances = { workspace = true, default-features = false }
+sp-staking = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -112,10 +112,10 @@ xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 approx = { workspace = true }
-remote-externalities = { default-features = true, path = "../../../../utils/frame/remote-externalities", package = "frame-remote-externalities" }
+remote-externalities = { default-features = true, workspace = true }
 serde_json = { workspace = true, default-features = true }
-sp-keyring = { default-features = true, path = "../../../../primitives/keyring" }
-sp-tracing = { path = "../../../../primitives/tracing", default-features = false }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { workspace = true, default-features = false }
 tiny-keccak = { features = ["keccak"], workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 

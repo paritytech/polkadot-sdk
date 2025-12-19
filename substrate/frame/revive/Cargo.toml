@@ -75,15 +75,15 @@ serde_json = { workspace = true }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-proxy = { default-features = true, path = "../proxy" }
-pallet-revive-fixtures = { default-features = true, path = "fixtures" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-pallet-utility = { default-features = true, path = "../utility" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-proxy = { default-features = true, workspace = true }
+pallet-revive-fixtures = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+pallet-utility = { default-features = true, workspace = true }
 proptest = { workspace = true }
-sp-keystore = { default-features = true, path = "../../primitives/keystore" }
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-keystore = { default-features = true, workspace = true }
+sp-state-machine = { workspace = true, default-features = false }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -39,12 +39,12 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 
 [dev-dependencies]
-sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
-sp-consensus-babe = { default-features = true, path = "../../../../substrate/primitives/consensus/babe" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sp-authority-discovery = { default-features = true, workspace = true }
+sp-consensus-babe = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 
 assert_matches = { workspace = true }
 async-trait = { workspace = true }

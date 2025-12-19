@@ -89,9 +89,9 @@ polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true
 
 [dev-dependencies]
-cumulus-test-client = { path = "../../../test/client" }
-cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder", default-features = false }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = false }
 rstest = { workspace = true }
-sp-keyring = { path = "../../../../substrate/primitives/keyring", default-features = false }
-sp-tracing = { path = "../../../../substrate/primitives/tracing", default-features = false }
-sp-version = { path = "../../../../substrate/primitives/version", default-features = false }
+sp-keyring = { workspace = true, default-features = false }
+sp-tracing = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
