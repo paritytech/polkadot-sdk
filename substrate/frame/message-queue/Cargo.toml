@@ -14,6 +14,9 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
@@ -22,9 +25,6 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-weights.workspace = true
-frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
 
 [dev-dependencies]
 frame-support = { features = ["experimental"], workspace = true, default-features = false }

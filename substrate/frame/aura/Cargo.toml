@@ -41,8 +41,8 @@ std = [
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
+	"sp-core/std",
 	"sp-runtime/std",
-	"sp-core/std"
 ]
 try-runtime = [
 	"frame-support/try-runtime",

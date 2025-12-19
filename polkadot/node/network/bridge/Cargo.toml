@@ -18,23 +18,23 @@ bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-metrics.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-sc-network.workspace = true
+polkadot-primitives.workspace = true
 sc-network.default-features = true
-sp-consensus.workspace = true
+sc-network.workspace = true
 sp-consensus.default-features = true
+sp-consensus.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

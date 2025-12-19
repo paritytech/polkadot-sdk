@@ -46,6 +46,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-beefy/std",
 	"pallet-mmr/std",
 	"pallet-session/std",
@@ -57,24 +58,23 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"pallet-balances/std"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-beefy/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-balances/try-runtime"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks"
+	"sp-staking/runtime-benchmarks",
 ]

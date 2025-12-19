@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"], default-features = false }
+scale-info = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]

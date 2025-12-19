@@ -17,20 +17,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-block-builder.workspace = true
+sp-api.workspace = true
 sp-block-builder.default-features = true
-sp-blockchain.workspace = true
+sp-block-builder.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-inherents.workspace = true
+sp-core.workspace = true
 sp-inherents.default-features = true
-sp-runtime.workspace = true
+sp-inherents.workspace = true
 sp-runtime.default-features = true
-sp-trie.workspace = true
+sp-runtime.workspace = true
 sp-trie.default-features = true
+sp-trie.workspace = true
 
 [dev-dependencies]
 sp-state-machine = { default-features = true, workspace = true }

@@ -17,23 +17,16 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
 pallet-message-queue.workspace = true
 pallet-session.workspace = true
 pallet-timestamp.workspace = true
 pallet-utility.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-keyring.workspace = true
-sp-keyring.default-features = true
-sp-runtime.workspace = true
 pallet-xcm.workspace = true
-xcm.workspace = true
-xcm-executor.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-pallet-collator-selection.workspace = true
 parachain-info.workspace = true
 parachains-runtimes-test-utils.workspace = true
 snowbridge-core.workspace = true
@@ -41,6 +34,13 @@ snowbridge-pallet-ethereum-client.workspace = true
 snowbridge-pallet-ethereum-client-fixtures.workspace = true
 snowbridge-pallet-outbound-queue.workspace = true
 snowbridge-pallet-system.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-keyring.default-features = true
+sp-keyring.workspace = true
+sp-runtime.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
 
 [features]
 default = ["std"]

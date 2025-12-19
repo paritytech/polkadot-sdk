@@ -12,30 +12,30 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+assets-common.workspace = true
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-core.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-asset-conversion.workspace = true
 pallet-assets.workspace = true
 pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
 pallet-session.workspace = true
 pallet-timestamp.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-assets-common.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-xcmp-queue.workspace = true
-cumulus-primitives-core.workspace = true
-pallet-collator-selection.workspace = true
+pallet-xcm.workspace = true
+pallet-xcm-bridge-hub-router.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 parachains-runtimes-test-utils.workspace = true
-pallet-xcm.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
-pallet-xcm-bridge-hub-router.workspace = true
 
 [features]
 default = ["std"]

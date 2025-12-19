@@ -17,20 +17,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-election-provider-support.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 log = { workspace = true }
 pallet-authorship.workspace = true
 pallet-session = { features = ["historical"], workspace = true }
+rand_chacha = { optional = true, workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-rand_chacha = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, workspace = true }
@@ -69,22 +69,22 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-session/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-timestamp/try-runtime"
+	"pallet-session/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
 ]

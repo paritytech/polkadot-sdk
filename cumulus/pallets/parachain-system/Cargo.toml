@@ -15,16 +15,21 @@ workspace = true
 array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system-proc-macro.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
 environmental = { workspace = true }
-hashbrown = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-trie-db = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+hashbrown = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
 pallet-message-queue.workspace = true
+polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
+polkadot-runtime-parachains.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-consensus-babe.workspace = true
 sp-core.workspace = true
 sp-externalities.workspace = true
@@ -35,14 +40,9 @@ sp-state-machine.workspace = true
 sp-std.workspace = true
 sp-trie.workspace = true
 sp-version.workspace = true
-polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
-polkadot-runtime-parachains.workspace = true
+trie-db = { workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
-cumulus-pallet-parachain-system-proc-macro.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -99,6 +99,7 @@ std = [
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -108,7 +109,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"cumulus-test-client/runtime-benchmarks"
 ]
 
 try-runtime = [

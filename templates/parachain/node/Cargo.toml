@@ -21,11 +21,11 @@ docify = { workspace = true }
 futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
-serde = { features = ["derive"], workspace = true, default-features = true }
-polkadot-sdk = { workspace = true, features = ["node", "polkadot-primitives"] }
 parachain-template-runtime.workspace = true
-prometheus-endpoint.workspace = true
+polkadot-sdk = { workspace = true, features = ["node", "polkadot-primitives"] }
 prometheus-endpoint.default-features = true
+prometheus-endpoint.workspace = true
+serde = { features = ["derive"], workspace = true, default-features = true }
 
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }

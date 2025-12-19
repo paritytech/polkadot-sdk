@@ -13,15 +13,15 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-aura.workspace = true
 pallet-timestamp.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-application-crypto.workspace = true
 sp-consensus-aura.workspace = true
 sp-runtime.workspace = true
-cumulus-pallet-parachain-system.workspace = true
 
 [dev-dependencies]
 rstest = { workspace = true }

@@ -15,15 +15,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-io.workspace = true
 sp-runtime.workspace = true
 xcm.workspace = true
-cumulus-primitives-core.workspace = true
 
 [dev-dependencies]
 sp-core = { default-features = true, workspace = true }

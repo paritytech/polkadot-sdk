@@ -10,8 +10,11 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde_json = { workspace = true }
+cumulus-pallet-aura-ext.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-weight-reclaim.workspace = true
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-core.workspace = true
 frame-executive.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
@@ -25,6 +28,9 @@ pallet-session.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
+parachain-info.workspace = true
+scale-info = { features = ["derive"], workspace = true }
+serde_json = { workspace = true }
 sp-api.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
@@ -38,12 +44,6 @@ sp-runtime.workspace = true
 sp-session.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
-cumulus-pallet-aura-ext.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-weight-reclaim.workspace = true
-cumulus-primitives-aura.workspace = true
-cumulus-primitives-core.workspace = true
-parachain-info.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

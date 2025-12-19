@@ -14,11 +14,11 @@ workspace = true
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 docify = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
-serde = { features = ["derive"], optional = true, workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["derive"], optional = true, workspace = true }
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
@@ -49,16 +49,16 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-verify-signature/runtime-benchmarks"
+	"pallet-verify-signature/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-verify-signature/try-runtime"
+	"pallet-verify-signature/try-runtime",
+	"sp-runtime/try-runtime",
 ]
