@@ -545,16 +545,11 @@ sp_api::decl_runtime_apis! {
 	///
 	/// This API allows parachains to request both top-level relay chain storage keys
 	/// and child trie storage keys to be included in the relay chain state proof.
-	pub trait KeyToIncludeInRelayProofApi {
+	pub trait KeyToIncludeInRelayProof {
 		/// Returns relay chain storage proof requests.
 		///
-		/// The returned `RelayProofRequest` contains a list of storage keys where each key
-		/// can be either:
-		/// - `RelayStorageKey::Top`: Top-level relay chain storage key
-		/// - `RelayStorageKey::Child`: Child trie storage, containing the child trie identifier
-		///   and the key to prove from that child trie
-		///
-		/// The collator generates proofs for these and includes them in the relay chain state proof.
+
+		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
 	}
 }
