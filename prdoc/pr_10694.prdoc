@@ -21,3 +21,11 @@ doc:
 crates:
 - name: asset-hub-westend-runtime
   bump: major
+- name: pallet-bags-list
+  bump: patch
+- name: pallet-fast-unstake
+  bump: patch
+- name: polkadot
+  bump: patch
+- name: polkadot-sdk-docs
+  bump: patch
