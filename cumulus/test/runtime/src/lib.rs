@@ -46,14 +46,14 @@ pub mod elastic_scaling {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
 }
 
-pub mod elastic_scaling_multi_block_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
-}
-
 pub mod elastic_scaling_12s_slot {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
+}
+
+pub mod block_bundling {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_block_bundling.rs"));
 }
 
 pub mod sync_backing {
@@ -67,7 +67,7 @@ pub mod async_backing {
 }
 
 mod genesis_config_presets;
-mod test_pallet;
+pub mod test_pallet;
 
 extern crate alloc;
 
@@ -75,7 +75,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -116,7 +116,7 @@ pub use pallet_timestamp::{Call as TimestampCall, Now};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-pub use test_pallet::Call as TestPalletCall;
+pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
@@ -129,7 +129,7 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(feature = "elastic-scaling-500ms")]
+#[cfg(any(feature = "elastic-scaling-500ms", feature = "block-bundling"))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
 #[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
@@ -147,6 +147,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 	feature = "elastic-scaling-500ms",
 	feature = "elastic-scaling-multi-block-slot",
 	feature = "relay-parent-offset",
+	feature = "block-bundling",
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
@@ -156,9 +157,18 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
-// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+/// We need `VELOCITY * 3`, because the block flow is the following:
+///
+/// - Collator produces the block(s) on relay chain block `X`
+/// - In the mean time the relay chain is building block `X + 1`
+/// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
+///   `X + 2`
+/// - The collation then gets included on chain in relay block `X + 3`
+/// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
+///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
+///   multiple parachain blocks).
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
 
 #[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
 pub const SLOT_DURATION: u64 = 12000;
@@ -228,17 +238,18 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 1 second of compute with a 6 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND,
-	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
-);
+
+type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
+	Runtime,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+>;
 
 parameter_types! {
 	/// Target number of blocks per relay chain slot.
 	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
+	/// We allow for 1 second of compute with a 6 second average block time.
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -247,14 +258,14 @@ parameter_types! {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get());
 		})
 		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(MaximumBlockWeight::get());
 			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			// are included even if block reached `MaximumBlockWeight`.
 			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+				MaximumBlockWeight::get() - NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get()
 			);
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
@@ -282,6 +293,10 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
+		Runtime,
+		ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
 
@@ -352,6 +367,13 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_glutton::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<AccountId>;
@@ -411,6 +433,7 @@ construct_runtime! {
 		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
+		Utility: pallet_utility,
 		TransactionPayment: pallet_transaction_payment,
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
@@ -447,19 +470,25 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight<
 	Runtime,
-	(
-		frame_system::AuthorizeCall<Runtime>,
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	),
+	cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+		Runtime,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+			test_pallet::TestTransactionExtension<Runtime>,
+		),
+	>,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
 >;
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -573,6 +602,7 @@ impl_runtime_apis! {
 		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
+
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
@@ -633,12 +663,13 @@ impl_runtime_apis! {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
 		}
-
 	}
 
+	// "Elastic scaling" should run with the fallback method.
+	#[cfg(any(not(feature = "elastic-scaling"), feature = "std"))]
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }

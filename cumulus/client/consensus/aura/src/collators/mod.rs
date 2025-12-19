@@ -268,13 +268,19 @@ where
 }
 
 /// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
-/// we can build on. Once a list of potential parents is retrieved, return the last one of the
-/// longest chain.
+/// we can build on.
+///
+/// Once a list of potential parents is retrieved, return the last one of the
+/// longest chain that passes `filter_parent`. If no parent matches the filter `included_block` is
+/// returned.
+///
+/// Returns `(included_block, parent)`.
 async fn find_parent<Block>(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
+	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<(<Block as BlockT>::Header, consensus_common::PotentialParent<Block>)>
 where
 	Block: BlockT,
@@ -297,7 +303,7 @@ where
 	)
 	.await;
 
-	let potential_parents = match potential_parents {
+	let mut potential_parents = match potential_parents {
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
@@ -311,11 +317,14 @@ where
 		Ok(x) => x,
 	};
 
-	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.header.clone();
-	potential_parents
-		.into_iter()
-		.max_by_key(|a| a.depth)
-		.map(|parent| (included_block, parent))
+	potential_parents.sort_by_key(|p| p.depth);
+
+	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.clone();
+
+	match potential_parents.into_iter().rev().find(|parent| filter_parent(&parent.header)) {
+		Some(res) => Some((included_block.header, res)),
+		None => Some((included_block.header.clone(), included_block)),
+	}
 }
 
 #[cfg(test)]
@@ -328,7 +337,7 @@ mod tests {
 	use cumulus_relay_chain_interface::PHash;
 	use cumulus_test_client::{
 		runtime::{Block, Hash},
-		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		BuildBlockBuilder, Client, DefaultTestClientBuilderExt, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -367,7 +376,11 @@ mod tests {
 	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
 		let sproof = sproof_with_parent_by_hash(client, included);
 
-		let block_builder = client.init_block_builder(None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 
 		let block = block_builder.build().unwrap().block;
 
@@ -396,6 +409,8 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
+		sp_tracing::try_init_simple();
+
 		let (client, keystore) = set_up_components(6);
 
 		let genesis_hash = client.chain_info().genesis_hash;
@@ -663,6 +678,7 @@ mod tests {
 }
 
 /// Holds a relay parent and its descendants.
+#[derive(Clone)]
 pub struct RelayParentData {
 	/// The relay parent block header
 	relay_parent: RelayHeader,

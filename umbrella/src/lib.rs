@@ -109,6 +109,10 @@ pub use cumulus_client_parachain_inherent;
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
+/// Storage proof size recording utilities.
+#[cfg(feature = "cumulus-client-proof-size-recording")]
+pub use cumulus_client_proof_size_recording;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;

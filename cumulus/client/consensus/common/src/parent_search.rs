@@ -51,7 +51,7 @@ pub struct ParentSearchParams {
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct PotentialParent<B: BlockT> {
 	/// The hash of the block.
 	pub hash: B::Hash,

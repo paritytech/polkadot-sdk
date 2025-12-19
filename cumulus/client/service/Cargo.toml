@@ -49,6 +49,7 @@ cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-network = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
+cumulus-client-proof-size-recording = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }

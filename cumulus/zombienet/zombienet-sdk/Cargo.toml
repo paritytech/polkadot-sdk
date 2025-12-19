@@ -20,11 +20,17 @@ zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
-cumulus-test-runtime = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true, default-features = true }
+frame-support = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-test-runtime = { workspace = true }
 codec = { workspace = true }
 rstest = { workspace = true }
 

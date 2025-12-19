@@ -185,7 +185,7 @@ fn unincluded_segment_works() {
 }
 
 #[test]
-#[should_panic = "no space left for the block in the unincluded segment"]
+#[should_panic = "No space left for the block in the unincluded segment: new_len(1) < capacity(1)"]
 fn unincluded_segment_is_limited() {
 	CONSENSUS_HOOK.with(|c| {
 		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into()))

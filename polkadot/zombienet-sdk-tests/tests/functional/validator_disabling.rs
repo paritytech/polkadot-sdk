@@ -87,7 +87,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for parablocks to be produced");
 	let honest_validator = network.get_node("honest-validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest_validator.wait_client().await?;
-	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(1000), 10..30)])
+	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(1000), 10..30)], [])
 		.await?;
 
 	log::info!("Wait for a dispute to be initialized.");

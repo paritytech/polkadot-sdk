@@ -16,29 +16,35 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{
+	relay_chain,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
+	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
+	ParachainBlockData, PersistedValidationData,
+};
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, SudoCall, SystemCall, TestPalletCall,
 		UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
-	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	seal_block, transfer, BlockData, BlockOrigin, BuildBlockBuilder, BuildParachainBlockData,
+	Client, DefaultTestClientBuilderExt, HeadData,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
-use sp_consensus_slots::SlotDuration;
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_consensus_babe::SlotDuration;
 use sp_core::{Hasher, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	DigestItem,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
+use sp_tracing::capture_test_logs;
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{env, process::Command};
 
 fn call_validate_block_validation_result(
@@ -149,7 +155,12 @@ fn build_block_with_witness(
 		mut block_builder,
 		persisted_validation_data,
 		..
-	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
+	} = client
+		.init_block_builder_builder()
+		.with_validation_data(validation_data)
+		.with_relay_sproof_builder(sproof_builder)
+		.with_pre_digests(pre_digests)
+		.build();
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
@@ -166,6 +177,7 @@ fn build_multiple_blocks_with_witness(
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: u32,
 	extra_extrinsics: impl Fn(u32) -> Vec<UncheckedExtrinsic>,
+	pre_digests: impl Fn(u32) -> Vec<DigestItem>,
 ) -> TestBlockData {
 	let parent_head_root = *parent_head.state_root();
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
@@ -203,13 +215,15 @@ fn build_multiple_blocks_with_witness(
 			mut block_builder,
 			persisted_validation_data: p_v_data,
 			proof_recorder,
-		} = client.init_block_builder_with_ignored_nodes(
-			parent_head.hash(),
-			Some(validation_data.clone()),
-			sproof_builder.clone(),
-			timestamp,
-			ignored_nodes.clone(),
-		);
+		} = client
+			.init_block_builder_builder()
+			.at(parent_head.hash())
+			.with_validation_data(validation_data.clone())
+			.with_relay_sproof_builder(sproof_builder.clone())
+			.with_timestamp(timestamp)
+			.with_ignored_nodes(ignored_nodes.clone())
+			.with_pre_digests((pre_digests)(i))
+			.build();
 
 		persisted_validation_data = Some(p_v_data);
 
@@ -244,11 +258,11 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		let new_proof = proof_recorder.drain_storage_proof();
+		let proof_new = proof_recorder.drain_storage_proof();
 
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&new_proof));
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&proof_new));
 		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
-		proof = StorageProof::merge([proof, new_proof]);
+		proof = StorageProof::merge([proof, proof_new]);
 
 		parent_head = built_block.block.header.clone();
 
@@ -302,6 +316,7 @@ fn validate_multiple_blocks_work() {
 				Some(i),
 			)]
 		},
+		|_| Vec::new(),
 	);
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
@@ -555,7 +570,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 12;
-	// disable the core selection logic
 	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
@@ -601,6 +615,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 					Some(i),
 				)]
 			},
+			|_| Vec::new(),
 		);
 
 	// 3. Validate the PoV.
@@ -616,11 +631,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 
 #[test]
 fn validate_block_handles_ump_signal() {
-	use cumulus_primitives_core::{
-		relay_chain::{UMPSignal, UMP_SEPARATOR},
-		ClaimQueueOffset, CoreInfo, CoreSelector,
-	};
-
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
@@ -668,6 +678,7 @@ fn ensure_we_only_like_blockchains() {
 			Default::default(),
 			4,
 			|_| Default::default(),
+			|_| Vec::new(),
 		);
 
 		// Reference some non existing parent.
@@ -751,6 +762,7 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 				proof_builder,
 				4,
 				|_| Vec::new(),
+				|_| Vec::new(),
 			);
 
 		// 3. Validate the PoV.
@@ -776,4 +788,175 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("only one block per PoV is allowed"));
 	}
+}
+
+#[test]
+fn validate_block_rejects_incomplete_bundle() {
+	// Required to have the global logging enabled, so we can capture it below.
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build 2 blocks with BlockBundleInfo
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		2,
+		|_| Vec::new(),
+		|i| vec![BlockBundleInfo { index: i as u8, maybe_last: i == 1 }.to_digest_item()],
+	);
+
+	// Validation with only first block should fail (incomplete bundle)
+	let first_block_only =
+		ParachainBlockData::new(vec![block.blocks()[0].clone()], block.proof().clone());
+	let log_capture = capture_test_logs!({
+		call_validate_block_elastic_scaling(
+			parent_head.clone(),
+			first_block_only,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	});
+	assert!(
+		log_capture.contains("Last block in PoV must have maybe_last=true"),
+		"Expected log about missing maybe_last, got: {}",
+		log_capture.get_logs()
+	);
+
+	// Validation with both blocks should succeed
+	let header = block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
+}
+
+#[test]
+fn only_send_ump_signal_on_last_block_in_bundle() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build 4 blocks with BlockBundleInfo and CoreInfo on all blocks
+	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		4,
+		|_| Vec::new(),
+		|i| {
+			vec![
+				BlockBundleInfo { index: i as u8, maybe_last: i == 3 }.to_digest_item(),
+				CumulusDigestItem::CoreInfo(CoreInfo {
+					selector: CoreSelector(0),
+					claim_queue_offset: ClaimQueueOffset(0),
+					number_of_cores: 1.into(),
+				})
+				.to_digest_item(),
+			]
+		},
+	);
+
+	let blocks = block.blocks();
+
+	// Check CollectCollationInfo for each block
+	for (i, b) in blocks.iter().enumerate() {
+		let is_last = i == blocks.len() - 1;
+		let block_hash = b.header().hash();
+
+		let collation_info = client
+			.runtime_api()
+			.collect_collation_info(block_hash, b.header())
+			.expect("Failed to collect collation info");
+
+		let has_separator = collation_info.upward_messages.contains(&UMP_SEPARATOR);
+
+		if is_last {
+			assert!(
+				has_separator,
+				"Block {} (last) should have UMP_SEPARATOR, got: {:?}",
+				i, collation_info.upward_messages
+			);
+		} else {
+			assert!(
+				!has_separator,
+				"Block {} should NOT have UMP_SEPARATOR, got: {:?}",
+				i, collation_info.upward_messages
+			);
+		}
+	}
+}
+
+#[test]
+fn validate_block_accepts_single_block_with_use_full_core() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build a single block with BlockBundleInfo (maybe_last=false) and UseFullCore set via
+	// extrinsic UseFullCore should make validation succeed even without maybe_last=true
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
+		parent_head.clone(),
+		Default::default(),
+		vec![BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item()],
+	);
+
+	// Validation should succeed because UseFullCore marks it as last block
+	let header = block.blocks()[0].header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
+}
+
+#[test]
+fn only_send_ump_signal_on_single_block_with_use_full_core() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build a single block with BlockBundleInfo (maybe_last=false), CoreInfo, and UseFullCore set
+	// via extrinsic. UseFullCore makes this block the last block in the core.
+	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		1,
+		|_| vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
+		|_| {
+			vec![
+				BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+				CumulusDigestItem::CoreInfo(CoreInfo {
+					selector: CoreSelector(0),
+					claim_queue_offset: ClaimQueueOffset(0),
+					number_of_cores: 1.into(),
+				})
+				.to_digest_item(),
+			]
+		},
+	);
+
+	let b = &block.blocks()[0];
+	let block_hash = b.header().hash();
+
+	let collation_info = client
+		.runtime_api()
+		.collect_collation_info(block_hash, b.header())
+		.expect("Failed to collect collation info");
+
+	// Block with UseFullCore should have UMP_SEPARATOR (it's the last block)
+	assert!(
+		collation_info.upward_messages.contains(&UMP_SEPARATOR),
+		"Single block with UseFullCore should have UMP_SEPARATOR, got: {:?}",
+		collation_info.upward_messages
+	);
 }

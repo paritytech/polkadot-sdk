@@ -22,6 +22,7 @@
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
+use cumulus_client_proof_size_recording::load_proof_size_recording;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
@@ -31,7 +32,8 @@ use futures::{channel::mpsc, StreamExt};
 use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
-	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
+	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider,
+	UsageProvider,
 };
 use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
@@ -54,7 +56,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
 };
-use sp_trie::proof_size_extension::ProofSizeExt;
+use sp_trie::proof_size_extension::{
+	ProofSizeExt, RecordedProofSizeEstimations, ReplayProofSizeProvider,
+};
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -615,13 +619,28 @@ impl<Client> ParachainTracingExecuteBlock<Client> {
 impl<Block, Client> TracingExecuteBlock<Block> for ParachainTracingExecuteBlock<Client>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: ProvideRuntimeApi<Block> + AuxStore + Send + Sync,
 	Client::Api: Core<Block>,
 {
-	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
 		let mut runtime_api = self.client.runtime_api();
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
-		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
+
+		// Try to load proof size recordings for this block
+		match load_proof_size_recording(&*self.client, orig_hash)? {
+			Some(recordings) => {
+				let recorded = RecordedProofSizeEstimations(
+					recordings.into_iter().map(|x| x as usize).collect(),
+				);
+				let replay_provider = ReplayProofSizeProvider::from_recorded(recorded);
+				runtime_api.register_extension(ProofSizeExt::new(replay_provider));
+			},
+			None => {
+				// No recordings found or error loading, fall back to default recorder
+				runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
+			},
+		}
+
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
 		runtime_api

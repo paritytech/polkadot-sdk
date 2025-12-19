@@ -26,6 +26,7 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
@@ -40,6 +41,7 @@ polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
@@ -50,6 +52,7 @@ cumulus-test-service = { workspace = true }
 
 [features]
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-service/runtime-benchmarks",

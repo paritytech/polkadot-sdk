@@ -278,8 +278,10 @@ where
 
 			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
 				.await
-				.iter_claims_at_depth_for_para(0, params.para_id)
-				.next()
+				.iter_claims_at_depth(0)
+				.find_map(
+					|(core, para_id)| if para_id == params.para_id { Some(core) } else { None },
+				)
 			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
@@ -313,6 +315,7 @@ where
 				params.para_id,
 				&*params.para_backend,
 				&params.relay_client,
+				|_| true,
 			)
 			.await
 			{

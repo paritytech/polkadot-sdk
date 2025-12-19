@@ -79,6 +79,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)],
+		[],
 	)
 	.await?;
 

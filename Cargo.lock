@@ -4274,6 +4274,7 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
+ "cumulus-client-proof-size-recording",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -4468,6 +4469,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-proof-size-recording"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sc-client-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
 name = "cumulus-client-service"
 version = "0.7.0"
 dependencies = [
@@ -4477,6 +4488,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-client-pov-recovery",
+ "cumulus-client-proof-size-recording",
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-relay-chain-inprocess-interface",
@@ -4566,8 +4578,11 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
+ "derive-where",
+ "docify",
  "environmental",
  "frame-benchmarking",
+ "frame-executive",
  "frame-support",
  "frame-system",
  "futures",
@@ -4578,6 +4593,7 @@ dependencies = [
  "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-parachains",
  "rand 0.8.5",
  "rstest",
@@ -4959,6 +4975,7 @@ dependencies = [
 name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
@@ -4983,6 +5000,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -5017,6 +5035,7 @@ dependencies = [
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -5030,6 +5049,7 @@ dependencies = [
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "serde_json",
@@ -5048,6 +5068,7 @@ dependencies = [
  "sp-version",
  "staging-parachain-info",
  "substrate-wasm-builder",
+ "tracing",
 ]
 
 [[package]]
@@ -5147,20 +5168,26 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-primitives-core",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "frame-support",
  "futures",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
  "rstest",
+ "sc-executor",
+ "sc-executor-common",
  "sc-statement-store",
  "serde",
  "serde_json",
  "sp-core 28.0.0",
  "sp-keyring",
+ "sp-rpc",
  "sp-statement-store",
+ "sp-version",
  "tokio",
  "zombienet-configuration",
  "zombienet-orchestrator",
@@ -16275,6 +16302,7 @@ dependencies = [
  "cumulus-client-network",
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
+ "cumulus-client-proof-size-recording",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -22725,6 +22753,8 @@ dependencies = [
 name = "sp-block-builder"
 version = "26.0.0"
 dependencies = [
+ "parity-scale-codec",
+ "scale-info",
  "sp-api",
  "sp-inherents",
  "sp-runtime",

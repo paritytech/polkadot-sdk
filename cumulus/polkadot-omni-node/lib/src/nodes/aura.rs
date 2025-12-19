@@ -41,7 +41,7 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+		slot_based::SlotBasedBlockImport,
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
@@ -49,8 +49,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
-	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
-	RelayParentOffsetApi,
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId, TargetBlockRate, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -70,7 +69,7 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::Environment;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_core::{traits::SpawnEssentialNamed, Pair};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -79,7 +78,7 @@ use sp_runtime::{
 };
 use sp_api::ApiExt;
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -468,8 +467,9 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ TargetBlockRate<Block>
 		+ GetParachainInfo<Block>,
-	AuraId: AuraIdT + Sync + Send,
+	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
@@ -500,20 +500,20 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync + Send,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
+	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
 		params_with_export: SlotBasedParams<
-			Block,
 			ParachainBlockImport<
 				Block,
 				SlotBasedBlockImport<
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
+					<AuraId::BoundedPair as Pair>::Public,
 				>,
 			>,
 			CIDP,
@@ -528,7 +528,10 @@ where
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
-		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash>
+			+ Send
+			+ Sync
+			+ 'static,
 		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnEssentialNamed + Clone + 'static,
@@ -547,13 +550,14 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 			ParachainClient<Block, RuntimeApi>,
+			<AuraId::BoundedPair as Pair>::Public,
 		>,
-		SlotBasedBlockImportHandle<Block>,
+		(),
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync + Send,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
+	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
@@ -564,6 +568,7 @@ where
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
+				<AuraId::BoundedPair as Pair>::Public,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
@@ -580,7 +585,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		block_import_handle: SlotBasedBlockImportHandle<Block>,
+		_: (),
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -634,10 +639,8 @@ where
 			para_id,
 			proposer,
 			collator_service,
-			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
 			slot_offset: Duration::from_secs(1),
-			block_import_handle,
 			spawner: task_manager.spawn_essential_handle(),
 			export_pov: node_extra_args.export_pov,
 			max_pov_percentage: node_extra_args.max_pov_percentage,
@@ -662,13 +665,14 @@ where
 		Block,
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
+		<AuraId::BoundedPair as Pair>::Public,
 	>;
-	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
+	type BlockImportAuxiliaryData = ();
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok((SlotBasedBlockImport::new(client.clone(), client), ()))
 	}
 }
 

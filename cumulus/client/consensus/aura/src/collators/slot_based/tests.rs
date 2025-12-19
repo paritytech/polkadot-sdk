@@ -16,12 +16,12 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{determine_core, offset_relay_parent_find_descendants},
+	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 };
 use async_trait::async_trait;
 use codec::Encode;
-use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem};
+use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -34,7 +34,7 @@ use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
 };
 use sp_core::sr25519;
-use sp_runtime::{generic::BlockId, testing::Header as TestHeader, traits::Header};
+use sp_runtime::{generic::BlockId, traits::Header};
 use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
@@ -152,72 +152,16 @@ async fn determine_core_new_relay_parent() {
 		digest: Default::default(),
 	};
 
-	// Create a test para parent header at block 0 (genesis)
-	let para_parent = TestHeader::new_from_number(0);
-
 	// Setup claim queue data for the cache
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
 
 	let core = result.unwrap();
 	let core = core.unwrap();
-	assert_eq!(core.core_selector(), CoreSelector(0));
+	assert_eq!(core.core_info().selector, CoreSelector(0));
 	assert_eq!(core.core_index(), CoreIndex(0));
 	assert_eq!(core.total_cores(), 2);
-}
-
-#[tokio::test]
-async fn determine_core_with_core_info() {
-	let (headers, best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	// Create a test relay parent header
-	let relay_parent = RelayHeader {
-		parent_hash: best_hash,
-		number: 101,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	// Create a para parent header with core info in digest
-	let core_info = CoreInfo {
-		selector: CoreSelector(0),
-		claim_queue_offset: ClaimQueueOffset(0),
-		number_of_cores: 3.into(),
-	};
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
-	// Add relay parent storage root to make it a non-new relay parent
-	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		*relay_parent.state_root(),
-		*relay_parent.number(),
-	));
-
-	let para_parent = TestHeader {
-		parent_hash: best_hash.into(),
-		number: 1,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	};
-
-	// Setup claim queue data for the cache
-	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
-
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
-
-	match result {
-		Ok(Some(core)) => {
-			assert_eq!(core.core_selector(), CoreSelector(1)); // Should be next selector (0 + 1)
-			assert_eq!(core.core_index(), CoreIndex(1));
-			assert_eq!(core.total_cores(), 3);
-		},
-		Ok(None) => panic!("Expected Some core, got None"),
-		Err(()) => panic!("determine_core returned error"),
-	}
 }
 
 #[tokio::test]
@@ -235,215 +179,13 @@ async fn determine_core_no_cores_available() {
 		digest: Default::default(),
 	};
 
-	// Create a test para parent header at block 0 (genesis)
-	let para_parent = TestHeader::new_from_number(0);
-
 	// Setup empty claim queue
 	cache.set_test_data(relay_parent.clone(), vec![]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none());
-}
-
-#[tokio::test]
-async fn determine_core_selector_overflow() {
-	let (headers, best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	// Create a test relay parent header
-	let relay_parent = RelayHeader {
-		parent_hash: best_hash,
-		number: 101,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	let core_info = CoreInfo {
-		selector: CoreSelector(1),
-		claim_queue_offset: ClaimQueueOffset(0),
-		number_of_cores: 2.into(),
-	};
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
-	// Add relay parent storage root to make it a non-new relay parent
-	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		*relay_parent.state_root(),
-		*relay_parent.number(),
-	));
-
-	let para_parent = TestHeader {
-		parent_hash: best_hash.into(),
-		number: 1,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	};
-
-	// Setup claim queue with only 2 cores
-	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
-
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
-
-	let core = result.unwrap();
-	assert!(core.is_none()); // Should return None when selector overflows
-}
-
-#[tokio::test]
-async fn determine_core_uses_last_claimed_core_selector() {
-	let (headers, best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	// Create a test relay parent header
-	let relay_parent = RelayHeader {
-		parent_hash: best_hash,
-		number: 101,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	// Create a para parent header without core info in digest (non-genesis)
-	// Need to add relay parent storage root to digest to make it a non-new relay parent
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		*relay_parent.state_root(),
-		*relay_parent.number(),
-	));
-
-	let para_parent = TestHeader {
-		parent_hash: best_hash.into(),
-		number: 1,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	};
-
-	// Setup claim queue data with last_claimed_core_selector set to 1
-	cache.set_test_data_with_last_selector(
-		relay_parent.clone(),
-		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		Some(CoreSelector(1)),
-	);
-
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
-
-	match result {
-		Ok(Some(core)) => {
-			// Should use last_claimed_core_selector (1) + 1 = 2
-			assert_eq!(core.core_selector(), CoreSelector(2));
-			assert_eq!(core.core_index(), CoreIndex(2));
-			assert_eq!(core.total_cores(), 3);
-		},
-		Ok(None) => panic!("Expected Some core, got None"),
-		Err(()) => panic!("determine_core returned error"),
-	}
-}
-
-#[tokio::test]
-async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
-	let (headers, best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	// Create a test relay parent header
-	let relay_parent = RelayHeader {
-		parent_hash: best_hash,
-		number: 101,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	// Create a para parent header without core info in digest (non-genesis)
-	// Need to add relay parent storage root to digest to make it a non-new relay parent
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		*relay_parent.state_root(),
-		*relay_parent.number(),
-	));
-
-	let para_parent = TestHeader {
-		parent_hash: best_hash.into(),
-		number: 1,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	};
-
-	// Setup claim queue data with last_claimed_core_selector set to 2 (last index)
-	// Next selector should wrap around to out of bounds and return None
-	cache.set_test_data_with_last_selector(
-		relay_parent.clone(),
-		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		Some(CoreSelector(2)),
-	);
-
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
-
-	match result {
-		Ok(Some(_)) => panic!("Expected None due to selector overflow"),
-		Ok(None) => {
-			// This is expected - selector 2 + 1 = 3, but only cores 0,1,2 available
-		},
-		Err(()) => panic!("determine_core returned error"),
-	}
-}
-
-#[tokio::test]
-async fn determine_core_no_last_claimed_core_selector() {
-	let (headers, best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	// Create a test relay parent header
-	let relay_parent = RelayHeader {
-		parent_hash: best_hash,
-		number: 101,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	// Create a para parent header without core info in digest (non-genesis)
-	// Need to add relay parent storage root to digest to make it a non-new relay parent
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		*relay_parent.state_root(),
-		*relay_parent.number(),
-	));
-
-	let para_parent = TestHeader {
-		parent_hash: best_hash.into(),
-		number: 1,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	};
-
-	// Setup claim queue data with no last_claimed_core_selector (None)
-	cache.set_test_data_with_last_selector(
-		relay_parent.clone(),
-		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		None,
-	);
-
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
-
-	match result {
-		Ok(Some(core)) => {
-			// Should start from selector 0 + 1 = 1 when no last selector
-			assert_eq!(core.core_selector(), CoreSelector(1));
-			assert_eq!(core.core_index(), CoreIndex(1));
-			assert_eq!(core.total_cores(), 3);
-		},
-		Ok(None) => panic!("Expected Some core, got None"),
-		Err(()) => panic!("determine_core returned error"),
-	}
 }
 
 #[derive(Clone)]
@@ -700,14 +442,13 @@ fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
 // Test extension for RelayChainDataCache
 impl RelayChainDataCache<TestRelayClient> {
 	fn set_test_data(&mut self, relay_parent_header: RelayHeader, cores: Vec<CoreIndex>) {
-		self.set_test_data_with_last_selector(relay_parent_header, cores, None);
+		self.set_test_data_with_last_selector(relay_parent_header, cores);
 	}
 
 	fn set_test_data_with_last_selector(
 		&mut self,
 		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
-		last_claimed_core_selector: Option<CoreSelector>,
 	) {
 		let relay_parent_hash = relay_parent_header.hash();
 
@@ -722,7 +463,6 @@ impl RelayChainDataCache<TestRelayClient> {
 			relay_parent_header,
 			claim_queue: claim_queue_snapshot,
 			max_pov_size: 1024 * 1024,
-			last_claimed_core_selector,
 		};
 
 		self.insert_test_data(relay_parent_hash, data);
