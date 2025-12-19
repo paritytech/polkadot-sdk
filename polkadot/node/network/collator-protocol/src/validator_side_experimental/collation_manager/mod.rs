@@ -54,7 +54,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeSet, HashMap, HashSet, VecDeque},
+	collections::{BTreeSet, HashMap, VecDeque},
 	time::{Duration, Instant},
 };
 
@@ -649,16 +649,13 @@ impl CollationManager {
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
-			.flat_map(|per_rp| {
-				per_rp.eligible_advertisements(para_id, leaf).map(move |adv| (per_rp, adv))
-			})
-			.filter_map(|(per_rp, adv)| {
+			.flat_map(|per_rp| per_rp.eligible_advertisements(para_id, leaf))
+			.filter_map(|(adv, adv_timestamp)| {
 				// Check that we're not already fetching this advertisement.
-				if self.fetching.contains(&adv) {
+				if self.fetching.contains(adv) {
 					return None;
 				}
 
-				let adv_timestamp = per_rp.advertisement_timestamps.get(adv)?;
 				let duration_since_adv = now.duration_since(*adv_timestamp);
 				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
 					.checked_sub(duration_since_adv)
@@ -894,7 +891,7 @@ impl CollationManager {
 				per_rp
 					.peer_advertisements
 					.values()
-					.flat_map(|peer_adv| peer_adv.advertisements.clone().into_iter())
+					.flat_map(|peer_adv| peer_adv.advertisements.keys().cloned())
 			})
 			.collect()
 	}
@@ -902,7 +899,6 @@ impl CollationManager {
 
 struct PerRelayParent {
 	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
-	advertisement_timestamps: HashMap<Advertisement, Instant>,
 	// Only kept to make sure that we don't re-request the same collations and so that we know who
 	// to punish for supplying an invalid collation.
 	fetched_collations: HashMap<CandidateHash, PeerId>,
@@ -916,24 +912,21 @@ impl PerRelayParent {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
-			advertisement_timestamps: Default::default(),
 			fetched_collations: Default::default(),
 		}
 	}
 
 	fn all_advertisements(&self) -> impl Iterator<Item = &Advertisement> {
-		self.peer_advertisements.values().flat_map(|adv| adv.advertisements.iter())
+		self.peer_advertisements.values().flat_map(|adv| adv.advertisements.keys())
 	}
 
 	fn eligible_advertisements<'a>(
 		&'a self,
 		para_id: ParaId,
 		leaf: Hash,
-	) -> impl Iterator<Item = &'a Advertisement> + 'a {
-		self.peer_advertisements
-			.values()
-			.flat_map(|list| list.advertisements.iter())
-			.filter(move |adv| {
+	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
+		self.peer_advertisements.values().flat_map(|list| &list.advertisements).filter(
+			move |(adv, _adv_info)| {
 				// Only fetch an advertisement if it's either a V2 advertisement or it's a V1
 				// advertisement on the active leaf.
 				let is_v2_or_on_active_leaf = (adv.prospective_candidate.is_none() &&
@@ -951,7 +944,8 @@ impl PerRelayParent {
 				// And check that it's not already fetched, just to be safe.
 				// Should never happen because we remove the advertisement after it's fetched.
 				!already_fetched
-			})
+			},
+		)
 	}
 
 	fn can_keep_advertisement(
@@ -969,7 +963,7 @@ impl PerRelayParent {
 			return Err(AdvertisementError::PeerLimitReached)
 		}
 
-		if peer_advertisements.advertisements.contains(&advertisement) {
+		if peer_advertisements.advertisements.contains_key(&advertisement) {
 			return Err(AdvertisementError::Duplicate)
 		}
 
@@ -977,34 +971,27 @@ impl PerRelayParent {
 	}
 
 	fn add_advertisement(&mut self, advertisement: Advertisement, now: Instant) {
-		self.advertisement_timestamps.insert(advertisement, now);
 		self.peer_advertisements
 			.entry(advertisement.peer_id)
 			.or_default()
 			.advertisements
-			.insert(advertisement);
+			.insert(advertisement, now);
 	}
 
 	fn remove_advertisement(&mut self, advertisement: &Advertisement) {
 		if let Some(advertisements) = self.peer_advertisements.get_mut(&advertisement.peer_id) {
 			advertisements.advertisements.remove(&advertisement);
 		}
-
-		self.advertisement_timestamps.remove(&advertisement);
 	}
 
 	fn remove_peer_advertisements(&mut self, peer_id: &PeerId) {
-		if let Some(removed) = self.peer_advertisements.remove(peer_id) {
-			for advertisement in removed.advertisements {
-				self.advertisement_timestamps.remove(&advertisement);
-			}
-		}
+		self.peer_advertisements.remove(peer_id);
 	}
 }
 
 #[derive(Default)]
 struct PeerAdvertisements {
-	advertisements: HashSet<Advertisement>,
+	advertisements: HashMap<Advertisement, Instant>,
 	// We increment this even for advertisements that we don't end up accepting, so that we take
 	// these into account when rate limiting.
 	total: usize,
