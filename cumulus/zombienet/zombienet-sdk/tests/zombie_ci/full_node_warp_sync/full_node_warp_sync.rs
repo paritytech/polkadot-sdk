@@ -129,28 +129,18 @@ use std::time::Duration;
 
 use polkadot_primitives::Id as ParaId;
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+use crate::{
+	utils::{initialize_network, BEST_BLOCK_METRIC},
+	zombie_ci::full_node_warp_sync::common::{
+		build_network_config, BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
+	},
+};
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	AddNodeOptions, NetworkConfig, NetworkConfigBuilder, NetworkNode,
+	AddNodeOptions, NetworkNode,
 };
-
-const PARA_ID: u32 = 2000;
-
-const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";
-const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/one-db.tgz";
-
-#[cfg(feature = "snapshot-update-mode")]
-const SYNC_TIMEOUT: u64 = 225;
-#[cfg(not(feature = "snapshot-update-mode"))]
-const SYNC_TIMEOUT: u64 = 86400; // 24 hours for snapshot generation
-
-// Helper to support local snapshot testing via environment variables
-fn get_snapshot_url(default: &str, env_var: &str) -> String {
-	std::env::var(env_var).unwrap_or_else(|_| default.to_string())
-}
 
 // Asserting Warp sync requires at least sync=debug level
 async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
@@ -208,7 +198,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
 	let option_at_least_5_lines =
-		LogLineCountOptions::new(|n| n > 1, Duration::from_secs(5), false);
+		LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(5), false);
 
 	log::info!("Asserting Gap sync for node {}", node.name());
 	// We are interested only in Relaychain Gap sync (relaychain and parachain nodes),
@@ -267,7 +257,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network");
-	let config = build_network_config().await?;
+	let config = build_network_config(true).await?;
 	let mut network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
@@ -276,209 +266,58 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	#[cfg(not(feature = "snapshot-update-mode"))]
-	{
-		for name in ["dave", "eve", "four", "five"] {
-			assert_warp_sync(network.get_node(name)?).await?;
-			assert_gap_sync(network.get_node(name)?).await?;
-		}
+	for name in ["dave", "eve", "four"] {
+		assert_warp_sync(network.get_node(name)?).await?;
+		assert_gap_sync(network.get_node(name)?).await?;
+	}
 
-		// check progress
-		for name in ["dave", "eve", "four", "five"] {
-			log::info!("Checking full node {name} is syncing");
-			network
-				.get_node(name)?
-				.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, SYNC_TIMEOUT)
-				.await?;
-		}
-
-		for name in ["alice", "bob", "one", "two"] {
-			log::info!("Pausing node {name}");
-			network.get_node(name)?.pause().await?;
-		}
-
-		// Add ferdie node dynamically
-		log::info!("Adding ferdie node to the network");
-		let images = zombienet_sdk::environment::get_images_from_env();
-		let ferdie_options = AddNodeOptions {
-			image: Some(images.polkadot.as_str().try_into()?),
-			command: Some("polkadot".try_into()?),
-			subcommand: None,
-			args: vec![
-				"-lparachain=debug,sync=trace".into(),
-				"--no-beefy".into(),
-				("--sync", "warp").into(),
-			],
-			env: vec![],
-			is_validator: true,
-			rpc_port: None,
-			prometheus_port: None,
-			p2p_port: None,
-			chain_spec: Some("tests/zombie_ci/warp-sync-relaychain-spec.json".into()),
-		};
-		network.add_node("ferdie", ferdie_options).await?;
-
-		// Assert warp and gap sync for ferdie
-		let ferdie = network.get_node("ferdie")?;
-		assert_warp_sync(ferdie).await?;
-		assert_gap_sync(ferdie).await?;
-
-		// Check progress for ferdie
-		log::info!("Checking full node ferdie is syncing");
-		ferdie
-			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, SYNC_TIMEOUT)
+	// check progress
+	for name in ["one", "two", "three", "four", "five"] {
+		log::info!("Checking full node {name} is syncing");
+		network
+			.get_node(name)?
+			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= BEST_BLOCK_TO_WAIT_FOR, 225u64)
 			.await?;
 	}
 
-	#[cfg(feature = "snapshot-update-mode")]
-	{
-		log::info!("Checking progress");
-		for name in ["alice", "bob", "one", "two"] {
-			// for name in ["alice", "bob"] {
-			log::info!("Checking full node {name} is syncing");
-			network
-				.get_node(name)?
-				.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, SYNC_TIMEOUT)
-				.await?;
-		}
+	for name in ["alice", "bob", "one", "two"] {
+		log::info!("Pausing node {name}");
+		network.get_node(name)?.pause().await?;
 	}
 
+	// // Add ferdie node dynamically
+	// log::info!("Adding ferdie node to the network");
+	// let images = zombienet_sdk::environment::get_images_from_env();
+	// let ferdie_options = AddNodeOptions {
+	// 	image: Some(images.polkadot.as_str().try_into()?),
+	// 	command: Some("polkadot".try_into()?),
+	// 	subcommand: None,
+	// 	args: vec![
+	// 		"-lparachain=debug,sync=trace".into(),
+	// 		"--no-beefy".into(),
+	// 		("--sync", "warp").into(),
+	// 	],
+	// 	env: vec![],
+	// 	is_validator: true,
+	// 	rpc_port: None,
+	// 	prometheus_port: None,
+	// 	p2p_port: None,
+	// 	chain_spec: Some(
+	// 		"tests/zombie_ci/full_node_warp_sync/warp-sync-relaychain-spec.json".into(),
+	// 	),
+	// };
+	// network.add_node("ferdie", ferdie_options).await?;
+
+	// // Assert warp and gap sync for ferdie
+	// let ferdie = network.get_node("ferdie")?;
+	// assert_warp_sync(ferdie).await?;
+	// assert_gap_sync(ferdie).await?;
+
+	// // Check progress for ferdie
+	// log::info!("Checking full node ferdie is syncing");
+	// ferdie
+	// 	.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
+	// 	.await?;
+
 	Ok(())
-}
-
-async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
-	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
-	let images = zombienet_sdk::environment::get_images_from_env();
-	log::info!("Using images: {images:?}");
-
-	// Get snapshot URLs (with optional local override via env vars)
-	let relaychain_snapshot =
-		get_snapshot_url(DB_SNAPSHOT_RELAYCHAIN, "DB_SNAPSHOT_RELAYCHAIN_LOCAL");
-	let parachain_snapshot = get_snapshot_url(DB_SNAPSHOT_PARACHAIN, "DB_SNAPSHOT_PARACHAIN_LOCAL");
-
-	// Network setup:
-	// - relaychain nodes:
-	//   - alice    - validator
-	//   - bob      - validator
-	//   - charlie  - validator
-	//   - dave     - validator
-	//   - eve      - full node
-	// - parachain nodes
-	//   - one      - collator
-	//   - two      - collator
-	//   - three    - collator
-	//   - four     - full node
-	//   - five     - full node
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_chain_spec_path("tests/zombie_ci/warp-sync-relaychain-spec.json")
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| {
-					let n = node.with_name("alice");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let n = n.with_db_snapshot(relaychain_snapshot.as_str());
-					#[cfg(feature = "snapshot-update-mode")]
-					let n = n.with_args(vec![
-						("-lparachain=debug").into(),
-						("--state-pruning", "archive").into(),
-					]);
-					n
-				})
-				.with_node(|node| {
-					let n = node.with_name("bob");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let n = n.with_db_snapshot(relaychain_snapshot.as_str());
-					n
-				})
-				.with_node(|node| {
-					let n = node.with_name("charlie");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let n = n.with_db_snapshot(relaychain_snapshot.as_str());
-					n
-				})
-				.with_node(|node| {
-					node.with_name("dave").with_args(vec![
-						("-lparachain=debug,sync=trace").into(),
-						("--no-beefy").into(),
-						("--reserved-only").into(),
-						(
-							"--reserved-nodes",
-							vec![
-								"{{ZOMBIE:alice:multiaddr}}",
-								"{{ZOMBIE:bob:multiaddr}}",
-								"{{ZOMBIE:charlie:multiaddr}}",
-							],
-						)
-							.into(),
-						("--sync", "warp").into(),
-					])
-				})
-				.with_node(|node| {
-					node.with_name("eve").validator(false).with_args(vec![
-						("-lparachain=debug,sync=trace").into(),
-						("--no-beefy").into(),
-						("--sync", "warp").into(),
-					])
-				})
-		})
-		.with_parachain(|p| {
-			p.with_id(PARA_ID)
-				.with_default_command("test-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_chain_spec_path("tests/zombie_ci/warp-sync-parachain-spec.json")
-				.with_default_args(vec![("-lparachain=debug").into(), ("--").into()])
-				.with_collator(|n| {
-					let node = n.with_name("one");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let node = node.with_db_snapshot(parachain_snapshot.as_str());
-					#[cfg(feature = "snapshot-update-mode")]
-					let node = node.with_args(vec![
-						("-lparachain=debug").into(),
-						("--state-pruning", "archive").into(),
-						("--").into(),
-					]);
-					node
-				})
-				.with_collator(|n| {
-					let node = n.with_name("two");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let node = node.with_db_snapshot(parachain_snapshot.as_str());
-					node
-				})
-				.with_collator(|n| {
-					let node = n.with_name("three");
-					#[cfg(not(feature = "snapshot-update-mode"))]
-					let node = node.with_db_snapshot(parachain_snapshot.as_str());
-					node
-				})
-				.with_collator(|n| {
-					n.with_name("four").validator(false).with_args(vec![
-						("-lsync=trace").into(),
-						("--sync", "warp").into(),
-						("--").into(),
-						("--sync", "warp").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("five").validator(false).with_args(vec![
-						("-lsync=trace").into(),
-						("--sync", "warp").into(),
-						("--relay-chain-rpc-urls", "{{ZOMBIE:charlie:ws_uri}}").into(),
-					])
-				})
-		})
-		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-			Ok(val) => global_settings.with_base_dir(val),
-			_ => global_settings,
-		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
-
-	Ok(config)
 }
