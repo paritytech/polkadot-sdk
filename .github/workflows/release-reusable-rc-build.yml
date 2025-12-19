@@ -198,7 +198,7 @@ jobs:
            curl -Lsf --show-error -o $HOME/.cargo/bin/solc "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-macos"
            chmod +x $HOME/.cargo/bin/solc
            xattr -c $HOME/.cargo/bin/solc
-           solc --version
+           $HOME/.cargo/bin/solc --version
 
        - name: Install resolc
          run: |
