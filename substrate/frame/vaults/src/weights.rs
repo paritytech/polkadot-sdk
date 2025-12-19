@@ -42,13 +42,6 @@ pub trait WeightInfo {
 	fn on_idle_one_vault() -> Weight;
 }
 
-/// Weights for pallet_template using the Substrate node and recommended hardware.
-#[cfg_attr(
-    not(feature = "std"),
-    deprecated(
-        note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with runtime benchmarked weights."
-    )
-)]
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn create_vault() -> Weight {
