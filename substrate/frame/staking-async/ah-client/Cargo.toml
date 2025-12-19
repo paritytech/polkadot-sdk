@@ -38,6 +38,7 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

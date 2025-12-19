@@ -56,6 +56,12 @@ std = [
 	"sp-arithmetic/std",
 	"sp-runtime/std",
 	"tracing/std",
+	"bp-parachains/std",
+	"bp-polkadot-core/std",
+	"bp-test-utils/std",
+	"pallet-utility/std",
+	"sp-core/std",
+	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -66,6 +72,8 @@ runtime-benchmarks = [
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -75,5 +83,7 @@ try-runtime = [
 	"pallet-bridge-parachains/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime"
 ]
 integrity-test = []

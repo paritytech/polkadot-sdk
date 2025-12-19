@@ -73,6 +73,9 @@ runtime-benchmarks = [
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -81,4 +84,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-timestamp/try-runtime"
 ]

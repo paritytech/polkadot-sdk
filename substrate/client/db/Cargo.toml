@@ -70,6 +70,7 @@ default = []
 test-helpers = []
 runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
+	"kitchensink-runtime/runtime-benchmarks"
 ]
 rocksdb = ["kvdb-rocksdb", "sp-database/rocksdb"]
 jemalloc-allocator = ["kvdb-rocksdb?/jemalloc"]

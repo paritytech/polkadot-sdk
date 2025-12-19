@@ -47,6 +47,21 @@ pallet-staking = { default-features = true, workspace = true }
 
 [features]
 std = [
+	"log/std"
 ]
 try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-root-offences/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-staking-async/try-runtime",
+	"pallet-staking-async-ah-client/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"frame/try-runtime"
 ]

@@ -274,6 +274,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"asset-test-utils/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -388,6 +389,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"alloy-core/std"
 ]
 
 fast-runtime = []

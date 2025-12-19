@@ -43,4 +43,16 @@ pallet-timestamp = { default-features = true, workspace = true }
 
 [features]
 try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-delegated-staking/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime"
 ]

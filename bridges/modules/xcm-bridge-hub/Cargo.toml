@@ -53,6 +53,12 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"bp-header-chain/std",
+	"bp-xcm-bridge-hub-router/std",
+	"pallet-balances/std",
+	"pallet-xcm-bridge-hub-router/std",
+	"polkadot-parachain-primitives/std",
+	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
@@ -62,10 +68,15 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-bridge-messages/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-xcm-bridge-hub-router/try-runtime"
 ]

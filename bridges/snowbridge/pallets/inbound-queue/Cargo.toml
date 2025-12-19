@@ -79,6 +79,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -86,4 +87,5 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"snowbridge-inbound-queue-primitives/try-runtime",
 	"sp-runtime/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime"
 ]

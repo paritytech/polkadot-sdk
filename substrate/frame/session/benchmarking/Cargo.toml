@@ -47,6 +47,7 @@ std = [
 	"rand/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-staking/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -55,4 +56,8 @@ runtime-benchmarks = [
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks"
 ]
