@@ -4977,8 +4977,6 @@ fn eip3607_reject_tx_from_contract_or_precompile() {
 	});
 }
 
-#[rustversion::attr(not(stable), ignore)]
-#[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
