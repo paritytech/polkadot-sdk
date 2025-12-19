@@ -1,24 +1,40 @@
-use polkadot_sdk::pallet_revive::precompiles::PrimitivePrecompile;
+use polkadot_sdk::pallet_revive::precompiles::Precompile;
 use polkadot_sdk::pallet_revive::Config;
-use polkadot_sdk::pallet_revive::precompiles::BuiltinAddressMatcher;
-use core::num::NonZeroU32;
+use polkadot_sdk::pallet_revive::precompiles::AddressMatcher;
+use core::num::NonZeroU16;
+use alloy_core::sol_types::SolInterface;
+use alloy_core::sol;
 
 use ui_tests::runtime::Runtime;
 use core::marker::PhantomData;
 
+sol! {
+	interface IPrecompileA {
+		function callA() external;
+	}
+}
+
 pub struct PrecompileA<T>(PhantomData<T>);
 
-impl<T: Config> PrimitivePrecompile for PrecompileA<T> {
+impl<T: Config> Precompile for PrecompileA<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZeroU32::new(0x666).unwrap());
+	type Interface = IPrecompileA::IPrecompileACalls;
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZeroU16::new(0x666).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
+}
+
+sol! {
+	interface IPrecompileB {
+		function callB() external;
+	}
 }
 
 pub struct PrecompileB<T>(PhantomData<T>);
 
-impl<T: Config> PrimitivePrecompile for PrecompileB<T> {
+impl<T: Config> Precompile for PrecompileB<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZeroU32::new(0x666).unwrap());
+	type Interface = IPrecompileB::IPrecompileBCalls;
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZeroU16::new(0x666).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 }
 

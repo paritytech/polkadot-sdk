@@ -103,7 +103,7 @@ pub enum AddressMatcher {
 /// It works in the same way as `AddressMatcher` but allows setting the full 4 byte prefix.
 /// Builtin pre-compiles must only use values `<= u16::MAX` to prevent collisions with
 /// external pre-compiles.
-pub enum BuiltinAddressMatcher {
+pub(crate) enum BuiltinAddressMatcher {
 	Fixed(NonZero<u32>),
 	Prefix(NonZero<u32>),
 }
@@ -240,7 +240,7 @@ pub trait Precompile {
 /// available to external pre-compiles in order to avoid collisions.
 ///
 /// Automatically implemented for all types that implement `Precompile`.
-pub trait BuiltinPrecompile {
+pub(crate) trait BuiltinPrecompile {
 	type T: Config;
 	type Interface: SolInterface;
 	const MATCHER: BuiltinAddressMatcher;
@@ -271,7 +271,7 @@ pub trait BuiltinPrecompile {
 ///
 /// Automatically implemented for all types that implement `BuiltinPrecompile`.
 /// By extension also automatically implemented for all types implementing `Precompile`.
-pub trait PrimitivePrecompile {
+pub(crate) trait PrimitivePrecompile {
 	type T: Config;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
@@ -467,6 +467,12 @@ impl<T: Config> Precompiles<T> for Tuple {
 		);
 		instance
 	}
+}
+
+// #[cfg(feature = "ui-test")]
+pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
+    // This references the private trait inside the crate.
+    let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
