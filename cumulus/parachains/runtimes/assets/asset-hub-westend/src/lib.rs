@@ -87,8 +87,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity, MultiSignature, MultiSigner},
-	ApplyExtrinsicResult, Debug, FixedU128, Perbill, Permill,
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, Debug, FixedU128, MultiSignature, MultiSigner, Perbill, Permill,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -1385,6 +1385,8 @@ construct_runtime!(
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
 		Indices: pallet_indices = 43,
+		MetaTx: pallet_meta_tx = 44,
+		VerifySignature: pallet_verify_signature = 45,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
