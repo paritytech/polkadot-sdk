@@ -517,6 +517,8 @@ pub mod test {
 		},
 		mock::{Test as T, *},
 	};
+	use frame_support::assert_ok;
+	use pallet_balances::Pallet as Balances;
 	use core::str::FromStr;
 
 	// create referendum status v0.
@@ -624,4 +626,184 @@ pub mod test {
 			);
 		});
 	}
+
+	#[test]
+fn migration_v1_to_v2_works() {
+    use frame_support::traits::{
+        fungible::InspectHold,
+        Currency, ReservableCurrency,
+    };
+
+    ExtBuilder::default().build_and_execute(|| {
+        // Setup: Fund accounts and reserve balances (simulating v1 state)
+        let submitter: u64 = 1;
+        let decision_depositor: u64 = 2;
+        let submission_amount: u64 = 10;
+        let decision_amount: u64 = 20;
+
+        // Give accounts enough balance - use fully qualified syntax
+        let _ = <Balances<T> as Currency<u64>>::deposit_creating(&submitter, 1000);
+        let _ = <Balances<T> as Currency<u64>>::deposit_creating(&decision_depositor, 1000);
+
+        // Reserve funds using old Currency trait (simulating v1 state)
+        assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(&submitter, submission_amount));
+        assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(&decision_depositor, decision_amount));
+
+        // Verify reserves are in place
+        assert_eq!(<Balances<T> as ReservableCurrency<u64>>::reserved_balance(&submitter), submission_amount);
+        assert_eq!(<Balances<T> as ReservableCurrency<u64>>::reserved_balance(&decision_depositor), decision_amount);
+
+        // Create an ongoing referendum with both deposits
+        let status_v1 = create_status_v0();
+        let ongoing_with_decision = ReferendumInfoOf::<T, ()>::Ongoing(ReferendumStatus {
+            submission_deposit: Deposit { who: submitter, amount: submission_amount },
+            decision_deposit: Some(Deposit { who: decision_depositor, amount: decision_amount }),
+            ..status_v1
+        });
+
+        // Create an approved referendum with deposits
+        let approved_v1 = ReferendumInfoOf::<T, ()>::Approved(
+            100,
+            Some(Deposit { who: submitter, amount: submission_amount }),
+            Some(Deposit { who: decision_depositor, amount: decision_amount }),
+        );
+
+        // Create a timed out referendum with only submission deposit
+        let timed_out_v1 = ReferendumInfoOf::<T, ()>::TimedOut(
+            50,
+            Some(Deposit { who: submitter, amount: submission_amount }),
+            None,
+        );
+
+        // Reserve more for the additional referenda
+        assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(&submitter, submission_amount * 2));
+        assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(&decision_depositor, decision_amount));
+
+        // Insert referenda into storage
+        ReferendumCount::<T, ()>::put(3);
+        v1::ReferendumInfoFor::<T, ()>::insert(0, ongoing_with_decision);
+        v1::ReferendumInfoFor::<T, ()>::insert(1, approved_v1);
+        v1::ReferendumInfoFor::<T, ()>::insert(2, timed_out_v1);
+
+        // Set storage version to 1
+        StorageVersion::new(1).put::<Pallet<T, ()>>();
+        assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 1);
+
+        // Verify total reserved before migration
+        let submitter_reserved_before = <Balances<T> as ReservableCurrency<u64>>::reserved_balance(&submitter);
+        let depositor_reserved_before = <Balances<T> as ReservableCurrency<u64>>::reserved_balance(&decision_depositor);
+        assert_eq!(submitter_reserved_before, submission_amount * 3); // 3 submission deposits
+        assert_eq!(depositor_reserved_before, decision_amount * 2); // 2 decision deposits
+
+        // Verify no holds exist before migration
+        assert_eq!(
+            <Balances<T> as InspectHold<u64>>::balance_on_hold(
+                &HoldReason::DecisionDeposit.into(),
+                &submitter
+            ),
+            0u64
+        );
+        assert_eq!(
+            <Balances<T> as InspectHold<u64>>::balance_on_hold(
+                &HoldReason::DecisionDeposit.into(),
+                &decision_depositor
+            ),
+            0u64
+        );
+
+        // Run migration
+        v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+
+        // Verify storage version updated to 2
+        assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 2);
+
+        // Verify reserves are released
+        assert_eq!(<Balances<T> as ReservableCurrency<u64>>::reserved_balance(&submitter), 0u64);
+        assert_eq!(<Balances<T> as ReservableCurrency<u64>>::reserved_balance(&decision_depositor), 0u64);
+
+        // Verify holds are now in place
+        assert_eq!(
+            <Balances<T> as InspectHold<u64>>::balance_on_hold(
+                &HoldReason::DecisionDeposit.into(),
+                &submitter
+            ),
+            submission_amount * 3
+        );
+        assert_eq!(
+            <Balances<T> as InspectHold<u64>>::balance_on_hold(
+                &HoldReason::DecisionDeposit.into(),
+                &decision_depositor
+            ),
+            decision_amount * 2
+        );
+
+        // Verify referendum data is unchanged
+        let ref_0 = ReferendumInfoFor::<T, ()>::get(0).unwrap();
+        let ref_1 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
+        let ref_2 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
+
+        // Data should still contain the deposit information
+        match ref_0 {
+            ReferendumInfo::Ongoing(status) => {
+                assert_eq!(status.submission_deposit.amount, submission_amount);
+                assert_eq!(status.decision_deposit.unwrap().amount, decision_amount);
+            },
+            _ => panic!("Expected Ongoing referendum"),
+        }
+
+        match ref_1 {
+            ReferendumInfo::Approved(_, s, d) => {
+                assert_eq!(s.unwrap().amount, submission_amount);
+                assert_eq!(d.unwrap().amount, decision_amount);
+            },
+            _ => panic!("Expected Approved referendum"),
+        }
+
+        match ref_2 {
+            ReferendumInfo::TimedOut(_, s, d) => {
+                assert_eq!(s.unwrap().amount, submission_amount);
+                assert!(d.is_none());
+            },
+            _ => panic!("Expected TimedOut referendum"),
+        }
+    });
+}
+
+#[test]
+fn migration_v1_to_v2_skips_if_not_v1() {
+    ExtBuilder::default().build_and_execute(|| {
+        // Set storage version to 0 (not 1)
+        StorageVersion::new(0).put::<Pallet<T, ()>>();
+
+        // Run migration - should skip
+        v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+
+        // Version should remain at 0
+        assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 0);
+    });
+}
+
+#[test]
+fn migration_v1_to_v2_handles_killed_referendum() {
+    ExtBuilder::default().build_and_execute(|| {
+        // Create a killed referendum (no deposits to migrate)
+        let killed = ReferendumInfoOf::<T, ()>::Killed(42);
+
+        ReferendumCount::<T, ()>::put(1);
+        v1::ReferendumInfoFor::<T, ()>::insert(0, killed);
+        StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+        // Run migration
+        v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+
+        // Should complete successfully
+        assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 2);
+
+        // Referendum should still be Killed
+        match ReferendumInfoFor::<T, ()>::get(0).unwrap() {
+            ReferendumInfo::Killed(moment) => assert_eq!(moment, 42),
+            _ => panic!("Expected Killed referendum"),
+        }
+    });
+}
 }
