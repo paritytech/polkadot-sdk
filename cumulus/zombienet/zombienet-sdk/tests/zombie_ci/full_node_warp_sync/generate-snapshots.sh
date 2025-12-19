@@ -75,7 +75,7 @@ snapshots_generate() {
         --features zombie-ci,generate-snapshots \
         --no-capture \
         -- full_node_warp_sync::generate_snapshots
-    unset ZOMBIENET_SDK_BASE_DIR
+    unset ZOMBIENET_SDK_BASE_DIRG
 
     echo "Snapshots ready in: $SNAPSHOT_DIR"
 }
@@ -115,10 +115,11 @@ snapshots_test_local() {
         -- full_node_warp_sync
 
     echo "Test passed - snapshots validated"
+    echo "Snapshot are ready to upload to google storage"
 }
 
 all() {
-    build_binaries
+    # build_binaries
     chainspec_parachain
     chainspec_relaychain
     snapshots_generate
