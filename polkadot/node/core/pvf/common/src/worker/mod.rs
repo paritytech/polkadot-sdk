@@ -198,6 +198,8 @@ macro_rules! decl_worker_main {
 					node_version,
 					None,
 				);
+
+				return;
 			}
 
 			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
