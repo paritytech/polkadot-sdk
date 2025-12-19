@@ -73,14 +73,14 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{Balanced, Inspect, InspectHold, Mutate, MutateHold},
 		schedule::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
+		tokens::{Fortitude, Precision},
 		LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
 		StorePreimage, VoteTally,
-		fungible::{Balanced, Inspect, InspectHold, Mutate, MutateHold},
-		tokens::{Precision, Fortitude},
 	},
 	BoundedVec,
 };
@@ -99,11 +99,10 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DecidingStatus,
-		DecidingStatusOf, Deposit, InsertSorted, DebtOf, PalletsOriginOf,
-		ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf,
-		ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf,
-		TracksInfo, VotesOf,
+		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DebtOf,
+		DecidingStatus, DecidingStatusOf, Deposit, InsertSorted, PalletsOriginOf, ReferendumIndex,
+		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
+		StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -1308,17 +1307,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Return a deposit, if `Some`.
-	fn refund_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) -> Result<(), DispatchError> {
+	fn refund_deposit(
+		deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>,
+	) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::NativeBalance::release(&HoldReason::DecisionDeposit.into(), &who, amount, Precision::BestEffort)?;
+			T::NativeBalance::release(
+				&HoldReason::DecisionDeposit.into(),
+				&who,
+				amount,
+				Precision::BestEffort,
+			)?;
 		}
 		Ok(())
 	}
 
 	/// Slash a deposit, if `Some`.
-	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) -> Result<(), DispatchError> {
+	fn slash_deposit(
+		deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>,
+	) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::NativeBalance::burn_held(&HoldReason::DecisionDeposit.into(), &who, amount, Precision::Exact, Fortitude::Force)?;
+			T::NativeBalance::burn_held(
+				&HoldReason::DecisionDeposit.into(),
+				&who,
+				amount,
+				Precision::Exact,
+				Fortitude::Force,
+			)?;
 			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 		}
 		Ok(())

@@ -426,7 +426,10 @@ fn decision_deposit_errors_work() {
 			h,
 			DispatchTime::At(10),
 		));
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0), TokenError::FundsUnavailable);
+		assert_noop!(
+			Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0),
+			TokenError::FundsUnavailable
+		);
 
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
 		let e = Error::<Test>::HasDeposit;

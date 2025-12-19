@@ -22,7 +22,11 @@ use alloc::borrow::Cow;
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
-	traits::{fungible::{Inspect, Debt}, schedule::v3::Anon, Bounded},
+	traits::{
+		fungible::{Debt, Inspect},
+		schedule::v3::Anon,
+		Bounded,
+	},
 	Parameter,
 };
 use scale_info::{Type, TypeInfo};
@@ -35,9 +39,8 @@ pub type BalanceOf<T, I = ()> =
 pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
-	pub type DebtOf<T, I = ()> = Debt<
-    <T as frame_system::Config>::AccountId,
-    <T as Config<I>>::NativeBalance>;
+pub type DebtOf<T, I = ()> =
+	Debt<<T as frame_system::Config>::AccountId, <T as Config<I>>::NativeBalance>;
 pub type CallOf<T, I> = <T as Config<I>>::RuntimeCall;
 pub type BoundedCallOf<T, I> =
 	Bounded<<T as Config<I>>::RuntimeCall, <T as frame_system::Config>::Hashing>;
