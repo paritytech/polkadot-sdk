@@ -77,8 +77,10 @@ use frame_support::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
-		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
-		ReservableCurrency, StorePreimage, VoteTally,
+		LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+		StorePreimage, VoteTally,
+		fungible::{Balanced, Inspect, InspectHold, Mutate, MutateHold},
+		tokens::{Precision, Fortitude},
 	},
 	BoundedVec,
 };
@@ -98,7 +100,7 @@ pub use self::{
 	pallet::*,
 	types::{
 		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DecidingStatus,
-		DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf,
+		DecidingStatusOf, Deposit, InsertSorted, DebtOf, PalletsOriginOf,
 		ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf,
 		ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf,
 		TracksInfo, VotesOf,
@@ -136,6 +138,14 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
+	/// A reason for holding funds.
+	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The account has deposited tokens to place a decision deposit.
+		DecisionDeposit,
+	}
+
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + Sized {
 		// System level stuff.
@@ -162,7 +172,11 @@ pub mod pallet {
 				Hasher = Self::Hashing,
 			>;
 		/// Currency type for this pallet.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type NativeBalance: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 		// Origins and unbalances.
 		/// Origin from which proposals may be submitted.
 		type SubmitOrigin: EnsureOriginWithArg<
@@ -175,7 +189,7 @@ pub mod pallet {
 		/// Origin from which any vote may be killed.
 		type KillOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Handler for the unbalanced reduction when slashing a preimage deposit.
-		type Slash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		type Slash: OnUnbalanced<DebtOf<Self, I>>;
 		/// The counting type for votes. Usually just balance.
 		type Votes: AtLeast32BitUnsigned + Copy + Parameter + Member + MaxEncodedLen;
 		/// The tallying type.
@@ -569,7 +583,7 @@ pub mod pallet {
 				.take_decision_deposit()
 				.map_err(|_| Error::<T, I>::Unfinished)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			Self::refund_deposit(Some(deposit.clone()))?;
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::DecisionDepositRefunded {
 				index,
@@ -621,8 +635,8 @@ pub mod pallet {
 			}
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Killed { index, tally: status.tally });
-			Self::slash_deposit(Some(status.submission_deposit.clone()));
-			Self::slash_deposit(status.decision_deposit.clone());
+			Self::slash_deposit(Some(status.submission_deposit.clone()))?;
+			Self::slash_deposit(status.decision_deposit.clone())?;
 			Self::do_clear_metadata(index);
 			let info = ReferendumInfo::Killed(T::BlockNumberProvider::current_block_number());
 			ReferendumInfoFor::<T, I>::insert(index, info);
@@ -707,7 +721,7 @@ pub mod pallet {
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			Self::refund_deposit(Some(deposit.clone()))?;
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
 				index,
@@ -1289,23 +1303,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		amount: BalanceOf<T, I>,
 	) -> Result<Deposit<T::AccountId, BalanceOf<T, I>>, DispatchError> {
-		T::Currency::reserve(&who, amount)?;
+		T::NativeBalance::hold(&HoldReason::DecisionDeposit.into(), &who, amount)?;
 		Ok(Deposit { who, amount })
 	}
 
 	/// Return a deposit, if `Some`.
-	fn refund_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
+	fn refund_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::Currency::unreserve(&who, amount);
+			T::NativeBalance::release(&HoldReason::DecisionDeposit.into(), &who, amount, Precision::BestEffort)?;
 		}
+		Ok(())
 	}
 
 	/// Slash a deposit, if `Some`.
-	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
+	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+			T::NativeBalance::burn_held(&HoldReason::DecisionDeposit.into(), &who, amount, Precision::Exact, Fortitude::Force)?;
 			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 		}
+		Ok(())
 	}
 
 	/// Determine whether the given `tally` would result in a referendum passing at `elapsed` blocks
