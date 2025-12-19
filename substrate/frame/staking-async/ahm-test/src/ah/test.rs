@@ -1400,15 +1400,21 @@ mod poll_operations {
 
 mod session_keys {
 	use super::*;
+	use codec::Encode;
 	use frame_support::assert_noop;
+
+	// Helper to create properly encoded session keys that match AHSessionKeys
+	fn make_session_keys(value: u64) -> Vec<u8> {
+		AHSessionKeys { other: frame::deps::sp_runtime::testing::UintAuthorityId(value) }.encode()
+	}
 
 	#[test]
 	fn set_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 1 is a validator
 			let validator: AccountId = 1;
-			let keys = vec![1, 2, 3, 4];
-			let proof = vec![5, 6, 7, 8];
+			let keys = make_session_keys(42);
+			let proof = vec![];
 
 			// WHEN: Validator sets session keys
 			// THEN: No error returned (keys forwarded to RC via XCM)
@@ -1425,8 +1431,8 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 100 is a nominator, not a validator
 			let nominator: AccountId = 100;
-			let keys = vec![1, 2, 3, 4];
-			let proof = vec![5, 6, 7, 8];
+			let keys = make_session_keys(42);
+			let proof = vec![];
 
 			// WHEN: Nominator tries to set keys
 			// THEN: NotValidator error is returned
@@ -1442,8 +1448,8 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator and XCM delivery set to fail
 			let validator: AccountId = 1;
-			let keys = vec![1, 2, 3, 4];
-			let proof = vec![5, 6, 7, 8];
+			let keys = make_session_keys(42);
+			let proof = vec![];
 			NextRelayDeliveryFails::set(true);
 
 			// WHEN: set_keys fails with XcmSendFailed
@@ -1451,6 +1457,27 @@ mod session_keys {
 			assert_noop!(
 				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof,),
 				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_invalid_keys() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with malformed keys
+			let validator: AccountId = 1;
+			let invalid_keys = vec![0xff, 0xfe, 0xfd]; // Cannot be decoded as AHSessionKeys
+			let proof = vec![];
+
+			// WHEN: Validator tries to set invalid keys
+			// THEN: InvalidKeys error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					invalid_keys,
+					proof,
+				),
+				rc_client::Error::<T>::InvalidKeys
 			);
 		});
 	}

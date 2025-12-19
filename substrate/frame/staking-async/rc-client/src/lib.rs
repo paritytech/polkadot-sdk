@@ -117,9 +117,13 @@
 
 extern crate alloc;
 use alloc::{vec, vec::Vec};
+use codec::Decode;
 use core::fmt::Display;
 use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
-use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
+use sp_runtime::{
+	traits::{Convert, OpaqueKeys},
+	Perbill, TransactionOutcome,
+};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
@@ -157,8 +161,9 @@ pub trait SendToRelayChain {
 	/// Send session keys to relay chain for registration.
 	///
 	/// The keys are forwarded to `pallet-staking-async-ah-client::set_keys_from_ah` on the RC.
+	/// Note: proof is validated on AH side, so only validated keys are sent.
 	#[allow(clippy::result_unit_err)]
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()>;
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()>;
 
 	/// Send a request to purge session keys on the relay chain.
 	///
@@ -173,7 +178,7 @@ impl SendToRelayChain for () {
 	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		unimplemented!();
 	}
-	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>, _proof: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<(), ()> {
 		unimplemented!();
 	}
 	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
@@ -769,6 +774,16 @@ pub mod pallet {
 		///
 		/// Must be < SessionsPerEra.
 		type ValidatorSetExportSession: Get<SessionIndex>;
+
+		/// The session keys type that must match the Relay Chain's `pallet_session::Config::Keys`.
+		///
+		/// This is used to validate session keys on AssetHub before forwarding to RC.
+		/// By decoding keys here, we ensure only valid data is sent via XCM, preventing
+		/// malicious validators from bloating the XCM queue with garbage.
+		///
+		/// The type must implement `OpaqueKeys` for ownership proof validation and `Decode`
+		/// to verify the keys can be properly decoded.
+		type SessionKeys: OpaqueKeys + Decode;
 	}
 
 	#[pallet::error]
@@ -777,6 +792,10 @@ pub mod pallet {
 		XcmSendFailed,
 		/// The caller is not a registered validator.
 		NotValidator,
+		/// The session keys could not be decoded as the expected SessionKeys type.
+		InvalidKeys,
+		/// Invalid ownership proof for the session keys.
+		InvalidProof,
 	}
 
 	#[pallet::event]
@@ -947,24 +966,24 @@ pub mod pallet {
 			Ok(Some(weight).into())
 		}
 
-		/// Set session keys for a validator. Keys are immediately forwarded to RelayChain.
+		/// Set session keys for a validator. Keys are validated on AssetHub and forwarded to RC.
 		///
-		/// The keys are sent via XCM to the Relay Chain's `ah-client` pallet,
-		/// which will then forward them to `pallet_session`. This is a fire-and-forget approach:
-		/// no XCM round-trip confirmation is performed to avoid additional complexity (and extra
-		/// cost on caller's side who would have to pay for that).
+		/// **Validation on AssetHub:**
+		/// - Keys are decoded as `T::SessionKeys` to ensure they match RC's expected format.
+		/// - Ownership proof is validated using `OpaqueKeys::ownership_proof_is_valid`.
 		///
-		/// Keys are accepted as raw bytes (output of `author_rotateKeys`) to avoid adding
-		/// dependencies on specific key types (grandpa, beefy, etc.). The Relay Chain's
-		/// `pallet_session` will decode and validate the keys.
+		/// If validation passes, only the validated keys are sent to RC (with empty proof),
+		/// since RC trusts AH's validation. This prevents malicious validators from bloating
+		/// the XCM queue with garbage data.
 		///
-		/// Note: no deposit is currently required. Deposit handling may be introduced once direct
-		/// `set_keys`/`purge_keys` calls on the Relay Chain are disabled. However, it might not be
-		/// necessary at all, as only validators can set keys, and they are already required to
-		/// maintain a minimum validator bond.
+		/// This, combined with the enforcement of a high minimum validator bond, makes it
+		/// reasonable not to require a deposit.
+		// TODO: Add proper benchmarking
 		#[pallet::call_index(10)]
 		#[pallet::weight(
-			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
+			// One read to check if caller is a validator.
+			// TODO: benchmark properly - this is a poor estimate. We miss key decoding and proof
+            // validation
 			T::DbWeight::get().reads(1)
 		)]
 		pub fn set_keys(origin: OriginFor<T>, keys: Vec<u8>, proof: Vec<u8>) -> DispatchResult {
@@ -973,11 +992,18 @@ pub mod pallet {
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
-			// Forward keys to RC via XCM
-			T::SendToRelayChain::set_keys(stash.clone(), keys, proof)
+			// Validate keys: decode as SessionKeys to ensure correct format
+			let session_keys =
+				T::SessionKeys::decode(&mut &keys[..]).map_err(|_| Error::<T>::InvalidKeys)?;
+
+			// Validate ownership proof
+			ensure!(session_keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
+
+			// Forward validated keys to RC (no proof needed, already validated)
+			T::SendToRelayChain::set_keys(stash.clone(), keys)
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
 
-			log::info!(target: LOG_TARGET, "Session keys set for {stash:?}, forwarded to RC");
+			log::info!(target: LOG_TARGET, "Session keys validated and set for {stash:?}, forwarded to RC");
 
 			Ok(())
 		}

@@ -1487,7 +1487,6 @@ mod session_keys {
 					RuntimeOrigin::signed(99),
 					stash,
 					keys1.encode(),
-					vec![],
 				));
 
 				// THEN: Keys are registered.
@@ -1503,7 +1502,6 @@ mod session_keys {
 					RuntimeOrigin::signed(99),
 					stash,
 					keys2.encode(),
-					vec![],
 				));
 
 				// THEN: Keys are updated.
@@ -1541,7 +1539,6 @@ mod session_keys {
 						RuntimeOrigin::signed(99),
 						stash,
 						invalid_keys,
-						vec![],
 					),
 					ah_client::Error::<Runtime>::InvalidKeys
 				);
@@ -1568,7 +1565,6 @@ mod session_keys {
 						RuntimeOrigin::none(),
 						stash,
 						encoded_keys,
-						vec![],
 					),
 					DispatchError::BadOrigin
 				);
@@ -1623,7 +1619,6 @@ mod session_keys {
 						RuntimeOrigin::signed(1),
 						nonexistent,
 						encoded_keys,
-						vec![],
 					),
 					pallet_session::Error::<Runtime>::NoAccount
 				);

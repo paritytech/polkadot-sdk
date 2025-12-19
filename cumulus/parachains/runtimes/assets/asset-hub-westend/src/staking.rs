@@ -302,6 +302,22 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
 
+// Relay Chain session keys type for validating session keys on AssetHub.
+// This must match the exact structure of Westend's `SessionKeys` to ensure
+// proper encoding/decoding compatibility.
+//
+// Keys validated here prevent malicious validators from bloating XCM with garbage.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -309,6 +325,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<64>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type SessionKeys = RelayChainSessionKeys;
 }
 
 #[derive(Encode, Decode)]
@@ -325,8 +342,9 @@ pub enum AhClientCalls {
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
 	// index of `fn set_keys_from_ah` in `staking-async-ah-client`.
+	// Note: proof is validated on AH side, so only keys are sent to RC.
 	#[codec(index = 3)]
-	SetKeys { stash: AccountId, keys: Vec<u8>, proof: Vec<u8> },
+	SetKeys { stash: AccountId, keys: Vec<u8> },
 	// index of `fn purge_keys_from_ah` in `staking-async-ah-client`.
 	#[codec(index = 4)]
 	PurgeKeys { stash: AccountId },
@@ -354,11 +372,11 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 }
 
 /// Message to set session keys on the Relay Chain.
+/// Note: proof is validated on AH side, so only keys are sent to RC.
 #[derive(Encode, Decode, Clone)]
 pub struct SetKeysMessage {
 	pub stash: AccountId,
 	pub keys: Vec<u8>,
-	pub proof: Vec<u8>,
 }
 
 pub struct SetKeysToXcm;
@@ -375,7 +393,6 @@ impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys {
 					stash: msg.stash,
 					keys: msg.keys,
-					proof: msg.proof,
 				})
 				.encode()
 				.into(),
@@ -428,13 +445,13 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		>::send(report)
 	}
 
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
 			SetKeysMessage,
 			SetKeysToXcm,
-		>::send(SetKeysMessage { stash, keys, proof })
+		>::send(SetKeysMessage { stash, keys })
 	}
 
 	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {

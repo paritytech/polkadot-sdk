@@ -249,7 +249,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{historical, SessionManager};
 	use pallet_staking_async_rc_client::SessionReport;
-	use sp_runtime::{traits::OpaqueKeys, Perbill, Saturating};
+	use sp_runtime::{Perbill, Saturating};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
 		SessionIndex,
@@ -509,8 +509,6 @@ pub mod pallet {
 		Blocked,
 		/// The session keys could not be decoded.
 		InvalidKeys,
-		/// Invalid ownership proof for the session keys.
-		InvalidProof,
 	}
 
 	#[pallet::event]
@@ -687,27 +685,24 @@ pub mod pallet {
 		/// This is called when a validator sets their session keys on AssetHub, which forwards
 		/// the request to the RelayChain via XCM.
 		///
-		/// The `keys` parameter contains the encoded session keys that will be decoded and
-		/// registered with the session pallet.
-		/// The `proof` parameter is validated using the `OpaqueKeys::ownership_proof_is_valid`
-		/// method to verify key ownership.
+		/// AssetHub validates both keys and ownership proof before sending.
+		/// RC trusts AH's validation and does not re-validate. This design:
+		/// - Prevents malicious validators from bloating XCM queue with garbage
+		/// - Avoids duplicate validation work on RC
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::SessionInterface::set_keys_weight())]
 		pub fn set_keys_from_ah(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 			keys: Vec<u8>,
-			proof: Vec<u8>,
 		) -> DispatchResult {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received set_keys request from AssetHub for {stash:?}");
 
-			// Decode the keys from bytes
+			// Decode the keys from bytes (AH already validated, this is just for type conversion)
 			let session_keys =
 				<<T as Config>::SessionInterface as SessionInterface>::Keys::decode(&mut &keys[..])
 					.map_err(|_| Error::<T>::InvalidKeys)?;
-
-			ensure!(session_keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
 
 			// Forward to session pallet via SessionInterface
 			T::SessionInterface::set_keys(&stash, session_keys)?;

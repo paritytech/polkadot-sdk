@@ -466,12 +466,22 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
 
+// Session keys type for AH that must match RC's SessionKeys.
+// This ensures that keys validated on AH can be decoded on RC.
+// Uses the same OtherSessionHandler as rc::SessionKeys.
+frame::deps::sp_runtime::impl_opaque_keys! {
+	pub struct AHSessionKeys {
+		pub other: frame::deps::sp_runtime::testing::UintAuthorityId,
+	}
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
+	type SessionKeys = AHSessionKeys;
 }
 
 parameter_types! {
@@ -515,7 +525,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		Ok(())
 	}
 
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>, proof: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()> {
 		Self::ensure_delivery_guard()?;
 		if LocalQueue::get().is_some() {
 			return Ok(());
@@ -526,7 +536,6 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 				origin,
 				stash,
 				keys.clone(),
-				proof.clone(),
 			)
 			.unwrap();
 		});
