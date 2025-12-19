@@ -1503,6 +1503,48 @@ mod session_keys {
 	}
 
 	#[test]
+	fn set_keys_empty_proof() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with valid keys but empty proof
+			let validator: AccountId = 1;
+			let (keys, _) = make_session_keys_and_proof(validator);
+			let empty_proof = vec![];
+
+			// WHEN: Validator tries to set keys with empty proof
+			// THEN: InvalidProof error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					empty_proof,
+				),
+				rc_client::Error::<T>::InvalidProof
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_malformed_proof() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with valid keys but malformed proof
+			let validator: AccountId = 1;
+			let (keys, _) = make_session_keys_and_proof(validator);
+			let malformed_proof = vec![0xde, 0xad, 0xbe, 0xef];
+
+			// WHEN: Validator tries to set keys with malformed proof
+			// THEN: InvalidProof error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					malformed_proof,
+				),
+				rc_client::Error::<T>::InvalidProof
+			);
+		});
+	}
+
+	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator
