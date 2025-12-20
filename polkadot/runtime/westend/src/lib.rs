@@ -97,7 +97,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256};
+use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
@@ -1248,7 +1248,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -2666,8 +2666,8 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -2899,7 +2899,13 @@ sp_api::impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
-			impl pallet_session_benchmarking::Config for Runtime {}
+			impl pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
+
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 

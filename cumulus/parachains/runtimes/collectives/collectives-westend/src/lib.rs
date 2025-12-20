@@ -94,7 +94,6 @@ use parachains_common::{
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::RuntimeDebug;
 use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
 };
@@ -102,6 +101,7 @@ use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
 };
+use Debug;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -298,7 +298,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -947,8 +947,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -1147,7 +1147,12 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 			use xcm_config::WndLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 

@@ -126,13 +126,6 @@ mod sys {
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn sr25519_verify(
-			signature_ptr: *const u8,
-			pub_key_ptr: *const u8,
-			message_len: u32,
-			message_ptr: *const u8,
-		) -> ReturnCode;
-		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
 		pub fn return_data_size() -> u64;
@@ -508,33 +501,14 @@ impl HostFn for HostFnImpl {
 		unreachable!("consume_all_gas does not return");
 	}
 
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
+	}
+
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn set_code_hash(code_hash: &[u8; 32]) {
-		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
-	}
-
-	#[unstable_hostfn]
-	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result {
-		let ret_code = unsafe {
-			sys::sr25519_verify(
-				signature.as_ptr(),
-				pub_key.as_ptr(),
-				message.len() as u32,
-				message.as_ptr(),
-			)
-		};
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn terminate(beneficiary: &[u8; 20]) -> ! {
-		unsafe { sys::terminate(beneficiary.as_ptr()) }
-		panic!("terminate does not return");
 	}
 }

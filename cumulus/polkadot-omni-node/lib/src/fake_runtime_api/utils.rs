@@ -16,7 +16,7 @@
 
 pub(crate) mod imports {
 	pub use cumulus_primitives_core::ParaId;
-	pub use parachains_common::{AccountId, Balance, Nonce};
+	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
 		traits::Block as BlockT,
@@ -124,7 +124,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl sp_session::SessionKeys<$block> for $runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+				fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 					unimplemented!()
 				}
 
@@ -133,6 +133,7 @@ macro_rules! impl_node_runtime_apis {
 				) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 					unimplemented!()
 				}
+
 			}
 
 			impl
