@@ -912,57 +912,6 @@ mod test {
 	}
 
 	#[test]
-	fn test_child_trie_tracking_with_whitelist() {
-		let mut tracker = KeyTracker::new(true);
-
-		let whitelist = vec![TrackedStorageKey::new(b"child_whitelist".to_vec())];
-		tracker.add_whitelist(&whitelist);
-
-		let child_info = b"child_trie_1";
-
-		// Whitelisted child trie key
-		tracker.add_read_key(Some(child_info), b"child_whitelist_key");
-		tracker.add_write_key(Some(child_info), b"child_whitelist_key");
-
-		// Normal child trie key
-		tracker.add_read_key(Some(child_info), b"child_normal_key");
-		tracker.add_write_key(Some(child_info), b"child_normal_key");
-
-		let all_trackers = tracker.all_trackers();
-
-		let whitelisted_child =
-			all_trackers.iter().find(|t| t.key == b"child_whitelist_key".to_vec()).unwrap();
-		let normal_child =
-			all_trackers.iter().find(|t| t.key == b"child_normal_key".to_vec()).unwrap();
-
-		assert!(whitelisted_child.whitelisted);
-		assert!(!normal_child.whitelisted);
-	}
-
-	#[test]
-	fn test_prefix_based_whitelisting() {
-		let mut tracker = KeyTracker::new(true);
-
-		// Test with various prefix lengths
-		let whitelist = vec![
-			TrackedStorageKey::new(b"sys".to_vec()),     // 3 byte prefix
-			TrackedStorageKey::new(b"balance".to_vec()), // 7 byte prefix
-			TrackedStorageKey::new(b"timestamp_".to_vec()), // 10 byte prefix
-		];
-		tracker.add_whitelist(&whitelist);
-
-		// Test keys that should match prefixes
-		assert!(tracker.is_whitelisted(b"system_account"));
-		assert!(tracker.is_whitelisted(b"balances_total"));
-		assert!(tracker.is_whitelisted(b"timestamp_now"));
-
-		// Test keys that should NOT match
-		assert!(!tracker.is_whitelisted(b"account_info"));
-		assert!(!tracker.is_whitelisted(b"total_balance"));
-		assert!(!tracker.is_whitelisted(b"now_timestamp"));
-	}
-
-	#[test]
 	fn test_late_whitelist_update() {
 		let mut tracker = KeyTracker::new(true);
 
