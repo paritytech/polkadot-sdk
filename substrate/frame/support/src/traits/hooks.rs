@@ -21,8 +21,7 @@
 
 #![deny(missing_docs)]
 
-use crate::weights::Weight;
-use impl_trait_for_tuples::impl_for_tuples;
+use crate::{impl_for_tuples_attr, weights::Weight};
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_weights::WeightMeter;
 
@@ -37,12 +36,11 @@ pub trait PreInherents {
 	fn pre_inherents() {}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl PreInherents for Tuple {
-	fn pre_inherents() {
-		for_tuples!( #( Tuple::pre_inherents(); )* );
+impl_for_tuples_attr! {
+	impl PreInherents for Tuple {
+		fn pre_inherents() {
+			for_tuples!( #( Tuple::pre_inherents(); )* );
+		}
 	}
 }
 
@@ -52,12 +50,11 @@ pub trait PostInherents {
 	fn post_inherents() {}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl PostInherents for Tuple {
-	fn post_inherents() {
-		for_tuples!( #( Tuple::post_inherents(); )* );
+impl_for_tuples_attr! {
+	impl PostInherents for Tuple {
+		fn post_inherents() {
+			for_tuples!( #( Tuple::post_inherents(); )* );
+		}
 	}
 }
 
@@ -67,12 +64,11 @@ pub trait PostTransactions {
 	fn post_transactions() {}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl PostTransactions for Tuple {
-	fn post_transactions() {
-		for_tuples!( #( Tuple::post_transactions(); )* );
+impl_for_tuples_attr! {
+	impl PostTransactions for Tuple {
+		fn post_transactions() {
+			for_tuples!( #( Tuple::post_transactions(); )* );
+		}
 	}
 }
 
@@ -85,12 +81,11 @@ pub trait OnPoll<BlockNumber> {
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl<BlockNumber: Clone> OnPoll<BlockNumber> for Tuple {
-	fn on_poll(n: BlockNumber, weight: &mut WeightMeter) {
-		for_tuples!( #( Tuple::on_poll(n.clone(), weight); )* );
+impl_for_tuples_attr! {
+	impl<BlockNumber: Clone> OnPoll<BlockNumber> for Tuple {
+		fn on_poll(n: BlockNumber, weight: &mut WeightMeter) {
+			for_tuples!( #( Tuple::on_poll(n.clone(), weight); )* );
+		}
 	}
 }
 
@@ -102,24 +97,22 @@ pub trait OnInitialize<BlockNumber> {
 	}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl<BlockNumber: Clone> OnInitialize<BlockNumber> for Tuple {
-	fn on_initialize(n: BlockNumber) -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #( weight = weight.saturating_add(Tuple::on_initialize(n.clone())); )* );
-		weight
+impl_for_tuples_attr! {
+	impl<BlockNumber: Clone> OnInitialize<BlockNumber> for Tuple {
+		fn on_initialize(n: BlockNumber) -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #( weight = weight.saturating_add(Tuple::on_initialize(n.clone())); )* );
+			weight
+		}
 	}
 }
 
-/// See [`Hooks::on_finalize`].
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-pub trait OnFinalize<BlockNumber> {
+impl_for_tuples_attr! {
 	/// See [`Hooks::on_finalize`].
-	fn on_finalize(_n: BlockNumber) {}
+	pub trait OnFinalize<BlockNumber> {
+		/// See [`Hooks::on_finalize`].
+		fn on_finalize(_n: BlockNumber) {}
+	}
 }
 
 /// See [`Hooks::on_idle`].
@@ -130,38 +123,36 @@ pub trait OnIdle<BlockNumber> {
 	}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl<BlockNumber: Copy + AtLeast32BitUnsigned> OnIdle<BlockNumber> for Tuple {
-	fn on_idle(n: BlockNumber, remaining_weight: Weight) -> Weight {
-		let on_idle_functions: &[fn(BlockNumber, Weight) -> Weight] =
-			&[for_tuples!( #( Tuple::on_idle ),* )];
-		let mut weight = Weight::zero();
-		let len = on_idle_functions.len();
-		let start_index = n % (len as u32).into();
-		let start_index = start_index.try_into().ok().expect(
-			"`start_index % len` always fits into `usize`, because `len` can be in maximum `usize::MAX`; qed"
-		);
-		for on_idle_fn in on_idle_functions.iter().cycle().skip(start_index).take(len) {
-			let adjusted_remaining_weight = remaining_weight.saturating_sub(weight);
-			weight = weight.saturating_add(on_idle_fn(n, adjusted_remaining_weight));
+impl_for_tuples_attr! {
+	impl<BlockNumber: Copy + AtLeast32BitUnsigned> OnIdle<BlockNumber> for Tuple {
+		fn on_idle(n: BlockNumber, remaining_weight: Weight) -> Weight {
+			let on_idle_functions: &[fn(BlockNumber, Weight) -> Weight] =
+				&[for_tuples!( #( Tuple::on_idle ),* )];
+			let mut weight = Weight::zero();
+			let len = on_idle_functions.len();
+			let start_index = n % (len as u32).into();
+			let start_index = start_index.try_into().ok().expect(
+				"`start_index % len` always fits into `usize`, because `len` can be in maximum `usize::MAX`; qed"
+			);
+			for on_idle_fn in on_idle_functions.iter().cycle().skip(start_index).take(len) {
+				let adjusted_remaining_weight = remaining_weight.saturating_sub(weight);
+				weight = weight.saturating_add(on_idle_fn(n, adjusted_remaining_weight));
+			}
+			weight
 		}
-		weight
 	}
 }
 
-/// A trait that will be called at genesis.
-///
-/// Implementing this trait for a pallet let's you express operations that should
-/// happen at genesis. It will be called in an externalities provided environment and
-/// will set the genesis state after all pallets have written their genesis state.
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-pub trait OnGenesis {
-	/// Something that should happen at genesis.
-	fn on_genesis() {}
+impl_for_tuples_attr! {
+	/// A trait that will be called at genesis.
+	///
+	/// Implementing this trait for a pallet let's you express operations that should
+	/// happen at genesis. It will be called in an externalities provided environment and
+	/// will set the genesis state after all pallets have written their genesis state.
+	pub trait OnGenesis {
+		/// Something that should happen at genesis.
+		fn on_genesis() {}
+	}
 }
 
 /// Implemented by pallets, allows defining logic to run prior to any [`OnRuntimeUpgrade`] logic.
@@ -252,95 +243,92 @@ pub trait UncheckedOnRuntimeUpgrade {
 	}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl BeforeAllRuntimeMigrations for Tuple {
-	/// Implements the default behavior of
-	/// [`BeforeAllRuntimeMigrations::before_all_runtime_migrations`] for tuples.
-	fn before_all_runtime_migrations() -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #( weight = weight.saturating_add(Tuple::before_all_runtime_migrations()); )* );
-		weight
+impl_for_tuples_attr! {
+	impl BeforeAllRuntimeMigrations for Tuple {
+		/// Implements the default behavior of
+		/// [`BeforeAllRuntimeMigrations::before_all_runtime_migrations`] for tuples.
+		fn before_all_runtime_migrations() -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #( weight = weight.saturating_add(Tuple::before_all_runtime_migrations()); )* );
+			weight
+		}
 	}
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-impl OnRuntimeUpgrade for Tuple {
-	/// Implements the default behavior of [`OnRuntimeUpgrade::on_runtime_upgrade`] for tuples.
-	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #( weight = weight.saturating_add(Tuple::on_runtime_upgrade()); )* );
-		weight
-	}
-
-	/// Implements the default behavior of `try_on_runtime_upgrade` for tuples, logging any errors
-	/// that occur.
-	#[cfg(feature = "try-runtime")]
-	fn try_on_runtime_upgrade(checks: bool) -> Result<Weight, TryRuntimeError> {
-		let mut cumulative_weight = Weight::zero();
-
-		let mut errors = Vec::new();
-
-		for_tuples!(#(
-			match Tuple::try_on_runtime_upgrade(checks) {
-				Ok(weight) => { cumulative_weight.saturating_accrue(weight); },
-				Err(err) => { errors.push(err); },
-			}
-		)*);
-
-		if errors.len() == 1 {
-			return Err(errors[0])
-		} else if !errors.is_empty() {
-			log::error!(
-				target: "try-runtime",
-				"Detected multiple errors while executing `try_on_runtime_upgrade`:",
-			);
-
-			errors.iter().for_each(|err| {
-				log::error!(
-					target: "try-runtime",
-					"{:?}",
-					err
-				);
-			});
-
-			return Err("Detected multiple errors while executing `try_on_runtime_upgrade`, check the logs!".into())
+impl_for_tuples_attr! {
+	impl OnRuntimeUpgrade for Tuple {
+		/// Implements the default behavior of [`OnRuntimeUpgrade::on_runtime_upgrade`] for tuples.
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #( weight = weight.saturating_add(Tuple::on_runtime_upgrade()); )* );
+			weight
 		}
 
-		Ok(cumulative_weight)
-	}
+		/// Implements the default behavior of `try_on_runtime_upgrade` for tuples, logging any errors
+		/// that occur.
+		#[cfg(feature = "try-runtime")]
+		fn try_on_runtime_upgrade(checks: bool) -> Result<Weight, TryRuntimeError> {
+			let mut cumulative_weight = Weight::zero();
 
-	/// [`OnRuntimeUpgrade::pre_upgrade`] should not be used on a tuple.
-	///
-	/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
-	/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
-	/// member in sequence, enabling testing of order-dependent migrations.
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		Err("Usage of `pre_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
-	}
+			let mut errors = Vec::new();
 
-	/// [`OnRuntimeUpgrade::post_upgrade`] should not be used on a tuple.
-	///
-	/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
-	/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
-	/// member in sequence, enabling testing of order-dependent migrations.
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		Err("Usage of `post_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
+			for_tuples!(#(
+				match Tuple::try_on_runtime_upgrade(checks) {
+					Ok(weight) => { cumulative_weight.saturating_accrue(weight); },
+					Err(err) => { errors.push(err); },
+				}
+			)*);
+
+			if errors.len() == 1 {
+				return Err(errors[0])
+			} else if !errors.is_empty() {
+				log::error!(
+					target: "try-runtime",
+					"Detected multiple errors while executing `try_on_runtime_upgrade`:",
+				);
+
+				errors.iter().for_each(|err| {
+					log::error!(
+						target: "try-runtime",
+						"{:?}",
+						err
+					);
+				});
+
+				return Err("Detected multiple errors while executing `try_on_runtime_upgrade`, check the logs!".into())
+			}
+
+			Ok(cumulative_weight)
+		}
+
+		/// [`OnRuntimeUpgrade::pre_upgrade`] should not be used on a tuple.
+		///
+		/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
+		/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
+		/// member in sequence, enabling testing of order-dependent migrations.
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Err("Usage of `pre_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
+		}
+
+		/// [`OnRuntimeUpgrade::post_upgrade`] should not be used on a tuple.
+		///
+		/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
+		/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
+		/// member in sequence, enabling testing of order-dependent migrations.
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			Err("Usage of `post_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
+		}
 	}
 }
 
-/// See [`Hooks::integrity_test`].
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-pub trait IntegrityTest {
+impl_for_tuples_attr! {
 	/// See [`Hooks::integrity_test`].
-	fn integrity_test() {}
+	pub trait IntegrityTest {
+		/// See [`Hooks::integrity_test`].
+		fn integrity_test() {}
+	}
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -616,13 +604,12 @@ pub trait GenesisBuild<T, I = ()>: sp_runtime::traits::MaybeSerializeDeserialize
 	}
 }
 
-/// A trait which is called when the timestamp is set in the runtime.
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-pub trait OnTimestampSet<Moment> {
-	/// Called when the timestamp is set.
-	fn on_timestamp_set(moment: Moment);
+impl_for_tuples_attr! {
+	/// A trait which is called when the timestamp is set in the runtime.
+	pub trait OnTimestampSet<Moment> {
+		/// Called when the timestamp is set.
+		fn on_timestamp_set(moment: Moment);
+	}
 }
 
 #[cfg(test)]

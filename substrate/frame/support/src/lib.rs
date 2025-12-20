@@ -54,6 +54,7 @@ pub mod __private {
 	};
 	pub use codec;
 	pub use frame_metadata as metadata;
+	pub use impl_trait_for_tuples;
 	pub use log;
 	pub use paste;
 	pub use scale_info;
@@ -876,6 +877,108 @@ macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
 		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
 	};
+}
+
+/// Puts the [`impl_for_tuples`](impl_trait_for_tuples::impl_for_tuples) attribute above the given
+/// code.
+///
+/// The main purpose of this macro is to handle the `tuples-*` feature which informs the attribute
+/// about the maximum size of the tuple to generate. Besides that, there is no difference to use the
+/// attribute directly.
+///
+/// # Example
+///
+/// ```rust
+/// trait ILoveTuples {
+///     fn really_hard();
+/// }
+///
+/// frame_support::impl_for_tuples_attr! {
+///     impl ILoveTuples for Tuple {
+///         fn really_hard() {
+///             for_tuples! { #(
+///                 // Print it for each tuple
+///                 println!("I LOVE TUPLES");
+///             )* }
+///         }
+///     }
+/// }
+/// ```
+#[cfg(all(not(feature = "tuples-96"), not(feature = "tuples-128")))]
+#[macro_export]
+macro_rules! impl_for_tuples_attr {
+	( $( $input:tt )* ) => {
+		#[$crate::__private::impl_trait_for_tuples::impl_for_tuples(64)]
+		$( $input )*
+	}
+}
+
+/// Puts the [`impl_for_tuples`](impl_trait_for_tuples::impl_for_tuples) attribute above the given
+/// code.
+///
+/// The main purpose of this macro is to handle the `tuples-*` feature which informs the attribute
+/// about the maximum size of the tuple to generate. Besides that, there is no difference to use the
+/// attribute directly.
+///
+/// # Example
+///
+/// ```rust
+/// trait ILoveTuples {
+///     fn really_hard();
+/// }
+///
+/// frame_support::impl_for_tuples_attr! {
+///     impl ILoveTuples for Tuple {
+///         fn really_hard() {
+///             for_tuples! { #(
+///                 // Print it for each tuple
+///                 println!("I LOVE TUPLES");
+///             )* }
+///         }
+///     }
+/// }
+/// ```
+#[cfg(all(feature = "tuples-96", not(feature = "tuples-128")))]
+#[macro_export]
+macro_rules! impl_for_tuples_attr {
+	( $( $input:tt )* ) => {
+		#[$crate::__private::impl_trait_for_tuples::impl_for_tuples(96)]
+		$( $input )*
+	}
+}
+
+/// Puts the [`impl_for_tuples`](impl_trait_for_tuples::impl_for_tuples) attribute above the given
+/// code.
+///
+/// The main purpose of this macro is to handle the `tuples-*` feature which informs the attribute
+/// about the maximum size of the tuple to generate. Besides that, there is no difference to use the
+/// attribute directly.
+///
+/// # Example
+///
+/// ```rust
+/// trait ILoveTuples {
+///     fn really_hard();
+/// }
+///
+/// frame_support::impl_for_tuples_attr! {
+///     impl ILoveTuples for Tuple {
+///         fn really_hard() {
+///             for_tuples! { #(
+///                 // Print it for each tuple
+///                 println!("I LOVE TUPLES");
+///             )* }
+///         }
+///     }
+/// }
+/// ```
+#[cfg(feature = "tuples-128")]
+#[macro_export]
+macro_rules! impl_for_tuples_attr {
+	( $( $input:tt )* ) => {
+		#[$crate::__private::impl_trait_for_tuples::impl_for_tuples(128)]
+		$( $input )*
+	}
 }
 
 #[doc(hidden)]
