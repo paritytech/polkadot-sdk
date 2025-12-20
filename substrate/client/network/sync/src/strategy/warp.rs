@@ -68,8 +68,8 @@ pub trait Verifier<Block: BlockT>: Send + Sync {
 	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
 	/// Hash to be used as the starting point for the next proof request.
 	fn next_proof_context(&self) -> Block::Hash;
-    /// Get status text for progress reporting
-    fn status(&self) -> Option<String>;
+	/// Get status text for progress reporting
+	fn status(&self) -> Option<String>;
 }
 
 /// Proof verification result.
@@ -155,8 +155,8 @@ pub struct WarpSyncProgress<Block: BlockT> {
 	pub phase: WarpSyncPhase<Block>,
 	/// Total bytes downloaded so far.
 	pub total_bytes: u64,
-    /// Optional status text from the verifier.
-    pub status: Option<String>,
+	/// Optional status text from the verifier.
+	pub status: Option<String>,
 }
 
 /// Warp sync configuration as accepted by [`WarpSync`].
@@ -639,22 +639,22 @@ where
 					required_peers: self.min_peers_to_start_warp_sync,
 				},
 				total_bytes: self.total_proof_bytes,
-                status: None,
+				status: None,
 			},
 			Phase::WarpProof { verifier } => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingWarpProofs,
 				total_bytes: self.total_proof_bytes,
-                status: verifier.status(),
+				status: verifier.status(),
 			},
 			Phase::TargetBlock(_) => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: self.total_proof_bytes,
-                status: None,
+				status: None,
 			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
-                status: None,
+				status: None,
 			},
 		}
 	}
@@ -816,7 +816,7 @@ mod test {
 				proof: &EncodedProof,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
 			fn next_proof_context(&self) -> B::Hash;
-            fn status(&self) -> Option<String>;
+			fn status(&self) -> Option<String>;
 		}
 	}
 
