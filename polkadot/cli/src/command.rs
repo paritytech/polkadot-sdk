@@ -33,8 +33,7 @@ use sc_cli::SubstrateCli;
 use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
-use std::process::Command;
-use std::fs;
+use std::{fs, process::Command};
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
