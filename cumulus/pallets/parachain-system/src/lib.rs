@@ -85,7 +85,6 @@ use unincluded_segment::{
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
-pub use relay_state_snapshot::ProcessRelayProofKeys;
 /// Register the `validate_block` function that is used by parachains to validate blocks on a
 /// validator.
 ///
@@ -264,13 +263,6 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
-
-		/// Processor for relay chain proof keys.
-		///
-		/// This allows parachains to process data from the relay chain state proof,
-		/// including both child trie keys and main trie keys that were requested
-		/// via `KeyToIncludeInRelayProof`.
-		type RelayProofKeysProcessor: relay_state_snapshot::ProcessRelayProofKeys;
 	}
 
 	#[pallet::hooks]
@@ -709,7 +701,9 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
-			total_weight.saturating_accrue(T::RelayProofKeysProcessor::process_relay_proof_keys(&relay_state_proof));
+			total_weight.saturating_accrue(
+			<T::OnSystemEvent as OnSystemEvent>::on_relay_state_proof(&relay_state_proof),
+		);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -1776,13 +1770,31 @@ impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 /// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
 /// when the new validation is written to the state. This means that
 /// from the next block the runtime is being using this new code.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnSystemEvent {
 	/// Called in each blocks once when the validation data is set by the inherent.
 	fn on_validation_data(data: &PersistedValidationData);
 	/// Called when the validation code is being applied, aka from the next block on this is the new
 	/// runtime.
 	fn on_validation_code_applied();
+	/// Called to process keys from the verified relay chain state proof.
+	fn on_relay_state_proof(relay_state_proof: &relay_state_snapshot::RelayChainStateProof) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl OnSystemEvent for Tuple {
+	fn on_validation_data(data: &PersistedValidationData) {
+		for_tuples!( #( Tuple::on_validation_data(data); )* );
+	}
+
+	fn on_validation_code_applied() {
+		for_tuples!( #( Tuple::on_validation_code_applied(); )* );
+	}
+
+	fn on_relay_state_proof(relay_state_proof: &relay_state_snapshot::RelayChainStateProof) -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
+		weight
+	}
 }
 
 /// Holds the most recent relay-parent state root and block number of the current parachain block.
