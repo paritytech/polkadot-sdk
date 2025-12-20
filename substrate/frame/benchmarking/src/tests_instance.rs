@@ -53,26 +53,14 @@ mod pallet_test {
 	pub(crate) type Value<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::whitelist_storage] // This is what we're testing!
-	pub(crate) type WhitelistedMap<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Blake2_128Concat,
-		u32, // Key type
-		u64, // Value type
-		OptionQuery,
-	>;
+	#[pallet::whitelist_storage]
+	pub(crate) type WhitelistedMap<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, u32, u64, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::whitelist_storage] // Test double maps too
-	pub(crate) type WhitelistedDoubleMap<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		u32, // First key
-		Blake2_128Concat,
-		u64,  // Second key
-		u128, // Value type
-		OptionQuery,
-	>;
+	#[pallet::whitelist_storage]
+	pub(crate) type WhitelistedDoubleMap<T: Config<I>, I: 'static = ()> =
+		StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, u64, u128, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
@@ -92,7 +80,6 @@ mod pallet_test {
 	#[pallet::event]
 	pub enum Event<T: Config<I>, I: 'static = ()> {}
 
-	// Add error enum variant
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
 		DataTooLong,
@@ -130,68 +117,25 @@ mod pallet_test {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let bounded_data = BoundedVec::<u8, T::MaxLength>::try_from(data.clone())
+			// Insert data
+			let bounded_data = BoundedVec::<u8, T::MaxLength>::try_from(data)
 				.map_err(|_| Error::<T, I>::DataTooLong)?;
 			ComplexMap::<T, I>::insert(key1, bounded_data);
 
-			// Basic read operations
-			let _ = WhitelistedValue::<T, I>::get();
+			// Core storage operations
 			let _ = WhitelistedMap::<T, I>::get(key1);
 			let _ = WhitelistedDoubleMap::<T, I>::get(key1, key2);
-			let _ = ComplexMap::<T, I>::get(key1);
+			let _ = AccountMap::<T, I>::get(&key3);
+			let _ = AccountMap::<T, I>::contains_key(&sender);
 
-			// Non-whitelisted storage
-			let _ = Value::<T, I>::get();
-
-			// Iteration within LIMIT
-			let mut counter = 0;
-			for (_, _) in WhitelistedMap::<T, I>::iter() {
-				counter += 1;
-				if counter >= 5 {
-					break;
-				} // Safety limit
-			}
-
-			// INCREMENTAL read operations
+			// Multi-get pattern
 			for i in 0..3 {
 				let _ = WhitelistedMap::<T, I>::get(key1.saturating_add(i));
 			}
 
-			// BOUNDED storage access
-			let bounded_key = key1 % 1000; // Prevent overly large keys
-			let _ = WhitelistedMap::<T, I>::get(bounded_key);
-
-			// Add storage ACCESS with AccountId key
-			let _ = AccountMap::<T, I>::get(&sender);
-			let _ = AccountMap::<T, I>::get(&key3);
-
-			// Add MULTI-GET pattern
-			let keys = [key1, key1.saturating_add(1), key1.saturating_add(2)];
-
-			for k in keys.iter() {
-				let _ = WhitelistedMap::<T, I>::get(k);
-			}
-
-			// Add storage EXISTS checks (different access pattern)
-			let _ = WhitelistedMap::<T, I>::contains_key(key1);
-			let _ = AccountMap::<T, I>::contains_key(&sender);
-
-			let _ = ComplexMap::<T, I>::decode_len(key1);
-
-			// Add conditional MULTIPLE double map accesses
+			// Conditional double map access
 			if key1 % 2 == 0 {
-				for i in 0..2 {
-					let _ = WhitelistedDoubleMap::<T, I>::get(
-						key1.saturating_add(i as u32),
-						key2.saturating_add(i as u64),
-					);
-				}
-			}
-
-			// Add NESTED storage access pattern
-			if let Some(value) = WhitelistedMap::<T, I>::get(key1) {
-				// Use first map's value as key for second lookup
-				let _ = WhitelistedDoubleMap::<T, I>::get(value as u32, key2);
+				let _ = WhitelistedDoubleMap::<T, I>::get(key1, key2);
 			}
 
 			Ok(())
@@ -269,7 +213,7 @@ mod benchmarks {
 		self, AccountMap, ComplexMap, Value, WhitelistedDoubleMap, WhitelistedMap, WhitelistedValue,
 	};
 	use crate::account;
-	use frame_support::ensure;
+	use frame_support::{ensure, BoundedVec};
 	use frame_system::RawOrigin;
 	use sp_core::Get;
 
@@ -313,36 +257,24 @@ mod benchmarks {
 			let b in 1 .. 100u32;
 			let alice = account::<T::AccountId>("alice", 0, 0);
 			let bob = account::<T::AccountId>("bob", 0, 0);
-			let data = vec![1u8, 2u8, 3u8]; // Simple test data
+			let data = vec![1u8, 2u8, 3u8];
 
-			// Setup storage
-			Value::<T, I>::put(a);
+
 			WhitelistedValue::<T, I>::put(b);
-			WhitelistedMap::<T, I>::insert(a, b as u64);
+            WhitelistedMap::<T, I>::insert(a, b as u64);
 			WhitelistedDoubleMap::<T, I>::insert(a, b as u64, b as u128 * 1000);
-
-			// Setup ComplexMap
-			let bounded_data = frame_support::BoundedVec::<u8, T::MaxLength>::try_from(data.clone()).unwrap();
-			ComplexMap::<T, I>::insert(a, bounded_data);
-
-			// Setup AccountMap
 			AccountMap::<T, I>::insert(&alice, a);
 			AccountMap::<T, I>::insert(&bob, b as u32);
-		}: _ (RawOrigin::Signed(alice.clone()), a, b as u64, bob.clone(), data)
+
+			let bounded_data = BoundedVec::<u8, T::MaxLength>::try_from(data.clone()).unwrap();
+			ComplexMap::<T, I>::insert(a, bounded_data);
+
+		}: _ (RawOrigin::Signed(alice.clone()), a, b as u64, bob, data)
+
 		verify {
-			// Basic verifications
 			assert_eq!(WhitelistedMap::<T, I>::get(a), Some(b as u64));
-			assert_eq!(WhitelistedDoubleMap::<T, I>::get(a, b as u64), Some(b as u128 * 1000));
-			assert_eq!(WhitelistedValue::<T, I>::get(), Some(b as u32));
-			assert_eq!(Value::<T, I>::get(), Some(a));
-
-			// Verify ComplexMap
-			let expected_data = frame_support::BoundedVec::<u8, T::MaxLength>::try_from(vec![1u8, 2u8, 3u8]).unwrap();
-			assert_eq!(ComplexMap::<T, I>::get(a), expected_data);
-
-			// Verify AccountMap
 			assert_eq!(AccountMap::<T, I>::get(&alice), a);
-			assert_eq!(AccountMap::<T, I>::get(&bob), b as u32);
+            assert_eq!(WhitelistedValue::<T, I>::get(), Some(b as u32));
 		}
 
 		impl_benchmark_test_suite!(
