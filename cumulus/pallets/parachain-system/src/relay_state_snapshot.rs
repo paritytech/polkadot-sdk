@@ -21,25 +21,10 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
-use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
-
-/// Process keys from verified relay chain state proofs.
-///
-/// This trait allows processing of relay chain storage data from the verified proof.
-pub trait ProcessRelayProofKeys {
-	/// Process keys from a verified relay state proof.
-	fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight;
-}
-
-impl ProcessRelayProofKeys for () {
-	fn process_relay_proof_keys(_verified_proof: &RelayChainStateProof) -> Weight {
-		Weight::zero()
-	}
-}
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are
