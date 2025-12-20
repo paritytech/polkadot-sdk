@@ -18,7 +18,7 @@
 
 use super::Error;
 use is_executable::IsExecutable;
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
 #[cfg(test)]
 thread_local! {
@@ -95,38 +95,6 @@ pub fn determine_workers_paths(
 		}
 	} else {
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
-	}
-
-	let mut exec_worker_dir_path = exec_worker_path.clone();
-	let _ = exec_worker_dir_path.pop();
-	let exit_status = Command::new(&exec_worker_path)
-		.arg("--worker-dir-path")
-		.arg(exec_worker_dir_path.as_os_str())
-		.arg("--check-security-features")
-		.status()
-		.unwrap();
-
-	if !exit_status.success() {
-		return Err(Error::ExecuteWorkerFailedSecurityChecks {
-			exec_worker_path,
-			exec_worker_dir_path,
-		});
-	}
-
-	let mut prep_worker_dir_path = prep_worker_path.clone();
-	let _ = prep_worker_dir_path.pop();
-	let exit_status = Command::new(&prep_worker_path)
-		.arg("--worker-dir-path")
-		.arg(prep_worker_dir_path.as_os_str())
-		.arg("--check-security-features")
-		.status()
-		.unwrap();
-
-	if !exit_status.success() {
-		return Err(Error::PrepareWorkerFailedSecurityChecks {
-			prep_worker_path,
-			prep_worker_dir_path,
-		});
 	}
 
 	Ok((prep_worker_path, exec_worker_path))

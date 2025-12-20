@@ -25,6 +25,8 @@ use polkadot_service::{
 	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
+
+use polkadot_node_core_pvf_common::tmppath;
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
@@ -32,6 +34,7 @@ use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
 use std::process::Command;
+use std::fs;
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
@@ -314,15 +317,19 @@ pub fn run() -> Result<()> {
 	let cli: Cli = Cli::from_args();
 
 	if cli.run.workers_path.is_some() {
+		let socket_path = tmppath("pvf-host-").map_err(|_| Error::TmpPath)?;
 		let worker_path = cli.run.workers_path.clone().unwrap();
 		let mut binary_path = worker_path.clone();
 		binary_path.push("execute-worker");
 		let exit_status = Command::new(&binary_path)
+			.arg("--socket-path")
+			.arg(socket_path.as_os_str())
 			.arg("--worker-dir-path")
 			.arg(worker_path.as_os_str())
 			.arg("--check-security-features")
 			.status()
 			.unwrap();
+		let _ = fs::remove_file(socket_path);
 
 		if !exit_status.success() {
 			return Err(Error::ExecuteWorkerFailedSecurityChecks {
