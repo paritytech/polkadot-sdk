@@ -68,8 +68,13 @@ impl<Hasher: Hash> sp_state_machine::Storage<Hasher> for StorageDb<Hasher> {
 struct KeyTracker {
 	enable_tracking: bool,
 	/// Key tracker for keys in the main trie.
+	/// We track the total number of reads and writes to these keys,
+	/// not de-duplicated for repeats.
 	main_keys: LinkedHashMap<Vec<u8>, TrackedStorageKey>,
 	/// Key tracker for keys in a child trie.
+	/// Child trie are identified by their storage key (i.e. `ChildInfo::storage_key()`)
+	/// We track the total number of reads and writes to these keys,
+	/// not de-duplicated for repeats.
 	child_keys: LinkedHashMap<Vec<u8>, LinkedHashMap<Vec<u8>, TrackedStorageKey>>,
 	/// Storage key prefixes that should be excluded from weight calculations.
 	whitelisted_prefixes: Vec<Vec<u8>>,
