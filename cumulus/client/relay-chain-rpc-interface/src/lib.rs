@@ -213,16 +213,20 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn prove_child_read(
 		&self,
-		_relay_parent: RelayHash,
-		_child_info: &ChildInfo,
-		_child_keys: &[Vec<u8>],
+		relay_parent: RelayHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof> {
-		// Not implemented: requires relay chain RPC to expose child trie proof method.
-		tracing::warn!(
-			target: "relay-chain-rpc-interface",
-			"prove_child_read not implemented for RPC interface, returning empty proof"
-		);
-		Ok(StorageProof::empty())
+		let child_storage_key = child_info.prefixed_storage_key();
+		let storage_keys: Vec<StorageKey> =
+			child_keys.iter().map(|key| StorageKey(key.clone())).collect();
+
+		self.rpc_client
+			.state_get_child_read_proof(child_storage_key, storage_keys, Some(relay_parent))
+			.await
+			.map(|read_proof| {
+				StorageProof::new(read_proof.proof.into_iter().map(|bytes| bytes.to_vec()))
+			})
 	}
 
 	/// Wait for a given relay chain block
