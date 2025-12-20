@@ -261,7 +261,7 @@ mod benchmarks {
 
 
 			WhitelistedValue::<T, I>::put(b);
-            WhitelistedMap::<T, I>::insert(a, b as u64);
+			WhitelistedMap::<T, I>::insert(a, b as u64);
 			WhitelistedDoubleMap::<T, I>::insert(a, b as u64, b as u128 * 1000);
 			AccountMap::<T, I>::insert(&alice, a);
 			AccountMap::<T, I>::insert(&bob, b as u32);
@@ -274,7 +274,7 @@ mod benchmarks {
 		verify {
 			assert_eq!(WhitelistedMap::<T, I>::get(a), Some(b as u64));
 			assert_eq!(AccountMap::<T, I>::get(&alice), a);
-            assert_eq!(WhitelistedValue::<T, I>::get(), Some(b as u32));
+			assert_eq!(WhitelistedValue::<T, I>::get(), Some(b as u32));
 		}
 
 		impl_benchmark_test_suite!(

@@ -65,31 +65,13 @@ impl<Hasher: Hash> sp_state_machine::Storage<Hasher> for StorageDb<Hasher> {
 /// This struct tracks all storage reads and writes that occur during benchmarking.
 /// It supports prefix-based whitelisting, which allows excluding certain storage
 /// keys from weight calculations (e.g., system-level storage with fixed costs).
-///
-/// # Key Features
-///
-/// 1. **Prefix-based whitelisting**: Storage keys can be whitelisted by prefix, making it easy to
-///    exclude entire storage maps or specific pallet storage.
-/// 2. **Child trie support**: Tracks storage in both main and child tries.
-/// 3. **Efficient tracking**: Minimizes overhead when tracking is disabled.
-/// 4. **Read/write aggregation**: Combines multiple accesses to the same key.
 struct KeyTracker {
 	enable_tracking: bool,
 	/// Key tracker for keys in the main trie.
-	/// We track the total number of reads and writes to these keys,
-	/// not de-duplicated for repeats.
 	main_keys: LinkedHashMap<Vec<u8>, TrackedStorageKey>,
 	/// Key tracker for keys in a child trie.
-	/// Child trie are identified by their storage key (i.e. `ChildInfo::storage_key()`)
-	/// We track the total number of reads and writes to these keys,
-	/// not de-duplicated for repeats.
 	child_keys: LinkedHashMap<Vec<u8>, LinkedHashMap<Vec<u8>, TrackedStorageKey>>,
 	/// Storage key prefixes that should be excluded from weight calculations.
-	///
-	/// # Usage
-	/// Typically used for system-level storage (e.g., "System", "Timestamp") that
-	/// have fixed costs and shouldn't affect transaction weight calculations.
-	/// Keys matching any prefix in this list are tracked but marked as whitelisted.
 	whitelisted_prefixes: Vec<Vec<u8>>,
 }
 
@@ -281,10 +263,6 @@ impl KeyTracker {
 	}
 
 	/// Records a read access to a storage key.
-	///
-	/// # Parameters
-	/// - `childtrie`: Optional child trie identifier (`ChildInfo::storage_key()`)
-	/// - `key`: The storage key being read
 	///
 	/// Whitelisted keys are tracked but marked as such, so they don't contribute
 	/// to weight calculations. Each call increments the read counter, allowing
