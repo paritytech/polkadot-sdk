@@ -151,7 +151,6 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
-	type RelayProofKeysProcessor = ();
 }
 
 fn set_ancestors() {
