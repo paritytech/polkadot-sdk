@@ -103,7 +103,7 @@ where
 	ClassOf<T>: TryFrom<u16> + TryInto<u16>,  // u16 as TrackId
 {
 	type T = T;
-	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(12).unwrap());
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0xC).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 	type Interface = IConvictionVoting::IConvictionVotingCalls;
 	fn call(
