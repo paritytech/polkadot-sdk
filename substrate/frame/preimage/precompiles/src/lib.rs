@@ -54,7 +54,7 @@ where
 	T: pallet_preimage::Config + pallet_revive::Config,
 {
 	type T = T;
-	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(13).unwrap());
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0xD).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 	type Interface = IPreimage::IPreimageCalls;
 	fn call(
