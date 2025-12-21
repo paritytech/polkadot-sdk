@@ -133,6 +133,7 @@ mod tests {
 		tests::{ExtBuilder, Test},
 	};
 
+	use alloy_core::primitives::FixedBytes;
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
 
@@ -266,12 +267,11 @@ mod tests {
 				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
 					.unwrap();
 
-			assert_eq!(
-				result[..20],
-				array_bytes::hex2array_unchecked::<_, 20>(
-					"09231da7b19A016f9e576d23B16277062F4d46A8"
-				)
-			);
+			let expected: FixedBytes<20> = array_bytes::hex2array_unchecked::<_, 20>(
+				"09231da7b19A016f9e576d23B16277062F4d46A8",
+			)
+			.into();
+			assert_eq!(result, expected.abi_encode());
 		});
 	}
 }
