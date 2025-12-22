@@ -31,7 +31,7 @@ const NUM_PARACHAINS: u32 = 8;
 
 // Timeout and threshold constants
 const PARA_REGISTRATION_TIMEOUT_BLOCKS: u32 = 5;
-const THROUGHPUT_TIMEOUT_BLOCKS: u32 = 30;
+const THROUGHPUT_TIMEOUT_BLOCKS: u32 = 20;
 const MIN_PARA_BLOCKS: u32 = 10;
 const MAX_PARA_BLOCKS: u32 = 50;
 const MIN_FINALIZED_HEIGHT: f64 = 30.0;
@@ -100,20 +100,26 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 		PARACHAIN_CONFIGS
 			.iter()
 			.fold(builder, |builder, &(id, pov_size, complexity, collator)| {
-				let genesis_cmd = format!(
+				let genesis_state_cmd = format!(
 					"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
 					pov_size, complexity
 				);
-				builder.with_parachain(|p| {
-					p.with_id(id)
-						.with_genesis_state_generator(genesis_cmd.as_str())
-						.with_default_command("undying-collator")
-						.with_default_image(col_image.as_str())
-						.cumulus_based(false)
-						.with_default_args(vec!["-lparachain=debug".into()])
-						.with_registration_strategy(RegistrationStrategy::InGenesis)
-						.with_collator(|n| n.with_name(collator))
-				})
+				let pov_arg = format!("--pov-size={}", pov_size);
+				let complexity_arg = format!("--pvf-complexity={}", complexity);
+			builder.with_parachain(|p| {
+				p.with_id(id)
+					.with_genesis_state_generator(genesis_state_cmd.as_str())
+					.with_default_command("undying-collator")
+					.with_default_image(col_image.as_str())
+					.cumulus_based(false)
+					.with_default_args(vec![
+						"-lparachain=debug".into(),
+					    pov_arg.as_str().into(),
+				    	complexity_arg.as_str().into(),
+					])
+					.with_registration_strategy(RegistrationStrategy::InGenesis)
+					.with_collator(|n| n.with_name(collator))
+			})
 			});
 
 	builder = builder.with_global_settings(|global_settings| {
@@ -190,14 +196,17 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 
 /// Check PVF preparation time metrics for a validator node
 async fn check_pvf_preparation_time(node: &NetworkNode, name: &str) -> Result<(), anyhow::Error> {
+	// Get all histogram buckets at once
+	let buckets = node.get_histogram_buckets("polkadot_pvf_preparation_time", None).await?;
+
 	// Ensure there is at least one sample in acceptable buckets (<= 10s)
 	let mut found_sample = false;
 	for bucket in PVF_PREP_BUCKETS_ACCEPTABLE {
-		let metric_name = format!("polkadot_pvf_preparation_time_bucket{{le=\"{}\"}}", bucket);
-		let count = node.reports(&metric_name).await?;
-		if count >= 1.0 {
-			found_sample = true;
-			break;
+		if let Some(&count) = buckets.get(*bucket) {
+			if count >= 1 {
+				found_sample = true;
+				break;
+			}
 		}
 	}
 	assert!(
@@ -206,22 +215,27 @@ async fn check_pvf_preparation_time(node: &NetworkNode, name: &str) -> Result<()
 		name
 	);
 
-	// Check that the sum is under MAX_PVF_PREP_TIME_SECS
+	// Check that time is under MAX_PVF_PREP_TIME_SECS
 	let prep_sum = node.reports("polkadot_pvf_preparation_time_sum").await?;
-	assert!(
-		prep_sum < MAX_PVF_PREP_TIME_SECS,
-		"Node {} polkadot_pvf_preparation_time_sum should be < {}s, got {}",
-		name,
-		MAX_PVF_PREP_TIME_SECS,
-		prep_sum
-	);
+	let prep_count = node.reports("polkadot_pvf_preparation_time_count").await?;
+	if prep_count > 0.0 {
+		let prep_avg = prep_sum / prep_count;
+		assert!(
+			prep_avg < MAX_PVF_PREP_TIME_SECS,
+			"Node {} average polkadot_pvf_preparation_time should be < {}s, got {} (sum={}, count={})",
+			name,
+			MAX_PVF_PREP_TIME_SECS,
+			prep_avg,
+			prep_sum,
+			prep_count
+		);
+	}
 
 	// Check that we have 0 samples in unacceptable buckets (>= 20s)
 	for bucket in PVF_PREP_BUCKETS_UNACCEPTABLE {
-		let metric_name = format!("polkadot_pvf_preparation_time_bucket{{le=\"{}\"}}", bucket);
-		let count = node.reports(&metric_name).await?;
+		let count = buckets.get(*bucket).copied().unwrap_or(u64::MAX);
 		assert_eq!(
-			count, 0.0,
+			count, 0,
 			"Node {} should have 0 samples in preparation bucket {}",
 			name, bucket
 		);
@@ -232,14 +246,17 @@ async fn check_pvf_preparation_time(node: &NetworkNode, name: &str) -> Result<()
 
 /// Check PVF execution time metrics for a validator node
 async fn check_pvf_execution_time(node: &NetworkNode, name: &str) -> Result<(), anyhow::Error> {
+	// Get all histogram buckets at once
+	let buckets = node.get_histogram_buckets("polkadot_pvf_execution_time", None).await?;
+
 	// Ensure there is at least one sample in acceptable execution buckets (<= 2s)
 	let mut found_sample = false;
 	for bucket in PVF_EXEC_BUCKETS_ACCEPTABLE {
-		let metric_name = format!("polkadot_pvf_execution_time_bucket{{le=\"{}\"}}", bucket);
-		let count = node.reports(&metric_name).await?;
-		if count >= 1.0 {
-			found_sample = true;
-			break;
+		if let Some(&count) = buckets.get(*bucket) {
+			if count >= 1 {
+				found_sample = true;
+				break;
+			}
 		}
 	}
 	assert!(
@@ -248,22 +265,27 @@ async fn check_pvf_execution_time(node: &NetworkNode, name: &str) -> Result<(), 
 		name
 	);
 
-	// Check that the execution-time sum is under MAX_PVF_EXEC_TIME_SECS
+	// Check that the execution-time is under MAX_PVF_EXEC_TIME_SECS
 	let exec_sum = node.reports("polkadot_pvf_execution_time_sum").await?;
-	assert!(
-		exec_sum < MAX_PVF_EXEC_TIME_SECS,
-		"Node {} polkadot_pvf_execution_time_sum should be < {}s, got {}",
-		name,
-		MAX_PVF_EXEC_TIME_SECS,
-		exec_sum
-	);
+	let exec_count = node.reports("polkadot_pvf_execution_time_count").await?;
+	if exec_count > 0.0 {
+		let exec_avg = exec_sum / exec_count;
+		assert!(
+			exec_avg < MAX_PVF_EXEC_TIME_SECS,
+			"Node {} average polkadot_pvf_execution_time should be < {}s, got {} (sum={}, count={})",
+			name,
+			MAX_PVF_EXEC_TIME_SECS,
+			exec_avg,
+			exec_sum,
+			exec_count
+		);
+	}
 
 	// Check that we have 0 samples in unacceptable execution buckets (> 2s)
 	for bucket in PVF_EXEC_BUCKETS_UNACCEPTABLE {
-		let metric_name = format!("polkadot_pvf_execution_time_bucket{{le=\"{}\"}}", bucket);
-		let count = node.reports(&metric_name).await?;
+		let count = buckets.get(*bucket).copied().unwrap_or(u64::MAX);
 		assert_eq!(
-			count, 0.0,
+			count, 0,
 			"Node {} should have 0 samples in execution bucket {}",
 			name, bucket
 		);

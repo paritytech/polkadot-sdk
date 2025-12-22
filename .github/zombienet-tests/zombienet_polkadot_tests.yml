@@ -1,8 +1,11 @@
 # Functional tests using traditional zombienet
-- job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
-  test-filter: "functional::parachains_pvf::parachains_pvf_test"
-  runner-type: "default"
-  use-zombienet-sdk: true
+# TODO: Disabled until:
+# https://github.com/paritytech/zombienet-sdk/pull/487
+# https://github.com/paritytech/zombienet-sdk/pull/484
+# - job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
+#   test-filter: "functional::parachains_pvf::parachains_pvf_test"
+#   runner-type: "default"
+#   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
   test-definition: "0002-parachains-disputes.zndsl"
