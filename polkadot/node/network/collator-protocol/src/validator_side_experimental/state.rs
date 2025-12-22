@@ -74,7 +74,6 @@ impl<B: Backend> State<B> {
 				PeerInfo { version, state: PeerState::Connected },
 			)
 			.await;
-
 		match outcome {
 			TryAcceptOutcome::Added => {
 				gum::trace!(
@@ -246,7 +245,9 @@ impl<B: Backend> State<B> {
 		};
 
 		// We have a result here, but it's not worth affecting reputations because advertisements
-		// are cheap and quickly triaged.
+		// are cheap.
+		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// actually, but cheap enough.
 		match self
 			.collation_manager
 			.try_accept_advertisement(

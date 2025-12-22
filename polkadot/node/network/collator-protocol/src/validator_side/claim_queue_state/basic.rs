@@ -67,10 +67,13 @@ use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 /// inherited. This should not happen under normal circumstances. But if it happens it means that we
 /// have got one claim which won't be satisfied in the worst case scenario.
 pub(crate) struct ClaimQueueState {
+	/// Represents blocks which are already created.
+	/// `[RP 2]`, `[RP 2]` and `[RP 3]` in the example above would be part of the `block_state`.
 	pub(super) block_state: VecDeque<ClaimInfo>,
 	/// Represents blocks which are yet to be created. The claim queue at a leaf tells us what's
-	/// scheduled on the next two blocks. Since they are not yet authored we keep them separately
+	/// scheduled on the next two blocks. Since they are not yet authored we keep them separate
 	/// here.
+	/// `[RP X]` and `[RP Y]` in the example above are future blocks.
 	future_blocks: VecDeque<ClaimInfo>,
 	/// Candidates with claimed slots per relay parent. We need this information in order to remove
 	/// claims. The key is the relay parent of the candidate and the value - the set of candidates
@@ -102,6 +105,12 @@ impl ClaimQueueState {
 		}
 	}
 
+	/// Creates a fork of the claim queue where `target_relay_parent` is the leaf.
+	///
+	/// For the fork:
+	/// - The `block_state` will contain all the claims up until the provided `target_relay_parent`
+	/// - The `future_blocks` will contain all the claims in the window of the `target_relay_parent`
+	/// - All other claims are dropped
 	pub(super) fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
 		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
 			// don't fork from the last block!
@@ -160,8 +169,16 @@ impl ClaimQueueState {
 		// to readjust our view.
 		for (idx, expected_claim) in claim_queue.iter().enumerate() {
 			match self.future_blocks.get_mut(idx) {
-				Some(future_block) =>
-					if future_block.claim.as_ref() != Some(expected_claim) {
+				Some(future_block) => {
+					let future_claim = future_block.claim.as_ref();
+					if future_claim != Some(expected_claim) {
+						gum::warn!(
+							target: LOG_TARGET,
+							?future_claim,
+							?expected_claim,
+							"Inconsistency while adding a leaf to the `ClaimQueueState`."
+						);
+
 						// There is an inconsistency. Update our view with the one from the claim
 						// queue.
 						future_block.claim = Some(*expected_claim);
@@ -175,7 +192,8 @@ impl ClaimQueueState {
 						// untouched which means we will sheepishly pretend there are claims for the
 						// extra candidate. This is not ideal but the case is very rare and is not
 						// worth the extra complexity for handling it.
-					},
+					}
+				},
 				None => {
 					self.future_blocks.push_back(ClaimInfo {
 						hash: None,

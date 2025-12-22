@@ -70,6 +70,10 @@ pub const INSTANT_FETCH_REP_THRESHOLD: Score =
 /// before we try to fetch from this peer.
 pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(1000);
 
+/// The minimum interval after which we may want to stop the main loop in order to fetch available
+/// advertised collations.
+pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(500);
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);

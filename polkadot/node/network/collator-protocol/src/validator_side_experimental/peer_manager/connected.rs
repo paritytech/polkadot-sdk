@@ -89,8 +89,8 @@ impl ConnectedPeers {
 
 		match peer_info.state {
 			PeerState::Collating(para_id) => {
-				let past_reputation = reputation_query_fn(peer_id, para_id).await;
 				if let Some(per_para) = self.per_para.get_mut(&para_id) {
+					let past_reputation = reputation_query_fn(peer_id, para_id).await;
 					let res = per_para.try_accept(peer_id, past_reputation);
 					outcome = outcome.combine(res);
 				}

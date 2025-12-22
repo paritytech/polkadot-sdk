@@ -258,6 +258,8 @@ impl<B: Backend> PeerManager<B> {
 	}
 
 	/// Process a declaration message of a peer.
+	///
+	/// Returns a `bool` indicating whether the operation was successful.
 	pub async fn declared<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -267,8 +269,8 @@ impl<B: Backend> PeerManager<B> {
 		if self.connected.peer_info(&peer_id).is_none() {
 			return false
 		}
-		let outcome = self.connected.declared(peer_id, para_id);
 
+		let outcome = self.connected.declared(peer_id, para_id);
 		match outcome {
 			DeclarationOutcome::Accepted => {
 				gum::debug!(
@@ -342,7 +344,6 @@ impl<B: Backend> PeerManager<B> {
 		};
 
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
-
 		match outcome {
 			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {

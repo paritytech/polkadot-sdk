@@ -23,7 +23,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use crate::LOG_TARGET;
+use crate::{validator_side_experimental::common::MIN_FETCH_TIMER_DELAY, LOG_TARGET};
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
@@ -173,8 +173,7 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
 		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer =
-			create_timer(maybe_delay.map(|delay| std::cmp::max(delay, Duration::from_millis(500))));
+		timer = create_timer(maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)));
 	}
 
 	Ok(())

@@ -273,7 +273,7 @@ impl CollationManager {
 			};
 
 			// Includes the leaf
-			for ancestor in allowed_ancestry.iter() {
+			for (idx, ancestor) in allowed_ancestry.iter().enumerate() {
 				if self.per_relay_parent.contains_key(&ancestor) {
 					continue
 				}
@@ -290,21 +290,24 @@ impl CollationManager {
 						},
 					};
 
-				let (core, assignments) =
-					match self.get_our_core_schedule(sender, leaf, session_index).await {
-						Ok(assignments) => assignments,
-						Err(err) => {
-							err.split()?.log();
-							Default::default()
-						},
-					};
+				let core = match self.get_our_core(sender, leaf, session_index).await {
+					Ok(assignments) => assignments,
+					Err(err) => {
+						err.split()?.log();
+						Default::default()
+					},
+				};
 
 				self.per_relay_parent
 					.insert(*ancestor, PerRelayParent::new(session_index, core));
 
-				if ancestor == leaf {
+				if idx == 0 && ancestor == leaf {
+					let mut claim_queues =
+						recv_runtime(request_claim_queue(*leaf, sender).await).await?;
+					let claim_queue = claim_queues.remove(&core).unwrap_or_else(|| VecDeque::new());
+
 					let maybe_parent = allowed_ancestry.get(1);
-					self.claim_queue_state.add_leaf(leaf, &assignments, maybe_parent);
+					self.claim_queue_state.add_leaf(leaf, &claim_queue, maybe_parent);
 				}
 			}
 		}
@@ -711,32 +714,31 @@ impl CollationManager {
 		Either::Right(min_delay)
 	}
 
-	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
+	async fn get_our_core<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		parent: &Hash,
 		session_index: SessionIndex,
-	) -> Result<(CoreIndex, VecDeque<ParaId>)> {
+	) -> Result<CoreIndex> {
 		let block_number = self
 			.implicit_view
 			.block_number(parent)
 			.ok_or_else(|| Error::BlockNumberNotFoundInImplicitView(*parent))?;
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
-		let mut rotation_info = session_info.group_rotation_info.clone();
 
-		// The `validator_groups` runtime API adds 1 to the block number, so we need to do the same
-		// here.
-		rotation_info.now = block_number + 1;
-
-		let core_now = if let Some(group) = session_info.our_group {
-			rotation_info.core_for_group(group, session_info.n_cores)
-		} else {
-			gum::trace!(target: LOG_TARGET, ?parent, "Not a validator");
-			return Ok(Default::default())
-		};
-
-		let mut claim_queue = recv_runtime(request_claim_queue(*parent, sender).await).await?;
-		Ok((core_now, claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new())))
+		Ok(match session_info.our_group {
+			Some(group) => {
+				let mut rotation_info = session_info.group_rotation_info.clone();
+				// The `validator_groups` runtime API adds 1 to the block number, so we need to do
+				// the same here.
+				rotation_info.now = block_number + 1;
+				rotation_info.core_for_group(group, session_info.n_cores)
+			},
+			None => {
+				gum::trace!(target: LOG_TARGET, ?parent, "Not a validator");
+				Default::default()
+			},
+		})
 	}
 
 	async fn get_session_info<Sender: CollatorProtocolSenderTrait>(
