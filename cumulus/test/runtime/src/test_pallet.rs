@@ -17,9 +17,14 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
+use polkadot_primitives::well_known_keys;
+
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+
+/// A well-known key to request for inclusion in the proof.
+pub use well_known_keys::EPOCH_INDEX as RELAY_EPOCH_INDEX_KEY;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -119,5 +124,29 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 		}
+	}
+}
+
+impl<T: Config> cumulus_pallet_parachain_system::OnSystemEvent for Pallet<T> {
+	fn on_validation_data(_data: &cumulus_primitives_core::PersistedValidationData) {
+		// Nothing to do here for tests
+	}
+
+	fn on_validation_code_applied() {
+		// Nothing to do here for tests
+	}
+
+	fn on_relay_state_proof(
+		relay_state_proof: &cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof,
+	) -> frame_support::weights::Weight {
+		use crate::test_pallet::RELAY_EPOCH_INDEX_KEY;
+
+		// Expect the requested key to be part of the proof.
+		relay_state_proof
+			.read_optional_entry::<u64>(RELAY_EPOCH_INDEX_KEY)
+			.expect("Invalid relay chain state proof")
+			.expect("EPOCH_INDEX must be present");
+
+		frame_support::weights::Weight::zero()
 	}
 }

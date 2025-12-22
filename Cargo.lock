@@ -5032,6 +5032,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "polkadot-primitives",
  "scale-info",
  "serde_json",
  "sp-api",
