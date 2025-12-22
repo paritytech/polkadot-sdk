@@ -6,10 +6,12 @@ chain = "rococo-local"
 [[relaychain.nodes]]
 name = "alice"
 validator = true
+args = ["--network-backend=libp2p"]
 
 [[relaychain.nodes]]
 name = "bob"
 validator = true
+args = ["--network-backend=libp2p"]
 
 [[parachains]]
 id = 2000
@@ -23,4 +25,11 @@ name = "charlie"
 validator = true
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--force-authoring", "--enable-statement-store", "--authoring=slot-based"]
+args = ["--network-backend=libp2p", "--force-authoring", "--enable-statement-store", "--authoring=slot-based", "-lstatement-gossip=trace,statement-store=trace"]
+
+[[parachains.collators]]
+name = "dave"
+validator = false
+image = "parity/polkadot-parachain:latest"
+command = "polkadot-omni-node"
+args = ["--network-backend=libp2p"]
