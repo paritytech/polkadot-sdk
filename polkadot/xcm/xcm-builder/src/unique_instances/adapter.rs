@@ -19,10 +19,10 @@ use frame_support::{
 	defensive_assert,
 	traits::tokens::asset_ops::{
 		common_strategies::{
-			ChangeOwnerFrom, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner, WithConfig,
-			WithConfigValue,
+			CanCreate, ChangeOwnerFrom, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner,
+			WithConfig, WithConfigValue,
 		},
-		AssetDefinition, Create, Restore, Stash, Update,
+		AssetDefinition, Create, Inspect, Restore, Stash, Update,
 	},
 };
 use xcm::latest::prelude::*;
@@ -171,8 +171,9 @@ impl<AccountId, AccountIdConverter, Id, InstanceCreateOp> TransactAsset
 	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	InstanceCreateOp:
-		Create<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<NonFungibleAsset, Id>>>,
+	InstanceCreateOp: Create<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<NonFungibleAsset, Id>>>
+		+ AssetDefinition<Id = NonFungibleAsset>
+		+ Inspect<CanCreate>,
 {
 	fn deposit_asset(
 		what: AssetsInHolding,
@@ -212,7 +213,20 @@ where
 			?context,
 			"UniqueInstancesDepositAdapter::mint_asset",
 		);
-		// FIXME: @mrshiposha
-		Err(MatchError::AssetNotHandled.into())
+
+		let asset_instance = match what.fun {
+			NonFungible(instance) => instance,
+			_ => return Err(MatchError::AssetNotHandled.into()),
+		};
+
+		let nonfungible_asset = (what.id.clone(), asset_instance.clone());
+		let can_create =
+			InstanceCreateOp::inspect(&nonfungible_asset, CanCreate::default()).unwrap_or(false);
+
+		if !can_create {
+			return Err(MatchError::AssetNotHandled.into());
+		}
+
+		Ok(AssetsInHolding::new_from_non_fungible(nonfungible_asset.0, nonfungible_asset.1))
 	}
 }

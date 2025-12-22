@@ -271,10 +271,7 @@ fn derivative_nfts() {
 		let deposited_assets: Assets = nft_asset.clone().into();
 		let message = Xcm::builder_unpaid()
 			.unpaid_execution(Unlimited, None)
-			// FIXME: @mrshiposha the adapter for this needs to first mint into holding
 			.reserve_asset_deposited(deposited_assets)
-			// FIXME: @mrshiposha only then actually deposit it to an actual owner
-			// right now, both actions are merged into one which doesn't work anymore.
 			.deposit_asset(AllCounted(1), nft_beneficiary_location)
 			.build();
 
