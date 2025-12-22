@@ -198,6 +198,7 @@ impl<T: AtLeast32Bit + Unsigned + MultiplyRational> AtLeast32BitUnsigned for T {
 /// then it'll saturate the destination.
 pub trait UniqueSaturatedFrom<T: Sized>: Sized {
 	/// Convert from a value of `T` into an equivalent instance of `Self`.
+	#[must_use]
 	fn unique_saturated_from(t: T) -> Self;
 }
 
@@ -205,6 +206,7 @@ pub trait UniqueSaturatedFrom<T: Sized>: Sized {
 /// then it'll saturate the destination.
 pub trait UniqueSaturatedInto<T: Sized>: Sized {
 	/// Consume self to return an equivalent value of `T`.
+	#[must_use]
 	fn unique_saturated_into(self) -> T;
 }
 
@@ -224,21 +226,26 @@ impl<T: Bounded + Sized, S: TryInto<T> + Sized> UniqueSaturatedInto<T> for S {
 pub trait Saturating {
 	/// Saturating addition. Compute `self + rhs`, saturating at the numeric bounds instead of
 	/// overflowing.
+	#[must_use]
 	fn saturating_add(self, rhs: Self) -> Self;
 
 	/// Saturating subtraction. Compute `self - rhs`, saturating at the numeric bounds instead of
 	/// overflowing.
+	#[must_use]
 	fn saturating_sub(self, rhs: Self) -> Self;
 
 	/// Saturating multiply. Compute `self * rhs`, saturating at the numeric bounds instead of
 	/// overflowing.
+	#[must_use]
 	fn saturating_mul(self, rhs: Self) -> Self;
 
 	/// Saturating exponentiation. Compute `self.pow(exp)`, saturating at the numeric bounds
 	/// instead of overflowing.
+	#[must_use]
 	fn saturating_pow(self, exp: usize) -> Self;
 
 	/// Decrement self by one, saturating at zero.
+	#[must_use]
 	fn saturating_less_one(mut self) -> Self
 	where
 		Self: One,
@@ -248,6 +255,7 @@ pub trait Saturating {
 	}
 
 	/// Increment self by one, saturating at the numeric bounds instead of overflowing.
+	#[must_use]
 	fn saturating_plus_one(mut self) -> Self
 	where
 		Self: One,
@@ -339,6 +347,7 @@ pub trait SaturatedConversion {
 	/// This just uses `UniqueSaturatedFrom` internally but with this
 	/// variant you can provide the destination type using turbofish syntax
 	/// in case Rust happens not to assume the correct type.
+	#[must_use]
 	fn saturated_from<T>(t: T) -> Self
 	where
 		Self: UniqueSaturatedFrom<T>,
@@ -351,6 +360,7 @@ pub trait SaturatedConversion {
 	/// This just uses `UniqueSaturatedInto` internally but with this
 	/// variant you can provide the destination type using turbofish syntax
 	/// in case Rust happens not to assume the correct type.
+	#[must_use]
 	fn saturated_into<T>(self) -> T
 	where
 		Self: UniqueSaturatedInto<T>,
