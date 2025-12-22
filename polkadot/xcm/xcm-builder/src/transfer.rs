@@ -332,7 +332,7 @@ fn remote_transfer_xcm_paying_fees(
 	asset_id: AssetId,
 	amount: u128,
 	remote_fee: Asset,
-	query_id: QueryId,
+	_: QueryId,
 ) -> Result<Xcm<()>, Error> {
 	// Transform `from` into Location::new(1, XX([Parachain(source), from.interior }])
 	// We need this one for the refunds.
