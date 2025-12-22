@@ -29,6 +29,7 @@ pallet-session = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
+cumulus-pallet-session-benchmarking = { default-features = false, optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
@@ -42,6 +43,7 @@ sp-tracing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 runtime-benchmarks = [
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -53,6 +55,7 @@ runtime-benchmarks = [
 ]
 std = [
 	"codec/std",
+	"cumulus-pallet-session-benchmarking?/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
