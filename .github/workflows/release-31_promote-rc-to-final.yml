@@ -28,6 +28,10 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX
         type: string
         required: true
+    outputs:
+      final_tag:
+        description: "Final release tag without RC suffix (e.g., polkadot-stableYYMM)"
+        value: ${{ jobs.validate-inputs.outputs.final_tag }}
 
 
 jobs:
@@ -56,6 +60,10 @@ jobs:
 
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+          # Calculate final tag by removing -rc suffix
+          FINAL_TAG="$(echo ${RELEASE_TAG} | sed 's/-rc[0-9]*$//')"
+          echo "final_tag=${FINAL_TAG}" >> $GITHUB_OUTPUT
 
   promote-polkadot-rc-to-final:
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
