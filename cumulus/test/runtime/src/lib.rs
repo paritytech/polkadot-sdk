@@ -374,7 +374,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
+	type OnSystemEvent = TestPallet;
 	type OutboundXcmpMessageSource = ();
 	// Ignore all DMP messages by enqueueing them into `()`:
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
@@ -643,8 +643,15 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
-		fn keys_to_prove() -> RelayProofRequest {
-			Default::default()
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			use cumulus_primitives_core::RelayStorageKey;
+
+			RelayProofRequest {
+				keys: vec![
+					// Request a well-known key to verify its inclusion in the relay proof.
+					RelayStorageKey::Top(test_pallet::RELAY_EPOCH_INDEX_KEY.to_vec()),
+				],
+			}
 		}
 	}
 }
