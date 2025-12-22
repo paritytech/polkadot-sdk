@@ -301,7 +301,7 @@ mod tests {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let code = compile_module_with_type("MyToken", FixtureType::Resolc)
-				.expect("compile ERC20")
+				.unwrap()
 				.0
 				.to_vec();
 			let amount = EU256::from(1000);
@@ -329,7 +329,7 @@ mod tests {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let code = compile_module_with_type("MyToken", FixtureType::Resolc)
-				.expect("compile ERC20")
+				.unwrap()
 				.0
 				.to_vec();
 			let amount = 1000;
@@ -352,7 +352,7 @@ mod tests {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let code = compile_module_with_type("MyToken", FixtureType::Resolc)
-				.expect("compile ERC20")
+				.unwrap()
 				.0
 				.to_vec();
 			let amount = 1000;
@@ -373,7 +373,7 @@ mod tests {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let code = compile_module_with_type("MyToken", FixtureType::Resolc)
-				.expect("compile ERC20")
+				.unwrap()
 				.0
 				.to_vec();
 			let amount = 1000;
@@ -412,7 +412,7 @@ mod tests {
 				1_000_000,
 			);
 			let code = compile_module_with_type("MyToken", FixtureType::Resolc)
-				.expect("compile ERC20")
+				.unwrap()
 				.0
 				.clone();
 			let amount = 1000;

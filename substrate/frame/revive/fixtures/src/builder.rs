@@ -316,9 +316,7 @@ fn compile_with_standard_json(
 ) -> Result<serde_json::Value> {
 	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
 	let oz_root = contracts_dir.join("external/openzeppelin/");
-	if oz_root.exists() {
-		remappings.push(format!("@openzeppelin/={}", oz_root.display()));
-	}
+	remappings.push(format!("@openzeppelin/={}", oz_root.display()));
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},
