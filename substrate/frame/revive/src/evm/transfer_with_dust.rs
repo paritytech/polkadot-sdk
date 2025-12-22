@@ -35,8 +35,9 @@ fn transfer_balance<T: Config>(
 	from: &AccountIdOf<T>,
 	to: &AccountIdOf<T>,
 	value: BalanceOf<T>,
+	preservation: Preservation,
 ) -> DispatchResult {
-	T::Currency::transfer(from, to, value, Preservation::Preserve)
+	T::Currency::transfer(from, to, value, preservation)
 			.map_err(|err| {
 				log::debug!(target: LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
 				Error::<T>::TransferFailed
@@ -93,12 +94,13 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	to: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
+	preservation: Preservation,
 ) -> DispatchResult {
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
 	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
 
-	if from_info.balance(from) < value {
-		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from));
+	if from_info.balance(from, preservation) < value {
+		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, preservation));
 		return Err(Error::<T>::TransferFailed.into())
 	} else if from == to || value.is_zero() {
 		return Ok(())
@@ -106,14 +108,14 @@ pub(crate) fn transfer_with_dust<T: Config>(
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		return transfer_balance::<T>(from, to, value)
+		return transfer_balance::<T>(from, to, value, preservation)
 	}
 
 	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
 	let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
-	transfer_balance::<T>(from, to, value)?;
+	transfer_balance::<T>(from, to, value, preservation)?;
 	transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
 
 	let plank = T::NativeToEthRatio::get();
@@ -136,8 +138,8 @@ pub(crate) fn burn_with_dust<T: Config>(
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
 	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
 
-	if from_info.balance(from) < value {
-		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from));
+	if from_info.balance(from, Preservation::Preserve) < value {
+		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, Preservation::Preserve));
 		return Err(Error::<T>::TransferFailed.into())
 	} else if value.is_zero() {
 		return Ok(())

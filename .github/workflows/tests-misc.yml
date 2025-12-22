@@ -143,7 +143,7 @@ jobs:
         shell: bash
         run: |
           # Fail the step if any command in a pipeline errors out.
-          set -euo pipefail 
+          set -euo pipefail
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
@@ -377,16 +377,8 @@ jobs:
           rustup component add clippy rust-docs rust-src rustfmt rustc rust-std
       - name: Install protobuf
         run: brew install protobuf
-      # - name: install solc
-      #   run: brew install solidity
-      - name: Install solc
-        run: |
-          # Install solc 0.8.30 directly (0.8.31+ not supported by resolc)
-          SOLC_VERSION="0.8.30"
-          curl -Lsf --show-error -o $HOME/.cargo/bin/solc "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-macos"
-          chmod +x $HOME/.cargo/bin/solc
-          xattr -c $HOME/.cargo/bin/solc
-          $HOME/.cargo/bin/solc --version
+      - name: Install Solc
+        uses: ./.github/actions/get-solc
       - name: Install resolc
         run: |
           source $HOME/.cargo/env

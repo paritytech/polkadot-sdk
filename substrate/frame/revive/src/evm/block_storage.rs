@@ -86,11 +86,11 @@ impl EthereumCallResult {
 		// Refund pre-charged revert event weight if the call succeeds.
 		if output.result.is_ok() {
 			output
-				.gas_consumed
+				.weight_consumed
 				.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
-		let result = dispatch_result(output.result, output.gas_consumed, base_call_weight);
+		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 

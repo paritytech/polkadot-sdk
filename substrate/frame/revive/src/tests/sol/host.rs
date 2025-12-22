@@ -18,15 +18,16 @@
 //! The pallet-revive shared VM integration test suite.
 use crate::{
 	address::AddressMapper,
+	metering::TransactionLimits,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
+	tests::{builder, test_utils, test_utils::get_contract, ExtBuilder, RuntimeEvent, Test},
 	Code, Config, Error, Key, System, H256, U256,
 };
 use frame_support::assert_err_ignore_postinfo;
 
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::{fungible::Mutate, Get};
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
+use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType, Host};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 
@@ -471,7 +472,10 @@ fn logs_work(fixture_type: FixtureType) {
 		initialize_block(2);
 
 		let result = builder::bare_call(addr)
-			.gas_limit(crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024))
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024),
+				deposit_limit: Default::default(),
+			})
 			.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");
@@ -604,5 +608,180 @@ fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureTyp
 		let decoded_result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
 
 		assert_eq!(decoded_result.success, false);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn reading_empty_storage_item_returns_zero_simple(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		// read non-existent storage item
+		let result = builder::bare_call(host_addr)
+			.data(Host::sloadOpCall { slot: index }.abi_encode())
+			.build_and_unwrap_result();
+
+		let decoded = Host::sloadOpCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, 0u64, "sloadOpCall should return zero for empty storage item");
+	})
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn reading_empty_storage_item_returns_zero_delegatecall(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		// read non-existent storage item
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: host_addr.0.into(),
+					_data: Host::sloadOpCall { slot: index }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "delegateCall reverted");
+		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
+
+		assert!(result.success, "sloadOpCall did not succeed");
+		let decoded = Host::sloadOpCall::abi_decode_returns(&result.output).unwrap();
+		assert_eq!(decoded, 0u64, "sloadOpCall should return zero for empty storage item");
+	})
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn storage_item_zero_shall_refund_deposit_simple(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		let base_deposit = get_contract(&host_addr).total_deposit();
+
+		// write storage item
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: index, value: 17u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		// 32 for key, 32 for value, 2 for item
+		assert_eq!(
+			get_contract(&host_addr).total_deposit(),
+			base_deposit + 32 + 32 + 2,
+			"Unexpected deposit sum charged for non-zero storage item"
+		);
+
+		// write storage item to all zeros
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: index, value: 0u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		assert_eq!(
+			get_contract(&host_addr).total_deposit(),
+			base_deposit,
+			"contract should refund deposit on zeroing storage item"
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn storage_item_zero_shall_refund_deposit_delegatecall(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		let base_deposit = get_contract(&caller_addr).total_deposit();
+
+		// write storage item
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: host_addr.0.into(),
+					_data: Host::sstoreOpCall { slot: index, value: 17u64 }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
+		assert!(result.success, "delegateCall did not succeed");
+
+		// 32 for key, 32 for value, 2 for item
+		assert_eq!(
+			get_contract(&caller_addr).total_deposit(),
+			base_deposit + 32 + 32 + 2,
+			"Unexpected deposit sum charged for non-zero storage item"
+		);
+
+		// write storage item to all zeros
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: host_addr.0.into(),
+					_data: Host::sstoreOpCall { slot: index, value: 0u64 }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
+		assert!(result.success, "delegateCall did not succeed");
+
+		assert_eq!(
+			get_contract(&caller_addr).total_deposit(),
+			base_deposit,
+			"contract should refund deposit on zeroing storage item"
+		);
 	});
 }

@@ -1173,9 +1173,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.26.0", default-features = false }
-polkavm-derive = "0.26.0"
-polkavm-linker = "0.26.0"
+polkavm = { version = "0.30.0", default-features = false }
+polkavm-derive = "0.30.0"
+polkavm-linker = "0.30.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
@@ -1414,7 +1414,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.43", default-features = false }
+subxt = { version = "0.43.1", default-features = false }
 subxt-metadata = { version = "0.43", default-features = false }
 subxt-signer = { version = "0.43" }
 syn = { version = "2.0.87" }

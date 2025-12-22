@@ -127,6 +127,15 @@ pub fn stop<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.gas_meter_mut().consume_all();
+	interpreter.ext.frame_meter_mut().consume_all_weight();
 	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
+}
+
+/// bench_init opcode.
+/// Returns a runtime code that fills the maximum allowed code size.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_init_code() -> ControlFlow<Halt> {
+	let runtime_code =
+		alloc::vec![revm::bytecode::opcode::STOP; revm::primitives::eip170::MAX_CODE_SIZE];
+	ControlFlow::Break(Halt::Return(runtime_code))
 }

@@ -29,12 +29,11 @@ use crate::{
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
-	storage::meter::Meter,
+	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, GasMeter, OriginFor, Pallet as Contracts,
-	PristineCode, Weight,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -51,8 +50,7 @@ pub struct CallSetup<T: Config> {
 	contract: Contract<T>,
 	dest: T::AccountId,
 	origin: Origin<T>,
-	gas_meter: GasMeter<T>,
-	storage_meter: Meter<T>,
+	transaction_meter: TransactionMeter<T>,
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
@@ -78,8 +76,6 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
-		let storage_meter = Meter::new(default_deposit_limit::<T>());
-
 		#[cfg(feature = "runtime-benchmarks")]
 		{
 			// Whitelist contract account, as it is already accounted for in the call benchmark
@@ -101,8 +97,11 @@ where
 			contract,
 			dest,
 			origin,
-			gas_meter: GasMeter::new(Weight::MAX),
-			storage_meter,
+			transaction_meter: TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: default_deposit_limit::<T>(),
+			})
+			.unwrap(),
 			value: 0u32.into(),
 			data: vec![],
 			transient_storage_size: 0,
@@ -112,7 +111,11 @@ where
 
 	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
-		self.storage_meter = Meter::new(balance);
+		self.transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: balance,
+		})
+		.unwrap();
 	}
 
 	/// Set the call's origin.
@@ -150,8 +153,7 @@ where
 		let mut ext = StackExt::bench_new_call(
 			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
-			&mut self.gas_meter,
-			&mut self.storage_meter,
+			&mut self.transaction_meter,
 			self.value,
 			&self.exec_config,
 		);
@@ -259,8 +261,10 @@ where
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
 			U256::zero(),
-			Weight::MAX,
-			default_deposit_limit::<T>(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: default_deposit_limit::<T>(),
+			},
 			Code::Upload(module.code),
 			data,
 			salt,
@@ -449,7 +453,11 @@ impl VmBinaryModule {
 			}
 		}
 		text.push_str("ret\n");
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 
@@ -478,7 +486,11 @@ impl VmBinaryModule {
 		ret
 		"
 		);
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 
