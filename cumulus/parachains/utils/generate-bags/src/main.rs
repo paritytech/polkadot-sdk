@@ -20,15 +20,15 @@
 //! touched again. It can be reused to regenerate a wholly different
 //! quantity of bags, or if the existential deposit changes, etc.
 
+use asset_hub_westend_runtime::Runtime as WAHRuntime;
 use clap::{Parser, ValueEnum};
 use generate_bags::generate_thresholds;
 use std::path::{Path, PathBuf};
-use westend_runtime::Runtime as WestendRuntime;
 
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
 enum Runtime {
-	Westend,
+	WestendAssetHub,
 }
 
 impl Runtime {
@@ -36,7 +36,7 @@ impl Runtime {
 		&self,
 	) -> Box<dyn FnOnce(usize, &Path, u128, u128) -> Result<(), std::io::Error>> {
 		match self {
-			Runtime::Westend => Box::new(generate_thresholds::<WestendRuntime>),
+			Runtime::WestendAssetHub => Box::new(generate_thresholds::<WAHRuntime>),
 		}
 	}
 }
@@ -48,7 +48,7 @@ struct Opt {
 	n_bags: usize,
 
 	/// Which runtime to generate.
-	#[arg(long, ignore_case = true, value_enum, default_value_t = Runtime::Westend)]
+	#[arg(long, ignore_case = true, value_enum, default_value_t = Runtime::WestendAssetHub)]
 	runtime: Runtime,
 
 	/// Where to write the output.

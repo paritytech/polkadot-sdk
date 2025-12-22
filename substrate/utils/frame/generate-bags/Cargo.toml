@@ -16,7 +16,7 @@ workspace = true
 frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 
 # third party

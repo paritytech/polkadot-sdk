@@ -34,7 +34,7 @@ mod bag_thresholds;
 pub mod governance;
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod migrations;
-mod staking;
+pub mod staking;
 
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
