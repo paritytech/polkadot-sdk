@@ -260,7 +260,7 @@ mod tests {
 				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91",
 			);
 
-			let input = ISystem::ISystemCalls::EcdsaToEthAddress(ISystem::EcdsaToEthAddressCall {
+			let input = ISystem::ISystemCalls::ecdsaToEthAddress(ISystem::EcdsaToEthAddressCall {
 				publicKey: pubkey_compressed,
 			});
 			let result =
