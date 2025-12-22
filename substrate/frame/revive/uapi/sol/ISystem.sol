@@ -61,8 +61,8 @@ interface ISystem {
 	/// - `publicKey`: The public key bytes.
 	function sr25519Verify(uint8[64] calldata signature, bytes calldata message, bytes32 publicKey) external view returns (bool);
 
-	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// it into the supplied buffer.
+	/// Calculates the Ethereum address from the ECDSA compressed public key.
+	/// This fails if ECDSA recovery of the provided key fails. 
 	///
 	/// # Parameters
 	///
