@@ -18,6 +18,11 @@ on:
         required: true
         type: string
 
+    outputs:
+      final_tag:
+        description: "Final release tag without RC suffix (e.g., polkadot-stableYYMM)"
+        value: ${{ jobs.promote-release-artifacts.outputs.final_tag }}
+
     secrets:
       AWS_DEFAULT_REGION:
         required: true
@@ -31,6 +36,8 @@ jobs:
   promote-release-artifacts:
     environment: release
     runs-on: ubuntu-latest
+    outputs:
+      final_tag: ${{ steps.prepare_final_tag.outputs.FINAL_TAG }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
