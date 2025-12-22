@@ -20,3 +20,4 @@
 #![no_std]
 
 alloy_core::sol!("src/IERC20.sol");
+alloy_core::sol!("src/IERC721.sol");

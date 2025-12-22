@@ -17,7 +17,7 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::{
-	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
+	xcm_config::{ERC20TransferGasLimit, ERC721TransferGasLimit, MaxAssetsIntoHolding},
 	Runtime,
 };
 use alloc::vec::Vec;
@@ -65,11 +65,14 @@ trait WeighAsset {
 
 impl WeighAsset for Asset {
 	fn weigh_asset(&self, weight: Weight) -> Weight {
-		// If the asset is a smart contract ERC20, then we know the gas limit,
+		// If the asset is a smart contract ERC20 or ERC721, then we know the gas limit,
 		// else we return the weight that was passed in, that's already
-		// the worst case for non-ERC20 assets.
+		// the worst case for non-ERC20 and non-ERC721 assets.
 		if IsLocalAccountKey20::contains(&self.id.0) {
-			ERC20TransferGasLimit::get()
+			match self.fun {
+				Fungibility::Fungible(_) => ERC20TransferGasLimit::get(),
+				Fungibility::NonFungible(_) => ERC721TransferGasLimit::get(),
+			}
 		} else {
 			weight
 		}

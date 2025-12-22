@@ -18,6 +18,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
 mod erc20_transactor;
+mod erc721_transactor;
 pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
@@ -26,6 +27,7 @@ pub mod migrations;
 pub mod runtime_api;
 
 pub use erc20_transactor::ERC20Transactor;
+pub use erc721_transactor::ERC721Transactor;
 
 extern crate alloc;
 extern crate core;
@@ -159,6 +161,11 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 /// ERC20 tokens.
 pub type ERC20Matcher =
 	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
+
+/// [`xcm_executor::traits::MatchesNonFungibles`] implementation that matches
+/// ERC721 tokens.
+pub type ERC721Matcher =
+	MatchedConvertedConcreteId<H160, AssetInstance, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
 
 pub type AssetIdForPoolAssets = u32;
 

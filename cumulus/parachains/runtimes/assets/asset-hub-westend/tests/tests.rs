@@ -96,6 +96,14 @@ const EXPENSIVE_ERC20_PVM: &[u8] = include_bytes!(
 	"../../../../../../substrate/frame/revive/fixtures/erc20/expensive_erc20.polkavm"
 );
 
+const ERC721_PVM: &[u8] =
+	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc721/erc721.polkavm");
+const FAKE_ERC721_PVM: &[u8] =
+	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc721/fake_erc721.polkavm");
+const EXPENSIVE_ERC721_PVM: &[u8] = include_bytes!(
+	"../../../../../../substrate/frame/revive/fixtures/erc721/expensive_erc721.polkavm"
+);
+
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
 }
@@ -1964,5 +1972,331 @@ fn expensive_erc20_runs_out_of_gas() {
 			Weight::from_parts(2_500_000_000, 120_000),
 		)
 		.is_err());
+	});
+}
+
+#[test]
+fn weight_of_message_increases_when_dealing_with_erc721s() {
+	use xcm::VersionedXcm;
+	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+
+	let message = Xcm::<()>::builder_unsafe().withdraw_asset((Parent, 1u128)).build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let regular_asset_weight = Runtime::query_xcm_weight(versioned).unwrap();
+
+	let message = Xcm::<()>::builder_unsafe()
+		.withdraw_asset((AccountKey20 { network: None, key: [1u8; 20] }, AssetInstance::Index(0)))
+		.build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let weight = Runtime::query_xcm_weight(versioned).unwrap();
+
+	assert!(
+		weight.ref_time() > regular_asset_weight.ref_time()
+			&& weight.proof_size() > 10 * regular_asset_weight.proof_size()
+	);
+
+	assert_eq!(weight, crate::xcm_config::ERC721TransferGasLimit::get());
+}
+
+#[test]
+fn withdraw_and_deposit_erc721s() {
+	use frame_support::traits::nonfungibles;
+
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC721TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+		// Fund all accounts so they can call Revive::map_account
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// Map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// Deploy ERC721 contract (fixture mints tokenId=0 to sender)
+		let code = ERC721_PVM.to_vec();
+		let Contract { addr: erc721_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.build_and_unwrap_contract();
+
+		let token_id: u128 = 0;
+
+		// Verify sender is the initial owner
+		let initial_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&erc721_address, &token_id).unwrap();
+		assert_eq!(initial_owner, sender);
+
+		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+
+		// Actual XCM to execute locally.
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: erc721_address.into(), network: None },
+				AssetInstance::Index(token_id),
+			))
+			// Deposit ERC721 to beneficiary.
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.refund_surplus()
+			// Deposit leftover fees back to the sender.
+			.deposit_asset(AllCounted(1), sender.clone())
+			.build();
+
+		assert_ok!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 220_000),
+		));
+
+		// Revive is not taking any fees.
+		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);
+		assert!(sender_balance_after > sender_balance_before - wnd_amount_for_fees);
+
+		// Beneficiary must now be the owner of tokenId=0
+		let new_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&erc721_address, &token_id).unwrap();
+		assert_eq!(new_owner, beneficiary);
+	});
+}
+
+#[test]
+fn non_existent_erc721_will_error() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC721TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	let non_existent_contract_address: [u8; 20] = [1u8; 20];
+	let token_id: u128 = 42; // arbitrary token
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+
+		// Build an XCM that attempts to withdraw a token from a non-existent contract
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_existent_contract_address.into(), network: None },
+				AssetInstance::Index(token_id),
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+
+		// The execution must fail but without panic
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
+}
+#[test]
+fn smart_contract_not_erc721_will_error() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC721TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let (code, _) = compile_module("dummy").unwrap();
+		let Contract { addr: non_erc721_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.build_and_unwrap_contract();
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let token_id: u128 = 0; // arbitrary token
+
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc721_address.into(), network: None },
+				AssetInstance::Index(token_id),
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+
+		// The execution must fail but without panic
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
+}
+
+#[test]
+fn smart_contract_does_not_return_expected_value_fails() {
+	use frame_support::traits::nonfungibles;
+
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC721TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
+		// Fund all accounts so they can call Revive::map_account
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// Map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// Fake ERC721 contract: implements transferFrom but returns a uint256 instead of ().
+		let code = FAKE_ERC721_PVM.to_vec();
+
+		let Contract { addr: fake_erc721_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.build_and_unwrap_contract();
+
+		let token_id: u128 = 0;
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: fake_erc721_address.into(), network: None },
+				AssetInstance::Index(token_id),
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 220_000),
+		)
+		.is_err());
+
+		// Ownership must still remain with sender.
+		let final_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&fake_erc721_address, &token_id).unwrap();
+		assert_eq!(final_owner, sender);
+	});
+}
+
+#[test]
+fn expensive_erc721_runs_out_of_gas() {
+	use frame_support::traits::nonfungibles;
+
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC721TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// Deploy "expensive" ERC721 contract (constructor mints tokenId=0 to sender).
+		let code = EXPENSIVE_ERC721_PVM.to_vec();
+		let Contract { addr: erc721_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.build_and_unwrap_contract();
+
+		let token_id: u128 = 0;
+
+		// Sanity check: token 0 belongs to sender before XCM.
+		let initial_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&erc721_address, &token_id).unwrap();
+		assert_eq!(initial_owner, sender);
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+
+		// Actual XCM trying to withdraw ERC721 but transferFrom consumes too much gas.
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: erc721_address.into(), network: None },
+				AssetInstance::Index(token_id),
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+
+		// Execution fails with OutOfGas but does not panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+
+		// Ownership must still remain with sender.
+		let final_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&erc721_address, &token_id).unwrap();
+		assert_eq!(final_owner, sender);
 	});
 }

@@ -28,6 +28,7 @@ mod call_builder;
 mod debug;
 mod exec;
 mod impl_fungibles;
+mod impl_nonfungibles;
 mod limits;
 mod metering;
 mod primitives;
