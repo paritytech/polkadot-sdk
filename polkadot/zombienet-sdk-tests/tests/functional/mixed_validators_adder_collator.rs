@@ -96,9 +96,7 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(2000), 10..21)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 10..21)],
 	)
 	.await?;
 
