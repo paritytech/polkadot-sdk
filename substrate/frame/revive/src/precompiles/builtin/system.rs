@@ -108,7 +108,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let ok = env.sr25519_verify(signature, message, publicKey);
 				Ok(ok.abi_encode())
 			},
-			ISystemCalls::EcdsaToEthAddress(ISystem::EcdsaToEthAddressCall { publicKey }) => {
+			ISystemCalls::ecdsaToEthAddress(ISystem::EcdsaToEthAddressCall { publicKey }) => {
 				let address =
 					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
 				Ok(address.abi_encode())
