@@ -245,9 +245,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
-
 parameter_types! {
 	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 UNITS deposit to create asset
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);
@@ -1699,6 +1696,8 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,

@@ -275,9 +275,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
-
 parameter_types! {
 	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 WND deposit to create asset
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);
@@ -2230,6 +2227,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
