@@ -31,7 +31,7 @@ on:
     outputs:
       final_tag:
         description: "Final release tag without RC suffix (e.g., polkadot-stableYYMM)"
-        value: ${{ jobs.promote-polkadot-rc-to-final.outputs.final_tag || jobs.promote-polkadot-parachain-rc-to-final.outputs.final_tag || jobs.promote-polkadot-omni-node-rc-to-final.outputs.final_tag || jobs.promote-frame-omni-bencher-rc-to-final.outputs.final_tag || jobs.promote-chain-spec-builder-rc-to-final.outputs.final_tag }}
+        value: ${{ jobs.validate-inputs.outputs.final_tag }}
 
 
 jobs:
@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+      final_tag: ${{ steps.validate_inputs.outputs.final_tag }}
 
     steps:
       - name: Checkout sources
@@ -60,6 +61,10 @@ jobs:
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
+          # Calculate final tag by removing -rc suffix
+          FINAL_TAG="$(echo ${RELEASE_TAG} | sed 's/-rc[0-9]*$//')"
+          echo "final_tag=${FINAL_TAG}" >> $GITHUB_OUTPUT
+
   promote-polkadot-rc-to-final:
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     needs: [ validate-inputs ]
@@ -70,6 +75,7 @@ jobs:
     with:
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      final_tag: ${{ needs.validate-inputs.outputs.final_tag }}
       target: ${{ matrix.target }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -86,6 +92,7 @@ jobs:
     with:
       package: polkadot-parachain
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      final_tag: ${{ needs.validate-inputs.outputs.final_tag }}
       target: ${{ matrix.target }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -102,6 +109,7 @@ jobs:
     with:
       package: polkadot-omni-node
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      final_tag: ${{ needs.validate-inputs.outputs.final_tag }}
       target: ${{ matrix.target }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -118,6 +126,7 @@ jobs:
     with:
       package: frame-omni-bencher
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      final_tag: ${{ needs.validate-inputs.outputs.final_tag }}
       target: ${{ matrix.target }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -134,6 +143,7 @@ jobs:
     with:
       package: chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      final_tag: ${{ needs.validate-inputs.outputs.final_tag }}
       target: ${{ matrix.target }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}

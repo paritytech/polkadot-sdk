@@ -13,15 +13,15 @@ on:
         required: true
         type: string
 
+      final_tag:
+        description: Final release tag without RC suffix (e.g., polkadot-stableYYMM)
+        required: true
+        type: string
+
       target:
         description: Target triple for which the artifacts are being uploaded (e.g aarch64-apple-darwin)
         required: true
         type: string
-
-    outputs:
-      final_tag:
-        description: "Final release tag without RC suffix (e.g., polkadot-stableYYMM)"
-        value: ${{ jobs.promote-release-artifacts.outputs.final_tag }}
 
     secrets:
       AWS_DEFAULT_REGION:
@@ -36,27 +36,18 @@ jobs:
   promote-release-artifacts:
     environment: release
     runs-on: ubuntu-latest
-    outputs:
-      final_tag: ${{ steps.prepare_final_tag.outputs.FINAL_TAG }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       RELEASE_TAG: ${{ inputs.release_tag }}
+      FINAL_TAG: ${{ inputs.final_tag }}
       PACKAGE: ${{ inputs.package }}
       TARGET: ${{ inputs.target }}
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Prepare final tag
-        id: prepare_final_tag
-        shell: bash
-        run: |
-          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
-          echo $tag
-          echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
       - name: Fetch binaries from s3 based on version
         run: |
@@ -91,8 +82,8 @@ jobs:
           if [[ "$PACKAGE" == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
-              upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+              upload_s3_release $package "$FINAL_TAG" ${{ inputs.target }}
             done
           else
-            upload_s3_release "$PACKAGE" ${{ steps.prepare_final_tag.outputs.final_tag }} "$TARGET"
+            upload_s3_release "$PACKAGE" "$FINAL_TAG" "$TARGET"
           fi
