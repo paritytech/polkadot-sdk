@@ -112,6 +112,12 @@ impl<T: Config> ContractBlob<T> {
 					.map_err(|_| Error::<T>::CodeRejected)?,
 			}))
 			.map_err(|_| Error::<T>::CodeRejected)?;
+
+		// Initialize the allocator with the correct heap base and size from the module
+		let heap_base = module.memory_map().heap_base();
+		let heap_size = module.memory_map().max_heap_size();
+		runtime.init_allocator(heap_base, heap_size);
+
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
 		Ok(PreparedCall { module, instance, runtime })
