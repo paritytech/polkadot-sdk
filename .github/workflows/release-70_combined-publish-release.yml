@@ -94,8 +94,7 @@ jobs:
   # ==============================================
   publish-docker-polkadot:
     name: Publish Docker image - polkadot
-    # needs: [publish-deb-package, publish-rpm-package]
-    needs: [promote-rc-to-final]
+    needs: [promote-rc-to-final, publish-deb-package]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
