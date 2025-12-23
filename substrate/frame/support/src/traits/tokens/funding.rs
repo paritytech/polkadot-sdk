@@ -24,7 +24,10 @@
 //! - **Direct burn**: Traditional approach where funds are destroyed on demand
 //! - **Buffer-based**: Funds are returned to a buffer for reuse
 
-use crate::traits::tokens::{fungible, Fortitude, Precision, Preservation};
+use crate::{
+	defensive,
+	traits::tokens::{fungible, Fortitude, Precision, Preservation},
+};
 use core::marker::PhantomData;
 
 /// Trait for moving funds into an issuance buffer or burning them.
@@ -65,10 +68,13 @@ where
 	AccountId: Eq,
 {
 	fn fill(from: &AccountId, amount: Currency::Balance, preservation: Preservation) {
-		// Best-effort burn. If it fails (e.g., insufficient funds), the funds remain with the
-		// account.
-		let _ =
-			Currency::burn_from(from, amount, preservation, Precision::Exact, Fortitude::Polite);
+		// Best-effort burn: burns up to `amount` from the account.
+		// If account has less than `amount`, burns whatever is available.
+		if Currency::burn_from(from, amount, preservation, Precision::BestEffort, Fortitude::Polite)
+			.is_err()
+		{
+			defensive!("DirectBurn::fill failed to burn from account");
+		}
 	}
 }
 

@@ -21,8 +21,8 @@
 //! them. The buffer account is created via `inc_providers` at genesis, ensuring it can receive any
 //! amount including those below ED.
 //!
-//! For existing chains adding DAP, include `dap::migrations::InitBufferAccount` as a permanent
-//! migration. It's idempotent (1 read per upgrade) and ensures the buffer account exists.
+//! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
+//! migrations tuple.
 //!
 //! Future phases will add:
 //! - `FundingSource` (request_funds) for pulling funds
@@ -34,6 +34,7 @@
 extern crate alloc;
 
 use frame_support::{
+	defensive,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
@@ -54,9 +55,13 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::sp_runtime::traits::AccountIdConversion;
+	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
+
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -82,18 +87,16 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Ensure the buffer account exists by incrementing its provider count.
+		/// Create the buffer account by incrementing its provider count.
 		///
-		/// This is called at genesis. It's idempotent - calling it multiple times is safe.
-		pub fn ensure_buffer_account_exists() {
+		/// Called once at genesis (for new chains) or via migration (for existing chains).
+		pub(crate) fn create_buffer_account() {
 			let buffer = Self::buffer_account();
-			if !frame_system::Pallet::<T>::account_exists(&buffer) {
-				frame_system::Pallet::<T>::inc_providers(&buffer);
-				log::info!(
-					target: LOG_TARGET,
-					"Created DAP buffer account: {buffer:?}"
-				);
-			}
+			frame_system::Pallet::<T>::inc_providers(&buffer);
+			log::info!(
+				target: LOG_TARGET,
+				"Created DAP buffer account: {buffer:?}"
+			);
 		}
 	}
 
@@ -109,7 +112,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			// Create the buffer account at genesis so it can receive funds of any amount.
-			Pallet::<T>::ensure_buffer_account_exists();
+			Pallet::<T>::create_buffer_account();
 		}
 	}
 }
@@ -117,20 +120,34 @@ pub mod pallet {
 /// Migrations for the DAP pallet.
 pub mod migrations {
 	use super::*;
-	use frame_support::traits::OnRuntimeUpgrade;
 
-	/// Permanent migration to ensure the DAP buffer account exists.
-	///
-	/// This should be included as a permanent migration in runtimes using DAP.
-	/// It's idempotent - costs only 1 read per upgrade after the first run.
-	pub struct InitBufferAccount<T>(core::marker::PhantomData<T>);
+	/// Version 1 migration.
+	pub mod v1 {
+		use super::*;
+		use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-	impl<T: Config> OnRuntimeUpgrade for InitBufferAccount<T> {
-		fn on_runtime_upgrade() -> Weight {
-			Pallet::<T>::ensure_buffer_account_exists();
-			// Weight: 1 read (account_exists) + potentially 1 write (inc_providers)
-			T::DbWeight::get().reads_writes(1, 1)
+		/// Inner migration that creates the buffer account.
+		pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
+
+		impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
+			fn on_runtime_upgrade() -> Weight {
+				Pallet::<T>::create_buffer_account();
+				// Weight: 1 write (inc_providers)
+				T::DbWeight::get().writes(1)
+			}
 		}
+
+		/// Migration to create the DAP buffer account (version 0 → 1).
+		///
+		/// This migration only runs once when the on-chain storage version
+		/// is 0, then updates it to 1.
+		pub type InitBufferAccount<T> = frame_support::migrations::VersionedMigration<
+			0,
+			1,
+			InitBufferAccountInner<T>,
+			Pallet<T>,
+			<T as frame_system::Config>::DbWeight,
+		>;
 	}
 }
 
@@ -144,13 +161,19 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
 		let buffer = Self::buffer_account();
 
-		// Withdraw from source and resolve to buffer. If withdraw fails, nothing happens.
-		// If resolve fails (should never happen - buffer pre-created at genesis or via migration),
-		// funds are burned. Balances pallet emits Transfer events.
-		if let Ok(credit) =
-			T::Currency::withdraw(source, amount, Precision::Exact, preservation, Fortitude::Polite)
-		{
-			let _ = T::Currency::resolve(&buffer, credit);
+		// Best-effort transfer: withdraw up to `amount` from source and deposit to buffer.
+		// If source has less than `amount`, transfers whatever is available.
+		if let Ok(credit) = T::Currency::withdraw(
+			source,
+			amount,
+			Precision::BestEffort,
+			preservation,
+			Fortitude::Polite,
+		) {
+			// Resolve should never fail - buffer is pre-created at genesis or via migration.
+			if !credit.peek().is_zero() && T::Currency::resolve(&buffer, credit).is_err() {
+				defensive!("Failed to deposit to DAP buffer - funds burned");
+			}
 		}
 	}
 }
@@ -162,16 +185,10 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		let buffer = Self::buffer_account();
 		let numeric_amount = amount.peek();
 
-		// The buffer account is created at genesis (or via migration for existing chains), so
-		// resolve should always succeed. If it somehow fails, log the error.
-		if let Err(remaining) = T::Currency::resolve(&buffer, amount) {
-			let remaining_amount = remaining.peek();
-			if !remaining_amount.is_zero() {
-				log::error!(
-					target: LOG_TARGET,
-					"💸 Failed to deposit slash to DAP buffer - {remaining_amount:?} will be burned!"
-				);
-			}
+		// Resolve should never fail - buffer is pre-created at genesis or via migration.
+		if T::Currency::resolve(&buffer, amount).is_err() {
+			defensive!("Failed to deposit slash to DAP buffer - funds burned");
+			return;
 		}
 
 		log::debug!(
@@ -182,208 +199,6 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 }
 
 #[cfg(test)]
-mod tests {
-	use super::*;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{fungible::Balanced, tokens::FundingSink, OnUnbalanced},
-	};
-	use sp_runtime::BuildStorage;
-
-	type Block = frame_system::mocking::MockBlock<Test>;
-
-	frame_support::construct_runtime!(
-		pub enum Test {
-			System: frame_system,
-			Balances: pallet_balances,
-			Dap: crate,
-		}
-	);
-
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-	impl frame_system::Config for Test {
-		type Block = Block;
-		type AccountData = pallet_balances::AccountData<u64>;
-	}
-
-	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-	impl pallet_balances::Config for Test {
-		type AccountStore = System;
-	}
-
-	parameter_types! {
-		pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
-	}
-
-	impl Config for Test {
-		type Currency = Balances;
-		type PalletId = DapPalletId;
-	}
-
-	fn new_test_ext() -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![(1, 100), (2, 200), (3, 300)],
-			..Default::default()
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-		crate::pallet::GenesisConfig::<Test>::default()
-			.assimilate_storage(&mut t)
-			.unwrap();
-		t.into()
-	}
-
-	#[test]
-	fn genesis_creates_buffer_account() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-			// Buffer account should exist after genesis (created via inc_providers)
-			assert!(System::account_exists(&buffer));
-		});
-	}
-
-	// ===== fill tests =====
-
-	#[test]
-	fn fill_accumulates_from_multiple_sources() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: accounts have balances, buffer has 0
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(2), 200);
-			assert_eq!(Balances::free_balance(3), 300);
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: fill buffer from multiple accounts
-			Dap::fill(&1, 20, Preservation::Preserve);
-			Dap::fill(&2, 50, Preservation::Preserve);
-			Dap::fill(&3, 100, Preservation::Preserve);
-
-			// Then: buffer has accumulated all fills (20 + 50 + 100 = 170)
-			assert_eq!(Balances::free_balance(buffer), 170);
-			assert_eq!(Balances::free_balance(1), 80);
-			assert_eq!(Balances::free_balance(2), 150);
-			assert_eq!(Balances::free_balance(3), 200);
-		});
-	}
-
-	#[test]
-	fn fill_with_insufficient_balance_is_noop() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: account 1 has 100, buffer has 0
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: try to fill 150 (more than balance)
-			Dap::fill(&1, 150, Preservation::Preserve);
-
-			// Then: balances unchanged (infallible no-op)
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-		});
-	}
-
-	#[test]
-	fn fill_with_zero_amount_succeeds() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: account 1 has 100, buffer has 0
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: fill 0 from account 1
-			Dap::fill(&1, 0, Preservation::Preserve);
-
-			// Then: balances unchanged (no-op)
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-		});
-	}
-
-	#[test]
-	fn fill_with_expendable_allows_full_drain() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: account 1 has 100
-			assert_eq!(Balances::free_balance(1), 100);
-
-			// When: fill full balance with Expendable (allows going to 0)
-			Dap::fill(&1, 100, Preservation::Expendable);
-
-			// Then: account 1 is empty, buffer has 100
-			assert_eq!(Balances::free_balance(1), 0);
-			assert_eq!(Balances::free_balance(buffer), 100);
-		});
-	}
-
-	#[test]
-	fn fill_with_preserve_respects_existential_deposit() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: account 1 has 100, ED is 1 (from TestDefaultConfig)
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: try to fill 100 with Preserve (would go below ED)
-			Dap::fill(&1, 100, Preservation::Preserve);
-
-			// Then: balances unchanged (infallible - would have killed account)
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// But filling 99 works (leaves 1 for ED)
-			Dap::fill(&1, 99, Preservation::Preserve);
-			assert_eq!(Balances::free_balance(1), 1);
-			assert_eq!(Balances::free_balance(buffer), 99);
-		});
-	}
-
-	// ===== OnUnbalanced (slash) tests =====
-
-	#[test]
-	fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: buffer has 0
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
-			let credit1 = <Balances as Balanced<u64>>::issue(30);
-			Dap::on_unbalanced(credit1);
-
-			let credit2 = <Balances as Balanced<u64>>::issue(20);
-			Dap::on_unbalanced(credit2);
-
-			let credit3 = <Balances as Balanced<u64>>::issue(50);
-			Dap::on_unbalanced(credit3);
-
-			// Then: buffer has accumulated all slashes (30 + 20 + 50 = 100)
-			assert_eq!(Balances::free_balance(buffer), 100);
-		});
-	}
-
-	#[test]
-	fn slash_to_dap_handles_zero_amount() {
-		new_test_ext().execute_with(|| {
-			let buffer = Dap::buffer_account();
-
-			// Given: buffer has 0
-			assert_eq!(Balances::free_balance(buffer), 0);
-
-			// When: slash with zero amount
-			let credit = <Balances as Balanced<u64>>::issue(0);
-			Dap::on_unbalanced(credit);
-
-			// Then: buffer still has 0 (no-op)
-			assert_eq!(Balances::free_balance(buffer), 0);
-		});
-	}
-}
+pub(crate) mod mock;
+#[cfg(test)]
+mod tests;
