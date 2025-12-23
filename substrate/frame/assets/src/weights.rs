@@ -107,7 +107,7 @@ pub trait WeightInfo {
 	fn total_issuance() -> Weight;
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
-	fn set_reserves() -> Weight;
+	fn set_reserves(n: u32) -> Weight;
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
 		// disabled by default, force explicit benchmarking
 		Weight::MAX
@@ -606,8 +606,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
-	fn set_reserves() -> Weight {
+	fn set_reserves(n: u32) -> Weight {
 		Weight::from_parts(31_972_000, 3675)
+			.saturating_add(Weight::from_parts(826, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -1104,8 +1105,9 @@ impl WeightInfo for () {
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
-	fn set_reserves() -> Weight {
+	fn set_reserves(n: u32) -> Weight {
 		Weight::from_parts(31_972_000, 3675)
+			.saturating_add(Weight::from_parts(826, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

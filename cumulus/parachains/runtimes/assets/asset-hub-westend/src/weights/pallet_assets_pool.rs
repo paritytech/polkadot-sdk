@@ -328,12 +328,13 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
 	/// Storage: `PoolAssets::Reserves` (r:0 w:1)
 	/// Proof: `PoolAssets::Reserves` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
-	fn set_reserves() -> Weight {
+	fn set_reserves(n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `347`
 		//  Estimated: `3675`
 		// Minimum execution time: 16_429_000 picoseconds.
 		Weight::from_parts(16_951_000, 0)
+			.saturating_add(Weight::from_parts(6_241, 0).saturating_mul(n.into()))
 			.saturating_add(Weight::from_parts(0, 3675))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

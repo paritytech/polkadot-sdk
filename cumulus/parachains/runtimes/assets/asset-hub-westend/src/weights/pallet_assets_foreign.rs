@@ -332,12 +332,13 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
 	/// Storage: `ForeignAssets::Reserves` (r:0 w:1)
 	/// Proof: `ForeignAssets::Reserves` (`max_values`: None, `max_size`: Some(3629), added: 6104, mode: `MaxEncodedLen`)
-	fn set_reserves() -> Weight {
+	fn set_reserves(n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `242`
 		//  Estimated: `4273`
 		// Minimum execution time: 16_752_000 picoseconds.
 		Weight::from_parts(17_401_000, 0)
+			.saturating_add(Weight::from_parts(6_241, 0).saturating_mul(n.into()))
 			.saturating_add(Weight::from_parts(0, 4273))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
