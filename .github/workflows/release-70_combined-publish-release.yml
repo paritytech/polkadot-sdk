@@ -99,7 +99,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
@@ -114,7 +114,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot-parachain
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
@@ -129,7 +129,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot-omni-node
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
@@ -144,7 +144,7 @@ jobs:
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: chain-spec-builder
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
