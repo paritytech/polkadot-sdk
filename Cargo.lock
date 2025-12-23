@@ -15891,6 +15891,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
 ]
@@ -16030,6 +16031,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "people-westend-runtime",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "sc-chain-spec",
  "sc-cli",
@@ -16473,6 +16475,7 @@ dependencies = [
  "polkadot-dispute-distribution",
  "polkadot-erasure-coding",
  "polkadot-gossip-support",
+ "polkadot-jemalloc-shim",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
