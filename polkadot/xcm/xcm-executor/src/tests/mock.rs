@@ -233,7 +233,7 @@ impl WeightTrader for TestTrader {
 		// Try to take the required amount from payment
 		match payment.try_take(required.into()) {
 			Ok(_) => {
-				self.weight_bought_so_far.saturating_add(weight);
+				self.weight_bought_so_far.saturating_accrue(weight);
 				// Return the unused payment
 				Ok(payment)
 			},
