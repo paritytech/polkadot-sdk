@@ -82,7 +82,7 @@ jobs:
           if [[ "$PACKAGE" == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
-              upload_s3_release $package "$FINAL_TAG" ${{ inputs.target }}
+              upload_s3_release $package "$FINAL_TAG" "$TARGET"
             done
           else
             upload_s3_release "$PACKAGE" "$FINAL_TAG" "$TARGET"
