@@ -1,0 +1,12 @@
+title: 'cargo: Update yamux to 0.13.8 to avoid panics'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR updates rust-yamux to 0.13.8 from 0.13.6:
+    - https://github.com/paritytech/polkadot-sdk/issues/9169
+
+    This aims at not polling sockets past the point they return errors and effectively avoids panics when tungstenite websocket connections are used in combination with rust-yamux.
+
+
+    The fix was backported on 2512 but not on 2509
+crates: []
