@@ -25,7 +25,7 @@ use core::ops::Sub;
 use scale_info::TypeInfo;
 
 /// Piecewise Linear function in [0, 1] -> [0, 1].
-#[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Debug, TypeInfo)]
 pub struct PiecewiseLinear<'a> {
 	/// Array of points. Must be in order from the lowest abscissas to the highest.
 	pub points: &'a [(Perbill, Perbill)],

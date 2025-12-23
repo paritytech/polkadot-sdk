@@ -47,55 +47,71 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::terminate(_) if env.is_read_only() =>
 				Err(crate::Error::<T>::StateChangeDenied.into()),
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
 				Ok(output.abi_encode())
 			},
 			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::HashBlake128(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
 				Ok(output.abi_encode())
 			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::ToAccountId)?;
 				let account_id = env.to_account_id(&H160::from_slice(input.as_slice()));
 				Ok(account_id.encode().abi_encode())
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::CallerIsOrigin)?;
 				let is_origin = env.caller_is_origin(true);
 				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::CallerIsRoot)?;
 				let is_root = env.caller_is_root(true);
 				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::OwnCodeHash)?;
 				let caller = env.caller();
 				let addr = T::AddressMapper::to_address(caller.account_id()?);
 				let output = env.code_hash(&addr.into()).0.abi_encode();
 				Ok(output)
 			},
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::MinimumBalance)?;
 				let minimum_balance = env.minimum_balance();
 				Ok(minimum_balance.to_big_endian().abi_encode())
 			},
 			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
-				let ref_time = env.gas_meter().gas_left().ref_time();
-				let proof_size = env.gas_meter().gas_left().proof_size();
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::WeightLeft)?;
+				let ref_time = env.frame_meter().weight_left().unwrap_or_default().ref_time();
+				let proof_size = env.frame_meter().weight_left().unwrap_or_default().proof_size();
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				// no need to adjust gas because this always deletes code
-				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
+			},
+			ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
+				signature,
+				message,
+				publicKey,
+			}) => {
+				let ok = env.sr25519_verify(signature, message, publicKey);
+				Ok(ok.abi_encode())
+			},
+			ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall { publicKey }) => {
+				let address =
+					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
+				Ok(address.abi_encode())
 			},
 		}
 	}
@@ -113,8 +129,11 @@ mod tests {
 			tests::run_test_vectors,
 			BuiltinPrecompile,
 		},
+		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
 	};
+
+	use alloy_core::primitives::FixedBytes;
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
 
@@ -186,5 +205,73 @@ mod tests {
 				Ok(EVE),
 			);
 		})
+	}
+
+	#[test]
+	fn sr25519_verify() {
+		use crate::precompiles::alloy::sol_types::sol_data::Bool;
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let mut call_with = |message: &[u8; 11]| {
+				// Alice's signature for "hello world"
+				#[rustfmt::skip]
+				let signature: [u8; 64] = [
+					184, 49, 74, 238, 78, 165, 102, 252, 22, 92, 156, 176, 124, 118, 168, 116, 247,
+					99, 0, 94, 2, 45, 9, 170, 73, 222, 182, 74, 60, 32, 75, 64, 98, 174, 69, 55, 83,
+					85, 180, 98, 208, 75, 231, 57, 205, 62, 4, 105, 26, 136, 172, 17, 123, 99, 90, 255,
+					228, 54, 115, 63, 30, 207, 205, 131,
+				];
+
+				// Alice's public key
+				#[rustfmt::skip]
+				let public_key: [u8; 32] = [
+					212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44,
+					133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
+				];
+
+				let input = ISystem::ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
+					signature,
+					message: (*message).into(),
+					publicKey: public_key.into(),
+				});
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap()
+			};
+			let result = Bool::abi_decode(&call_with(&b"hello world")).expect("decoding failed");
+			assert!(result);
+			let result = Bool::abi_decode(&call_with(&b"hello worlD")).expect("decoding failed");
+			assert!(!result);
+		});
+	}
+
+	#[test]
+	fn ecdsa_to_eth_address() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let pubkey_compressed = array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91",
+			);
+
+			let input = ISystem::ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall {
+				publicKey: pubkey_compressed,
+			});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap();
+
+			let expected: FixedBytes<20> = array_bytes::hex2array_unchecked::<_, 20>(
+				"09231da7b19A016f9e576d23B16277062F4d46A8",
+			)
+			.into();
+			assert_eq!(result, expected.abi_encode());
+		});
 	}
 }
