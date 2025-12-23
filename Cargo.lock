@@ -11061,7 +11061,7 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -17407,7 +17407,7 @@ checksum = "604b23cdb201979304449f53d21bfd5fb1724c03e3ea889067c9a3bf7ae33862"
 [[package]]
 name = "polkavm-move-native"
 version = "0.1.0"
-source = "git+https://github.com/eigerco/polkavm-move#948e7f5d2823a4f3cae647c9cc0beb66902154d9"
+source = "git+https://github.com/eigerco/polkavm-move#27ee35573cb040f921504833b10fc0f2665682b3"
 dependencies = [
  "borsh",
  "ethnum",

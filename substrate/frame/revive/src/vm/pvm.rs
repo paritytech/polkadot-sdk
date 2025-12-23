@@ -346,6 +346,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
+	/// Initialize the Move allocator with the correct heap base and size from the module.
+	/// This should be called after the module is instantiated.
+	pub fn init_allocator(&mut self, heap_base: u32, heap_size: u32) {
+		self.move_allocator = MemAllocator::with_base(heap_base, heap_size);
+	}
+
 	/// Get a mutable reference to the inner `Ext`.
 	pub fn ext(&mut self) -> &mut E {
 		self.ext
