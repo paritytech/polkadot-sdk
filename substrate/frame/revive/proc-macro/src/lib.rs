@@ -25,17 +25,6 @@ use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
 
-#[proc_macro_attribute]
-pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
-	let input = syn::parse_macro_input!(item as syn::Item);
-	let expanded = quote! {
-		#[cfg(feature = "unstable-hostfn")]
-		#[cfg_attr(docsrs, doc(cfg(feature = "unstable-hostfn")))]
-		#input
-	};
-	expanded.into()
-}
-
 /// Defines a host functions set that can be imported by contract polkavm code.
 ///
 /// **CAUTION**: Be advised that all functions defined by this macro
