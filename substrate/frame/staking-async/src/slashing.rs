@@ -363,7 +363,9 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	let slash_era = offence_era.saturating_add(slash_defer_duration);
 
 	add_db_reads_writes(3, 3);
-	let Some(mut unapplied) = compute_slash::<T>(SlashParams {
+	// For validator-only slashing, call slash_validator directly instead of compute_slash
+	// to avoid unnecessarily calling slash_nominators (which would be a no-op anyway).
+	let params = SlashParams {
 		stash: &offender,
 		slash: offence_record.slash_fraction,
 		prior_slash: offence_record.prior_slash_fraction,
@@ -371,6 +373,17 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		exposure: &PagedExposure::from_overview(validator_exposure),
 		slash_era: offence_era,
 		reward_proportion,
+	};
+
+	let (val_slashed, reward_payout) = slash_validator::<T>(params);
+
+	// Build UnappliedSlash for validator-only slashing
+	let Some(mut unapplied) = (val_slashed > Zero::zero()).then_some(UnappliedSlash {
+		validator: offender.clone(),
+		own: val_slashed,
+		others: WeakBoundedVec::force_from(vec![], None),
+		reporter: None,
+		payout: reward_payout,
 	}) else {
 		log!(
 			debug,
