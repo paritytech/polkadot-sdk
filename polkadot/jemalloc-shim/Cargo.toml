@@ -12,11 +12,11 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
 polkadot-cli = { optional = true, workspace = true }
-polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true }
 polkadot-node-core-pvf = { optional = true, workspace = true }
+polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true }
 polkadot-overseer = { optional = true, workspace = true }
+tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
 
 [features]
 jemalloc-allocator = [
