@@ -14,3 +14,27 @@ doc:
 crates:
   - name: pallet-transaction-payment
     bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: people-rococo-runtime
+    bump: patch
+  - name: contracts-rococo-runtime
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
