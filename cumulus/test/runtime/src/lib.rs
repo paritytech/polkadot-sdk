@@ -51,6 +51,11 @@ pub mod elastic_scaling_multi_block_slot {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
 }
 
+pub mod elastic_scaling_12s_slot {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
+}
+
 pub mod sync_backing {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));

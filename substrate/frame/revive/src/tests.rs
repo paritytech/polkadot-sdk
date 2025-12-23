@@ -20,6 +20,7 @@ mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
+mod stipends;
 
 use std::collections::HashMap;
 
@@ -50,7 +51,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill, Storage,
+	AccountId32, BuildStorage, FixedU128, MultiAddress, MultiSignature, Perbill, Storage,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -323,7 +324,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<1, 1, Self>;
+	type WeightToFee = BlockRatioFee<2, 1, Self>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -419,14 +420,14 @@ impl TryFrom<RuntimeCall> for Call<Test> {
 }
 
 impl SetWeightLimit for RuntimeCall {
-	fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
+	fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
 		match self {
 			Self::Contracts(
-				Call::eth_call { gas_limit, .. } |
-				Call::eth_instantiate_with_code { gas_limit, .. },
+				Call::eth_call { weight_limit, .. } |
+				Call::eth_instantiate_with_code { weight_limit, .. },
 			) => {
-				let old = *gas_limit;
-				*gas_limit = weight_limit;
+				let old = *weight_limit;
+				*weight_limit = new_weight_limit;
 				old
 			},
 			_ => Default::default(),
@@ -440,6 +441,7 @@ pub struct ExtBuilder {
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
 	genesis_state_overrides: Option<Storage>,
+	next_fee_multiplier: Option<FixedU128>,
 }
 
 impl Default for ExtBuilder {
@@ -450,6 +452,7 @@ impl Default for ExtBuilder {
 			code_hashes: vec![],
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
 			genesis_state_overrides: None,
+			next_fee_multiplier: None,
 		}
 	}
 }
@@ -466,6 +469,10 @@ impl ExtBuilder {
 	}
 	pub fn with_code_hashes(mut self, code_hashes: Vec<sp_core::H256>) -> Self {
 		self.code_hashes = code_hashes;
+		self
+	}
+	pub fn with_next_fee_multiplier(mut self, next_fee_multiplier: FixedU128) -> Self {
+		self.next_fee_multiplier = Some(next_fee_multiplier);
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -492,6 +499,12 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		if let Some(multiplier) = self.next_fee_multiplier {
+			pallet_transaction_payment::GenesisConfig::<Test> { multiplier, ..Default::default() }
+				.assimilate_storage(&mut t)
+				.unwrap();
+		}
 
 		if let Some(genesis_config) = self.genesis_config {
 			genesis_config.assimilate_storage(&mut t).unwrap();

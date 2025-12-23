@@ -61,8 +61,8 @@ pub trait Config: crate::Config + pallet_balances::Config {
 
 	/// Sets up a complex transfer (usually consisting of a teleport and reserve-based transfer), so
 	/// that runtime can properly benchmark `transfer_assets()` extrinsic. Should return a tuple
-	/// `(Asset, AssetId, Location, dyn FnOnce())` representing the assets to transfer, the
-	/// `AssetId` of the asset to be used for fees, the destination chain for the transfer, and a
+	/// `(Asset, u32, Location, dyn FnOnce())` representing the assets to transfer, the
+	/// `u32` index of the asset to be used for fees, the destination chain for the transfer, and a
 	/// `verify()` closure to verify the intended transfer side-effects.
 	///
 	/// Implementation should make sure the provided assets can be transacted by the runtime, there
@@ -71,7 +71,7 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	/// Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
-	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
 
@@ -142,7 +142,7 @@ mod benchmarks {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
+					&Asset { fun: Fungible(*amount), id: asset.id },
 					&origin_location,
 					None,
 				)
@@ -170,14 +170,13 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
-		let fee_asset_id: AssetId = asset.id;
 		#[extrinsic_call]
 		_(
 			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			Box::new(fee_asset_id.into()),
+			0,
 		);
 
 		Ok(())
@@ -241,14 +240,13 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
-		let fee_asset_id: AssetId = asset.id.clone();
 		#[extrinsic_call]
 		_(
 			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			Box::new(fee_asset_id.into()),
+			0,
 		);
 
 		match &asset.fun {
@@ -273,7 +271,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn transfer_assets() -> Result<(), BenchmarkError> {
-		let (assets, fee_asset_id, destination, verify_fn) = T::set_up_complex_asset_transfer()
+		let (assets, _fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
@@ -297,7 +295,7 @@ mod benchmarks {
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			Box::new(fee_asset_id.into()),
+			0,
 			WeightLimit::Unlimited,
 		);
 
@@ -747,7 +745,7 @@ pub mod helpers {
 	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,
-	) -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)>
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)>
 	where
 		T: Config + pallet_balances::Config,
 		u128: From<<T as pallet_balances::Config>::Balance>,
@@ -755,9 +753,8 @@ pub mod helpers {
 		// Relay/native token can be teleported to/from AH.
 		let amount = T::ExistentialDeposit::get() * 100u32.into();
 		let assets: Assets =
-			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location.clone()) }
-				.into();
-		let fee_asset_id: AssetId = AssetId(native_asset_location);
+			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) }.into();
+		let fee_index = 0u32;
 
 		// Give some multiple of transferred amount
 		let balance = amount * 10u32.into();
@@ -772,6 +769,6 @@ pub mod helpers {
 			// verify balance after transfer, decreased by transferred amount (and delivery fees)
 			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
 		});
-		Some((assets, fee_asset_id, destination, verify))
+		Some((assets, fee_index, destination, verify))
 	}
 }

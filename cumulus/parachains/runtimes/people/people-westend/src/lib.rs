@@ -64,7 +64,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	SignatureVerificationResult, Statement,
@@ -440,7 +440,7 @@ impl pallet_multisig::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -973,7 +973,7 @@ impl_runtime_apis! {
 					None
 				}
 
-				fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
 					let dest = AssetHubLocation::get();
 

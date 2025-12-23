@@ -114,15 +114,7 @@ mod module1 {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {
@@ -230,15 +222,7 @@ mod module2 {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {

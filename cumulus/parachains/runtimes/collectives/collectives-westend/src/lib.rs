@@ -94,7 +94,6 @@ use parachains_common::{
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::RuntimeDebug;
 use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
 };
@@ -102,6 +101,7 @@ use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
 };
+use Debug;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -298,7 +298,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1191,7 +1191,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
 					let native_location = WndLocation::get();
