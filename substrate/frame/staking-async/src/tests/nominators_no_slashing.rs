@@ -113,15 +113,16 @@ fn nominators_can_unbond_in_next_era() {
 			vec![Event::Unbonded { stash: 101, amount: 200 }]
 		);
 
-		// Unlocking should be set to current_era + 1 (not current_era + BondingDuration)
+		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(101.into()).unwrap(),
 			StakingLedgerInspect {
 				stash: 101,
 				total: 500,
 				active: 300,
-				// Unlocking era is active_era + 1 = 2 (not active_era + 3 = 4)
-				unlocking: bounded_vec![UnlockChunk { value: 200, era: current_era + 1 }],
+				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+				unlocking: bounded_vec![UnlockChunk { value: 200, era: fast_unbond_era }],
 			}
 		);
 
@@ -129,9 +130,9 @@ fn nominators_can_unbond_in_next_era() {
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(101), 0));
 		assert_eq!(Staking::ledger(101.into()).unwrap().total, 500); // still 500
 
-		// Roll to era 2
-		Session::roll_until_active_era(current_era + 1);
-		assert_eq!(active_era(), 2);
+		// Roll to the era when fast unbonding completes
+		Session::roll_until_active_era(fast_unbond_era);
+		assert_eq!(active_era(), fast_unbond_era);
 
 		// Now can withdraw
 		let _ = staking_events_since_last_call(); // clear events from era rotation
@@ -180,7 +181,7 @@ fn validators_still_have_full_bonding_duration() {
 			vec![Event::Unbonded { stash: 11, amount: 200 }]
 		);
 
-		// Unlocking should be set to current_era + BondingDuration (not current_era + 1)
+		// Unlocking should be set to active_era + BondingDuration (not active_era + NominatorFastUnbondDuration)
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -195,7 +196,7 @@ fn validators_still_have_full_bonding_duration() {
 			}
 		);
 
-		// Cannot withdraw in era 2 (nominator could, but validator cannot)
+		// Cannot withdraw before the full bonding duration expires
 		Session::roll_until_active_era(current_era + 1);
 		assert_eq!(active_era(), 2);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
@@ -331,7 +332,8 @@ fn virtual_staker_not_slashed() {
 		});
 }
 
-/// Virtual stakers (pool accounts) can also unbond in 1 era when `AreNominatorsSlashable` is false.
+/// Virtual stakers (pool accounts) can also unbond using the fast unbond duration when
+/// `AreNominatorsSlashable` is false.
 #[test]
 fn virtual_staker_unbonds_in_one_era() {
 	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
@@ -348,15 +350,16 @@ fn virtual_staker_unbonds_in_one_era() {
 		// Virtual staker unbonds some stake.
 		assert_ok!(<Staking as StakingInterface>::unbond(&pool_account, 200));
 
-		// Unlocking should be set to current_era + 1 (not current_era + BondingDuration).
+		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era + BondingDuration).
+		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(pool_account.into()).unwrap(),
 			StakingLedgerInspect {
 				stash: pool_account,
 				total: pool_stake,
 				active: pool_stake - 200,
-				// Unlocking era is active_era + 1 = 2 (not active_era + 3 = 4)
-				unlocking: bounded_vec![UnlockChunk { value: 200, era: current_era + 1 }],
+				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+				unlocking: bounded_vec![UnlockChunk { value: 200, era: fast_unbond_era }],
 			}
 		);
 
@@ -364,9 +367,9 @@ fn virtual_staker_unbonds_in_one_era() {
 		assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(pool_account, 0));
 		assert_eq!(Staking::ledger(pool_account.into()).unwrap().total, pool_stake);
 
-		// Roll to era 2.
-		Session::roll_until_active_era(current_era + 1);
-		assert_eq!(active_era(), 2);
+		// Roll to the era when fast unbonding completes.
+		Session::roll_until_active_era(fast_unbond_era);
+		assert_eq!(active_era(), fast_unbond_era);
 
 		// Now can withdraw.
 		assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(pool_account, 0));
@@ -383,18 +386,21 @@ fn virtual_staker_unbonds_in_one_era() {
 	});
 }
 
-/// Test that `nominator_bonding_duration()` returns 1 when nominators are not slashable.
+/// Test that `nominator_bonding_duration()` returns the configured fast unbond duration when
+/// nominators are not slashable.
 ///
 /// This is the method used by nomination-pools adapter to determine the unbonding period for
-/// pool members. When `AreNominatorsSlashable` is false, pool members should also unbond in 1 era.
+/// pool members. When `AreNominatorsSlashable` is false, pool members should also unbond in the
+/// fast unbond duration.
 #[test]
 fn nominator_bonding_duration_returns_one_when_not_slashable() {
 	ExtBuilder::default().set_nominators_slashable(false).build_and_execute(|| {
-		// When nominators are not slashable, nominator_bonding_duration should return 1
+		// When nominators are not slashable, nominator_bonding_duration should return the
+		// configured NominatorFastUnbondDuration
 		assert_eq!(
 			<Staking as StakingInterface>::nominator_bonding_duration(),
-			1,
-			"nominator_bonding_duration should be 1 when nominators are not slashable"
+			NominatorFastUnbondDuration::get(),
+			"nominator_bonding_duration should be NominatorFastUnbondDuration when nominators are not slashable"
 		);
 
 		// But bonding_duration (for validators) should still be the full duration
@@ -404,8 +410,11 @@ fn nominator_bonding_duration_returns_one_when_not_slashable() {
 			"bonding_duration should still be the full duration"
 		);
 
-		// Verify BondingDuration is greater than 1 to ensure test is meaningful
-		assert!(BondingDuration::get() > 1, "BondingDuration should be > 1 for this test");
+		// Verify BondingDuration is greater than NominatorFastUnbondDuration to ensure test is meaningful
+		assert!(
+			BondingDuration::get() > NominatorFastUnbondDuration::get(),
+			"BondingDuration should be > NominatorFastUnbondDuration for this test"
+		);
 	});
 }
 

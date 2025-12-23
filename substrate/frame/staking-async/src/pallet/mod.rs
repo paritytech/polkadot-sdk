@@ -229,6 +229,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
+		/// Number of eras nominators must wait to unbond when they are not slashable.
+		///
+		/// This duration is used for nominators when [`AreNominatorsSlashable`] is `false`.
+		/// When nominators are slashable, they use the full [`BondingDuration`] to ensure
+		/// slashes can be applied during the unbonding period.
+		///
+		/// Setting this to a lower value (e.g., 1 era) allows for faster withdrawals when
+		/// nominators are not subject to slashing risk.
+		#[pallet::constant]
+		type NominatorFastUnbondDuration: Get<EraIndex>;
+
 		/// Number of eras that slashes are deferred by, after computation.
 		///
 		/// This should be less than the bonding duration. Set to 0 if slashes
@@ -385,6 +396,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
 		}
 
@@ -401,6 +413,7 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
 			type MaxExposurePageSize = ConstU32<64>;

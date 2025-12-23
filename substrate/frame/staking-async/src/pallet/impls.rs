@@ -1569,13 +1569,14 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	///
 	/// - When [`AreNominatorsSlashable`] is `true`, nominators follow the same bonding duration as
 	///   validators ([`Config::BondingDuration`]).
-	/// - When [`AreNominatorsSlashable`] is `false`, nominators can unbond in just 1 era since they
-	///   are not subject to slashing and don't need to wait for potential offence reports.
+	/// - When [`AreNominatorsSlashable`] is `false`, nominators use the configurable fast unbond
+	///   duration ([`Config::NominatorFastUnbondDuration`]) since they are not subject to
+	///   slashing and don't need to wait for potential offence reports.
 	fn nominator_bonding_duration() -> EraIndex {
 		if AreNominatorsSlashable::<T>::get() {
 			T::BondingDuration::get()
 		} else {
-			1
+			T::NominatorFastUnbondDuration::get()
 		}
 	}
 
