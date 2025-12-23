@@ -28,10 +28,6 @@ crates:
     bump: patch
   - name: collectives-westend-runtime
     bump: patch
-  - name: people-rococo-runtime
-    bump: patch
-  - name: contracts-rococo-runtime
-    bump: patch
   - name: kitchensink-runtime
     bump: patch
   - name: pallet-staking-async-parachain-runtime
