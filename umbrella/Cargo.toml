@@ -895,6 +895,7 @@ node = [
 	"polkadot-dispute-distribution",
 	"polkadot-erasure-coding",
 	"polkadot-gossip-support",
+	"polkadot-jemalloc-shim",
 	"polkadot-network-bridge",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
@@ -2386,6 +2387,11 @@ path = "../polkadot/erasure-coding"
 default-features = false
 optional = true
 path = "../polkadot/node/network/gossip-support"
+
+[dependencies.polkadot-jemalloc-shim]
+default-features = false
+optional = true
+path = "../polkadot/jemalloc-shim"
 
 [dependencies.polkadot-network-bridge]
 default-features = false

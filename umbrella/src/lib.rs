@@ -866,6 +866,10 @@ pub use polkadot_erasure_coding;
 #[cfg(feature = "polkadot-gossip-support")]
 pub use polkadot_gossip_support;
 
+/// Shim crate to enable jemalloc-allocator feature for polkadot crates.
+#[cfg(feature = "polkadot-jemalloc-shim")]
+pub use polkadot_jemalloc_shim;
+
 /// The Network Bridge Subsystem — protocol multiplexer for Polkadot.
 #[cfg(feature = "polkadot-network-bridge")]
 pub use polkadot_network_bridge;
