@@ -895,7 +895,6 @@ node = [
 	"polkadot-dispute-distribution",
 	"polkadot-erasure-coding",
 	"polkadot-gossip-support",
-	"polkadot-jemalloc-shim",
 	"polkadot-network-bridge",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
@@ -913,8 +912,6 @@ node = [
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
 	"polkadot-node-core-pvf-common",
-	"polkadot-node-core-pvf-execute-worker",
-	"polkadot-node-core-pvf-prepare-worker",
 	"polkadot-node-core-runtime-api",
 	"polkadot-node-metrics",
 	"polkadot-node-network-protocol",
@@ -2388,11 +2385,6 @@ default-features = false
 optional = true
 path = "../polkadot/node/network/gossip-support"
 
-[dependencies.polkadot-jemalloc-shim]
-default-features = false
-optional = true
-path = "../polkadot/jemalloc-shim"
-
 [dependencies.polkadot-network-bridge]
 default-features = false
 optional = true
@@ -2477,16 +2469,6 @@ path = "../polkadot/node/core/pvf-checker"
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/common"
-
-[dependencies.polkadot-node-core-pvf-execute-worker]
-default-features = false
-optional = true
-path = "../polkadot/node/core/pvf/execute-worker"
-
-[dependencies.polkadot-node-core-pvf-prepare-worker]
-default-features = false
-optional = true
-path = "../polkadot/node/core/pvf/prepare-worker"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false

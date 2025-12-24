@@ -866,10 +866,6 @@ pub use polkadot_erasure_coding;
 #[cfg(feature = "polkadot-gossip-support")]
 pub use polkadot_gossip_support;
 
-/// Shim crate to enable jemalloc-allocator feature for polkadot crates.
-#[cfg(feature = "polkadot-jemalloc-shim")]
-pub use polkadot_jemalloc_shim;
-
 /// The Network Bridge Subsystem — protocol multiplexer for Polkadot.
 #[cfg(feature = "polkadot-network-bridge")]
 pub use polkadot_network_bridge;
@@ -945,16 +941,6 @@ pub use polkadot_node_core_pvf_checker;
 /// and the PVF workers.
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
-
-/// Polkadot crate that contains the logic for executing PVFs. Used by the
-/// polkadot-execute-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-execute-worker")]
-pub use polkadot_node_core_pvf_execute_worker;
-
-/// Polkadot crate that contains the logic for preparing PVFs. Used by the
-/// polkadot-prepare-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-prepare-worker")]
-pub use polkadot_node_core_pvf_prepare_worker;
 
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]
