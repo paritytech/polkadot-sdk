@@ -702,8 +702,8 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			total_weight.saturating_accrue(
-			<T::OnSystemEvent as OnSystemEvent>::on_relay_state_proof(&relay_state_proof),
-		);
+				<T::OnSystemEvent as OnSystemEvent>::on_relay_state_proof(&relay_state_proof),
+			);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
