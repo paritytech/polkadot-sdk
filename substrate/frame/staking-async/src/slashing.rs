@@ -46,7 +46,7 @@ use crate::{
 	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
 	WeightInfo,
 };
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
 use scale_info::TypeInfo;
