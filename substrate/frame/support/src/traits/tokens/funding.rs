@@ -29,6 +29,7 @@ use crate::{
 	traits::tokens::{fungible, Fortitude, Precision, Preservation},
 };
 use core::marker::PhantomData;
+use sp_runtime::traits::Zero;
 
 /// Trait for moving funds into an issuance buffer or burning them.
 ///
@@ -64,17 +65,26 @@ pub struct DirectBurn<Currency, AccountId>(PhantomData<(Currency, AccountId)>);
 impl<Currency, AccountId> FundingSink<AccountId, Currency::Balance>
 	for DirectBurn<Currency, AccountId>
 where
-	Currency: fungible::Mutate<AccountId>,
+	Currency: fungible::Mutate<AccountId> + fungible::Inspect<AccountId>,
+	Currency::Balance: Zero,
 	AccountId: Eq,
 {
 	fn fill(from: &AccountId, amount: Currency::Balance, preservation: Preservation) {
-		// Best-effort burn: burns up to `amount` from the account.
-		// If account has less than `amount`, burns whatever is available.
-		if Currency::burn_from(from, amount, preservation, Precision::BestEffort, Fortitude::Polite)
-			.is_err()
-		{
-			defensive!("DirectBurn::fill failed to burn from account");
-		}
+		// Best-effort: calculate available balance and burn that amount.
+		let available = Currency::reducible_balance(from, preservation, Fortitude::Polite);
+
+		// Burn should never fail because:
+		// - can_withdraw is already satisfied by reducible_balance check
+		// - we are filtering out the zero amount case
+		// The only failure would be an implementation bug.
+		Some(amount.min(available)).filter(|t| !t.is_zero()).map(|to_burn| {
+			Currency::burn_from(from, to_burn, preservation, Precision::Exact, Fortitude::Polite)
+				.inspect_err(|_| {
+					defensive!(
+						"🚨 DirectBurn::fill failed to burn from account - it should never happen!"
+					);
+				})
+		});
 	}
 }
 
