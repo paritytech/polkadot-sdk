@@ -49,6 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_assets`.
 pub struct WeightInfo<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	/// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -109,7 +110,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// The range of component `c` is `[0, 1000]`.
 	/// The range of component `c` is `[0, 1000]`.
 	/// The range of component `c` is `[0, 1000]`.
-	fn destroy_accounts(c: u32, ) -> Weight {
+	fn destroy_accounts(c: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0 + c * (208 ±0)`
 		//  Estimated: `4273 + c * (3207 ±0)`
@@ -131,7 +132,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// The range of component `a` is `[0, 1000]`.
 	/// The range of component `a` is `[0, 1000]`.
 	/// The range of component `a` is `[0, 1000]`.
-	fn destroy_approvals(a: u32, ) -> Weight {
+	fn destroy_approvals(a: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `413 + a * (86 ±0)`
 		//  Estimated: `4273 + a * (3221 ±0)`
@@ -338,7 +339,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// The range of component `s` is `[0, 50]`.
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn set_metadata(_n: u32, s: u32, ) -> Weight {
+	fn set_metadata(_n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `242`
 		//  Estimated: `4273`
@@ -374,7 +375,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	/// The range of component `s` is `[0, 50]`.
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn force_set_metadata(n: u32, s: u32, ) -> Weight {
+	fn force_set_metadata(n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `81`
 		//  Estimated: `4273`
@@ -625,9 +626,13 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 4211))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
 	fn set_reserves(n: u32) -> Weight {
 		Weight::from_parts(31_972_000, 3675)
-			.saturating_add(Weight::from_parts(6_241, 0).saturating_mul(n.into()))
+			// Standard Error: 13_748
+			.saturating_add(Weight::from_parts(198_975, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
