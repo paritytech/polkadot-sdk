@@ -662,7 +662,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-
 	type RelayParentOffset = ConstU32<0>;
 }
 

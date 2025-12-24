@@ -3,11 +3,10 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use cumulus_primitives_core::{CumulusDigestItem, RelayBlockIdentifier};
+use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::stream::StreamExt;
-use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, Id as ParaId};
-use sp_runtime::traits::Hash;
-use std::{cmp::max, collections::HashMap, ops::Range};
+use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
+use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -15,14 +14,23 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Config},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
-	tx::{signer::Signer, DynamicPayload, TxStatus},
+	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
 	utils::H256,
-	OnlineClient, PolkadotConfig,
+	Config, OnlineClient, PolkadotConfig,
 };
+
+/// Specifies which block should occupy a full core.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BlockToCheck {
+	/// The exact block hash provided should occupy a full core.
+	Exact(H256),
+	/// Wait for the next first bundle block.
+	NextFirstBundleBlock(H256),
+}
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -57,18 +65,21 @@ async fn is_session_change(
 
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
-// The throughput is measured as total number of backed candidates in a window of relay chain
-// blocks. Relay chain blocks with session changes are generally ignored.
+// The throughput is measured as total number of backed candidates in a window of `stop_after` relay
+// chain blocks. Relay chain blocks with session changes are generally ignored, but it is ensured
+// that no blocks are build on top of these relay blocks.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>>,
 ) -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
+	let mut candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>> = HashMap::new();
 	let mut current_block_count = 0;
 
 	let expected_candidate_ranges = expected_candidate_ranges.into();
+	let expected_number_of_blocks = expected_number_of_blocks.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
@@ -100,7 +111,7 @@ pub async fn assert_para_throughput(
 				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
 			};
 
-			*(candidate_count.entry(para_id).or_default()) += 1;
+			candidate_count.entry(para_id).or_default().push(receipt);
 		}
 
 		if current_block_count == stop_after {
@@ -110,22 +121,93 @@ pub async fn assert_para_throughput(
 
 	log::info!(
 		"Reached {stop_after} finalized relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
-		candidate_count.iter().map(|(para_id, count)| format!("{para_id} has {count} backed candidates")).collect::<Vec<_>>()
+		candidate_count.iter().map(|(para_id, receipts)| format!("{para_id} has {} backed candidates", receipts.len())).collect::<Vec<_>>()
 	);
 
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
-		let actual = candidate_count
+		let receipts = candidate_count
 			.get(&para_id)
 			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
 
-		if !expected_candidate_range.contains(actual) {
+		if !expected_candidate_range.contains(&(receipts.len() as u32)) {
 			return Err(anyhow!(
-				"Candidate count {actual} not within range {expected_candidate_range:?}"
+				"Candidate count {} not within range {expected_candidate_range:?}",
+				receipts.len()
+			))
+		}
+	}
+
+	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks {
+		let receipts = candidate_count
+			.get(&para_id)
+			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+
+		let mut num_blocks = 0;
+
+		for receipt in receipts {
+			// We "abuse" the fact that the parachain is using `BlakeTwo256` as hash and thus, the
+			// `para_head` hash and the hash of the `header` should be equal.
+			let mut next_para_block_hash = receipt.descriptor().para_head();
+
+			let mut relay_identifier = None;
+			let mut core_info = None;
+
+			loop {
+				let block = para_client.blocks().at(next_para_block_hash).await?;
+
+				// Genesis block is not part of a candidate :)
+				if block.number() == 0 {
+					break
+				}
+
+				let ri = find_relay_block_identifier(&block)?;
+				let ci = find_core_info(&block)?;
+
+				// If the core changes or the relay identifier, we found all blocks for the
+				// candidate.
+				if *relay_identifier.get_or_insert(ri.clone()) != ri ||
+					*core_info.get_or_insert(ci.clone()) != ci
+				{
+					break
+				}
+
+				num_blocks += 1;
+				next_para_block_hash = block.header().parent_hash;
+			}
+		}
+
+		if !expected_number_of_blocks.contains(&num_blocks) {
+			return Err(anyhow!(
+				"Block number count {num_blocks} not within range {expected_number_of_blocks:?}",
 			))
 		}
 	}
 
 	Ok(())
+}
+
+/// Returns [`CoreInfo`] for the given parachain block.
+pub fn find_core_info(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<CoreInfo, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_core_info(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `CoreInfo` digest"))
+}
+
+/// Returns [`RelayBlockIdentifier`] for the given parachain block.
+fn find_relay_block_identifier(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<RelayBlockIdentifier, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
 }
 
 /// Wait for the first block with a session change.
@@ -218,18 +300,6 @@ pub async fn assert_blocks_are_being_finalized(
 	Ok(())
 }
 
-/// Returns [`RelayBlockIdentifier`] for the given parachain block.
-fn find_relay_block_identifier(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<RelayBlockIdentifier, anyhow::Error> {
-	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
-			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
-
-	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
-		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
-}
-
 /// Checks if the given `RelayBlockIdentifier` matches a relay chain header.
 fn identifier_matches_header(
 	identifier: &RelayBlockIdentifier,
@@ -300,10 +370,15 @@ pub async fn assert_relay_parent_offset(
 					RelayBlockIdentifier::ByHash(block_hash) => relay_client.blocks().at(*block_hash).await?.number(),
 					RelayBlockIdentifier::ByStorageRoot { block_number, .. } => *block_number,
 				};
+
 				let para_block_number = para_block.number();
 				seen_relay_parents.insert(relay_block_identifier.clone(), para_block);
 				log::debug!("Parachain block #{para_block_number} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}");
-				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				assert!(
+					highest_relay_block_seen < offset ||
+					relay_parent_number <= highest_relay_block_seen.saturating_sub(offset),
+					"Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}",
+				);
 				// As per explanation above, we need to check that no parachain blocks are built
 				// on the forbidden parents.
 				for forbidden in &forbidden_parents {
@@ -325,6 +400,7 @@ pub async fn assert_relay_parent_offset(
 			}
 		}
 	}
+
 	Ok(())
 }
 
@@ -340,15 +416,29 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 
 	log::info!("Submitting transaction...");
 
-	let mut tx = client
-		.tx()
-		.create_signed(call, signer, extensions)
-		.await?
-		.submit_and_watch()
-		.await?;
+	let tx = client.tx().create_signed(call, signer, extensions).await?;
 
-	// Below we use the low level API to replicate the `wait_for_in_block` behavior
-	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
+	submit_tx_and_wait_for_finalization(tx).await
+}
+
+/// Submits the given `call` as unsigned transaction and waits for it successful finalization.
+pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
+	client: &OnlineClient<PolkadotConfig>,
+	call: &DynamicPayload,
+) -> Result<H256, anyhow::Error> {
+	let tx = client.tx().create_unsigned(call)?;
+
+	submit_tx_and_wait_for_finalization(tx).await
+}
+
+/// Submit the given transaction and wait for its finalization.
+async fn submit_tx_and_wait_for_finalization(
+	tx: SubmittableTransaction<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<H256, anyhow::Error> {
+	log::info!("Submitting transaction: {:?}", tx.hash());
+
+	let mut tx = tx.submit_and_watch().await?;
+
 	while let Some(status) = tx.next().await.transpose()? {
 		match status {
 			TxStatus::InBestBlock(tx_in_block) => {
@@ -439,6 +529,145 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
+/// Returns [`BlockBundleInfo`] for the given parachain block.
+fn find_block_bundle_info(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<BlockBundleInfo, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_block_bundle_info(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `BlockBundleInfo` digest"))
+}
+
+/// Validates that the given block is a "special" block in the core.
+///
+/// If `is_only_block_in_core` is true, it checks if the given block is the first block in the core
+/// and the only one. If this is `false`, it only checks if the block is the last block in the core.
+async fn ensure_is_block_in_core_impl(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_hash: H256,
+	is_only_block_in_core: bool,
+) -> Result<(), anyhow::Error> {
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_hash).await?;
+	let block_core_info = find_core_info(&block)?;
+
+	if is_only_block_in_core {
+		let parent = blocks.at(block.header().parent_hash).await?;
+
+		// Genesis is for sure on a different core :)
+		if parent.number() != 0 {
+			let parent_core_info = find_core_info(&parent)?;
+
+			if parent_core_info == block_core_info {
+				return Err(anyhow::anyhow!(
+					"Not first block ({}) in core, at least the parent block is on the same core.",
+					block.header().number
+				));
+			}
+		}
+	}
+
+	let next_block = loop {
+		// Start with the latest best block.
+		let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+
+		let mut next_block = None;
+
+		while current_block.hash() != block_hash {
+			next_block = Some(current_block.clone());
+			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+
+			if current_block.number() == 0 {
+				return Err(anyhow::anyhow!(
+					"Did not found block while going backwards from the best block"
+				))
+			}
+		}
+
+		// It possible that the first block we got is the same as the transaction got finalized.
+		// So, we just retry again until we found some more blocks.
+		if let Some(next_block) = next_block {
+			break next_block
+		}
+	};
+
+	let next_block_core_info = find_core_info(&next_block)?;
+
+	if next_block_core_info == block_core_info {
+		return Err(anyhow::anyhow!(
+			"Not {} block ({}) in core, at least the following block is on the same core.",
+			if is_only_block_in_core { "first" } else { "last" },
+			block.header().number
+		));
+	}
+
+	Ok(())
+}
+
+/// Checks if the specified block occupies a full core.
+pub async fn ensure_is_only_block_in_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_to_check: BlockToCheck,
+) -> Result<(), anyhow::Error> {
+	let blocks = para_client.blocks();
+
+	match block_to_check {
+		BlockToCheck::Exact(block_hash) =>
+			ensure_is_block_in_core_impl(para_client, block_hash, true).await,
+		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
+			let start_block = blocks.at(start_block_hash).await?;
+
+			let mut best_block_stream = blocks.subscribe_best().await?;
+
+			let mut next_first_bundle_block = None;
+			while let Some(mut block) = best_block_stream.next().await.transpose()? {
+				while block.number() > start_block.number() {
+					if find_block_bundle_info(&block)?.index == 0 {
+						next_first_bundle_block = Some(block.hash());
+					}
+
+					block = blocks.at(block.header().parent_hash).await?;
+				}
+
+				if next_first_bundle_block.is_some() {
+					break;
+				}
+			}
+
+			if let Some(block) = next_first_bundle_block {
+				ensure_is_block_in_core_impl(para_client, block, true).await
+			} else {
+				Err(anyhow!("Could not find the next bundle after {}", start_block.number()))
+			}
+		},
+	}
+}
+
+/// Checks if the specified block is the last block in a core.
+///
+/// Also ensures that the last block is NOT the first block.
+pub async fn ensure_is_last_block_in_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_to_check: H256,
+) -> Result<(), anyhow::Error> {
+	ensure_is_block_in_core_impl(para_client, block_to_check, false).await?;
+
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_to_check).await?;
+	let bundle_info = find_block_bundle_info(&block)?;
+
+	// Above we ensure it is the last block in the core and now we want to ensure it isn't the first
+	// block.
+	if bundle_info.index == 0 {
+		Err(anyhow!("`{block_to_check:?}` is the first block of a core and not the last"))
+	} else {
+		Ok(())
+	}
+}
+
 /// Assigns the given `cores` to the given `para_id`.
 ///
 /// Zombienet by default adds extra core for each registered parachain additionally to the one
@@ -462,7 +691,7 @@ pub async fn assert_para_is_registered(
 /// To assign these extra `2` cores, the call would look like this:
 ///
 /// ```ignore
-/// assign_cores(&relay_client, PARA_ID, vec![0, 1])
+/// assign_cores(&relay_node, PARA_ID, vec![0, 1])
 /// ```
 ///
 /// The cores `2` and `3` are assigned to the parachains by Zombienet.
@@ -506,7 +735,9 @@ fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 	)
 }
 
-/// Creates a runtime upgrade call using `sudo` and `set_code`.
+/// Creates a runtime upgrade call using `Sudo::sudo(System::set_code_without_checks)`.
+///
+/// The `wasm_binary` should be the WASM runtime binary to upgrade to.
 pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic(
 		"Sudo",

@@ -21,8 +21,9 @@
 use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
+use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
@@ -36,7 +37,6 @@ use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
 use std::sync::Arc;
-
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
@@ -57,6 +57,17 @@ pub trait ServiceInterface<Block: BlockT> {
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+	) -> Option<(Collation, ParachainBlockData<Block>)>;
+
+	/// Build a multi-block collation.
+	///
+	/// Does the same as [`Self::build_collation`], but includes multiple blocks into one collation.
+	/// The given `parent_header` should be the header from the parent of the first block.
+	fn build_multi_block_collation(
+		&self,
+		parent_header: &Block::Header,
+		blocks: Vec<Block>,
+		proof: StorageProof,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Inform networking systems that the block should be announced after a signal has
@@ -215,53 +226,82 @@ where
 	/// as it fetches underlying runtime API data.
 	///
 	/// This also returns the unencoded parachain block data, in case that is desired.
-	pub fn build_collation(
+	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,
-		block_hash: Block::Hash,
-		candidate: ParachainCandidate<Block>,
+		blocks: Vec<Block>,
+		proof: StorageProof,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		let block = candidate.block;
+		let compact_proof =
+			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
+				Ok(proof) => proof,
+				Err(e) => {
+					tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
+					return None
+				},
+			};
 
-		let compact_proof = match candidate
-			.proof
-			.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
-		{
-			Ok(proof) => proof,
-			Err(e) => {
-				tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
-				return None
-			},
-		};
+		let mut api_version = 0;
+		let mut upward_messages = Vec::new();
+		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
+		let mut horizontal_messages = Vec::new();
+		let mut new_validation_code = None;
+		let mut processed_downward_messages = 0;
+		let mut hrmp_watermark = None;
+		let mut head_data = None;
 
-		// Create the parachain block data for the validators.
-		let (collation_info, _api_version) = self
-			.fetch_collation_info(block_hash, block.header())
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Failed to collect collation info.",
-				)
-			})
-			.ok()
-			.flatten()?;
+		for block in &blocks {
+			// Create the parachain block data for the validators.
+			let (collation_info, _api_version) = self
+				.fetch_collation_info(block.hash(), block.header())
+				.map_err(|e| {
+					tracing::error!(
+						target: LOG_TARGET,
+						error = ?e,
+						"Failed to collect collation info.",
+					)
+				})
+				.ok()
+				.flatten()?;
 
-		// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
-		//
-		// We are always using the `api_version` of the parent block. The `api_version` can only
-		// change with a runtime upgrade and this is when we want to observe the old `api_version`.
-		// Because this old `api_version` is the one used to validate this block. Otherwise we
-		// already assume the `api_version` is higher than what the relay chain will use and this
-		// will lead to validation errors.
-		let api_version = self
-			.runtime_api
-			.runtime_api()
-			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
-			.ok()
-			.flatten()?;
+			// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
+			//
+			// We are always using the `api_version` of the parent block. The `api_version` can only
+			// change with a runtime upgrade and this is when we want to observe the old
+			// `api_version`. Because this old `api_version` is the one used to validate this
+			// block. Otherwise, we already assume the `api_version` is higher than what the relay
+			// chain will use and this will lead to validation errors.
+			api_version = self
+				.runtime_api
+				.runtime_api()
+				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+				.ok()
+				.flatten()?;
 
-		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
+			let mut found_separator = false;
+			upward_messages.extend(collation_info.upward_messages.into_iter().filter_map(|m| {
+				// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
+				if m == UMP_SEPARATOR {
+					found_separator = true;
+					None
+				} else if found_separator {
+					if upward_message_signals.iter().all(|s| *s != m) {
+						upward_message_signals.push(m);
+					}
+					None
+				} else {
+					// No signal or separator
+					Some(m)
+				}
+			}));
+			horizontal_messages.extend(collation_info.horizontal_messages);
+			new_validation_code = new_validation_code.take().or(collation_info.new_validation_code);
+			processed_downward_messages += collation_info.processed_downward_messages;
+			hrmp_watermark = Some(collation_info.hrmp_watermark);
+			head_data = Some(collation_info.head_data);
+		}
+
+		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {
@@ -280,8 +320,13 @@ where
 			}),
 		});
 
-		let upward_messages = collation_info
-			.upward_messages
+		// If we got some signals, push them now.
+		if !upward_message_signals.is_empty() {
+			upward_messages.push(UMP_SEPARATOR);
+			upward_messages.extend(upward_message_signals.into_iter());
+		}
+
+		let upward_messages = upward_messages
 			.try_into()
 			.map_err(|e| {
 				tracing::error!(
@@ -291,8 +336,7 @@ where
 				)
 			})
 			.ok()?;
-		let horizontal_messages = collation_info
-			.horizontal_messages
+		let horizontal_messages = horizontal_messages
 			.try_into()
 			.map_err(|e| {
 				tracing::error!(
@@ -305,11 +349,12 @@ where
 
 		let collation = Collation {
 			upward_messages,
-			new_validation_code: collation_info.new_validation_code,
-			processed_downward_messages: collation_info.processed_downward_messages,
+			new_validation_code,
+			processed_downward_messages,
 			horizontal_messages,
-			hrmp_watermark: collation_info.hrmp_watermark,
-			head_data: collation_info.head_data,
+			// If these are `None`, there was no block.
+			hrmp_watermark: hrmp_watermark?,
+			head_data: head_data?,
 			proof_of_validity: MaybeCompressedPoV::Compressed(pov),
 		};
 
@@ -342,10 +387,15 @@ where
 	fn build_collation(
 		&self,
 		parent_header: &Block::Header,
-		block_hash: Block::Hash,
+		_: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_collation(self, parent_header, block_hash, candidate)
+		CollatorService::build_multi_block_collation(
+			self,
+			parent_header,
+			vec![candidate.block],
+			candidate.proof,
+		)
 	}
 
 	fn announce_with_barrier(
@@ -357,5 +407,14 @@ where
 
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>) {
 		(self.announce_block)(block_hash, data)
+	}
+
+	fn build_multi_block_collation(
+		&self,
+		parent_header: &<Block as BlockT>::Header,
+		blocks: Vec<Block>,
+		proof: StorageProof,
+	) -> Option<(Collation, ParachainBlockData<Block>)> {
+		CollatorService::build_multi_block_collation(self, parent_header, blocks, proof)
 	}
 }

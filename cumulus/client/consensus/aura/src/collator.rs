@@ -25,6 +25,7 @@
 //! This module also exposes some standalone functions for common operations when building
 //! aura-based collators.
 
+use crate::collators::RelayParentData;
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
@@ -35,24 +36,19 @@ use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use sc_client_api::BackendTransaction;
-use sp_consensus::{Environment, ProposeArgs, Proposer};
-
+use futures::prelude::*;
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
-use sp_externalities::Extensions;
-use sp_trie::proof_size_extension::ProofSizeExt;
-
-use crate::collators::RelayParentData;
-use futures::prelude::*;
+use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
 use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
-use sp_consensus::BlockOrigin;
+use sp_consensus::{BlockOrigin, Environment, ProposeArgs, Proposer};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
+use sp_externalities::Extensions;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -61,6 +57,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
+use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
@@ -102,7 +99,7 @@ pub struct BuildBlockAndImportParams<'a, Block: BlockT, P: Pair> {
 	pub max_pov_size: usize,
 	/// Optional [`ProofRecorder`] to use.
 	///
-	/// If not set, a default recorder will be used internally and [`ProofSizeExt`] will be
+	/// If not set, one will be initialized internally and [`ProofSizeExt`] will be
 	/// registered.
 	pub storage_proof_recorder: Option<ProofRecorder<Block>>,
 	/// Extra extensions to forward to the block production.
@@ -167,7 +164,7 @@ where
 	}
 
 	/// Explicitly creates the inherent data for parachain block authoring and overrides
-	/// the timestamp inherent data with the one provided, if any. Additionally allows to specify
+	/// the timestamp inherent data with the one provided, if any. Additionally, allows to specify
 	/// relay parent descendants that can be used to prevent authoring at the tip of the relay
 	/// chain.
 	pub async fn create_inherent_data_with_rp_offset(
@@ -240,8 +237,25 @@ where
 	/// Build and import a parachain block using the given parameters.
 	pub async fn build_block_and_import(
 		&mut self,
-		mut params: BuildBlockAndImportParams<'_, Block, P>,
+		params: BuildBlockAndImportParams<'_, Block, P>,
 	) -> Result<Option<BuiltBlock<Block>>, Box<dyn Error + Send + 'static>> {
+		let Some((built_block, import_block)) = self.build_block(params).await? else {
+			return Ok(None)
+		};
+
+		self.import_block(import_block).await?;
+
+		Ok(Some(built_block))
+	}
+
+	/// Build a parachain block using the given parameters.
+	pub async fn build_block(
+		&mut self,
+		mut params: BuildBlockAndImportParams<'_, Block, P>,
+	) -> Result<
+		Option<(BuiltBlock<Block>, BlockImportParams<Block>)>,
+		Box<dyn Error + Send + 'static>,
+	> {
 		let mut digest = params.additional_pre_digest;
 		digest.push(params.slot_claim.pre_digest.clone());
 
@@ -260,20 +274,12 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		let recorder_passed = params.storage_proof_recorder.is_some();
 		let storage_proof_recorder = params.storage_proof_recorder.unwrap_or_default();
-		let proof_size_ext_registered =
-			params.extra_extensions.is_registered(ProofSizeExt::type_id());
 
-		if !proof_size_ext_registered {
+		if !params.extra_extensions.is_registered(ProofSizeExt::type_id()) {
 			params
 				.extra_extensions
 				.register(ProofSizeExt::new(storage_proof_recorder.clone()));
-		} else if proof_size_ext_registered && !recorder_passed {
-			return Err(
-				Box::from("`ProofSizeExt` registered, but no `storage_proof_recorder` provided. This is a bug.")
-					as Box<dyn Error + Send + Sync>
-			)
 		}
 
 		// Create proposal arguments
@@ -292,8 +298,6 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		let backend_transaction = proposal.storage_changes.transaction.clone();
-
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
@@ -311,14 +315,31 @@ where
 				.clone(),
 		);
 
-		self.block_import
-			.import_block(sealed_importable)
-			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
-			.await?;
+		let Some(backend_transaction) = sealed_importable
+			.state_action
+			.as_storage_changes()
+			.map(|c| c.transaction.clone())
+		else {
+			tracing::error!(target: crate::LOG_TARGET, "Building a block should return storage changes!");
+
+			return Ok(None)
+		};
 
 		let proof = storage_proof_recorder.drain_storage_proof();
 
-		Ok(Some(BuiltBlock { block, proof, backend_transaction }))
+		Ok(Some((BuiltBlock { block, proof, backend_transaction }, sealed_importable)))
+	}
+
+	/// Import the given `import_block`.
+	pub async fn import_block(
+		&mut self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<(), Box<dyn Error + Send + 'static>> {
+		self.block_import
+			.import_block(import_block)
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
+			.await
+			.map(drop)
 	}
 
 	/// Propose, seal, import a block and packaging it into a collation.

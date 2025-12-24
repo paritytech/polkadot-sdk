@@ -12,6 +12,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -27,6 +28,7 @@ pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
+pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -47,6 +49,7 @@ cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachain-info = { workspace = true }
 
 [build-dependencies]
@@ -61,6 +64,7 @@ std = [
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -74,6 +78,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"parachain-info/std",
 	"scale-info/std",
 	"serde_json/std",
@@ -91,6 +96,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tracing/std",
 ]
 increment-spec-version = []
 # A runtime which expects to build behind the relay chain tip.
@@ -101,6 +107,8 @@ elastic-scaling = []
 elastic-scaling-500ms = []
 # A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
 elastic-scaling-multi-block-slot = []
+# A runtime that uses block-bundling.
+block-bundling = []
 # A runtime with 12s slot duration which only authors one block per slot.
 sync-backing = []
 # A runtime with 6s slot duration which only authors one block per slot.

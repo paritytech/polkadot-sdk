@@ -67,24 +67,27 @@
 //! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
+pub use block_import::SlotBasedBlockImport;
 use codec::Codec;
-use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_primitives_core::{RelayParentOffsetApi, TargetBlockRate};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
 	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_client_api::{
+	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
+};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
+use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
@@ -104,7 +107,7 @@ mod slot_timer;
 mod tests;
 
 /// Parameters for [`run`].
-pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -131,15 +134,11 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
-	/// The amount of time to spend authoring each block.
-	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
 	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_offset: Duration,
-	/// The handle returned by [`SlotBasedBlockImport`].
-	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
 	/// Slot duration of the relay chain
@@ -153,7 +152,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
-	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -162,11 +161,15 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ UsageProvider<Block>
+		+ PreCommitActions<Block>
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ AuraUnincludedSegmentApi<Block>
+		+ RelayParentOffsetApi<Block>
+		+ TargetBlockRate<Block>
+		+ BlockBuilder<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -174,7 +177,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -193,15 +196,16 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		para_id,
 		proposer,
 		collator_service,
-		authoring_duration,
 		reinitialize,
 		slot_offset,
-		block_import_handle,
 		spawner,
 		export_pov,
 		relay_chain_slot_duration,
 		max_pov_percentage,
 	} = params;
+
+	// Initialize proof size recording cleanup
+	register_proof_size_recording_cleanup(para_client.clone());
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
@@ -211,7 +215,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		reinitialize,
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
-		block_import_handle,
 		export_pov,
 	};
 
@@ -229,7 +232,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		para_id,
 		proposer,
 		collator_service,
-		authoring_duration,
 		collator_sender: tx,
 		relay_chain_slot_duration,
 		slot_offset,
@@ -259,8 +261,10 @@ struct CollatorMessage<Block: BlockT> {
 	pub relay_parent: RelayHash,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
-	/// The parachain block candidate.
-	pub parachain_candidate: ParachainCandidate<Block>,
+	/// The built blocks.
+	pub blocks: Vec<Block>,
+	/// The storage proof that was collected while building all the blocks.
+	pub proof: StorageProof,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on

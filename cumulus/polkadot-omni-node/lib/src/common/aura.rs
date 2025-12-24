@@ -54,6 +54,8 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
 	+ Sized
+where
+	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 	/// Check if the runtime has the Aura API.
 	fn has_aura_api(&self, at: Block::Hash) -> bool {
@@ -62,9 +64,11 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	}
 }
 
-impl<T, Block: BlockT, AuraId: AuraIdT> AuraRuntimeApi<Block, AuraId> for T where
+impl<T, Block: BlockT, AuraId: AuraIdT> AuraRuntimeApi<Block, AuraId> for T
+where
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
-		+ AuraUnincludedSegmentApi<Block>
+		+ AuraUnincludedSegmentApi<Block>,
+	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 }

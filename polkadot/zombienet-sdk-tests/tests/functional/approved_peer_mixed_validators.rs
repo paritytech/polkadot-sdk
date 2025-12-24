@@ -113,6 +113,7 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 6..15), (ParaId::from(2001), 11..16)],
+		[],
 	)
 	.await?;
 

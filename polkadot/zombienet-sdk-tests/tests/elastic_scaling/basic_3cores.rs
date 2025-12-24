@@ -80,6 +80,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)],
+		[],
 	)
 	.await?;
 
