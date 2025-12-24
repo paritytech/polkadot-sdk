@@ -967,6 +967,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn apply_slash() -> Result<(), BenchmarkError> {
+		T::BenchmarkHelper::setup();
+
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(

@@ -466,6 +466,8 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -705,6 +707,8 @@ impl ExtBuilder {
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
+
+		let _ = pallet_dap::GenesisConfig::<Test>::default().assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 

@@ -94,8 +94,9 @@ pub mod pallet {
 
 		/// Create the buffer account by incrementing its provider count.
 		///
-		/// Called once at genesis (for new chains) or via migration (for existing chains).
-		pub(crate) fn create_buffer_account() {
+		/// Called once at genesis (for new chains), via migration (for existing chains) and in
+		/// benchmark setup to ensure the buffer account exists.
+		pub fn create_buffer_account() {
 			let buffer = Self::buffer_account();
 			frame_system::Pallet::<T>::inc_providers(&buffer);
 			log::info!(
@@ -205,5 +206,20 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+	}
+}
+
+/// Benchmark helper that ensures the DAP buffer account exists.
+///
+/// Use this in runtime configs that require a benchmark helper for pallets using DAP.
+/// Example: `type BenchmarkHelper = pallet_dap::DapBenchmarkHelper<Runtime>`
+#[cfg(feature = "runtime-benchmarks")]
+pub struct DapBenchmarkHelper<T: Config>(core::marker::PhantomData<T>);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> DapBenchmarkHelper<T> {
+	/// Setup the DAP buffer account for benchmarks.
+	pub fn setup() {
+		Pallet::<T>::create_buffer_account();
 	}
 }

@@ -466,6 +466,8 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = RcClient;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = pallet_dap::DapBenchmarkHelper<Runtime>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {

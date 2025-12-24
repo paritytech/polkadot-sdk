@@ -459,6 +459,8 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = pallet_dap::DapBenchmarkHelper<Runtime>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
