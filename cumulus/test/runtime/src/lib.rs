@@ -648,8 +648,8 @@ impl_runtime_apis! {
 
 			RelayProofRequest {
 				keys: vec![
-					// Request a well-known key to verify its inclusion in the relay proof.
-					RelayStorageKey::Top(test_pallet::RELAY_EPOCH_INDEX_KEY.to_vec()),
+					// Request a key to verify its inclusion in the proof.
+					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
 				],
 			}
 		}
