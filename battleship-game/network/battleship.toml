@@ -25,11 +25,11 @@ name = "charlie"
 validator = true
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--network-backend=libp2p", "--force-authoring", "--enable-statement-store", "--authoring=slot-based", "-lstatement-gossip=trace,statement-store=trace"]
+args = ["--network-backend=libp2p", "--force-authoring", "--enable-statement-store", "--authoring=slot-based", "-lstatement-gossip=trace,statement-store=trace,runtime=trace"]
 
 [[parachains.collators]]
 name = "dave"
 validator = false
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--network-backend=libp2p"]
+args = ["--network-backend=libp2p", "-lstatement-gossip=trace,statement-store=trace,runtime=trace", "--authoring=slot-based"]
