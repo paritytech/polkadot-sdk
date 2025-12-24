@@ -33,6 +33,7 @@ construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
+		Proxy: pallet_proxy,
 
 		// NOTE: the validator set is given by pallet-staking to rc-client on-init, and rc-client
 		// will not send it immediately, but rather store it and sends it over on its own next
@@ -922,4 +923,70 @@ pub(crate) fn verifier_events_since_last_call() -> Vec<multi_block::verifier::Ev
 	let seen = VerifierEventsIndex::get();
 	VerifierEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
+}
+
+// Proxy
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	Debug,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+	Any,
+	Staking,
+}
+
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::Staking => matches!(
+				c,
+				RuntimeCall::Staking(..) |
+					RuntimeCall::RcClient(
+						pallet_staking_async_rc_client::Call::set_keys { .. } |
+							pallet_staking_async_rc_client::Call::purge_keys { .. }
+					)
+			),
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			_ => false,
+		}
+	}
+}
+
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type ProxyDepositBase = ConstU128<1>;
+	type ProxyDepositFactor = ConstU128<1>;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type CallHasher = frame::deps::sp_runtime::traits::BlakeTwo256;
+	type AnnouncementDepositBase = ConstU128<1>;
+	type AnnouncementDepositFactor = ConstU128<1>;
+	type WeightInfo = ();
+	type BlockNumberProvider = System;
 }

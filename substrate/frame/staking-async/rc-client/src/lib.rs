@@ -790,7 +790,11 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Failed to send XCM message to the Relay Chain.
 		XcmSendFailed,
-		/// The caller is not a registered validator.
+		/// The origin account is not a registered validator.
+		///
+		/// Only accounts that have called `validate()` can set or purge session keys. When called
+		/// via a staking proxy, the origin is the delegating account (stash), which must be a
+		/// registered validator.
 		NotValidator,
 		/// The session keys could not be decoded as the expected SessionKeys type.
 		InvalidKeys,

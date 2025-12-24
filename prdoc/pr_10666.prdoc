@@ -1,11 +1,13 @@
-title: 'staking-async: allow  session keys handling on AssetHub'
+title: 'staking-async: allow session keys handling on AssetHub'
 doc:
 - audience: Runtime Dev
   description: |-
-    - Added  session keys handling on AssetHub for staking-async: validators and staking proxies can now call set_keys and purge_keys on AssetHub, which forwards the request to the RelayChain.
-      - Session keys and ownership proof are validated on AssetHub, which then sends to RelayChain via XCM only validated keys (no proof). RC trusts AH's validation.
-    - Validators are still allowed to call `set_keys` and `purge_keys` via relay-chain pallet-session's related extrinsics. This option will be deprecated in the future.
-    - No key deposit is set on AssetHub.
+    Added session keys handling on AssetHub for staking-async:
+    - Validators can now call `set_keys` and `purge_keys` on AssetHub, which forwards the request to the RelayChain via XCM.
+    - Session keys and ownership proof are validated on AssetHub before forwarding. Only validated keys are sent to RC (no proof), as RC trusts AH's validation.
+    - Staking proxies can call `set_keys` and `purge_keys` on behalf of validators. The `ProxyType::Staking` filter on runtime needs to be updated to include these calls.
+    - Validators are still allowed to call `set_keys` and `purge_keys` via relay-chain pallet-session's extrinsics. This option will be deprecated in the future.
+    - No key deposit is required on AssetHub.
 crates:
 - name: asset-hub-westend-runtime
   bump: major

@@ -1400,11 +1400,11 @@ mod poll_operations {
 
 mod session_keys {
 	use super::*;
+	use crate::ah::mock::{Balances, ProxyType};
 	use codec::Encode;
 	use frame_support::assert_noop;
 
 	/// Helper to create properly encoded session keys and ownership proof.
-	/// The `owner` is the account that will call `set_keys` (must match the signer).
 	fn make_session_keys_and_proof(owner: AccountId) -> (Vec<u8>, Vec<u8>) {
 		let generated = AHSessionKeys::generate(&owner.encode(), None);
 		(generated.keys.encode(), generated.proof.encode())
@@ -1584,6 +1584,93 @@ mod session_keys {
 			assert_noop!(
 				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),),
 				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_via_staking_proxy() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
+			let stash: AccountId = 1;
+			let proxy: AccountId = 99;
+			let (keys, proof) = make_session_keys_and_proof(stash);
+
+			// Fund the proxy account so it can pay for proxy deposit
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
+
+			// Set up proxy relationship: proxy can act on behalf of stash for Staking calls
+			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
+				RuntimeOrigin::signed(stash),
+				proxy,
+				ProxyType::Staking,
+				0, // no delay
+			));
+
+			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
+			let set_keys_call =
+				RuntimeCall::RcClient(rc_client::Call::set_keys { keys: keys.clone(), proof });
+
+			// THEN: The call succeeds (keys forwarded to RC via XCM)
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None, // no force_proxy_type
+				Box::new(set_keys_call),
+			));
+
+			// WHEN: Proxy calls purge_keys on behalf of stash
+			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {});
+
+			// THEN: The call succeeds
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None,
+				Box::new(purge_keys_call),
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_via_proxy_non_validator_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 100 is a nominator (not a validator), account 99 is the proxy
+			let nominator: AccountId = 100;
+			let proxy: AccountId = 99;
+			let (keys, proof) = make_session_keys_and_proof(nominator);
+
+			// Fund accounts
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
+
+			// Set up proxy relationship
+			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
+				RuntimeOrigin::signed(nominator),
+				proxy,
+				ProxyType::Staking,
+				0,
+			));
+
+			// Clear events before the proxy call
+			System::reset_events();
+
+			// WHEN: Proxy calls set_keys on behalf of nominator
+			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys { keys, proof });
+
+			// The proxy dispatch succeeds, but the inner call fails
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				nominator,
+				None,
+				Box::new(set_keys_call),
+			));
+
+			// THEN: ProxyExecuted event is emitted with NotValidator error
+			assert_eq!(
+				System::events().last().unwrap().event,
+				RuntimeEvent::Proxy(pallet_proxy::Event::ProxyExecuted {
+					result: Err(rc_client::Error::<T>::NotValidator.into())
+				})
 			);
 		});
 	}

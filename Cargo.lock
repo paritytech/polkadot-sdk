@@ -11295,6 +11295,7 @@ dependencies = [
  "pallet-balances",
  "pallet-election-provider-multi-block",
  "pallet-offences",
+ "pallet-proxy",
  "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
