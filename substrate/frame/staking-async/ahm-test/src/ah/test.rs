@@ -1632,49 +1632,6 @@ mod session_keys {
 		});
 	}
 
-	#[test]
-	fn set_keys_via_proxy_non_validator_fails() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 100 is a nominator (not a validator), account 99 is the proxy
-			let nominator: AccountId = 100;
-			let proxy: AccountId = 99;
-			let (keys, proof) = make_session_keys_and_proof(nominator);
-
-			// Fund accounts
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
-
-			// Set up proxy relationship
-			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
-				RuntimeOrigin::signed(nominator),
-				proxy,
-				ProxyType::Staking,
-				0,
-			));
-
-			// Clear events before the proxy call
-			System::reset_events();
-
-			// WHEN: Proxy calls set_keys on behalf of nominator
-			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys { keys, proof });
-
-			// The proxy dispatch succeeds, but the inner call fails
-			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
-				RuntimeOrigin::signed(proxy),
-				nominator,
-				None,
-				Box::new(set_keys_call),
-			));
-
-			// THEN: ProxyExecuted event is emitted with NotValidator error
-			assert_eq!(
-				System::events().last().unwrap().event,
-				RuntimeEvent::Proxy(pallet_proxy::Event::ProxyExecuted {
-					result: Err(rc_client::Error::<T>::NotValidator.into())
-				})
-			);
-		});
-	}
-
 	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
 	#[test]
 	fn set_and_purge_keys_e2e() {

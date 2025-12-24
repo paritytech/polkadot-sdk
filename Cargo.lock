@@ -1453,6 +1453,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tracing",
+ "westend-runtime",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
