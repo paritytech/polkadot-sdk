@@ -113,7 +113,8 @@ fn nominators_can_unbond_in_next_era() {
 			vec![Event::Unbonded { stash: 101, amount: 200 }]
 		);
 
-		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era +
+		// BondingDuration)
 		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(101.into()).unwrap(),
@@ -121,7 +122,8 @@ fn nominators_can_unbond_in_next_era() {
 				stash: 101,
 				total: 500,
 				active: 300,
-				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era +
+				// BondingDuration)
 				unlocking: bounded_vec![UnlockChunk { value: 200, era: fast_unbond_era }],
 			}
 		);
@@ -181,7 +183,8 @@ fn validators_still_have_full_bonding_duration() {
 			vec![Event::Unbonded { stash: 11, amount: 200 }]
 		);
 
-		// Unlocking should be set to active_era + BondingDuration (not active_era + NominatorFastUnbondDuration)
+		// Unlocking should be set to active_era + BondingDuration (not active_era +
+		// NominatorFastUnbondDuration)
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -350,7 +353,8 @@ fn virtual_staker_unbonds_in_one_era() {
 		// Virtual staker unbonds some stake.
 		assert_ok!(<Staking as StakingInterface>::unbond(&pool_account, 200));
 
-		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era + BondingDuration).
+		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era +
+		// BondingDuration).
 		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(pool_account.into()).unwrap(),
@@ -358,7 +362,8 @@ fn virtual_staker_unbonds_in_one_era() {
 				stash: pool_account,
 				total: pool_stake,
 				active: pool_stake - 200,
-				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era + BondingDuration)
+				// Unlocking era is active_era + NominatorFastUnbondDuration (not active_era +
+				// BondingDuration)
 				unlocking: bounded_vec![UnlockChunk { value: 200, era: fast_unbond_era }],
 			}
 		);
