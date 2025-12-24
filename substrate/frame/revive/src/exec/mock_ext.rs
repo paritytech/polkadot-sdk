@@ -189,7 +189,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::sr25519_verify")
 	}
 
-	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], ()> {
+	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
 		panic!("MockExt::ecdsa_to_eth_address")
 	}
 

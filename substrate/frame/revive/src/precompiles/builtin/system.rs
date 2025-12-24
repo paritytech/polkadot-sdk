@@ -108,6 +108,11 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let ok = env.sr25519_verify(signature, message, publicKey);
 				Ok(ok.abi_encode())
 			},
+			ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall { publicKey }) => {
+				let address =
+					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
+				Ok(address.abi_encode())
+			},
 		}
 	}
 }
@@ -124,8 +129,11 @@ mod tests {
 			tests::run_test_vectors,
 			BuiltinPrecompile,
 		},
+		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
 	};
+
+	use alloy_core::primitives::FixedBytes;
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
 
@@ -198,9 +206,10 @@ mod tests {
 			);
 		})
 	}
+
 	#[test]
 	fn sr25519_verify() {
-		use crate::{precompiles::alloy::sol_types::sol_data::Bool, test_utils::ALICE};
+		use crate::precompiles::alloy::sol_types::sol_data::Bool;
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
@@ -236,6 +245,33 @@ mod tests {
 			assert!(result);
 			let result = Bool::abi_decode(&call_with(&b"hello worlD")).expect("decoding failed");
 			assert!(!result);
+		});
+	}
+
+	#[test]
+	fn ecdsa_to_eth_address() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let pubkey_compressed = array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91",
+			);
+
+			let input = ISystem::ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall {
+				publicKey: pubkey_compressed,
+			});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap();
+
+			let expected: FixedBytes<20> = array_bytes::hex2array_unchecked::<_, 20>(
+				"09231da7b19A016f9e576d23B16277062F4d46A8",
+			)
+			.into();
+			assert_eq!(result, expected.abi_encode());
 		});
 	}
 }
