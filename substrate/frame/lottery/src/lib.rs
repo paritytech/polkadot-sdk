@@ -72,7 +72,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::{
-	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
+	traits::{AccountIdConversion, Dispatchable, Saturating},
 	ArithmeticError, DispatchError, RuntimeDebug,
 };
 pub use weights::WeightInfo;
@@ -255,19 +255,17 @@ pub mod pallet {
 						let lottery_account = Self::account_id();
 						let lottery_balance = T::Currency::reducible_balance(
 							&lottery_account,
-							Preservation::Preserve,
+							Preservation::Expendable,
 							Fortitude::Polite,
 						);
 
 						let winner = Self::choose_account().unwrap_or(lottery_account.clone());
 						// Not much we can do if this fails...
-						// TODO: using Preserve for now as i first need to know if this account
-						// needs ED or not.
 						let res = T::Currency::transfer(
 							&lottery_account,
 							&winner,
 							lottery_balance,
-							Preservation::Preserve,
+							Preservation::Expendable,
 						);
 						debug_assert!(res.is_ok());
 
@@ -379,10 +377,10 @@ pub mod pallet {
 				LotteryIndex::<T>::put(new_index);
 				Ok(())
 			})?;
-			// Make sure pot exists.
+			// Make sure pot has a sufficient reference to avoid account death during payout
 			let lottery_account = Self::account_id();
-			if T::Currency::total_balance(&lottery_account).is_zero() {
-				let _ = T::Currency::mint_into(&lottery_account, T::Currency::minimum_balance());
+			if frame_system::Pallet::<T>::sufficients(&lottery_account) == 0 {
+				frame_system::Pallet::<T>::inc_sufficients(&lottery_account);
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())

@@ -21,7 +21,7 @@ use crate::{
 	mock::{Lottery, *},
 	*,
 };
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_noop, assert_ok, assert_storage_noop, pallet_prelude::Zero};
 use sp_runtime::{traits::BadOrigin, TokenError};
 
 #[test]
@@ -449,7 +449,7 @@ fn start_lottery_will_create_account() {
 				Preservation::Expendable,
 				Fortitude::Polite
 			),
-			1
+			0
 		);
 	});
 }
