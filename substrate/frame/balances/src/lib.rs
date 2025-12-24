@@ -206,11 +206,7 @@ pub mod pallet {
 	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{
-			fungible::Credit,
-			tokens::{Precision, Preservation},
-			VariantCount, VariantCountOf,
-		},
+		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -866,14 +862,13 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			let preservation =
-				if keep_alive { Preservation::Preserve } else { Preservation::Expendable };
+			let preservation = if keep_alive { Preserve } else { Expendable };
 			<Self as fungible::Mutate<_>>::burn_from(
 				&source,
 				value,
 				preservation,
 				Precision::Exact,
-				Fortitude::Polite,
+				Polite,
 			)?;
 			Ok(())
 		}

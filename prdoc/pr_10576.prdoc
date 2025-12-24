@@ -22,8 +22,6 @@ doc:
 crates:
 - name: frame-support
   bump: minor
-- name: pallet-balances
-  bump: major
 - name: pallet-dap
   bump: patch
 - name: polkadot-sdk
