@@ -164,8 +164,8 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{
 		tokens::{
-			fungible, BalanceStatus as Status, DepositConsequence, Fortitude,
-			Fortitude::{Force, Polite},
+			fungible, BalanceStatus as Status, DepositConsequence,
+			Fortitude::{self, Force, Polite},
 			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
