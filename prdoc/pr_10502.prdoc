@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow nominators to be unslashable with configurable fast unbonding
+
+doc:
+  - audience: Runtime User
+    description: |
+      Nominators can now be set as unslashable via runtime configuration. When unslashable,
+      nominators use a configurable fast unbonding duration instead of the full bonding period.
+      Validators always use the full bonding duration regardless of this setting.
+
+      New config parameter `NominatorFastUnbondDuration` controls the unbonding time for
+      non-slashable nominators (recommended: 2 eras).
+
+crates:
+  - name: sp-staking
+    bump: minor
+  - name: pallet-staking-async
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
