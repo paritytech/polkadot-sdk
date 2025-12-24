@@ -332,7 +332,7 @@ fn remote_transfer_xcm_paying_fees(
 	asset_id: AssetId,
 	amount: u128,
 	remote_fee: Asset,
-	query_id: QueryId,
+	_: QueryId,
 ) -> Result<Xcm<()>, Error> {
 	// Transform `from` into Location::new(1, XX([Parachain(source), from.interior }])
 	// We need this one for the refunds.
@@ -346,11 +346,7 @@ fn remote_transfer_xcm_paying_fees(
 		WithdrawAsset(vec![remote_fee.clone()].into()),
 		PayFees { asset: remote_fee },
 		SetAppendix(Xcm(vec![
-			ReportError(QueryResponseInfo {
-				destination: origin_relative_to_remote.clone(),
-				query_id,
-				max_weight: Weight::MAX,
-			}),
+			// Todo: add error reporting after fixing https://github.com/paritytech/polkadot-sdk/issues/10078
 			RefundSurplus,
 			DepositAsset { assets: AssetFilter::Wild(WildAsset::All), beneficiary: from_at_target },
 		])),

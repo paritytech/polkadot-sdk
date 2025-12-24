@@ -25,6 +25,7 @@ sc-block-builder = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-metadata-ir = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }

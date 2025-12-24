@@ -38,12 +38,11 @@ use log::{debug, info, warn};
 use sc_consensus::{BlockImport, JustificationSyncLink};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO, CONSENSUS_WARN};
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_consensus::{Proposal, Proposer, SelectChain, SyncOracle};
+use sp_consensus::{Proposal, ProposeArgs, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use std::{
-	fmt::Debug,
 	ops::Deref,
 	time::{Duration, Instant},
 };
@@ -55,26 +54,18 @@ const LOG_TARGET: &str = "slots";
 /// See [`sp_state_machine::StorageChanges`] for more information.
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
 
-/// The result of [`SlotWorker::on_slot`].
-#[derive(Debug, Clone)]
-pub struct SlotResult<Block: BlockT, Proof> {
-	/// The block that was built.
-	pub block: Block,
-	/// The storage proof that was recorded while building the block.
-	pub storage_proof: Proof,
-}
-
 /// A worker that should be invoked at every new slot.
 ///
 /// The implementation should not make any assumptions of the slot being bound to the time or
 /// similar. The only valid assumption is that the slot number is always increasing.
 #[async_trait::async_trait]
-pub trait SlotWorker<B: BlockT, Proof> {
+pub trait SlotWorker<B: BlockT> {
 	/// Called when a new slot is triggered.
 	///
-	/// Returns a future that resolves to a [`SlotResult`] iff a block was successfully built in
-	/// the slot. Otherwise `None` is returned.
-	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<SlotResult<B, Proof>>;
+	/// Returns a future that resolves to a block.
+	///
+	/// If block production failed, `None` is returned.
+	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<B>;
 }
 
 /// A skeleton implementation for `SlotWorker` which tries to claim a slot at
@@ -185,7 +176,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		claim: &Self::Claim,
 		slot_info: SlotInfo<B>,
 		end_proposing_at: Instant,
-	) -> Option<Proposal<B, <Self::Proposer as Proposer<B>>::Proof>> {
+	) -> Option<Proposal<B>> {
 		let slot = slot_info.slot;
 		let telemetry = self.telemetry();
 		let log_target = self.logging_target();
@@ -200,13 +191,17 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		// deadline our production to 98% of the total time left for proposing. As we deadline
 		// the proposing below to the same total time left, the 2% margin should be enough for
 		// the result to be returned.
+		let propose_args = ProposeArgs {
+			inherent_data,
+			inherent_digests: sp_runtime::generic::Digest { logs },
+			max_duration: proposing_remaining_duration.mul_f32(0.98),
+			block_size_limit: slot_info.block_size_limit,
+			storage_proof_recorder: slot_info.storage_proof_recorder,
+			..Default::default()
+		};
+
 		let proposing = proposer
-			.propose(
-				inherent_data,
-				sp_runtime::generic::Digest { logs },
-				proposing_remaining_duration.mul_f32(0.98),
-				slot_info.block_size_limit,
-			)
+			.propose(propose_args)
 			.map_err(|e| sp_consensus::Error::ClientImport(e.to_string()));
 
 		let proposal = match futures::future::select(
@@ -283,10 +278,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	}
 
 	/// Implements [`SlotWorker::on_slot`].
-	async fn on_slot(
-		&mut self,
-		slot_info: SlotInfo<B>,
-	) -> Option<SlotResult<B, <Self::Proposer as Proposer<B>>::Proof>>
+	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<B>
 	where
 		Self: Sync,
 	{
@@ -377,7 +369,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 		let proposal = self.propose(proposer, &claim, slot_info, end_proposing_at).await?;
 
-		let (block, storage_proof) = (proposal.block, proposal.proof);
+		let block = proposal.block;
 		let (header, body) = block.deconstruct();
 		let header_num = *header.number();
 		let header_hash = header.hash();
@@ -444,7 +436,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			},
 		}
 
-		Some(SlotResult { block: B::new(header, body), storage_proof })
+		Some(B::new(header, body))
 	}
 }
 
@@ -456,13 +448,10 @@ pub trait SimpleSlotWorker<B: BlockT> {
 pub struct SimpleSlotWorkerToSlotWorker<T>(pub T);
 
 #[async_trait::async_trait]
-impl<T: SimpleSlotWorker<B> + Send + Sync, B: BlockT>
-	SlotWorker<B, <T::Proposer as Proposer<B>>::Proof> for SimpleSlotWorkerToSlotWorker<T>
+impl<T: SimpleSlotWorker<B> + Send + Sync, B: BlockT> SlotWorker<B>
+	for SimpleSlotWorkerToSlotWorker<T>
 {
-	async fn on_slot(
-		&mut self,
-		slot_info: SlotInfo<B>,
-	) -> Option<SlotResult<B, <T::Proposer as Proposer<B>>::Proof>> {
+	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<B> {
 		self.0.on_slot(slot_info).await
 	}
 }
@@ -503,7 +492,7 @@ impl_inherent_data_provider_ext_tuple!(S, A, B, C, D, E, F, G, H, I, J);
 ///
 /// Every time a new slot is triggered, `worker.on_slot` is called and the future it returns is
 /// polled until completion, unless we are major syncing.
-pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
+pub async fn start_slot_worker<B, C, W, SO, CIDP>(
 	slot_duration: SlotDuration,
 	client: C,
 	mut worker: W,
@@ -512,7 +501,7 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 ) where
 	B: BlockT,
 	C: SelectChain<B>,
-	W: SlotWorker<B, Proof>,
+	W: SlotWorker<B>,
 	SO: SyncOracle + Send,
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
@@ -829,6 +818,7 @@ mod test {
 				Default::default(),
 			),
 			block_size_limit: None,
+			storage_proof_recorder: None,
 		}
 	}
 
