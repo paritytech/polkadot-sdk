@@ -1250,7 +1250,7 @@ fn category_spend_works() {
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
 			Box::new(SpendAsset::Category(bounded_category.clone())),
-			2, // Request 5 USD*
+			2,
 			Box::new(6),
 			None
 		));
@@ -1285,8 +1285,8 @@ fn category_spend_works() {
 fn category_payout_distributes_across_assets() {
 	ExtBuilder::default()
 		.with_asset_balance(1, 20)
-		.with_asset_balance(3, 30)
 		.with_asset_balance(2, 10)
+		.with_asset_balance(3, 30)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
