@@ -15,9 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the DAP pallet.
+//! Genesis tests for the DAP pallet.
 
-mod fill;
-mod genesis;
-mod migrations;
-mod on_unbalanced;
+use crate::mock::*;
+
+type DapPallet = crate::Pallet<Test>;
+
+#[test]
+fn genesis_creates_buffer_account() {
+	new_test_ext().execute_with(|| {
+		let buffer = DapPallet::buffer_account();
+		// Buffer account should exist after genesis (created via inc_providers)
+		assert!(System::account_exists(&buffer));
+	});
+}
