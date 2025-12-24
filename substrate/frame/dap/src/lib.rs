@@ -31,6 +31,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+mod tests;
+
 extern crate alloc;
 
 use frame_support::{
@@ -38,7 +43,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
-		tokens::{Fortitude, FundingSink, Precision, Preservation},
+		tokens::{Fortitude, FundingSink, Preservation},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -156,49 +161,49 @@ pub mod migrations {
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 /// Implementation of FundingSink.
-/// Use as `type Sink = Dap` in runtime config.
+/// Example: use as `type Sink = Dap` in runtime config.
 impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
 		let buffer = Self::buffer_account();
 
-		// Best-effort transfer: withdraw up to `amount` from source and deposit to buffer.
-		// If source has less than `amount`, transfers whatever is available.
-		if let Ok(credit) = T::Currency::withdraw(
-			source,
-			amount,
-			Precision::BestEffort,
-			preservation,
-			Fortitude::Polite,
-		) {
-			// Resolve should never fail - buffer is pre-created at genesis or via migration.
-			if !credit.peek().is_zero() && T::Currency::resolve(&buffer, credit).is_err() {
-				defensive!("Failed to deposit to DAP buffer - funds burned");
-			}
-		}
+		// Best-effort: calculate available balance and transfer that amount.
+		let available = T::Currency::reducible_balance(source, preservation, Fortitude::Polite);
+
+		// Transfer should never fail because:
+		// - can_withdraw on source is already satisfied by reducible_balance check
+		// - can_deposit on destination succeeds since buffer exists (created with provider at
+		// genesis/ runtime upgrade so no ED issue)
+		// - we are filtering out the zero amount case
+		// The only failure would be the overflow on destination.
+		Some(amount.min(available)).filter(|t| !t.is_zero()).map(|to_transfer| {
+			T::Currency::transfer(source, &buffer, to_transfer, preservation).inspect_err(|_| {
+				defensive!("🚨 Transfer to DAP buffer failed, it should never happen!");
+			})
+		});
 	}
 }
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
-/// Use as `type Slash = Dap` in staking-async config.
+/// Example: use as `type Slash = Dap` in staking-async config.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let buffer = Self::buffer_account();
 		let numeric_amount = amount.peek();
 
-		// Resolve should never fail - buffer is pre-created at genesis or via migration.
-		if T::Currency::resolve(&buffer, amount).is_err() {
-			defensive!("Failed to deposit slash to DAP buffer - funds burned");
-			return;
-		}
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Deposited slash of {numeric_amount:?} to DAP buffer"
-		);
+		// Resolve should never fail because:
+		// - can_deposit on destination succeeds since buffer exists (created with provider at
+		//   genesis/runtime upgrade so no ED issue)
+		// - amount is guaranteed non-zero by the trait method signature
+		// The only failure would be overflow on destination.
+		let _ = T::Currency::resolve(&buffer, amount)
+			.inspect_err(|_| {
+				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
+			})
+			.inspect(|_| {
+				log::debug!(
+					target: LOG_TARGET,
+					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
+				);
+			});
 	}
 }
-
-#[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-mod tests;
