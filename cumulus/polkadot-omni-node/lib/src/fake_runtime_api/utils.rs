@@ -247,6 +247,12 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<$block> for $runtime {
+				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
+					unimplemented!()
+				}
+			}
 		}
 	};
 }

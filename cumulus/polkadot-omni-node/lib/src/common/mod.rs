@@ -42,6 +42,7 @@ use sp_runtime::{
 use sp_session::SessionKeys;
 use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 pub trait NodeBlock:
@@ -74,6 +75,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ CollectCollationInfo<Block>
 	+ ValidateStatement<Block>
 	+ GetParachainInfo<Block>
+	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
 	+ Sized
 {
@@ -90,6 +92,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ ValidateStatement<Block>
 		+ GetParachainInfo<Block>
+		+ TransactionStorageApi<Block>
 {
 }
 

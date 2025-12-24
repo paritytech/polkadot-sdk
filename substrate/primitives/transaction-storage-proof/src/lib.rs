@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod runtime_api;
+
 extern crate alloc;
 
 use core::result::Result;
@@ -33,8 +35,6 @@ pub use sp_inherents::Error;
 
 /// The identifier for the proof inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tx_proof";
-/// Storage period for data.
-pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
 /// Proof trie value size.
 pub const CHUNK_SIZE: usize = 256;
 
@@ -168,15 +168,14 @@ pub mod registration {
 	pub fn new_data_provider<B, C>(
 		client: &C,
 		parent: &B::Hash,
+		retention_period: NumberFor<B>,
 	) -> Result<InherentDataProvider, Error>
 	where
 		B: BlockT,
 		C: IndexedBody<B>,
 	{
 		let parent_number = client.number(*parent)?.unwrap_or(Zero::zero());
-		let number = parent_number
-			.saturating_add(One::one())
-			.saturating_sub(DEFAULT_STORAGE_PERIOD.into());
+		let number = parent_number.saturating_add(One::one()).saturating_sub(retention_period);
 		if number.is_zero() {
 			// Too early to collect proofs.
 			return Ok(InherentDataProvider::new(None));
