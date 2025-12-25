@@ -374,20 +374,6 @@ impl<T: Config> Eras<T> {
 		});
 	}
 
-	/// Snapshot the current [`AreNominatorsSlashable`] setting for this era and clean up old entry.
-	///
-	/// This ensures offences are processed with the rules that were in effect at era start.
-	/// We only need to keep entries for eras within the bonding duration, as offences older
-	/// than that cannot be reported anymore.
-	pub(crate) fn set_nominators_slashable(era: EraIndex) {
-		// Set the new era's value
-		ErasNominatorsSlashable::<T>::insert(era, AreNominatorsSlashable::<T>::get());
-
-		// Clean up old era entry that's now outside the bonding window
-		if let Some(old_era) = era.checked_sub(T::BondingDuration::get() + 1) {
-			ErasNominatorsSlashable::<T>::remove(old_era);
-		}
-	}
 
 	/// Check if the rewards for the given era and page index have been claimed.
 	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
@@ -745,9 +731,6 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// Snapshot the current nominators slashable setting for this era.
-		Eras::<T>::set_nominators_slashable(starting_era);
-
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
@@ -789,6 +772,9 @@ impl<T: Config> Rotator<T> {
 	fn start_era_update_bonded_eras(starting_era: EraIndex, start_session: SessionIndex) {
 		let bonding_duration = T::BondingDuration::get();
 
+		// Snapshot the current nominators slashable setting for the starting era
+		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
+
 		BondedEras::<T>::mutate(|bonded| {
 			if bonded.is_full() {
 				// remove oldest
@@ -797,7 +783,10 @@ impl<T: Config> Rotator<T> {
 					era_removed <= (starting_era.saturating_sub(bonding_duration)),
 					"should not delete an era that is not older than bonding duration"
 				);
+
+				// Clean up bonding-duration metadata for the removed era
 				slashing::clear_era_metadata::<T>(era_removed);
+				ErasNominatorsSlashable::<T>::remove(era_removed);
 			}
 
 			// must work -- we were not full, or just removed the oldest era.
