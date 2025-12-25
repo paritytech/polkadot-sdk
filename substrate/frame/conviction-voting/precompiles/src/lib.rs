@@ -39,7 +39,7 @@ use pallet_revive::{
 };
 use tracing::error;
 
-alloy::sol!("src/interfaces/IConvictionVoting.sol");
+alloy::sol!("src/interface/IConvictionVoting.sol");
 use IConvictionVoting::IConvictionVotingCalls;
 
 #[cfg(test)]
