@@ -134,7 +134,7 @@ where
 	PalletsOriginOf<Runtime>: Decode,
 {
 	type T = Runtime;
-	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(11).unwrap());
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0xB).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 	type Interface = IReferenda::IReferendaCalls;
 
