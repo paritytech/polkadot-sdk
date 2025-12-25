@@ -50,6 +50,29 @@ interface IReferenda {
 		Confirming
 	}
 
+	/// @notice A comprehensive snapshot of a referendum.
+	/// @dev Returned by `getReferendumInfo`. This is ABI-encoded as a tuple.
+	struct ReferendumInfo {
+		/// @notice Whether the referendum exists.
+		bool exists;
+		/// @notice Current status as defined in the `ReferendumStatus` enum.
+		ReferendumStatus status;
+		/// @notice Sub-phase if `status` is `Ongoing`, otherwise implementation-defined.
+		OngoingPhase ongoingPhase;
+		/// @notice The governance track ID.
+		uint16 trackId;
+		/// @notice Hash of the proposal (preimage hash).
+		bytes32 proposalHash;
+		/// @notice Submission deposit amount.
+		uint128 submissionDeposit;
+		/// @notice Decision deposit amount.
+		uint128 decisionDeposit;
+		/// @notice Block number for execution (if approved).
+		uint32 enactmentBlock;
+		/// @notice Block when referendum was submitted.
+		uint32 submissionBlock;
+	}
+
 	/// @notice Submit a referendum via preimage lookup (for large proposals).
 	/// @dev Requires prior call to `pallet_preimage::note_preimage()`
 	/// @param origin The SCALE-encoded `PalletsOrigin` origin of the proposal.
@@ -104,33 +127,15 @@ interface IReferenda {
 	/// @return refundAmount The amount refunded to the depositor.
 	function refundDecisionDeposit(uint32 referendumIndex) external returns (uint128 refundAmount);
 
-	/// @notice Get comprehensive referendum information
+	/// @notice Get comprehensive referendum information.
 	/// @param referendumIndex The index of the referendum to query.
-	/// @return exists Whether the referendum exists
-	/// @return status Current status as defined in the `ReferendumStatus` enum
-	/// @return ongoingPhase Sub-phase if status is Ongoing as defined in the `OngoingPhase` enum
-	/// @return trackId The governance track ID
-	/// @return proposalHash Hash of the proposal
-	/// @return submissionDeposit Submission deposit amount
-	/// @return decisionDeposit Decision deposit amount
-	/// @return enactmentBlock Block number for execution (if approved)
-	/// @return submissionBlock Block when referendum was submitted
+	/// @return info A `ReferendumInfo` struct containing the referendum state snapshot.
 	function getReferendumInfo(
 		uint32 referendumIndex
 	)
 		external
 		view
-		returns (
-			bool exists,
-			ReferendumStatus status,
-			OngoingPhase ongoingPhase,
-			uint16 trackId,
-			bytes32 proposalHash,
-			uint128 submissionDeposit,
-			uint128 decisionDeposit,
-			uint32 enactmentBlock,
-			uint32 submissionBlock
-		);
+		returns (ReferendumInfo memory info);
 
 	/// @notice Check if a referendum would pass if ended now
 	/// @param referendumIndex The referendum index
