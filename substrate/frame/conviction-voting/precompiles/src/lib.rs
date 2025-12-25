@@ -72,21 +72,6 @@ pub type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling
 	>,
 >>::Class;
 
-/// Voting information tuple for a specific referendum.
-///
-/// Fields:
-/// - `bool` ("exists"): Whether a vote exists for this referendum.
-/// - `IConvictionVoting::VotingType` ("votingType"): The type of vote
-///   (Standard/Split/SplitAbstain).
-/// - `bool` ("aye"): For standard votes: true if aye, false if nay. Always false for split votes.
-/// - `u128` ("ayeAmount"): Tokens voting aye (pre-conviction). 0 for standard nay votes.
-/// - `u128` ("nayAmount"): Tokens voting nay (pre-conviction). 0 for standard aye votes.
-/// - `u128` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
-/// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to
-///   standard votes.
-pub type VotingOf =
-	(bool, IConvictionVoting::VotingType, bool, u128, u128, u128, IConvictionVoting::Conviction);
-
 const LOG_TARGET: &str = "conviction-voting::precompiles";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
@@ -261,33 +246,37 @@ where
 								.iter()
 								.find(|(poll_idx, _)| *poll_idx == referendum_index)
 								.map(|(_, account_vote)| match account_vote {
-									AccountVote::Standard { vote, balance } => (
-										true,
-										IConvictionVoting::VotingType::Standard,
-										vote.aye,
-										Self::balance_to_u128(balance) * (vote.aye as u128),
-										Self::balance_to_u128(balance) * (!vote.aye as u128),
-										0u128,
-										Self::from_conviction(vote.conviction),
-									),
-									AccountVote::Split { aye, nay } => (
-										true,
-										IConvictionVoting::VotingType::Split,
-										false,
-										Self::balance_to_u128(aye),
-										Self::balance_to_u128(nay),
-										0u128,
-										IConvictionVoting::Conviction::None,
-									),
-									AccountVote::SplitAbstain { aye, nay, abstain } => (
-										true,
-										IConvictionVoting::VotingType::SplitAbstain,
-										false,
-										Self::balance_to_u128(aye),
-										Self::balance_to_u128(nay),
-										Self::balance_to_u128(abstain),
-										IConvictionVoting::Conviction::None,
-									),
+									AccountVote::Standard { vote, balance } =>
+										IConvictionVoting::Voting {
+											exists: true,
+											votingType: IConvictionVoting::VotingType::Standard,
+											aye: vote.aye,
+											ayeAmount: Self::balance_to_u128(balance) *
+												(vote.aye as u128),
+											nayAmount: Self::balance_to_u128(balance) *
+												(!vote.aye as u128),
+											abstainAmount: 0u128,
+											conviction: Self::from_conviction(vote.conviction),
+										},
+									AccountVote::Split { aye, nay } => IConvictionVoting::Voting {
+										exists: true,
+										votingType: IConvictionVoting::VotingType::Split,
+										aye: false,
+										ayeAmount: Self::balance_to_u128(aye),
+										nayAmount: Self::balance_to_u128(nay),
+										abstainAmount: 0u128,
+										conviction: IConvictionVoting::Conviction::None,
+									},
+									AccountVote::SplitAbstain { aye, nay, abstain } =>
+										IConvictionVoting::Voting {
+											exists: true,
+											votingType: IConvictionVoting::VotingType::SplitAbstain,
+											aye: false,
+											ayeAmount: Self::balance_to_u128(aye),
+											nayAmount: Self::balance_to_u128(nay),
+											abstainAmount: Self::balance_to_u128(abstain),
+											conviction: IConvictionVoting::Conviction::None,
+										},
 								}),
 							Voting::Delegating(_) => None, /* propagate the None to return
 							                                * default
@@ -325,18 +314,17 @@ where
 		.map_err(|error| revert(&error, "ConvictionVoting: vote failed"))
 	}
 
-	/// Represents the vote not found state. Is the solidity default value for a tuple of type
-	/// `VotingOf`.
-	fn get_voting_default() -> VotingOf {
-		(
-			false,
-			IConvictionVoting::VotingType::Standard,
-			false,
-			0,
-			0,
-			0,
-			IConvictionVoting::Conviction::None,
-		)
+	/// Represents the vote not found state. Is the solidity default value for a `Voting` struct.
+	fn get_voting_default() -> IConvictionVoting::Voting {
+		IConvictionVoting::Voting {
+			exists: false,
+			votingType: IConvictionVoting::VotingType::Standard,
+			aye: false,
+			ayeAmount: 0,
+			nayAmount: 0,
+			abstainAmount: 0,
+			conviction: IConvictionVoting::Conviction::None,
+		}
 	}
 
 	fn u128_to_balance(balance: &u128) -> Result<BalanceOf<T>, Error> {

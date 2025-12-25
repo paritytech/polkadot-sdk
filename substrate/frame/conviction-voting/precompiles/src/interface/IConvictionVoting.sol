@@ -41,6 +41,24 @@ interface IConvictionVoting {
 		SplitAbstain
 	}
 
+	/// @notice A casted vote
+	struct Voting {
+		/// @custom:property Whether a vote exists
+		bool exists;
+		/// @custom:property The type of vote as defined in the `VotingType` enum.
+		VotingType votingType;
+		/// @custom:property True if a standard vote is aye, false if nay. False for split and split-abstain votes.
+		bool aye;
+		/// @custom:property The amount of tokens voting aye (pre-conviction). 0 for standard nay votes.
+		uint128 ayeAmount;
+		/// @custom:property The amount of tokens voting nay (pre-conviction). 0 for standard aye votes.
+		uint128 nayAmount;
+		/// @custom:property The amount of tokens voting abstain (pre-conviction). 0 for standard and split votes.
+		uint128 abstainAmount;
+		/// @custom:property The conviction level applied to the vote as defined in the `Conviction` enum. Not applicable for split and split-abstain votes.
+		Conviction conviction;
+	}
+
 	/// @notice Cast a standard vote (aye or nay) with conviction.
 	/// @param referendumIndex The index of the referendum to vote on.
 	/// @param aye True for approving, false for rejecting.
@@ -96,29 +114,12 @@ interface IConvictionVoting {
 	/// @param who The account to query
 	/// @param trackId The governance track to query
 	/// @param referendumIndex The referendum index to query
-	/// @return exists Whether a vote exists
-	/// @return votingType The type of vote as defined in the `VotingType` enum.
-	/// @return aye True if a standard vote is aye, false if nay. False for split and split-abstain votes.
-	/// @return ayeAmount The amount of tokens voting aye (pre-conviction). 0 for standard nay votes.
-	/// @return nayAmount The amount of tokens voting nay (pre-conviction). 0 for standard aye votes.
-	/// @return abstainAmount The amount of tokens voting abstain (pre-conviction). 0 for standard and split votes.
-	/// @return conviction The conviction level applied to the vote as defined in the `Conviction` enum. Not applicable for split and split-abstain votes.
+	/// @return voting The voting details as defined in the `Voting` struct.
 	function getVoting(
 		address who,
 		uint16 trackId,
 		uint32 referendumIndex
-	)
-		external
-		view
-		returns (
-			bool exists,
-			VotingType votingType,
-			bool aye,
-			uint128 ayeAmount,
-			uint128 nayAmount,
-			uint128 abstainAmount,
-			Conviction conviction
-		);
+	) external view returns (Voting memory voting);
 
 	/// @notice Get the current delegation details for an account in a governance track.
 	/// @dev Returns zero values if no delegation.

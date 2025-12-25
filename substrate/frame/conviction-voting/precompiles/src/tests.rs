@@ -587,13 +587,13 @@ fn test_get_voting_standard_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
+		let decoded_value = match IConvictionVoting::Voting::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
 
-		assert_eq!(IConvictionVoting::VotingType::Standard as u8, decoded_value.1 as u8);
-		assert_eq!(balance, decoded_value.3);
+		assert_eq!(IConvictionVoting::VotingType::Standard as u8, decoded_value.votingType as u8);
+		assert_eq!(balance, decoded_value.ayeAmount);
 	});
 }
 
@@ -619,12 +619,12 @@ fn test_get_voting_while_delegating_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
+		let decoded_value = match IConvictionVoting::Voting::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
 
-		assert_eq!(false, decoded_value.0);
+		assert_eq!(false, decoded_value.exists);
 	});
 }
 
@@ -645,14 +645,14 @@ fn test_get_voting_split_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
+		let decoded_value = match IConvictionVoting::Voting::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
 
-		assert_eq!(IConvictionVoting::VotingType::Split as u8, decoded_value.1 as u8);
-		assert_eq!(aye, decoded_value.3);
-		assert_eq!(nay, decoded_value.4);
+		assert_eq!(IConvictionVoting::VotingType::Split as u8, decoded_value.votingType as u8);
+		assert_eq!(aye, decoded_value.ayeAmount);
+		assert_eq!(nay, decoded_value.nayAmount);
 	});
 }
 
@@ -677,15 +677,15 @@ fn test_get_voting_split_abstain_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
+		let decoded_value = match IConvictionVoting::Voting::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
 
-		assert_eq!(IConvictionVoting::VotingType::SplitAbstain as u8, decoded_value.1 as u8);
-		assert_eq!(aye, decoded_value.3);
-		assert_eq!(nay, decoded_value.4);
-		assert_eq!(abstain, decoded_value.5);
+		assert_eq!(IConvictionVoting::VotingType::SplitAbstain as u8, decoded_value.votingType as u8);
+		assert_eq!(aye, decoded_value.ayeAmount);
+		assert_eq!(nay, decoded_value.nayAmount);
+		assert_eq!(abstain, decoded_value.abstainAmount);
 	});
 }
 
@@ -702,11 +702,11 @@ fn test_get_voting_no_voting_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
+		let decoded_value = match IConvictionVoting::Voting::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
 
-		assert_eq!(false, decoded_value.0);
+		assert_eq!(false, decoded_value.exists);
 	});
 }
