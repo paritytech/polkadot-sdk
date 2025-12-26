@@ -967,9 +967,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn apply_slash() -> Result<(), BenchmarkError> {
-		// Ensure DAP buffer account exists for benchmarks.
-		pallet_dap::Pallet::<T>::create_buffer_account();
-
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(

@@ -94,8 +94,8 @@ pub mod pallet {
 
 		/// Create the buffer account by incrementing its provider count.
 		///
-		/// Called once at genesis (for new chains), via migration (for existing chains) and in
-		/// benchmark setup to ensure the buffer account exists.
+		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
+		/// (for existing chains) to ensure the buffer account exists.
 		pub fn create_buffer_account() {
 			let buffer = Self::buffer_account();
 			frame_system::Pallet::<T>::inc_providers(&buffer);
@@ -144,9 +144,6 @@ pub mod migrations {
 		}
 
 		/// Migration to create the DAP buffer account (version 0 → 1).
-		///
-		/// This migration only runs once when the on-chain storage version
-		/// is 0, then updates it to 1.
 		pub type InitBufferAccount<T> = frame_support::migrations::VersionedMigration<
 			0,
 			1,
