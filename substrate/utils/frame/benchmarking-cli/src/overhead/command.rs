@@ -65,7 +65,7 @@ use sp_runtime::{
 use sp_storage::Storage;
 use sp_wasm_interface::HostFunctions;
 use std::{
-	fmt::{Debug, Display, Formatter},
+	fmt::{Display, Formatter},
 	fs,
 	path::PathBuf,
 	sync::Arc,

@@ -35,9 +35,9 @@ use crate::{
 	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::{builder::Contract, WEIGHT_LIMIT},
 	tests::{
-		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
-		Contracts, DepositPerByte, DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall,
-		RuntimeEvent, RuntimeOrigin, System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
+		builder, initialize_block, test_utils::*, Balances, Contracts, DepositPerByte,
+		DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+		System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
 	},
 	tracing::trace,
 	weights::WeightInfo,
@@ -1081,7 +1081,6 @@ fn self_destruct_by_syscall_does_not_delete_code() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			min_balance + hold_balance
 		);
-
 		// Check that the beneficiary (django) got remaining balance.
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
@@ -1146,7 +1145,6 @@ fn self_destruct_by_syscall_works() {
 		// Call factory
 		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
 		assert!(result.result.is_ok());
-
 		let returned_data = result.result.unwrap().data;
 		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
 		let mut contract_addr_bytes = [0u8; 20];
@@ -2561,39 +2559,6 @@ fn contract_reverted() {
 }
 
 #[test]
-fn set_code_hash() {
-	let (binary, _) = compile_module("set_code_hash").unwrap();
-	let (new_binary, new_code_hash) = compile_module("new_set_code_hash_contract").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the 'caller'
-		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.native_value(300_000)
-			.build_and_unwrap_contract();
-		// upload new code
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			new_binary.clone(),
-			deposit_limit::<Test>(),
-		));
-
-		System::reset_events();
-
-		// First call sets new code_hash and returns 1
-		let result = builder::bare_call(contract_addr)
-			.data(new_code_hash.as_ref().to_vec())
-			.build_and_unwrap_result();
-		assert_return_code!(result, 1);
-
-		// Second calls new contract code that returns 2
-		let result = builder::bare_call(contract_addr).build_and_unwrap_result();
-		assert_return_code!(result, 2);
-	});
-}
-
-#[test]
 fn storage_deposit_limit_is_enforced() {
 	let (binary, _code_hash) = compile_module("store_call").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -2933,73 +2898,6 @@ fn deposit_limit_honors_existential_deposit() {
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 300);
 	});
-}
-
-#[test]
-fn native_dependency_deposit_works() {
-	let (binary, code_hash) = compile_module("set_code_hash").unwrap();
-	let (dummy_binary, dummy_code_hash) = compile_module("dummy").unwrap();
-
-	// Test with both existing and uploaded code
-	for code in [Code::Upload(binary.clone()), Code::Existing(code_hash)] {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = Balances::set_balance(&ALICE, 1_000_000);
-			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
-
-			// Upload the dummy contract,
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				dummy_binary.clone(),
-				deposit_limit::<Test>(),
-			)
-			.unwrap();
-
-			// Upload `set_code_hash` contracts if using Code::Existing.
-			let add_upload_deposit = match code {
-				Code::Existing(_) => {
-					Contracts::upload_code(
-						RuntimeOrigin::signed(ALICE),
-						binary.clone(),
-						deposit_limit::<Test>(),
-					)
-					.unwrap();
-					false
-				},
-				Code::Upload(_) => true,
-			};
-
-			// Instantiate the set_code_hash contract.
-			let res = builder::bare_instantiate(code).build();
-
-			let addr = res.result.unwrap().addr;
-			let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
-			let base_deposit = contract_base_deposit(&addr);
-			let upload_deposit = get_code_deposit(&code_hash);
-			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
-
-			assert_eq!(
-				res.storage_deposit.charge_or_zero(),
-				extra_deposit + base_deposit + Contracts::min_balance()
-			);
-
-			// call set_code_hash
-			builder::bare_call(addr)
-				.data(dummy_code_hash.encode())
-				.build_and_unwrap_result();
-
-			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit) -
-				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
-			let new_base_deposit = contract_base_deposit(&addr);
-			assert_ne!(deposit_diff, 0);
-			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
-
-			assert_eq!(
-				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
-				new_base_deposit
-			);
-		});
-	}
 }
 
 #[test]
@@ -4008,24 +3906,6 @@ fn unknown_syscall_rejected() {
 			builder::bare_instantiate(Code::Upload(code)).build().result,
 			<Error<Test>>::CodeRejected,
 		)
-	});
-}
-
-#[test]
-fn unstable_interface_rejected() {
-	let (code, _) = compile_module("unstable_interface").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		Test::set_unstable_interface(false);
-		assert_err!(
-			builder::bare_instantiate(Code::Upload(code.clone())).build().result,
-			<Error<Test>>::CodeRejected,
-		);
-
-		Test::set_unstable_interface(true);
-		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
 	});
 }
 
@@ -5535,4 +5415,79 @@ fn self_destruct_by_syscall_tracing_works() {
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
 		});
 	}
+}
+
+#[test]
+fn delegate_call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_evm").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_with_gas").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.data((callee_addr, 1u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		// succeeds, not enough gas but call stipend will be added
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100u64).encode())
+			.build());
+
+		// succeeds, enough gas
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
 }

@@ -168,7 +168,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
 
 			log::trace!(
-				"Archive pending storage new pair (full key {}): {} is {}",
+				"Archive storage new pair (full key {}): {} is {}",
 				full_key.as_ref().hex("0x"),
 				key.hex("0x"),
 				value.as_slice().hex("0x")
@@ -222,7 +222,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				key,
 			};
 			log::trace!(
-				"Archive storage updated pair (full key {}): {} is {:?}",
+				"Archive pending storage updated pair (full key {}): {} is {:?}",
 				full_key.encode().hex("0x"),
 				key_hex,
 				value.as_ref().map(|v| v.hex("0x"))
@@ -247,7 +247,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 					key: make_child_storage_key(&info, &key),
 				};
 				log::trace!(
-					"Archive child storage {} updated pair (full key {}): {} is {:?}",
+					"Archive pending child storage {} updated pair (full key {}): {} is {:?}",
 					info.storage_key().hex("0x"),
 					full_key.encode().hex("0x"),
 					key.hex("0x"),

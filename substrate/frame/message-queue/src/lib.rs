@@ -246,9 +246,7 @@ pub struct ItemHeader<Size> {
 impl<Size: ConstEncodedLen> ConstEncodedLen for ItemHeader<Size> {} // marker
 
 /// A page of messages. Pages always contain at least one item.
-#[derive(
-	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(CloneNoBound, Encode, Decode, DebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(HeapSize))]
 #[codec(mel_bound(Size: MaxEncodedLen))]
 pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> {
@@ -423,7 +421,7 @@ where
 }
 
 /// A single link in the double-linked Ready Ring list.
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug, PartialEq)]
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq)]
 pub struct Neighbours<MessageOrigin> {
 	/// The previous queue.
 	prev: MessageOrigin,
@@ -436,7 +434,7 @@ pub struct Neighbours<MessageOrigin> {
 /// Each queue has exactly one book which holds all of its pages. All pages of a book combined
 /// contain all of the messages of its queue; hence the name *Book*.
 /// Books can be chained together in a double-linked fashion through their `ready_neighbours` field.
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Debug)]
 pub struct BookState<MessageOrigin> {
 	/// The first page with some items to be processed in it. If this is `>= end`, then there are
 	/// no pages with items to be processing in them.

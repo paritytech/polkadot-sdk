@@ -105,7 +105,7 @@ use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
-	BoundedVec, DispatchError, RuntimeDebug,
+	BoundedVec, Debug, DispatchError,
 };
 
 pub use pallet::*;
@@ -129,7 +129,7 @@ pub type BlockNumberFor<T> =
 #[derive(
 	Clone,
 	Copy,
-	RuntimeDebug,
+	Debug,
 	PartialEq,
 	Eq,
 	Encode,
@@ -148,7 +148,7 @@ pub struct RetryConfig<Period> {
 }
 
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
-#[derive(Clone, RuntimeDebug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 struct ScheduledV1<Call, BlockNumber> {
 	maybe_id: Option<Vec<u8>>,
 	priority: schedule::Priority,
@@ -158,15 +158,7 @@ struct ScheduledV1<Call, BlockNumber> {
 
 /// Information regarding an item to be executed in the future.
 #[derive(
-	Clone,
-	RuntimeDebug,
-	PartialEq,
-	Eq,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
@@ -484,7 +476,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Cancel an anonymously scheduled task.
+		/// Cancel a scheduled task (named or anonymous), by providing the block it is scheduled for
+		/// execution in, as well as the index of the task in that block's agenda.
+		///
+		/// In the case of a named task, it will remove it from the lookup table as well.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBlock::get()))]
 		pub fn cancel(origin: OriginFor<T>, when: BlockNumberFor<T>, index: u32) -> DispatchResult {
@@ -586,6 +581,8 @@ pub mod pallet {
 		/// clones of the original task. Their retry configuration will be derived from the
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
+		///
+		/// This call **cannot** be used to set a retry configuration for a named task.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -623,6 +620,8 @@ pub mod pallet {
 		/// clones of the original task. Their retry configuration will be derived from the
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
+		///
+		/// This is the only way to set a retry configuration for a named task.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
@@ -1021,11 +1020,16 @@ impl<T: Config> Pallet<T> {
 	fn cleanup_agenda(when: BlockNumberFor<T>) {
 		let mut agenda = Agenda::<T>::get(when);
 		match agenda.iter().rposition(|i| i.is_some()) {
+			// Note that `agenda.len() > i + 1` implies that the agenda ends on a sequence of at
+			// least one `None` item(s).
 			Some(i) if agenda.len() > i + 1 => {
 				agenda.truncate(i + 1);
 				Agenda::<T>::insert(when, agenda);
 			},
+			// This branch is taken if `agenda.len() <= i + 1 ==> agenda.len() == i + 1 <==>
+			// agenda.len() - 1 == i` i.e. the agenda's last item is `Some`.
 			Some(_) => {},
+			// All items in the agenda are `None`.
 			None => {
 				Agenda::<T>::remove(when);
 			},

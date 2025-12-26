@@ -219,15 +219,7 @@ impl QueueFootprinter for () {
 /// Can be extended to serve further use-cases besides just UMP. Is stored in storage, so any change
 /// to existing values will require a migration.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	MaxEncodedLen,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, MaxEncodedLen, Eq, PartialEq, Debug, TypeInfo,
 )]
 pub enum AggregateMessageOrigin {
 	/// Inbound upward message.
@@ -240,15 +232,7 @@ pub enum AggregateMessageOrigin {
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// foreseeable.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	MaxEncodedLen,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, MaxEncodedLen, Eq, PartialEq, Debug, TypeInfo,
 )]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.

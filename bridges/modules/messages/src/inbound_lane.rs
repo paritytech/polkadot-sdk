@@ -26,8 +26,8 @@ use bp_messages::{
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::{Type, TypeInfo};
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::PartialEq;
+use Debug;
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {
@@ -58,7 +58,7 @@ pub trait InboundLaneStorage {
 /// these generic bounds all over the code.
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(
 	pub InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 );
