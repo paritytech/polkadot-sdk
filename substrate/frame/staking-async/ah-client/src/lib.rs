@@ -686,9 +686,7 @@ pub mod pallet {
 		/// the request to the RelayChain via XCM.
 		///
 		/// AssetHub validates both keys and ownership proof before sending.
-		/// RC trusts AH's validation and does not re-validate. This design:
-		/// - Prevents malicious validators from bloating XCM queue with garbage
-		/// - Avoids duplicate validation work on RC
+		/// RC trusts AH's validation and does not re-validate.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::SessionInterface::set_keys_weight())]
 		pub fn set_keys_from_ah(
@@ -704,7 +702,6 @@ pub mod pallet {
 				<<T as Config>::SessionInterface as SessionInterface>::Keys::decode(&mut &keys[..])
 					.map_err(|_| Error::<T>::InvalidKeys)?;
 
-			// Forward to session pallet via SessionInterface
 			T::SessionInterface::set_keys(&stash, session_keys)?;
 
 			Ok(())
@@ -720,7 +717,6 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
 
-			// Forward to session pallet via SessionInterface
 			T::SessionInterface::purge_keys(&stash)?;
 
 			Ok(())

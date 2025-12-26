@@ -305,8 +305,6 @@ impl pallet_staking_async::Config for Runtime {
 // Relay Chain session keys type for validating session keys on AssetHub.
 // This must match the exact structure of Westend's `SessionKeys` to ensure
 // proper encoding/decoding compatibility.
-//
-// Keys validated here prevent malicious validators from bloating XCM with garbage.
 sp_runtime::impl_opaque_keys! {
 	pub struct RelayChainSessionKeys {
 		pub grandpa: sp_consensus_grandpa::AuthorityId,
