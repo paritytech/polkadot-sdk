@@ -1682,6 +1682,9 @@ impl
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+type StakingRcClientBench<T> = pallet_staking_async_rc_client::benchmarking::Pallet<T>;
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
@@ -1710,6 +1713,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
+		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
@@ -2236,6 +2240,39 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			impl pallet_staking_async_rc_client::benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>) {
+					use staking::RelayChainSessionKeys;
+					let keys = RelayChainSessionKeys::generate(&owner.encode(), None);
+					(keys.keys.encode(), keys.proof.encode())
+				}
+
+				fn setup_validator() -> Self::AccountId {
+					use frame_benchmarking::account;
+					use frame_support::traits::fungible::Mutate;
+
+					let stash: Self::AccountId = account("validator", 0, 0);
+					let balance = 10_000 * UNITS;
+
+					// Fund the account
+					let _ = Balances::mint_into(&stash, balance);
+
+					// Bond and validate
+					assert_ok!(Staking::bond(
+						RuntimeOrigin::signed(stash.clone()),
+						balance / 2,
+						pallet_staking_async::RewardDestination::Stash
+					));
+					assert_ok!(Staking::validate(
+						RuntimeOrigin::signed(stash.clone()),
+						pallet_staking_async::ValidatorPrefs::default()
+					));
+
+					stash
+				}
+			}
+
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {

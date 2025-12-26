@@ -116,6 +116,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+pub mod weights;
+
 use alloc::{vec, vec::Vec};
 use codec::Decode;
 use core::fmt::Display;
@@ -129,6 +134,7 @@ use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
+pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::staking-async::rc-client";
 
@@ -784,6 +790,9 @@ pub mod pallet {
 		/// The type must implement `OpaqueKeys` for ownership proof validation and `Decode`
 		/// to verify the keys can be properly decoded.
 		type SessionKeys: OpaqueKeys + Decode;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::error]
@@ -982,14 +991,8 @@ pub mod pallet {
 		///
 		/// This, combined with the enforcement of a high minimum validator bond, makes it
 		/// reasonable not to require a deposit.
-		// TODO: Add proper benchmarking
 		#[pallet::call_index(10)]
-		#[pallet::weight(
-			// One read to check if caller is a validator.
-			// TODO: benchmark properly - this is a poor estimate. We miss key decoding and proof
-            // validation
-			T::DbWeight::get().reads(1)
-		)]
+		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(origin: OriginFor<T>, keys: Vec<u8>, proof: Vec<u8>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
@@ -1007,8 +1010,11 @@ pub mod pallet {
 			);
 
 			// Forward validated keys to RC (no proof needed, already validated)
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			T::SendToRelayChain::set_keys(stash.clone(), keys)
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			#[cfg(feature = "runtime-benchmarks")]
+			let _ = (stash.clone(), keys);
 
 			log::info!(target: LOG_TARGET, "Session keys validated and set for {stash:?}, forwarded to RC");
 
@@ -1021,10 +1027,7 @@ pub mod pallet {
 		///
 		/// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
-		#[pallet::weight(
-			// One read to check if caller is a validator. XCM forwarding has no local storage ops.
-			T::DbWeight::get().reads(1)
-		)]
+		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
@@ -1032,8 +1035,11 @@ pub mod pallet {
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
 			// Forward purge request to RC via XCM
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			T::SendToRelayChain::purge_keys(stash.clone())
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			#[cfg(feature = "runtime-benchmarks")]
+			let _ = stash.clone();
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
 

@@ -483,6 +483,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type SessionKeys = AHSessionKeys;
+	type WeightInfo = ();
 }
 
 parameter_types! {

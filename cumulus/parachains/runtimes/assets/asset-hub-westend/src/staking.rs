@@ -326,6 +326,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type SessionKeys = RelayChainSessionKeys;
+	type WeightInfo = ();
 }
 
 #[derive(Encode, Decode)]
