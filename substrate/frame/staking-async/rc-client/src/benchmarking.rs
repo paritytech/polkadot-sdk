@@ -44,11 +44,16 @@ pub trait Config: crate::Config {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use frame_support::BoundedVec;
 
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
 		let stash = T::setup_validator();
 		let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
+		let keys: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysLength> =
+			keys.try_into().expect("keys should fit in bounded vec");
+		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
+			proof.try_into().expect("proof should fit in bounded vec");
 
 		#[extrinsic_call]
 		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, proof);
@@ -60,6 +65,10 @@ mod benchmarks {
 	fn purge_keys() -> Result<(), BenchmarkError> {
 		let stash = T::setup_validator();
 		let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
+		let keys: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysLength> =
+			keys.try_into().expect("keys should fit in bounded vec");
+		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
+			proof.try_into().expect("proof should fit in bounded vec");
 
 		// First set keys so we have something to purge
 		assert_ok!(crate::Pallet::<T>::set_keys(

@@ -1402,12 +1402,15 @@ mod session_keys {
 	use super::*;
 	use crate::ah::mock::{Balances, ProxyType};
 	use codec::Encode;
-	use frame_support::assert_noop;
+	use frame_support::{assert_noop, BoundedVec};
+
+	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
+	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
 
 	/// Helper to create properly encoded session keys and ownership proof.
-	fn make_session_keys_and_proof(owner: AccountId) -> (Vec<u8>, Vec<u8>) {
+	fn make_session_keys_and_proof(owner: AccountId) -> (Keys, Proof) {
 		let generated = AHSessionKeys::generate(&owner.encode(), None);
-		(generated.keys.encode(), generated.proof.encode())
+		(generated.keys.encode().try_into().unwrap(), generated.proof.encode().try_into().unwrap())
 	}
 
 	#[test]
@@ -1465,8 +1468,9 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 1 is a validator with malformed keys
 			let validator: AccountId = 1;
-			let invalid_keys = vec![0xff, 0xfe, 0xfd]; // Cannot be decoded as AHSessionKeys
-			let proof = vec![];
+			// Cannot be decoded as AHSessionKeys
+			let invalid_keys: Keys = vec![0xff, 0xfe, 0xfd].try_into().unwrap();
+			let proof: Proof = vec![].try_into().unwrap();
 
 			// WHEN: Validator tries to set invalid keys
 			// THEN: InvalidKeys error is returned
@@ -1508,7 +1512,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with valid keys but empty proof
 			let validator: AccountId = 1;
 			let (keys, _) = make_session_keys_and_proof(validator);
-			let empty_proof = vec![];
+			let empty_proof: Proof = vec![].try_into().unwrap();
 
 			// WHEN: Validator tries to set keys with empty proof
 			// THEN: InvalidProof error is returned
@@ -1529,7 +1533,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with valid keys but malformed proof
 			let validator: AccountId = 1;
 			let (keys, _) = make_session_keys_and_proof(validator);
-			let malformed_proof = vec![0xde, 0xad, 0xbe, 0xef];
+			let malformed_proof: Proof = vec![0xde, 0xad, 0xbe, 0xef].try_into().unwrap();
 
 			// WHEN: Validator tries to set keys with malformed proof
 			// THEN: InvalidProof error is returned

@@ -326,6 +326,18 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type SessionKeys = RelayChainSessionKeys;
+	// | Key                 | Crypto  | Public Key | Signature |
+	// |---------------------|---------|------------|-----------|
+	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
+	// | babe                | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_validator      | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_assignment     | Sr25519 | 32 bytes   | 64 bytes  |
+	// | authority_discovery | Sr25519 | 32 bytes   | 64 bytes  |
+	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
+	// | Total               |         | 193 bytes  | 385 bytes |
+	// We add some buffer for SCALE encoding overhead and future expansions
+	type MaxSessionKeysLength = ConstU32<256>;
+	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();
 }
 

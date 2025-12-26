@@ -791,6 +791,14 @@ pub mod pallet {
 		/// to verify the keys can be properly decoded.
 		type SessionKeys: OpaqueKeys + Decode;
 
+		/// Maximum length of encoded session keys.
+		#[pallet::constant]
+		type MaxSessionKeysLength: Get<u32>;
+
+		/// Maximum length of the session keys ownership proof.
+		#[pallet::constant]
+		type MaxSessionKeysProofLength: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -993,7 +1001,11 @@ pub mod pallet {
 		/// reasonable not to require a deposit.
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_keys())]
-		pub fn set_keys(origin: OriginFor<T>, keys: Vec<u8>, proof: Vec<u8>) -> DispatchResult {
+		pub fn set_keys(
+			origin: OriginFor<T>,
+			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
+			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
+		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
 			// Only registered validators can set session keys
@@ -1011,7 +1023,7 @@ pub mod pallet {
 
 			// Forward validated keys to RC (no proof needed, already validated)
 			#[cfg(not(feature = "runtime-benchmarks"))]
-			T::SendToRelayChain::set_keys(stash.clone(), keys)
+			T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
 			#[cfg(feature = "runtime-benchmarks")]
 			let _ = (stash.clone(), keys);

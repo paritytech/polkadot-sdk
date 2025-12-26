@@ -5,7 +5,7 @@ doc:
     Added session keys handling on AssetHub for staking-async:
     - Validators can now call `set_keys` and `purge_keys` on AssetHub, which forwards the request to the RelayChain via XCM.
     - Session keys and ownership proof are validated on AssetHub before forwarding. Only validated keys are sent to RC (no proof), as RC trusts AH's validation.
-    - Staking proxies can call `set_keys` and `purge_keys` on behalf of validators. The `ProxyType::Staking` filter on runtime needs to be updated to include these calls.
+    - Staking proxies can call `set_keys` and `purge_keys` on behalf of validators. The `ProxyType::Staking` filter on runtime has been updated to include these calls.
     - Validators are still allowed to call `set_keys` and `purge_keys` via relay-chain pallet-session's extrinsics. This option will be deprecated in the future.
     - No key deposit is required on AssetHub.
 crates:
