@@ -166,11 +166,6 @@ fn remote_transfer_xcm<Call>(
 		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset.clone() },
 		SetAppendix(Xcm(vec![
-			ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(MockRuntimeParachainId::get().into())).into(),
-				query_id: 1,
-				max_weight: Weight::MAX,
-			}),
 			RefundSurplus,
 			DepositAsset {
 				assets: AssetFilter::Wild(WildAsset::All),
