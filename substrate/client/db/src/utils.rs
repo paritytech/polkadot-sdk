@@ -346,10 +346,9 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 		},
 	}
 
-	db_config.columns[crate::columns::ARCHIVE as usize].comparator =
-		Some(std::sync::Arc::new(kvdb_rocksdb::ComparatorWrapper::new(
-			crate::archive_db::compare_keys::<<Block::Header as sp_runtime::traits::Header>::Number>,
-		)));
+	db_config.columns[crate::columns::ARCHIVE as usize].comparator = Some(
+		crate::archive_db::compare_keys::<<Block::Header as sp_runtime::traits::Header>::Number>,
+	);
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened

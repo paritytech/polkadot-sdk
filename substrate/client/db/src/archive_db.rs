@@ -118,7 +118,12 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				Ok(None)
 			}
 		};
-		log::trace!("Archive storage query result: {} is {:?}", key.hex("0x"), res);
+		log::trace!(
+			"Archive storage query result: {} is {:?}",
+			key.hex("0x"),
+			res.as_ref()
+				.map(|opt| opt.as_ref().map(|val| val.chunks(32).next().unwrap_or(&[])))
+		);
 		res
 	}
 
@@ -344,20 +349,25 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				.db
 				.seekable_iter(columns::ARCHIVE)
 				.expect("Archive column space must exist if ArchiveDb exists");
+			// seek will find a key equal or greater than next_key, and thus strictly greater than
+			// 'key'
 			iter.seek(next_key.as_ref());
 
-			if let Some((next_key, _)) = iter.get() {
-				let next_key = FullStorageKey::<<Block::Header as Header>::Number>::from(next_key);
+			if let Some((next_full_key, _)) = iter.get() {
+				let next_full_key = FullStorageKey::<<Block::Header as Header>::Number>::from(next_full_key);
 				// since child storage keys are ordered after main storage keys, if we iterated to a
 				// child storage key, we passed all main storage keys
-				if next_key.storage_type() != storage_type {
+				if next_full_key.storage_type() != storage_type {
 					return Ok(None);
 				}
-				if next_key.number() != self.block_number {
+				let next_full_key = next_full_key.to_owned();
+				if next_full_key.number() != self.block_number {
 					// this key points at a state older or newer than the current state,
 					// we need the state either equal to or exactly preceding the current state
+					// seek_prev will find a full key that conforms to this properties (but if such
+					// key doesn't exist, we'll circle back to original 'key')
 					iter.seek_prev(
-						FullStorageKey::new(next_key.key(), storage_type, self.block_number)
+						FullStorageKey::new(next_full_key.key(), storage_type, self.block_number)
 							.as_ref(),
 					);
 				}
@@ -366,7 +376,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 						FullStorageKey::<<Block::Header as Header>::Number>::from(next_key);
 					if next_key.key() == key {
 						// the found key does not appear at the current state, continue searching
-						key = next_key.key().to_owned();
+						key = next_full_key.key().to_owned();
 						continue;
 					} else {
 						let value = match Option::<Vec<u8>>::decode(&mut encoded_value.as_slice()) {
@@ -619,6 +629,11 @@ impl<'a, BlockNumber: Encode + Decode> FullStorageKey<'a, BlockNumber> {
 
 	fn number_offset(&self) -> usize {
 		self.as_ref().len() - self.number_size()
+	}
+
+	// ToOwned trait doesn't work with these lifetimes
+	fn to_owned(&self) -> FullStorageKey<'static, BlockNumber> {
+		FullStorageKey::Owned(self.as_ref().to_vec(), Default::default())
 	}
 }
 
