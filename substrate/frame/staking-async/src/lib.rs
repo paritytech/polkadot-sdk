@@ -496,22 +496,6 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	}
 }
 
-/// A hook to setup the environment for benchmarks.
-#[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper {
-	fn setup() {}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelper for () {}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<T: pallet_dap::Config> BenchmarkHelper for pallet_dap::DapBenchmarkHelper<T> {
-	fn setup() {
-		Self::setup();
-	}
-}
-
 /// Mode of era-forcing.
 #[derive(
 	Copy,

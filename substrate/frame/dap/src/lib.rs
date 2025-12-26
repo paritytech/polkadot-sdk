@@ -208,18 +208,3 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 			});
 	}
 }
-
-/// Benchmark helper that ensures the DAP buffer account exists.
-///
-/// Use this in runtime configs that require a benchmark helper for pallets using DAP.
-/// Example: `type BenchmarkHelper = pallet_dap::DapBenchmarkHelper<Runtime>`
-#[cfg(feature = "runtime-benchmarks")]
-pub struct DapBenchmarkHelper<T: Config>(core::marker::PhantomData<T>);
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> DapBenchmarkHelper<T> {
-	/// Setup the DAP buffer account for benchmarks.
-	pub fn setup() {
-		Pallet::<T>::create_buffer_account();
-	}
-}

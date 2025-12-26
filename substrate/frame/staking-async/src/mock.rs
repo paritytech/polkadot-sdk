@@ -466,8 +466,6 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
 	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

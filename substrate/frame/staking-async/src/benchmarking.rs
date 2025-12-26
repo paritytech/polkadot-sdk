@@ -219,7 +219,7 @@ impl<T: Config> ListScenario<T> {
 
 const USER_SEED: u32 = 999666;
 
-#[benchmarks]
+#[benchmarks(where T: pallet_dap::Config)]
 mod benchmarks {
 	use super::*;
 	use alloc::format;
@@ -967,7 +967,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn apply_slash() -> Result<(), BenchmarkError> {
-		T::BenchmarkHelper::setup();
+		// Ensure DAP buffer account exists for benchmarks.
+		pallet_dap::Pallet::<T>::create_buffer_account();
 
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });

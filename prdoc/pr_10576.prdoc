@@ -31,7 +31,7 @@ crates:
 - name: westend-runtime
   bump: major
 - name: pallet-staking-async
-  bump: patch
+  bump: minor
 - name: pallet-staking-async-parachain-runtime
   bump: major
 - name: pallet-staking-async-rc-runtime

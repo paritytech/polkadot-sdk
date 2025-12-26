@@ -359,13 +359,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// A hook to setup the environment for benchmarks.
-		///
-		/// This is useful for setting up dependent pallet state (e.g., creating DAP buffer account)
-		/// that isn't automatically initialized in benchmark environments.
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::BenchmarkHelper;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -415,8 +408,6 @@ pub mod pallet {
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
-			#[cfg(feature = "runtime-benchmarks")]
-			type BenchmarkHelper = ();
 		}
 	}
 

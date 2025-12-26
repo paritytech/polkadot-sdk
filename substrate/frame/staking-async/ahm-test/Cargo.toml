@@ -50,23 +50,6 @@ pallet-staking = { workspace = true, default-features = true }
 std = [
 	"log/std",
 ]
-runtime-benchmarks = [
-	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-dap/runtime-benchmarks",
-	"pallet-election-provider-multi-block/runtime-benchmarks",
-	"pallet-offences/runtime-benchmarks",
-	"pallet-root-offences/runtime-benchmarks",
-	"pallet-session/runtime-benchmarks",
-	"pallet-staking-async-ah-client/runtime-benchmarks",
-	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"pallet-staking-async/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
-]
 try-runtime = [
 	"pallet-balances/try-runtime",
 

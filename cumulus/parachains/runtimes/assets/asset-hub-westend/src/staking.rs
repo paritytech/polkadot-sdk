@@ -300,8 +300,6 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = pallet_dap::DapBenchmarkHelper<Runtime>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
