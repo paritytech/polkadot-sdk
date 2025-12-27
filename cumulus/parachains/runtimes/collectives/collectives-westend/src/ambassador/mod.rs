@@ -155,6 +155,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
+	type MaxDepositContributions = ConstU32<512>;
 }
 
 parameter_types! {

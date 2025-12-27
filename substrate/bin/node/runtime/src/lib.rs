@@ -1065,6 +1065,7 @@ impl pallet_referenda::Config for Runtime {
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
+	type MaxDepositContributions = ConstU32<512>;
 }
 
 impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
@@ -1086,6 +1087,7 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
+	type MaxDepositContributions = ConstU32<512>;
 }
 
 impl pallet_ranked_collective::Config for Runtime {

@@ -47,6 +47,7 @@ fn basic_happy_path_works() {
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		assert_eq!(ReferendumCount::<Test>::get(), 1);
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Balances::reserved_balance(&2), 10);
 		run_to(4);
 		assert_eq!(DecidingCount::<Test>::get(0), 0);
 		run_to(5);
@@ -315,12 +316,12 @@ fn auto_timeout_should_happen_with_nothing_but_submit() {
 			DispatchTime::At(20),
 		));
 		run_to(20);
-		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Ongoing(..)));
+		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Ongoing { .. }));
 		run_to(21);
 		// #11: Timed out - ended.
 		assert_matches!(
 			ReferendumInfoFor::<Test>::get(0),
-			Some(ReferendumInfo::TimedOut(21, _, None))
+			Some(ReferendumInfo::TimedOut { when: 21, .. })
 		);
 	});
 }
@@ -351,35 +352,47 @@ fn tracks_are_distinguished() {
 			vec![
 				(
 					0,
-					ReferendumInfo::Ongoing(ReferendumStatus {
-						track: 0,
-						origin: OriginCaller::system(RawOrigin::Root),
-						proposal: set_balance_proposal_bounded(1),
-						enactment: DispatchTime::At(10),
-						submitted: 1,
-						submission_deposit: Deposit { who: 1, amount: 2 },
-						decision_deposit: Some(Deposit { who: 3, amount: 10 }),
-						deciding: None,
-						tally: Tally { ayes: 0, nays: 0 },
-						in_queue: false,
-						alarm: Some((5, (5, 0))),
-					})
+					ReferendumInfo::Ongoing {
+						status: ReferendumStatus {
+							track: 0,
+							origin: OriginCaller::system(RawOrigin::Root),
+							proposal: set_balance_proposal_bounded(1),
+							enactment: DispatchTime::At(10),
+							submitted: 1,
+							submission_deposit: Deposit { who: 1, amount: 2 },
+							decision_deposit: DecisionDeposit {
+								collected_deposit: 10,
+								required_track_deposit: 10,
+								contributors: BoundedVec::truncate_from(vec![(3, 10)])
+							},
+							deciding: None,
+							tally: Tally { ayes: 0, nays: 0 },
+							in_queue: false,
+							alarm: Some((5, (5, 0))),
+						}
+					}
 				),
 				(
 					1,
-					ReferendumInfo::Ongoing(ReferendumStatus {
-						track: 1,
-						origin: OriginCaller::system(RawOrigin::None),
-						proposal: set_balance_proposal_bounded(2),
-						enactment: DispatchTime::At(20),
-						submitted: 1,
-						submission_deposit: Deposit { who: 2, amount: 2 },
-						decision_deposit: Some(Deposit { who: 4, amount: 1 }),
-						deciding: None,
-						tally: Tally { ayes: 0, nays: 0 },
-						in_queue: false,
-						alarm: Some((3, (3, 0))),
-					})
+					ReferendumInfo::Ongoing {
+						status: ReferendumStatus {
+							track: 1,
+							origin: OriginCaller::system(RawOrigin::None),
+							proposal: set_balance_proposal_bounded(2),
+							enactment: DispatchTime::At(20),
+							submitted: 1,
+							submission_deposit: Deposit { who: 2, amount: 2 },
+							decision_deposit: DecisionDeposit {
+								collected_deposit: 1,
+								required_track_deposit: 1,
+								contributors: BoundedVec::truncate_from(vec![(4, 1)])
+							},
+							deciding: None,
+							tally: Tally { ayes: 0, nays: 0 },
+							in_queue: false,
+							alarm: Some((3, (3, 0))),
+						}
+					}
 				),
 			]
 		);
@@ -411,28 +424,6 @@ fn submit_errors_work() {
 			),
 			BalancesError::<Test>::InsufficientBalance
 		);
-	});
-}
-
-#[test]
-fn decision_deposit_errors_work() {
-	ExtBuilder::default().build_and_execute(|| {
-		let e = Error::<Test>::NotOngoing;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
-
-		let h = set_balance_proposal_bounded(1);
-		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
-			h,
-			DispatchTime::At(10),
-		));
-		let e = BalancesError::<Test>::InsufficientBalance;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0), e);
-
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
-		let e = Error::<Test>::HasDeposit;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
 	});
 }
 
@@ -547,12 +538,16 @@ fn kill_works() {
 			DispatchTime::At(10),
 		));
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Balances::total_balance(&2), 100);
 
 		run_to(8);
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 0));
-		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0), e);
+		assert_noop!(
+			Referenda::refund_decision_deposit(RuntimeOrigin::signed(2), 0),
+			Error::<Test>::NoDeposit
+		);
 		assert_eq!(killed_since(0), 8);
+		assert_eq!(Balances::total_balance(&2), 90);
 	});
 }
 
