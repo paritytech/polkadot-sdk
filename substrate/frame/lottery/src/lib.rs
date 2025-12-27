@@ -280,6 +280,8 @@ pub mod pallet {
 						} else {
 							// Else, kill the lottery storage.
 							*lottery = None;
+							// Clean up the sufficient reference since lottery is ending
+    						frame_system::Pallet::<T>::dec_sufficients(&lottery_account);
 							return T::WeightInfo::on_initialize_end()
 						}
 						// We choose not need to kill Participants and Tickets to avoid a large
@@ -376,10 +378,7 @@ pub mod pallet {
 				Ok(())
 			})?;
 			// Make sure pot has a sufficient reference to avoid account death during payout
-			let lottery_account = Self::account_id();
-			if frame_system::Pallet::<T>::sufficients(&lottery_account) == 0 {
-				frame_system::Pallet::<T>::inc_sufficients(&lottery_account);
-			}
+			frame_system::Pallet::<T>::inc_sufficients(&Self::account_id());
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())
 		}
