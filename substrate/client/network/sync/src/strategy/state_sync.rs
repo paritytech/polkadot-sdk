@@ -138,20 +138,22 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
+/// Defines how trie nodes are imported during state sync.
+enum TrieNodeImportMode {
+	/// Incremental mode: write nodes directly to storage as they arrive.
+	Incremental { writer: Arc<dyn TrieNodeWriter>, nodes_written: u64 },
+	/// Legacy mode: accumulate nodes in memory for later import.
+	Accumulated { nodes: Vec<(Vec<u8>, Vec<u8>)> },
+}
+
 /// State sync state machine.
 ///
 /// Accumulates partial state data until it is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
-	/// Optional writer for incremental trie node import.
-	/// When set, trie nodes are written directly to storage as each chunk arrives.
-	/// When None, trie nodes are accumulated in memory (legacy behavior).
-	trie_node_writer: Option<Arc<dyn TrieNodeWriter>>,
-	/// Accumulated trie nodes when no writer is provided (legacy fallback).
-	trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
-	/// Count of trie nodes written incrementally.
-	trie_nodes_written: u64,
+	/// How trie nodes are imported during sync.
+	trie_node_import_mode: TrieNodeImportMode,
 	client: Arc<Client>,
 }
 
@@ -173,6 +175,11 @@ where
 		skip_proof: bool,
 		trie_node_writer: Option<Arc<dyn TrieNodeWriter>>,
 	) -> Self {
+		let trie_node_import_mode = match trie_node_writer {
+			Some(writer) => TrieNodeImportMode::Incremental { writer, nodes_written: 0 },
+			None => TrieNodeImportMode::Accumulated { nodes: Vec::new() },
+		};
+
 		Self {
 			client,
 			metadata: StateSyncMetadata {
@@ -185,9 +192,7 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
-			trie_node_writer,
-			trie_nodes: Vec::new(),
-			trie_nodes_written: 0,
+			trie_node_import_mode,
 		}
 	}
 
@@ -195,20 +200,21 @@ where
 	fn process_trie_nodes(&mut self, chunk_nodes: Vec<(Vec<u8>, Vec<u8>)>) {
 		let node_count = chunk_nodes.len() as u64;
 
-		if let Some(ref writer) = self.trie_node_writer {
-			// Incremental mode: write directly to storage
-			if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
-				// Log error but continue - the final state root check will catch issues
-				debug!(
-					target: LOG_TARGET,
-					"Failed to write trie nodes incrementally: {}", e
-				);
-			} else {
-				self.trie_nodes_written += node_count;
-			}
-		} else {
-			// Legacy mode: accumulate in memory
-			self.trie_nodes.extend(chunk_nodes);
+		match &mut self.trie_node_import_mode {
+			TrieNodeImportMode::Incremental { writer, nodes_written } => {
+				if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
+					// Log error but continue - the final state root check will catch issues
+					debug!(
+						target: LOG_TARGET,
+						"Failed to write trie nodes incrementally: {e}"
+					);
+				} else {
+					*nodes_written += node_count;
+				}
+			},
+			TrieNodeImportMode::Accumulated { nodes } => {
+				nodes.extend(chunk_nodes);
+			},
 		}
 	}
 
@@ -355,22 +361,22 @@ where
 			let target_hash = self.metadata.target_hash();
 
 			// Determine trie_nodes based on whether incremental writing was used
-			let trie_nodes = if self.trie_node_writer.is_some() {
-				// Incremental mode: nodes already written to storage
-				info!(
-					target: LOG_TARGET,
-					"State sync complete: {} trie nodes written incrementally",
-					self.trie_nodes_written
-				);
-				None
-			} else {
-				// Legacy mode: return accumulated nodes
-				info!(
-					target: LOG_TARGET,
-					"State sync complete: {} trie nodes accumulated",
-					self.trie_nodes.len()
-				);
-				Some(std::mem::take(&mut self.trie_nodes))
+			let trie_nodes = match &mut self.trie_node_import_mode {
+				TrieNodeImportMode::Incremental { nodes_written, .. } => {
+					info!(
+						target: LOG_TARGET,
+						"State sync complete: {nodes_written} trie nodes written incrementally"
+					);
+					None
+				},
+				TrieNodeImportMode::Accumulated { ref mut nodes } => {
+					info!(
+						target: LOG_TARGET,
+						"State sync complete: {} trie nodes accumulated",
+						nodes.len()
+					);
+					Some(std::mem::take(nodes))
+				},
 			};
 
 			ImportResult::Import(
