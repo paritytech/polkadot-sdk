@@ -1,0 +1,10 @@
+title: 'Paras: Clean up `AuthorizedCodeHash` when offboarding'
+doc:
+- audience: Runtime Dev
+  description: This PR updates the `Paras` pallet to clear entries in `AuthorizedCodeHash`
+    as part of the offboarding process.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: westend-runtime
+  bump: patch

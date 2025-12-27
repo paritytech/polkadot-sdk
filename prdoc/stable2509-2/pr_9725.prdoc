@@ -1,0 +1,15 @@
+title: 'bags-list: implement pending rebag'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix the issue where registering a nominator or validator while the bags list is locked would completely ignore the account, making it unreachable for on_idle rebagging.
+
+    Changes:
+    - Add PendingRebag storage to queue accounts that fail insertion during lock.
+    - Modify on_idle to process pending accounts with priority before regular accounts.
+    - Add cleanup logic for non-staking pending accounts.
+crates:
+- name: pallet-bags-list
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

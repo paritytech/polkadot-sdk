@@ -320,7 +320,7 @@ pub(crate) mod v7 {
 	}
 
 	#[allow(dead_code)]
-	#[derive(RuntimeDebugNoBound)]
+	#[derive(DebugNoBound)]
 	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 	pub struct V7BondedPool<T: Config> {
 		/// The identifier of the pool.
@@ -442,7 +442,7 @@ mod v6 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// there should be no ED imbalances anymore..
-			Pallet::<T>::check_ed_imbalance()
+			Pallet::<T>::check_ed_imbalance().map(|_| ())
 		}
 	}
 }

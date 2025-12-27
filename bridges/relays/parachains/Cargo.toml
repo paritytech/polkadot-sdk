@@ -14,15 +14,13 @@ workspace = true
 async-std = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-log = { workspace = true }
 relay-utils = { workspace = true }
+tracing = { workspace = true }
 
 # Bridge dependencies
-
 bp-polkadot-core = { workspace = true, default-features = true }
 relay-substrate-client = { workspace = true }
 
 [dev-dependencies]
-codec = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }
 sp-core = { workspace = true, default-features = true }

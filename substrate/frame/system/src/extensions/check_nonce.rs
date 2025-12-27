@@ -15,16 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
+
 use crate::Config;
-use alloc::vec;
-use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::DispatchInfo, pallet_prelude::TransactionSource, RuntimeDebugNoBound,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::{dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
+		AsSystemOriginSigner, CheckedAdd, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
 		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{
@@ -46,14 +47,61 @@ use sp_weights::Weight;
 /// step. This means that other extensions ahead of `CheckNonce` in the pipeline must not alter the
 /// nonce during their own preparation step, or else the transaction may be rejected during dispatch
 /// or lead to an inconsistent account state.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
+
+/// For a valid transaction the provides and requires information related to the nonce.
+pub struct ValidNonceInfo {
+	/// The encoded `provides` used for this transaction.
+	pub provides: Vec<Vec<u8>>,
+	/// The encoded `requires` used for this transaction.
+	pub requires: Vec<Vec<u8>>,
+}
 
 impl<T: Config> CheckNonce<T> {
 	/// utility constructor. Used only in client/factory code.
 	pub fn from(nonce: T::Nonce) -> Self {
 		Self(nonce)
+	}
+
+	/// In transaction extension, validate nonce for account, on success returns provides and
+	/// requires.
+	pub fn validate_nonce_for_account(
+		who: &T::AccountId,
+		nonce: T::Nonce,
+	) -> Result<ValidNonceInfo, TransactionValidityError> {
+		let account = crate::Account::<T>::get(who);
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
+		if nonce < account.nonce {
+			return Err(InvalidTransaction::Stale.into())
+		}
+
+		let provides = vec![Encode::encode(&(who.clone(), nonce))];
+		let requires = if account.nonce < nonce {
+			vec![Encode::encode(&(who.clone(), nonce.saturating_sub(One::one())))]
+		} else {
+			vec![]
+		};
+
+		Ok(ValidNonceInfo { provides, requires })
+	}
+
+	/// In transaction extension, prepare nonce for account.
+	pub fn prepare_nonce_for_account(
+		who: &T::AccountId,
+		mut nonce: T::Nonce,
+	) -> Result<(), TransactionValidityError> {
+		let account = crate::Account::<T>::get(who);
+		if nonce > account.nonce {
+			return Err(InvalidTransaction::Future.into())
+		}
+		nonce = nonce.checked_add(&T::Nonce::one()).unwrap_or(T::Nonce::zero());
+		crate::Account::<T>::mutate(who, |account| account.nonce = nonce);
+		Ok(())
 	}
 }
 
@@ -70,17 +118,17 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 }
 
 /// Operation to perform from `validate` to `prepare` in [`CheckNonce`] transaction extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	/// Account and its nonce to check for.
-	CheckNonce((T::AccountId, T::Nonce)),
+	CheckNonce(T::AccountId),
 	/// Weight to refund.
 	Refund(Weight),
 }
 
 /// Operation to perform from `prepare` to `post_dispatch_details` in [`CheckNonce`] transaction
 /// extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Pre {
 	/// The transaction extension weight should not be refunded.
 	NonceChecked,
@@ -115,21 +163,7 @@ where
 		let Some(who) = origin.as_system_origin_signer() else {
 			return Ok((Default::default(), Val::Refund(self.weight(call)), origin))
 		};
-		let account = crate::Account::<T>::get(who);
-		if account.providers.is_zero() && account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
-		}
-		if self.0 < account.nonce {
-			return Err(InvalidTransaction::Stale.into())
-		}
-
-		let provides = vec![Encode::encode(&(&who, self.0))];
-		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(&who, self.0.saturating_sub(One::one())))]
-		} else {
-			vec![]
-		};
+		let ValidNonceInfo { provides, requires } = Self::validate_nonce_for_account(who, self.0)?;
 
 		let validity = ValidTransaction {
 			priority: 0,
@@ -139,7 +173,7 @@ where
 			propagate: true,
 		};
 
-		Ok((validity, Val::CheckNonce((who.clone(), account.nonce)), origin))
+		Ok((validity, Val::CheckNonce(who.clone()), origin))
 	}
 
 	fn prepare(
@@ -150,18 +184,11 @@ where
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (who, mut nonce) = match val {
-			Val::CheckNonce((who, nonce)) => (who, nonce),
+		let (who, nonce) = match val {
+			Val::CheckNonce(who) => (who, self.0),
 			Val::Refund(weight) => return Ok(Pre::Refund(weight)),
 		};
-
-		// `self.0 < nonce` already checked in `validate`.
-		if self.0 > nonce {
-			return Err(InvalidTransaction::Future.into())
-		}
-		nonce += T::Nonce::one();
-		crate::Account::<T>::mutate(who, |account| account.nonce = nonce);
-		Ok(Pre::NonceChecked)
+		Self::prepare_nonce_for_account(&who, nonce).map(|_| Pre::NonceChecked)
 	}
 
 	fn post_dispatch_details(
@@ -186,7 +213,7 @@ mod tests {
 		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
 	};
 	use sp_runtime::{
-		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, TxBaseImplication},
 		transaction_validity::TransactionSource::External,
 	};
 
@@ -335,7 +362,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
-				.validate(None.into(), CALL, &info, len, (), CALL, External)
+				.validate(None.into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
 				.unwrap();
 			assert!(!origin.is_transaction_authorized());
 			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
@@ -359,7 +386,7 @@ mod tests {
 			let len = 0_usize;
 			// run the validation step
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
-				.validate(Some(1).into(), CALL, &info, len, (), CALL, External)
+				.validate(Some(1).into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
 				.unwrap();
 			// mutate `AccountData` for the caller
 			crate::Account::<Test>::mutate(1, |info| {

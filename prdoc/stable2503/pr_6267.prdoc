@@ -1,0 +1,171 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow configurable number of genesis accounts with specified balances for benchmarking.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This pull request adds an additional field `dev_accounts` to the `GenesisConfig`
+      of the balances pallet, feature gated by `runtime-benchmarks`.
+
+      Bringing about an abitrary number of derived dev accounts when building the genesis
+      state. Runtime developers should supply a derivation path that includes an index placeholder
+      (i.e. "//Sender/{}") to generate multiple accounts from the same root in a consistent
+      manner.
+
+crates:
+  - name: substrate-test-runtime
+    bump: minor
+  - name: pallet-vesting
+    bump: patch
+  - name: pallet-utility
+    bump: patch
+  - name: pallet-tx-pause
+    bump: patch
+  - name: pallet-treasury
+    bump: patch
+  - name: pallet-transaction-storage
+    bump: patch
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: pallet-asset-tx-payment
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-tips
+    bump: patch
+  - name: pallet-state-trie-migration
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-society
+    bump: patch
+  - name: pallet-safe-mode
+    bump: patch
+  - name: pallet-scored-pool
+    bump: patch
+  - name: pallet-statement
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-mock-network
+    bump: patch
+  - name: pallet-referenda
+    bump: patch
+  - name: pallet-recovery
+    bump: patch
+  - name: pallet-proxy
+    bump: patch
+  - name: pallet-preimage
+    bump: patch
+  - name: pallet-nis
+    bump: patch
+  - name: pallet-nomination-pools-test-delegate-stake
+    bump: minor
+  - name: pallet-multisig
+    bump: patch
+  - name: pallet-lottery
+    bump: patch
+  - name: pallet-indices
+    bump: patch
+  - name: pallet-identity
+    bump: patch
+  - name: pallet-grandpa
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: patch
+  - name: frame-executive
+    bump: patch
+  - name: pallet-elections-phragmen
+    bump: patch
+  - name: pallet-election-provider-e2e-test
+    bump: minor
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: pallet-democracy
+    bump: patch
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
+  - name: pallet-contracts-mock-network
+    bump: patch
+  - name: pallet-collective
+    bump: patch
+  - name: pallet-child-bounties
+    bump: patch
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-beefy
+    bump: patch
+  - name: pallet-balances
+    bump: major
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-asset-conversion
+    bump: patch
+  - name: pallet-asset-conversion-ops
+    bump: patch
+  - name: pallet-asset-rewards
+    bump: patch
+  - name: pallet-atomic-swap
+    bump: patch
+  - name: pallet-alliance
+    bump: patch
+  - name: node-testing
+    bump: minor
+  - name: sc-chain-spec
+    bump: patch
+  - name: staging-chain-spec-builder
+    bump: patch
+  - name: xcm-simulator-fuzzer
+    bump: minor
+  - name: xcm-simulator-fuzzer
+    bump: minor
+  - name: xcm-simulator-example
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: staging-xcm-builder
+    bump: patch
+  - name: pallet-xcm
+    bump: patch
+  - name: xcm-docs
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: parachains-runtimes-test-utils
+    bump: patch
+  - name: westend-emulated-chain
+    bump: minor
+  - name: rococo-emulated-chain
+    bump: minor
+  - name: penpal-emulated-chain
+    bump: minor
+  - name: people-westend-emulated-chain
+    bump: minor
+  - name: people-rococo-emulated-chain
+    bump: minor
+  - name: coretime-westend-emulated-chain
+    bump: minor
+  - name: coretime-rococo-emulated-chain
+    bump: minor
+  - name: collectives-westend-emulated-chain
+    bump: minor
+  - name: bridge-hub-westend-emulated-chain
+    bump: minor
+  - name: bridge-hub-rococo-emulated-chain
+    bump: minor
+  - name: asset-hub-westend-emulated-chain
+    bump: minor
+  - name: asset-hub-rococo-emulated-chain
+    bump: minor
+  - name: pallet-collator-selection
+    bump: patch
+  - name: pallet-bridge-messages
+    bump: patch

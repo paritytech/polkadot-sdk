@@ -1,0 +1,107 @@
+title: "Implement `pallet-assets-holder` and consider ED part of frozen amount in `pallet-assets`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        This change creates the `pallet-assets-holder` pallet, as well as changes `pallet-assets`
+        to support querying held balances via a new trait: `BalanceOnHold`.
+
+        ## Changes in Balance Model
+        
+        The change also adjusts the balance model implementation for fungible sets. This aligns the
+        calculation of the _spendable_ balance (that can be reduced either via withdrawals, like
+        paying for fees, or transfer to other accounts) to behave like it works with native tokens.
+
+        As a consequence, when this change is introduced, adding freezes (a.k.a. locks) or balances
+        on hold (a.k.a. reserves) to an asset account will constraint the amount of balance for such
+        account that can be withdrawn or transferred, and will affect the ability for these accounts
+        to be destroyed.
+
+        ### Example
+
+        Before the changes in the balance model, an asset account balance could look like something like this:
+
+        ```
+        |____________balance____________|
+               |__frozen__|
+        |__ed__|
+        |___untouchable___|__spendable__|
+        ```
+
+        In the previous model, you could spend funds up to `ed + frozen` where `ed` is the minimum balance for an asset
+        class, and `frozen` is the frozen amount (if any `freezes` are in place).
+
+        Now, the model looks like this:
+
+        ```
+        |__total__________________________________|
+        |__on_hold__|_____________free____________|
+        |__________frozen___________|
+        |__on_hold__|__ed__|
+                    |__untouchable__|__spendable__|
+        ```
+
+        There's now a balance `on_hold` and a `free` balance. The balance `on_hold` is managed by a `Holder` (typically
+        `pallet-assets-holder`) and `free` is the balance that remains in `pallet-assets`. The `frozen` amount can be
+        subsumed into the balance `on_hold`, and now you can spend funds up to `max(frozen, ed)`, so if for an account,
+        `frozen` is less or equal than `on_hold + ed`, you'd be able to spend your `free` balance up to `ed`. If for
+        the account, `frozen` is more than `on_hold + ed`, the remaining amount after subtracting `frozen` to
+        `on_hold + ed` is the amount you cannot spend from your `free` balance.
+
+        See [sdk docs](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-)
+        to understand how to calculate the spendable balance of an asset account on the client side.
+
+        ## Implementation of `InspectHold` and `MutateHold`
+
+        The `pallet-assets-holder` implements `hold` traits for `pallet-assets`, by extending this
+        pallet and implementing the `BalanceOnHold` trait so the held balance can be queried by
+        `pallet-assets` to calculate the reducible (a.k.a. spendable) balance.
+        
+        These changes imply adding a configuration type in `pallet-assets` for `Holder`
+        
+        ## Default implementation of `Holder`
+        
+        Use `()` as the default value, when no holding capabilities are wanted in the runtime
+        implementation.
+
+        ## Enable `pallet-assets-holder`
+        
+        Define an instance of `pallet-assets-holder` (we'll call it `AssetsHolder`) and use
+        `AssetsHolder` as the type for `Holder`, when intend to use holding capabilities are
+        wanted in the runtime implementation.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-asset-tx-payment
+    bump: patch
+  - name: pallet-asset-conversion-ops
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-assets
+    bump: major
+  - name: pallet-assets-holder
+    bump: major
+  - name: pallet-assets-freezer
+    bump: patch
+  - name: pallet-contracts-mock-network
+    bump: patch
+  - name: pallet-nft-fractionalization
+    bump: patch
+  - name: pallet-revive-mock-network
+    bump: patch
+  - name: pallet-xcm
+    bump: patch
+  - name: penpal-runtime
+    bump: patch
+  - name: rococo-parachain-runtime
+    bump: patch
+  - name: polkadot-sdk
+    bump: minor
+  - name: staging-xcm-builder
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: patch

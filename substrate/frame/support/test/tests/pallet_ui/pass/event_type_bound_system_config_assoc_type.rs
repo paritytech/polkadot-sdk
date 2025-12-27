@@ -17,14 +17,15 @@
 
 #[frame_support::pallet]
 #[allow(unused_imports)]
-mod pallet {
+pub mod pallet {
 	use frame_support::pallet_prelude::{Hooks, IsType};
 	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<Hash = sp_core::H256> {
+	pub trait Config:
+		frame_system::Config<Hash = sp_core::H256, RuntimeEvent: From<Event<Self>>>
+	{
 		type Bar: Clone + std::fmt::Debug + Eq;
-		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
 	#[pallet::pallet]

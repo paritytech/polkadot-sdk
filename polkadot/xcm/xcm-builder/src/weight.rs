@@ -38,38 +38,83 @@ pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, ()> {
-		log::trace!(target: "xcm::weight", "FixedWeightBounds message: {:?}", message);
+	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
+		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left)
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instructions_left,
+					message_length = ?message.0.len(),
+					"Weight calculation failed for message"
+				);
+			},
+		)
 	}
-	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, ()> {
-		Self::instr_weight_with_limit(instruction, &mut u32::max_value())
+	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
+		let mut max_value = u32::MAX;
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instruction,
+					instrs_limit = ?max_value,
+					"Weight calculation failed for instruction"
+				);
+			},
+		)
 	}
 }
 
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
-		let mut r: Weight = Weight::zero();
-		*instrs_limit = instrs_limit.checked_sub(message.0.len() as u32).ok_or(())?;
-		for instruction in message.0.iter_mut() {
-			r = r
-				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or(())?;
+	fn weight_with_limit(
+		message: &mut Xcm<C>,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		let mut total_weight: Weight = Weight::zero();
+		for (index, instruction) in message.0.iter_mut().enumerate() {
+			let index = index.try_into().unwrap_or(InstructionIndex::MAX);
+			*instructions_left = instructions_left
+				.checked_sub(1)
+				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
+			total_weight = total_weight
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
-		Ok(r)
+		Ok(total_weight)
 	}
+
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
-		instrs_limit: &mut u32,
-	) -> Result<Weight, ()> {
-		let instr_weight = match instruction {
-			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, XcmError> {
+		let instruction_weight = match instruction {
+			Transact { ref mut call, .. } =>
+				call.ensure_decoded()
+					.map_err(|_| XcmError::FailedToDecode)?
+					.get_dispatch_info()
+					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
-				Self::weight_with_limit(xcm, instrs_limit)?,
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
+					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
-		T::get().checked_add(&instr_weight).ok_or(())
+		let total_weight = T::get().checked_add(&instruction_weight).ok_or(XcmError::Overflow)?;
+		Ok(total_weight)
 	}
 }
 
@@ -81,13 +126,34 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, ()> {
-		log::trace!(target: "xcm::weight", "WeightInfoBounds message: {:?}", message);
+	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
+		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left)
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instructions_left,
+					message_length = ?message.0.len(),
+					"Weight calculation failed for message"
+				);
+			},
+		)
 	}
-	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, ()> {
-		Self::instr_weight_with_limit(instruction, &mut u32::max_value())
+	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
+		let mut max_value = u32::MAX;
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instruction,
+					instrs_limit = ?max_value,
+					"Weight calculation failed for instruction"
+				);
+			},
+		)
 	}
 }
 
@@ -98,26 +164,54 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
-		let mut r: Weight = Weight::zero();
-		*instrs_limit = instrs_limit.checked_sub(message.0.len() as u32).ok_or(())?;
-		for instruction in message.0.iter_mut() {
-			r = r
-				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or(())?;
+	fn weight_with_limit(
+		message: &mut Xcm<C>,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		let mut total_weight: Weight = Weight::zero();
+		for (index, instruction) in message.0.iter_mut().enumerate() {
+			let index = index.try_into().unwrap_or(u8::MAX);
+			*instructions_left = instructions_left
+				.checked_sub(1)
+				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
+			total_weight = total_weight
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
-		Ok(r)
+		Ok(total_weight)
 	}
+
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
-		instrs_limit: &mut u32,
-	) -> Result<Weight, ()> {
-		let instr_weight = match instruction {
-			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
-			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, XcmError> {
+		let instruction_weight = match instruction {
+			Transact { ref mut call, .. } =>
+				call.ensure_decoded()
+					.map_err(|_| XcmError::FailedToDecode)?
+					.get_dispatch_info()
+					.call_weight,
+			SetErrorHandler(xcm) | SetAppendix(xcm) =>
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
+					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
-		instruction.weight().checked_add(&instr_weight).ok_or(())
+		let total_weight = instruction
+			.weight()
+			.checked_add(&instruction_weight)
+			.ok_or(XcmError::Overflow)?;
+		Ok(total_weight)
 	}
 }
 
@@ -154,28 +248,30 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		payment: AssetsInHolding,
 		context: &XcmContext,
 	) -> Result<AssetsInHolding, XcmError> {
-		log::trace!(
-			target: "xcm::weight",
-			"FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}",
-			weight, payment, context,
-		);
 		let (id, units_per_second, units_per_mb) = T::get();
+		tracing::trace!(
+			target: "xcm::weight",
+			?id, ?weight, ?payment, ?context,
+			"FixedRateOfFungible::buy_weight",
+		);
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		if amount == 0 {
 			return Ok(payment)
 		}
-		let unused =
-			payment.checked_sub((id, amount).into()).map_err(|_| XcmError::TooExpensive)?;
+		let unused = payment.checked_sub((id, amount).into()).map_err(|error| {
+			tracing::error!(target: "xcm::weight", ?amount, ?error, "FixedRateOfFungible::buy_weight Failed to substract from payment");
+			XcmError::TooExpensive
+		})?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		log::trace!(target: "xcm::weight", "FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}", weight, context);
 		let (id, units_per_second, units_per_mb) = T::get();
+		tracing::trace!(target: "xcm::weight", ?id, ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let weight = weight.min(self.0);
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
@@ -229,24 +325,30 @@ impl<
 		payment: AssetsInHolding,
 		context: &XcmContext,
 	) -> Result<AssetsInHolding, XcmError> {
-		log::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
+		tracing::trace!(target: "xcm::weight", ?weight, ?payment, ?context, "UsingComponents::buy_weight");
 		let amount = WeightToFee::weight_to_fee(&weight);
-		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;
+		let u128_amount: u128 = amount.try_into().map_err(|_| {
+			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
+			XcmError::Overflow
+		})?;
 		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
-		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
+		let unused = payment.checked_sub(required).map_err(|error| {
+			tracing::debug!(target: "xcm::weight", ?error, "Failed to substract from payment");
+			XcmError::TooExpensive
+		})?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight weight: {:?}, context: {:?}, available weight: {:?}, available amount: {:?}", weight, context, self.0, self.1);
+		tracing::trace!(target: "xcm::weight", ?weight, ?context, available_weight = ?self.0, available_amount = ?self.1, "UsingComponents::refund_weight");
 		let weight = weight.min(self.0);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.0 -= weight;
 		self.1 = self.1.saturating_sub(amount);
 		let amount: u128 = amount.saturated_into();
-		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight amount to refund: {:?}", amount);
+		tracing::trace!(target: "xcm::weight", ?amount, "UsingComponents::refund_weight");
 		if amount > 0 {
 			Some((AssetIdValue::get(), amount).into())
 		} else {

@@ -14,19 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use bitvec::{bitvec, prelude::Lsb0};
+use frame_benchmarking::v2::*;
+use pallet_message_queue as mq;
+use polkadot_primitives::{
+	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, HrmpChannelId,
+	OutboundHrmpMessage, SessionIndex,
+};
+
 use super::*;
 use crate::{
 	builder::generate_validator_pairs,
 	configuration,
 	hrmp::{HrmpChannel, HrmpChannels},
 	initializer, HeadData, ValidationCode,
-};
-use bitvec::{bitvec, prelude::Lsb0};
-use frame_benchmarking::benchmarks;
-use pallet_message_queue as mq;
-use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateCommitments,
-	HrmpChannelId, OutboundHrmpMessage, SessionIndex,
 };
 
 fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
@@ -70,7 +71,7 @@ fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 		BoundedVec::truncate_from(unbounded)
 	};
 
-	let new_validation_code = code_upgrade.then_some(ValidationCode(vec![42u8; 1024]));
+	let new_validation_code = code_upgrade.then_some(ValidationCode(vec![42_u8; 1024]));
 
 	CandidateCommitments::<u32> {
 		upward_messages,
@@ -87,18 +88,13 @@ fn create_messages(msg_len: usize, n_msgs: usize) -> Vec<Vec<u8>> {
 	vec![vec![best_number; msg_len]; n_msgs]
 }
 
-benchmarks! {
-	where_clause {
-		where
-			T: mq::Config + configuration::Config + initializer::Config,
-	}
+#[benchmarks(where T: mq::Config + configuration::Config + initializer::Config)]
+mod benchmarks {
+	use super::*;
 
-	enact_candidate {
-		let u in 0 .. 2;
-		let h in 0 .. 2;
-		let c in 0 .. 1;
-
-		let para = 42_u32.into();	// not especially important.
+	#[benchmark]
+	fn enact_candidate(u: Linear<0, 2>, h: Linear<0, 2>, c: Linear<0, 1>) {
+		let para = 42_u32.into(); // not especially important.
 
 		let max_len = mq::MaxMessageLenOf::<T>::get() as usize;
 
@@ -106,7 +102,7 @@ benchmarks! {
 		let n_validators = config.max_validators.unwrap_or(500);
 		let validators = generate_validator_pairs::<T>(n_validators);
 
-		let session = SessionIndex::from(0u32);
+		let session = SessionIndex::from(0_u32);
 		initializer::Pallet::<T>::test_trigger_on_new_session(
 			false,
 			session,
@@ -116,7 +112,7 @@ benchmarks! {
 		let backing_group_size = config.scheduler_params.max_validators_per_core.unwrap_or(5);
 		let head_data = HeadData(vec![0xFF; 1024]);
 
-		let relay_parent_number = BlockNumberFor::<T>::from(10u32);
+		let relay_parent_number = BlockNumberFor::<T>::from(10_u32);
 		let commitments = create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
 		let backers = bitvec![u8, Lsb0; 1; backing_group_size as usize];
 		let availability_votes = bitvec![u8, Lsb0; 1; n_validators as usize];
@@ -135,17 +131,26 @@ benchmarks! {
 			ValidationCode(vec![1, 2, 3]).hash(),
 		);
 
-		let receipt = CommittedCandidateReceipt::<T::Hash> {
-			descriptor,
-			commitments,
-		};
+		let receipt = CommittedCandidateReceipt::<T::Hash> { descriptor, commitments };
 
-		Pallet::<T>::receive_upward_messages(para, vec![vec![0; max_len]; 1].as_slice());
-	} : { Pallet::<T>::enact_candidate(relay_parent_number, receipt, backers, availability_votes, core_index, backing_group) }
+		Pallet::<T>::receive_upward_messages(para, &vec![vec![0; max_len]; 1]);
 
-	impl_benchmark_test_suite!(
+		#[block]
+		{
+			Pallet::<T>::enact_candidate(
+				relay_parent_number,
+				receipt,
+				backers,
+				availability_votes,
+				core_index,
+				backing_group,
+			);
+		}
+	}
+
+	impl_benchmark_test_suite! {
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
 		crate::mock::Test
-	);
+	}
 }

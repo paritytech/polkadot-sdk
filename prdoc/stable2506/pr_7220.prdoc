@@ -1,0 +1,25 @@
+title: Yet Another Parachain Runtime
+doc:
+- audience: Runtime Dev
+  description: Yet Another Parachain is introduced, with the main purpose to be a target for the
+    [Spammening](https://polkadot.com/spammening/) events, but also to be used like one more
+    general-purpose testing parachain runtime.
+crates:
+- name: yet-another-parachain-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
+- name: sc-basic-authorship
+  bump: minor
+- name: sc-transaction-pool
+  bump: minor
+- name: cumulus-pov-validator
+  bump: minor
+- name: sc-network-transactions
+  bump: minor
+- name: sc-service
+  bump: minor
+- name: sc-network
+  bump: minor
+- name: frame-system
+  bump: minor

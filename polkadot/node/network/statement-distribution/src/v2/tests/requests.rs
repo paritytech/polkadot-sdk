@@ -19,14 +19,16 @@ use super::*;
 use bitvec::order::Lsb0;
 use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
-	request_response::v2 as request_v2, v2::BackedCandidateManifest,
+	request_response::v2 as request_v2, v3::BackedCandidateManifest,
 };
 use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2};
 use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
-use polkadot_primitives::vstaging::MutateDescriptorV2;
+use polkadot_primitives::{
+	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
+};
 use rstest::rstest;
 
 #[rstest]
@@ -38,7 +40,6 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -122,7 +123,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -174,9 +175,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -202,13 +203,11 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: Some(AsyncBackingParams {
-			// Makes `seconding_limit: 2` (easier to hit the limit).
-			max_candidate_depth: 1,
-			allowed_ancestry_len: 3,
-		}),
 		allow_v2_descriptors: false,
 	};
+
+	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
+	let scheduling_lookahead = 2;
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -222,7 +221,8 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let test_leaf =
+			state.make_dummy_leaf_with_scheduling_lookahead(relay_parent, scheduling_lookahead);
 
 		let (candidate_1, pvd_1) = make_candidate(
 			relay_parent,
@@ -307,7 +307,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -379,7 +379,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -456,7 +456,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -482,7 +482,6 @@ fn peer_reported_for_not_enough_statements() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -564,7 +563,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_peer_message(
 			&mut overseer,
 			peer_c.clone(),
-			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
 		)
 		.await;
 
@@ -670,7 +669,6 @@ fn peer_reported_for_duplicate_statements() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -740,7 +738,7 @@ fn peer_reported_for_duplicate_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -797,9 +795,9 @@ fn peer_reported_for_duplicate_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -824,7 +822,6 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -895,7 +892,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -956,7 +953,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: true,
 	};
 
@@ -988,7 +984,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		let other_group_validators = state.group_validators(local_group_index, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
-		let v_c = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -997,14 +992,14 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			connect_peer(
 				&mut overseer,
 				peer_a.clone(),
-				Some(vec![state.discovery_id(other_group_validators[0])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
 			)
 			.await;
 
 			connect_peer(
 				&mut overseer,
 				peer_b.clone(),
-				Some(vec![state.discovery_id(other_group_validators[1])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
 			)
 			.await;
 
@@ -1030,7 +1025,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1068,7 +1063,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == COST_INVALID_CORE_INDEX.into() => { }
+					if p == peer_a && r == COST_INVALID_UMP_SIGNALS.into() => { }
 			);
 		}
 
@@ -1093,7 +1088,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1154,7 +1149,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1177,11 +1172,17 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				.clone();
 			let statements = vec![b_seconded_invalid.clone()];
 
+			// v_a has exhausted its seconded statements (3).
+			let mut statement_filter = StatementFilter::blank(group_size);
+			statement_filter
+				.seconded_in_group
+				.set(state.index_within_group(local_group_index, v_a).unwrap(), true);
+
 			handle_sent_request(
 				&mut overseer,
 				peer_a,
 				candidate_hash,
-				StatementFilter::blank(group_size),
+				statement_filter,
 				candidate.clone(),
 				pvd.clone(),
 				statements,
@@ -1203,8 +1204,8 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -1213,7 +1214,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 					assert_eq!(peers, vec![peer_a.clone()]);
 					assert_eq!(r, relay_parent);
 					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
-					assert_eq!(s.unchecked_validator_index(), v_c);
+					assert_eq!(s.unchecked_validator_index(), v_b);
 				}
 			);
 
@@ -1234,7 +1235,6 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -1308,7 +1308,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1344,7 +1344,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			.await;
 
 			let expected_rep_change = if allow_v2_descriptors {
-				COST_INVALID_CORE_INDEX.into()
+				COST_INVALID_UMP_SIGNALS.into()
 			} else {
 				COST_UNSUPPORTED_DESCRIPTOR_VERSION.into()
 			};
@@ -1358,6 +1358,167 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		overseer
 	});
 }
+
+#[test]
+// Test that a v2 descriptor with an ApprovedPeer UMP signal is ok with v2 receipts node feature
+// enabled.
+fn approved_peer_ump_signal() {
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count: 20,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: true,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		let (mut candidate, pvd) = make_candidate_v2(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		candidate.descriptor.set_session_index(1);
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+		let candidate_hash = candidate.hash();
+
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+
+		// peer A is in group, has relay parent in view.
+		// peer B is in group, has no relay parent in view.
+		// peer C is not in group, has relay parent in view.
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(
+				&mut overseer,
+				peer_b.clone(),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(&mut overseer, peer_c.clone(), None).await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		// Peer in cluster sends a statement, triggering a request.
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		// Send a request to peer and mock its response to include a valid candidate.
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			handle_sent_request(
+				&mut overseer,
+				peer_a,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
+							r,
+							s,
+						)
+					))
+				)) => {
+					assert_eq!(peers, vec![peer_a.clone()]);
+					assert_eq!(r, relay_parent);
+					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
+					assert_eq!(s.unchecked_validator_index(), v_b);
+				}
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
+		overseer
+	});
+}
+
 #[test]
 fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 	let group_size = 3;
@@ -1365,7 +1526,6 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1436,7 +1596,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1496,7 +1656,6 @@ fn disabled_validators_added_to_unwanted_mask() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1569,7 +1728,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_disabled.clone(),
 				),
@@ -1587,7 +1746,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_b.clone(),
 				),
@@ -1637,9 +1796,9 @@ fn disabled_validators_added_to_unwanted_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -1663,7 +1822,6 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1756,7 +1914,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
 			)
 			.await;
 
@@ -1800,7 +1958,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
 			)
 			.await;
 
@@ -1842,7 +2000,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
 			)
 			.await;
 
@@ -1863,7 +2021,6 @@ fn local_node_sanity_checks_incoming_requests() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1962,8 +2119,8 @@ fn local_node_sanity_checks_incoming_requests() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2065,7 +2222,6 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2137,8 +2293,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-					protocol_v2::StatementDistributionMessage::Statement(
+				ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -2197,7 +2353,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -2238,8 +2394,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2265,7 +2421,6 @@ fn local_node_respects_statement_mask() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2382,7 +2537,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_a.clone(),
 				),
@@ -2409,7 +2564,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_b.clone(),
 				),
@@ -2441,9 +2596,9 @@ fn local_node_respects_statement_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -2508,7 +2663,6 @@ fn should_delay_before_retrying_dropped_requests() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2604,7 +2758,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2650,7 +2804,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)

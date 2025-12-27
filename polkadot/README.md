@@ -1,9 +1,9 @@
 # Polkadot
 
-Implementation of a <https://polkadot.network> node in Rust based on the Substrate framework.
+Implementation of a <https://polkadot.com> node in Rust based on the Substrate framework.
 
 The README provides information about installing the `polkadot` binary and developing on the codebase. For more specific
-guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.polkadot.network/docs/getting-started).
+guides, like how to run a validator node, see the [Polkadot SDK docs website](https://docs.polkadot.com/).
 
 ## Installation
 
@@ -35,7 +35,22 @@ apt install polkadot
 
 ```
 
-Installation from the Debian repository will create a `systemd` service that can be used to run a
+### RPM-based
+Currently supports Rocky Linux 10 and Alma Linux 10, and derivatives.
+
+```bash
+# Install dnf-plugins-core (This might already be installed)
+dnf install dnf-plugins-core
+# Add the repository and enable it
+dnf config-manager --add-repo https://releases.parity.io/rpm/polkadot.repo
+dnf config-manager --set-enabled polkadot
+# Install polkadot (You may have to confirm the import of the GPG key, which
+# should have the following fingerprint: 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE)
+dnf install polkadot
+
+```
+
+Installation from Debian or RPM repository will create a `systemd` service that can be used to run a
 Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
 on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
 run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
@@ -204,7 +219,7 @@ Ensure you replace `ALICE_BOOTNODE_ID_HERE` with the node ID from the output of 
 
 ### Monitoring
 
-[Setup Prometheus and Grafana](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node).
+[Setup Prometheus and Grafana](https://docs.polkadot.com/infrastructure/running-a-validator/operational-tasks/general-management/#monitor-your-node).
 
 Once you set this up you can take a look at the [Polkadot Grafana dashboards](grafana/README.md)
 that we currently maintain.

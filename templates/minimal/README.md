@@ -21,9 +21,7 @@
 
 - [Starting a Minimal Template Chain](#starting-a-minimal-template-chain)
 
-  - [Omni Node](#omni-node)
   - [Minimal Template Node](#minimal-template-node)
-  - [Zombienet with Omni Node](#zombienet-with-omni-node)
   - [Zombienet with Minimal Template Node](#zombienet-with-minimal-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
   - [Takeaways](#takeaways)
@@ -41,6 +39,7 @@ template for building a blockchain node.
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 - 👤 The template has no consensus configured - it is best for experimenting with a single node network.
+
 
 ## Template Structure
 
@@ -61,7 +60,7 @@ compiled unless building the entire workspace).
 - 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
-Fetch minimal template code:
+Fetch minimal template code.
 
 ```sh
 git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
@@ -70,47 +69,6 @@ cd minimal-template
 ```
 
 ## Starting a Minimal Template Chain
-
-### Omni Node
-
-[Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
-be used to run the minimal template's runtime. `polkadot-omni-node` binary crate usage is described at a high-level
-[on crates.io](https://crates.io/crates/polkadot-omni-node).
-
-#### Install `polkadot-omni-node`
-
-Please see installation section on [crates.io/omni-node](https://crates.io/crates/polkadot-omni-node).
-
-#### Build `minimal-template-runtime`
-
-```sh
-cargo build -p minimal-template-runtime --release
-```
-
-#### Install `staging-chain-spec-builder`
-
-Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
-
-#### Use chain-spec-builder to generate the chain_spec.json file
-
-```sh
-chain-spec-builder create --relay-chain "dev" --para-id 1000 --runtime \
-    target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm named-preset development
-```
-
-**Note**: the `relay-chain` and `para-id` flags are extra bits of information required to
-configure the node for the case of representing a parachain that is connected to a relay chain.
-They are not relevant to minimal template business logic, but they are mandatory information for
-Omni Node, nonetheless.
-
-#### Run Omni Node
-
-Start Omni Node in development mode (sets up block production and finalization based on manual seal,
-sealing a new block every 3 seconds), with a minimal template runtime chain spec.
-
-```sh
-polkadot-omni-node --chain <path/to/chain_spec.json> --dev
-```
 
 ### Minimal Template Node
 
@@ -131,8 +89,7 @@ docker build . -t polkadot-sdk-minimal-template
 
 The `minimal-template-node` has dependency on the `minimal-template-runtime`. It will use
 the `minimal_template_runtime::WASM_BINARY` constant (which holds the WASM blob as a byte
-array) for chain spec building, while starting. This is in contrast to Omni Node which doesn't
-depend on a specific runtime, but asks for the chain spec at startup.
+array) for chain spec building, while starting.
 
 ```sh
 <target/release/path/to/minimal-template-node> --tmp --consensus manual-seal-3000
@@ -140,36 +97,7 @@ depend on a specific runtime, but asks for the chain spec at startup.
 docker run --rm polkadot-sdk-minimal-template
 ```
 
-### Zombienet with Omni Node
-
-#### Install `zombienet`
-
-We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation),
-and `zombienet-omni-node.toml` contains the network specification we want to start.
-
-#### Update `zombienet-omni-node.toml` with a valid chain spec path
-
-Before starting the network with zombienet we must update the network specification
-with a valid chain spec path. If we need to generate one, we can look up at the previous
-section for chain spec creation [here](#use-chain-spec-builder-to-generate-the-chain_specjson-file).
-
-Then make the changes in the network specification like so:
-
-```toml
-# ...
-chain = "dev"
-chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
-default_args = ["--dev"]
-# ..
-```
-
-#### Start the network
-
-```sh
-zombienet --provider native spawn zombienet-omni-node.toml
-```
-
-### Zombienet with `minimal-template-node`
+#### Zombienet with `minimal-template-node`
 
 For this one we just need to have `zombienet` installed and run:
 
@@ -210,10 +138,12 @@ Previously minimal template's development chains:
 
 ## Getting Help
 
-- 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
+- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
 
 - 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
 the Polkadot SDK documentation resources.
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
 [Substrate StackExchange](https://substrate.stackexchange.com/).
+- 👥You can also reach out on the [Official Polkadot discord server](https://polkadot-discord.w3f.tools/)
+- 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions

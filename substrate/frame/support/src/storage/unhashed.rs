@@ -124,7 +124,7 @@ pub fn kill_prefix(prefix: &[u8], limit: Option<u32>) -> sp_io::KillStorageResul
 /// operating on the same prefix should pass `Some` and this value should be equal to the
 /// previous call result's `maybe_cursor` field. The only exception to this is when you can
 /// guarantee that the subsequent call is in a new block; in this case the previous call's result
-/// cursor need not be passed in an a `None` may be passed instead. This exception may be useful
+/// cursor need not be passed in and a `None` may be passed instead. This exception may be useful
 /// then making this call solely from a block-hook such as `on_initialize`.
 ///
 /// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once the

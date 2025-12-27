@@ -46,7 +46,8 @@ fn set_asset_claimer() {
 	// can inspect its fields.
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
+	vm.message_weight =
+		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
 	let result = vm.bench_process(xcm);
 	assert!(result.is_ok());
@@ -72,7 +73,8 @@ fn do_not_set_asset_claimer_none() {
 	// can inspect its fields.
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
+	vm.message_weight =
+		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
 	let result = vm.bench_process(xcm);
 	assert!(result.is_ok());
@@ -101,7 +103,8 @@ fn trap_then_set_asset_claimer() {
 	// can inspect its fields.
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
+	vm.message_weight =
+		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
 	let result = vm.bench_process(xcm);
 	assert!(result.is_err());
@@ -130,7 +133,8 @@ fn set_asset_claimer_then_trap() {
 	// can inspect its fields.
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
+	vm.message_weight =
+		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
 	let result = vm.bench_process(xcm);
 	assert!(result.is_err());

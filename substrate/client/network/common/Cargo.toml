@@ -15,22 +15,7 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[build-dependencies]
-prost-build = { workspace = true }
-
 [dependencies]
-async-trait = { workspace = true }
 bitflags = { workspace = true }
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
-futures = { workspace = true }
-libp2p-identity = { features = ["peerid"], workspace = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-consensus-grandpa = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-
-[dev-dependencies]
-tempfile = { workspace = true }

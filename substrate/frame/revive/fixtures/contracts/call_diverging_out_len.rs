@@ -25,10 +25,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-extern crate common;
-
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, u256_bytes};
 
 const BUF_SIZE: usize = 8;
 static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -42,9 +41,9 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		callee_address,
-		0u64,
-		0u64,
-		None,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
 		&[0u8; 32],
 		&[],
 		Some(output_buf_capped),
@@ -59,19 +58,29 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 /// Instantiate this contract with an output buf of size `N`
 /// and expect the instantiate output to match `expected_output`.
 fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
-	let mut code_hash = [0; 32];
-	api::own_code_hash(&mut code_hash);
+	let mut output_buf1 = [0u8; 32];
+	let output1 = &mut &mut output_buf1[..];
+	let _ = api::call(
+		uapi::CallFlags::READ_ONLY,
+		&uapi::SYSTEM_PRECOMPILE_ADDR,
+		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // Value transferred to the contract.
+		&uapi::solidity_selector("ownCodeHash()"),
+		Some(output1),
+	).unwrap();
+	assert_ne!(output_buf1, [0u8; 32]);
 
 	let mut output_buf = [0u8; BUF_SIZE];
 	let output_buf_capped = &mut &mut output_buf[..N];
 
 	api::instantiate(
-		&code_hash,
-		0u64,
-		0u64,
-		None,
-		&[0; 32],
-		&[0; 32],
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&u256_bytes(0),
+		output_buf1.clone().as_slice(),
 		None,
 		Some(output_buf_capped),
 		None,

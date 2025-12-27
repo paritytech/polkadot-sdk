@@ -143,6 +143,7 @@ fn westend_sign_call(
 	use westend_runtime as runtime;
 
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -155,6 +156,7 @@ fn westend_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
+		frame_system::WeightReclaim::<runtime::Runtime>::new(),
 	)
 		.into();
 
@@ -162,6 +164,7 @@ fn westend_sign_call(
 		call.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			runtime::VERSION.spec_version,
 			runtime::VERSION.transaction_version,
@@ -171,6 +174,7 @@ fn westend_sign_call(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 
@@ -198,6 +202,7 @@ fn rococo_sign_call(
 	use sp_core::Pair;
 
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -210,6 +215,7 @@ fn rococo_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
+		frame_system::WeightReclaim::<runtime::Runtime>::new(),
 	)
 		.into();
 
@@ -217,6 +223,7 @@ fn rococo_sign_call(
 		call.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			runtime::VERSION.spec_version,
 			runtime::VERSION.transaction_version,
@@ -226,6 +233,7 @@ fn rococo_sign_call(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 

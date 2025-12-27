@@ -202,6 +202,10 @@ fn should_update_authorities() {
 	});
 }
 
+// If you need to modify the test because you added a new event or something to the block or block
+// header you need to update the test by replacing the expected_mmr_root with the new one
+// you can get the new one by running the test while commenting out the first assert
+// and then copy pasting the new mmr root from the log of the second assert
 #[test]
 fn extract_validation_context_should_work_correctly() {
 	let mut ext = new_test_ext(vec![1, 2]);
@@ -214,8 +218,9 @@ fn extract_validation_context_should_work_correctly() {
 
 		// Check the MMR root log
 		let expected_mmr_root: [u8; 32] = array_bytes::hex_n_into_unchecked(
-			"b2106eff9894288bc212b3a9389caa54efd37962c3a7b71b3b0b06a0911b88a5",
+			"322c6a46ac00d3455c87bd9af42ebafb388f589a1b562f5e39b1d0d71bcbe8e0",
 		);
+
 		assert_eq!(
 			System::digest().logs,
 			vec![beefy_log(ConsensusLog::MmrRoot(H256::from_slice(&expected_mmr_root)))]
@@ -253,7 +258,7 @@ fn is_non_canonical_should_work_correctly() {
 	ext.persist_offchain_overlay();
 
 	ext.execute_with(|| {
-		let valid_proof = BeefyMmr::generate_proof(250, None).unwrap();
+		let valid_proof = Mmr::generate_ancestry_proof(250, None).unwrap();
 		let mut invalid_proof = valid_proof.clone();
 		invalid_proof.items.push((300, Default::default()));
 
@@ -348,7 +353,7 @@ fn is_non_canonical_should_work_correctly() {
 		// - should return false, if the commitment is targeting the canonical chain
 		// - should return true if the commitment is NOT targeting the canonical chain
 		for prev_block_number in 1usize..=500 {
-			let proof = BeefyMmr::generate_proof(prev_block_number as u64, None).unwrap();
+			let proof = Mmr::generate_ancestry_proof(prev_block_number as u64, None).unwrap();
 
 			assert_eq!(
 				BeefyMmr::is_non_canonical(

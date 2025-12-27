@@ -17,12 +17,15 @@
 
 #[cfg(feature = "metadata-hash")]
 use crate::builder::MetadataExtraInfo;
-use crate::{write_file_if_changed, CargoCommandVersioned, RuntimeTarget, OFFLINE};
+use crate::{
+	copy_file_if_changed, write_file_if_changed, CargoCommandVersioned, RuntimeTarget, OFFLINE,
+};
 
 use build_helper::rerun_if_changed;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 use console::style;
 use parity_wasm::elements::{deserialize_buffer, Module};
+use polkavm_linker::TargetInstructionSet;
 use std::{
 	borrow::ToOwned,
 	collections::HashSet,
@@ -75,6 +78,40 @@ impl WasmBinary {
 	/// Returns the escaped path to the wasm binary.
 	pub fn wasm_binary_path_escaped(&self) -> String {
 		self.0.display().to_string().escape_default().to_string()
+	}
+}
+
+/// Helper struct for managing blob file paths.
+struct BlobPaths {
+	/// The base name of the blob (without extension).
+	blob_name: String,
+	/// The project directory where blobs are stored.
+	project: PathBuf,
+}
+
+impl BlobPaths {
+	fn new(blob_name: String, project: PathBuf) -> Self {
+		Self { blob_name, project }
+	}
+
+	/// Returns the path to the bloaty wasm file.
+	fn bloaty(&self) -> PathBuf {
+		self.project.join(format!("{}.wasm", self.blob_name))
+	}
+
+	/// Returns the path to the compact wasm file.
+	fn compact(&self) -> PathBuf {
+		self.project.join(format!("{}.compact.wasm", self.blob_name))
+	}
+
+	/// Returns the path to the compact compressed wasm file.
+	fn compact_compressed(&self) -> PathBuf {
+		self.project.join(format!("{}.compact.compressed.wasm", self.blob_name))
+	}
+
+	/// Returns the blob name.
+	fn name(&self) -> &str {
+		&self.blob_name
 	}
 }
 
@@ -198,25 +235,27 @@ pub(crate) fn create_and_compile(
 
 	let blob_name =
 		blob_out_name_override.unwrap_or_else(|| get_blob_name(target, &wasm_project_cargo_toml));
+	let blob_paths = BlobPaths::new(blob_name, project.clone());
 
-	let (final_blob_binary, bloaty_blob_binary) = match target {
+	let (final_blob_binary, bloaty_blob_binary, any_changed) = match target {
 		RuntimeTarget::Wasm => {
-			let out_path = project.join(format!("{blob_name}.wasm"));
-			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
+			let out_path = blob_paths.bloaty();
+			let bloaty_changed = copy_file_if_changed(&raw_blob_path, &out_path);
 
-			maybe_compact_and_compress_wasm(
+			let (final_binary, bloaty_binary, did_compact) = maybe_compact_and_compress_wasm(
 				&wasm_project_cargo_toml,
-				&project,
 				WasmBinaryBloaty(out_path),
-				&blob_name,
+				&blob_paths,
 				check_for_runtime_version_section,
 				&build_config,
-			)
+				bloaty_changed,
+			);
+			(final_binary, bloaty_binary, bloaty_changed || did_compact)
 		},
 		RuntimeTarget::Riscv => {
-			let out_path = project.join(format!("{blob_name}.polkavm"));
-			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
-			(None, WasmBinaryBloaty(out_path))
+			let out_path = project.join(format!("{}.polkavm", blob_paths.name()));
+			let changed = copy_file_if_changed(&raw_blob_path, &out_path);
+			(None, WasmBinaryBloaty(out_path), changed)
 		},
 	};
 
@@ -228,8 +267,10 @@ pub(crate) fn create_and_compile(
 		&bloaty_blob_binary,
 	);
 
-	if let Err(err) = adjust_mtime(&bloaty_blob_binary, final_blob_binary.as_ref()) {
-		build_helper::warning!("Error while adjusting the mtime of the blob binaries: {}", err)
+	if any_changed {
+		if let Err(err) = adjust_mtime(&bloaty_blob_binary, final_blob_binary.as_ref()) {
+			build_helper::warning!("Error while adjusting the mtime of the blob binaries: {}", err)
+		}
 	}
 
 	(final_blob_binary, bloaty_blob_binary)
@@ -237,32 +278,50 @@ pub(crate) fn create_and_compile(
 
 fn maybe_compact_and_compress_wasm(
 	wasm_project_cargo_toml: &Path,
-	project: &Path,
 	bloaty_blob_binary: WasmBinaryBloaty,
-	blob_name: &str,
+	blob_paths: &BlobPaths,
 	check_for_runtime_version_section: bool,
 	build_config: &BuildConfiguration,
-) -> (Option<WasmBinary>, WasmBinaryBloaty) {
+	bloaty_changed: bool,
+) -> (Option<WasmBinary>, WasmBinaryBloaty, bool) {
+	let needs_compact = build_config.outer_build_profile.wants_compact();
+	let compact_path = blob_paths.compact();
+	let compressed_path = blob_paths.compact_compressed();
+	let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
+	let should_regenerate = bloaty_changed || (needs_compact && !compact_or_compressed_exists);
+
+	if !should_regenerate {
+		let final_blob = if compressed_path.exists() {
+			Some(WasmBinary(compressed_path))
+		} else if compact_path.exists() {
+			Some(WasmBinary(compact_path))
+		} else {
+			None
+		};
+
+		return (final_blob, bloaty_blob_binary, false);
+	}
+
 	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
 	//
 	// This is because, by default the inner profile will be set to `Release` even when the outer
 	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
 	// development activities.
-	let (compact_blob_path, compact_compressed_blob_path) =
-		if build_config.outer_build_profile.wants_compact() {
-			let compact_blob_path = compact_wasm(&project, blob_name, &bloaty_blob_binary);
-			let compact_compressed_blob_path =
-				compact_blob_path.as_ref().and_then(|p| try_compress_blob(&p.0, blob_name));
-			(compact_blob_path, compact_compressed_blob_path)
-		} else {
-			// We at least want to lower the `sign-ext` code to `mvp`.
-			wasm_opt::OptimizationOptions::new_opt_level_0()
-				.add_pass(wasm_opt::Pass::SignextLowering)
-				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
-				.expect("Failed to lower sign-ext in WASM binary.");
+	let (compact_blob_path, compact_compressed_blob_path) = if needs_compact {
+		let compact_blob_path = compact_wasm(blob_paths, &bloaty_blob_binary);
+		let compact_compressed_blob_path =
+			compact_blob_path.as_ref().and_then(|p| try_compress_blob(blob_paths, p));
+		(compact_blob_path, compact_compressed_blob_path)
+	} else {
+		// We at least want to lower the `sign-ext` code to `mvp`.
+		wasm_opt::OptimizationOptions::new_opt_level_0()
+			.add_pass(wasm_opt::Pass::SignextLowering)
+			.debug_info(true)
+			.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
+			.expect("Failed to lower sign-ext in WASM binary.");
 
-			(None, None)
-		};
+		(None, None)
+	};
 
 	if check_for_runtime_version_section {
 		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
@@ -274,7 +333,7 @@ fn maybe_compact_and_compress_wasm(
 		.as_ref()
 		.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
 
-	(final_blob_binary, bloaty_blob_binary)
+	(final_blob_binary, bloaty_blob_binary, true)
 }
 
 /// Ensures that the `runtime_version` section exists in the given blob.
@@ -526,10 +585,22 @@ fn create_project_cargo_toml(
 		//
 		// TODO: Remove this once a new version of `bitvec` (which uses a new version of `radium`
 		//       which doesn't have this problem) is released on crates.io.
-		let patch = toml::toml! {
-			[crates-io]
+		let radium_patch = toml::toml! {
 			radium = { git = "https://github.com/paritytech/radium-0.7-fork.git", rev = "a5da15a15c90fd169d661d206cf0db592487f52b" }
 		};
+
+		let mut patch = wasm_workspace_toml
+			.get("patch")
+			.and_then(|p| p.as_table().cloned())
+			.unwrap_or_default();
+
+		if let Some(existing_crates_io) = patch.get_mut("crates-io").and_then(|t| t.as_table_mut())
+		{
+			existing_crates_io.extend(radium_patch);
+		} else {
+			patch.insert("crates-io".into(), radium_patch.into());
+		}
+
 		wasm_workspace_toml.insert("patch".into(), patch.into());
 	}
 
@@ -676,20 +747,20 @@ fn create_project(
 		RuntimeTarget::Wasm => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/lib.rs"),
-				"#![no_std] pub use wasm_project::*;",
+				"#![no_std] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 		RuntimeTarget::Riscv => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/main.rs"),
-				"#![no_std] #![no_main] pub use wasm_project::*;",
+				"#![no_std] #![no_main] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 	}
 
 	if let Some(crate_lock_file) = find_cargo_lock(project_cargo_toml) {
 		// Use the `Cargo.lock` of the main project.
-		crate::copy_file_if_changed(crate_lock_file, wasm_project_folder.join("Cargo.lock"));
+		copy_file_if_changed(&crate_lock_file, &wasm_project_folder.join("Cargo.lock"));
 	}
 
 	wasm_project_folder
@@ -846,9 +917,23 @@ fn build_bloaty_blob(
 	let mut rustflags = String::new();
 	match target {
 		RuntimeTarget::Wasm => {
-			rustflags.push_str(
-				"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table ",
-			);
+			// For Rust >= 1.70 and Rust < 1.84 with `wasm32-unknown-unknown` target,
+			// it's required to disable default WASM features:
+			// - `sign-ext` (since Rust 1.70)
+			// - `multivalue` and `reference-types` (since Rust 1.82)
+			//
+			// For Rust >= 1.84, we use `wasm32v1-none` target
+			// (disables all "post-MVP" WASM features except `mutable-globals`):
+			// - https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html
+			//
+			// Also see:
+			// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
+
+			if !cargo_cmd.is_wasm32v1_none_target_available() {
+				rustflags.push_str("-C target-cpu=mvp ");
+			}
+
+			rustflags.push_str("-C link-arg=--export-table ");
 		},
 		RuntimeTarget::Riscv => (),
 	}
@@ -859,7 +944,7 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
-		.arg(format!("--target={}", target.rustc_target()))
+		.arg(format!("--target={}", target.rustc_target(&cargo_cmd)))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
@@ -904,6 +989,15 @@ fn build_bloaty_blob(
 		build_cmd.arg("--offline");
 	}
 
+	// For Rust >= 1.70 and Rust < 1.84 with `wasm32-unknown-unknown` target,
+	// it's required to disable default WASM features:
+	// - `sign-ext` (since Rust 1.70)
+	// - `multivalue` and `reference-types` (since Rust 1.82)
+	//
+	// For Rust >= 1.84, we use `wasm32v1-none` target
+	// (disables all "post-MVP" WASM features except `mutable-globals`):
+	// - https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html
+	//
 	// Our executor currently only supports the WASM MVP feature set, however nowadays
 	// when compiling WASM the Rust compiler has more features enabled by default.
 	//
@@ -914,7 +1008,12 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if let Some(arg) = target.rustc_target_build_std() {
+	//
+	// So the `-Zbuild-std` and `RUSTC_BOOTSTRAP=1` hacks are only used for Rust < 1.84.
+	//
+	// Also see:
+	// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
+	if let Some(arg) = target.rustc_target_build_std(&cargo_cmd) {
 		build_cmd.arg("-Z").arg(arg);
 
 		if !cargo_cmd.supports_nightly_features() {
@@ -940,7 +1039,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.rustc_target_dir())
+		.join(target.rustc_target_dir(&cargo_cmd))
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {
@@ -965,7 +1064,11 @@ fn build_bloaty_blob(
 				let mut config = polkavm_linker::Config::default();
 				config.set_strip(true); // TODO: This shouldn't always be done.
 
-				let program = match polkavm_linker::program_from_elf(config, &blob_bytes) {
+				let program = match polkavm_linker::program_from_elf(
+					config,
+					TargetInstructionSet::Latest,
+					&blob_bytes,
+				) {
 					Ok(program) => program,
 					Err(error) => {
 						println!("Failed to link the runtime blob; this is probably a bug!");
@@ -984,12 +1087,8 @@ fn build_bloaty_blob(
 	}
 }
 
-fn compact_wasm(
-	project: &Path,
-	blob_name: &str,
-	bloaty_binary: &WasmBinaryBloaty,
-) -> Option<WasmBinary> {
-	let wasm_compact_path = project.join(format!("{blob_name}.compact.wasm"));
+fn compact_wasm(blob_paths: &BlobPaths, bloaty_binary: &WasmBinaryBloaty) -> Option<WasmBinary> {
+	let wasm_compact_path = blob_paths.compact();
 	let start = std::time::Instant::now();
 	wasm_opt::OptimizationOptions::new_opt_level_0()
 		.mvp_features_only()
@@ -1008,16 +1107,16 @@ fn compact_wasm(
 	Some(WasmBinary(wasm_compact_path))
 }
 
-fn try_compress_blob(compact_blob_path: &Path, out_name: &str) -> Option<WasmBinary> {
+fn try_compress_blob(blob_paths: &BlobPaths, compact_blob: &WasmBinary) -> Option<WasmBinary> {
 	use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
-	let project = compact_blob_path.parent().expect("blob path should have a parent directory");
-	let compact_compressed_blob_path =
-		project.join(format!("{}.compact.compressed.wasm", out_name));
+	let compact_compressed_blob_path = blob_paths.compact_compressed();
 
 	let start = std::time::Instant::now();
-	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
-	if let Some(compressed) = sp_maybe_compressed_blob::compress(&data, CODE_BLOB_BOMB_LIMIT) {
+	let data = fs::read(compact_blob.wasm_binary_path()).expect("Failed to read WASM binary");
+	if let Some(compressed) =
+		sp_maybe_compressed_blob::compress_strongly(&data, CODE_BLOB_BOMB_LIMIT)
+	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");
 

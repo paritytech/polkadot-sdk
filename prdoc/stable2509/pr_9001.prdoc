@@ -1,0 +1,30 @@
+title: 'revive: Precompiles should return dummy code when queried'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/111
+
+    This fixes both the RPC and the opcodes `EXTCODESIZE` and `EXTCODEHASH`.
+
+    Also removed the disabled host function `is_contract`. Contracts do use `EXTCODESIZE` to determine if something is a contract exclusively.
+
+    Need to add some differential tests to our test suite to make sure that the RPC matches geth behaviour:
+
+    On kitchensink:
+
+    ```shell
+    # primitive precompiles should not return error but 0x
+    $ cast code 0x0000000000000000000000000000000000000001
+    0x
+
+    # this is the erc pre-compile
+    $ cast code 0x0000000000000000000000000000000000010000
+    0x60006000fd
+    ```
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major

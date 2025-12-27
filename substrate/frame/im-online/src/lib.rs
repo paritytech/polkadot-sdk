@@ -85,7 +85,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -95,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateBare, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -104,7 +104,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	traits::{AtLeast32BitUnsigned, Convert, Saturating, TrailingZeroInput},
-	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
+	Debug, PerThing, Perbill, Permill, SaturatedConversion,
 };
 use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
@@ -158,7 +158,7 @@ const INCLUDE_THRESHOLD: u32 = 3;
 /// This stores the block number at which heartbeat was requested and when the worker
 /// has actually managed to produce it.
 /// Note we store such status for every `authority_index` separately.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 struct HeartbeatStatus<BlockNumber> {
 	/// An index of the session that we are supposed to send heartbeat for.
 	pub session_index: SessionIndex,
@@ -218,7 +218,7 @@ impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber
 pub type AuthIndex = u32;
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct Heartbeat<BlockNumber>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,
@@ -261,7 +261,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: CreateInherent<Call<Self>> + frame_system::Config {
+	pub trait Config: CreateBare<Call<Self>> + frame_system::Config {
 		/// The identifier type for an authority.
 		type AuthorityId: Member
 			+ Parameter
@@ -277,6 +277,7 @@ pub mod pallet {
 		type MaxPeerInHeartbeats: Get<u32>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A type for retrieving the validators supposed to be online in a session.
@@ -642,7 +643,7 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			let xt = T::create_inherent(call.into());
+			let xt = T::create_bare(call.into());
 			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
@@ -816,7 +817,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 }
 
 /// An offence that is filed if a validator didn't send a heartbeat message.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
 pub struct UnresponsivenessOffence<Offender> {
 	/// The current session index in which we report the unresponsive validators.

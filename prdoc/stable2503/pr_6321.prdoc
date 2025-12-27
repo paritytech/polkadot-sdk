@@ -1,0 +1,33 @@
+title: Utility call fallback
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the `if_else` call to `pallet-utility`
+      enabling an error fallback when the main call is unsuccessful.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-utility
+    bump: major

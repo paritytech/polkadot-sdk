@@ -156,6 +156,14 @@ fn provider_ref_handover_to_self_sufficient_ref_works() {
 }
 
 #[test]
+fn dec_sufficients_does_not_undeflow() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
+		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
+	});
+}
+
+#[test]
 fn self_sufficient_ref_handover_to_provider_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
@@ -733,7 +741,7 @@ fn set_code_via_authorization_works() {
 		System::assert_has_event(
 			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
 		);
-		assert!(System::authorized_upgrade().is_some());
+		assert_eq!(System::authorized_upgrade().unwrap().code_hash(), &hash);
 
 		// Can't be sneaky
 		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
@@ -890,5 +898,82 @@ fn test_default_account_nonce() {
 
 		Account::<Test>::remove(&1);
 		assert_eq!(System::account_nonce(&1), 5u64.into());
+	});
+}
+
+#[test]
+fn extrinsic_weight_refunded_is_cleaned() {
+	new_test_ext().execute_with(|| {
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+fn reclaim_works() {
+	new_test_ext().execute_with(|| {
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 200), ..Default::default() };
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(50, 100)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(50, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(25, 200)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 50)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 300)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+#[should_panic(expected = "Block number must be strictly increasing.")]
+fn initialize_block_number_must_be_sequential() {
+	new_test_ext().execute_with(|| {
+		// Initialize block 1
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::finalize();
+
+		// Try to initialize block 3, skipping block 2 - this should panic
+		System::initialize(&3, &[0u8; 32].into(), &Default::default());
 	});
 }

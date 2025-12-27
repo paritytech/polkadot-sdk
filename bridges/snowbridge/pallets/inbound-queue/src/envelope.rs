@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_core::{inbound::Log, ChannelId};
+use snowbridge_core::ChannelId;
+use snowbridge_inbound_queue_primitives::Log;
 
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_std::prelude::*;
 
 use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
@@ -12,7 +13,7 @@ sol! {
 }
 
 /// An inbound message that has had its outer envelope decoded.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct Envelope {
 	/// The address of the outbound queue on Ethereum that emitted this message as an event log
 	pub gateway: H160,
@@ -26,7 +27,7 @@ pub struct Envelope {
 	pub payload: Vec<u8>,
 }
 
-#[derive(Copy, Clone, RuntimeDebug)]
+#[derive(Copy, Clone, Debug)]
 pub struct EnvelopeDecodeError;
 
 impl TryFrom<&Log> for Envelope {
@@ -35,7 +36,7 @@ impl TryFrom<&Log> for Envelope {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
+		let event = OutboundMessageAccepted::decode_raw_log_validate(topics, &log.data)
 			.map_err(|_| EnvelopeDecodeError)?;
 
 		Ok(Self {

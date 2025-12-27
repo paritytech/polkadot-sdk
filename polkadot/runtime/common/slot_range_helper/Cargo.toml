@@ -12,9 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-paste = { workspace = true, default-features = true }
-enumn = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+enumn = { workspace = true }
+paste = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 
 [features]

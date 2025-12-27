@@ -19,7 +19,7 @@
 //! [`PeerInfoBehaviour`] is implementation of `NetworkBehaviour` that holds information about peers
 //! in cache.
 
-use crate::utils::interval;
+use crate::{utils::interval, LOG_TARGET};
 use either::Either;
 
 use fnv::FnvHashMap;
@@ -31,24 +31,26 @@ use libp2p::{
 		Info as IdentifyInfo,
 	},
 	identity::PublicKey,
+	multiaddr::Protocol,
 	ping::{Behaviour as Ping, Config as PingConfig, Event as PingEvent},
 	swarm::{
 		behaviour::{
-			AddressChange, ConnectionClosed, ConnectionEstablished, DialFailure,
-			ExternalAddrConfirmed, FromSwarm, ListenFailure,
+			AddressChange, ConnectionClosed, ConnectionEstablished, DialFailure, FromSwarm,
+			ListenFailure,
 		},
 		ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId,
-		NetworkBehaviour, NewExternalAddrCandidate, THandler, THandlerInEvent, THandlerOutEvent,
-		ToSwarm,
+		NetworkBehaviour, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use parking_lot::Mutex;
+use schnellru::{ByLength, LruMap};
 use smallvec::SmallVec;
 
 use std::{
 	collections::{hash_map::Entry, HashSet, VecDeque},
+	iter,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -59,6 +61,11 @@ use std::{
 const CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 /// Interval at which we perform garbage collection on the node info.
 const GARBAGE_COLLECT_INTERVAL: Duration = Duration::from_secs(2 * 60);
+/// The maximum number of tracked external addresses we allow.
+const MAX_EXTERNAL_ADDRESSES: u32 = 32;
+/// Number of times observed address is received from different peers before it is confirmed as
+/// external.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 3;
 
 /// Implementation of `NetworkBehaviour` that holds information about peers in cache.
 pub struct PeerInfoBehaviour {
@@ -70,7 +77,16 @@ pub struct PeerInfoBehaviour {
 	nodes_info: FnvHashMap<PeerId, NodeInfo>,
 	/// Interval at which we perform garbage collection in `nodes_info`.
 	garbage_collect: Pin<Box<dyn Stream<Item = ()> + Send>>,
+	/// PeerId of the local node.
+	local_peer_id: PeerId,
+	/// Public addresses supplied by the operator. Never expire.
+	public_addresses: Vec<Multiaddr>,
+	/// Listen addresses. External addresses matching listen addresses never expire.
+	listen_addresses: HashSet<Multiaddr>,
+	/// External address confirmations.
+	address_confirmations: LruMap<Multiaddr, HashSet<PeerId>>,
 	/// Record keeping of external addresses. Data is queried by the `NetworkService`.
+	/// The addresses contain the `/p2p/...` part with local peer ID.
 	external_addresses: ExternalAddresses,
 	/// Pending events to emit to [`Swarm`](libp2p::swarm::Swarm).
 	pending_actions: VecDeque<ToSwarm<PeerInfoEvent, THandlerInEvent<PeerInfoBehaviour>>>,
@@ -106,13 +122,13 @@ pub struct ExternalAddresses {
 
 impl ExternalAddresses {
 	/// Add an external address.
-	pub fn add(&mut self, addr: Multiaddr) {
-		self.addresses.lock().insert(addr);
+	pub fn add(&mut self, addr: Multiaddr) -> bool {
+		self.addresses.lock().insert(addr)
 	}
 
 	/// Remove an external address.
-	pub fn remove(&mut self, addr: &Multiaddr) {
-		self.addresses.lock().remove(addr);
+	pub fn remove(&mut self, addr: &Multiaddr) -> bool {
+		self.addresses.lock().remove(addr)
 	}
 }
 
@@ -122,9 +138,10 @@ impl PeerInfoBehaviour {
 		user_agent: String,
 		local_public_key: PublicKey,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		public_addresses: Vec<Multiaddr>,
 	) -> Self {
 		let identify = {
-			let cfg = IdentifyConfig::new("/substrate/1.0".to_string(), local_public_key)
+			let cfg = IdentifyConfig::new("/substrate/1.0".to_string(), local_public_key.clone())
 				.with_agent_version(user_agent)
 				// We don't need any peer information cached.
 				.with_cache_size(0);
@@ -136,6 +153,10 @@ impl PeerInfoBehaviour {
 			identify,
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
+			local_peer_id: local_public_key.to_peer_id(),
+			public_addresses,
+			listen_addresses: HashSet::new(),
+			address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 			external_addresses: ExternalAddresses { addresses: external_addresses },
 			pending_actions: Default::default(),
 		}
@@ -146,7 +167,7 @@ impl PeerInfoBehaviour {
 	/// Returns `None` if we don't know anything about this node. Always returns `Some` for nodes
 	/// we're connected to, meaning that if `None` is returned then we're not connected to that
 	/// node.
-	pub fn node(&self, peer_id: &PeerId) -> Option<Node> {
+	pub fn node(&self, peer_id: &PeerId) -> Option<Node<'_>> {
 		self.nodes_info.get(peer_id).map(Node)
 	}
 
@@ -158,25 +179,137 @@ impl PeerInfoBehaviour {
 		ping_time: Duration,
 		connection: ConnectionId,
 	) {
-		trace!(target: "sub-libp2p", "Ping time with {:?} via {:?}: {:?}", peer_id, connection, ping_time);
+		trace!(target: LOG_TARGET, "Ping time with {:?} via {:?}: {:?}", peer_id, connection, ping_time);
 		if let Some(entry) = self.nodes_info.get_mut(peer_id) {
 			entry.latest_ping = Some(ping_time);
 		} else {
-			error!(target: "sub-libp2p",
+			error!(target: LOG_TARGET,
 				"Received ping from node we're not connected to {:?} via {:?}", peer_id, connection);
 		}
 	}
 
-	/// Inserts an identify record in the cache. Has no effect if we don't have any entry for that
-	/// node, which shouldn't happen.
+	/// Ensure address has the `/p2p/...` part with local peer id. Returns `Err` if the address
+	/// already contains a different peer id.
+	fn with_local_peer_id(&self, address: Multiaddr) -> Result<Multiaddr, Multiaddr> {
+		if let Some(Protocol::P2p(peer_id)) = address.iter().last() {
+			if peer_id == self.local_peer_id {
+				Ok(address)
+			} else {
+				Err(address)
+			}
+		} else {
+			Ok(address.with(Protocol::P2p(self.local_peer_id)))
+		}
+	}
+
+	/// Inserts an identify record in the cache & discovers external addresses when multiple
+	/// peers report the same address as observed.
 	fn handle_identify_report(&mut self, peer_id: &PeerId, info: &IdentifyInfo) {
-		trace!(target: "sub-libp2p", "Identified {:?} => {:?}", peer_id, info);
+		trace!(target: LOG_TARGET, "Identified {:?} => {:?}", peer_id, info);
 		if let Some(entry) = self.nodes_info.get_mut(peer_id) {
 			entry.client_version = Some(info.agent_version.clone());
 		} else {
-			error!(target: "sub-libp2p",
-				"Received pong from node we're not connected to {:?}", peer_id);
+			error!(target: LOG_TARGET,
+				"Received identify message from node we're not connected to {peer_id:?}");
 		}
+		// Discover external addresses.
+		match self.with_local_peer_id(info.observed_addr.clone()) {
+			Ok(observed_addr) => {
+				let (is_new, expired) = self.is_new_external_address(&observed_addr, *peer_id);
+				if is_new && self.external_addresses.add(observed_addr.clone()) {
+					trace!(
+						target: LOG_TARGET,
+						"Observed address reported by Identify confirmed as external {}",
+						observed_addr,
+					);
+					self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(observed_addr));
+				}
+				if let Some(expired) = expired {
+					trace!(target: LOG_TARGET, "Removing replaced external address: {expired}");
+					self.external_addresses.remove(&expired);
+					self.pending_actions.push_back(ToSwarm::ExternalAddrExpired(expired));
+				}
+			},
+			Err(addr) => {
+				warn!(
+					target: LOG_TARGET,
+					"Identify reported observed address for a peer that is not us: {addr}",
+				);
+			},
+		}
+	}
+
+	/// Check if addresses are equal taking into account they can contain or not contain
+	/// the `/p2p/...` part.
+	fn is_same_address(left: &Multiaddr, right: &Multiaddr) -> bool {
+		let mut left = left.iter();
+		let mut right = right.iter();
+
+		loop {
+			match (left.next(), right.next()) {
+				(None, None) => return true,
+				(None, Some(Protocol::P2p(_))) => return true,
+				(Some(Protocol::P2p(_)), None) => return true,
+				(left, right) if left != right => return false,
+				_ => {},
+			}
+		}
+	}
+
+	/// Check if `address` can be considered a new external address.
+	///
+	/// If this address replaces an older address, the expired address is returned.
+	fn is_new_external_address(
+		&mut self,
+		address: &Multiaddr,
+		peer_id: PeerId,
+	) -> (bool, Option<Multiaddr>) {
+		trace!(target: LOG_TARGET, "Verify new external address: {address}");
+
+		// Public and listen addresses don't count towards discovered external addresses
+		// and are always confirmed.
+		// Because they are not kept in the LRU, they are never replaced by discovered
+		// external addresses.
+		if self
+			.listen_addresses
+			.iter()
+			.chain(self.public_addresses.iter())
+			.any(|known_address| PeerInfoBehaviour::is_same_address(&known_address, &address))
+		{
+			return (true, None)
+		}
+
+		match self.address_confirmations.get(address) {
+			Some(confirmations) => {
+				confirmations.insert(peer_id);
+
+				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
+					return (true, None)
+				}
+			},
+			None => {
+				let oldest = (self.address_confirmations.len() >=
+					self.address_confirmations.limiter().max_length() as usize)
+					.then(|| {
+						self.address_confirmations.pop_oldest().map(|(address, peers)| {
+							if peers.len() >= MIN_ADDRESS_CONFIRMATIONS {
+								return Some(address)
+							} else {
+								None
+							}
+						})
+					})
+					.flatten()
+					.flatten();
+
+				self.address_confirmations
+					.insert(address.clone(), iter::once(peer_id).collect());
+
+				return (false, oldest)
+			},
+		}
+
+		(false, None)
 	}
 }
 
@@ -346,7 +479,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					}
 					entry.endpoints.retain(|ep| ep != endpoint)
 				} else {
-					error!(target: "sub-libp2p",
+					error!(target: LOG_TARGET,
 						"Unknown connection to {:?} closed: {:?}", peer_id, endpoint);
 				}
 			},
@@ -400,28 +533,36 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.ping.on_swarm_event(FromSwarm::NewListener(e));
 				self.identify.on_swarm_event(FromSwarm::NewListener(e));
 			},
+			FromSwarm::NewListenAddr(e) => {
+				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
+				self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
+				self.listen_addresses.insert(e.addr.clone());
+			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
-				self.external_addresses.remove(e.addr);
+				self.listen_addresses.remove(e.addr);
+				// Remove matching external address.
+				match self.with_local_peer_id(e.addr.clone()) {
+					Ok(addr) => {
+						self.external_addresses.remove(&addr);
+						self.pending_actions.push_back(ToSwarm::ExternalAddrExpired(addr));
+					},
+					Err(addr) => {
+						warn!(
+							target: LOG_TARGET,
+							"Listen address expired with peer ID that is not us: {addr}",
+						);
+					},
+				}
 			},
-			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) => {
+			FromSwarm::NewExternalAddrCandidate(e) => {
 				self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 				self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
-
-				// Manually confirm all external address candidates.
-				// TODO: consider adding [AutoNAT protocol](https://docs.rs/libp2p/0.52.3/libp2p/autonat/index.html)
-				// (must go through the polkadot protocol spec) or implemeting heuristics for
-				// approving external address candidates. This can be done, for example, by
-				// approving only addresses reported by multiple peers.
-				// See also https://github.com/libp2p/rust-libp2p/pull/4721 introduced
-				// in libp2p v0.53 for heuristics approach.
-				self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(addr.clone()));
 			},
-			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
+			FromSwarm::ExternalAddrConfirmed(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 				self.identify.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
-				self.external_addresses.add(addr.clone());
 			},
 			FromSwarm::AddressChange(e @ AddressChange { peer_id, old, new, .. }) => {
 				self.ping.on_swarm_event(FromSwarm::AddressChange(e));
@@ -431,20 +572,20 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					if let Some(endpoint) = entry.endpoints.iter_mut().find(|e| e == &old) {
 						*endpoint = new.clone();
 					} else {
-						error!(target: "sub-libp2p",
+						error!(target: LOG_TARGET,
 							"Unknown address change for peer {:?} from {:?} to {:?}", peer_id, old, new);
 					}
 				} else {
-					error!(target: "sub-libp2p",
+					error!(target: LOG_TARGET,
 						"Unknown peer {:?} to change address from {:?} to {:?}", peer_id, old, new);
 				}
 			},
-			FromSwarm::NewListenAddr(e) => {
-				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
-				self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
+			FromSwarm::NewExternalAddrOfPeer(e) => {
+				self.ping.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+				self.identify.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
 			},
 			event => {
-				debug!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
+				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.ping.on_swarm_event(event);
 				self.identify.on_swarm_event(event);
 			},
@@ -497,7 +638,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					},
 					IdentifyEvent::Error { connection_id, peer_id, error } => {
 						debug!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Identification with peer {peer_id:?}({connection_id}) failed => {error}"
 						);
 					},

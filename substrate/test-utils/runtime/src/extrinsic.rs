@@ -70,10 +70,12 @@ impl TryFrom<&Extrinsic> for TransferData {
 			Extrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
 				preamble: Preamble::Signed(from, _, ((CheckNonce(nonce), ..), ..)),
+				..
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
 				preamble: Preamble::Bare(_),
+				..
 			} => Ok(transfer.clone()),
 			_ => Err(()),
 		}
@@ -212,6 +214,7 @@ impl ExtrinsicBuilder {
 				self.metadata_hash
 					.map(CheckMetadataHash::new_with_custom_hash)
 					.unwrap_or_else(|| CheckMetadataHash::new(false)),
+				frame_system::WeightReclaim::new(),
 			);
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),

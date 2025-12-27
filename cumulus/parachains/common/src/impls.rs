@@ -165,7 +165,7 @@ where
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
 				None => {
-					log::warn!("Failed to convert root origin into account id");
+					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
 					return
 				},
 			};
@@ -187,7 +187,7 @@ where
 		);
 
 		if let Err(err) = result {
-			log::warn!("Failed to teleport slashed assets: {:?}", err);
+			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
 	}
 }

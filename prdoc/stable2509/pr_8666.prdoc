@@ -1,0 +1,20 @@
+title: 'EPMB: Handle empty solution pages gracefully in verifier'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Treat missing solution pages as empty rather than errors.
+    - Updated `get_page` method now returns a default Solution instead of an
+    Option when no candidate solutions are available. This simplifies the API
+    and improves code clarity by removing the need to handle None cases.
+    - Similarly, updated `get_score` method now returns a default (0) score if no leader is available.
+    - Removed VerificationDataUnavailable now that `get_page` and `get_score` don't return an Option anymore
+    - Signed validation phase must now be a multiple of the number of pages
+    - Moved verifier stop logic to internal pallet method, removing the trait-level stop function
+    in favor of handling cleanup during verification failure.
+    - Updated tests to reflect new behavior and remove defensive unwraps.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: patch

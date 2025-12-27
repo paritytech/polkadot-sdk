@@ -101,6 +101,8 @@ pub fn native_version() -> NativeVersion {
 
 /// The transaction extensions that are added to the runtime.
 type TxExtension = (
+	// Authorize calls that validate themselves.
+	frame_system::AuthorizeCall<Runtime>,
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
 	// Checks that the runtime version is correct.
@@ -118,6 +120,10 @@ type TxExtension = (
 	// Ensures that the sender has enough funds to pay for the transaction
 	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// Reclaim the unused weight from the block using post dispatch information.
+	// It must be last in the pipeline in order to catch the refund in previous transaction
+	// extensions
+	frame_system::WeightReclaim<Runtime>,
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
@@ -134,7 +140,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -215,7 +222,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as frame::traits::Block>::LazyBlock) {
 			RuntimeExecutive::execute_block(block)
 		}
 
@@ -251,7 +258,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as frame::traits::Block>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -275,8 +282,8 @@ impl_runtime_apis! {
 	}
 
 	impl apis::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_seed: Option<Vec<u8>>) -> Vec<u8> {
-			Default::default()
+		fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+			apis::OpaqueGeneratedSessionKeys { keys: Default::default(), proof: Default::default() }
 		}
 
 		fn decode_session_keys(

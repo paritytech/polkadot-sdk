@@ -57,6 +57,7 @@
 //! The following example showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
+//! ## Runtime
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
 //! some configurations (exposed as a `trait Config`) that needs to be *specified* in the runtime.
@@ -103,6 +104,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// A type that is not known now, but the runtime that will contain this pallet will
 		/// know it later, therefore we define it here as an associated type.
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 
 		/// A parameterize-able value that we receive later via the `Get<_>` trait.

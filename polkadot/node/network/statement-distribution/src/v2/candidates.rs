@@ -28,8 +28,8 @@
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, GroupIndex,
-	Hash, Id as ParaId, PersistedValidationData,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, GroupIndex, Hash,
+	Id as ParaId, PersistedValidationData,
 };
 
 use std::{

@@ -1,0 +1,18 @@
+title: "Cumulus: Remove --relay-chain-light-client"
+
+doc:
+  - audience: Node Operator
+    description: |-
+      This PR removes the experimental flag --relay-chain-light-client from cumulus and as a consequence,
+      smoldot and smoldot-light as workspace dependencies.
+
+      Closes https://github.com/paritytech/polkadot-sdk/issues/9013
+crates:
+- name: cumulus-client-cli
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: cumulus-relay-chain-minimal-node
+  bump: major
+- name: cumulus-relay-chain-rpc-interface
+  bump: major

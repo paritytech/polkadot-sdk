@@ -1,0 +1,8 @@
+title: Align parameters for `EventEmitter::emit_sent_event`
+doc:
+- audience: Runtime Dev
+  description: Corrected markdown and indentation for the `emit_sent_event` function
+    parameters in the `EventEmitter` trait documentation for better readability.
+crates:
+- name: staging-xcm-executor
+  bump: none

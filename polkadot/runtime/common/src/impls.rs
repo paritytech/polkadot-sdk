@@ -16,7 +16,7 @@
 
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{
 	fungible::{Balanced, Credit},
 	tokens::imbalance::ResolveTo,
@@ -24,7 +24,7 @@ use frame_support::traits::{
 };
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use sp_runtime::{traits::TryConvert, Perquintill};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -131,7 +131,15 @@ pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 /// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
 /// an asset which exists on some chain.
 #[derive(
-	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	Clone,
+	Debug,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]

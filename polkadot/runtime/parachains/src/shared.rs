@@ -26,7 +26,7 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	vstaging::transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
@@ -96,13 +96,10 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 
 		let claim_queue = transpose_claim_queue(claim_queue);
 
-		// + 1 for the most recent block, which is always allowed.
-		let buffer_size_limit = max_ancestry_len as usize + 1;
-
 		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
 
 		self.latest_number = number;
-		while self.buffer.len() > buffer_size_limit {
+		while self.buffer.len() > (max_ancestry_len as usize) {
 			let _ = self.buffer.pop_front();
 		}
 
@@ -295,7 +292,7 @@ impl<T: Config> Pallet<T> {
 		max_ancestry_len: u32,
 	) {
 		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len)
+			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len + 1)
 		})
 	}
 }

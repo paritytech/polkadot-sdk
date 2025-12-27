@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Runtime API definition for getting XCM fees.
 
@@ -34,6 +34,7 @@ sp_api::decl_runtime_apis! {
 	///
 	/// To determine the execution weight of the calls required for
 	/// [`xcm::latest::Instruction::Transact`] instruction, `TransactionPaymentCallApi` can be used.
+	#[api_version(2)]
 	pub trait XcmPaymentApi {
 		/// Returns a list of acceptable payment assets.
 		///
@@ -57,6 +58,8 @@ sp_api::decl_runtime_apis! {
 		/// * `asset`: `VersionedAssetId`.
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, Error>;
 
+		/// Query delivery fees V1.
+		///
 		/// Get delivery fees for sending a specific `message` to a `destination`.
 		/// These always come in a specific asset, defined by the chain.
 		///
@@ -65,7 +68,20 @@ sp_api::decl_runtime_apis! {
 		///   size of the message.
 		/// * `destination`: The destination to send the message to. Different destinations may use
 		///   different senders that charge different fees.
+		#[changed_in(2)]
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, Error>;
+
+		/// Query delivery fees V2.
+		///
+		/// Get delivery fees for sending a specific `message` to a `destination`.
+		/// These always come in a specific asset, defined by the chain.
+		///
+		/// # Arguments
+		/// * `message`: The message that'll be sent, necessary because most delivery fees are based on the
+		///   size of the message.
+		/// * `destination`: The destination to send the message to. Different destinations may use
+		///   different senders that charge different fees.
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, Error>;
 	}
 }
 

@@ -1,0 +1,14 @@
+title: '`sp-tracing`: Remove `test-utils` feature'
+doc:
+- audience: Node Dev
+  description: |-
+    The crate is already exposing testing related features by default, so there is no real need to hide the rest behind some feature. Also because of feature unification, the feature is enabled always in the workspace.
+crates:
+- name: pallet-xcm
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: xcm-simulator-example
+  bump: major
+- name: sp-tracing
+  bump: major

@@ -31,6 +31,7 @@ pub use frame_support::{
 pub use pallet_assets;
 pub use pallet_message_queue;
 pub use pallet_xcm;
+pub use xcm;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
@@ -233,7 +234,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error: $crate::impls::xcm::prelude::InstructionError { error, .. } } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -471,7 +472,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error: $crate::impls::xcm::prelude::InstructionError { error, .. } } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -491,7 +492,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Execution fails in the origin with `Barrier`
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error { error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error($crate::impls::xcm::prelude::InstructionError { error, .. }) }
 							) => {
 								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
@@ -801,7 +802,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	($chain:ident, $asset_id_type:ty) => {
+	($chain:ident, $asset_id_type:ty, $reserve_data_type:ty) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
@@ -843,6 +844,26 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
 						Self::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
+				}
+
+				/// Set reserves for foreign asset using the asset's `owner` account.
+				pub fn set_foreign_asset_reserves(
+					id: $asset_id_type,
+					owner: $crate::impls::AccountId,
+					reserves: Vec<$reserve_data_type>,
+				) {
+					use $crate::impls::Inspect;
+					let owner_origin =
+						<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(
+							<Self as [<$chain ParaPallet>]>::ForeignAssets::set_reserves(
+								owner_origin,
+								id.clone(),
+								reserves,
+							)
+						);
+					});
 				}
 
 				/// Mint assets making use of the ForeignAssets pallet-assets instance

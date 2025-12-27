@@ -28,6 +28,8 @@
 #[cfg(test)]
 mod tests;
 
+mod metrics;
+
 pub mod api;
 pub mod error;
 pub mod event;
@@ -36,5 +38,6 @@ pub mod transaction_broadcast;
 
 pub use api::{TransactionApiServer, TransactionBroadcastApiServer};
 pub use event::{TransactionBlock, TransactionDropped, TransactionError, TransactionEvent};
+pub use metrics::Metrics as TransactionMetrics;
 pub use transaction::Transaction;
 pub use transaction_broadcast::TransactionBroadcast;

@@ -16,7 +16,6 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = { workspace = true, default-features = true }
 bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 fnv = { workspace = true }
@@ -31,32 +30,29 @@ once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 rustls = { workspace = true }
-threadpool = { workspace = true }
-tracing = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-log = { workspace = true, default-features = true }
+threadpool = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
-tokio = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-db = { default-features = true, workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+tokio = { workspace = true, default-features = true }
 
 [features]
 default = []

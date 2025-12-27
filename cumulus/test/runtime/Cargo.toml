@@ -18,37 +18,36 @@ frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-sudo = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
-pallet-timestamp = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-glutton = { workspace = true }
-pallet-transaction-payment = { workspace = true }
+pallet-message-queue = { workspace = true }
 pallet-session = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
+sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
+sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
-sp-consensus-aura = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
-sp-keyring = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
-parachain-info = { workspace = true }
-cumulus-primitives-aura = { workspace = true }
-pallet-collator-selection = { workspace = true }
 cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
+cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true }
+parachain-info = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -59,9 +58,9 @@ std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -69,7 +68,6 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
-	"pallet-collator-selection/std",
 	"pallet-glutton/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
@@ -95,5 +93,17 @@ std = [
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []
+# A runtime which expects to build behind the relay chain tip.
+relay-parent-offset = []
+# A runtime with elastic-scaling configuration.
 elastic-scaling = []
-experimental-ump-signals = ["cumulus-pallet-parachain-system/experimental-ump-signals"]
+# A runtime with low slot duration of 500ms for low-latency testing with 12 cores.
+elastic-scaling-500ms = []
+# A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
+elastic-scaling-multi-block-slot = []
+# A runtime with 12s slot duration which only authors one block per slot.
+sync-backing = []
+# A runtime with 6s slot duration which only authors one block per slot.
+async-backing = []
+# An elastic scaling runtime with 12s slots.
+elastic-scaling-12s-slot = []

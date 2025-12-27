@@ -1,0 +1,11 @@
+title: '[pallet-revive] eth-rpc minor fixes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Add option to specify database_url from an environment variable
+    - Add  a test-deployment.rs rust script that can be used to test deployment and call of a contract before releasing eth-rpc
+    - Make evm_block non fallible so that it can return an Ok response for older blocks when the runtime API is not available
+    - Update subxt version to integrate changes from https://github.com/paritytech/subxt/pull/1904
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

@@ -65,7 +65,7 @@ use sp_runtime::{
 use sp_storage::Storage;
 use sp_wasm_interface::HostFunctions;
 use std::{
-	fmt::{Debug, Display, Formatter},
+	fmt::{Display, Formatter},
 	fs,
 	path::PathBuf,
 	sync::Arc,
@@ -208,7 +208,7 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 		let parachain_validation_data_provider = MockValidationDataInherentDataProvider::<()> {
 			para_id: ParaId::from(*para_id),
 			current_para_block_head: Some(header.encode().into()),
-			relay_offset: 1,
+			relay_offset: 0,
 			..Default::default()
 		};
 		let _ = futures::executor::block_on(
@@ -482,7 +482,7 @@ impl OverheadCmd {
 		let database_source = self.database_config(
 			&base_path.path().to_path_buf(),
 			self.database_cache_size()?.unwrap_or(1024),
-			self.database()?.unwrap_or(Database::RocksDb),
+			self.database()?.unwrap_or(Database::Auto),
 		)?;
 
 		let backend = new_db_backend(DatabaseSettings {
@@ -490,6 +490,7 @@ impl OverheadCmd {
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
 			source: database_source,
+			metrics_registry: None,
 		})?;
 
 		let genesis_block_builder = GenesisBlockBuilder::new_with_storage(

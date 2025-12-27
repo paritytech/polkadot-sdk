@@ -164,42 +164,46 @@ where
 	/// `Displaced` objects that have returned by previous method calls
 	/// should be passed to via the appropriate methods. Otherwise,
 	/// the on-disk state may get out of sync with in-memory state.
-	pub fn undo(&mut self) -> Undo<H, N> {
+	pub fn undo(&mut self) -> Undo<'_, H, N> {
 		Undo { inner: self }
 	}
 
 	/// Revert to the given block height by dropping all leaves in the leaf set
 	/// with a block number higher than the target.
-	pub fn revert(&mut self, best_hash: H, best_number: N) {
+	///
+	/// Returns the removed leaves.
+	pub fn revert(&mut self, best_hash: H, best_number: N) -> impl Iterator<Item = (H, N)> {
 		let items = self
 			.storage
 			.iter()
-			.flat_map(|(number, hashes)| hashes.iter().map(move |h| (h.clone(), *number)))
+			.flat_map(|(number, hashes)| hashes.iter().map(move |h| (h.clone(), number.0)))
 			.collect::<Vec<_>>();
 
-		for (hash, number) in items {
-			if number.0 > best_number {
+		for (hash, number) in &items {
+			if *number > best_number {
 				assert!(
-					self.remove_leaf(&number, &hash),
+					self.remove_leaf(&Reverse(*number), &hash),
 					"item comes from an iterator over storage; qed",
 				);
 			}
 		}
 
-		let best_number = Reverse(best_number);
+		let best_number_rev = Reverse(best_number);
 		let leaves_contains_best = self
 			.storage
-			.get(&best_number)
+			.get(&best_number_rev)
 			.map_or(false, |hashes| hashes.contains(&best_hash));
 
-		// we need to make sure that the best block exists in the leaf set as
+		// We need to make sure that the best block exists in the leaf set as
 		// this is an invariant of regular block import.
 		if !leaves_contains_best {
-			self.insert_leaf(best_number, best_hash.clone());
+			self.insert_leaf(best_number_rev, best_hash.clone());
 		}
+
+		items.into_iter().filter(move |(_, n)| *n > best_number)
 	}
 
-	/// returns an iterator over all hashes in the leaf set
+	/// Returns an iterator over all hashes in the leaf set
 	/// ordered by their block number descending.
 	pub fn hashes(&self) -> Vec<H> {
 		self.storage.iter().flat_map(|(_, hashes)| hashes.iter()).cloned().collect()

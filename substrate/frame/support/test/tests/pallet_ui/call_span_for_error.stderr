@@ -2,7 +2,7 @@ error[E0308]: mismatched types
   --> tests/pallet_ui/call_span_for_error.rs:32:15
    |
 32 |             return Err(DispatchError::BadOrigin);
-   |                    --- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `DispatchErrorWithPostInfo<PostDispatchInfo>`, found `DispatchError`
+   |                    --- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `DispatchErrorWithPostInfo<...>`, found `DispatchError`
    |                    |
    |                    arguments to this enum variant are incorrect
    |

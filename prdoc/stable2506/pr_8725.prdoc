@@ -1,0 +1,15 @@
+title: 'Snowbridge: register polkadot native asset with fee'
+doc:
+- audience: Runtime Dev
+  description: To enforce a fee for PNA registration.
+crates:
+- name: snowbridge-pallet-system-frontend
+  bump: patch
+  validate: false
+- name: snowbridge-pallet-system-v2
+  bump: patch
+  validate: false
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: none

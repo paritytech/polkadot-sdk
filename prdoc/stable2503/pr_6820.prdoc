@@ -1,0 +1,8 @@
+title: Add XCM benchmarks to collectives-westend
+doc:
+- audience: Runtime Dev
+  description: Collectives-westend was using `FixedWeightBounds`, meaning the same
+    weight per instruction. Added proper benchmarks.
+crates:
+- name: collectives-westend-runtime
+  bump: patch

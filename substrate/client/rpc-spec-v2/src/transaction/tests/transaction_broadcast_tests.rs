@@ -45,11 +45,11 @@ async fn tx_broadcast_enters_pool() {
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
 
+	// Announce block 1 to `transaction_v1_broadcast`.
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
 	let operation_id: String =
 		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
-
-	// Announce block 1 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_1_header).await;
 
 	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction pool.
 	let event = get_next_event!(&mut pool_middleware);
@@ -158,11 +158,11 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 	let future_uxt = uxt(Alice, ALICE_NONCE + 1);
 	let future_xt = hex_string(&future_uxt.encode());
 
+	// Announce block 1 to `transaction_v1_broadcast`.
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
 	let future_operation_id: String =
 		tx_api.call("transaction_v1_broadcast", rpc_params![&future_xt]).await.unwrap();
-
-	// Announce block 1 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_1_header).await;
 
 	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction pool.
 	let event = get_next_event!(&mut pool_middleware);
@@ -182,13 +182,11 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 
 	let block_2_header = api.push_block(2, vec![], true);
 	let block_2 = block_2_header.hash();
+	client_mock.set_best_block(block_2_header.hash(), 1);
 
 	let operation_id: String =
 		tx_api.call("transaction_v1_broadcast", rpc_params![&current_xt]).await.unwrap();
 	assert_ne!(future_operation_id, operation_id);
-
-	// Announce block 2 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_2_header).await;
 
 	// Collect the events of both transactions.
 	let events = get_next_tx_events!(&mut pool_middleware, 2);
@@ -241,11 +239,11 @@ async fn tx_broadcast_stop_after_broadcast_finishes() {
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
 
+	// Announce block 1 to `transaction_v1_broadcast`.
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
 	let operation_id: String =
 		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
-
-	// Announce block 1 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_1_header).await;
 
 	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction
 	// pool.inner_pool.
@@ -320,13 +318,14 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
-	let _operation_id: String =
-		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
 
 	let block_1_header = api.push_block(1, vec![], true);
 	let block_1 = block_1_header.hash();
 	// Announce block 1 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_1_header).await;
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
+	let _operation_id: String =
+		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
 
 	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction pool.
 	let event = get_next_event!(&mut pool_middleware);
@@ -449,15 +448,17 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 	// are immediately dropped.
 	api.set_priority(&current_uxt, 10);
 
-	let current_operation_id: String =
-		tx_api.call("transaction_v1_broadcast", rpc_params![&current_xt]).await.unwrap();
-
 	// Announce block 1 to `transaction_v1_broadcast`.
 	let block_1_header = api.push_block(1, vec![], true);
 	let event =
 		ChainEvent::Finalized { hash: block_1_header.hash(), tree_route: Arc::from(vec![]) };
 	pool.inner_pool.maintain(event).await;
-	client_mock.trigger_import_stream(block_1_header).await;
+
+	// Announce block 1 to `transaction_v1_broadcast`.
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
+	let current_operation_id: String =
+		tx_api.call("transaction_v1_broadcast", rpc_params![&current_xt]).await.unwrap();
 
 	let event = get_next_event!(&mut pool_middleware);
 	assert_eq!(
@@ -471,15 +472,15 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 
 	// The future tx has priority 2, smaller than the current 10.
 	api.set_priority(&future_uxt, 2);
-	let future_operation_id: String =
-		tx_api.call("transaction_v1_broadcast", rpc_params![&future_xt]).await.unwrap();
-	assert_ne!(current_operation_id, future_operation_id);
-
 	let block_2_header = api.push_block(2, vec![], true);
 	let event =
 		ChainEvent::Finalized { hash: block_2_header.hash(), tree_route: Arc::from(vec![]) };
 	pool.inner_pool.maintain(event).await;
-	client_mock.trigger_import_stream(block_2_header).await;
+	client_mock.set_best_block(block_2_header.hash(), 1);
+
+	let future_operation_id: String =
+		tx_api.call("transaction_v1_broadcast", rpc_params![&future_xt]).await.unwrap();
+	assert_ne!(current_operation_id, future_operation_id);
 
 	// We must have at most 1 transaction in the pool, as per limits above.
 	assert_eq!(1, pool.inner_pool.status().ready);
@@ -523,11 +524,11 @@ async fn tx_broadcast_limit_reached() {
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
 
+	// Announce block 1 to `transaction_v1_broadcast`.
+	client_mock.set_best_block(block_1_header.hash(), 1);
+
 	let operation_id: String =
 		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
-
-	// Announce block 1 to `transaction_v1_broadcast`.
-	client_mock.trigger_import_stream(block_1_header).await;
 
 	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction pool.
 	let event = get_next_event!(&mut pool_middleware);

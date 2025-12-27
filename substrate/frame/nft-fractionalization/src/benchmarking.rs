@@ -20,18 +20,14 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
-use frame_support::{
-	assert_ok,
-	traits::{
-		fungible::{Inspect as InspectFungible, Mutate as MutateFungible},
-		tokens::nonfungibles_v2::{Create, Mutate},
-		Get,
-	},
-};
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
+use frame::benchmarking::prelude::*;
+
+use frame::deps::frame_support::assert_ok;
+use fungible::{Inspect as InspectFungible, Mutate as MutateFungible};
+use nonfungibles_v2::{Create, Mutate};
+
+use frame_system::RawOrigin as SystemOrigin;
 use pallet_nfts::{CollectionConfig, CollectionSettings, ItemConfig, MintSettings};
-use sp_runtime::traits::StaticLookup;
 
 use crate::Pallet as NftFractionalization;
 

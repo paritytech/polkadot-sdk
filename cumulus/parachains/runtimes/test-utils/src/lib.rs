@@ -16,6 +16,9 @@
 use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
+use cumulus_pallet_parachain_system::parachain_inherent::{
+	deconstruct_parachain_inherent_data, InboundMessagesData,
+};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
@@ -34,7 +37,10 @@ use polkadot_parachain_primitives::primitives::{
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
 use sp_core::{Encode, U256};
-use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem, SaturatedConversion};
+use sp_runtime::{
+	traits::{Dispatchable, Header},
+	BuildStorage, Digest, DigestItem, DispatchError, Either, SaturatedConversion,
+};
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
@@ -47,6 +53,7 @@ pub mod test_cases;
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
 pub type RuntimeCallOf<Runtime> = <Runtime as frame_system::Config>::RuntimeCall;
+pub type RuntimeOriginOf<Runtime> = <Runtime as frame_system::Config>::RuntimeOrigin;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
@@ -230,7 +237,7 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 			.unwrap();
 		}
 
-		pallet_balances::GenesisConfig::<Runtime> { balances: self.balances }
+		pallet_balances::GenesisConfig::<Runtime> { balances: self.balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
@@ -324,14 +331,20 @@ where
 			AllPalletsWithoutSystem::on_initialize(next_block_number);
 
 			let parent_head = HeadData(header.encode());
+
+			// Get RelayParentOffset from the parachain system pallet config.
+			let relay_parent_offset =
+				<Runtime as cumulus_pallet_parachain_system::Config>::RelayParentOffset::get()
+					.saturated_into::<u64>();
+
 			let sproof_builder = RelayStateSproofBuilder {
 				para_id: <Runtime>::SelfParaId::get(),
 				included_para_head: parent_head.clone().into(),
 				..Default::default()
 			};
 
-			let (relay_parent_storage_root, relay_chain_state) =
-				sproof_builder.into_state_root_and_proof();
+			let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+				sproof_builder.into_state_root_proof_and_descendants(relay_parent_offset);
 			let inherent_data = ParachainInherentData {
 				validation_data: PersistedValidationData {
 					parent_head,
@@ -342,11 +355,20 @@ where
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
+				relay_parent_descendants,
+				collator_peer_id: None,
 			};
+
+			let (inherent_data, downward_messages, horizontal_messages) =
+				deconstruct_parachain_inherent_data(inherent_data);
 
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
 				Runtime::RuntimeOrigin::none(),
 				inherent_data,
+				InboundMessagesData::new(
+					downward_messages.into_abridged(&mut usize::MAX.clone()),
+					horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
 				Runtime::RuntimeOrigin::none(),
@@ -441,6 +463,10 @@ impl<
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
+	#[deprecated(
+		note = "Will be removed after Aug 2025; It uses hard-coded `Location::parent()`, \
+		use `execute_as_governance_call` instead."
+	)]
 	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
@@ -464,6 +490,51 @@ impl<
 		)
 	}
 
+	pub fn execute_as_governance_call<Call: Dispatchable + Encode>(
+		call: Call,
+		governance_origin: GovernanceOrigin<Call::RuntimeOrigin>,
+	) -> Result<(), Either<DispatchError, InstructionError>> {
+		// execute xcm as governance would send
+		let execute_xcm = |call: Call, governance_location, descend_origin| {
+			// prepare xcm
+			let xcm = if let Some(descend_origin) = descend_origin {
+				Xcm::builder_unsafe().descend_origin(descend_origin)
+			} else {
+				Xcm::builder_unsafe()
+			}
+			.unpaid_execution(Unlimited, None)
+			.transact(OriginKind::Superuser, None, call.encode())
+			.expect_transact_status(MaybeErrorCode::Success)
+			.build();
+
+			let xcm_max_weight = Self::xcm_max_weight_for_location(&governance_location);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+
+			<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+				governance_location,
+				xcm,
+				&mut hash,
+				xcm_max_weight,
+				Weight::zero(),
+			)
+		};
+
+		match governance_origin {
+			// we are simulating a case of receiving an XCM
+			// and Location::Here() is not a valid destionation for XcmRouter in the fist place
+			GovernanceOrigin::Location(location) if location == Location::here() =>
+				panic!("Location::here() not supported, use GovernanceOrigin::Origin instead"),
+			GovernanceOrigin::Location(location) =>
+				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
+			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
+				execute_xcm(call, location, Some(descend_origin))
+					.ensure_complete()
+					.map_err(Either::Right),
+			GovernanceOrigin::Origin(origin) =>
+				call.dispatch(origin).map(|_| ()).map_err(|e| Either::Left(e.error)),
+		}
+	}
+
 	pub fn execute_as_origin<Call: GetDispatchInfo + Encode>(
 		(origin, origin_kind): (Location, OriginKind),
 		call: Call,
@@ -484,21 +555,26 @@ impl<
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 		let xcm = Xcm(instructions);
+		let xcm_max_weight = Self::xcm_max_weight_for_location(&origin);
 
 		// execute xcm as parent origin
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
-			origin.clone(),
+			origin,
 			xcm,
 			&mut hash,
-			Self::xcm_max_weight(if origin == Location::parent() {
-				XcmReceivedFrom::Parent
-			} else {
-				XcmReceivedFrom::Sibling
-			}),
+			xcm_max_weight,
 			Weight::zero(),
 		)
 	}
+}
+
+/// Enum representing governance origin/location.
+#[derive(Clone)]
+pub enum GovernanceOrigin<RuntimeOrigin> {
+	Location(Location),
+	LocationAndDescendOrigin(Location, InteriorLocation),
+	Origin(RuntimeOrigin),
 }
 
 pub enum XcmReceivedFrom {
@@ -514,6 +590,14 @@ impl<ParachainSystem: cumulus_pallet_parachain_system::Config, AllPalletsWithout
 			XcmReceivedFrom::Parent => ParachainSystem::ReservedDmpWeight::get(),
 			XcmReceivedFrom::Sibling => ParachainSystem::ReservedXcmpWeight::get(),
 		}
+	}
+
+	pub fn xcm_max_weight_for_location(location: &Location) -> Weight {
+		Self::xcm_max_weight(if location == &Location::parent() {
+			XcmReceivedFrom::Parent
+		} else {
+			XcmReceivedFrom::Sibling
+		})
 	}
 }
 
@@ -611,6 +695,9 @@ pub fn mock_open_hrmp_channel<
 	let timestamp = slot.saturating_mul(slot_durations.para.as_millis());
 	let relay_slot = Slot::from_timestamp(timestamp.into(), slot_durations.relay);
 
+	// Get RelayParentOffset from the parachain system pallet config.
+	let relay_parent_offset = C::RelayParentOffset::get().saturated_into::<u64>();
+
 	let n = 1_u32;
 	let mut sproof_builder = RelayStateSproofBuilder {
 		para_id: sender,
@@ -631,7 +718,9 @@ pub fn mock_open_hrmp_channel<
 		},
 	);
 
-	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
+	let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+		sproof_builder.into_state_root_proof_and_descendants(relay_parent_offset);
+
 	let vfp = PersistedValidationData {
 		relay_parent_number: n as RelayChainBlockNumber,
 		relay_parent_storage_root,
@@ -646,6 +735,8 @@ pub fn mock_open_hrmp_channel<
 			relay_chain_state,
 			downward_messages: Default::default(),
 			horizontal_messages: Default::default(),
+			relay_parent_descendants,
+			collator_peer_id: None,
 		};
 		inherent_data
 			.put_data(
@@ -671,11 +762,7 @@ impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWi
 			[(para_id, ref mut xcm_message_data)] if para_id.eq(&sent_to_para_id.into()) => {
 				let mut xcm_message_data = &xcm_message_data[..];
 				// decode
-				let _ = XcmpMessageFormat::decode_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut xcm_message_data,
-				)
-				.expect("valid format");
+				let _ = XcmpMessageFormat::decode(&mut xcm_message_data).expect("valid format");
 				VersionedXcm::<()>::decode_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut xcm_message_data,

@@ -22,7 +22,7 @@ hyper-util = { features = ["server-auto", "server-graceful", "tokio"], workspace
 log = { workspace = true, default-features = true }
 prometheus = { workspace = true }
 thiserror = { workspace = true }
-tokio = { features = ["parking_lot"], workspace = true, default-features = true }
+tokio = { features = ["net", "parking_lot"], workspace = true, default-features = true }
 
 [dev-dependencies]
 hyper-util = { features = ["client-legacy", "tokio"], workspace = true, default-features = true }

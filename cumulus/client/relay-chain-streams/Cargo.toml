@@ -1,0 +1,27 @@
+[package]
+name = "cumulus-relay-chain-streams"
+version = "0.7.0"
+authors.workspace = true
+description = "Cumulus client common relay chain streams."
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = { workspace = true }
+tracing = { workspace = true, default-features = true }
+
+# Substrate
+sp-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+
+# Polkadot
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-relay-chain-interface = { workspace = true, default-features = true }

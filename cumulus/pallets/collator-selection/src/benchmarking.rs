@@ -22,8 +22,8 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
 use alloc::vec::Vec;
-use codec::Decode;
 use core::cmp;
+use cumulus_pallet_session_benchmarking as session_benchmarking;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
@@ -31,11 +31,11 @@ use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
 
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as super::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const SEED: u32 = 0;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: Config>(generic_event: <T as super::Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -49,40 +49,29 @@ fn create_funded_user<T: Config>(
 	balance_factor: u32,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let balance = T::Currency::minimum_balance() * balance_factor.into();
-	let _ = T::Currency::make_free_balance_be(&user, balance);
+	let balance = <T as pallet::Config>::Currency::minimum_balance() * balance_factor.into();
+	let _ = <T as pallet::Config>::Currency::make_free_balance_be(&user, balance);
 	user
 }
 
-fn keys<T: Config + session::Config>(c: u32) -> <T as session::Config>::Keys {
-	use rand::{RngCore, SeedableRng};
+fn validator<T: Config + session_benchmarking::Config>(
+	c: u32,
+) -> (T::AccountId, <T as session::Config>::Keys, Vec<u8>) {
+	let validator = create_funded_user::<T>("candidate", c, 1000);
+	let (keys, proof) = T::generate_session_keys_and_proof(validator.clone());
 
-	let keys = {
-		let mut keys = [0u8; 128];
-
-		if c > 0 {
-			let mut rng = rand::rngs::StdRng::seed_from_u64(c as u64);
-			rng.fill_bytes(&mut keys);
-		}
-
-		keys
-	};
-
-	Decode::decode(&mut &keys[..]).unwrap()
+	(validator, keys, proof)
 }
 
-fn validator<T: Config + session::Config>(c: u32) -> (T::AccountId, <T as session::Config>::Keys) {
-	(create_funded_user::<T>("candidate", c, 1000), keys::<T>(c))
-}
-
-fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::AccountId> {
+fn register_validators<T: Config + session_benchmarking::Config>(count: u32) -> Vec<T::AccountId> {
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
-	for (who, keys) in validators.clone() {
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
+	for (who, keys, proof) in validators.clone() {
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 	}
 
-	validators.into_iter().map(|(who, _)| who).collect()
+	validators.into_iter().map(|(who, _, _)| who).collect()
 }
 
 fn register_candidates<T: Config>(count: u32) {
@@ -90,7 +79,10 @@ fn register_candidates<T: Config>(count: u32) {
 	assert!(CandidacyBond::<T>::get() > 0u32.into(), "Bond cannot be zero!");
 
 	for who in candidates {
-		T::Currency::make_free_balance_be(&who, CandidacyBond::<T>::get() * 3u32.into());
+		<T as pallet::Config>::Currency::make_free_balance_be(
+			&who,
+			CandidacyBond::<T>::get() * 3u32.into(),
+		);
 		<CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
 	}
 }
@@ -110,7 +102,7 @@ fn min_invulnerables<T: Config>() -> u32 {
 	min_collators.saturating_sub(candidates_length)
 }
 
-#[benchmarks(where T: pallet_authorship::Config + session::Config)]
+#[benchmarks(where T: pallet_authorship::Config + session_benchmarking::Config)]
 mod benchmarks {
 	use super::*;
 
@@ -144,30 +136,30 @@ mod benchmarks {
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		// need to fill up candidates
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c);
 		// get accounts and keys for the `c` candidates
 		let mut candidates = (0..c).map(|cc| validator::<T>(cc)).collect::<Vec<_>>();
 		// add one more to the list. should not be in `b` (invulnerables) because it's the account
 		// we will _add_ to invulnerables. we want it to be in `candidates` because we need the
 		// weight associated with removing it.
-		let (new_invulnerable, new_invulnerable_keys) = validator::<T>(b.max(c) + 1);
-		candidates.push((new_invulnerable.clone(), new_invulnerable_keys));
+		let (new_invulnerable, new_invulnerable_keys, new_proof) = validator::<T>(b.max(c) + 1);
+		candidates.push((new_invulnerable.clone(), new_invulnerable_keys, new_proof));
 		// set their keys ...
-		for (who, keys) in candidates.clone() {
-			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new())
-				.unwrap();
+		for (who, keys, proof) in candidates.clone() {
+			<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
+			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 		}
 		// ... and register them.
-		for (who, _) in candidates.iter() {
+		for (who, _, _) in candidates.iter() {
 			let deposit = CandidacyBond::<T>::get();
-			T::Currency::make_free_balance_be(who, deposit * 1000_u32.into());
+			<T as pallet::Config>::Currency::make_free_balance_be(who, deposit * 1000_u32.into());
 			CandidateList::<T>::try_mutate(|list| {
 				list.try_push(CandidateInfo { who: who.clone(), deposit }).unwrap();
 				Ok::<(), BenchmarkError>(())
 			})
 			.unwrap();
-			T::Currency::reserve(who, deposit)?;
+			<T as pallet::Config>::Currency::reserve(who, deposit)?;
 			LastAuthoredBlock::<T>::insert(
 				who.clone(),
 				frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
@@ -226,7 +218,8 @@ mod benchmarks {
 		c: Linear<0, { T::MaxCandidates::get() }>,
 		k: Linear<0, { T::MaxCandidates::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let initial_bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 2u32.into();
+		let initial_bond_amount: BalanceOf<T> =
+			<T as pallet::Config>::Currency::minimum_balance() * 2u32.into();
 		CandidacyBond::<T>::put(initial_bond_amount);
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
@@ -236,12 +229,12 @@ mod benchmarks {
 		let bond_amount = if k > 0 {
 			CandidateList::<T>::mutate(|candidates| {
 				for info in candidates.iter_mut().skip(kicked as usize) {
-					info.deposit = T::Currency::minimum_balance() * 3u32.into();
+					info.deposit = <T as pallet::Config>::Currency::minimum_balance() * 3u32.into();
 				}
 			});
-			T::Currency::minimum_balance() * 3u32.into()
+			<T as pallet::Config>::Currency::minimum_balance() * 3u32.into()
 		} else {
-			T::Currency::minimum_balance()
+			<T as pallet::Config>::Currency::minimum_balance()
 		};
 
 		#[extrinsic_call]
@@ -255,7 +248,7 @@ mod benchmarks {
 	fn update_bond(
 		c: Linear<{ min_candidates::<T>() + 1 }, { T::MaxCandidates::get() }>,
 	) -> Result<(), BenchmarkError> {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c);
 
 		register_validators::<T>(c);
@@ -264,8 +257,8 @@ mod benchmarks {
 		let caller = CandidateList::<T>::get()[0].who.clone();
 		v2::whitelist!(caller);
 
-		let bond_amount: BalanceOf<T> =
-			T::Currency::minimum_balance() + T::Currency::minimum_balance();
+		let bond_amount: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() +
+			<T as pallet::Config>::Currency::minimum_balance();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), bond_amount);
@@ -275,7 +268,7 @@ mod benchmarks {
 		);
 		assert!(
 			CandidateList::<T>::get().iter().last().unwrap().deposit ==
-				T::Currency::minimum_balance() * 2u32.into()
+				<T as pallet::Config>::Currency::minimum_balance() * 2u32.into()
 		);
 		Ok(())
 	}
@@ -284,22 +277,20 @@ mod benchmarks {
 	// one.
 	#[benchmark]
 	fn register_as_candidate(c: Linear<1, { T::MaxCandidates::get() - 1 }>) {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c + 1);
 
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
 
 		let caller: T::AccountId = whitelisted_caller();
-		let bond: BalanceOf<T> = T::Currency::minimum_balance() * 2u32.into();
-		T::Currency::make_free_balance_be(&caller, bond);
+		let bond: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 2u32.into();
+		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
-		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
-			keys::<T>(c + 1),
-			Vec::new(),
-		)
-		.unwrap();
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
+			.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -311,22 +302,21 @@ mod benchmarks {
 
 	#[benchmark]
 	fn take_candidate_slot(c: Linear<{ min_candidates::<T>() + 1 }, { T::MaxCandidates::get() }>) {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(1);
 
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
 
 		let caller: T::AccountId = whitelisted_caller();
-		let bond: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
-		T::Currency::make_free_balance_be(&caller, bond);
+		let bond: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 10u32.into();
+		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 
-		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
-			keys::<T>(c + 1),
-			Vec::new(),
-		)
-		.unwrap();
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
+
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
+			.unwrap();
 
 		let target = CandidateList::<T>::get().iter().last().unwrap().who.clone();
 
@@ -342,7 +332,7 @@ mod benchmarks {
 	// worse case is the last candidate leaving.
 	#[benchmark]
 	fn leave_intent(c: Linear<{ min_candidates::<T>() + 1 }, { T::MaxCandidates::get() }>) {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c);
 
 		register_validators::<T>(c);
@@ -360,23 +350,23 @@ mod benchmarks {
 	// worse case is paying a non-existing candidate account.
 	#[benchmark]
 	fn note_author() {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
-		T::Currency::make_free_balance_be(
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
+		<T as pallet::Config>::Currency::make_free_balance_be(
 			&<CollatorSelection<T>>::account_id(),
-			T::Currency::minimum_balance() * 4u32.into(),
+			<T as pallet::Config>::Currency::minimum_balance() * 4u32.into(),
 		);
 		let author = account("author", 0, SEED);
 		let new_block: BlockNumberFor<T> = 10u32.into();
 
 		frame_system::Pallet::<T>::set_block_number(new_block);
-		assert!(T::Currency::free_balance(&author) == 0u32.into());
+		assert!(<T as pallet::Config>::Currency::free_balance(&author) == 0u32.into());
 
 		#[block]
 		{
 			<CollatorSelection<T> as EventHandler<_, _>>::note_author(author.clone())
 		}
 
-		assert!(T::Currency::free_balance(&author) > 0u32.into());
+		assert!(<T as pallet::Config>::Currency::free_balance(&author) > 0u32.into());
 		assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
 	}
 
@@ -386,7 +376,7 @@ mod benchmarks {
 		r: Linear<1, { T::MaxCandidates::get() }>,
 		c: Linear<1, { T::MaxCandidates::get() }>,
 	) {
-		CandidacyBond::<T>::put(T::Currency::minimum_balance());
+		CandidacyBond::<T>::put(<T as pallet::Config>::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c);
 		frame_system::Pallet::<T>::set_block_number(0u32.into());
 
@@ -452,5 +442,5 @@ mod benchmarks {
 		}
 	}
 
-	impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test,);
+	impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test);
 }

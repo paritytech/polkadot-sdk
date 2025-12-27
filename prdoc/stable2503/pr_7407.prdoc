@@ -1,0 +1,40 @@
+title: 'Fixes #219'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add a new extrinsic `dispatch_as_fallible`.
+
+    It's almost the same as `dispatch_as` but check the result of the call.
+
+    Closes #219.
+
+    And add more unit tests to cover `dispatch_as` and `dispatch_as_fallible`.
+
+    ---
+
+    Polkadot address: 156HGo9setPcU2qhFMVWLkcmtCEGySLwNqa3DaEiYSWtte4Y
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-utility
+  bump: minor

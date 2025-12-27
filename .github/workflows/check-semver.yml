@@ -1,8 +1,12 @@
 name: Check semver
 
 on:
+  # for cache
+  push:
+    branches:
+      - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
   merge_group:
 
@@ -11,10 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2024-11-19
+  TOOLCHAIN: nightly-2025-05-09
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
@@ -23,7 +30,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 2
 
@@ -63,33 +70,103 @@ jobs:
           echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
-          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Rust compilation prerequisites
         run: |
           rustup default $TOOLCHAIN
+          rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
-      - name: install parity-publish
+      - name: Install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.3 --locked -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
 
-      - name: check semver
+      - name: Get original PR number
+        shell: bash
+        if: ${{ github.ref != 'refs/heads/master' }}
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+          original_pr_number=''
+
+          echo "Checking PR title: $PR_TITLE"
+
+          if [[ "$PR_TITLE" =~ 'Backport' ]]; then
+            # Extracting the original PR number from the backport's PR title
+            original_pr_number=$(extract_pr_number_from_pr_title "$PR_TITLE")
+            echo "Extracted PR number: $original_pr_number"
+          else
+            original_pr_number=${{ github.event.pull_request.number }}
+          fi
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
+
+      - name: Check semver
+        if: ${{ github.ref != 'refs/heads/master' }}
+        shell: bash
+        env:
+          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
+          PR: ${{ env.PR_NUMBER }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           if [ -z "$PR" ]; then
             echo "Skipping master/merge queue"
             exit 0
           fi
 
+          # Skip semver check if PR targets stable branch and has R0-no-crate-publish-require label
+          if [[ "$BASE_BRANCH" =~ ^stable[0-9]{4}$ ]]; then
+            if echo "$PR_LABELS" | grep -q "R0-no-crate-publish-require"; then
+              echo "ℹ️ Skipping the SemVer check is not recommended and should only be done in rare cases: PR targets stable branch '$BASE_BRANCH' and has 'R0-no-crate-publish-require' label."
+              exit 0
+            fi
+          fi
+
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
 
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc $PRDOC_EXTRA_ARGS -v --toolchain $TOOLCHAIN; then
+          prdoc_file="prdoc/pr_$PR.prdoc"
 
-            cat <<EOF
+          # Always run parity-publish to check for all issues (mismatches and missing crates)
+          # Capture output to check for specific error types
+          parity_output=$(mktemp)
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc $PRDOC_EXTRA_ARGS -v --toolchain $TOOLCHAIN 2>&1 | tee "$parity_output"; then
+
+            # Check if there are missing crates (files changed but not listed in prdoc)
+            if grep -q "Files changed but crate not listed in PR Doc" "$parity_output"; then
+              rm -f "$parity_output"
+              cat <<EOF
+
+          👋 Hello developer! The SemVer check found crates with changes that are not listed in the prdoc file.
+
+          It is recommended to add all changed crates to the prdoc.
+
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
+              exit 1
+            fi
+
+            rm -f "$parity_output"
+
+            # Check if any crate has validate: false to override semver mismatch failures
+            if grep -q "validate:[[:space:]]*false" "$prdoc_file"; then
+              echo ""
+              echo "ℹ️ Found crates with 'validate: false' in prdoc. Semver validation failure is overridden."
+              echo "⚠️ Please ensure the semver override is justified and documented in the PR description."
+            else
+              # No validate: false found, fail with error message
+              cat <<EOF
+
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
           Please check the output above and see the following links for more help:
@@ -99,8 +176,81 @@ jobs:
           Otherwise feel free to ask in the Merge Request or in Matrix chat.
           EOF
 
-            exit 1
+              exit 1
+            fi
+          else
+            rm -f "$parity_output"
           fi
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
+
+          # Only enforce SemVer restrictions for backports targeting stable branches
+          if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
+              echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
+              exit 0
+          fi
+
+          echo "🔍 Backport branch detected, checking for disallowed semver changes..."
+
+          # Check for minor/patch bumps with validate: false
+          if grep -qE "bump:[[:space:]]*(minor|patch)" "$prdoc_file"; then
+              minor_patch_temp=$(mktemp)
+              grep -A1 -E "bump:[[:space:]]*(minor|patch)" "$prdoc_file" > "$minor_patch_temp"
+
+              has_validate_false=false
+              while read -r line; do
+                  if [[ "$line" =~ bump:[[:space:]]*(minor|patch) ]]; then
+                      read -r next_line || true
+                      if [[ "$next_line" =~ validate:[[:space:]]*false ]]; then
+                          has_validate_false=true
+                          break
+                      fi
+                  fi
+              done < "$minor_patch_temp"
+
+              rm -f "$minor_patch_temp"
+
+              if [ "$has_validate_false" = true ]; then
+                  echo "ℹ️ Found minor/patch bumps with validate: false override. Semver validation was skipped for these crates by parity-publish."
+              fi
+          fi
+
+          # Check if there are any major bumps
+          if ! grep -q "bump:[[:space:]]*major" "$prdoc_file"; then
+              echo "✅ All semver changes in backport are valid (minor, patch, or none)."
+              exit 0
+          fi
+
+          # Process each major bump and check the next line
+          temp_file=$(mktemp)
+          grep -A1 "bump:[[:space:]]*major" "$prdoc_file" > "$temp_file"
+
+          error_found=false
+          while IFS= read -r line; do
+              if [[ "$line" =~ bump:[[:space:]]*major ]]; then
+                  # This is the bump line, read the next line
+                  if IFS= read -r next_line; then
+                      if [[ "$next_line" =~ validate:[[:space:]]*false ]]; then
+                          continue  # This major bump is properly validated
+                      else
+                          error_found=true
+                          break
+                      fi
+                  else
+                      # No next line, means no validate: false
+                      error_found=true
+                      break
+                  fi
+              fi
+          done < "$temp_file"
+
+          rm -f "$temp_file"
+
+          if [ "$error_found" = true ]; then
+              echo "❌ Error: Found major bump without 'validate: false'"
+              echo "📘 See: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#backporting-prs"
+              echo "🔧 Add 'validate: false' after the major bump in $prdoc_file with justification."
+              exit 1
+          fi
+
+          # If we reach here, all major bumps have validate: false
+          echo "⚠️ Backport contains major bumps, but they are all marked with validate: false."
+          echo "✅ Semver override accepted. Please ensure justification is documented in the PR description."

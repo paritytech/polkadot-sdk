@@ -1,0 +1,13 @@
+title: '`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`,
+  `on_idle`, `OnSystemEvent`).'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR fixes several issues related to `xcm-emulator`:
+    - Corrects parent head propagation to the `PersistedValidationData` and `OnSystemEvent` callback.
+    - Triggers `on_initialize` for all pallets, not just `ParachainSystem`.
+    - Triggers `on_finalize` for all pallets, not just `ParachainSystem`.
+    - Triggers `on_idle` for all parachain pallets.
+crates:
+- name: xcm-emulator
+  bump: minor

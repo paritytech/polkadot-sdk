@@ -61,7 +61,11 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
+	dispatch::{
+		extract_actual_weight,
+		DispatchClass::{Normal, Operational},
+		GetDispatchInfo, PostDispatchInfo,
+	},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -84,6 +88,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -120,6 +125,10 @@ pub mod pallet {
 		ItemFailed { error: DispatchError },
 		/// A call was dispatched.
 		DispatchedAs { result: DispatchResult },
+		/// Main call was dispatched.
+		IfElseMainSuccess,
+		/// The fallback call was dispatched.
+		IfElseFallbackCalled { main_error: DispatchError },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -133,9 +142,9 @@ pub mod pallet {
 		/// The limit on the number of batched calls.
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) /
-				CALL_ALIGN) * CALL_ALIGN;
+			let call_size = (core::mem::size_of::<<T as Config>::RuntimeCall>() as u32)
+				.div_ceil(CALL_ALIGN) *
+				CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
 			let margin_factor = 3;
 
@@ -260,7 +269,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let mut origin = origin;
 			let who = ensure_signed(origin.clone())?;
-			let pseudonym = Self::derivative_account_id(who, index);
+			let pseudonym = derivative_account_id(who, index);
 			origin.set_caller_from(frame_system::RawOrigin::Signed(pseudonym));
 			let info = call.get_dispatch_info();
 			let result = call.dispatch(origin);
@@ -431,7 +440,7 @@ pub mod pallet {
 			} else {
 				Self::deposit_event(Event::BatchCompleted);
 			}
-			let base_weight = T::WeightInfo::batch(calls_len as u32);
+			let base_weight = T::WeightInfo::force_batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
 
@@ -453,6 +462,126 @@ pub mod pallet {
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|_| ()).map_err(|e| e.error)
+		}
+
+		/// Dispatch a fallback call in the event the main call fails to execute.
+		/// May be called from any origin except `None`.
+		///
+		/// This function first attempts to dispatch the `main` call.
+		/// If the `main` call fails, the `fallback` is attemted.
+		/// if the fallback is successfully dispatched, the weights of both calls
+		/// are accumulated and an event containing the main call error is deposited.
+		///
+		/// In the event of a fallback failure the whole call fails
+		/// with the weights returned.
+		///
+		/// - `main`: The main call to be dispatched. This is the primary action to execute.
+		/// - `fallback`: The fallback call to be dispatched in case the `main` call fails.
+		///
+		/// ## Dispatch Logic
+		/// - If the origin is `root`, both the main and fallback calls are executed without
+		///   applying any origin filters.
+		/// - If the origin is not `root`, the origin filter is applied to both the `main` and
+		///   `fallback` calls.
+		///
+		/// ## Use Case
+		/// - Some use cases might involve submitting a `batch` type call in either main, fallback
+		///   or both.
+		#[pallet::call_index(6)]
+		#[pallet::weight({
+			let main = main.get_dispatch_info();
+			let fallback = fallback.get_dispatch_info();
+			(
+				T::WeightInfo::if_else()
+					.saturating_add(main.call_weight)
+					.saturating_add(fallback.call_weight),
+				if main.class == Operational && fallback.class == Operational { Operational } else { Normal },
+			)
+		})]
+		pub fn if_else(
+			origin: OriginFor<T>,
+			main: Box<<T as Config>::RuntimeCall>,
+			fallback: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResultWithPostInfo {
+			// Do not allow the `None` origin.
+			if ensure_none(origin.clone()).is_ok() {
+				return Err(BadOrigin.into());
+			}
+
+			let is_root = ensure_root(origin.clone()).is_ok();
+
+			// Track the weights
+			let mut weight = T::WeightInfo::if_else();
+
+			let main_info = main.get_dispatch_info();
+
+			// Execute the main call first
+			let main_result = if is_root {
+				main.dispatch_bypass_filter(origin.clone())
+			} else {
+				main.dispatch(origin.clone())
+			};
+
+			// Add weight of the main call
+			weight = weight.saturating_add(extract_actual_weight(&main_result, &main_info));
+
+			let Err(main_error) = main_result else {
+				// If the main result is Ok, we skip the fallback logic entirely
+				Self::deposit_event(Event::IfElseMainSuccess);
+				return Ok(Some(weight).into());
+			};
+
+			// If the main call failed, execute the fallback call
+			let fallback_info = fallback.get_dispatch_info();
+
+			let fallback_result = if is_root {
+				fallback.dispatch_bypass_filter(origin.clone())
+			} else {
+				fallback.dispatch(origin)
+			};
+
+			// Add weight of the fallback call
+			weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+
+			let Err(fallback_error) = fallback_result else {
+				// Fallback succeeded.
+				Self::deposit_event(Event::IfElseFallbackCalled { main_error: main_error.error });
+				return Ok(Some(weight).into());
+			};
+
+			// Both calls have failed, return fallback error
+			Err(sp_runtime::DispatchErrorWithPostInfo {
+				error: fallback_error.error,
+				post_info: Some(weight).into(),
+			})
+		}
+
+		/// Dispatches a function call with a provided origin.
+		///
+		/// Almost the same as [`Pallet::dispatch_as`] but forwards any error of the inner call.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		#[pallet::call_index(7)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as_fallible()
+					.saturating_add(dispatch_info.call_weight),
+				dispatch_info.class,
+			)
+		})]
+		pub fn dispatch_as_fallible(
+			origin: OriginFor<T>,
+			as_origin: Box<T::PalletsOrigin>,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			call.dispatch_bypass_filter((*as_origin).into()).map_err(|e| e.error)?;
+
+			Self::deposit_event(Event::DispatchedAs { result: Ok(()) });
+
+			Ok(())
 		}
 	}
 
@@ -480,6 +609,7 @@ pub mod pallet {
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[allow(dead_code)]
 struct IndexedUtilityPalletId(u16);
 
 impl TypeId for IndexedUtilityPalletId {
@@ -487,10 +617,24 @@ impl TypeId for IndexedUtilityPalletId {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Derive a derivative account ID from the owner account and the sub-account index.
+	#[deprecated(
+		note = "`Pallet::derivative_account_id` will be removed after August 2025. Please instead use the freestanding module function `derivative_account_id`."
+	)]
 	pub fn derivative_account_id(who: T::AccountId, index: u16) -> T::AccountId {
-		let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
-		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-			.expect("infinite length input; no invalid inputs for type; qed")
+		derivative_account_id(who, index)
 	}
+}
+
+/// Derive a derivative account ID from the owner account and the sub-account index.
+///
+/// The derived account with `index` of `who` is defined as:
+/// `b2b256("modlpy/utilisuba" ++ who ++ index)` where index is encoded as fixed size SCALE u16, the
+/// prefix string as SCALE u8 vector and `who` by its canonical SCALE encoding. The resulting
+/// account ID is then decoded from the hash with trailing zero bytes in case that the AccountId
+/// type is longer than 32 bytes. Note that this *could* lead to collisions when using AccountId
+/// types that are shorter than 32 bytes, especially in testing environments that are using u64.
+pub fn derivative_account_id<AccountId: Encode + Decode>(who: AccountId, index: u16) -> AccountId {
+	let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
+	Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+		.expect("infinite length input; no invalid inputs for type; qed")
 }

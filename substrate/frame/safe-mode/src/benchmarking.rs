@@ -18,11 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as SafeMode, *};
-
-use frame_benchmarking::v2::*;
-use frame_support::traits::{fungible, UnfilteredDispatchable};
-use frame_system::{Pallet as System, RawOrigin};
-use sp_runtime::traits::{Bounded, One, Zero};
+use frame::benchmarking::prelude::*;
 
 #[benchmarks(where T::Currency: fungible::Mutate<T::AccountId>)]
 mod benchmarks {
@@ -65,7 +61,7 @@ mod benchmarks {
 
 		assert_eq!(
 			EnteredUntil::<T>::get().unwrap(),
-			System::<T>::block_number() + T::EnterDuration::get()
+			frame_system::Pallet::<T>::block_number() + T::EnterDuration::get()
 		);
 		Ok(())
 	}
@@ -81,7 +77,10 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(force_origin as T::RuntimeOrigin);
 
-		assert_eq!(EnteredUntil::<T>::get().unwrap(), System::<T>::block_number() + duration);
+		assert_eq!(
+			EnteredUntil::<T>::get().unwrap(),
+			frame_system::Pallet::<T>::block_number() + duration
+		);
 		Ok(())
 	}
 
@@ -93,7 +92,7 @@ mod benchmarks {
 		let alice: T::AccountId = whitelisted_caller();
 		<T::Currency as fungible::Mutate<_>>::set_balance(&alice, init_bal::<T>());
 
-		System::<T>::set_block_number(1u32.into());
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
 		assert!(SafeMode::<T>::do_enter(None, 1u32.into()).is_ok());
 
 		#[extrinsic_call]
@@ -101,7 +100,7 @@ mod benchmarks {
 
 		assert_eq!(
 			EnteredUntil::<T>::get().unwrap(),
-			System::<T>::block_number() + 1u32.into() + T::ExtendDuration::get()
+			frame_system::Pallet::<T>::block_number() + 1u32.into() + T::ExtendDuration::get()
 		);
 		Ok(())
 	}
@@ -112,7 +111,7 @@ mod benchmarks {
 		let force_origin = T::ForceExtendOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		System::<T>::set_block_number(1u32.into());
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
 		assert!(SafeMode::<T>::do_enter(None, 1u32.into()).is_ok());
 
 		let duration = T::ForceExtendOrigin::ensure_origin(force_origin.clone()).unwrap();
@@ -125,7 +124,7 @@ mod benchmarks {
 
 		assert_eq!(
 			EnteredUntil::<T>::get().unwrap(),
-			System::<T>::block_number() + 1u32.into() + duration
+			frame_system::Pallet::<T>::block_number() + 1u32.into() + duration
 		);
 		Ok(())
 	}
@@ -161,9 +160,9 @@ mod benchmarks {
 		EnteredUntil::<T>::put(&block);
 		assert!(SafeMode::<T>::do_exit(ExitReason::Force).is_ok());
 
-		System::<T>::set_block_number(delay + One::one() + 2u32.into());
-		System::<T>::on_initialize(System::<T>::block_number());
-		SafeMode::<T>::on_initialize(System::<T>::block_number());
+		frame_system::Pallet::<T>::set_block_number(delay + One::one() + 2u32.into());
+		frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		SafeMode::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
 		_(origin, alice.clone(), 1u32.into());
@@ -195,9 +194,11 @@ mod benchmarks {
 		);
 		assert!(SafeMode::<T>::do_exit(ExitReason::Force).is_ok());
 
-		System::<T>::set_block_number(System::<T>::block_number() + One::one());
-		System::<T>::on_initialize(System::<T>::block_number());
-		SafeMode::<T>::on_initialize(System::<T>::block_number());
+		frame_system::Pallet::<T>::set_block_number(
+			frame_system::Pallet::<T>::block_number() + One::one(),
+		);
+		frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		SafeMode::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
 		_(force_origin as T::RuntimeOrigin, alice.clone(), block);

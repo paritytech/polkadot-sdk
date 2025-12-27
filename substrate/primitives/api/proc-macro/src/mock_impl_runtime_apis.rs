@@ -99,6 +99,10 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`record_proof` not implemented for runtime api mocks")
 			}
 
+			fn record_proof_with_recorder(&mut self, _: #crate_::ProofRecorder<#block_type>) {
+				unimplemented!("`record_proof_with_recorder` not implemented for runtime api mocks")
+			}
+
 			fn extract_proof(
 				&mut self,
 			) -> Option<#crate_::StorageProof> {
@@ -149,7 +153,7 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 			fn execute_block(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: #block_type,
+				_: <#block_type as #crate_::BlockT>::LazyBlock,
 			) -> std::result::Result<(), #crate_::ApiError> {
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
 			}

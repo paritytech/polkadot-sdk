@@ -34,7 +34,8 @@ use crate::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
 		import_single_block_metered, verify_single_block_metered, BlockImportError,
 		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
-		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
+		IncomingBlock, JustificationImportResult, Link, RuntimeOrigin,
+		SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -342,8 +343,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 	) {
 		let started = std::time::Instant::now();
 
-		let success = match self.justification_import.as_mut() {
-			Some(justification_import) => justification_import
+		let import_result = match self.justification_import.as_mut() {
+			Some(justification_import) => {
+				let result = justification_import
 				.import_justification(hash, number, justification)
 				.await
 				.map_err(|e| {
@@ -356,16 +358,22 @@ impl<B: BlockT> BlockImportWorker<B> {
 						e,
 					);
 					e
-				})
-				.is_ok(),
-			None => false,
+				});
+				match result {
+					Ok(()) => JustificationImportResult::Success,
+					Err(sp_consensus::Error::OutdatedJustification) =>
+						JustificationImportResult::OutdatedJustification,
+					Err(_) => JustificationImportResult::Failure,
+				}
+			},
+			None => JustificationImportResult::Failure,
 		};
 
 		if let Some(metrics) = self.metrics.as_ref() {
 			metrics.justification_import_time.observe(started.elapsed().as_secs_f64());
 		}
 
-		self.result_sender.justification_imported(who, &hash, number, success);
+		self.result_sender.justification_imported(who, &hash, number, import_result);
 	}
 }
 
@@ -579,7 +587,7 @@ mod tests {
 			_who: RuntimeOrigin,
 			hash: &Hash,
 			_number: BlockNumber,
-			_success: bool,
+			_import_result: JustificationImportResult,
 		) {
 			self.events.lock().push(Event::JustificationImported(*hash))
 		}

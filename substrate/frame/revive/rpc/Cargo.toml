@@ -7,68 +7,57 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
+
+[lints]
+workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
 
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"
 
-[[example]]
-name = "deploy"
-path = "examples/rust/deploy.rs"
-required-features = ["example"]
-
-[[example]]
-name = "transfer"
-path = "examples/rust/transfer.rs"
-required-features = ["example"]
-
-[[example]]
-name = "rpc-playground"
-path = "examples/rust/rpc-playground.rs"
-required-features = ["example"]
-
-[[example]]
-name = "extrinsic"
-path = "examples/rust/extrinsic.rs"
-required-features = ["example"]
-
-[[example]]
-name = "remark-extrinsic"
-path = "examples/rust/remark-extrinsic.rs"
-required-features = ["example"]
-
 [dependencies]
-clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
-futures = { workspace = true, features = ["thread-pool"] }
-jsonrpsee = { workspace = true, features = ["full"] }
-thiserror = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
-tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
+futures = { workspace = true, features = ["thread-pool"] }
+hex = { workspace = true }
+jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-weights = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+rlp = { workspace = true }
+sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-rlp = { workspace = true, optional = true }
-subxt-signer = { workspace = true, optional = true, features = [
-	"unstable-eth",
-] }
-hex = { workspace = true }
-ethabi = { version = "18.0.0" }
-
-[features]
-example = ["rlp", "subxt-signer"]
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
+serde_json = { workspace = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
+sp-weights = { workspace = true, default-features = true }
+sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-static_init = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
-substrate-cli-test-utils = { workspace = true }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
+pretty_assertions = { workspace = true }
+revive-dev-node = { workspace = true }
+sp-io = { workspace = true, default-features = true }
+
+[build-dependencies]
+git2 = { workspace = true }
+revive-dev-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

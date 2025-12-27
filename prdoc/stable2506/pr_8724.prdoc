@@ -1,0 +1,20 @@
+title: Implement detailed logging for XCM failures
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR improves diagnostics in XCM-related code by adding detailed error logging, especially within map_err paths. It includes clearer messages, standardized log targets, and richer context to aid runtime developers and node operators in debugging and monitoring.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: parachains-common
+  bump: minor
+- name: polkadot-runtime-common
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: staging-xcm-executor
+  bump: patch
+- name: staging-xcm-builder
+  bump: minor
+- name: pallet-xcm
+  bump: patch

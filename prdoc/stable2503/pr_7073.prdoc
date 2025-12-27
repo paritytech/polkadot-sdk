@@ -1,0 +1,16 @@
+title: Implement NetworkRequest for litep2p
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Implements NetworkRequest::request for litep2p that we need for networking benchmarks
+
+
+    ## Review Notes
+
+    Duplicates implementation for NetworkService
+    https://github.com/paritytech/polkadot-sdk/blob/5bf9dd2aa9bf944434203128783925bdc2ad8c01/substrate/client/network/src/service.rs#L1186-L1205
+crates:
+- name: sc-network
+  bump: patch

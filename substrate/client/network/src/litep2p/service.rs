@@ -28,8 +28,8 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	service::out_events,
 	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkPeers, NetworkRequest,
-	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, ProtocolName,
-	RequestFailure, Signature,
+	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, OutboundFailure,
+	ProtocolName, RequestFailure, Signature,
 };
 
 use codec::DecodeAll;
@@ -65,6 +65,12 @@ const LOG_TARGET: &str = "sub-libp2p";
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
 #[derive(Debug)]
 pub enum NetworkServiceCommand {
+	/// Find peers closest to `target` in the DHT.
+	FindClosestPeers {
+		/// Target peer ID.
+		target: PeerId,
+	},
+
 	/// Get value from DHT.
 	GetValue {
 		/// Record key.
@@ -258,15 +264,20 @@ impl NetworkSigner for Litep2pNetworkService {
 		signature: &Vec<u8>,
 		message: &Vec<u8>,
 	) -> Result<bool, String> {
-		let public_key = litep2p::crypto::PublicKey::from_protobuf_encoding(&public_key)
+		let identity = litep2p::PeerId::from_public_key_protobuf(&public_key);
+		let public_key = litep2p::crypto::RemotePublicKey::from_protobuf_encoding(&public_key)
 			.map_err(|error| error.to_string())?;
 		let peer: litep2p::PeerId = peer.into();
 
-		Ok(peer == public_key.to_peer_id() && public_key.verify(message, signature))
+		Ok(peer == identity && public_key.verify(message, signature))
 	}
 }
 
 impl NetworkDHTProvider for Litep2pNetworkService {
+	fn find_closest_peers(&self, target: PeerId) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::FindClosestPeers { target });
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetValue { key: key.clone() });
 	}
@@ -526,13 +537,23 @@ impl NetworkStateInfo for Litep2pNetworkService {
 impl NetworkRequest for Litep2pNetworkService {
 	async fn request(
 		&self,
-		_target: PeerId,
-		_protocol: ProtocolName,
-		_request: Vec<u8>,
-		_fallback_request: Option<(Vec<u8>, ProtocolName)>,
-		_connect: IfDisconnected,
+		target: PeerId,
+		protocol: ProtocolName,
+		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		connect: IfDisconnected,
 	) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
-		unimplemented!();
+		let (tx, rx) = oneshot::channel();
+
+		self.start_request(target, protocol, request, fallback_request, tx, connect);
+
+		match rx.await {
+			Ok(v) => v,
+			// The channel can only be closed if the network worker no longer exists. If the
+			// network worker no longer exists, then all connections to `target` are necessarily
+			// closed, and we legitimately report this situation as a "ConnectionClosed".
+			Err(_) => Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)),
+		}
 	}
 
 	fn start_request(

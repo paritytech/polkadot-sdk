@@ -14,29 +14,57 @@
 // limitations under the License.
 
 //! Benchmarking setup for pallet-session.
+#![cfg(feature = "runtime-benchmarks")]
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 
-use codec::Decode;
-use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use pallet_session::*;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
-pub trait Config: pallet_session::Config {}
+pub trait Config: pallet_session::Config {
+	/// Generate a session key and a proof of ownership.
+	///
+	/// The given `owner` is the account that will call `set_keys` using the returned session keys
+	/// and proof. This means that the proof should prove the ownership of `owner` over the private
+	/// keys associated to the session keys.
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>);
+}
 
-benchmarks! {
-	set_keys {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn set_keys() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		frame_system::Pallet::<T>::inc_providers(&caller);
-		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
-	}: _(RawOrigin::Signed(caller), keys, proof)
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
-	purge_keys {
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), keys, proof);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn purge_keys() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		frame_system::Pallet::<T>::inc_providers(&caller);
-		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
-		let _t = pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof);
-	}: _(RawOrigin::Signed(caller))
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+
+		let _t = pallet_session::Pallet::<T>::set_keys(
+			RawOrigin::Signed(caller.clone()).into(),
+			keys,
+			proof,
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller));
+
+		Ok(())
+	}
 }

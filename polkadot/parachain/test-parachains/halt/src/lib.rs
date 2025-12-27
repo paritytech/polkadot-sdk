@@ -34,7 +34,6 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 
 #[cfg(not(feature = "std"))]
 #[panic_handler]
-#[no_mangle]
 pub fn panic(_info: &core::panic::PanicInfo) -> ! {
 	core::arch::wasm32::unreachable();
 }

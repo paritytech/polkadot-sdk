@@ -29,13 +29,9 @@ name = "asset-hub-westend-collator1"
 rpc_port = 9011
 ws_port = 9944
 command = "{{POLKADOT_PARACHAIN_BINARY}}"
-args = [
-	"-lparachain=debug,runtime::revive=debug",
-]
+args = ["-lparachain=debug,runtime::revive=debug"]
 
 [[parachains.collators]]
 name = "asset-hub-westend-collator2"
 command = "{{POLKADOT_PARACHAIN_BINARY}}"
-args = [
-	"-lparachain=debug,runtime::revive=debug",
-]
+args = ["-lparachain=debug,runtime::revive=debug"]

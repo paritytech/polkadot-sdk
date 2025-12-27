@@ -1,0 +1,10 @@
+title: Fix defensive! macro to be used in umbrella crates
+doc:
+- audience: Runtime Dev
+  description: |-
+    PR for #7054
+
+    Replaced frame_support with $crate from @gui1117 's suggestion to fix the dependency issue
+crates:
+- name: frame-support
+  bump: patch

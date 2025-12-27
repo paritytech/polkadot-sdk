@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: '[FRAME] `pallet_asset_tx_payment`: replace `AssetId` bound from `Copy` to `Clone`'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `OnChargeAssetTransaction`'s associated type `AssetId` is bounded by `Copy` which makes it impossible
+      to use `staging_xcm::v4::Location` as `AssetId`. This PR bounds `AssetId` to `Clone` instead, which is 
+      more lenient.
+
+crates:
+  - name: pallet-asset-tx-payment
+    bump: minor

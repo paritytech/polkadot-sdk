@@ -1,0 +1,12 @@
+title: Use checked math in frame-balances named_reserve
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR modifies `named_reserve()` in frame-balances to use checked math instead of defensive saturating math.
+
+    The use of saturating math relies on the assumption that the value will always fit in `u128::MAX`. However, there is nothing preventing the implementing pallet from passing a larger value which overflows. This can happen if the implementing pallet does not validate user input and instead relies on `named_reserve()` to return an error (this saves an additional read)
+
+    This is not a security concern, as the method will subsequently return an error thanks to `<Self as ReservableCurrency<_>>::reserve(who, value)?;`. However, the `defensive_saturating_add` will panic in `--all-features`, creating false positive crashes in fuzzing operations.
+crates:
+- name: pallet-balances
+  bump: patch

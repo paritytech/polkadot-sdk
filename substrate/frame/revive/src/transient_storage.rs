@@ -22,11 +22,11 @@ use crate::{
 	storage::WriteOutcome,
 	Config, Error,
 };
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Encode;
-use core::marker::PhantomData;
+use core::{marker::PhantomData, mem};
 use frame_support::DefaultNoBound;
 use sp_runtime::{DispatchError, DispatchResult, Saturating};
-use sp_std::{collections::btree_map::BTreeMap, mem, vec::Vec};
 
 /// Meter entry tracks transaction allocations.
 #[derive(Default, Debug)]

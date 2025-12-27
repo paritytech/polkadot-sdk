@@ -1,0 +1,10 @@
+title: Optimize initialization of networking protocol benchmarks
+doc:
+- audience: Node Dev
+  description: |-
+    These changes should enhance the quality of benchmark results by excluding worker initialization time from the measurements and reducing the overall duration of the benchmarks.
+
+crates:
+- name: sc-network
+  validate: false
+  bump: none

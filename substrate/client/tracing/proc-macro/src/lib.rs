@@ -1,29 +1,26 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// SPDX-License-Identifier: Apache-2.0
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{Error, Expr, Ident, ItemFn};
+use syn::{Error, Expr, ItemFn, Path, Result};
 
-/// Add a log prefix to the function.
-///
 /// This prefixes all the log lines with `[<name>]` (after the timestamp). It works by making a
 /// tracing's span that is propagated to all the child calls and child tasks (futures) if they are
 /// spawned properly with the `SpawnHandle` (see `TaskManager` in sc-cli) or if the futures use
@@ -105,33 +102,33 @@ use syn::{Error, Expr, Ident, ItemFn};
 /// ```
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-	let item_fn = syn::parse_macro_input!(item as ItemFn);
-
+	// Ensure an argument was provided.
 	if arg.is_empty() {
 		return Error::new(
-			Span::call_site(),
-			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
+			proc_macro2::Span::call_site(),
+			"missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
-	let name = syn::parse_macro_input!(arg as Expr);
+	let prefix_expr = syn::parse_macro_input!(arg as Expr);
+	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
-	let crate_name = match crate_name("sc-tracing") {
-		Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-		Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
-		Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+	// Resolve the proper sc_tracing path.
+	let crate_name = match resolve_sc_tracing() {
+		Ok(path) => path,
+		Err(err) => return err.to_compile_error().into(),
 	};
 
-	let ItemFn { attrs, vis, sig, block } = item_fn;
+	let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
 	(quote! {
 		#(#attrs)*
 		#vis #sig {
 			let span = #crate_name::tracing::info_span!(
 				#crate_name::logging::PREFIX_LOG_SPAN,
-				name = #name,
+				name = #prefix_expr,
 			);
 			let _enter = span.enter();
 
@@ -139,4 +136,19 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 		}
 	})
 	.into()
+}
+
+/// Resolve the correct path for sc_tracing:
+/// - If `polkadot-sdk` is in scope, returns a Path corresponding to `polkadot_sdk::sc_tracing`
+/// - Otherwise, falls back to `sc_tracing`
+fn resolve_sc_tracing() -> Result<Path> {
+	match crate_name("polkadot-sdk") {
+		Ok(FoundCrate::Itself) => syn::parse_str("polkadot_sdk::sc_tracing"),
+		Ok(FoundCrate::Name(sdk_name)) => syn::parse_str(&format!("{}::sc_tracing", sdk_name)),
+		Err(_) => match crate_name("sc-tracing") {
+			Ok(FoundCrate::Itself) => syn::parse_str("sc_tracing"),
+			Ok(FoundCrate::Name(name)) => syn::parse_str(&name),
+			Err(e) => Err(syn::Error::new(Span::call_site(), e)),
+		},
+	}
 }

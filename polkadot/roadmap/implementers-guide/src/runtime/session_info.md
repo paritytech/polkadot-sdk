@@ -16,7 +16,7 @@ struct SessionInfo {
     /// in parachain consensus. See
     /// [`max_validators`](https://github.com/paritytech/polkadot/blob/a52dca2be7840b23c19c153cf7e110b1e3e475f8/runtime/parachains/src/configuration.rs#L148).
     ///
-    /// `SessionInfo::validators` will be limited to to `max_validators` when set.
+    /// `SessionInfo::validators` will be limited to `max_validators` when set.
     validators: Vec<ValidatorId>,
     /// Validators' authority discovery keys for the session in canonical ordering.
     ///

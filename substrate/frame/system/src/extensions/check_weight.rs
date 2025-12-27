@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -38,7 +38,7 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
@@ -50,14 +50,17 @@ where
 	/// with given `DispatchClass` can have.
 	fn check_extrinsic_weight(
 		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
+		let total_weight_including_length =
+			info.total_weight().saturating_add_proof_size(len as u64);
 		match max {
-			Some(max) if info.total_weight().any_gt(max) => {
+			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic {} is greater than the max extrinsic {}",
-					info.total_weight(),
+					"Extrinsic with length included {} is greater than the max extrinsic {}",
+					total_weight_including_length,
 					max,
 				);
 
@@ -111,7 +114,7 @@ where
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
-		Self::check_extrinsic_weight(info)?;
+		Self::check_extrinsic_weight(info, len)?;
 
 		Ok((Default::default(), next_len))
 	}
@@ -135,30 +138,12 @@ where
 		Ok(())
 	}
 
+	#[deprecated(note = "Use `frame_system::Pallet::reclaim_weight` instead.")]
 	pub fn do_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(Weight::zero()) {
-			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.reduce(unspent, info.class);
-			})
-		}
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block weight: {:?}",
-			crate::BlockWeight::<T>::get(),
-		);
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
-		);
-
-		Ok(())
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -279,8 +264,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)?;
-		Ok(Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -306,7 +290,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -326,7 +310,7 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		mock::{new_test_ext, System, Test, CALL},
+		mock::{new_test_ext, RuntimeBlockWeights, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
 	use core::marker::PhantomData;
@@ -461,7 +445,7 @@ mod tests {
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 			// Checking single extrinsic should not take current block weight into account.
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational, len), Ok(()));
 		});
 	}
 
@@ -523,7 +507,10 @@ mod tests {
 				InvalidTransaction::ExhaustsResources
 			);
 			// Even with full block, validity of single transaction should be correct.
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational), Ok(()));
+			assert_eq!(
+				CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational, len),
+				Ok(())
+			);
 		});
 	}
 
@@ -745,6 +732,125 @@ mod tests {
 	}
 
 	#[test]
+	fn extrinsic_already_refunded_more_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let accurate_refund = Weight::from_parts(510, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
+				.unwrap()
+				.0;
+
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() + prior_block_weight + base_extrinsic
+			);
+
+			// Refund more accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(accurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightReclaimed::<Test>::put(accurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund is used
+			assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), accurate_refund);
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() - accurate_refund + prior_block_weight + base_extrinsic
+			);
+		})
+	}
+
+	#[test]
+	fn extrinsic_already_refunded_less_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let inaccurate_refund = Weight::from_parts(110, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
+				.unwrap()
+				.0;
+
+			let expected = info.total_weight() + prior_block_weight + base_extrinsic;
+			assert_eq!(expected, BlockWeight::<Test>::get().total());
+			assert_eq!(
+				RuntimeBlockWeights::get().max_block - expected,
+				System::remaining_block_weight().remaining()
+			);
+
+			// Refund less accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(inaccurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightReclaimed::<Test>::put(inaccurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund from benchmark is used
+			assert_eq!(
+				crate::ExtrinsicWeightReclaimed::<Test>::get(),
+				post_info.calc_unspent(&info)
+			);
+			let expected = post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic;
+			assert_eq!(expected, BlockWeight::<Test>::get().total());
+			assert_eq!(
+				RuntimeBlockWeights::get().max_block - expected,
+				System::remaining_block_weight().remaining()
+			);
+		})
+	}
+
+	#[test]
 	fn zero_weight_extrinsic_still_has_base_weight() {
 		new_test_ext().execute_with(|| {
 			let weights = block_weights();
@@ -790,7 +896,7 @@ mod tests {
 			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, len, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory, len), Ok(()));
 		});
 	}
 
@@ -845,6 +951,83 @@ mod tests {
 			),
 			InvalidTransaction::ExhaustsResources
 		);
+	}
+
+	#[test]
+	fn check_extrinsic_proof_weight_includes_length() {
+		new_test_ext().execute_with(|| {
+			// Test that check_extrinsic_weight properly includes length in proof size check
+			let weights = block_weights();
+			let max_extrinsic = weights.get(DispatchClass::Normal).max_extrinsic.unwrap();
+
+			let max_proof_size = max_extrinsic.proof_size() as usize;
+			// Extrinsic weight that fits without length
+			let info = DispatchInfo {
+				call_weight: max_extrinsic.set_proof_size(0),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// With zero length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 0));
+
+			// With small length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 100));
+
+			// With small length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size));
+
+			// One byte above limit, should fail
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size + 1),
+				InvalidTransaction::ExhaustsResources
+			);
+
+			// Now test an extrinsic that's at the limit for proof size
+			let info_at_limit = DispatchInfo {
+				call_weight: max_extrinsic,
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// At limit with zero length should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 0));
+
+			// Over limit when length is added should fail
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 1),
+				InvalidTransaction::ExhaustsResources
+			);
+
+			// Test with very large length (near usize::MAX on 32-bit systems)
+			let info_zero = DispatchInfo {
+				call_weight: Weight::zero(),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+			// Should handle large lengths gracefully via saturating conversion
+			let large_len = usize::MAX;
+
+			// Weight proof size should equal u64::MAX (initial zero + u64::MAX)
+			let result = CheckWeight::<Test>::check_extrinsic_weight(&info_zero, large_len);
+			// This should fail because u64::MAX proof size exceeds limits
+			assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+			// Test with very large length
+			let info_with_minimal_proof_size = DispatchInfo {
+				call_weight: Weight::from_parts(0, 10),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// Weight proof size saturates at u64::MAX (initial 10 + u64::MAX)
+			let result = CheckWeight::<Test>::check_extrinsic_weight(
+				&info_with_minimal_proof_size,
+				large_len,
+			);
+			// This should fail because u64::MAX proof size exceeds limits
+			assert_err!(result, InvalidTransaction::ExhaustsResources);
+		});
 	}
 
 	#[test]

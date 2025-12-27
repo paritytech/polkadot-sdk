@@ -35,7 +35,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::{TransactionSource, Weight},
@@ -121,6 +121,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The fungibles instance used to pay for transactions in assets.
 		type Fungibles: Balanced<Self::AccountId>;
@@ -169,7 +170,7 @@ pub mod pallet {
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset id of `None` falls back to the underlying transaction payment via the native currency.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
@@ -202,7 +203,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::withdraw_fee(
 				who,
 				call,
@@ -233,7 +234,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok(())
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::can_withdraw_fee(
 				who,
 				call,
@@ -358,7 +359,7 @@ where
 					tip,
 					who,
 					initial_payment,
-					asset_id: self.asset_id,
+					asset_id: self.asset_id.clone(),
 					weight: self.weight(call),
 				})
 			},
@@ -383,7 +384,7 @@ where
 		};
 
 		match initial_payment {
-			InitialPayment::Native(already_withdrawn) => {
+			InitialPayment::Native(liquidity_info) => {
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
@@ -391,11 +392,7 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					pallet_transaction_payment::Pre::Charge {
-						tip,
-						who,
-						imbalance: already_withdrawn,
-					},
+					pallet_transaction_payment::Pre::Charge { tip, who, liquidity_info },
 					info,
 					&actual_post_info,
 					len,

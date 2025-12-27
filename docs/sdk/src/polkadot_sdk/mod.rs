@@ -1,7 +1,7 @@
 //! # Polkadot SDK
 //!
 //! [Polkadot SDK](https://github.com/paritytech/polkadot-sdk) provides the main resources needed to
-//! start building on the [Polkadot network](https://polkadot.network), a scalable, multi-chain
+//! start building on the [Polkadot network](https://polkadot.com/), a scalable, multi-chain
 //! blockchain platform that enables different blockchains to securely interoperate.
 //!
 //! [![StackExchange](https://img.shields.io/badge/StackExchange-Polkadot%20and%20Substrate-222222?logo=stackexchange)](https://substrate.stackexchange.com/)

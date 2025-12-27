@@ -15,78 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Define Byte wrapper types for encoding and decoding hex strings
+
+use super::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use alloy_core::hex;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
 	str::FromStr,
 };
-use hex_serde::HexCodec;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-mod hex_serde {
-	#[cfg(not(feature = "std"))]
-	use alloc::{format, string::String, vec::Vec};
-	use serde::{Deserialize, Deserializer, Serializer};
-
-	pub trait HexCodec: Sized {
-		type Error;
-		fn to_hex(&self) -> String;
-		fn from_hex(s: String) -> Result<Self, Self::Error>;
-	}
-
-	impl HexCodec for u8 {
-		type Error = core::num::ParseIntError;
-		fn to_hex(&self) -> String {
-			format!("0x{:x}", self)
-		}
-		fn from_hex(s: String) -> Result<Self, Self::Error> {
-			u8::from_str_radix(s.trim_start_matches("0x"), 16)
-		}
-	}
-
-	impl<const T: usize> HexCodec for [u8; T] {
-		type Error = hex::FromHexError;
-		fn to_hex(&self) -> String {
-			format!("0x{}", hex::encode(self))
-		}
-		fn from_hex(s: String) -> Result<Self, Self::Error> {
-			let data = hex::decode(s.trim_start_matches("0x"))?;
-			data.try_into().map_err(|_| hex::FromHexError::InvalidStringLength)
-		}
-	}
-
-	impl HexCodec for Vec<u8> {
-		type Error = hex::FromHexError;
-		fn to_hex(&self) -> String {
-			format!("0x{}", hex::encode(self))
-		}
-		fn from_hex(s: String) -> Result<Self, Self::Error> {
-			hex::decode(s.trim_start_matches("0x"))
-		}
-	}
-
-	pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-		T: HexCodec,
-	{
-		let s = value.to_hex();
-		serializer.serialize_str(&s)
-	}
-
-	pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-	where
-		D: Deserializer<'de>,
-		T: HexCodec,
-		<T as HexCodec>::Error: core::fmt::Debug,
-	{
-		let s = String::deserialize(deserializer)?;
-		let value = T::from_hex(s).map_err(|e| serde::de::Error::custom(format!("{:?}", e)))?;
-		Ok(value)
-	}
-}
 
 impl FromStr for Bytes {
 	type Err = hex::FromHexError;
@@ -98,9 +37,9 @@ impl FromStr for Bytes {
 
 macro_rules! impl_hex {
     ($type:ident, $inner:ty, $default:expr) => {
-        #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, Clone, Serialize, Deserialize)]
+        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash, DecodeWithMemTracking)]
         #[doc = concat!("`", stringify!($inner), "`", " wrapper type for encoding and decoding hex strings")]
-        pub struct $type(#[serde(with = "hex_serde")] pub $inner);
+        pub struct $type(#[serde(with = "crate::evm::api::hex_serde")] pub $inner);
 
         impl Default for $type {
             fn default() -> Self {
@@ -116,7 +55,10 @@ macro_rules! impl_hex {
 
         impl Debug for $type {
             fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-                write!(f, concat!(stringify!($type), "({})"), self.0.to_hex())
+				let hex_str = self.0.to_hex();
+				let truncated = &hex_str[..hex_str.len().min(100)];
+				let ellipsis = if hex_str.len() > 100 { "..." } else { "" };
+                write!(f, concat!(stringify!($type), "({}{})"), truncated,ellipsis)
             }
         }
 
@@ -128,9 +70,17 @@ macro_rules! impl_hex {
     };
 }
 
+impl Bytes {
+	/// See `Vec::is_empty`
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+}
+
 impl_hex!(Byte, u8, 0u8);
 impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
+impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
 #[test]

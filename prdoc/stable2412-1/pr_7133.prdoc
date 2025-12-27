@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Sufix litep2p to the identify agent version for visibility
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR adds the `(litep2p)` suffix to the agent version (user agent) of the identify protocol.
+      The change is needed to gain visibility into network backends and determine exactly the number of validators that are running litep2p.
+      Using tools like subp2p-explorer, we can determine if the validators are running litep2p nodes.
+
+crates:
+- name: sc-network
+  bump: patch

@@ -26,11 +26,11 @@
 
 use super::{ProofToHashes, ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
+use alloc::vec::Vec;
 use codec::MaxEncodedLen;
-use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
-	LayoutV1, MemoryDB, Trie, TrieMut,
+	LayoutV1, MemoryDB, RandomState, Trie, TrieMut,
 };
 
 /// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
@@ -77,7 +77,7 @@ where
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{
@@ -197,7 +197,7 @@ mod tests {
 	use super::*;
 	use crate::traits::BlakeTwo256;
 	use sp_core::H256;
-	use sp_std::collections::btree_map::BTreeMap;
+	use std::collections::BTreeMap;
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
 	type BalanceTrie = BasicProvingTrie<BlakeTwo256, u32, u128>;

@@ -48,8 +48,12 @@ impl<M: MetricsRegistrant> GenericMetricsLink<M> {
 	pub fn new(registry: Option<&Registry>) -> Self {
 		Self(Arc::new(registry.and_then(|registry| {
 			M::register(registry)
-				.map_err(|err| {
-					log::warn!(target: LOG_TARGET, "Failed to register prometheus metrics: {}", err);
+				.map_err(|error| {
+					tracing::warn!(
+						target: LOG_TARGET,
+						%error,
+						"Failed to register prometheus metrics"
+					);
 				})
 				.ok()
 		})))

@@ -1,0 +1,12 @@
+title: Use client info for fetching the best block for tx_broadcast
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR modifies the tx broadcast logic. Previously, we relied on the import notification stream to fetch the latest available block.
+      In this revision, we use the available information of the `client.info()` to prefix the import notification stream.
+      The change is needed because chains could be started with InstantSeal, which would not produce blocks until they encounter transactions.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: patch

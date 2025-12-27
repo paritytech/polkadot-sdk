@@ -1,0 +1,24 @@
+title: 'pallet-revive: Fix the contract size related benchmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Partly addresses https://github.com/paritytech/polkadot-sdk/issues/6157
+
+    The benchmarks measuring the impact of contract sizes on calling or instantiating a contract were bogus because they needed to be written in assembly in order to tightly control the basic block size.
+
+    This fixes the benchmarks for:
+    - call_with_code_per_byte
+    - upload_code
+    - instantiate_with_code
+
+    And adds a new benchmark that accounts for the fact that the interpreter will always compile whole basic blocks:
+    - basic_block_compilation
+
+    After this PR only the weight we assign to instructions need to be addressed.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

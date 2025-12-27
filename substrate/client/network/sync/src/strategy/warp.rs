@@ -18,7 +18,8 @@
 
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
-pub use sp_consensus_grandpa::{AuthorityList, SetId};
+use sc_consensus::IncomingBlock;
+use sp_consensus::BlockOrigin;
 
 use crate::{
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
@@ -58,12 +59,23 @@ pub struct WarpProofRequest<B: BlockT> {
 	pub begin: B::Hash,
 }
 
+/// Verifier for warp sync proofs. Each verifier operates in a specific context.
+pub trait Verifier<Block: BlockT>: Send + Sync {
+	/// Verify a warp sync proof.
+	fn verify(
+		&mut self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
+	/// Hash to be used as the starting point for the next proof request.
+	fn next_proof_context(&self) -> Block::Hash;
+}
+
 /// Proof verification result.
 pub enum VerificationResult<Block: BlockT> {
 	/// Proof is valid, but the target was not reached.
-	Partial(SetId, AuthorityList, Block::Hash),
+	Partial(Vec<(Block::Header, Justifications)>),
 	/// Target finality is proved.
-	Complete(SetId, AuthorityList, Block::Header),
+	Complete(Block::Header, Vec<(Block::Header, Justifications)>),
 }
 
 /// Warp sync backend. Handles retrieving and verifying warp sync proofs.
@@ -74,16 +86,8 @@ pub trait WarpSyncProvider<Block: BlockT>: Send + Sync {
 		&self,
 		start: Block::Hash,
 	) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>>;
-	/// Verify warp proof against current set of authorities.
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		set_id: SetId,
-		authorities: AuthorityList,
-	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>>;
-	/// Get current list of authorities. This is supposed to be genesis authorities when starting
-	/// sync.
-	fn current_authorities(&self) -> AuthorityList;
+	/// Create a verifier for warp sync proofs.
+	fn create_verifier(&self) -> Box<dyn Verifier<Block>>;
 }
 
 mod rep {
@@ -113,7 +117,7 @@ mod rep {
 pub enum WarpSyncPhase<Block: BlockT> {
 	/// Waiting for peers to connect.
 	AwaitingPeers { required_peers: usize },
-	/// Downloading and verifying grandpa warp proofs.
+	/// Downloading and verifying warp proofs.
 	DownloadingWarpProofs,
 	/// Downloading target block.
 	DownloadingTargetBlock,
@@ -166,12 +170,7 @@ enum Phase<B: BlockT> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
 	/// Downloading warp proofs.
-	WarpProof {
-		set_id: SetId,
-		authorities: AuthorityList,
-		last_hash: B::Hash,
-		warp_sync_provider: Arc<dyn WarpSyncProvider<B>>,
-	},
+	WarpProof { verifier: Box<dyn Verifier<B>> },
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -202,9 +201,8 @@ pub struct WarpSyncResult<B: BlockT> {
 }
 
 /// Warp sync state machine. Accumulates warp proofs and state.
-pub struct WarpSync<B: BlockT, Client> {
+pub struct WarpSync<B: BlockT> {
 	phase: Phase<B>,
-	client: Arc<Client>,
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
@@ -213,12 +211,13 @@ pub struct WarpSync<B: BlockT, Client> {
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 	actions: Vec<SyncingAction<B>>,
 	result: Option<WarpSyncResult<B>>,
+	/// Number of peers that need to be connected before warp sync is started.
+	min_peers_to_start_warp_sync: usize,
 }
 
-impl<B, Client> WarpSync<B, Client>
+impl<B> WarpSync<B>
 where
 	B: BlockT,
-	Client: HeaderBackend<B> + 'static,
 {
 	/// Strategy key used by warp sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("Warp");
@@ -226,19 +225,24 @@ where
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	pub fn new(
+	pub fn new<Client>(
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
 		protocol_name: Option<ProtocolName>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-	) -> Self {
+		min_peers_to_start_warp_sync: Option<usize>,
+	) -> Self
+	where
+		Client: HeaderBackend<B> + 'static,
+	{
+		let min_peers_to_start_warp_sync =
+			min_peers_to_start_warp_sync.unwrap_or(MIN_PEERS_TO_START_WARP_SYNC);
 		if client.info().finalized_state.is_some() {
 			error!(
 				target: LOG_TARGET,
 				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
 			);
 			return Self {
-				client,
 				phase: Phase::Complete,
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
@@ -248,6 +252,7 @@ where
 				block_downloader,
 				actions: vec![SyncingAction::Finished],
 				result: None,
+				min_peers_to_start_warp_sync,
 			}
 		}
 
@@ -258,7 +263,6 @@ where
 		};
 
 		Self {
-			client,
 			phase,
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
@@ -268,6 +272,7 @@ where
 			block_downloader,
 			actions: Vec::new(),
 			result: None,
+			min_peers_to_start_warp_sync,
 		}
 	}
 
@@ -316,16 +321,12 @@ where
 	fn try_to_start_warp_sync(&mut self) {
 		let Phase::WaitingForPeers { warp_sync_provider } = &self.phase else { return };
 
-		if self.peers.len() < MIN_PEERS_TO_START_WARP_SYNC {
+		if self.peers.len() < self.min_peers_to_start_warp_sync {
 			return
 		}
 
-		self.phase = Phase::WarpProof {
-			set_id: 0,
-			authorities: warp_sync_provider.current_authorities(),
-			last_hash: self.client.info().genesis_hash,
-			warp_sync_provider: Arc::clone(warp_sync_provider),
-		};
+		let verifier = warp_sync_provider.create_verifier();
+		self.phase = Phase::WarpProof { verifier };
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
@@ -387,38 +388,59 @@ where
 			peer.state = PeerState::Available;
 		}
 
-		let Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
-			&mut self.phase
-		else {
+		let Phase::WarpProof { verifier } = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected warp proof response");
 			self.actions
 				.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
 			return
 		};
 
-		match warp_sync_provider.verify(&response, *set_id, authorities.clone()) {
+		let proof_to_incoming_block =
+			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
+				IncomingBlock {
+					hash: header.hash(),
+					header: Some(header),
+					body: None,
+					indexed_body: None,
+					justifications: Some(justifications),
+					origin: Some(*peer_id),
+					// We are still in warp sync, so we don't have the state. This means
+					// we also can't execute the block.
+					allow_missing_state: true,
+					skip_execution: true,
+					// Shouldn't already exist in the database.
+					import_existing: false,
+					state: None,
+				}
+			};
+
+		match verifier.verify(&response) {
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Bad warp proof response: {}", e);
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash)) => {
-				log::debug!(target: LOG_TARGET, "Verified partial proof, set_id={:?}", new_set_id);
-				*set_id = new_set_id;
-				*authorities = new_authorities;
-				*last_hash = new_last_hash;
+			Ok(VerificationResult::Partial(proofs)) => {
+				debug!(target: LOG_TARGET, "Verified partial proof");
 				self.total_proof_bytes += response.0.len() as u64;
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
 			},
-			Ok(VerificationResult::Complete(new_set_id, _, header)) => {
-				log::debug!(
+			Ok(VerificationResult::Complete(header, proofs)) => {
+				debug!(
 					target: LOG_TARGET,
-					"Verified complete proof, set_id={:?}. Continuing with target block download: {} ({}).",
-					new_set_id,
+					"Verified complete proof. Continuing with target block download: {} ({}).",
 					header.hash(),
 					header.number(),
 				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
 			},
 		}
 	}
@@ -534,10 +556,10 @@ where
 
 	/// Produce warp proof request.
 	fn warp_proof_request(&mut self) -> Option<(PeerId, ProtocolName, WarpProofRequest<B>)> {
-		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
+		let Phase::WarpProof { verifier } = &self.phase else { return None };
 
-		// Copy `last_hash` early to cut the borrowing tie.
-		let begin = *last_hash;
+		// Copy verifier context early to cut the borrowing tie.
+		let begin = verifier.next_proof_context();
 
 		if self
 			.peers
@@ -610,7 +632,7 @@ where
 		match &self.phase {
 			Phase::WaitingForPeers { .. } => WarpSyncProgress {
 				phase: WarpSyncPhase::AwaitingPeers {
-					required_peers: MIN_PEERS_TO_START_WARP_SYNC,
+					required_peers: self.min_peers_to_start_warp_sync,
 				},
 				total_bytes: self.total_proof_bytes,
 			},
@@ -737,14 +759,18 @@ mod test {
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
-	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_core::H256;
-	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+	use sp_runtime::{
+		traits::{Block as BlockT, Header as HeaderT, NumberFor},
+		ConsensusEngineId,
+	};
 	use std::{io::ErrorKind, sync::Arc};
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash},
 		BlockBuilderExt, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
+
+	pub const TEST_ENGINE_ID: ConsensusEngineId = *b"TEST";
 
 	mockall::mock! {
 		pub Client<B: BlockT> {}
@@ -769,13 +795,19 @@ mod test {
 				&self,
 				start: B::Hash,
 			) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>>;
+			fn create_verifier(&self) -> Box<dyn super::Verifier<B>>;
+		}
+	}
+
+	mockall::mock! {
+		pub Verifier<B: BlockT> {}
+
+		impl<B: BlockT> super::Verifier<B> for Verifier<B> {
 			fn verify(
-				&self,
+				&mut self,
 				proof: &EncodedProof,
-				set_id: SetId,
-				authorities: AuthorityList,
 			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
-			fn current_authorities(&self) -> AuthorityList;
+			fn next_proof_context(&self) -> B::Hash;
 		}
 	}
 
@@ -819,8 +851,13 @@ mod test {
 		let client = mock_client_with_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -844,8 +881,13 @@ mod test {
 			Default::default(),
 			Default::default(),
 		));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -864,8 +906,13 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -884,8 +931,13 @@ mod test {
 			Default::default(),
 			Default::default(),
 		));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -898,13 +950,20 @@ mod test {
 	fn warp_sync_is_started_only_when_there_is_enough_peers() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		// Warp sync is not started when there is not enough peers.
 		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
@@ -922,8 +981,13 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		assert!(warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None).is_none());
 	}
@@ -942,13 +1006,20 @@ mod test {
 		for _ in 0..100 {
 			let client = mock_client_without_state();
 			let mut provider = MockWarpSyncProvider::<Block>::new();
-			provider
-				.expect_current_authorities()
-				.once()
-				.return_const(AuthorityList::default());
+			let mut verifier = MockVerifier::<Block>::new();
+			verifier.expect_next_proof_context().returning(|| Hash::random());
+			verifier
+				.expect_verify()
+				.returning(|_| unreachable!("verify should not be called in this test"));
+			provider.expect_create_verifier().return_once(move || Box::new(verifier));
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync =
-				WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+			let mut warp_sync = WarpSync::new(
+				Arc::new(client),
+				config,
+				None,
+				Arc::new(MockBlockDownloader::new()),
+				None,
+			);
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -964,13 +1035,20 @@ mod test {
 		for _ in 0..10 {
 			let client = mock_client_without_state();
 			let mut provider = MockWarpSyncProvider::<Block>::new();
-			provider
-				.expect_current_authorities()
-				.once()
-				.return_const(AuthorityList::default());
+			let mut verifier = MockVerifier::<Block>::new();
+			verifier.expect_next_proof_context().returning(|| Hash::random());
+			verifier
+				.expect_verify()
+				.returning(|_| unreachable!("verify should not be called in this test"));
+			provider.expect_create_verifier().return_once(move || Box::new(verifier));
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync =
-				WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+			let mut warp_sync = WarpSync::new(
+				Arc::new(client),
+				config,
+				None,
+				Arc::new(MockBlockDownloader::new()),
+				None,
+			);
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -985,13 +1063,20 @@ mod test {
 	fn backedoff_number_peer_is_not_scheduled() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		for best_number in 1..11 {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -1030,16 +1115,19 @@ mod test {
 	fn no_warp_proof_request_in_another_phase() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make a request.
@@ -1064,16 +1152,20 @@ mod test {
 	fn warp_proof_request_starts_at_last_hash() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let known_last_hash = Hash::random();
+		verifier.expect_next_proof_context().returning(move || known_last_hash);
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make a request.
@@ -1081,16 +1173,6 @@ mod test {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
-
-		let known_last_hash = Hash::random();
-
-		// Manually set last hash to known value.
-		match &mut warp_sync.phase {
-			Phase::WarpProof { last_hash, .. } => {
-				*last_hash = known_last_hash;
-			},
-			_ => panic!("Invalid phase."),
-		}
 
 		let (_peer_id, _protocol_name, request) = warp_sync.warp_proof_request().unwrap();
 		assert_eq!(request.begin, known_last_hash);
@@ -1100,16 +1182,19 @@ mod test {
 	fn no_parallel_warp_proof_requests() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make requests.
@@ -1128,20 +1213,20 @@ mod test {
 	fn bad_warp_proof_response_drops_peer() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
 		// Warp proof verification fails.
-		provider.expect_verify().return_once(|_proof, _set_id, _authorities| {
+		verifier.expect_verify().return_once(|_proof| {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make a request.
@@ -1174,22 +1259,38 @@ mod test {
 
 	#[test]
 	fn partial_warp_proof_doesnt_advance_phase() {
-		let client = mock_client_without_state();
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		let justifications = Justifications::new(vec![(TEST_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is partial.
-		provider.expect_verify().return_once(|_proof, set_id, authorities| {
-			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
+		let mut verifier = MockVerifier::<Block>::new();
+		let context = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || context);
+		let header_for_verify = target_header.clone();
+		let just_for_verify = justifications.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Partial(vec![(
+				header_for_verify.clone(),
+				just_for_verify.clone(),
+			)]))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
-			Arc::new(client),
+			client,
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make a request.
@@ -1210,7 +1311,29 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
+		assert_eq!(warp_sync.actions.len(), 1);
+		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
+		else {
+			panic!("Expected `ImportBlocks` action.");
+		};
+		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(blocks.len(), 1);
+		let import_block = blocks.pop().unwrap();
+		assert_eq!(
+			import_block,
+			IncomingBlock {
+				hash: target_header.hash(),
+				header: Some(target_header),
+				body: None,
+				indexed_body: None,
+				justifications: Some(justifications),
+				origin: Some(request_peer_id),
+				allow_missing_state: true,
+				skip_execution: true,
+				import_existing: false,
+				state: None,
+			}
+		);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
@@ -1218,10 +1341,6 @@ mod test {
 	fn complete_warp_proof_advances_phase() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1231,16 +1350,27 @@ mod test {
 			.unwrap()
 			.block;
 		let target_header = target_block.header().clone();
+		let justifications = Justifications::new(vec![(TEST_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let mut verifier = MockVerifier::<Block>::new();
+		let context = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || context);
+		let header_for_verify = target_header.clone();
+		let just_for_verify = justifications.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(
+				header_for_verify.clone(),
+				vec![(header_for_verify.clone(), just_for_verify.clone())],
+			))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			client,
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
+			None,
 		);
 
 		// Make sure we have enough peers to make a request.
@@ -1261,7 +1391,29 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert!(warp_sync.actions.is_empty(), "No extra actions generated.");
+		assert_eq!(warp_sync.actions.len(), 1);
+		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
+		else {
+			panic!("Expected `ImportBlocks` action.");
+		};
+		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(blocks.len(), 1);
+		let import_block = blocks.pop().unwrap();
+		assert_eq!(
+			import_block,
+			IncomingBlock {
+				hash: target_header.hash(),
+				header: Some(target_header),
+				body: None,
+				indexed_body: None,
+				justifications: Some(justifications),
+				origin: Some(request_peer_id),
+				allow_missing_state: true,
+				skip_execution: true,
+				import_existing: false,
+				state: None,
+			}
+		);
 		assert!(
 			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
 		);
@@ -1271,13 +1423,20 @@ mod test {
 	fn no_target_block_requests_in_another_phase() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		verifier.expect_next_proof_context().returning(|| Hash::random());
+		verifier
+			.expect_verify()
+			.returning(|_| unreachable!("verify should not be called in this test"));
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync =
-			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			None,
+			Arc::new(MockBlockDownloader::new()),
+			None,
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1294,10 +1453,9 @@ mod test {
 	fn target_block_request_is_correct() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1308,12 +1466,14 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1346,7 +1506,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		let config = WarpSyncConfig::WithTarget(target_header);
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1368,10 +1528,9 @@ mod test {
 	fn no_parallel_target_block_requests() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1382,12 +1541,14 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1407,10 +1568,9 @@ mod test {
 	fn target_block_response_with_no_blocks_drops_peer() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1421,12 +1581,14 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1451,10 +1613,9 @@ mod test {
 	fn target_block_response_with_extra_blocks_drops_peer() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1476,12 +1637,14 @@ mod test {
 
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1529,10 +1692,9 @@ mod test {
 
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let target_block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1554,12 +1716,14 @@ mod test {
 
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1593,10 +1757,9 @@ mod test {
 	fn correct_target_block_response_sets_strategy_result() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		provider
-			.expect_current_authorities()
-			.once()
-			.return_const(AuthorityList::default());
+		let mut verifier = MockVerifier::<Block>::new();
+		let header_for_ctx = client.info().genesis_hash;
+		verifier.expect_next_proof_context().returning(move || header_for_ctx);
 		let mut target_block_builder = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
@@ -1608,12 +1771,14 @@ mod test {
 		let target_block = target_block_builder.build().unwrap().block;
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		let header_for_verify = target_header.clone();
+		verifier.expect_verify().return_once(move |_proof| {
+			Ok(VerificationResult::Complete(header_for_verify, Default::default()))
 		});
+		provider.expect_create_verifier().return_once(move || Box::new(verifier));
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
-			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()), None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
