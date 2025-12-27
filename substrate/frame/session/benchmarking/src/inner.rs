@@ -20,7 +20,6 @@
 
 use alloc::{vec, vec::Vec};
 use sp_runtime::traits::{Convert, One, StaticLookup, TrailingZeroInput};
-use sp_staking::offence::OffenceSeverity;
 
 use codec::Decode;
 use frame_benchmarking::v2::*;
@@ -102,7 +101,23 @@ mod benchmarks {
 
 		Ok(())
 	}
-
+	/// Benchmark for `rotate_session` measuring Session pallet internal logic only.
+	///
+	/// This benchmark **only reliably measures the Session pallet's internal operations**:
+	/// - `DisabledValidators::kill()` when validator set changes
+	/// - `Validators::put()` storage write
+	/// - `QueuedKeys::put()` storage write
+	/// - `CurrentIndex::put()` storage write
+	///
+	/// **This does NOT set up worst-case scenarios for callback-based handlers:**
+	/// - `SessionHandler` callbacks ( BABE, GRANDPA, etc.) are invoked
+	///   but their storage state is not populated with worst-case data
+	/// - `SessionManager` callbacks are invoked but may return `None` instead of actual
+	///   validator set changes
+	///
+	/// Handler and manager overhead should be accounted separately via the
+	/// `SessionHandlerWeights` and `SessionManagerWeights` traits, which allow each
+	/// handler/manager to provide their own benchmarked weights.
 	#[benchmark]
 	fn rotate_session(v: Linear<1, MAX_VALIDATORS>) -> Result<(), BenchmarkError> {
 		// Create validators 
@@ -120,7 +135,7 @@ mod benchmarks {
 			return Err("validator conversion failed".into());
 		}
 
-		// Setup: Directly populate Session storage
+		// Setup: populate Session storage
 		let session_index = 1u32;
 		CurrentIndex::<T>::put(session_index);
 		Validators::<T>::put(&validator_ids);
@@ -129,7 +144,7 @@ mod benchmarks {
 		let base_keys = T::Keys::decode(&mut TrailingZeroInput::zeroes())
 			.map_err(|_| "decode failed")?;
 
-		// Set NextKeys for all validators to avoid warnings from session handlers
+		// Set NextKeys for all validators
 		for id in validator_ids.iter() {
 			NextKeys::<T>::insert(id, &base_keys);
 		}
@@ -151,7 +166,7 @@ mod benchmarks {
 		let disabled_count = v.saturating_sub(1).saturating_div(2);
 		for i in 0..disabled_count {
 			DisabledValidators::<T>::mutate(|d| {
-				d.push((i, OffenceSeverity::default()));
+				d.push((i, Default::default()));
 			});
 		}
 
