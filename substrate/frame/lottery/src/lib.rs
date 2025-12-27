@@ -281,7 +281,7 @@ pub mod pallet {
 							// Else, kill the lottery storage.
 							*lottery = None;
 							// Clean up the sufficient reference since lottery is ending
-    						frame_system::Pallet::<T>::dec_sufficients(&lottery_account);
+							frame_system::Pallet::<T>::dec_sufficients(&lottery_account);
 							return T::WeightInfo::on_initialize_end()
 						}
 						// We choose not need to kill Participants and Tickets to avoid a large
