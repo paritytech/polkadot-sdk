@@ -54,6 +54,8 @@ pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// The relay block in which this parachain appeared to start. This will be the relay block
 	/// number in para block #P1.
 	pub relay_offset: u32,
+	/// The relay parent offset that determines how many relay parent descendants are required.
+	pub relay_parent_offset: u32,
 	/// The number of relay blocks that elapses between each parablock. Probably set this to 1 or 2
 	/// to simulate optimistic or realistic relay chain behavior.
 	pub relay_blocks_per_para_block: u32,
@@ -230,7 +232,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		sproof_builder.included_para_head = self.current_para_block_head.clone();
 		sproof_builder.num_authorities = 2;
 		let (relay_parent_storage_root, proof, relay_parent_descendants) =
-			sproof_builder.into_state_root_proof_and_descendants(1);
+			sproof_builder.into_state_root_proof_and_descendants(self.relay_parent_offset.into());
 		let parachain_inherent_data = ParachainInherentData {
 			validation_data: PersistedValidationData {
 				parent_head: Default::default(),
