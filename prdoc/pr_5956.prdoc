@@ -1,0 +1,25 @@
+title: Add direct trie node import for state sync
+
+doc:
+- audience: Node Dev
+  description: |-
+    Adds incremental trie node writing during state sync to avoid accumulating all
+    trie nodes in memory before importing them. This significantly reduces memory
+    usage during warp sync by writing trie nodes directly to the database as each
+    chunk is received, rather than buffering them all until the sync completes.
+
+    Key changes:
+    - Add `TrieNodeWriter` trait for direct trie node database writes
+    - Implement incremental trie node writing in `StateSync`
+    - Thread `trie_node_writer` through `BuildNetworkParams`
+    - Refactor trie node handling to use `TrieNodeImportMode` enum for type safety
+
+crates:
+- name: sc-client-api
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: major
