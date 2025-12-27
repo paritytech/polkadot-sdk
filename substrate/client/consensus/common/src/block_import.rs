@@ -127,17 +127,34 @@ pub enum StorageChanges<Block: BlockT> {
 }
 
 /// Imported state data. A vector of key-value pairs that should form a trie.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Clone)]
 pub struct ImportedState<B: BlockT> {
 	/// Target block hash.
 	pub block: B::Hash,
 	/// State keys and values.
 	pub state: sp_state_machine::KeyValueStates,
+	/// Optional trie nodes from compact proofs.
+	/// When present, these are written directly to the STATE column,
+	/// avoiding the need to recompute trie nodes via delta_trie_root.
+	/// Contains raw (prefixed_key, value) pairs extracted from MemoryDBs.
+	pub trie_nodes: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 }
+
+impl<B: BlockT> PartialEq for ImportedState<B> {
+	fn eq(&self, other: &Self) -> bool {
+		// Compare block and state only; trie_nodes are derived from state
+		self.block == other.block && self.state == other.state
+	}
+}
+
+impl<B: BlockT> Eq for ImportedState<B> {}
 
 impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		fmt.debug_struct("ImportedState").field("block", &self.block).finish()
+		fmt.debug_struct("ImportedState")
+			.field("block", &self.block)
+			.field("has_trie_nodes", &self.trie_nodes.is_some())
+			.finish()
 	}
 }
 
@@ -157,9 +174,9 @@ impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
 		match self {
-			StateAction::ApplyChanges(_) |
-			StateAction::Execute |
-			StateAction::ExecuteIfPossible => false,
+			StateAction::ApplyChanges(_)
+			| StateAction::Execute
+			| StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
 		}
 	}

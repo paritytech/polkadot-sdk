@@ -285,7 +285,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.state_sync.is_complete() {
-			return None
+			return None;
 		}
 
 		if self
@@ -294,7 +294,7 @@ impl<B: BlockT> StateStrategy<B> {
 			.any(|peer| matches!(peer.state, PeerState::DownloadingState))
 		{
 			// Only one state request at a time is possible.
-			return None
+			return None;
 		}
 
 		let peer_id =
@@ -314,7 +314,7 @@ impl<B: BlockT> StateStrategy<B> {
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
 		if targets.is_empty() {
-			return None
+			return None;
 		}
 		targets.sort();
 		let median = targets[targets.len() / 2];
@@ -322,12 +322,12 @@ impl<B: BlockT> StateStrategy<B> {
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		for (peer_id, peer) in self.peers.iter_mut() {
-			if peer.state.is_available() &&
-				peer.best_number >= threshold &&
-				self.disconnected_peers.is_peer_available(peer_id)
+			if peer.state.is_available()
+				&& peer.best_number >= threshold
+				&& self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
-				return Some(*peer_id)
+				return Some(*peer_id);
 			}
 		}
 		None
@@ -711,7 +711,8 @@ mod test {
 		let header = block.header().clone();
 		let hash = header.hash();
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
-		let state = ImportedState { block: hash, state: KeyValueStates(Vec::new()) };
+		let state =
+			ImportedState { block: hash, state: KeyValueStates(Vec::new()), trie_nodes: None };
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 
 		// Prepare `StateSync`

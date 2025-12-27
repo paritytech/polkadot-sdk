@@ -61,7 +61,7 @@ use crate::{
 use codec::{Decode, Encode};
 use hash_db::Prefix;
 use sc_client_api::{
-	backend::NewBlockState,
+	backend::{NewBlockState, TrieNodeWriter},
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
@@ -444,6 +444,44 @@ pub(crate) mod columns {
 	pub const BODY_INDEX: u32 = 12;
 }
 
+/// Database wrapper that implements [`TrieNodeWriter`] for incremental state sync.
+///
+/// This allows trie nodes to be written directly to the STATE column as each
+/// chunk is received during state sync, avoiding memory accumulation.
+pub struct DbTrieNodeWriter {
+	db: Arc<dyn Database<DbHash>>,
+}
+
+impl DbTrieNodeWriter {
+	/// Create a new `DbTrieNodeWriter` from a database handle.
+	pub fn new(db: Arc<dyn Database<DbHash>>) -> Self {
+		Self { db }
+	}
+}
+
+impl TrieNodeWriter for DbTrieNodeWriter {
+	fn write_trie_nodes(&self, nodes: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), String> {
+		let mut transaction = Transaction::new();
+		let node_count = nodes.len();
+
+		for (key, value) in nodes {
+			transaction.set_from_vec(columns::STATE, &key, value);
+		}
+
+		self.db
+			.commit(transaction)
+			.map_err(|e| format!("Failed to commit trie nodes: {e}"))?;
+
+		log::debug!(
+			target: "state",
+			"Wrote {} trie nodes incrementally to STATE column",
+			node_count
+		);
+
+		Ok(())
+	}
+}
+
 struct PendingBlock<Block: BlockT> {
 	header: Block::Header,
 	justifications: Option<Justifications>,
@@ -598,10 +636,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		)? {
 			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
 				Ok(justifications) => Ok(Some(justifications)),
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding justifications: {err}"
-					))),
+					)))
+				},
 			},
 			None => Ok(None),
 		}
@@ -614,8 +653,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			// Plain body
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
-				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+				Err(err) => {
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					)))
+				},
 			}
 		}
 
@@ -644,10 +686,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 										)?;
 										body.push(ex);
 									},
-									None =>
+									None => {
 										return Err(sp_blockchain::Error::Backend(format!(
 											"Missing indexed transaction {hash:?}"
-										))),
+										)))
+									},
 								};
 							},
 							DbExtrinsic::Full(ex) => {
@@ -657,10 +700,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 					}
 					return Ok(Some(body));
 				},
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(None)
@@ -775,17 +819,19 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					if let DbExtrinsic::Indexed { hash, .. } = ex {
 						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
 							Some(t) => transactions.push(t),
-							None =>
+							None => {
 								return Err(sp_blockchain::Error::Backend(format!(
 									"Missing indexed transaction {hash:?}",
-								))),
+								)))
+							},
 						}
 					}
 				}
 				Ok(Some(transactions))
 			},
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
 		}
 	}
 }
@@ -850,8 +896,9 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			count += 1;
 			let key = crate::offchain::concatenate_prefix_and_key(&prefix, &key);
 			match value_operation {
-				OffchainOverlayedChange::SetValue(val) =>
-					transaction.set_from_vec(columns::OFFCHAIN, &key, val),
+				OffchainOverlayedChange::SetValue(val) => {
+					transaction.set_from_vec(columns::OFFCHAIN, &key, val)
+				},
 				OffchainOverlayedChange::Remove => transaction.remove(columns::OFFCHAIN, &key),
 			}
 		}
@@ -1273,9 +1320,9 @@ impl<Block: BlockT> Backend<Block> {
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
 		let info = backend.blockchain.info();
-		if info.finalized_state.is_none() &&
-			info.finalized_hash != Default::default() &&
-			sc_client_api::Backend::have_state_at(
+		if info.finalized_state.is_none()
+			&& info.finalized_hash != Default::default()
+			&& sc_client_api::Backend::have_state_at(
 				&backend,
 				info.finalized_hash,
 				info.finalized_number,
@@ -1314,8 +1361,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let meta = self.blockchain.meta.read();
 
-		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>() >
-			self.canonicalization_delay
+		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>()
+			> self.canonicalization_delay
 		{
 			return Err(sp_blockchain::Error::SetHeadTooOld);
 		}
@@ -1374,8 +1421,8 @@ impl<Block: BlockT> Backend<Block> {
 	) -> ClientResult<()> {
 		let last_finalized =
 			last_finalized.unwrap_or_else(|| self.blockchain.meta.read().finalized_hash);
-		if last_finalized != self.blockchain.meta.read().genesis_hash &&
-			*header.parent_hash() != last_finalized
+		if last_finalized != self.blockchain.meta.read().genesis_hash
+			&& *header.parent_hash() != last_finalized
 		{
 			return Err(sp_blockchain::Error::NonSequentialFinalization(format!(
 				"Last finalized {last_finalized:?} not parent of {:?}",
@@ -1646,8 +1693,8 @@ impl<Block: BlockT> Backend<Block> {
 				let finalized = number_u64 == 0 || pending_block.leaf_state.is_final();
 				finalized
 			} else {
-				(number.is_zero() && last_finalized_num.is_zero()) ||
-					pending_block.leaf_state.is_final()
+				(number.is_zero() && last_finalized_num.is_zero())
+					|| pending_block.leaf_state.is_final()
 			};
 
 			let header = &pending_block.header;
@@ -1729,7 +1776,7 @@ impl<Block: BlockT> Backend<Block> {
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody =>
+						BlockGapType::MissingHeaderAndBody => {
 							if number == gap.start {
 								gap.start += One::one();
 								utils::insert_number_to_key_mapping(
@@ -1748,7 +1795,8 @@ impl<Block: BlockT> Backend<Block> {
 									debug!(target: "db", "Update block gap. {block_gap:?}");
 								}
 								block_gap_updated = true;
-							},
+							}
+						},
 						BlockGapType::MissingBody => {
 							// Gap increased when syncing the header chain during fast sync.
 							if number == gap.end + One::one() && !existing_body {
@@ -1779,8 +1827,8 @@ impl<Block: BlockT> Backend<Block> {
 						},
 					}
 				} else if operation.create_gap {
-					if number > best_num + One::one() &&
-						self.blockchain.header(parent_hash)?.is_none()
+					if number > best_num + One::one()
+						&& self.blockchain.header(parent_hash)?.is_none()
 					{
 						let gap = BlockGap {
 							start: best_num + One::one(),
@@ -1790,9 +1838,9 @@ impl<Block: BlockT> Backend<Block> {
 						insert_new_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
-					} else if number == best_num + One::one() &&
-						self.blockchain.header(parent_hash)?.is_some() &&
-						!existing_body
+					} else if number == best_num + One::one()
+						&& self.blockchain.header(parent_hash)?.is_some()
+						&& !existing_body
 					{
 						let gap = BlockGap {
 							start: number,
@@ -2003,16 +2051,18 @@ impl<Block: BlockT> Backend<Block> {
 				id,
 			)?;
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-				Ok(index) =>
+				Ok(index) => {
 					for ex in index {
 						if let DbExtrinsic::Indexed { hash, .. } = ex {
 							transaction.release(columns::TRANSACTION, hash);
 						}
-					},
-				Err(err) =>
+					}
+				},
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(())
@@ -2238,8 +2288,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let last_finalized = self.blockchain.last_finalized()?;
 
 		// We can do a quick check first, before doing a proper but more expensive check
-		if number > self.blockchain.info().finalized_number ||
-			(hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
+		if number > self.blockchain.info().finalized_number
+			|| (hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
 		{
 			return Err(ClientError::NotInFinalizedChain);
 		}
@@ -2299,6 +2349,35 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				state_writes_nodes: state_stats.nodes_writes.ops,
 			},
 		})
+	}
+
+	fn import_state_from_trie_nodes(
+		&self,
+		trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
+		expected_state_root: Block::Hash,
+	) -> ClientResult<()> {
+		let mut transaction = Transaction::new();
+		let node_count = trie_nodes.len() as u64;
+
+		for (key, value) in trie_nodes {
+			transaction.set_from_vec(columns::STATE, &key, value);
+		}
+
+		self.storage.db.commit(transaction)?;
+
+		// Verify state root exists after import
+		if self.storage.db.get(columns::STATE, expected_state_root.as_ref()).is_none() {
+			return Err(sp_blockchain::Error::Backend(format!(
+				"State root {expected_state_root:?} not found after importing {node_count} trie nodes"
+			)));
+		}
+
+		log::info!(
+			target: "state",
+			"Imported {node_count} trie nodes directly to STATE column"
+		);
+
+		Ok(())
 	}
 
 	fn revert(
@@ -2374,8 +2453,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							reverted_finalized.insert(removed_hash);
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
-									if !number_to_revert.is_zero() &&
-										self.have_state_at(prev_hash, prev_number)
+									if !number_to_revert.is_zero()
+										&& self.have_state_at(prev_hash, prev_number)
 									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
 											prev_number,

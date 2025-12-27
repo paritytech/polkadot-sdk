@@ -90,4 +90,16 @@ pub trait ProofProvider<Block: BlockT> {
 		proof: CompactProof,
 		start_keys: &[Vec<u8>],
 	) -> sp_blockchain::Result<(KeyValueStates, usize)>;
+
+	/// Verify read storage proof and return both key-value pairs and trie nodes.
+	/// This is an extended version of `verify_range_proof` that also returns the
+	/// decoded trie nodes from the compact proof as raw (prefixed_key, value) pairs.
+	/// The trie nodes can be written directly to the database during state sync,
+	/// avoiding the need to recompute them.
+	fn verify_range_proof_with_trie_nodes(
+		&self,
+		root: Block::Hash,
+		proof: CompactProof,
+		start_keys: &[Vec<u8>],
+	) -> sp_blockchain::Result<(KeyValueStates, usize, Vec<(Vec<u8>, Vec<u8>)>)>;
 }

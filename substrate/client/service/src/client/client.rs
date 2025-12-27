@@ -576,9 +576,9 @@ where
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
-		if status == blockchain::BlockStatus::Unknown &&
-			*import_headers.post().number() <= info.finalized_number &&
-			!gap_block
+		if status == blockchain::BlockStatus::Unknown
+			&& *import_headers.post().number() <= info.finalized_number
+			&& !gap_block
 		{
 			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
@@ -587,8 +587,9 @@ where
 		// but the general goal is to only make notifications when we are already fully synced
 		// and get a new chain head.
 		let make_notifications = match origin {
-			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
-				true,
+			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
+				true
+			},
 			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
 		};
 
@@ -611,56 +612,38 @@ where
 						Some((main_sc, child_sc))
 					},
 					sc_consensus::StorageChanges::Import(changes) => {
-						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
-							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
-								for (key, value) in state.key_values.into_iter() {
-									storage.top.insert(key, value);
-								}
+						// Check if we have direct trie nodes from compact proof
+						if let Some(trie_nodes) = changes.trie_nodes {
+							if !trie_nodes.is_empty() {
+								let expected_root = *import_headers.post().state_root();
+								info!(
+									target: "state",
+									"Importing state with {} trie nodes directly",
+									trie_nodes.len()
+								);
+								// Import trie nodes directly to STATE column
+								self.backend
+									.import_state_from_trie_nodes(trie_nodes, expected_root)?;
+								// Skip the expensive reset_storage path
+								None
 							} else {
-								for parent_storage in state.parent_storage_keys {
-									let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
-									let storage_key =
-										match ChildType::from_prefixed_key(storage_key) {
-											Some((ChildType::ParentKeyId, storage_key)) =>
-												storage_key,
-											None =>
-												return Err(Error::Backend(
-													"Invalid child storage key.".to_string(),
-												)),
-										};
-									let entry = storage
-										.children_default
-										.entry(storage_key.to_vec())
-										.or_insert_with(|| StorageChild {
-											data: Default::default(),
-											child_info: ChildInfo::new_default(storage_key),
-										});
-									for (key, value) in state.key_values.iter() {
-										entry.data.insert(key.clone(), value.clone());
-									}
-								}
+								// Fall back to key-value import if no trie nodes
+								Self::import_state_from_key_values(
+									changes.state,
+									&mut operation.op,
+									&self.executor,
+									import_headers.post().state_root(),
+								)?
 							}
+						} else {
+							// Fall back to key-value import
+							Self::import_state_from_key_values(
+								changes.state,
+								&mut operation.op,
+								&self.executor,
+								import_headers.post().state_root(),
+							)?
 						}
-
-						// This is use by fast sync for runtime version to be resolvable from
-						// changes.
-						let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
-							&storage,
-							&self.executor,
-						)?;
-						operation.op.set_commit_state(true);
-						// TODO: this should be the parent hash of block gap' starting block.
-						let block_hash = self.backend.blockchain().info().genesis_hash;
-						let state_root =
-							self.backend.import_state(block_hash, storage, state_version)?;
-						if state_root != *import_headers.post().state_root() {
-							// State root mismatch when importing state. This should not happen in
-							// safe fast sync mode, but may happen in unsafe mode.
-							warn!("Error importing state: State root mismatch.");
-							return Err(Error::InvalidStateRoot);
-						}
-						None
 					},
 				};
 
@@ -681,11 +664,12 @@ where
 			)?;
 		}
 
-		let is_new_best = !gap_block &&
-			(finalized ||
-				match fork_choice {
-					ForkChoiceStrategy::LongestChain =>
-						import_headers.post().number() > &info.best_number,
+		let is_new_best = !gap_block
+			&& (finalized
+				|| match fork_choice {
+					ForkChoiceStrategy::LongestChain => {
+						import_headers.post().number() > &info.best_number
+					},
 					ForkChoiceStrategy::Custom(v) => v,
 				});
 
@@ -804,18 +788,21 @@ where
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
 		{
-			(BlockStatus::KnownBad, _) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad)),
+			(BlockStatus::KnownBad, _) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad))
+			},
 			(
 				BlockStatus::InChainPruned,
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(BlockStatus::Unknown, _) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
+			(BlockStatus::Unknown, _) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
+			},
 			(_, StateAction::Skip) => (false, None),
-			(BlockStatus::InChainPruned, StateAction::Execute) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
+			(BlockStatus::InChainPruned, StateAction::Execute) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
+			},
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
 			(_, StateAction::Execute) => (true, None),
 			(_, StateAction::ExecuteIfPossible) => (true, None),
@@ -1114,12 +1101,13 @@ where
 
 		let hash_and_number = self.backend.blockchain().number(hash)?.map(|n| (hash, n));
 		match hash_and_number {
-			Some((hash, number)) =>
+			Some((hash, number)) => {
 				if self.backend.have_state_at(hash, number) {
 					Ok(BlockStatus::InChainWithState)
 				} else {
 					Ok(BlockStatus::InChainPruned)
-				},
+				}
+			},
 			None => Ok(BlockStatus::Unknown),
 		}
 	}
@@ -1181,6 +1169,55 @@ where
 		}
 		trace!("Collected {} uncles", uncles.len());
 		Ok(uncles)
+	}
+
+	/// Helper to import state from key-values (original reset_storage path).
+	fn import_state_from_key_values(
+		state: KeyValueStates,
+		op: &mut B::BlockImportOperation,
+		executor: &E,
+		expected_state_root: &Block::Hash,
+	) -> sp_blockchain::Result<Option<(StorageCollection, ChildStorageCollection)>> {
+		let mut storage = sp_storage::Storage::default();
+		for state_item in state.0.into_iter() {
+			if state_item.parent_storage_keys.is_empty() && state_item.state_root.is_empty() {
+				for (key, value) in state_item.key_values.into_iter() {
+					storage.top.insert(key, value);
+				}
+			} else {
+				for parent_storage in state_item.parent_storage_keys {
+					let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
+					let storage_key = match ChildType::from_prefixed_key(storage_key) {
+						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+						None => {
+							return Err(Error::Backend("Invalid child storage key.".to_string()))
+						},
+					};
+					let entry = storage
+						.children_default
+						.entry(storage_key.to_vec())
+						.or_insert_with(|| StorageChild {
+							data: Default::default(),
+							child_info: ChildInfo::new_default(storage_key),
+						});
+					for (key, value) in state_item.key_values.iter() {
+						entry.data.insert(key.clone(), value.clone());
+					}
+				}
+			}
+		}
+
+		// This is used by fast sync for runtime version to be resolvable from changes.
+		let state_version =
+			resolve_state_version_from_wasm::<_, HashingFor<Block>>(&storage, executor)?;
+		let state_root = op.reset_storage(storage, state_version)?;
+		if state_root != *expected_state_root {
+			// State root mismatch when importing state. This should not happen in
+			// safe fast sync mode, but may happen in unsafe mode.
+			warn!("Error importing state: State root mismatch.");
+			return Err(Error::InvalidStateRoot);
+		}
+		Ok(None)
 	}
 }
 
@@ -1262,8 +1299,9 @@ where
 		let child_info = |storage_key: &Vec<u8>| -> sp_blockchain::Result<ChildInfo> {
 			let storage_key = PrefixedStorageKey::new_ref(storage_key);
 			match ChildType::from_prefixed_key(storage_key) {
-				Some((ChildType::ParentKeyId, storage_key)) =>
-					Ok(ChildInfo::new_default(storage_key)),
+				Some((ChildType::ParentKeyId, storage_key)) => {
+					Ok(ChildInfo::new_default(storage_key))
+				},
 				None => Err(Error::Backend("Invalid child storage key.".to_string())),
 			}
 		};
@@ -1323,9 +1361,9 @@ where
 				}
 				total_size += size;
 
-				if current_child.is_none() &&
-					sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice()) &&
-					!child_roots.contains(value.as_slice())
+				if current_child.is_none()
+					&& sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice())
+					&& !child_roots.contains(value.as_slice())
 				{
 					child_roots.insert(value.clone());
 					switch_child_key = Some((next_key.clone(), value.clone()));
@@ -1382,6 +1420,56 @@ where
 		)?;
 
 		Ok(state)
+	}
+
+	fn verify_range_proof_with_trie_nodes(
+		&self,
+		root: Block::Hash,
+		proof: CompactProof,
+		start_key: &[Vec<u8>],
+	) -> sp_blockchain::Result<(KeyValueStates, usize, Vec<(Vec<u8>, Vec<u8>)>)> {
+		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
+		// Compact encoding
+		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
+			&mut db,
+			proof.iter_compact_encoded_nodes(),
+			Some(&root),
+		)
+		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
+
+		// Extract trie nodes from MemoryDB before building backend
+		// These are (prefixed_key, value) pairs that can be written directly to STATE column
+		let trie_nodes: Vec<(Vec<u8>, Vec<u8>)> = db
+			.drain()
+			.into_iter()
+			.filter_map(|(key, (value, rc))| {
+				if rc > 0 {
+					// Add EMPTY_PREFIX to match STATE column key format
+					let prefixed_key =
+						sp_trie::prefixed_key::<HashingFor<Block>>(&key, sp_trie::EMPTY_PREFIX);
+					Some((prefixed_key, value))
+				} else {
+					None
+				}
+			})
+			.collect();
+
+		// Rebuild MemoryDB for proving backend (since we drained it)
+		let mut db2 = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
+		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
+			&mut db2,
+			proof.iter_compact_encoded_nodes(),
+			Some(&root),
+		)
+		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
+
+		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db2, root).build();
+		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
+			&proving_backend,
+			start_key,
+		)?;
+
+		Ok((state.0, state.1, trie_nodes))
 	}
 }
 
@@ -1780,10 +1868,12 @@ where
 			.block_status(hash)
 			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 		{
-			BlockStatus::InChainWithState | BlockStatus::Queued =>
-				return Ok(ImportResult::AlreadyInChain),
-			BlockStatus::InChainPruned if !import_existing =>
-				return Ok(ImportResult::AlreadyInChain),
+			BlockStatus::InChainWithState | BlockStatus::Queued => {
+				return Ok(ImportResult::AlreadyInChain)
+			},
+			BlockStatus::InChainPruned if !import_existing => {
+				return Ok(ImportResult::AlreadyInChain)
+			},
 			BlockStatus::InChainPruned => {},
 			BlockStatus::Unknown => {},
 			BlockStatus::KnownBad => return Ok(ImportResult::KnownBad),
@@ -1949,8 +2039,9 @@ where
 
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>> {
 		Ok(match (self.header(hash)?, self.body(hash)?, self.justifications(hash)?) {
-			(Some(header), Some(extrinsics), justifications) =>
-				Some(SignedBlock { block: Block::new(header, extrinsics), justifications }),
+			(Some(header), Some(extrinsics), justifications) => {
+				Some(SignedBlock { block: Block::new(header, extrinsics), justifications })
+			},
 			_ => None,
 		})
 	}

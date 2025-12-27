@@ -23,7 +23,7 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use log::debug;
+use log::{debug, info};
 use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
@@ -33,6 +33,9 @@ use sp_runtime::{
 	Justifications,
 };
 use std::{collections::HashMap, fmt, sync::Arc};
+
+// Re-export TrieNodeWriter for convenience
+pub use sc_client_api::backend::TrieNodeWriter;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -142,6 +145,14 @@ impl<B: BlockT> StateSyncMetadata<B> {
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
+	/// Optional writer for incremental trie node import.
+	/// When set, trie nodes are written directly to storage as each chunk arrives.
+	/// When None, trie nodes are accumulated in memory (legacy behavior).
+	trie_node_writer: Option<Arc<dyn TrieNodeWriter>>,
+	/// Accumulated trie nodes when no writer is provided (legacy fallback).
+	trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
+	/// Count of trie nodes written incrementally.
+	trie_nodes_written: u64,
 	client: Arc<Client>,
 }
 
@@ -150,13 +161,37 @@ where
 	B: BlockT,
 	Client: ProofProvider<B> + Send + Sync + 'static,
 {
-	///  Create a new instance.
+	/// Create a new instance without incremental trie node writing (legacy mode).
+	///
+	/// Trie nodes will be accumulated in memory and returned in ImportedState.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
+	) -> Self {
+		Self::new_with_writer(
+			client,
+			target_header,
+			target_body,
+			target_justifications,
+			skip_proof,
+			None,
+		)
+	}
+
+	/// Create a new instance with optional incremental trie node writing.
+	///
+	/// When `trie_node_writer` is provided, trie nodes are written directly to storage
+	/// as each chunk is received, avoiding memory accumulation.
+	pub fn new_with_writer(
+		client: Arc<Client>,
+		target_header: B::Header,
+		target_body: Option<Vec<B::Extrinsic>>,
+		target_justifications: Option<Justifications>,
+		skip_proof: bool,
+		trie_node_writer: Option<Arc<dyn TrieNodeWriter>>,
 	) -> Self {
 		Self {
 			client,
@@ -170,6 +205,30 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
+			trie_node_writer,
+			trie_nodes: Vec::new(),
+			trie_nodes_written: 0,
+		}
+	}
+
+	/// Process trie nodes from a chunk - either write incrementally or accumulate.
+	fn process_trie_nodes(&mut self, chunk_nodes: Vec<(Vec<u8>, Vec<u8>)>) {
+		let node_count = chunk_nodes.len() as u64;
+
+		if let Some(ref writer) = self.trie_node_writer {
+			// Incremental mode: write directly to storage
+			if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
+				// Log error but continue - the final state root check will catch issues
+				debug!(
+					target: LOG_TARGET,
+					"Failed to write trie nodes incrementally: {}", e
+				);
+			} else {
+				self.trie_nodes_written += node_count;
+			}
+		} else {
+			// Legacy mode: accumulate in memory
+			self.trie_nodes.extend(chunk_nodes);
 		}
 	}
 
@@ -257,11 +316,11 @@ where
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
 		if response.entries.is_empty() && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Bad state response");
-			return ImportResult::BadResponse
+			return ImportResult::BadResponse;
 		}
 		if !self.metadata.skip_proof && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
-			return ImportResult::BadResponse
+			return ImportResult::BadResponse;
 		}
 		let complete = if !self.metadata.skip_proof {
 			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
@@ -270,25 +329,35 @@ where
 				Ok(proof) => proof,
 				Err(e) => {
 					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
-					return ImportResult::BadResponse
+					return ImportResult::BadResponse;
 				},
 			};
-			let (values, completed) = match self.client.verify_range_proof(
-				self.metadata.target_root(),
-				proof,
-				self.metadata.last_key.as_slice(),
-			) {
-				Err(e) => {
-					debug!(
-						target: LOG_TARGET,
-						"StateResponse failed proof verification: {}",
-						e,
-					);
-					return ImportResult::BadResponse
-				},
-				Ok(values) => values,
-			};
-			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
+			// Use verify_range_proof_with_trie_nodes to extract trie nodes for direct DB import
+			let (values, completed, trie_nodes) =
+				match self.client.verify_range_proof_with_trie_nodes(
+					self.metadata.target_root(),
+					proof,
+					self.metadata.last_key.as_slice(),
+				) {
+					Err(e) => {
+						debug!(
+							target: LOG_TARGET,
+							"StateResponse failed proof verification: {}",
+							e,
+						);
+						return ImportResult::BadResponse;
+					},
+					Ok(result) => result,
+				};
+			debug!(
+				target: LOG_TARGET,
+				"Imported with {} keys and {} trie nodes",
+				values.len(),
+				trie_nodes.len()
+			);
+
+			// Process trie nodes - either write incrementally or accumulate
+			self.process_trie_nodes(trie_nodes);
 
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
@@ -304,10 +373,34 @@ where
 		if complete {
 			self.metadata.complete = true;
 			let target_hash = self.metadata.target_hash();
+
+			// Determine trie_nodes based on whether incremental writing was used
+			let trie_nodes = if self.trie_node_writer.is_some() {
+				// Incremental mode: nodes already written to storage
+				info!(
+					target: LOG_TARGET,
+					"State sync complete: {} trie nodes written incrementally",
+					self.trie_nodes_written
+				);
+				None
+			} else {
+				// Legacy mode: return accumulated nodes
+				info!(
+					target: LOG_TARGET,
+					"State sync complete: {} trie nodes accumulated",
+					self.trie_nodes.len()
+				);
+				Some(std::mem::take(&mut self.trie_nodes))
+			};
+
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
+				ImportedState {
+					block: target_hash,
+					state: std::mem::take(&mut self.state).into(),
+					trie_nodes,
+				},
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
