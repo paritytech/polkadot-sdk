@@ -146,6 +146,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			warp_sync_config: None,
 			block_relay: None,
 			metrics,
+			trie_node_writer: None,
 		})?;
 
 	if config.offchain_worker.enabled {

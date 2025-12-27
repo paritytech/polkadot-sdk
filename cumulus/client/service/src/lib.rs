@@ -379,6 +379,7 @@ where
 		warp_sync_config,
 		block_relay: None,
 		metrics,
+		trie_node_writer: None,
 	})
 }
 
@@ -432,7 +433,7 @@ where
 				finalized_header.number(),
 				finalized_header.hash()
 			);
-			return Ok(finalized_header)
+			return Ok(finalized_header);
 		}
 	}
 
@@ -452,7 +453,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 		Ok(import_notifications) => import_notifications,
 		Err(e) => {
 			log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
-			return
+			return;
 		},
 	};
 	let mut last_backed_block_time: Option<Instant> = None;
@@ -461,7 +462,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 			Ok(candidate_events) => candidate_events,
 			Err(e) => {
 				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
-				continue
+				continue;
 			},
 		};
 		let mut backed_candidates = Vec::new();
@@ -479,7 +480,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from backed block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					let backed_block_time = Instant::now();
@@ -502,7 +503,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from included block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					let unincluded_segment_size =
@@ -523,7 +524,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from timed out block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					timed_out_candidates.push(timed_out_block);

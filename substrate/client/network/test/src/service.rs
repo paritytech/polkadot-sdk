@@ -215,7 +215,7 @@ impl TestNetworkBuilder {
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
-			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None, None).unwrap(),
 		);
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
@@ -392,10 +392,12 @@ async fn notifications_state_consistent() {
 			// forever while nothing at all happens on the network.
 			let continue_test = futures_timer::Delay::new(Duration::from_millis(20));
 			match future::select(future::select(next1, next2), continue_test).await {
-				future::Either::Left((future::Either::Left((Some(ev), _)), _)) =>
-					future::Either::Left(ev),
-				future::Either::Left((future::Either::Right((Some(ev), _)), _)) =>
-					future::Either::Right(ev),
+				future::Either::Left((future::Either::Left((Some(ev), _)), _)) => {
+					future::Either::Left(ev)
+				},
+				future::Either::Left((future::Either::Right((Some(ev), _)), _)) => {
+					future::Either::Right(ev)
+				},
 				future::Either::Right(_) => continue,
 				_ => break,
 			}

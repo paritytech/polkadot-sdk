@@ -47,8 +47,9 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
+		SyncMode::LightState { skip_proofs, storage_chain_mode } => {
+			ChainSyncMode::LightState { skip_proofs, storage_chain_mode }
+		},
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }
@@ -90,6 +91,8 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Connected peers and their best blocks used to seed a new strategy when switching to it in
 	/// `PolkadotSyncingStrategy::proceed_to_next`.
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
+	/// Writer for incremental trie node import during state sync.
+	trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 }
 
 impl<B: BlockT, Client> SyncingStrategy<B> for PolkadotSyncingStrategy<B, Client>
@@ -188,7 +191,7 @@ where
 		response: Box<dyn Any + Send>,
 	) {
 		match key {
-			StateStrategy::<B>::STRATEGY_KEY =>
+			StateStrategy::<B>::STRATEGY_KEY => {
 				if let Some(state) = &mut self.state {
 					let Ok(response) = response.downcast::<Vec<u8>>() else {
 						warn!(target: LOG_TARGET, "Failed to downcast state response");
@@ -206,8 +209,9 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
-			WarpSync::<B>::STRATEGY_KEY =>
+				}
+			},
+			WarpSync::<B>::STRATEGY_KEY => {
 				if let Some(warp) = &mut self.warp {
 					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {
@@ -217,8 +221,9 @@ where
 						 or warp strategy is not active",
 					);
 					debug_assert!(false);
-				},
-			ChainSync::<B, Client>::STRATEGY_KEY =>
+				}
+			},
+			ChainSync::<B, Client>::STRATEGY_KEY => {
 				if let Some(chain_sync) = &mut self.chain_sync {
 					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
 				} else {
@@ -228,7 +233,8 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
+				}
+			},
 			key => {
 				warn!(
 					target: LOG_TARGET,
@@ -268,9 +274,9 @@ where
 	}
 
 	fn is_major_syncing(&self) -> bool {
-		self.warp.is_some() ||
-			self.state.is_some() ||
-			match self.chain_sync {
+		self.warp.is_some()
+			|| self.state.is_some()
+			|| match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
 				None => unreachable!("At least one syncing strategy is active; qed"),
 			}
@@ -345,6 +351,7 @@ where
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 		warp_sync_protocol_name: Option<ProtocolName>,
+		trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 	) -> Result<Self, ClientError> {
 		if config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
 			info!(
@@ -371,6 +378,7 @@ where
 				state: None,
 				chain_sync: None,
 				peer_best_blocks: Default::default(),
+				trie_node_writer,
 			})
 		} else {
 			let chain_sync = ChainSync::new(
@@ -390,6 +398,7 @@ where
 				state: None,
 				chain_sync: Some(chain_sync),
 				peer_best_blocks: Default::default(),
+				trie_node_writer,
 			})
 		}
 	}
@@ -414,6 +423,7 @@ where
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
 						self.config.state_request_protocol_name.clone(),
+						self.trie_node_writer.clone(),
 					);
 
 					self.warp = None;
@@ -440,7 +450,7 @@ where
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
 							error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-							return Err(e)
+							return Err(e);
 						},
 					};
 

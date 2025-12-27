@@ -34,8 +34,7 @@ use sp_runtime::{
 };
 use std::{collections::HashMap, fmt, sync::Arc};
 
-// Re-export TrieNodeWriter for convenience
-pub use sc_client_api::backend::TrieNodeWriter;
+use sc_client_api::backend::TrieNodeWriter;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -161,31 +160,12 @@ where
 	B: BlockT,
 	Client: ProofProvider<B> + Send + Sync + 'static,
 {
-	/// Create a new instance without incremental trie node writing (legacy mode).
+	/// Create a new instance.
 	///
-	/// Trie nodes will be accumulated in memory and returned in ImportedState.
+	/// When `trie_node_writer` is `Some`, trie nodes are written directly to storage
+	/// as each chunk is received, avoiding memory accumulation (recommended for production).
+	/// When `None`, trie nodes are accumulated in memory and returned in `ImportedState`.
 	pub fn new(
-		client: Arc<Client>,
-		target_header: B::Header,
-		target_body: Option<Vec<B::Extrinsic>>,
-		target_justifications: Option<Justifications>,
-		skip_proof: bool,
-	) -> Self {
-		Self::new_with_writer(
-			client,
-			target_header,
-			target_body,
-			target_justifications,
-			skip_proof,
-			None,
-		)
-	}
-
-	/// Create a new instance with optional incremental trie node writing.
-	///
-	/// When `trie_node_writer` is provided, trie nodes are written directly to storage
-	/// as each chunk is received, avoiding memory accumulation.
-	pub fn new_with_writer(
 		client: Arc<Client>,
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,

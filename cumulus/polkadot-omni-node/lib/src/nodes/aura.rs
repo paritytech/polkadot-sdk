@@ -248,6 +248,7 @@ where
 				warp_sync_config: None,
 				block_relay: None,
 				metrics: NotificationMetrics::new(None),
+				trie_node_writer: None,
 			})?;
 
 		if config.offchain_worker.enabled {

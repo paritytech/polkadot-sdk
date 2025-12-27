@@ -119,8 +119,9 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } =>
-				LocalKeystore::open(path.clone(), password.clone())?,
+			KeystoreConfig::Path { path, password } => {
+				LocalKeystore::open(path.clone(), password.clone())?
+			},
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -880,8 +881,8 @@ where
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
 	// - block pruning in archive mode: The block's body is kept around
-	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
-		blocks_pruning.is_archive();
+	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false)
+		&& blocks_pruning.is_archive();
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	if is_archive_node {
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
@@ -968,6 +969,10 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Optional trie node writer for incremental state sync.
+	/// When provided, trie nodes are written to the database as they arrive
+	/// instead of accumulating in memory.
+	pub trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -1008,6 +1013,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		trie_node_writer,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -1039,8 +1045,8 @@ where
 			&mut net_config,
 			network_service_provider.handle(),
 			Arc::clone(&client),
-			config.network.default_peers_set.in_peers as usize +
-				config.network.default_peers_set.out_peers as usize,
+			config.network.default_peers_set.in_peers as usize
+				+ config.network.default_peers_set.out_peers as usize,
 			&spawn_handle,
 		),
 	};
@@ -1054,6 +1060,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		trie_node_writer,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1375,6 +1382,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		None,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1442,6 +1450,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1455,13 +1464,14 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {
 		match net_config.network_config.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::LightState { .. } => {
+				return Err("Fast sync doesn't work for archive nodes".into())
+			},
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
@@ -1470,8 +1480,8 @@ where
 	let genesis_hash = client.info().genesis_hash;
 
 	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize
+			+ net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) =
 			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);
@@ -1516,5 +1526,6 @@ where
 		client,
 		warp_sync_config,
 		warp_sync_protocol_name,
+		trie_node_writer,
 	)?))
 }

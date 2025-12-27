@@ -937,6 +937,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				client.clone(),
 				Some(warp_sync_config),
 				Some(warp_protocol_config.name.clone()),
+				None,
 			)
 			.unwrap(),
 		);
@@ -1054,10 +1055,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 			if peer.sync_service.is_major_syncing() ||
 				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 			match (highest, peer.client.info().best_hash) {
 				(None, b) => highest = Some(b),
@@ -1073,10 +1074,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let peers = self.peers_mut();
 		for peer in peers {
 			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 		}
 
@@ -1097,7 +1098,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.await;
 
 				if self.is_in_sync().await {
-					break
+					break;
 				}
 			}
 		})
@@ -1117,7 +1118,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.await;
 
 			if self.is_idle().await {
-				break
+				break;
 			}
 		}
 	}
@@ -1136,11 +1137,11 @@ pub trait TestNetFactory: Default + Sized + Send {
 						Poll::Ready(())
 					})
 					.await;
-					continue 'outer
+					continue 'outer;
 				}
 			}
 
-			break
+			break;
 		}
 	}
 
@@ -1158,7 +1159,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 					let net_poll_future = peer.network.next_action();
 					pin_mut!(net_poll_future);
 					if let Poll::Pending = net_poll_future.poll(cx) {
-						break
+						break;
 					}
 				}
 				trace!(target: "sync", "-- Polling complete {}: {}", i, peer.id());

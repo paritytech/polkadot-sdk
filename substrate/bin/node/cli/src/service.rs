@@ -537,6 +537,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
+			trie_node_writer: None,
 		})?;
 
 	if let Some(mixnet_config) = mixnet_config {

@@ -93,6 +93,7 @@ impl<B: BlockT> StateStrategy<B> {
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
+		trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 	) -> Self
 	where
 		Client: ProofProvider<B> + Send + Sync + 'static,
@@ -109,6 +110,7 @@ impl<B: BlockT> StateStrategy<B> {
 				target_body,
 				target_justifications,
 				skip_proof,
+				trie_node_writer,
 			)),
 			peers,
 			disconnected_peers: DisconnectedPeers::new(),
@@ -443,6 +445,7 @@ mod test {
 			false,
 			std::iter::empty(),
 			ProtocolName::Static(""),
+			None,
 		);
 
 		assert!(state_strategy
@@ -476,6 +479,7 @@ mod test {
 				false,
 				initial_peers,
 				ProtocolName::Static(""),
+				None,
 			);
 
 			let peer_id =
@@ -510,6 +514,7 @@ mod test {
 				false,
 				initial_peers,
 				ProtocolName::Static(""),
+				None,
 			);
 
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
@@ -544,6 +549,7 @@ mod test {
 			false,
 			initial_peers,
 			ProtocolName::Static(""),
+			None,
 		);
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
@@ -594,6 +600,7 @@ mod test {
 			false,
 			initial_peers,
 			ProtocolName::Static(""),
+			None,
 		);
 
 		let (_peer_id, request) = state_strategy.state_request().unwrap();
@@ -624,6 +631,7 @@ mod test {
 			false,
 			initial_peers,
 			ProtocolName::Static(""),
+			None,
 		);
 
 		// First request is sent.

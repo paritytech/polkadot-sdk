@@ -181,6 +181,7 @@ pub fn new_full<
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
+			trie_node_writer: None,
 		})?;
 
 	if config.offchain_worker.enabled {

@@ -2048,8 +2048,14 @@ where
 					target: LOG_TARGET,
 					"Starting state sync for #{finalized_number} ({finalized_hash})",
 				);
-				self.state_sync =
-					Some(StateSync::new(self.client.clone(), header, None, None, skip_proofs));
+				self.state_sync = Some(StateSync::new(
+					self.client.clone(),
+					header,
+					None,
+					None,
+					skip_proofs,
+					None,
+				));
 				self.allowed_requests.set_all();
 			} else {
 				log::error!(
