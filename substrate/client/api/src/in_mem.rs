@@ -205,10 +205,10 @@ impl<Block: BlockT> Blockchain<Block> {
 		}
 		let this = self.storage.read();
 		let other = other.storage.read();
-		this.hashes == other.hashes &&
-			this.best_hash == other.best_hash &&
-			this.best_number == other.best_number &&
-			this.genesis_hash == other.genesis_hash
+		this.hashes == other.hashes
+			&& this.best_hash == other.best_hash
+			&& this.best_number == other.best_number
+			&& this.genesis_hash == other.genesis_hash
 	}
 
 	/// Insert header CHT root.
@@ -586,8 +586,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn set_create_gap(&mut self, _create_gap: bool) {}
-
-	fn set_commit_state(&mut self, _commit: bool) {}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.

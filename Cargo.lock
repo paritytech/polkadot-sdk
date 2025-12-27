@@ -19654,6 +19654,7 @@ dependencies = [
  "sp-database",
  "sp-runtime",
  "sp-state-machine",
+ "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-trie",
  "substrate-prometheus-endpoint",
