@@ -632,7 +632,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 						sp_transaction_storage_proof::registration::new_data_provider(
 							&*client_clone,
 							&parent,
-							client_clone.runtime_api().retention_period(parent)?,
+							// Use `unwrap_or` in case the runtime api is not available.
+							client_clone.runtime_api().retention_period(parent).unwrap_or(100800),
 						)?;
 
 					Ok((slot, timestamp, storage_proof))
