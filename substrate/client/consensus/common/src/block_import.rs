@@ -126,24 +126,50 @@ pub enum StorageChanges<Block: BlockT> {
 	Import(ImportedState<Block>),
 }
 
-/// Imported state data. A vector of key-value pairs that should form a trie.
+/// State of trie nodes for import.
+#[derive(Clone, Debug)]
+pub enum TrieNodeStates {
+	/// Trie nodes pending import - need to be written to database.
+	Pending(Vec<(Vec<u8>, Vec<u8>)>),
+	/// Trie nodes were already imported to database during state sync.
+	AlreadyImported {
+		/// Number of trie nodes written during state sync.
+		nodes_count: u64,
+	},
+}
+
+/// Source of state data for import.
+#[derive(Clone)]
+pub enum StateSource {
+	/// Import state from key-value pairs (legacy path).
+	/// Trie nodes will be computed via delta_trie_root.
+	KeyValues(sp_state_machine::KeyValueStates),
+	/// Import state from trie nodes directly.
+	TrieNodes(TrieNodeStates),
+}
+
+impl std::fmt::Debug for StateSource {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::KeyValues(state) =>
+				f.debug_struct("KeyValues").field("count", &state.0.len()).finish(),
+			Self::TrieNodes(state) => f.debug_tuple("TrieNodes").field(state).finish(),
+		}
+	}
+}
+
+/// Imported state data.
 #[derive(Clone)]
 pub struct ImportedState<B: BlockT> {
 	/// Target block hash.
 	pub block: B::Hash,
-	/// State keys and values.
-	pub state: sp_state_machine::KeyValueStates,
-	/// Optional trie nodes from compact proofs.
-	/// When present, these are written directly to the STATE column,
-	/// avoiding the need to recompute trie nodes via delta_trie_root.
-	/// Contains raw (prefixed_key, value) pairs extracted from MemoryDBs.
-	pub trie_nodes: Option<Vec<(Vec<u8>, Vec<u8>)>>,
+	/// Source of state data.
+	pub source: StateSource,
 }
 
 impl<B: BlockT> PartialEq for ImportedState<B> {
 	fn eq(&self, other: &Self) -> bool {
-		// Compare block and state only; trie_nodes are derived from state
-		self.block == other.block && self.state == other.state
+		self.block == other.block
 	}
 }
 
@@ -153,7 +179,7 @@ impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("ImportedState")
 			.field("block", &self.block)
-			.field("has_trie_nodes", &self.trie_nodes.is_some())
+			.field("source", &self.source)
 			.finish()
 	}
 }

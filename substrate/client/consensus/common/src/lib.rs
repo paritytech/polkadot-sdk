@@ -25,7 +25,7 @@ pub mod metrics;
 pub use block_import::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 	ImportedAux, ImportedState, JustificationImport, JustificationSyncLink, StateAction,
-	StorageChanges,
+	StateSource, StorageChanges, TrieNodeStates,
 };
 pub use import_queue::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, BoxBlockImport,

@@ -390,6 +390,7 @@ where
 				config.block_downloader.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
+				trie_node_writer.clone(),
 			)?;
 			Ok(Self {
 				config,
@@ -446,6 +447,7 @@ where
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
+						self.trie_node_writer.clone(),
 					) {
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
@@ -476,6 +478,7 @@ where
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),
+				self.trie_node_writer.clone(),
 			) {
 				Ok(chain_sync) => chain_sync,
 				Err(e) => {

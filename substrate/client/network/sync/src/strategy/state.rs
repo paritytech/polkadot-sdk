@@ -403,7 +403,7 @@ mod test {
 	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::KeyValueStates;
-	use sc_consensus::{ImportedAux, ImportedState};
+	use sc_consensus::{ImportedAux, ImportedState, StateSource};
 	use sp_core::H256;
 	use sp_runtime::traits::Zero;
 	use substrate_test_runtime_client::{
@@ -719,8 +719,10 @@ mod test {
 		let header = block.header().clone();
 		let hash = header.hash();
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
-		let state =
-			ImportedState { block: hash, state: KeyValueStates(Vec::new()), trie_nodes: None };
+		let state = ImportedState {
+			block: hash,
+			source: StateSource::KeyValues(KeyValueStates(Vec::new())),
+		};
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 
 		// Prepare `StateSync`

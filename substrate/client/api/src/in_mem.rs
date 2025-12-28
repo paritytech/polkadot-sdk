@@ -758,6 +758,11 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		unimplemented!("Not needed for in-mem backend")
 	}
 
+	fn verify_state_root_exists(&self, _root: Block::Hash) -> sp_blockchain::Result<()> {
+		// In-memory backend doesn't support incremental state sync
+		unimplemented!("Not needed for in-mem backend")
+	}
+
 	fn revert(
 		&self,
 		_n: NumberFor<Block>,

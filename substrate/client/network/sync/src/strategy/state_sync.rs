@@ -25,7 +25,7 @@ use crate::{
 use codec::{Decode, Encode};
 use log::{debug, info};
 use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
-use sc_consensus::ImportedState;
+use sc_consensus::{ImportedState, StateSource, TrieNodeStates};
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
@@ -138,12 +138,14 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
-/// Defines how trie nodes are imported during state sync.
-enum TrieNodeImportMode {
-	/// Incremental mode: write nodes directly to storage as they arrive.
+/// Defines how state is synced and stored.
+enum StateSyncMode {
+	/// Incremental mode: write trie nodes directly to storage as they arrive.
+	/// This is the efficient path that avoids 30GiB+ memory usage.
 	Incremental { writer: Arc<dyn TrieNodeWriter>, nodes_written: u64 },
-	/// Legacy mode: accumulate nodes in memory for later import.
-	Accumulated { nodes: Vec<(Vec<u8>, Vec<u8>)> },
+	/// Accumulated mode: collect key-values in memory for later import.
+	/// This is the legacy path used when no trie_node_writer is provided.
+	Accumulated { state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)> },
 }
 
 /// State sync state machine.
@@ -151,9 +153,8 @@ enum TrieNodeImportMode {
 /// Accumulates partial state data until it is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
-	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
-	/// How trie nodes are imported during sync.
-	trie_node_import_mode: TrieNodeImportMode,
+	/// How state is synced - either incrementally written or accumulated in memory.
+	sync_mode: StateSyncMode,
 	client: Arc<Client>,
 }
 
@@ -166,7 +167,7 @@ where
 	///
 	/// When `trie_node_writer` is `Some`, trie nodes are written directly to storage
 	/// as each chunk is received, avoiding memory accumulation (recommended for production).
-	/// When `None`, trie nodes are accumulated in memory and returned in `ImportedState`.
+	/// When `None`, key-values are accumulated in memory and returned in `ImportedState`.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,
@@ -175,9 +176,9 @@ where
 		skip_proof: bool,
 		trie_node_writer: Option<Arc<dyn TrieNodeWriter>>,
 	) -> Self {
-		let trie_node_import_mode = match trie_node_writer {
-			Some(writer) => TrieNodeImportMode::Incremental { writer, nodes_written: 0 },
-			None => TrieNodeImportMode::Accumulated { nodes: Vec::new() },
+		let sync_mode = match trie_node_writer {
+			Some(writer) => StateSyncMode::Incremental { writer, nodes_written: 0 },
+			None => StateSyncMode::Accumulated { state: HashMap::default() },
 		};
 
 		Self {
@@ -191,30 +192,25 @@ where
 				imported_bytes: 0,
 				skip_proof,
 			},
-			state: HashMap::default(),
-			trie_node_import_mode,
+			sync_mode,
 		}
 	}
 
-	/// Process trie nodes from a chunk - either write incrementally or accumulate.
+	/// Process trie nodes from a chunk - write incrementally if in Incremental mode.
 	fn process_trie_nodes(&mut self, chunk_nodes: Vec<(Vec<u8>, Vec<u8>)>) {
-		let node_count = chunk_nodes.len() as u64;
-
-		match &mut self.trie_node_import_mode {
-			TrieNodeImportMode::Incremental { writer, nodes_written } => {
-				if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
-					// Log error but continue - the final state root check will catch issues
-					debug!(
-						target: LOG_TARGET,
-						"Failed to write trie nodes incrementally: {e}"
-					);
-				} else {
-					*nodes_written += node_count;
-				}
-			},
-			TrieNodeImportMode::Accumulated { nodes } => {
-				nodes.extend(chunk_nodes);
-			},
+		// Only write trie nodes in Incremental mode.
+		// In Accumulated mode, we use key-values instead of trie nodes.
+		if let StateSyncMode::Incremental { writer, nodes_written } = &mut self.sync_mode {
+			let node_count = chunk_nodes.len() as u64;
+			if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
+				// Log error but continue - the final state root check will catch issues
+				debug!(
+					target: LOG_TARGET,
+					"Failed to write trie nodes incrementally: {e}"
+				);
+			} else {
+				*nodes_written += node_count;
+			}
 		}
 	}
 
@@ -223,11 +219,20 @@ where
 		state_root: Vec<u8>,
 		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
 	) {
+		// Only accumulate key-values in Accumulated mode.
+		// In Incremental mode, trie nodes are written directly - skip key-value accumulation.
+		let StateSyncMode::Accumulated { state } = &mut self.sync_mode else {
+			for (key, _value) in key_values {
+				self.metadata.imported_bytes += key.len() as u64;
+			}
+			return;
+		};
+
 		let is_top = state_root.is_empty();
 
-		let entry = self.state.entry(state_root).or_default();
+		let entry = state.entry(state_root).or_default();
 
-		if entry.0.len() > 0 && entry.1.len() > 1 {
+		if !entry.0.is_empty() && entry.1.len() > 1 {
 			// Already imported child_trie with same root.
 			// Warning this will not work with parallel download.
 			return;
@@ -246,7 +251,7 @@ where
 		}
 
 		for (root, storage_key) in child_storage_roots {
-			self.state.entry(root).or_default().1.push(storage_key);
+			state.entry(root).or_default().1.push(storage_key);
 		}
 	}
 
@@ -360,33 +365,33 @@ where
 			self.metadata.complete = true;
 			let target_hash = self.metadata.target_hash();
 
-			// Determine trie_nodes based on whether incremental writing was used
-			let trie_nodes = match &mut self.trie_node_import_mode {
-				TrieNodeImportMode::Incremental { nodes_written, .. } => {
+			// Determine StateSource based on the sync mode used
+			let source = match &mut self.sync_mode {
+				StateSyncMode::Incremental { nodes_written, .. } => {
+					// Incremental mode: trie nodes already written to storage
 					info!(
 						target: LOG_TARGET,
 						"State sync complete: {nodes_written} trie nodes written incrementally"
 					);
-					None
+					StateSource::TrieNodes(TrieNodeStates::AlreadyImported {
+						nodes_count: *nodes_written,
+					})
 				},
-				TrieNodeImportMode::Accumulated { ref mut nodes } => {
+				StateSyncMode::Accumulated { state } => {
+					// Legacy mode: return accumulated key-values
 					info!(
 						target: LOG_TARGET,
-						"State sync complete: {} trie nodes accumulated",
-						nodes.len()
+						"State sync complete: {} key-values accumulated",
+						state.len()
 					);
-					Some(std::mem::take(nodes))
+					StateSource::KeyValues(std::mem::take(state).into())
 				},
 			};
 
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState {
-					block: target_hash,
-					state: std::mem::take(&mut self.state).into(),
-					trie_nodes,
-				},
+				ImportedState { block: target_hash, source },
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)

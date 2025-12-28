@@ -332,6 +332,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
 	state_sync: Option<StateSync<B, Client>>,
+	/// Optional writer for incremental trie node import during state sync.
+	trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 	/// Enable importing existing blocks. This is used after the state download to
 	/// catch up to the latest state while re-importing blocks.
 	import_existing: bool,
@@ -418,12 +420,12 @@ where
 			peer
 		} else {
 			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
-			return Some((hash, number))
+			return Some((hash, number));
 		};
 
 		if let PeerSyncState::AncestorSearch { .. } = peer.state {
 			trace!(target: LOG_TARGET, "Peer {} is in the ancestor search state.", peer_id);
-			return None
+			return None;
 		}
 
 		let peer_info = is_best.then(|| {
@@ -439,8 +441,8 @@ where
 		if is_best {
 			if known && self.best_queued_number >= number {
 				self.update_peer_common_number(&peer_id, number);
-			} else if announce.header.parent_hash() == &self.best_queued_hash ||
-				known_parent && self.best_queued_number >= number
+			} else if announce.header.parent_hash() == &self.best_queued_hash
+				|| known_parent && self.best_queued_number >= number
 			{
 				self.update_peer_common_number(&peer_id, number.saturating_sub(One::one()));
 			}
@@ -453,7 +455,7 @@ where
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
-			return peer_info
+			return peer_info;
 		}
 
 		if ancient_parent {
@@ -464,7 +466,7 @@ where
 				hash,
 				announce.header,
 			);
-			return peer_info
+			return peer_info;
 		}
 
 		if self.status().state == SyncState::Idle {
@@ -525,14 +527,14 @@ where
 
 		if self.is_known(hash) {
 			debug!(target: LOG_TARGET, "Refusing to sync known hash {hash:?}");
-			return
+			return;
 		}
 
 		trace!(target: LOG_TARGET, "Downloading requested old fork {hash:?}");
 		for peer_id in &peers {
 			if let Some(peer) = self.peers.get_mut(peer_id) {
 				if let PeerSyncState::AncestorSearch { .. } = peer.state {
-					continue
+					continue;
 				}
 
 				if number > peer.best_number {
@@ -668,7 +670,7 @@ where
 		}
 		for (result, hash) in results {
 			if has_error {
-				break
+				break;
 			}
 
 			has_error |= result.is_err();
@@ -725,7 +727,7 @@ where
 
 					self.complete_gap_if_target(number);
 				},
-				Err(BlockImportError::IncompleteHeader(peer_id)) =>
+				Err(BlockImportError::IncompleteHeader(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
@@ -734,7 +736,8 @@ where
 						self.actions
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						self.restart();
-					},
+					}
+				},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
 					let extra_message = peer_id
 						.map_or_else(|| "".into(), |peer| format!(" received from ({peer})"));
@@ -751,14 +754,15 @@ where
 
 					self.restart();
 				},
-				Err(BlockImportError::BadBlock(peer_id)) =>
+				Err(BlockImportError::BadBlock(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
 						self.actions.push(SyncingAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
-					},
+					}
+				},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
 					// in the meantime because other chain has been finalized.
@@ -944,6 +948,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+		trie_node_writer: Option<Arc<dyn sc_client_api::backend::TrieNodeWriter>>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -963,6 +968,7 @@ where
 			state_request_protocol_name,
 			downloaded_blocks: 0,
 			state_sync: None,
+			trie_node_writer,
 			import_existing: false,
 			block_downloader,
 			gap_sync: None,
@@ -1094,9 +1100,9 @@ where
 
 				Ok(req)
 			},
-			Ok(BlockStatus::Queued) |
-			Ok(BlockStatus::InChainWithState) |
-			Ok(BlockStatus::InChainPruned) => {
+			Ok(BlockStatus::Queued)
+			| Ok(BlockStatus::InChainWithState)
+			| Ok(BlockStatus::InChainPruned) => {
 				debug!(
 					target: LOG_TARGET,
 					"New peer {peer_id} with known best hash {best_hash} ({best_number}).",
@@ -1276,8 +1282,8 @@ where
 							},
 						};
 						if matching_hash.is_some() {
-							if *start < self.best_queued_number &&
-								self.best_queued_number <= peer.best_number
+							if *start < self.best_queued_number
+								&& self.best_queued_number <= peer.best_number
 							{
 								// We've made progress on this chain since the search was started.
 								// Opportunistically set common number to updated number
@@ -1333,8 +1339,8 @@ where
 								matching_hash,
 								peer.common_number,
 							);
-							if peer.common_number < peer.best_number &&
-								peer.best_number < self.best_queued_number
+							if peer.common_number < peer.best_number
+								&& peer.best_number < self.best_queued_number
 							{
 								trace!(
 									target: LOG_TARGET,
@@ -1362,9 +1368,9 @@ where
 							return Ok(());
 						}
 					},
-					PeerSyncState::Available |
-					PeerSyncState::DownloadingJustification(..) |
-					PeerSyncState::DownloadingState => Vec::new(),
+					PeerSyncState::Available
+					| PeerSyncState::DownloadingJustification(..)
+					| PeerSyncState::DownloadingState => Vec::new(),
 				}
 			} else {
 				// When request.is_none() this is a block announcement. Just accept blocks.
@@ -1523,14 +1529,17 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
+			ChainSyncMode::Full => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
+				BlockAttributes::HEADER
+					| BlockAttributes::JUSTIFICATION
+					| BlockAttributes::INDEXED_BODY
+			},
 		}
 	}
 
@@ -1651,11 +1660,11 @@ where
 				PeerSyncState::Available => {
 					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
 				},
-				PeerSyncState::AncestorSearch { .. } |
-				PeerSyncState::DownloadingNew(_) |
-				PeerSyncState::DownloadingStale(_) |
-				PeerSyncState::DownloadingGap(_) |
-				PeerSyncState::DownloadingState => {
+				PeerSyncState::AncestorSearch { .. }
+				| PeerSyncState::DownloadingNew(_)
+				| PeerSyncState::DownloadingStale(_)
+				| PeerSyncState::DownloadingGap(_)
+				| PeerSyncState::DownloadingState => {
 					// Cancel a request first, as `add_peer` may generate a new request.
 					self.actions
 						.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
@@ -1697,8 +1706,8 @@ where
 		self.best_queued_hash = info.best_hash;
 		self.best_queued_number = info.best_number;
 
-		if self.mode == ChainSyncMode::Full &&
-			self.client.block_status(info.best_hash)? != BlockStatus::InChainWithState
+		if self.mode == ChainSyncMode::Full
+			&& self.client.block_status(info.best_hash)? != BlockStatus::InChainWithState
 		{
 			self.import_existing = true;
 			// Latest state is missing, start with the last finalized state or genesis instead.
@@ -1833,9 +1842,9 @@ where
 			.peers
 			.iter_mut()
 			.filter_map(move |(&id, peer)| {
-				if !peer.state.is_available() ||
-					!allowed_requests.contains(&id) ||
-					!disconnected_peers.is_peer_available(&id)
+				if !peer.state.is_available()
+					|| !allowed_requests.contains(&id)
+					|| !disconnected_peers.is_peer_available(&id)
 				{
 					return None;
 				}
@@ -1845,11 +1854,11 @@ where
 				// common number is smaller than the last finalized block number, we should do an
 				// ancestor search to find a better common block. If the queue is full we wait till
 				// all blocks are imported though.
-				if best_queued.saturating_sub(peer.common_number) >
-					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &&
-					best_queued < peer.best_number &&
-					peer.common_number < last_finalized &&
-					queue_blocks.len() <= MAJOR_SYNC_BLOCKS as usize
+				if best_queued.saturating_sub(peer.common_number)
+					> MAX_BLOCKS_TO_LOOK_BACKWARDS.into()
+					&& best_queued < peer.best_number
+					&& peer.common_number < last_finalized
+					&& queue_blocks.len() <= MAJOR_SYNC_BLOCKS as usize
 				{
 					trace!(
 						target: LOG_TARGET,
@@ -1945,8 +1954,8 @@ where
 		if self.allowed_requests.is_empty() {
 			return None;
 		}
-		if self.state_sync.is_some() &&
-			self.peers.iter().any(|(_, peer)| peer.state == PeerSyncState::DownloadingState)
+		if self.state_sync.is_some()
+			&& self.peers.iter().any(|(_, peer)| peer.state == PeerSyncState::DownloadingState)
 		{
 			// Only one pending state request is allowed.
 			return None;
@@ -1957,9 +1966,9 @@ where
 			}
 
 			for (id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() &&
-					peer.common_number >= sync.target_number() &&
-					self.disconnected_peers.is_peer_available(&id)
+				if peer.state.is_available()
+					&& peer.common_number >= sync.target_number()
+					&& self.disconnected_peers.is_peer_available(&id)
 				{
 					peer.state = PeerSyncState::DownloadingState;
 					let request = sync.next_request();
@@ -2054,7 +2063,7 @@ where
 					None,
 					None,
 					skip_proofs,
-					None,
+					self.trie_node_writer.clone(),
 				));
 				self.allowed_requests.set_all();
 			} else {
@@ -2290,8 +2299,8 @@ fn fork_sync_request<B: BlockT>(
 		}
 		// Download the fork only if it is behind or not too far ahead our tip of the chain
 		// Otherwise it should be downloaded in full sync mode.
-		if r.number <= best_num ||
-			(r.number - best_num).saturated_into::<u32>() < max_blocks_per_request as u32
+		if r.number <= best_num
+			|| (r.number - best_num).saturated_into::<u32>() < max_blocks_per_request as u32
 		{
 			let parent_status = r.parent_hash.as_ref().map_or(BlockStatus::Unknown, check_block);
 			let count = if parent_status == BlockStatus::Unknown {
@@ -2382,8 +2391,8 @@ pub fn validate_blocks<Block: BlockT>(
 			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));
 		}
 
-		if request.fields.contains(BlockAttributes::HEADER) &&
-			blocks.iter().any(|b| b.header.is_none())
+		if request.fields.contains(BlockAttributes::HEADER)
+			&& blocks.iter().any(|b| b.header.is_none())
 		{
 			trace!(
 				target: LOG_TARGET,

@@ -45,6 +45,7 @@ use sc_client_api::{
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	StateSource, TrieNodeStates,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -612,35 +613,40 @@ where
 						Some((main_sc, child_sc))
 					},
 					sc_consensus::StorageChanges::Import(changes) => {
-						// Check if we have direct trie nodes from compact proof
-						if let Some(trie_nodes) = changes.trie_nodes {
-							if !trie_nodes.is_empty() {
+						match changes.source {
+							StateSource::TrieNodes(TrieNodeStates::AlreadyImported {
+								nodes_count,
+							}) => {
+								// Trie nodes were written incrementally during state sync.
+								// Just verify the state root exists in the database.
+								let expected_root = *import_headers.post().state_root();
+								info!(
+									target: "state",
+									"State sync complete: {nodes_count} trie nodes already imported, verifying state root"
+								);
+								self.backend.verify_state_root_exists(expected_root)?;
+								None
+							},
+							StateSource::TrieNodes(TrieNodeStates::Pending(trie_nodes)) => {
+								// Trie nodes accumulated in memory, write to STATE column
 								let expected_root = *import_headers.post().state_root();
 								info!(
 									target: "state",
 									"Importing state with {} trie nodes directly",
 									trie_nodes.len()
 								);
-								// Import trie nodes directly to STATE column
 								self.backend
 									.import_state_from_trie_nodes(trie_nodes, expected_root)?;
-								// Skip the expensive reset_storage path
 								None
-							} else {
-								// Fall back to key-value import if no trie nodes
+							},
+							StateSource::KeyValues(state) => {
+								// Legacy path: import from key-value pairs
 								self.import_state_from_key_values(
-									changes.state,
+									state,
 									&mut operation.op,
 									import_headers.post().state_root(),
 								)?
-							}
-						} else {
-							// Fall back to key-value import
-							self.import_state_from_key_values(
-								changes.state,
-								&mut operation.op,
-								import_headers.post().state_root(),
-							)?
+							},
 						}
 					},
 				};
