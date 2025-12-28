@@ -623,6 +623,8 @@ pub mod pallet {
 		/// Some pre-compile functions will trap the caller context if being delegate
 		/// called or if their caller was being delegate called.
 		PrecompileDelegateDenied = 0x40,
+		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
+		EcdsaRecoveryFailed = 0x41,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,

@@ -52,6 +52,8 @@ jobs:
     outputs:
       job_url: ${{ steps.build-link.outputs.job_url }}
       run_url: ${{ steps.build-link.outputs.run_url }}
+      repo_labels: ${{ steps.fetch-github-data.outputs.repo_labels }}
+      pr_status: ${{ steps.fetch-github-data.outputs.pr_status }}
     steps:
       - name: Build workflow link
         if: ${{ github.event.inputs.is_quiet == 'false' }}
@@ -111,6 +113,38 @@ jobs:
           echo "Comment ID: $COMMENT_ID"
           echo "Is quiet: $IS_QUIET"
 
+      - name: Fetch GitHub data for cmd
+        if: startsWith(github.event.inputs.cmd, 'label')
+        id: fetch-github-data
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Fetch all labels with pagination
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            const labelNames = labels.map(l => l.name);
+            console.log(`Fetched ${labelNames.length} labels`);
+
+            // Fetch PR status
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ github.event.inputs.pr_num }}
+            });
+            const prStatus = {
+              merged: pr.data.merged,
+              state: pr.data.state,
+              auto_merge: pr.data.auto_merge !== null
+            };
+            console.log(`PR status: ${JSON.stringify(prStatus)}`);
+
+            core.setOutput('repo_labels', JSON.stringify(labelNames));
+            core.setOutput('pr_status', JSON.stringify(prStatus));
+
   cmd:
     needs: [before-cmd]
     env:
@@ -157,9 +191,10 @@ jobs:
           IS_PR_AUTHOR: ${{ github.event.inputs.is_pr_author }}
           RUNNER: ${{ github.event.inputs.runner }}
           IMAGE: ${{ github.event.inputs.image }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_LABELS: ${{ needs.before-cmd.outputs.repo_labels }}
+          PR_STATUS: ${{ needs.before-cmd.outputs.pr_status }}
         run: |
-          echo "Running command: '${CMD} ${PR_ARG}' on '${RUNNER}' runner, container: '${IMAGE}'"
+          echo "Running command: "${CMD} ${PR_ARG}" on "${RUNNER}" runner, container: "${IMAGE}
           echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"
           echo "IS_ORG_MEMBER: ${IS_ORG_MEMBER}"
 
@@ -167,16 +202,10 @@ jobs:
           git config user.name "cmd[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # if the user is not an org member, we need to use the bot's path from master to avoid unwanted modifications
-          if [ "${IS_ORG_MEMBER}" = "true" ]; then
-            # safe to run commands from current branch
-            BOT_PATH=.github
-          else
-            # going to run commands from master
-            TMP_DIR=/tmp/polkadot-sdk
-            git clone --depth 1 --branch master https://github.com/paritytech/polkadot-sdk $TMP_DIR
-            BOT_PATH=$TMP_DIR/.github
-          fi
+          echo "Using cmd-bot branch for cmd-bot scripts"
+          TMP_DIR=/tmp/polkadot-sdk
+          git clone --depth 1 --branch cmd-bot https://github.com/paritytech/polkadot-sdk $TMP_DIR
+          BOT_PATH=$TMP_DIR/.github
 
           # install deps and run a command from master
           python3 -m pip install -r $BOT_PATH/scripts/generate-prdoc.requirements.txt

@@ -95,7 +95,7 @@ jobs:
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
@@ -236,7 +236,7 @@ jobs:
            ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
        - name: Generate artifact attestation
-         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+         uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
          with:
            subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -327,7 +327,7 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
       with:
         subject-path: |
           target/production/*.deb
