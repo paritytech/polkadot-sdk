@@ -128,7 +128,7 @@ mod sys {
 		pub fn instantiation_nonce() -> u64;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
-        pub fn consume_all_gas();
+		pub fn consume_all_gas();
 
 		// Move syscalls
 		pub fn hex_dump();

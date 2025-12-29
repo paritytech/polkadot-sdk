@@ -36,11 +36,11 @@ use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 
 // Move imports
-use alloc::string::String;
 use crate::{
 	alloc::string::ToString,
 	move_storage::{exists, load, release, store, update},
 };
+use alloc::string::String;
 use core::mem::MaybeUninit;
 use polkavm::MemoryAccessError;
 use polkavm_move_native::{
