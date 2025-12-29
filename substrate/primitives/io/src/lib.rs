@@ -4189,7 +4189,7 @@ mod tests {
 	#[test]
 	fn use_dalek_ext_works() {
 		let mut ext = BasicExternalities::default();
-		ext.register_extension(UseDalekExt::default());
+		ext.register_extension(UseDalekExt);
 
 		// With dalek the zero signature should fail to verify.
 		ext.execute_with(|| {
@@ -4205,7 +4205,7 @@ mod tests {
 	#[test]
 	fn dalek_should_not_panic_on_invalid_signature() {
 		let mut ext = BasicExternalities::default();
-		ext.register_extension(UseDalekExt::default());
+		ext.register_extension(UseDalekExt);
 
 		ext.execute_with(|| {
 			let mut bytes = [0u8; 64];

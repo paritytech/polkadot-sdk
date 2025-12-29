@@ -30,7 +30,6 @@ pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
 	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
-	RuntimeDebug,
 };
 
 #[doc(hidden)]
@@ -279,7 +278,7 @@ macro_rules! app_crypto_public_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
 			)]
@@ -317,7 +316,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
 			)]
@@ -465,7 +464,7 @@ macro_rules! app_crypto_signature_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::scale_info::TypeInfo,
 			)]
 			#[derive(Hash)]
@@ -501,7 +500,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::scale_info::TypeInfo,
 			)]
 			pub struct Signature($sig);
@@ -598,7 +597,7 @@ macro_rules! app_crypto_proof_of_possession_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::scale_info::TypeInfo,
 			)]
 			pub struct ProofOfPossession($sig);
@@ -633,7 +632,7 @@ macro_rules! app_crypto_proof_of_possession_not_full_crypto {
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
-				$crate::RuntimeDebug,
+				Debug,
 				$crate::scale_info::TypeInfo,
 			)]
 			pub struct ProofOfPossession($sig);
