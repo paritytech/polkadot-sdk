@@ -1,0 +1,9 @@
+title: 'UncheckedExtrinsic: Ensure that encoding leads to same bytes an ext was decoded
+  from'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This pull request ensures that when decoding an `UncheckedExtrinsic` from a certain byte string, it also encodes to the same byte string. This is achieved by keeping the original bytes used to decode the `call` around and then directly encode these.
+crates:
+- name: sp-runtime
+  bump: major
