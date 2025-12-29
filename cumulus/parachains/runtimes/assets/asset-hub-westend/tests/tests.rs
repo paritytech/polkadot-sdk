@@ -58,9 +58,9 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
-	Code,
+	Code, TransactionLimits,
 };
-use pallet_revive_fixtures::compile_module;
+use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -85,16 +85,6 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
-
-const ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/erc20.polkavm");
-
-const FAKE_ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/fake_erc20.polkavm");
-
-const EXPENSIVE_ERC20_PVM: &[u8] = include_bytes!(
-	"../../../../../../substrate/frame/revive/fixtures/erc20/expensive_erc20.polkavm"
-);
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -1701,13 +1691,17 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
-			.storage_deposit_limit(Balance::MAX)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+				deposit_limit: Balance::MAX,
+			})
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
@@ -1819,8 +1813,10 @@ fn smart_contract_not_erc20_will_error() {
 		let (code, _) = compile_module("dummy").unwrap();
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
-			.storage_deposit_limit(Balance::MAX)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+				deposit_limit: Balance::MAX,
+			})
 			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
@@ -1871,14 +1867,18 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = FAKE_ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
-			.storage_deposit_limit(Balance::MAX)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+				deposit_limit: Balance::MAX,
+			})
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
@@ -1928,13 +1928,17 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = EXPENSIVE_ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
-			.storage_deposit_limit(Balance::MAX)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+				deposit_limit: Balance::MAX,
+			})
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 

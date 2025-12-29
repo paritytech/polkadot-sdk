@@ -40,13 +40,13 @@ use sp_core::bounded::BoundedVec;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
 	traits::{Convert, Saturating, Zero},
-	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
+	Debug, FixedPointNumber, FixedPointOperand, FixedU128, Percent,
 };
 
 /// A raw, unchecked signed submission.
 ///
 /// This is just a wrapper around [`RawSolution`] and some additional info.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct SignedSubmission<AccountId, Balance: HasCompact, Solution> {
 	/// Who submitted this solution.
 	pub who: AccountId,

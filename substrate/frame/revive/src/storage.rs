@@ -17,11 +17,10 @@
 
 //! This module contains routines for accessing and altering a contract related state.
 
-pub mod meter;
-
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
+	metering::FrameMeter,
 	tracing::if_tracing,
 	weights::WeightInfo,
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
@@ -34,7 +33,7 @@ use frame_support::{
 	storage::child::{self, ChildInfo},
 	traits::{
 		fungible::Inspect,
-		tokens::{Fortitude::Polite, Preservation::Preserve},
+		tokens::{Fortitude, Preservation},
 	},
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DebugNoBound, DefaultNoBound,
@@ -43,8 +42,10 @@ use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
+
+use crate::metering::Diff;
 
 pub enum AccountIdOrAddress<T: Config> {
 	/// An account that is a contract.
@@ -55,15 +56,7 @@ pub enum AccountIdOrAddress<T: Config> {
 
 /// Represents the account information for a contract or an externally owned account (EOA).
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AccountInfo<T: Config> {
@@ -77,15 +70,7 @@ pub struct AccountInfo<T: Config> {
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub enum AccountType<T: Config> {
@@ -107,20 +92,20 @@ pub struct ContractInfo<T: Config> {
 	/// The code associated with a given account.
 	pub code_hash: sp_core::H256,
 	/// How many bytes of storage are accumulated in this contract's child trie.
-	storage_bytes: u32,
+	pub storage_bytes: u32,
 	/// How many items of storage are accumulated in this contract's child trie.
-	storage_items: u32,
+	pub storage_items: u32,
 	/// This records to how much deposit the accumulated `storage_bytes` amount to.
 	pub storage_byte_deposit: BalanceOf<T>,
 	/// This records to how much deposit the accumulated `storage_items` amount to.
-	storage_item_deposit: BalanceOf<T>,
+	pub storage_item_deposit: BalanceOf<T>,
 	/// This records how much deposit is put down in order to pay for the contract itself.
 	///
 	/// We need to store this information separately so it is not used when calculating any refunds
 	/// since the base deposit can only ever be refunded on contract termination.
-	storage_base_deposit: BalanceOf<T>,
+	pub storage_base_deposit: BalanceOf<T>,
 	/// The size of the immutable data of this contract.
-	immutable_data_len: u32,
+	pub immutable_data_len: u32,
 }
 
 impl<T: Config> From<H160> for AccountIdOrAddress<T> {
@@ -162,13 +147,24 @@ impl<T: Config> AccountInfo<T> {
 	/// Returns the balance of the account at the given address.
 	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
 		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
-		info.balance(&account.account_id())
+		info.balance(&account.account_id(), Preservation::Preserve)
 	}
 
 	/// Returns the balance of this account info.
-	pub fn balance(&self, account: &AccountIdOf<T>) -> BalanceWithDust<BalanceOf<T>> {
-		let value = T::Currency::reducible_balance(account, Preserve, Polite);
+	pub fn balance(
+		&self,
+		account: &AccountIdOf<T>,
+		preservation: Preservation,
+	) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::reducible_balance(account, preservation, Fortitude::Polite);
 		BalanceWithDust::new_unchecked::<T>(value, self.dust)
+	}
+
+	/// All the remaining in an account including ed and locked balances.
+	pub fn total_balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::total_balance(&account.account_id());
+		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
+		BalanceWithDust::new_unchecked::<T>(value, dust)
 	}
 
 	/// Loads the contract information for a given address.
@@ -278,7 +274,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &Key,
 		new_value: Option<Vec<u8>>,
-		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
@@ -288,7 +284,7 @@ impl<T: Config> ContractInfo<T> {
 			t.storage_write(key, old, new_value.as_deref());
 		});
 
-		self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take)
+		self.write_raw(&hashed_key, new_value.as_deref(), frame_meter, take)
 	}
 
 	/// Update a storage entry into a contract's kv storage.
@@ -307,7 +303,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &[u8],
 		new_value: Option<&[u8]>,
-		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let child_trie_info = &self.child_trie_info();
@@ -318,8 +314,8 @@ impl<T: Config> ContractInfo<T> {
 			(child::len(child_trie_info, key), None)
 		};
 
-		if let Some(storage_meter) = storage_meter {
-			let mut diff = meter::Diff::default();
+		if let Some(frame_meter) = frame_meter {
+			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
 				(Some(old_len), Some(new_len)) =>
@@ -338,7 +334,7 @@ impl<T: Config> ContractInfo<T> {
 				},
 				(None, None) => (),
 			}
-			storage_meter.charge(&diff);
+			frame_meter.record_contract_storage_changes(&diff)?;
 		}
 
 		match &new_value {
@@ -382,8 +378,8 @@ impl<T: Config> ContractInfo<T> {
 	/// Push a contract's trie to the deletion queue for lazy removal.
 	///
 	/// You must make sure that the contract is also removed when queuing the trie for deletion.
-	pub fn queue_trie_for_deletion(&self) {
-		DeletionQueueManager::<T>::load().insert(self.trie_id.clone());
+	pub fn queue_trie_for_deletion(trie_id: TrieId) {
+		DeletionQueueManager::<T>::load().insert(trie_id);
 	}
 
 	/// Calculates the weight that is necessary to remove one key from the trie and how many
@@ -456,7 +452,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
