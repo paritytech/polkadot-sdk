@@ -2177,7 +2177,7 @@ checksum = "d1da5ab77c1437701eeff7c88d968729e7766172279eab0676857b3d63af7a6f"
 dependencies = [
  "borsh-derive",
  "cfg_aliases 0.2.1",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -17407,7 +17407,7 @@ checksum = "604b23cdb201979304449f53d21bfd5fb1724c03e3ea889067c9a3bf7ae33862"
 [[package]]
 name = "polkavm-move-native"
 version = "0.1.0"
-source = "git+https://github.com/eigerco/polkavm-move#27ee35573cb040f921504833b10fc0f2665682b3"
+source = "git+https://github.com/eigerco/polkavm-move#a5d970af6d25ed1459579b3a384ae26cc2e55e85"
 dependencies = [
  "borsh",
  "ethnum",
