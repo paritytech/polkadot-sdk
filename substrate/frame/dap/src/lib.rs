@@ -18,8 +18,8 @@
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
 //! This pallet implements `FundingSink` to collect funds into a buffer account instead of burning
-//! them. The buffer account is created via `inc_providers` at genesis, ensuring it can receive any
-//! amount including those below ED.
+//! them. The buffer account is created at genesis with a provider reference and funded with the
+//! existential deposit (ED) to ensure it can receive deposits of any size.
 //!
 //! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
 //! migrations tuple.
@@ -92,16 +92,42 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Create the buffer account by incrementing its provider count.
+		/// Create the buffer account with a provider reference and fund it with ED.
 		///
 		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains) to ensure the buffer account exists.
+		/// (for existing chains).
 		pub fn create_buffer_account() {
 			let buffer = Self::buffer_account();
+			// Ensure the account exists by incrementing its provider count.
 			frame_system::Pallet::<T>::inc_providers(&buffer);
+
+			// Fund the account with ED so it can receive deposits of any amount.
+			// Without this, deposits smaller than ED would fail.
+			let ed = T::Currency::minimum_balance();
 			log::info!(
 				target: LOG_TARGET,
-				"Created DAP buffer account: {buffer:?}"
+				"Attempting to mint ED ({ed:?}) into DAP buffer: {buffer:?}"
+			);
+
+			match T::Currency::mint_into(&buffer, ed) {
+				Ok(actual) => {
+					log::info!(
+						target: LOG_TARGET,
+						"💸 Successfully minted {actual:?} into DAP buffer"
+					);
+				},
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"🚨 Failed to mint ED into DAP buffer: {e:?}"
+					);
+				},
+			}
+
+			let balance = T::Currency::balance(&buffer);
+			log::info!(
+				target: LOG_TARGET,
+				"🏦 Created DAP buffer account: {buffer:?}, balance: {balance:?}"
 			);
 		}
 	}
@@ -117,7 +143,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			// Create the buffer account at genesis so it can receive funds of any amount.
+			// Create and fund the buffer account at genesis.
 			Pallet::<T>::create_buffer_account();
 		}
 	}
@@ -138,8 +164,8 @@ pub mod migrations {
 		impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
 			fn on_runtime_upgrade() -> Weight {
 				Pallet::<T>::create_buffer_account();
-				// Weight: 1 write (inc_providers)
-				T::DbWeight::get().writes(1)
+				// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
+				T::DbWeight::get().reads_writes(3, 3)
 			}
 		}
 

@@ -18,7 +18,10 @@
 //! Fill (FundingSink) tests for the DAP pallet.
 
 use crate::mock::*;
-use frame_support::traits::tokens::{FundingSink, Preservation};
+use frame_support::traits::{
+	fungible::Inspect,
+	tokens::{FundingSink, Preservation},
+};
 
 type DapPallet = crate::Pallet<Test>;
 
@@ -26,20 +29,21 @@ type DapPallet = crate::Pallet<Test>;
 fn fill_accumulates_from_multiple_sources() {
 	new_test_ext().execute_with(|| {
 		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: accounts have balances, buffer has 0
+		// Given: accounts have balances, buffer has ED (funded at genesis)
 		assert_eq!(Balances::free_balance(1), 100);
 		assert_eq!(Balances::free_balance(2), 200);
 		assert_eq!(Balances::free_balance(3), 300);
-		assert_eq!(Balances::free_balance(buffer), 0);
+		assert_eq!(Balances::free_balance(buffer), ed);
 
 		// When: fill buffer from multiple accounts
 		DapPallet::fill(&1, 20, Preservation::Preserve);
 		DapPallet::fill(&2, 50, Preservation::Preserve);
 		DapPallet::fill(&3, 100, Preservation::Preserve);
 
-		// Then: buffer has accumulated all fills (20 + 50 + 100 = 170)
-		assert_eq!(Balances::free_balance(buffer), 170);
+		// Then: buffer has ED + all fills (1 + 20 + 50 + 100 = 171)
+		assert_eq!(Balances::free_balance(buffer), ed + 170);
 		assert_eq!(Balances::free_balance(1), 80);
 		assert_eq!(Balances::free_balance(2), 150);
 		assert_eq!(Balances::free_balance(3), 200);
@@ -48,7 +52,7 @@ fn fill_accumulates_from_multiple_sources() {
 		DapPallet::fill(&1, 0, Preservation::Preserve);
 
 		// Then: balances unchanged
-		assert_eq!(Balances::free_balance(buffer), 170);
+		assert_eq!(Balances::free_balance(buffer), ed + 170);
 		assert_eq!(Balances::free_balance(1), 80);
 	});
 }
@@ -57,17 +61,18 @@ fn fill_accumulates_from_multiple_sources() {
 fn fill_with_insufficient_balance_transfers_available() {
 	new_test_ext().execute_with(|| {
 		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: account 1 has 100, buffer has 0, ED is 1
+		// Given: account 1 has 100, buffer has ED, ED is 1
 		assert_eq!(Balances::free_balance(1), 100);
-		assert_eq!(Balances::free_balance(buffer), 0);
+		assert_eq!(Balances::free_balance(buffer), ed);
 
 		// When: try to fill 150 (more than balance) with Preserve
 		DapPallet::fill(&1, 150, Preservation::Preserve);
 
 		// Then: best-effort transfers 99 (leaving ED of 1)
 		assert_eq!(Balances::free_balance(1), 1);
-		assert_eq!(Balances::free_balance(buffer), 99);
+		assert_eq!(Balances::free_balance(buffer), ed + 99);
 	});
 }
 
@@ -75,16 +80,18 @@ fn fill_with_insufficient_balance_transfers_available() {
 fn fill_with_expendable_allows_full_drain() {
 	new_test_ext().execute_with(|| {
 		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: account 1 has 100
+		// Given: account 1 has 100, buffer has ED
 		assert_eq!(Balances::free_balance(1), 100);
+		assert_eq!(Balances::free_balance(buffer), ed);
 
 		// When: fill full balance with Expendable (allows going to 0)
 		DapPallet::fill(&1, 100, Preservation::Expendable);
 
-		// Then: account 1 is empty, buffer has 100
+		// Then: account 1 is empty, buffer has ED + 100
 		assert_eq!(Balances::free_balance(1), 0);
-		assert_eq!(Balances::free_balance(buffer), 100);
+		assert_eq!(Balances::free_balance(buffer), ed + 100);
 	});
 }
 
@@ -92,16 +99,17 @@ fn fill_with_expendable_allows_full_drain() {
 fn fill_with_preserve_respects_existential_deposit() {
 	new_test_ext().execute_with(|| {
 		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: account 1 has 100, ED is 1 (from TestDefaultConfig)
+		// Given: account 1 has 100, buffer has ED, ED is 1 (from TestDefaultConfig)
 		assert_eq!(Balances::free_balance(1), 100);
-		assert_eq!(Balances::free_balance(buffer), 0);
+		assert_eq!(Balances::free_balance(buffer), ed);
 
 		// When: try to fill 100 with Preserve (would go below ED)
 		DapPallet::fill(&1, 100, Preservation::Preserve);
 
 		// Then: best-effort transfers 99 (leaving ED of 1)
 		assert_eq!(Balances::free_balance(1), 1);
-		assert_eq!(Balances::free_balance(buffer), 99);
+		assert_eq!(Balances::free_balance(buffer), ed + 99);
 	});
 }

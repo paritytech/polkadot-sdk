@@ -18,7 +18,10 @@
 //! OnUnbalanced tests for the DAP pallet.
 
 use crate::mock::*;
-use frame_support::traits::{fungible::Balanced, OnUnbalanced};
+use frame_support::traits::{
+	fungible::{Balanced, Inspect},
+	OnUnbalanced,
+};
 
 type DapPallet = crate::Pallet<Test>;
 
@@ -26,9 +29,10 @@ type DapPallet = crate::Pallet<Test>;
 fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 	new_test_ext().execute_with(|| {
 		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: buffer has 0
-		assert_eq!(Balances::free_balance(buffer), 0);
+		// Given: buffer has ED (funded at genesis)
+		assert_eq!(Balances::free_balance(buffer), ed);
 
 		// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
 		let credit1 = <Balances as Balanced<u64>>::issue(30);
@@ -40,14 +44,14 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		let credit3 = <Balances as Balanced<u64>>::issue(50);
 		DapPallet::on_unbalanced(credit3);
 
-		// Then: buffer has accumulated all slashes (30 + 20 + 50 = 100)
-		assert_eq!(Balances::free_balance(buffer), 100);
+		// Then: buffer has ED + all slashes (1 + 30 + 20 + 50 = 101)
+		assert_eq!(Balances::free_balance(buffer), ed + 100);
 
 		// When: slash with zero amount (no-op)
 		let credit = <Balances as Balanced<u64>>::issue(0);
 		DapPallet::on_unbalanced(credit);
 
-		// Then: buffer unchanged
-		assert_eq!(Balances::free_balance(buffer), 100);
+		// Then: buffer unchanged (still ED + 100)
+		assert_eq!(Balances::free_balance(buffer), ed + 100);
 	});
 }
