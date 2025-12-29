@@ -18,7 +18,7 @@
 3. [Goals](#goals)
 4. [Non-Goals](#non-goals)
 5. [Solution Overview](#solution-overview)
-6. [Storage Tiers](#storage-tiers)
+6. [Storage Model](#storage-model)
 7. [Availability Contracts](#availability-contracts)
 8. [Read Incentives](#read-incentives)
 9. [Discovery](#discovery)
@@ -240,63 +240,64 @@ The separation is important: a client with 1 DOT staked who has paid 100 DOT ove
 
 ---
 
-## Storage Tiers
+## Storage Model
 
-Not all data needs the same treatment. A chat image viewed once and forgotten is different from a family photo backup meant to last decades. Forcing both through the same on-chain contract system wastes resources and adds unnecessary latency.
+Not all data needs the same guarantees. A chat image viewed once and forgotten is different from a family photo backup meant to last decades.
 
-We define two tiers:
+### Write Path
 
-### Transient Storage
+Every write follows the same path:
 
-Clients store data with providers off-chain. No on-chain commitment, no slashing, just direct interaction with reputation and payment as incentives.
+1. Client uploads data to provider
+2. Provider merkleizes and stores chunks
+3. Both parties sign a commitment: `{contract_id: Option, mmr_root, start_seq}`
+4. Done - data is stored and commitment is provable
 
-**Access gating:** Proof-of-DOT provides sybil resistance. Providers accept or reject writes based on capacity and the client's Proof-of-DOT credential. This prevents spam without requiring payment.
+The `contract_id` is optional:
+- **With contract:** References an on-chain contract with stake, duration, and slashing terms. Full economic guarantee.
+- **Without contract (`None`):** Best-effort storage. Provider serves based on reputation and payment priority. No slashing, but the signed commitment still proves the provider accepted the data.
 
-**Priority through payment:** Clients who pay get better service. Providers track `received_funds / bytes_served` per client. Higher ratio = higher priority (faster responses, accepted when capacity is tight, better retention). This isn't a binary paid/unpaid distinction—it's a continuous spectrum. Pay more, get more.
+### Provider Terms
 
-**Why providers serve non-paying clients:** Customer acquisition. The service is cheap to provide (bandwidth ~€0.001/GB). Serving free-tier users costs little and builds the user base. Proof-of-DOT prevents abuse—creating many identities to farm free service becomes exponentially expensive (see [GitHub #6173](https://github.com/paritytech/polkadot-sdk/issues/6173)).
-
-**Retention:** Providers may offer minimum retention periods (e.g., 1 hour, 24 hours) so applications know how long to rely on the data. "Might delete anytime" is unusable—better to reject upfront than accept and silently drop.
-
-**Why this is often sufficient:** Many use cases don't need on-chain guarantees. In a 1:1 chat, once your friend downloads the image, you may no longer need any third-party storage guarantee. The data served its purpose. Transient storage handles writes without consensus, accumulating data off-chain until (if ever) stronger guarantees are needed.
-
-**Use cases:** Ephemeral messaging, staging area before availability commitment, content where delivery matters more than long-term persistence, testing.
-
-### Availability Contract
-
-Client requests a formal availability guarantee:
-
-- Provider has already locked stake (clients select providers based on stake-per-byte ratio)
-- Provider commits Merkle root on-chain, binding their stake to this data
-- Client can challenge availability anytime during the contract
-- Contract specifies duration, price, and terms
-- Full slashing if provider fails to prove availability when challenged
-
-**Why this tier is qualitatively different:** The challenge mechanism creates trust from the start. The moment a provider commits the Merkle root:
-
-1. Client can immediately challenge random chunks
-2. Provider who didn't actually store the data gets fully slashed
-3. The *ability* to challenge forces honest behavior
-
-This solves the trust bootstrap problem. Without challenges, a provider could accept payment, commit a root, and delete the data immediately—betting that no one will notice. With challenges, this strategy leads to certain ruin. A rational provider must actually store the data because they cannot predict which chunks will be challenged.
+Providers advertise their terms via metadata endpoint:
 
 ```
-Trust Timeline:
+{
+  free_storage: { max_bytes: 1GB, max_duration: 24h, per_peer: true },
+  paid_storage: { price_per_gb_month: 0.01 DOT },
+  contract_required: false,  // or true for contract-only providers
+  min_stake_ratio: 0.001,    // DOT per GB for contracts
+}
+```
+
+Clients choose based on needs:
+- Ephemeral chat image → use free tier, no contract
+- Important backup → pay for contract with high-stake provider
+
+### Why Contracts Matter
+
+Without contract: Provider can drop data anytime. Your only recourse is reputation - stop using them, tell others.
+
+With contract: Provider has stake at risk. You can challenge anytime. Cheating = slashing. The signed commitment + on-chain contract = economic guarantee.
+
+```
+Guarantee Spectrum:
 ═══════════════════════════════════════════════════════════════════
 
-BEFORE COMMIT:
-  Provider claims "I'll store your data"
-  Client has: provider's reputation, past service history
-  Trust level: reputation-based (provider risks losing future business)
+No contract, no payment:
+  Provider might keep it, might not. Free tier, best effort.
 
-AFTER COMMIT:
-  Provider commits Merkle root on-chain
-  Client has: ability to challenge any chunk
-  Trust level: economic (provider loses stake if cheating)
+No contract, with payment:
+  Provider prioritizes you. Still no slashing, but reputation matters.
 
-The transition is instant. Trust doesn't grow over time;
-it snaps to "economic guarantee" the moment the root is committed.
+Contract with low stake:
+  Some economic guarantee. Cheap, but slashing hurts less.
+
+Contract with high stake:
+  Strong guarantee. Provider loses significant value if caught cheating.
 ```
+
+The contract (or lack thereof) determines what recourse you have if the provider misbehaves.
 
 ---
 
@@ -623,56 +624,39 @@ Anyone can cache and serve data. The protocol doesn't distinguish between "origi
 
 How does a client find who can serve content?
 
-### Alternatives Considered
+### Chain-Based Discovery
 
-| Approach | Lookup Latency | Scalability | Decentralization | Failure Mode |
-|----------|---------------|-------------|------------------|--------------|
-| Centralized registry | O(1) × RTT ≈ 50-200ms | Limited | None | Single point of failure |
-| Federated indexers | O(1) × RTT ≈ 50-200msThe key insight is that s | Good | Partial | Operator trust required |
-| DHT (Kademlia) | O(log N) × RTT ≈ 2-10s | Excellent | Full | Slow, unreachable peers |
-| Gossip | O(diameter) | Poor for lookup | Full | Bandwidth explosion |
-
-**Centralized registry** (like BitTorrent trackers): A single server maintains the mapping from content hash to providers. Fast (single hop), but single point of failure and censorship. For a network of 10M peers with 200ms RTT: tracker lookup ≈ 200ms, DHT lookup ≈ 4.6s ([IETF comparison](https://datatracker.ietf.org/doc/html/draft-hu-ppsp-tracker-dht-performance-comparison-01)).
-
-**Federated indexers** (like [IPNI](https://docs.ipfs.tech/concepts/ipni/)): Multiple independent indexers, each maintaining a full index. Lookup is ~500µs per record ([NSDI 2024](https://www.usenix.org/conference/nsdi24/presentation/wei)). Trade-off: requires trusting indexer operators, significant operational cost. But: no single point of failure if multiple indexers exist.
-
-**DHT (Kademlia)**: Fully decentralized, scales to millions of peers, no single point of failure. But slow: IPFS provide operations take 10-20s, lookups take seconds. Root causes:
-- Finding 20 closest peers requires iterative queries
-- Unreachable nodes cause timeouts and retries
-- Sequential waiting for potentially dead peers
-
-**Gossip**: Good for dissemination (spreading news), poor for lookup (finding specific content). Flooding queries doesn't scale.
-
-### Recommended: Hybrid Approach
-
-Use federated indexers as primary, DHT as fallback.
+The chain stores the mapping from data roots to providers:
 
 ```
-Provider announces:
-  → Primary: Push to N indexers (fast, redundant)
-  → Backup: Announce to DHT (slower, fully decentralized)
-
-Client queries:
-  → Primary: Query indexers in parallel (fast)
-  → Fallback: DHT lookup if all indexers fail
+On-chain storage:
+{
+  data_root → [provider_1, provider_2, ...]
+}
 ```
 
-**Why this works for us:**
+**Setting a provider:** Clients submit a transaction with the data_root and provider list. The chain verifies that each provider has signed the commitment before accepting. This prevents clients from claiming providers store data they don't.
 
-1. **Indexers are permissionless.** Anyone with Proof-of-DOT stake can run an indexer. No central authority decides who can index. Providers announce to multiple indexers for redundancy.
+**Lookup:** Query the chain (or a chain indexer) by data_root → get provider endpoints. Connect directly.
 
-2. **No single point of failure.** If one indexer is down or censoring, others still work. If *all* indexers fail or collude, the DHT still works (slower but decentralized).
+**Why this is sufficient:**
 
-3. **Proof-of-DOT filters bad actors.** Indexers only accept announcements from staked providers. Reduces spam and announcements from unreachable nodes.
+1. **Chat/messaging:** Roots are shared in messages along with provider info. No chain lookup needed.
+2. **Websites:** Domain → data_root mapping on-chain. One lookup per site.
+3. **Backups:** Client knows their own providers. No discovery needed.
+4. **Shared workspaces:** Contract is on-chain, providers are in the contract.
 
-4. **Latency where it matters.** Lookups are fast (indexer, ~1ms). Announcements can be slower (DHT acceptable as backup, takes seconds but happens in background).
+Most use cases either share provider info directly (peer-to-peer) or do a single chain lookup (public content).
 
-### DHT Latency Improvements
+### Scaling Access
 
-For the DHT fallback path, we apply known optimizations:
+Want content served faster or more reliably? Add more providers:
 
-- [Optimistic Provide](https://ieeexplore.ieee.org/document/10621404/): Store records early, abort query when likely found enough peers. 2-10x faster.
-- Proof-of-DOT for announces: Only staked nodes can announce. Filters unreachable and malicious nodes.
+- Store with multiple providers (they all sign the commitment)
+- Clients pick whichever provider has best latency
+- Trial and error, or providers expose latency hints via metadata
+
+No separate "cache" layer needed. More providers = wider access = better availability.
 
 ---
 
@@ -736,19 +720,22 @@ The client reserves the first chunks for directory structure. With large chunk s
 
 ### Commitment Model
 
-Each contract has an associated MMR (Merkle Mountain Range) of data versions. The MMR is per-contract, not per-provider, giving each client their own version history.
+Each client-provider relationship has an associated MMR (Merkle Mountain Range) of data versions, giving each client their own version history.
 
 **Signed payload:**
 
 ```
 {
-  contract_id,    // reference to on-chain contract
+  contract_id,    // Option: reference to on-chain contract, or None for best-effort
   mmr_root,       // root of MMR containing all data_roots
   start_seq,      // sequence number of first leaf in this MMR
 }
 ```
 
 Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR.
+
+- **With `contract_id`:** The commitment is enforceable via on-chain challenge. Provider stake is at risk.
+- **Without (`None`):** The commitment proves the provider accepted the data, but there's no on-chain recourse. Reputation-based only.
 
 **MMR leaf structure:**
 
@@ -877,37 +864,40 @@ When selecting multiple providers, maximize diversity:
 
 ### Media in Chat
 
-**Scenario:** Alice sends a photo in a group chat.
+**Scenario:** Group chat where members share photos and videos.
 
-**Requirements:** Low latency, ephemeral (don't care if it's gone in a month).
+**Requirements:** Low latency, shared access, participants can contribute storage costs.
 
 **Flow:**
 
 ```
-1. Setup (once per chat app):
-   • App has a storage contract with a provider
-   • All media for this app goes into the same contract
+1. Channel setup (once):
+   • Creator sets up on-chain storage contract with a provider
+   • Contract specifies: admin (creator), participants (append-only), providers
+   • Creator pays initial deposit
 
-2. Alice's client:
-   • Chunks photo (2MB → 8 chunks)
-   • Encrypts with random key K
-   • Appends chunks to existing contract
-   • Notes chunk hashes and byte range
+2. Adding members:
+   • Admin adds user public keys to contract on-chain
+   • New members can be added as paying participants (chip in for storage)
+   • Permissions: admin can delete, participants can only append
 
-3. Chat message contains:
-   { provider: "wss://storage.example.com", data_root: "0x7a3f...", offset: 1048576, length: 2097152, encryption_key: K, filename: "photo.jpg" }
+3. Alice sends a photo:
+   • Chunks and encrypts photo with channel key
+   • Appends to channel's MMR (append-only for participants)
+   • Sends message: { mmr_root, seq, offset, length, filename }
 
-4. Bob receives message, client auto-fetches:
-   • Connects to Alice's provider
-   • Requests byte range
-   • Verifies chunks against data_root
-   • Bob's client might store at his own provider with avaialbility guarantees
-     if configured like that.
+4. Bob receives message:
+   • Looks up contract on-chain → gets provider endpoint
+   • Requests chunks from provider
+   • Verifies against mmr_root
+   • Decrypts with channel key
 ```
 
-**Tier:** Quota or Paid Writes. No availability contract needed.
+**Discovery:** Provider is in the contract. No separate lookup needed.
 
-**Latency:** Sub-second for write, sub-second for read (after indexer lookup).
+**Cost sharing:** Participants added as payers contribute to storage costs. The contract tracks who pays what.
+
+**Latency:** Sub-second for write and read.
 
 ### Personal Backup
 
@@ -1419,23 +1409,23 @@ The design achieves scalability by removing the chain from the hot path:
 
 | Operation | Chain Interaction | Frequency |
 |-----------|-------------------|-----------|
-| Write (transient) | None | High |
+| Write | None | High |
 | Read | None | High |
-| Availability commit | One tx per batch | Low |
+| Contract setup | One tx | Low |
 | Challenge | Only if fraud | Rare |
 
 **Key design choices:**
 
-1. **Two-tier storage.** Transient storage (off-chain, reputation-based) for most data. Availability contracts (on-chain commitment with slashing) when guarantees are needed. Most data never touches the chain.
+1. **Unified write model.** Every write follows the same path: upload, merkleize, sign commitment. The `contract_id` in the commitment is optional - with contract you get slashing guarantees, without you get best-effort storage. One protocol, continuous spectrum of guarantees.
 
 2. **Protocol-layer opacity.** Providers see only content-addressed chunks. File structure, metadata, directories—all application-layer concerns. Privacy by design: encrypt everything, provider learns nothing.
 
-3. **MMR-based commitments.** Per-contract Merkle Mountain Ranges track version history. Both parties sign `{contract_id, mmr_root, start_seq}`. One signature covers entire history. Deletions via fresh MMR with higher start_seq.
+3. **MMR-based commitments.** Per-client Merkle Mountain Ranges track version history. Both parties sign `{contract_id: Option, mmr_root, start_seq}`. One signature covers entire history. Deletions via fresh MMR with higher start_seq.
 
 4. **Proof-of-DOT foundation.** Sybil resistance via DOT staking enables identity and reputation. Payment history (not stake) determines service priority. Simple prepayments, no payment channels needed.
 
 5. **Game-theoretic enforcement.** Challenges replace continuous proofs. Rational providers serve data because being challenged is expensive. The burn option lets clients punish bad service at their own cost—no proof needed, just reputation loss.
 
-6. **Hybrid discovery.** Federated indexers for speed, DHT for censorship resistance as fallback.
+6. **Chain-based discovery.** Providers are registered on-chain per data_root. For peer-to-peer sharing, provider info travels with the content reference. No separate indexing infrastructure needed.
 
 The chain exists as a credible threat. Rational actors never use it.
