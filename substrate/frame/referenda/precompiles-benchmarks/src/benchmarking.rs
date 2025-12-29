@@ -14,7 +14,7 @@ use pallet_referenda::{BoundedCallOf, Pallet as Referenda, ReferendumCount, Trac
 use pallet_referenda_precompiles::IReferenda;
 use pallet_revive::{
 	precompiles::alloy::{hex, sol_types::SolInterface},
-	ExecConfig, ExecReturnValue, Weight, H160, U256,
+	ExecConfig, ExecReturnValue, TransactionLimits, Weight, H160, U256,
 };
 use scale_info::prelude::vec;
 use sp_runtime::traits::Saturating;
@@ -31,8 +31,10 @@ fn call_precompile<T: Config<I>, I: 'static>(
 		<T as frame_system::Config>::RuntimeOrigin::signed(from),
 		precompile_addr,
 		U256::zero(),
-		Weight::MAX,
-		<T as pallet_revive::Config>::Currency::minimum_balance().saturating_mul(1000u32.into()),
+		TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: <T as pallet_revive::Config>::Currency::minimum_balance().saturating_mul(1000u32.into()),
+		},
 		encoded_call,
 		ExecConfig::new_substrate_tx(),
 	);
