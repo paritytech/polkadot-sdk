@@ -388,7 +388,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 		#( #[doc = #docs] )*
 		#[derive(
-			#frame_support::RuntimeDebugNoBound,
+			#frame_support::DebugNoBound,
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,

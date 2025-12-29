@@ -25,6 +25,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+sp-debug-derive = { workspace = true, features = ["force-debug"] }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
@@ -36,4 +37,5 @@ std = [
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
+	"sp-debug-derive/std",
 ]

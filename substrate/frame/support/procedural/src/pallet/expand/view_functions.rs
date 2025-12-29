@@ -102,7 +102,7 @@ fn expand_view_function(
 		#( #[doc = #docs] )*
 		#[allow(missing_docs)]
 		#[derive(
-			#frame_support::RuntimeDebugNoBound,
+			#frame_support::DebugNoBound,
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,

@@ -171,6 +171,7 @@ std = [
 	"pallet-xcm-bridge-hub?/std",
 	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
+	"parachains-common-types?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
 	"polkadot-core-primitives?/std",
@@ -725,6 +726,7 @@ runtime-full = [
 	"pallet-xcm-bridge-hub-router",
 	"pallet-xcm-precompiles",
 	"parachains-common",
+	"parachains-common-types",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
 	"polkadot-primitives",
@@ -862,7 +864,6 @@ node = [
 	"cumulus-client-collator",
 	"cumulus-client-consensus-aura",
 	"cumulus-client-consensus-common",
-	"cumulus-client-consensus-proposer",
 	"cumulus-client-consensus-relay-chain",
 	"cumulus-client-network",
 	"cumulus-client-parachain-inherent",
@@ -1866,6 +1867,11 @@ default-features = false
 optional = true
 path = "../cumulus/parachains/common"
 
+[dependencies.parachains-common-types]
+default-features = false
+optional = true
+path = "../cumulus/parachains/common/types"
+
 [dependencies.polkadot-core-primitives]
 default-features = false
 optional = true
@@ -2225,11 +2231,6 @@ path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
 path = "../cumulus/client/consensus/common"
-
-[dependencies.cumulus-client-consensus-proposer]
-default-features = false
-optional = true
-path = "../cumulus/client/consensus/proposer"
 
 [dependencies.cumulus-client-consensus-relay-chain]
 default-features = false
