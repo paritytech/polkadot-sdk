@@ -231,7 +231,10 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn prune_era_reward_points() -> Weight {
 		unreachable!()
 	}
-	fn prune_era_total_stake() -> Weight {
+	fn prune_era_single_entry_cleanups() -> Weight {
+		unreachable!()
+	}
+	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
 		unreachable!()
 	}
 }

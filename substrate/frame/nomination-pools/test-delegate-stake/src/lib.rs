@@ -1771,7 +1771,8 @@ fn pool_members_unbond_in_one_era_when_nominators_not_slashable() {
 		// Member 20 unbonds their 10.
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
 
-		// The unbond era should be current_era + 1 = 2 (not current_era + BondingDuration = 4).
+		// The unbond era should be current_era + NominatorFastUnbondDuration = 1 + 2 = 3
+		// (not current_era + BondingDuration = 1 + 3 = 4).
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
@@ -1779,8 +1780,8 @@ fn pool_members_unbond_in_one_era_when_nominators_not_slashable() {
 				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
 				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 },
 				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
-				// Unbond era is 2, not 4!
-				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 2 },
+				// Unbond era is 3 (current era 1 + NominatorFastUnbondDuration 2), not 4!
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 3 },
 			]
 		);
 
@@ -1790,10 +1791,10 @@ fn pool_members_unbond_in_one_era_when_nominators_not_slashable() {
 			PoolsError::<Runtime>::CannotWithdrawAny
 		);
 
-		// Progress to era 2 - member should now be able to withdraw.
-		set_current_era(2);
+		// Progress to era 3 - member should now be able to withdraw.
+		set_current_era(3);
 
-		// Now can withdraw after just 1 era (not 3).
+		// Now can withdraw after NominatorFastUnbondDuration eras (not BondingDuration).
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
 
 		assert_eq!(
@@ -1874,8 +1875,8 @@ fn pool_members_not_slashed_when_nominators_not_slashable() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 20));
 
-		// Fast forward to withdrawal era (era 1 + 1 = era 2 since nominators not slashable).
-		set_current_era(2);
+		// Fast forward to withdrawal era (era 1 + NominatorFastUnbondDuration = 1 + 2 = era 3).
+		set_current_era(3);
 
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 0));
@@ -1888,8 +1889,8 @@ fn pool_members_not_slashed_when_nominators_not_slashable() {
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
-				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 20, balance: 20, era: 2 },
-				PoolsEvent::Unbonded { member: 21, pool_id: 1, points: 20, balance: 20, era: 2 },
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 20, balance: 20, era: 3 },
+				PoolsEvent::Unbonded { member: 21, pool_id: 1, points: 20, balance: 20, era: 3 },
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 20, balance: 20 },
 				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 20, balance: 20 },

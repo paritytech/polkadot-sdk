@@ -1260,6 +1260,22 @@ mod benchmarks {
 		// `ErasTotalStake`
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 
+		// `ValidatorSlashInEra` - add slash entries for validators.
+		// We benchmark with 33% of validators slashed, representing the realistic worst-case
+		// under BFT assumptions (beyond 1/3 Byzantine validators, consensus security breaks).
+		let slashed_validators = validators / 3;
+		for i in 0..slashed_validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			crate::ValidatorSlashInEra::<T>::insert(
+				era,
+				validator,
+				(Perbill::from_percent(10), BalanceOf::<T>::max_value() / 10u32.into()),
+			);
+		}
+
+		// `ErasNominatorsSlashable`
+		ErasNominatorsSlashable::<T>::insert(era, true);
+
 		era
 	}
 
@@ -1416,11 +1432,11 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmark pruning ErasTotalStake (final step)
+	// Benchmark pruning single-entry cleanups (seventh step)
 	#[benchmark(pov_mode = Measured)]
-	fn prune_era_total_stake() -> Result<(), BenchmarkError> {
+	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
 		let era = setup_era_for_pruning::<T>(1);
-		EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -1430,7 +1446,28 @@ mod benchmarks {
 			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
 
-		validate_pruning_weight::<T>(&result, "ErasTotalStake", 1);
+		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ValidatorSlashInEra (eighth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_validator_slash_in_era(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ValidatorSlashInEra", v);
 
 		Ok(())
 	}

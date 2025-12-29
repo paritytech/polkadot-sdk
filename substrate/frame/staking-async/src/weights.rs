@@ -94,7 +94,8 @@ pub trait WeightInfo {
 	fn prune_era_claimed_rewards(v: u32, ) -> Weight;
 	fn prune_era_validator_reward() -> Weight;
 	fn prune_era_reward_points() -> Weight;
-	fn prune_era_total_stake() -> Weight;
+	fn prune_era_single_entry_cleanups() -> Weight;
+	fn prune_era_validator_slash_in_era(v: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -1050,35 +1051,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4010_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Staking::CurrentEra` (r:1 w:0)
-	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `Staking::EraPruningState` (r:1 w:1)
-	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorPrefs` (r:1001 w:0)
-	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersPaged` (r:1001 w:0)
-	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(24656), added: 27131, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersOverview` (r:1001 w:0)
-	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)
-	/// Proof: `Staking::ErasValidatorReward` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::ErasTotalStake` (r:1 w:1)
-	/// Proof: `Staking::ErasTotalStake` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::ClaimedRewards` (r:1001 w:0)
-	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(229), added: 2704, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
-	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
-	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_total_stake() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1105409 + v * (415 ±0)`
-		//  Estimated: `3998937`
-		// Minimum execution time: 1_613_000_000 picoseconds.
-		Weight::from_parts(15_665_000_000, 3998937)
-			.saturating_add(T::DbWeight::get().reads(4010_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+	fn prune_era_single_entry_cleanups() -> Weight {
+		// TODO: regenerate weights via benchmarking
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn prune_era_validator_slash_in_era(_v: u32, ) -> Weight {
+		// TODO: regenerate weights via benchmarking
+		Weight::from_parts(10_000, 0)
 	}
 }
 
@@ -2034,34 +2014,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4010_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Staking::CurrentEra` (r:1 w:0)
-	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `Staking::EraPruningState` (r:1 w:1)
-	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorPrefs` (r:1001 w:0)
-	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersPaged` (r:1001 w:0)
-	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: Some(24656), added: 27131, mode: `Measured`)
-	/// Storage: `Staking::ErasStakersOverview` (r:1001 w:0)
-	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
-	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)
-	/// Proof: `Staking::ErasValidatorReward` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::ErasTotalStake` (r:1 w:1)
-	/// Proof: `Staking::ErasTotalStake` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// Storage: `Staking::ClaimedRewards` (r:1001 w:0)
-	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(229), added: 2704, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
-	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
-	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_total_stake() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1105409 + v * (415 ±0)`
-		//  Estimated: `3998937`
-		// Minimum execution time: 1_613_000_000 picoseconds.
-		Weight::from_parts(15_665_000_000, 3998937)
-			.saturating_add(RocksDbWeight::get().reads(4010_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	fn prune_era_single_entry_cleanups() -> Weight {
+		// TODO: regenerate weights via benchmarking
+		Weight::from_parts(10_000, 0)
+	}
+	fn prune_era_validator_slash_in_era(_v: u32, ) -> Weight {
+		// TODO: regenerate weights via benchmarking
+		Weight::from_parts(10_000, 0)
 	}
 }

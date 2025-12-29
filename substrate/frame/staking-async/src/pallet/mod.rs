@@ -86,8 +86,10 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning ErasTotalStake storage
-		ErasTotalStake,
+		/// Pruning single-entry storages: ErasTotalStake and ErasNominatorsSlashable
+		SingleEntryCleanups,
+		/// Pruning ValidatorSlashInEra storage
+		ValidatorSlashInEra,
 	}
 
 	/// The in-code storage version.
@@ -1428,14 +1430,27 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
-				PruningStep::ErasTotalStake => {
+				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
-					// This is the final step - remove the pruning state
-					EraPruningState::<T>::remove(era);
-					T::WeightInfo::prune_era_total_stake()
+					// Also clean up ErasNominatorsSlashable
+					ErasNominatorsSlashable::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					T::WeightInfo::prune_era_single_entry_cleanups()
+				},
+				PruningStep::ValidatorSlashInEra => {
+					// Clear ValidatorSlashInEra entries for this era
+					let result = ValidatorSlashInEra::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+
+					// This is the final step - remove the pruning state when done
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::remove(era);
+					}
+
+					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
 				},
 			};
 
@@ -1505,6 +1520,13 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
+			// Ensure NominatorFastUnbondDuration is not greater than BondingDuration
+			assert!(
+				T::NominatorFastUnbondDuration::get() <= T::BondingDuration::get(),
+				"NominatorFastUnbondDuration ({}) must not exceed BondingDuration ({}).",
+				T::NominatorFastUnbondDuration::get(),
+				T::BondingDuration::get(),
+			);
 			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
 			assert!(
 				T::MaxPruningItems::get() >= 100,
@@ -2751,7 +2773,8 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_claimed_rewards(v))
 				.max(T::WeightInfo::prune_era_validator_reward())
 				.max(T::WeightInfo::prune_era_reward_points())
-				.max(T::WeightInfo::prune_era_total_stake())
+				.max(T::WeightInfo::prune_era_single_entry_cleanups())
+				.max(T::WeightInfo::prune_era_validator_slash_in_era(v))
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;

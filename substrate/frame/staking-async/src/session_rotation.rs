@@ -566,13 +566,17 @@ impl<T: Config> Rotator<T> {
 					"BondedEras range incorrect"
 				);
 
-				// Check ErasNominatorsSlashable entries are within valid range.
-				// Entries are cleaned up at era start for eras outside bonding duration,
-				// so they should only exist for eras in the bonded range.
+				// ErasNominatorsSlashable entries are cleaned up via lazy pruning at HistoryDepth +
+				// 1. Entries can exist from [active - HistoryDepth, active] inclusive.
+				// Entries older than HistoryDepth should have been pruned (or be in the process of
+				// pruning).
+				let oldest_allowed_era = active.index.saturating_sub(T::HistoryDepth::get()).max(1);
 				for (era, _) in ErasNominatorsSlashable::<T>::iter() {
+					// Allow entries being pruned (EraPruningState exists)
+					let being_pruned = EraPruningState::<T>::contains_key(era);
 					ensure!(
-						bonded_eras.contains(&era),
-						"ErasNominatorsSlashable entry exists for era outside bonded range"
+						(era >= oldest_allowed_era && era <= active.index) || being_pruned,
+						"ErasNominatorsSlashable entry exists for era outside history depth range and not being pruned"
 					);
 				}
 			},
@@ -730,6 +734,10 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Snapshot the current nominators slashable setting for this era.
+		// Cleanup will happen via lazy pruning at HistoryDepth.
+		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
+
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
@@ -771,9 +779,6 @@ impl<T: Config> Rotator<T> {
 	fn start_era_update_bonded_eras(starting_era: EraIndex, start_session: SessionIndex) {
 		let bonding_duration = T::BondingDuration::get();
 
-		// Snapshot the current nominators slashable setting for the starting era
-		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
-
 		BondedEras::<T>::mutate(|bonded| {
 			if bonded.is_full() {
 				// remove oldest
@@ -782,10 +787,6 @@ impl<T: Config> Rotator<T> {
 					era_removed <= (starting_era.saturating_sub(bonding_duration)),
 					"should not delete an era that is not older than bonding duration"
 				);
-
-				// Clean up bonding-duration metadata for the removed era
-				slashing::clear_era_metadata::<T>(era_removed);
-				ErasNominatorsSlashable::<T>::remove(era_removed);
 			}
 
 			// must work -- we were not full, or just removed the oldest era.

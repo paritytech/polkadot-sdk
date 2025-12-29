@@ -43,8 +43,7 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
 	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
-	WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -579,12 +578,6 @@ fn slash_nominators<T: Config>(
 	}
 
 	(total_slashed, reward_payout)
-}
-
-/// Clear slashing metadata for an obsolete era.
-pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
-	#[allow(deprecated)]
-	ValidatorSlashInEra::<T>::remove_prefix(&obsolete_era, None);
 }
 
 // apply the slash to a stash account, deducting any missing funds from the reward
