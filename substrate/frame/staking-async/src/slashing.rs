@@ -184,7 +184,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 	};
 
-	add_db_reads_writes(1, 1);
+	add_db_reads_writes(3, 4);
 	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
 		return incomplete_consumed_weight
 	};
@@ -335,7 +335,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 	};
 
-	add_db_reads_writes(1, 1);
+	add_db_reads_writes(2, 2);
 	let Some((offence_era, offender, offence_record)) = next_offence_validator_only::<T>() else {
 		return incomplete_consumed_weight
 	};
@@ -498,9 +498,7 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 
 	// If nominators are not slashable for this era, the list must be empty
 	// (because we use `from_overview` which creates empty `others`).
-	debug_assert!(
-		Eras::<T>::are_nominators_slashable(params.slash_era) || nominators_slashed.is_empty()
-	);
+	debug_assert!(Eras::<T>::are_nominators_slashable(params.slash_era));
 
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),

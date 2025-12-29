@@ -557,12 +557,11 @@ impl<T: Config> Rotator<T> {
 
 				// If we have an active era, bonded eras must always be the range
 				// [active - bonding_duration .. active_era]
-				let bonded_eras: alloc::vec::Vec<_> =
-					bonded.iter().map(|(era, _sess)| *era).collect();
+				let bonded_eras: Vec<_> = bonded.iter().map(|(era, _sess)| *era).collect();
 				ensure!(
 					bonded_eras ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
-							.collect::<alloc::vec::Vec<_>>(),
+							.collect::<Vec<_>>(),
 					"BondedEras range incorrect"
 				);
 
