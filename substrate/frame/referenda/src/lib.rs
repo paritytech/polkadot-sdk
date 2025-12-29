@@ -497,7 +497,10 @@ pub mod pallet {
 		#[cfg(any(feature = "std", test))]
 		fn integrity_test() {
 			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
-			assert!(T::MaxDepositContributions::get() > 0, "MaxDepositContributions must be greater than 0");
+			assert!(
+				T::MaxDepositContributions::get() > 0,
+				"MaxDepositContributions must be greater than 0"
+			);
 		}
 	}
 
@@ -664,7 +667,8 @@ pub mod pallet {
 				Self::slash_deposit(who.clone(), amount.clone());
 			});
 			Self::do_clear_metadata(index);
-			let info = ReferendumInfo::Killed { when: T::BlockNumberProvider::current_block_number() };
+			let info =
+				ReferendumInfo::Killed { when: T::BlockNumberProvider::current_block_number() };
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
@@ -955,8 +959,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
 		let mut deposit = deposit.unwrap_or(track.decision_deposit);
-		let remaining = track.decision_deposit.saturating_sub(status.decision_deposit.collected_deposit);
-		
+		let remaining =
+			track.decision_deposit.saturating_sub(status.decision_deposit.collected_deposit);
+
 		if let Some(pos) =
 			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
 		{
@@ -966,7 +971,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if deposit > max_needed {
 				deposit = max_needed;
 			}
-			
+
 			if old_deposit >= deposit {
 				return Err(Error::<T, I>::DepositMustIncrease.into());
 			} else {
@@ -993,15 +998,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			// Ensure only necessary amount can be reserved.
 			let max_needed = if status.decision_deposit.contributors.is_full() {
-				let lowest = status.decision_deposit.contributors
-					.first()
-					.map(|c| c.1)
-					.unwrap_or_default();
+				let lowest =
+					status.decision_deposit.contributors.first().map(|c| c.1).unwrap_or_default();
 				remaining.saturating_add(lowest)
 			} else {
 				remaining
 			};
-			if deposit > max_needed {
+			
+            if deposit > max_needed {
 				deposit = max_needed;
 			}
 
@@ -1010,11 +1014,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.contributors
 				.binary_search_by_key(&deposit, |c| c.1)
 				.unwrap_or_else(|e| e);
-		
+
 			if pos == 0 && status.decision_deposit.contributors.is_full() {
 				return Err(Error::<T, I>::DepositTooLow.into());
 			}
-		
+
 			Self::take_deposit(&contributor, deposit)?;
 			status.decision_deposit.collected_deposit =
 				status.decision_deposit.collected_deposit.saturating_add(deposit);
@@ -1026,7 +1030,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.unwrap_or_else(|e| Some(e))
 			{
 				Self::refund_deposit(&who, amount);
-				status.decision_deposit.collected_deposit = 
+				status.decision_deposit.collected_deposit =
 					status.decision_deposit.collected_deposit.saturating_sub(amount);
 				Self::deposit_event(Event::ReplacedDecisionContributor { who, index, amount });
 			}
@@ -1036,10 +1040,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				who: contributor,
 				amount: deposit,
 			});
-		}
-
-		if status.decision_deposit.collected_deposit < track.decision_deposit {
-			return Ok(().into())
 		}
 
 		let now = T::BlockNumberProvider::current_block_number();
@@ -1057,7 +1057,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_referendum_passing(ref_index: ReferendumIndex) -> Result<bool, DispatchError> {
 		let info = ReferendumInfoFor::<T, I>::get(ref_index).ok_or(Error::<T, I>::BadReferendum)?;
 		match info {
-			ReferendumInfo::Ongoing{ status } => {
+			ReferendumInfo::Ongoing { status } => {
 				let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 				let elapsed = if let Some(deciding) = status.deciding {
 					T::BlockNumberProvider::current_block_number().saturating_sub(deciding.since)

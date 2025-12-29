@@ -18,9 +18,9 @@
 //! Miscellaneous additional datatypes.
 
 use super::*;
-use core::{fmt::Debug, mem};
 use alloc::borrow::Cow;
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
+use core::{fmt::Debug, mem};
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	DebugNoBound, EqNoBound, Parameter, PartialEqNoBound,
@@ -338,7 +338,17 @@ where
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEqNoBound, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEqNoBound,
+	Eq,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxContributors))]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -378,7 +388,15 @@ pub struct ReferendumStatus<
 
 /// Info regarding a referendum, present or past.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEqNoBound,
+	EqNoBound,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxContributors))]
 pub enum ReferendumInfo<
