@@ -284,7 +284,7 @@ function limited_reserve_transfer_assets() {
     local destination=$3
     local beneficiary=$4
     local assets=$5
-    local fee_asset_item=$6
+    local fee_asset_id=$6
     local weight_limit=$7
     echo "  calling limited_reserve_transfer_assets:"
     echo "      url: ${url}"
@@ -292,7 +292,7 @@ function limited_reserve_transfer_assets() {
     echo "      destination: ${destination}"
     echo "      beneficiary: ${beneficiary}"
     echo "      assets: ${assets}"
-    echo "      fee_asset_item: ${fee_asset_item}"
+    echo "      fee_asset_id: ${fee_asset_id}"
     echo "      weight_limit: ${weight_limit}"
     echo ""
     echo "--------------------------------------------------"
@@ -304,7 +304,7 @@ function limited_reserve_transfer_assets() {
             "${destination}" \
             "${beneficiary}" \
             "${assets}" \
-            "${fee_asset_item}" \
+            "${fee_asset_id}" \
             "${weight_limit}"
 }
 

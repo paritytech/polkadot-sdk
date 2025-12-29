@@ -39,6 +39,7 @@ pub fn xcm_transact_paid_execution(
 		WithdrawAsset(fees.clone().into()),
 		BuyExecution { fees, weight_limit },
 		Transact { origin_kind, call, fallback_max_weight: None },
+		ExpectTransactStatus(MaybeErrorCode::Success),
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
@@ -61,22 +62,23 @@ pub fn xcm_transact_unpaid_execution(
 	VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		Transact { origin_kind, call, fallback_max_weight: None },
+		ExpectTransactStatus(MaybeErrorCode::Success),
 	]))
 }
 
 /// Helper method to get the non-fee asset used in multiple assets transfer
-pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)> {
-	let asset = assets.inner().into_iter().enumerate().find(|a| a.0 != fee_idx)?.1.clone();
+pub fn non_fee_asset(assets: &Assets, fee_asset_id: &AssetId) -> Option<(Location, u128)> {
+	let asset = assets.inner().into_iter().find(|a| a.id != *fee_asset_id)?;
 	let asset_amount = match asset.fun {
 		Fungible(amount) => amount,
 		_ => return None,
 	};
-	Some((asset.id.0, asset_amount))
+	Some((asset.id.0.clone(), asset_amount))
 }
 
 /// Helper method to get the fee asset used in multiple assets transfer
-pub fn fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)> {
-	let asset = assets.get(fee_idx)?;
+pub fn fee_asset(assets: &Assets, fee_asset_id: &AssetId) -> Option<(Location, u128)> {
+	let asset = assets.inner().iter().find(|a| a.id == *fee_asset_id)?;
 	let asset_amount = match asset.fun {
 		Fungible(amount) => amount,
 		_ => return None,

@@ -23,7 +23,7 @@ use pallet_revive::{
 		alloy::sol_types::{SolInterface, SolValue},
 		H160,
 	},
-	ExecConfig, U256,
+	ExecConfig, TransactionLimits, U256,
 };
 use sp_runtime::AccountId32;
 // Referenda precompile address (matches the MATCHER in lib.rs)
@@ -65,8 +65,10 @@ fn test_referenda_submit_lookup_works() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -131,8 +133,10 @@ fn test_referenda_submit_inline_works() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -199,8 +203,10 @@ fn test_referenda_submit_inline_fails_with_oversized_proposal() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -247,8 +253,10 @@ fn test_referenda_submit_lookup_fails_without_preimage() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -303,8 +311,10 @@ fn test_multiple_referenda_submissions() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call1.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -326,8 +336,10 @@ fn test_multiple_referenda_submissions() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call2.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -366,8 +378,10 @@ fn test_referenda_place_decision_deposit_works() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -389,8 +403,10 @@ fn test_referenda_place_decision_deposit_works() {
 			RuntimeOrigin::signed(BOB), // BOB places the deposit
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -431,8 +447,10 @@ fn test_referenda_place_decision_deposit_fails_not_ongoing() {
 			RuntimeOrigin::signed(BOB),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -472,8 +490,10 @@ fn test_referenda_place_decision_deposit_fails_insufficient_balance() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -489,8 +509,10 @@ fn test_referenda_place_decision_deposit_fails_insufficient_balance() {
 			RuntimeOrigin::signed(POOR), // Account with no balance
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -529,8 +551,10 @@ fn test_referenda_place_decision_deposit_fails_already_has_deposit() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -545,8 +569,10 @@ fn test_referenda_place_decision_deposit_fails_already_has_deposit() {
 			RuntimeOrigin::signed(BOB),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -567,8 +593,10 @@ fn test_referenda_place_decision_deposit_fails_already_has_deposit() {
 			RuntimeOrigin::signed(CHARLIE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -595,8 +623,10 @@ fn test_submission_deposit_returns_correct_amount() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -643,8 +673,10 @@ fn test_decision_deposit_returns_track_amount_for_new_referendum() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -695,8 +727,10 @@ fn test_decision_deposit_returns_zero_after_deposit_placed() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -741,8 +775,10 @@ fn test_decision_deposit_returns_zero_for_nonexistent_referendum() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -796,8 +832,10 @@ fn test_submit_inline_fails_with_invalid_origin_encoding() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);
@@ -840,8 +878,10 @@ fn test_submit_lookup_fails_with_invalid_origin_encoding() {
 			RuntimeOrigin::signed(ALICE),
 			referenda_precompile_address(),
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			call.abi_encode(),
 			ExecConfig::new_substrate_tx(),
 		);

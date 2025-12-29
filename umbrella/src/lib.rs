@@ -92,10 +92,6 @@ pub use cumulus_client_consensus_aura;
 #[cfg(feature = "cumulus-client-consensus-common")]
 pub use cumulus_client_consensus_common;
 
-/// A Substrate `Proposer` for building parachain blocks.
-#[cfg(feature = "cumulus-client-consensus-proposer")]
-pub use cumulus_client_consensus_proposer;
-
 /// The relay-chain provided consensus algorithm.
 #[cfg(feature = "cumulus-client-consensus-relay-chain")]
 pub use cumulus_client_consensus_relay_chain;
@@ -442,6 +438,14 @@ pub use pallet_contracts_uapi;
 /// FRAME pallet for conviction voting in referenda.
 #[cfg(feature = "pallet-conviction-voting")]
 pub use pallet_conviction_voting;
+
+/// Provides precompiles for the `conviction-voting` pallet.
+#[cfg(feature = "pallet-conviction-voting-precompiles")]
+pub use pallet_conviction_voting_precompiles;
+
+/// Provides benchmarks for the precompiles of the `conviction-voting` pallet.
+#[cfg(feature = "pallet-conviction-voting-precompiles-benchmarks")]
+pub use pallet_conviction_voting_precompiles_benchmarks;
 
 /// Logic as per the description of The Fellowship for core Polkadot technology.
 #[cfg(feature = "pallet-core-fellowship")]

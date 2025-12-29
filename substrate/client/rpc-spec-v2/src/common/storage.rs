@@ -277,7 +277,7 @@ where
 						let query = QueryIter {
 							query_key: item.key,
 							ty: IterQueryType::Value,
-							pagination_start_key: None,
+							pagination_start_key: item.pagination_start_key,
 						};
 						this.client.query_iter_pagination_with_producer(
 							query,
@@ -290,7 +290,7 @@ where
 						let query = QueryIter {
 							query_key: item.key,
 							ty: IterQueryType::Hash,
-							pagination_start_key: None,
+							pagination_start_key: item.pagination_start_key,
 						};
 						this.client.query_iter_pagination_with_producer(
 							query,

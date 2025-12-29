@@ -21,7 +21,6 @@ codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-log = { workspace = true }
 pallet-balances = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
@@ -29,6 +28,7 @@ sp-inherents = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 sp-transaction-storage-proof = { default-features = true, workspace = true }
@@ -40,13 +40,13 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"array-bytes",
