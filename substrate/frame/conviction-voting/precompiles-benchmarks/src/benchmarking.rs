@@ -39,7 +39,7 @@ use scale_info::prelude::collections::BTreeMap;
 use sp_runtime::{traits::StaticLookup, Saturating};
 
 use pallet_conviction_voting::{Pallet as ConvictionVoting, VotingHooks};
-use pallet_revive::{AddressMapper, ExecConfig, ExecReturnValue, Weight, U256};
+use pallet_revive::{AddressMapper, ExecConfig, ExecReturnValue, TransactionLimits, Weight, U256};
 
 fn call_precompile<T: Config<I>, I: 'static>(
 	from: T::AccountId,
@@ -53,8 +53,10 @@ fn call_precompile<T: Config<I>, I: 'static>(
 		<T as frame_system::Config>::RuntimeOrigin::signed(from),
 		precompile_addr,
 		U256::zero(),
-		Weight::MAX,
-		T::Balance::try_from(U256::from(u128::MAX)).ok().unwrap(),
+		TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: T::Balance::try_from(U256::from(u128::MAX)).ok().unwrap(),
+		},
 		encoded_call,
 		ExecConfig::new_substrate_tx(),
 	);
