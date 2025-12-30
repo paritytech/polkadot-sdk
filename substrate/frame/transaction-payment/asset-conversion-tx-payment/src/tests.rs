@@ -926,7 +926,8 @@ fn no_fee_and_no_weight_for_other_origins() {
 	})
 }
 
-/// Tests that validation rejects transactions that would result in `ReducedToZero` for native assets.
+/// Tests that validation rejects transactions that would result in `ReducedToZero` for native
+/// assets.
 #[test]
 fn transaction_payment_rejects_reduced_to_zero_in_native_asset() {
 	let base_weight = 5;
@@ -946,10 +947,9 @@ fn transaction_payment_rejects_reduced_to_zero_in_native_asset() {
 			let mut info = info_from_weight(Weight::from_parts(weight, 0));
 			info.extension_weight = ext.weight(CALL);
 
-			// Calculate the actual fee 
-			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32, &info, tip
-			);
+			// Calculate the actual fee
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
 
 			// Set balance to cause ReducedToZero
 			let balance = ed + fee - 1;
@@ -974,10 +974,7 @@ fn transaction_payment_rejects_reduced_to_zero_in_native_asset() {
 			);
 
 			// ReducedToZero should be rejected during validation
-			assert!(
-				result.is_err(),
-				"Validation should reject ReducedToZero."
-			);
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
 		});
 }
 
@@ -1017,9 +1014,8 @@ fn transaction_payment_rejects_reduced_to_zero_in_asset() {
 			let mut info = info_from_weight(Weight::from_parts(weight, 0));
 			info.extension_weight = ext.weight(CALL);
 
-			let fee_in_native = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32, &info, tip
-			);
+			let fee_in_native =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
 
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrWithId::WithId(asset_id),
@@ -1051,10 +1047,6 @@ fn transaction_payment_rejects_reduced_to_zero_in_asset() {
 			);
 
 			// ReducedToZero should be rejected during validation
-			assert!(
-				result.is_err(),
-				"Validation should reject ReducedToZero."
-			);
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
 		});
 }
-
