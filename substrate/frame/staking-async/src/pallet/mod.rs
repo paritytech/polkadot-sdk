@@ -234,7 +234,7 @@ pub mod pallet {
 		/// Number of eras nominators must wait to unbond when they are not slashable.
 		///
 		/// This duration is used for nominators when [`AreNominatorsSlashable`] is `false`.
-		/// When nominators are slashable, they use the full [`BondingDuration`] to ensure
+		/// When nominators are slashable, they use the full [`Config::BondingDuration`] to ensure
 		/// slashes can be applied during the unbonding period.
 		///
 		/// Setting this to a lower value (e.g., 1 era) allows for faster withdrawals when
