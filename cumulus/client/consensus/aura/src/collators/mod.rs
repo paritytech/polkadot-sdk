@@ -683,7 +683,7 @@ where
 		.runtime_api()
 		.keys_to_prove(parent_hash)
 		.unwrap_or_else(|e| {
-			tracing::warn!(
+			tracing::debug!(
 				target: crate::LOG_TARGET,
 				error = ?e,
 				"Failed to fetch relay proof requests from runtime, using empty request"

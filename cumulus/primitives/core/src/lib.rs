@@ -548,7 +548,6 @@ sp_api::decl_runtime_apis! {
 	pub trait KeyToIncludeInRelayProof {
 		/// Returns relay chain storage proof requests.
 		///
-
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
 	}
