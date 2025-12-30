@@ -125,6 +125,8 @@ std = [
 	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
+	"sha2/std",
+	"sha3/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-consensus-aura/std",
