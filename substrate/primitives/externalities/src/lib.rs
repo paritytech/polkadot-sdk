@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 /// Results concerning an operation to remove many keys.
-#[derive(codec::Encode, codec::Decode)]
+#[derive(codec::Encode, codec::Decode, Default)]
 #[must_use]
 pub struct MultiRemovalResults {
 	/// A continuation cursor which, if `Some` must be provided to the subsequent removal call.
@@ -246,6 +246,16 @@ pub trait Externalities: ExtensionStore {
 	/// Renew existing piece of transaction storage.
 	fn storage_renew_transaction_index(&mut self, _index: u32, _hash: &[u8]) {
 		unimplemented!("storage_renew_transaction_index");
+	}
+
+	/// Store the last cursor of a storage operation.
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		unimplemented!("store_last_cursor");
+	}
+
+	/// Take the last cursor of a storage operation.
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		unimplemented!("take_last_cursor");
 	}
 
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
