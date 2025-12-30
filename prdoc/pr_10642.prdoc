@@ -1,0 +1,8 @@
+title: Allow members below min rank to vote with zero weight
+doc:
+- audience: Runtime Dev
+  description: |-
+    Members below the minimum rank for a poll can now vote with zero voting weight. Their votes are recorded but don't affect tally outcomes or support calculations. Enables democratic participation while maintaining rank-based governance.
+crates:
+- name: pallet-ranked-collective
+  bump: minor
