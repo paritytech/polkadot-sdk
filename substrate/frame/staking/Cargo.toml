@@ -32,7 +32,7 @@ sp-staking = { features = ["serde"], workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
-rand_chacha = { optional = true, workspace = true }
+rand_chacha = { workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
@@ -62,6 +62,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
@@ -80,7 +81,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
