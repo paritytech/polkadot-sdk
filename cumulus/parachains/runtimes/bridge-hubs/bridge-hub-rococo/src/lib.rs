@@ -173,16 +173,6 @@ pub type Migrations = (
 		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 	>,
 	bridge_to_westend_config::migration::StaticToDynamicLanes,
-	frame_support::migrations::RemoveStorage<
-		BridgeWestendMessagesPalletName,
-		OutboundLanesCongestedSignalsKey,
-		RocksDbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		BridgePolkadotBulletinMessagesPalletName,
-		OutboundLanesCongestedSignalsKey,
-		RocksDbWeight,
-	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
