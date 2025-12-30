@@ -42,7 +42,8 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate},
+		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::{BurnHandler, Precision},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -212,5 +213,25 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+	}
+}
+
+/// Implementation of BurnHandler for pallet.
+///
+/// Use this as `type BurnDestination = Dap;` in pallet-balances config on AssetHub
+/// to redirect burns to the DAP buffer instead of reducing total issuance.
+impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn on_burned(_who: &T::AccountId, amount: BalanceOf<T>) {
+		let buffer = Self::buffer_account();
+
+		// Credit the buffer account. The source account's balance has already been decreased
+		// by `burn_from` before this is called. We use `increase_balance` which doesn't affect
+		// total issuance (keeping total issuance unchanged = funds preserved, not destroyed).
+		// Failure can only occur due to arithmetic overflow, which is extremely unlikely.
+		let _ = T::Currency::increase_balance(&buffer, amount, Precision::BestEffort).inspect_err(
+			|_| {
+				defensive!("Failed to credit DAP buffer - Loss of funds due to overflow");
+			},
+		);
 	}
 }

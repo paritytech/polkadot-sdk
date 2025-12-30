@@ -164,7 +164,7 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{
 		tokens::{
-			fungible, BalanceStatus as Status, DepositConsequence,
+			fungible, BalanceStatus as Status, BurnHandler, DepositConsequence,
 			Fortitude::{self, Force, Polite},
 			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
@@ -186,6 +186,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
 
+pub use frame_support::traits::tokens::DirectBurn;
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -245,6 +246,7 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
+			type BurnDestination = ();
 		}
 	}
 
@@ -333,6 +335,20 @@ pub mod pallet {
 			Self::AccountId,
 			Self::Balance,
 		>;
+
+		/// Handler for burned funds.
+		///
+		/// This is called by `burn_from` after the source account's balance has been decreased.
+		/// Runtimes can configure this to either:
+		/// - Reduce total issuance (traditional burning via [`DirectBurn`])
+		/// - Credit to a buffer account (DAP-style systems)
+		///
+		/// **Configuration examples:**
+		/// - DAP-enabled runtimes on AssetHub: `type BurnDestination = Dap;`
+		/// - DAP satellite runtimes: `type BurnDestination = DapSatellite;`
+		/// - Other runtimes: `type BurnDestination = DirectBurn<Balances, AccountId>;`
+		#[pallet::no_default_bounds]
+		type BurnDestination: BurnHandler<Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
@@ -852,8 +868,9 @@ pub mod pallet {
 		/// If the origin's account ends up below the existential deposit as a result
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
-		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
-		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		/// The behavior depends on the runtime's `BurnDestination` configuration:
+		/// - DAP-enabled runtimes: funds are transferred to the DAP buffer
+		/// - Other runtimes: funds are burned directly, reducing total issuance
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(

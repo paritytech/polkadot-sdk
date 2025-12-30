@@ -138,6 +138,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -268,17 +269,23 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
+	type BurnDestination = DapSatellite;
 }
 
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to DAP satellite (0-100). Currently 0% - all fees go to collators.
+	pub const DapSatelliteFeePercent: u32 = 0;
 }
+
+pub type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -613,6 +620,15 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+}
+
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+}
+
 pub struct BrokerMigrationV4BlockConversion;
 
 impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
@@ -667,6 +683,8 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
+
+		DapSatellite: pallet_dap_satellite = 60,
 
 		// Sudo
 		Sudo: pallet_sudo = 100,

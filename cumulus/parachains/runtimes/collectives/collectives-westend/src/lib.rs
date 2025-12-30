@@ -234,17 +234,22 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
+	type BurnDestination = DapSatellite;
 }
 
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	pub const DapSatelliteFeePercent: u32 = 0;
 }
+
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -683,6 +688,15 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+parameter_types! {
+	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+}
+
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -747,6 +761,7 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
+		DapSatellite: pallet_dap_satellite = 85,
 
 		// The Secretary Collective
 		// pub type SecretaryCollectiveInstance = pallet_ranked_collective::instance3;
@@ -802,6 +817,7 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

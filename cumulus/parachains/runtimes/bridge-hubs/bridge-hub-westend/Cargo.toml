@@ -31,6 +31,7 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-dap-satellite = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-session = { workspace = true }
@@ -174,6 +175,7 @@ std = [
 	"pallet-bridge-parachains/std",
 	"pallet-bridge-relayers/std",
 	"pallet-collator-selection/std",
+	"pallet-dap-satellite/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-session/std",
@@ -254,6 +256,7 @@ runtime-benchmarks = [
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
@@ -304,6 +307,7 @@ try-runtime = [
 	"pallet-bridge-parachains/try-runtime",
 	"pallet-bridge-relayers/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-dap-satellite/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",

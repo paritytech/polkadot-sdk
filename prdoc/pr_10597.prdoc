@@ -1,0 +1,94 @@
+title: 'Introduce pallet-dap-satellite for system chain fund collection and redirect all burns for native tokens to DAP/DAP satellite on Westend runtimes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces pallet-dap-satellite, allowing system chains different from AssetHub
+    to collect funds (to be periodically sent to DAP on AssetHub in future PRs) instead of
+    burning them directly.
+
+    **Changes:**
+
+    - **pallet-dap-satellite**: New pallet that implements `BurnHandler` and `OnUnbalanced`
+      by accumulating funds in a satellite account.
+
+    - **[breaking change] pallet-balances**: `BurnDestination` is now a required config item
+      that must implement `BurnHandler`. The `BurnHandler::on_burned` method is called after
+      `decrease_balance` removes funds from an account, allowing each runtime to choose whether
+      burns lead to direct burning (reducing total issuance) or redirecting to a buffer.
+      Runtimes must explicitly configure this:
+      - Non-DAP runtimes should use `pallet_balances::DirectBurn<Balances, AccountId>`
+      - DAP-integrated runtimes use `pallet_dap::Pallet<Runtime>` (on AssetHub) or
+        `pallet_dap_satellite::Pallet<Runtime>` (on other system chains)
+      Note that non-native asset burns via pallet-assets do not use pallet-balances's implementation
+      of BurnHandler but they rely on the default one: each asset in pallet-assets has its own supply
+      that should decrease when burned.
+
+    - **frame-support**: New `BurnHandler` trait and `DirectBurn` struct. `DirectBurn` implements
+      `BurnHandler::on_burned` to reduce total issuance.
+
+    - Redirect all burns to DAP or DAP satellite.
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-balances
+  bump: major
+- name: pallet-dap-satellite
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: major
+- name: polkadot-test-runtime
+  bump: major
+- name: cumulus-test-runtime
+  bump: major
+- name: penpal-runtime
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor
+- name: pallet-asset-rewards
+  bump: patch
+- name: pallet-assets-freezer
+  bump: patch
+- name: pallet-nis
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: minor
+- name: pallet-staking-async
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-dap
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: solochain-template-runtime
+  bump: major
+- name: parachain-template-runtime
+  bump: major
+- name: pallet-asset-conversion-ops
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: pallet-revive
+  bump: patch

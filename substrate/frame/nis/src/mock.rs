@@ -71,6 +71,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_balances::DirectBurn<Balances, u64>;
 }
 
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
@@ -92,6 +93,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_balances::DirectBurn<NisBalances, u64>;
 }
 
 parameter_types! {
