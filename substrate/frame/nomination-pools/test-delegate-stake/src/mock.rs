@@ -360,7 +360,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
 
 		// Initialize era state for pallet-staking-async
-		pallet_staking_async::testing_utils::set_active_era::<Runtime>(0);
+		pallet_staking_async::CurrentEra::<Runtime>::put(0);
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 0,
+			start: None,
+		});
 
 		// set some limit for nominations.
 		assert_ok!(Staking::set_staking_configs(

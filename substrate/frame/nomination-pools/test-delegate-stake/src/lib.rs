@@ -44,10 +44,12 @@ use sp_runtime::{bounded_btree_map, traits::Zero, Perbill};
 use sp_staking::{Agent, StakingInterface};
 
 /// Helper function to properly set the current era with all necessary state.
-///
-/// This uses the testing utilities from pallet-staking-async to set up the era state.
 fn set_current_era(era: u32) {
-	pallet_staking_async::testing_utils::set_active_era::<Runtime>(era);
+	pallet_staking_async::CurrentEra::<Runtime>::put(era);
+	pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+		index: era,
+		start: None,
+	});
 }
 
 #[test]
