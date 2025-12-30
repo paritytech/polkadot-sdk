@@ -1,6 +1,6 @@
 title: Update asset-conversion validation to use strict withdrawal checks
 doc:
-- audience: Todo
+- audience: runtime_dev
   description: |-
     ## Description
 
@@ -14,4 +14,4 @@ doc:
     - Restricted `can_withdraw` checks to only accept `Success`.
 crates:
 - name: pallet-asset-conversion-tx-payment
-  bump: major
+  bump: patch
