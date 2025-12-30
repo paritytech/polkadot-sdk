@@ -1,0 +1,21 @@
+title: Migrate `pallet-example-offchain-worker` to use `TransactionExtension` API
+
+doc:
+  - audience: [Runtime Dev]
+    description: |
+      Migrates `pallet-example-offchain-worker` from the deprecated `ValidateUnsigned` trait
+      to the modern `TransactionExtension` API using the `#[pallet::authorize]` attribute.
+
+      This change demonstrates how to validate unsigned transactions using the new approach,
+      which provides better composability and flexibility for transaction validation.
+
+      The pallet now uses `#[pallet::authorize]` on unsigned transaction calls to validate:
+      - Block number is within the expected window
+      - Price data is valid
+      - For signed payloads, signature verification using the authority's public key
+
+      This serves as a reference example for other pallets migrating away from `ValidateUnsigned`.
+
+crates:
+  - name: pallet-example-offchain-worker
+    bump: major
