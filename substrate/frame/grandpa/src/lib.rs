@@ -57,6 +57,7 @@ use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 mod default_weights;
 mod equivocation;
 pub mod migrations;
+pub mod weights;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
