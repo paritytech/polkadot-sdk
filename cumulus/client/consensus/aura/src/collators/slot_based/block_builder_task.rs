@@ -359,7 +359,6 @@ where
 				relay_parent_storage_root: *relay_parent_header.state_root(),
 				max_pov_size: *max_pov_size,
 			};
-
 			let (parachain_inherent_data, other_inherent_data) = match collator
 				.create_inherent_data_with_rp_offset(
 					relay_parent,
@@ -367,6 +366,7 @@ where
 					parent_hash,
 					slot_claim.timestamp(),
 					Some(rp_data),
+					Default::default(),
 					collator_peer_id,
 				)
 				.await

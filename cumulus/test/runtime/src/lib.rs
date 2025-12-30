@@ -87,7 +87,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId, RelayProofRequest};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -374,7 +374,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
+	type OnSystemEvent = TestPallet;
 	type OutboundXcmpMessageSource = ();
 	// Ignore all DMP messages by enqueueing them into `()`:
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
@@ -639,6 +639,19 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			1
+		}
+	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			use cumulus_primitives_core::RelayStorageKey;
+
+			RelayProofRequest {
+				keys: vec![
+					// Request a key to verify its inclusion in the proof.
+					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
+				],
+			}
 		}
 	}
 }

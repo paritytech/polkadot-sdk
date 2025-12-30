@@ -42,6 +42,7 @@ pub use cumulus_primitives_core::{
 };
 pub use polkadot_overseer::Handle as OverseerHandle;
 pub use sp_state_machine::StorageValue;
+pub use sp_storage::ChildInfo;
 
 pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
@@ -213,6 +214,14 @@ pub trait RelayChainInterface: Send + Sync {
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
 
+	/// Generate a child trie storage read proof.
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof>;
+
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.
 	async fn validation_code_hash(
@@ -352,6 +361,15 @@ where
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
 		(**self).prove_read(relay_parent, relevant_keys).await
+	}
+
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		(**self).prove_child_read(relay_parent, child_info, child_keys).await
 	}
 
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
