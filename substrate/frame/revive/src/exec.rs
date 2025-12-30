@@ -1265,7 +1265,9 @@ where
 			*caller_frame = Default::default();
 		}
 
-		self.transient_storage.start_transaction();
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.start_transaction();
+		});
 		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
@@ -1491,12 +1493,13 @@ where
 				(false, Err(error.into()))
 			},
 		};
-
-		if success {
-			self.transient_storage.commit_transaction();
-		} else {
-			self.transient_storage.rollback_transaction();
-		}
+		self.with_transient_storage_mut(|transient_storage| {
+			if success {
+				transient_storage.commit_transaction();
+			} else {
+				transient_storage.rollback_transaction();
+			}
+		});
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1626,11 +1629,11 @@ where
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
 			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation)
+			return transfer_with_dust::<T>(from, to, value, preservation);
 		}
 
 		let origin = origin.account_id()?;
@@ -1835,6 +1838,24 @@ where
 			return precompile.has_contract_info();
 		}
 		true
+	}
+
+	fn with_transient_storage_mut<R, F: FnOnce(&mut TransientStorage<T>) -> R>(
+		&mut self,
+		f: F,
+	) -> R {
+		if let Some(transient) = &self.exec_config.transient_storage {
+			f(&mut transient.borrow_mut())
+		} else {
+			f(&mut self.transient_storage)
+		}
+	}
+	fn with_transient_storage<R, F: FnOnce(&TransientStorage<T>) -> R>(&self, f: F) -> R {
+		if let Some(transient) = &self.exec_config.transient_storage {
+			f(&transient.borrow())
+		} else {
+			f(&self.transient_storage)
+		}
 	}
 }
 
@@ -2129,13 +2150,15 @@ where
 	}
 
 	fn get_transient_storage(&self, key: &Key) -> Option<Vec<u8>> {
-		self.transient_storage.read(self.account_id(), key)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key)
+		})
 	}
 
 	fn get_transient_storage_size(&self, key: &Key) -> Option<u32> {
-		self.transient_storage
-			.read(self.account_id(), key)
-			.map(|value| value.len() as _)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key).map(|value| value.len() as _)
+		})
 	}
 
 	fn set_transient_storage(
@@ -2145,7 +2168,9 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let account_id = self.account_id().clone();
-		self.transient_storage.write(&account_id, key, value, take_old)
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.write(&account_id, key, value, take_old)
+		})
 	}
 
 	fn account_id(&self) -> &T::AccountId {
