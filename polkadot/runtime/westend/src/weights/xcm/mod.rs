@@ -307,6 +307,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
+	fn publish(_data: &PublishData) -> Weight {
+		// Westend does not currently support Publish operations
+		Weight::MAX
+	}
 }
 
 #[test]

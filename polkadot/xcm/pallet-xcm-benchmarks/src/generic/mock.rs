@@ -26,7 +26,7 @@ use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
 	test_utils::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-		TestSubscriptionService, TestUniversalAliases,
+		TestBroadcastHandler, TestSubscriptionService, TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
 	FrameTransactionalProcessor,
@@ -112,6 +112,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
+	type BroadcastHandler = TestBroadcastHandler;
 }
 
 parameter_types! {
@@ -192,6 +193,15 @@ impl generic::Config for Test {
 		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
+	}
+
+	fn publish_origin() -> Result<Location, BenchmarkError> {
+		Ok(Parachain(1000).into())
+	}
+
+	fn ensure_publisher_registered(_origin: &Location) -> Result<(), BenchmarkError> {
+		// No registration needed for tests
+		Ok(())
 	}
 }
 

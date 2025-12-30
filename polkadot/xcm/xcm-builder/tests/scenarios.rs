@@ -399,6 +399,7 @@ fn recursive_xcm_execution_fail() {
 		type SafeCallFilter = Everything;
 		type Aliasers = Nothing;
 		type TransactionalProcessor = ();
+		type BroadcastHandler = ();
 		type HrmpNewChannelOpenRequestHandler = ();
 		type HrmpChannelAcceptedHandler = ();
 		type HrmpChannelClosingHandler = ();

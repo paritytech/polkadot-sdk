@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::ParaId;
+	pub use cumulus_primitives_core::{ParaId, RelayProofRequest};
 	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -175,6 +175,13 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl cumulus_primitives_core::KeyToIncludeInRelayProof<$block> for $runtime {
+				fn keys_to_prove() -> RelayProofRequest {
+					unimplemented!()
+				}
+			}
+
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(

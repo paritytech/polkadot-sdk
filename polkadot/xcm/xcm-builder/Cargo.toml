@@ -31,6 +31,8 @@ xcm-executor = { workspace = true }
 
 # Polkadot dependencies
 polkadot-parachain-primitives = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
@@ -71,6 +73,8 @@ std = [
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-parachains/std",
 	"primitive-types/std",
 	"scale-info/std",
 	"sp-arithmetic/std",

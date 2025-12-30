@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, broadcaster, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -74,6 +74,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		Configuration: configuration,
 		ParasShared: shared,
+		Broadcaster: broadcaster,
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
@@ -192,6 +193,7 @@ impl crate::initializer::Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type WeightInfo = ();
 	type CoretimeOnNewSession = Coretime;
+	type OnNewSessionOutgoing = ();
 }
 
 impl crate::configuration::Config for Test {
@@ -213,6 +215,30 @@ impl frame_support::traits::DisabledValidators for MockDisabledValidators {
 
 impl crate::shared::Config for Test {
 	type DisabledValidators = MockDisabledValidators;
+}
+
+parameter_types! {
+	pub const MaxPublishItems: u32 = 10;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 50;
+	pub const MaxTotalStorageSize: u32 = 2048; // 2 KiB
+	pub const MaxPublishers: u32 = 1000;
+}
+
+parameter_types! {
+	pub const PublisherDeposit: Balance = 100;
+}
+
+impl crate::broadcaster::Config for Test {
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+	type MaxPublishItems = MaxPublishItems;
+	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
+	type MaxTotalStorageSize = MaxTotalStorageSize;
+	type MaxPublishers = MaxPublishers;
+	type PublisherDeposit = PublisherDeposit;
 }
 
 impl origin::Config for Test {}
