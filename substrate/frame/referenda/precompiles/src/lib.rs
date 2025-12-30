@@ -40,7 +40,7 @@ use pallet_revive::{
 
 use tracing::{error, info};
 
-alloy::sol!("src/interfaces/IReferenda.sol");
+alloy::sol!("src/interface/IReferenda.sol");
 use frame_support::{dispatch::DispatchInfo, weights::Weight};
 use IReferenda::IReferendaCalls;
 const LOG_TARGET: &str = "referenda::precompiles";

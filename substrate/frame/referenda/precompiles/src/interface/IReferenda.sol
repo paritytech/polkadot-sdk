@@ -132,10 +132,7 @@ interface IReferenda {
 	/// @return info A `ReferendumInfo` struct containing the referendum state snapshot.
 	function getReferendumInfo(
 		uint32 referendumIndex
-	)
-		external
-		view
-		returns (ReferendumInfo memory info);
+	) external view returns (ReferendumInfo memory info);
 
 	/// @notice Check if a referendum would pass if ended now
 	/// @param referendumIndex The referendum index
