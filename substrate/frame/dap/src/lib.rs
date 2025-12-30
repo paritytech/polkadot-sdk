@@ -17,9 +17,9 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet implements `FundingSink` to collect funds into a buffer account instead of burning
-//! them. The buffer account is created at genesis with a provider reference and funded with the
-//! existential deposit (ED) to ensure it can receive deposits of any size.
+//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
+//! instead of burning them. The buffer account is created at genesis with a provider reference
+//! and funded with the existential deposit (ED) to ensure it can receive deposits of any size.
 //!
 //! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
 //! migrations tuple.
@@ -43,7 +43,6 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
-		tokens::{Fortitude, FundingSink, Preservation},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -183,29 +182,6 @@ pub mod migrations {
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
 /// This is for the `fungible::Balanced` trait as used by staking-async.
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-
-/// Implementation of FundingSink.
-/// Example: use as `type Sink = Dap` in runtime config.
-impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	fn fill(source: &T::AccountId, amount: BalanceOf<T>, preservation: Preservation) {
-		let buffer = Self::buffer_account();
-
-		// Best-effort: calculate available balance and transfer that amount.
-		let available = T::Currency::reducible_balance(source, preservation, Fortitude::Polite);
-
-		// Transfer should never fail because:
-		// - can_withdraw on source is already satisfied by reducible_balance check
-		// - can_deposit on destination succeeds since buffer exists (created with provider at
-		// genesis/ runtime upgrade so no ED issue)
-		// - we are filtering out the zero amount case
-		// The only failure would be the overflow on destination.
-		Some(amount.min(available)).filter(|t| !t.is_zero()).map(|to_transfer| {
-			T::Currency::transfer(source, &buffer, to_transfer, preservation).inspect_err(|_| {
-				defensive!("🚨 Transfer to DAP buffer failed, it should never happen!");
-			})
-		});
-	}
-}
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
