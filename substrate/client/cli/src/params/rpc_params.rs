@@ -188,6 +188,12 @@ pub struct RpcParams {
 	/// `--dev` mode the default is to allow all origins.
 	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
+
+	/// By default, the node rejects any transaction that's unprotected (i.e., that doesn't have a
+	/// chain-id). If the user wishes the submit such a transaction then they can use this flag to
+	/// instruct the RPC to ignore this check.
+	#[arg(long)]
+	pub allow_unprotected_txs: bool,
 }
 
 impl RpcParams {

@@ -1,0 +1,56 @@
+title: Allow for "Nick's Method" style deployments
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nThis pull request allows for \u201C[Nick\u2019s Method](https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7)\u201D\
+    \ style of deploying contracts which was requested in https://github.com/paritytech/contract-issues/issues/225\
+    \ and was attempted to be solved in https://github.com/paritytech/contract-issues/issues/99.\n\
+    \nThe \u201CNick Method\u201D style of contract deployment is a very useful concept\
+    \ to use when we wish to deploy a contract on multiple chains **with the same\
+    \ address**. It allows us to do that by constructing a deployment transaction\
+    \ that can be executed on any chain, thus allowing us to get the same address\
+    \ for the contract\u2019s deployment on any chain.\n\nAdditionally, this method\
+    \ allows for the contracts to be deployed trustlessly, meaning that if any actor\
+    \ (regardless of whether they\u2019re honest or not) follow the same method for\
+    \ deploying the contract then they\u2019d get the same address across all chains.\
+    \ This allows anyone in the Polkadot ecosystem to take existing contracts that\
+    \ use this method of deployment (e.g., `Multicall3` and the ERC-1820 registry)\
+    \ and deploy them on Polkadot and there\u2019s already trust that the code is\
+    \ the same.\n\nIn order to be able to use the same transaction across multiple\
+    \ chains transaction authors need to:\n\n- Not include a chain id.\n- Include\
+    \ a high gas limit so that the transaction works on (almost) all chains.\n\nAs\
+    \ mentioned in https://github.com/paritytech/contract-issues/issues/225, this\
+    \ pattern is already being used in a number of contracts. Most notably, `Multicall3`\
+    \ and the ERC-1820 Registry.\n\nBefore this PR this method didn\u2019t work in\
+    \ revive since the chain id was an absolute must and any transaction that didn\u2019\
+    t include a chain id would fail with an `Invalid Transaction` error as seen below:\n\
+    \nhttps://github.com/paritytech/polkadot-sdk/blob/c688963f51c55b3c2a16a00a33c4a086792a1544/substrate/frame/revive/src/evm/call.rs#L71-L76\n\
+    \nThe above implementation misses an important detail: legacy transactions are\
+    \ permitted to not have the chain id set while all other non-legacy transactions\
+    \ do not permit that. Therefore, this part of the code was changed to the following:\n\
+    \n```rust\nmatch (tx.chain_id, tx.r#type.as_ref()) {\n\t(None, Some(super::Byte(TYPE_LEGACY)))\
+    \ => {},\n\t(Some(chain_id), ..) =>\n\t\tif chain_id != <T as Config>::ChainId::get().into()\
+    \ {\n\t\t\tlog::debug!(target: LOG_TARGET, \"Invalid chain_id {chain_id:?}\");\n\
+    \t\t\treturn Err(InvalidTransaction::Call);\n\t\t},\n\t(None, ..) => {\n\t\tlog::debug!(target:\
+    \ LOG_TARGET, \"Invalid chain_id None\");\n\t\treturn Err(InvalidTransaction::Call);\n\
+    \t},\n}\n```\n\nThe above code skips the chain id check if the transaction is\
+    \ of the legacy type. Otherwise, the chain id is checked. If no chain id is provided\
+    \ and the transaction is not of the legacy type then we error out.\n\n## Integration\n\
+    \nBe aware that we now allow for legacy transactions to not have the chain ID\
+    \ set in order to allow for \u201C[Nick\u2019s Method](https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7)\u201D\
+    \ style of contract deployment. Non-legacy transaction continue to require the\
+    \ chain id to be provided.\n\n## Review Notes\n\n- The main change that this PR\
+    \ makes can be found in the `substrate/frame/revive/src/evm/call.rs` file allowing\
+    \ for legacy contracts to not have the chain id set.\n- Two new tests were added\
+    \ with this PR:\n  - `dry_run_contract_deployment_with_nick_method_works`\n  -\
+    \ `contract_deployment_with_nick_method_works`\n- Both of the above tests test\
+    \ that \u201C[Nick\u2019s Method](https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7)\u201D\
+    \ can be used to deploy the singleton factory contract provided in [ERC-2470](https://eips.ethereum.org/EIPS/eip-2470)\
+    \ in a dry run and in an `eth_transact` call.\n- Note that the above tests needed\
+    \ to modify the transaction provided in the ERC to update its gas limit (since\
+    \ the provided gas limit was too low for our platform), **which breaks the whole\
+    \ idea of Nick\u2019s Method where the same transaction can be submitted to the\
+    \ same chain**. I suspect that https://github.com/paritytech/polkadot-sdk/pull/10393\
+    \ should fix this issue with the new gas scaling."
+crates:
+- name: pallet-revive
+  bump: patch

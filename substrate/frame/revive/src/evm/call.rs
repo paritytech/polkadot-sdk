@@ -21,6 +21,7 @@ use crate::{
 	evm::{
 		fees::{compute_max_integer_quotient, InfoT},
 		runtime::SetWeightLimit,
+		TYPE_LEGACY,
 	},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
@@ -69,6 +70,27 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
+		// We would like to allow for transactions without a chain id to be executed through pallet
+		// revive. These are called unprotected transactions and they are transactions that predate
+		// EIP-155 which do not include a Chain ID. These transactions are still useful today in
+		// certain patterns in Ethereum such as "Nick's Method" for contract deployment which
+		// allows a contract to be deployed on all chains with the same address. This is only
+		// allowed for legacy transactions and isn't allowed for any other transaction type.
+		// * Here's a relevant EIP: https://eips.ethereum.org/EIPS/eip-2470
+		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
+		match (self.chain_id, self.r#type.as_ref()) {
+			(None, Some(super::Byte(TYPE_LEGACY))) => {},
+			(Some(chain_id), ..) =>
+				if chain_id != <T as Config>::ChainId::get().into() {
+					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+					return Err(InvalidTransaction::Call);
+				},
+			(None, ..) => {
+				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let Some(gas) = self.gas else {
 			log::debug!(target: LOG_TARGET, "No gas provided");
 			return Err(InvalidTransaction::Call);
@@ -81,13 +103,6 @@ impl GenericTransaction {
 			log::debug!(target: LOG_TARGET, "No gas_price provided.");
 			return Err(InvalidTransaction::Payment);
 		};
-
-		let chain_id = self.chain_id.unwrap_or_default();
-
-		if chain_id != <T as Config>::ChainId::get().into() {
-			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
-			return Err(InvalidTransaction::Call);
-		}
 
 		if effective_gas_price < base_fee {
 			log::debug!(
