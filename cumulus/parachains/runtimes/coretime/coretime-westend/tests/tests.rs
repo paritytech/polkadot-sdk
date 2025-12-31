@@ -18,14 +18,17 @@
 
 use coretime_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Block, Runtime, RuntimeCall, RuntimeOrigin,
+	Balances, Block, DapSatellite, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{
+	assert_err, assert_ok,
+	traits::fungible::{Inspect, Mutate},
+};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::GovernanceOrigin;
+use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::Either;
-use testnet_parachains_constants::westend::fee::WeightToFee;
+use testnet_parachains_constants::westend::{currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
@@ -199,4 +202,36 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn burn_redirects_to_dap_satellite() {
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		const BOB: [u8; 32] = [2u8; 32];
+		let user: AccountId = BOB.into();
+		let initial_balance = 100 * UNITS;
+		let burn_amount = 10 * UNITS;
+
+		// Given: user has initial balance and DAP satellite exists with ED.
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&user, initial_balance));
+
+		let dap_satellite = DapSatellite::satellite_account();
+		let initial_satellite_balance = <Balances as Inspect<_>>::balance(&dap_satellite);
+		let initial_issuance = <Balances as Inspect<_>>::total_issuance();
+
+		// When: user burns some tokens.
+		assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
+
+		// Then: DAP satellite receives the burned amount.
+		assert_eq!(
+			<Balances as Inspect<_>>::balance(&dap_satellite),
+			initial_satellite_balance + burn_amount
+		);
+
+		// And: user's balance is reduced.
+		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - burn_amount);
+
+		// And: total issuance is unchanged (funds redirected, not destroyed).
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_issuance);
+	});
 }
