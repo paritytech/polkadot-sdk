@@ -154,3 +154,48 @@ fn burn_extrinsic_invokes_burn_handler() {
 		assert_eq!(Balances::free_balance(1), 75);
 	});
 }
+
+#[test]
+fn burn_entire_balance_reaps_account() {
+	new_test_ext().execute_with(|| {
+		// Given: account 1 has 100 balance.
+		assert_eq!(Balances::free_balance(1), 100);
+		assert!(take_burn_handler_calls().is_empty());
+
+		// When: burn entire balance with keep_alive = false.
+		assert_ok!(Balances::burn(frame_system::RawOrigin::Signed(1).into(), 100, false));
+
+		// Then: BurnHandler was called with entire balance.
+		let calls = take_burn_handler_calls();
+		assert_eq!(calls, vec![(1, 100)]);
+
+		// And: account is reaped (balance is zero).
+		assert_eq!(Balances::free_balance(1), 0);
+	});
+}
+
+#[test]
+fn burn_below_ed_with_keep_alive_fails() {
+	use frame_support::assert_noop;
+	use sp_runtime::TokenError;
+
+	new_test_ext().execute_with(|| {
+		// Given: account 1 has 100 balance, ED is 1.
+		assert_eq!(Balances::free_balance(1), 100);
+		assert!(take_burn_handler_calls().is_empty());
+
+		// When: try to burn 100 (entire balance) with keep_alive = true.
+		// This should fail because it would leave account below ED.
+		assert_noop!(
+			Balances::burn(frame_system::RawOrigin::Signed(1).into(), 100, true),
+			TokenError::FundsUnavailable
+		);
+
+		// Then: BurnHandler was NOT called (burn failed).
+		let calls = take_burn_handler_calls();
+		assert!(calls.is_empty());
+
+		// And: balance is unchanged.
+		assert_eq!(Balances::free_balance(1), 100);
+	});
+}
