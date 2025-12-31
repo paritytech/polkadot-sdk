@@ -26,7 +26,10 @@ use asset_hub_westend_runtime::{
 use emulated_integration_tests_common::{accounts::ALICE, xcm_emulator::TestExt};
 use frame_support::{
 	assert_err_ignore_postinfo, assert_ok,
-	traits::fungible::{Inspect, Mutate},
+	traits::{
+		fungible::{Inspect, Mutate},
+		fungibles::Inspect as FungiblesInspect,
+	},
 };
 use parachains_common::{AccountId, Balance};
 use sp_tracing::capture_test_logs;
@@ -113,6 +116,8 @@ fn test_exchange_asset(
 	AssetHubWestend::execute_with(|| {
 		let foreign_balance_before = ForeignAssets::balance(asset_location.clone(), &alice);
 		let wnd_balance_before = Balances::total_balance(&alice);
+		let foreign_issuance_before = ForeignAssets::total_issuance(asset_location.clone());
+		let native_issuance_before = Balances::total_issuance();
 
 		let give: Assets = (native_asset_id, give_amount).into();
 		let want: Assets = (asset_id, want_amount).into();
@@ -124,7 +129,7 @@ fn test_exchange_asset(
 
 		let result = PolkadotXcm::execute(origin, bx!(xcm::VersionedXcm::from(xcm)), Weight::MAX);
 
-		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
+		let foreign_balance_after = ForeignAssets::balance(asset_location.clone(), &alice);
 		let wnd_balance_after = Balances::total_balance(&alice);
 
 		if let Some(InstructionError { index, error }) = expected_error {
@@ -154,6 +159,17 @@ fn test_exchange_asset(
 				"Expected WND balance to decrease by {give_amount} units, got {wnd_balance_after} from {wnd_balance_before}"
 			);
 		}
+		let foreign_issuance_after = ForeignAssets::total_issuance(asset_location);
+		let native_issuance_after = Balances::total_issuance();
+		assert_eq!(
+			foreign_issuance_before, foreign_issuance_after,
+			"Unexpected foreign total issuance change"
+		);
+		assert_eq!(
+			native_issuance_before, native_issuance_after,
+			"Unexpected native total issuance change"
+		);
+		assert!(native_issuance_after > 0);
 	});
 }
 

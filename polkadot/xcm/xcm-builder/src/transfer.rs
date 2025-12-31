@@ -233,11 +233,13 @@ impl<
 
 		let (ticket, delivery_fees) =
 			Router::validate(&mut Some(asset_location), &mut Some(message))?;
-		Router::deliver(ticket)?;
-
-		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
-			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
+		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) &&
+			!delivery_fees.is_none()
+		{
+			// To support this case, we'd need to charge the caller account for the `delivery_fees`
+			return Err(Error::NotHoldingFees)
 		}
+		Router::deliver(ticket)?;
 
 		Ok(query_id)
 	}

@@ -271,7 +271,6 @@ impl Config for XcmConfig {
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = PolkadotXcm;
 	type AssetExchanger = ();
-	type AssetClaims = PolkadotXcm;
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type FeeManager = ();

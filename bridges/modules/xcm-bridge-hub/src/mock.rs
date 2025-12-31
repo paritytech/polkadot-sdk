@@ -250,7 +250,6 @@ impl xcm_executor::Config for XcmConfig {
 	type Trader = ();
 	type ResponseHandler = ();
 	type AssetTrap = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = ();

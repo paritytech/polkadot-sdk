@@ -35,6 +35,7 @@ mod imports {
 			collectives_westend_runtime::{
 				fellowship as collectives_fellowship,
 				xcm_config::XcmConfig as CollectivesWestendXcmConfig,
+				ExistentialDeposit as CollectivesWestendExistentialDeposit,
 			},
 			genesis::ED as COLLECTIVES_WESTEND_ED,
 			CollectivesWestendParaPallet as CollectivesWestendPallet,

@@ -316,6 +316,7 @@ mod bridge_hub_westend_tests {
 			Runtime,
 			XcmConfig,
 			WithBridgeHubWestendMessagesInstance,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -596,6 +597,7 @@ mod bridge_hub_bulletin_tests {
 			Runtime,
 			XcmConfig,
 			WithRococoBulletinMessagesInstance,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,

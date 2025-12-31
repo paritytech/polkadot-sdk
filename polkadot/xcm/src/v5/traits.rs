@@ -329,7 +329,6 @@ pub trait ExecuteXcm<Call> {
 		};
 		Self::execute(origin, pre, id, weight_credit)
 	}
-
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
 	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;

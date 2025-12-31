@@ -16,9 +16,19 @@
 
 //! The ERC20 Asset Transactor.
 
+use alloc::boxed::Box;
 use core::marker::PhantomData;
 use ethereum_standards::IERC20;
-use frame_support::traits::{fungible::Inspect, OriginTrait};
+use frame_support::{
+	defensive_assert,
+	traits::{
+		fungible::Inspect,
+		tokens::imbalance::{
+			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
+		},
+		OriginTrait,
+	},
+};
 use frame_system::pallet_prelude::OriginFor;
 use pallet_revive::{
 	precompiles::alloy::{
@@ -59,6 +69,36 @@ pub struct ERC20Transactor<
 		TransfersCheckingAccount,
 	)>,
 );
+
+pub struct NoopCredit(u128);
+impl UnsafeConstructorDestructor<u128> for NoopCredit {
+	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+		Box::new(NoopCredit(self.0))
+	}
+	fn forget_imbalance(&mut self) -> u128 {
+		let amount = self.0;
+		self.0 = 0;
+		amount
+	}
+}
+
+impl UnsafeManualAccounting<u128> for NoopCredit {
+	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		let amount = other.forget_imbalance();
+		self.0 = self.0.saturating_add(amount);
+	}
+}
+
+impl ImbalanceAccounting<u128> for NoopCredit {
+	fn amount(&self) -> u128 {
+		self.0
+	}
+	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+		let new = self.0.min(amount);
+		self.0 = self.0 - new;
+		Box::new(NoopCredit(new))
+	}
+}
 
 impl<
 		AccountId: Eq + Clone,
@@ -148,7 +188,13 @@ where
 				})?;
 				if is_success {
 					tracing::trace!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract was successful");
-					Ok((what.clone().into(), surplus))
+					Ok((
+						AssetsInHolding::new_from_fungible_credit(
+							what.id.clone(),
+							Box::new(NoopCredit(amount)),
+						),
+						surplus,
+					))
 				} else {
 					tracing::debug!(target: "xcm::transactor::erc20::withdraw", "contract transfer failed");
 					Err(XcmError::FailedToTransactAsset("ERC20 contract transfer failed"))
@@ -164,17 +210,28 @@ where
 	}
 
 	fn deposit_asset_with_surplus(
-		what: &Asset,
+		what: AssetsInHolding,
 		who: &Location,
 		_context: Option<&XcmContext>,
-	) -> Result<Weight, XcmError> {
+	) -> Result<Weight, (AssetsInHolding, XcmError)> {
 		tracing::trace!(
 			target: "xcm::transactor::erc20::deposit",
 			?what, ?who,
 		);
-		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
-		let who = AccountIdConverter::convert_location(who)
-			.ok_or(MatchError::AccountIdConversionFailed)?;
+		defensive_assert!(what.len() == 1, "Trying to deposit more than one asset!");
+		// Check we handle this asset.
+		let maybe = what
+			.fungible_assets_iter()
+			.next()
+			.and_then(|asset| Matcher::matches_fungibles(&asset).ok());
+		let (asset_contract_id, amount) = match maybe {
+			Some(inner) => inner,
+			None => return Err((what, MatchError::AssetNotHandled.into())),
+		};
+		let who = match AccountIdConverter::convert_location(who) {
+			Some(inner) => inner,
+			None => return Err((what, MatchError::AccountIdConversionFailed.into())),
+		};
 		// We need to map the 32 byte beneficiary account to a 20 byte account.
 		let eth_address = T::AddressMapper::to_address(&who);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
@@ -185,7 +242,7 @@ where
 		let ContractResult { result, weight_consumed, storage_deposit, .. } =
 			pallet_revive::Pallet::<T>::bare_call(
 				OriginFor::<T>::signed(TransfersCheckingAccount::get()),
-				asset_id,
+				asset_contract_id,
 				U256::zero(),
 				TransactionLimits::WeightAndDeposit {
 					weight_limit,
@@ -201,18 +258,29 @@ where
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
 			if return_value.did_revert() {
 				tracing::debug!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
-				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
+				Err((what, XcmError::FailedToTransactAsset("ERC20 contract reverted")))
 			} else {
-				let is_success = IERC20::transferCall::abi_decode_returns_validate(&return_value.data).map_err(|error| {
-					tracing::debug!(target: "xcm::transactor::erc20::deposit", ?error, "ERC20 contract result couldn't decode");
-					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
-				})?;
-				if is_success {
-					tracing::trace!(target: "xcm::transactor::erc20::deposit", "ERC20 contract was successful");
-					Ok(surplus)
-				} else {
-					tracing::debug!(target: "xcm::transactor::erc20::deposit", "contract transfer failed");
-					Err(XcmError::FailedToTransactAsset("ERC20 contract transfer failed"))
+				match IERC20::transferCall::abi_decode_returns_validate(&return_value.data) {
+					Ok(true) => {
+						tracing::trace!(target: "xcm::transactor::erc20::deposit", "ERC20 contract was successful");
+						Ok(surplus)
+					},
+					Ok(false) => {
+						tracing::debug!(target: "xcm::transactor::erc20::deposit", "contract transfer failed");
+						Err((
+							what,
+							XcmError::FailedToTransactAsset("ERC20 contract transfer failed"),
+						))
+					},
+					Err(error) => {
+						tracing::debug!(target: "xcm::transactor::erc20::deposit", ?error, "ERC20 contract result couldn't decode");
+						Err((
+							what,
+							XcmError::FailedToTransactAsset(
+								"ERC20 contract result couldn't decode",
+							),
+						))
+					},
 				}
 			}
 		} else {
@@ -220,7 +288,7 @@ where
 			// This error could've been duplicate smart contract, out of gas, etc.
 			// If the issue is gas, there's nothing the user can change in the XCM
 			// that will make this work since there's a hardcoded gas limit.
-			Err(XcmError::FailedToTransactAsset("ERC20 contract execution errored"))
+			Err((what, XcmError::FailedToTransactAsset("ERC20 contract execution errored")))
 		}
 	}
 }

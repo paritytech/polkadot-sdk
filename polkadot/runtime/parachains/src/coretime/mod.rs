@@ -367,7 +367,9 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 
 		T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 
-		let assets_reanchored = Into::<Assets>::into(withdrawn)
+		// dropping `withdrawn` effectively burns the inner imbalance
+		let assets: Vec<Asset> = withdrawn.into_assets_iter().collect();
+		let assets_reanchored = Into::<Assets>::into(assets)
 			.reanchored(&dest, &Here.into())
 			.defensive_map_err(|_| XcmError::ReanchorFailed)?;
 

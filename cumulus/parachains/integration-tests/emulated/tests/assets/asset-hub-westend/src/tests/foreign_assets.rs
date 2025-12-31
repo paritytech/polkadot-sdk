@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::{
-	assets_balance_on, create_pool_with_wnd_on, foreign_balance_on, imports::*,
-	tests::send::penpal_register_foreign_asset_on_asset_hub,
+	assets_balance_on, assets_issuance_on, create_pool_with_wnd_on, foreign_balance_on,
+	foreign_issuance_on, imports::*, tests::send::penpal_register_foreign_asset_on_asset_hub,
 };
 
 // Registers a new asset on Penpal, then registers it over XCM as foreign asset on Asset Hub.
@@ -164,6 +164,10 @@ fn bidirectional_teleport_foreign_asset_between_penpal_and_asset_hub() {
 	let dest = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let assets: Assets =
 		vec![(asset_location_on_penpal.clone(), asset_amount_to_send).into()].into();
+
+	let penpal_issuance_before = assets_issuance_on!(PenpalA, new_asset_id);
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
 	// execute xcm from penpal to asset hub
 	PenpalA::execute_with(|| {
 		// xcm to be executed at dest
@@ -201,6 +205,24 @@ fn bidirectional_teleport_foreign_asset_between_penpal_and_asset_hub() {
 	assert!(penpal_sender_balance_after < penpal_sender_balance_before);
 	assert!(ah_receiver_balance_after > ah_receiver_balance_before);
 
+	let penpal_issuance_after = assets_issuance_on!(PenpalA, new_asset_id);
+	let ah_issuance_after =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
+	// Penpal keeps track of its own teleport assets using its checking account.
+	assert_eq!(
+		penpal_issuance_before, penpal_issuance_after,
+		"Unexpected total issuance change on Penpal"
+	);
+	assert!(penpal_issuance_after > 0);
+	// Issuance on AH is expected to increase because of the foreign asset being teleported in.
+	assert_eq!(
+		ah_issuance_after,
+		ah_issuance_before + asset_amount_to_send,
+		"Unexpected total issuance on Asset Hub"
+	);
+
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
 	// reserve-transferring the asset fails
 	PenpalA::execute_with(|| {
 		let xcm = Xcm::<()>(vec![
@@ -237,6 +259,9 @@ fn bidirectional_teleport_foreign_asset_between_penpal_and_asset_hub() {
 			]
 		);
 	});
+	let ah_issuance_after =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
+	assert_eq!(ah_issuance_after, ah_issuance_before);
 
 	/////////////////////////////////////
 	// Teleport it back from AH to Penpal
@@ -301,11 +326,18 @@ fn bidirectional_teleport_foreign_asset_between_penpal_and_asset_hub() {
 	});
 
 	let ah_sender_balance_after =
-		foreign_balance_on!(AssetHubWestend, foreign_asset_location_on_ah, &receiver);
+		foreign_balance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone(), &receiver);
 	let penpal_receiver_balance_after = assets_balance_on!(PenpalA, new_asset_id, &sender);
 
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
 	assert!(penpal_receiver_balance_after > penpal_receiver_balance_before);
+	let ah_issuance_after = foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah);
+	assert_eq!(ah_issuance_after, ah_issuance_before - asset_amount_to_send);
+	let penpal_issuance_after = assets_issuance_on!(PenpalA, new_asset_id);
+	assert_eq!(
+		penpal_issuance_before, penpal_issuance_after,
+		"Unexpected total issuance change on Penpal"
+	);
 }
 
 // ==============================================================================================
@@ -334,6 +366,10 @@ fn bidirectional_reserve_transfer_foreign_asset_between_penpal_and_asset_hub() {
 	let dest = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let assets: Assets =
 		vec![(asset_location_on_penpal.clone(), asset_amount_to_send).into()].into();
+
+	let penpal_issuance_before = assets_issuance_on!(PenpalA, new_asset_id);
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
 	// execute xcm from penpal to asset hub
 	PenpalA::execute_with(|| {
 		// xcm to be executed at dest
@@ -390,6 +426,21 @@ fn bidirectional_reserve_transfer_foreign_asset_between_penpal_and_asset_hub() {
 	assert!(penpal_sender_balance_after < penpal_sender_balance_before);
 	assert!(ah_receiver_balance_after > ah_receiver_balance_before);
 
+	let penpal_issuance_after = assets_issuance_on!(PenpalA, new_asset_id);
+	let ah_issuance_after =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
+	assert_eq!(
+		penpal_issuance_before, penpal_issuance_after,
+		"Unexpected total issuance change on Penpal"
+	);
+	assert!(penpal_issuance_after > 0);
+	// Issuance on AH increases because of the foreign asset being reserve-transferred in.
+	assert_eq!(
+		ah_issuance_after,
+		ah_issuance_before + asset_amount_to_send,
+		"Unexpected total issuance on Asset Hub"
+	);
+
 	/////////////////////////////////////////////
 	// Reserve-transfer it back from AH to Penpal
 	/////////////////////////////////////////////
@@ -398,6 +449,8 @@ fn bidirectional_reserve_transfer_foreign_asset_between_penpal_and_asset_hub() {
 	let ah_sender_balance_before =
 		foreign_balance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone(), &receiver);
 	let penpal_receiver_balance_before = assets_balance_on!(PenpalA, new_asset_id, &sender);
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone());
 
 	let dest = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	// execute xcm from asset hub to penpal
@@ -452,11 +505,18 @@ fn bidirectional_reserve_transfer_foreign_asset_between_penpal_and_asset_hub() {
 	});
 
 	let ah_sender_balance_after =
-		foreign_balance_on!(AssetHubWestend, foreign_asset_location_on_ah, &receiver);
+		foreign_balance_on!(AssetHubWestend, foreign_asset_location_on_ah.clone(), &receiver);
 	let penpal_receiver_balance_after = assets_balance_on!(PenpalA, new_asset_id, &sender);
 
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
 	assert!(penpal_receiver_balance_after > penpal_receiver_balance_before);
+	let ah_issuance_after = foreign_issuance_on!(AssetHubWestend, foreign_asset_location_on_ah);
+	assert_eq!(ah_issuance_after, ah_issuance_before - asset_amount_to_send);
+	let penpal_issuance_after = assets_issuance_on!(PenpalA, new_asset_id);
+	assert_eq!(
+		penpal_issuance_before, penpal_issuance_after,
+		"Unexpected total issuance change on Penpal"
+	);
 }
 
 /// Verifies that foreign asset reserves can be only set by signed `Owner` account or through XCM
