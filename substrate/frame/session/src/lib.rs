@@ -415,6 +415,54 @@ pub trait SessionKeyManager {
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
 }
 
+/// Interface to the session pallet for cross-chain session management.
+///
+/// This trait provides a complete interface for managing sessions from external contexts,
+/// such as cross-chain communication from AssetHub to the Relay Chain. It combines session
+/// key management with validator operations and historical session data pruning.
+///
+/// Implemented by `Pallet<T>` when `T: Config + historical::Config`.
+pub trait SessionInterface {
+	/// The validator id type of the session pallet.
+	type ValidatorId: Clone;
+
+	/// The account id type.
+	type AccountId;
+
+	/// The session keys type.
+	type Keys: OpaqueKeys + codec::Decode;
+
+	/// Get the current set of validators.
+	fn validators() -> Vec<Self::ValidatorId>;
+
+	/// Prune historical session data up to the given session index.
+	fn prune_up_to(index: SessionIndex);
+
+	/// Report an offence for a validator.
+	///
+	/// This is used to disable validators directly on the RC until the next validator set.
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
+
+	/// Set session keys for an account.
+	///
+	/// This is called when AssetHub forwards a session key registration via XCM.
+	///
+	/// This method does not validate ownership proof. Callers must verify that the keys belong to
+	/// the account before calling this method.
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
+
+	/// Purge session keys for an account.
+	///
+	/// This is called when AssetHub forwards a session key purge request via XCM.
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
+
+	/// Weight for setting session keys.
+	fn set_keys_weight() -> Weight;
+
+	/// Weight for purging session keys.
+	fn purge_keys_weight() -> Weight;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -1169,6 +1217,40 @@ impl<T: Config> SessionKeyManager for Pallet<T> {
 
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
 		Self::do_purge_keys(account)
+	}
+}
+
+impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
+	type ValidatorId = T::ValidatorId;
+	type AccountId = T::AccountId;
+	type Keys = T::Keys;
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		Self::validators()
+	}
+
+	fn prune_up_to(index: SessionIndex) {
+		historical::Pallet::<T>::prune_up_to(index)
+	}
+
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
+		Self::report_offence(offender, severity)
+	}
+
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		Self::do_set_keys(account, keys)
+	}
+
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		Self::do_purge_keys(account)
+	}
+
+	fn set_keys_weight() -> Weight {
+		T::WeightInfo::set_keys()
+	}
+
+	fn purge_keys_weight() -> Weight {
+		T::WeightInfo::purge_keys()
 	}
 }
 

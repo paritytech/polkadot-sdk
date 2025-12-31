@@ -65,14 +65,10 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveSaturating, RewardsReporter},
 };
-use pallet_session::WeightInfo as SessionWeightInfo;
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::SaturatedConversion;
-use sp_staking::{
-	offence::{OffenceDetails, OffenceSeverity},
-	SessionIndex,
-};
+use sp_staking::offence::OffenceDetails;
 
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
@@ -99,78 +95,11 @@ macro_rules! log {
 	};
 }
 
-/// Interface to talk to the local session pallet.
-pub trait SessionInterface {
-	/// The validator id type of the session pallet
-	type ValidatorId: Clone;
-
-	/// The account id type
-	type AccountId;
-
-	/// The session keys type
-	type Keys: sp_runtime::traits::OpaqueKeys + codec::Decode;
-
-	fn validators() -> Vec<Self::ValidatorId>;
-
-	/// prune up to the given session index.
-	fn prune_up_to(index: SessionIndex);
-
-	/// Report an offence.
-	///
-	/// This is used to disable validators directly on the RC, until the next validator set.
-	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
-
-	/// Set session keys for an account.
-	///
-	/// This is called when AssetHub forwards a session key registration via XCM.
-	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
-
-	/// Purge session keys for an account.
-	///
-	/// This is called when AssetHub forwards a session key purge request via XCM.
-	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
-
-	/// Weight for setting session keys.
-	fn set_keys_weight() -> Weight;
-
-	/// Weight for purging session keys.
-	fn purge_keys_weight() -> Weight;
-}
-
-impl<T: Config + pallet_session::Config + pallet_session::historical::Config> SessionInterface
-	for T
-{
-	type ValidatorId = <T as pallet_session::Config>::ValidatorId;
-	type AccountId = <T as frame_system::Config>::AccountId;
-	type Keys = <T as pallet_session::Config>::Keys;
-
-	fn validators() -> Vec<Self::ValidatorId> {
-		pallet_session::Pallet::<T>::validators()
-	}
-
-	fn prune_up_to(index: SessionIndex) {
-		pallet_session::historical::Pallet::<T>::prune_up_to(index)
-	}
-	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
-		pallet_session::Pallet::<T>::report_offence(offender, severity)
-	}
-
-	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
-		<pallet_session::Pallet<T> as pallet_session::SessionKeyManager>::set_keys(account, keys)
-	}
-
-	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
-		<pallet_session::Pallet<T> as pallet_session::SessionKeyManager>::purge_keys(account)
-	}
-
-	fn set_keys_weight() -> Weight {
-		<T as pallet_session::Config>::WeightInfo::set_keys()
-	}
-
-	fn purge_keys_weight() -> Weight {
-		<T as pallet_session::Config>::WeightInfo::purge_keys()
-	}
-}
+/// Re-export `SessionInterface` from `pallet_session`.
+///
+/// This trait provides the interface to talk to the local session pallet for cross-chain
+/// session management.
+pub use pallet_session::SessionInterface;
 
 /// Represents the operating mode of the pallet.
 #[derive(
