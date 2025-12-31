@@ -1403,6 +1403,7 @@ mod session_keys {
 	use crate::ah::mock::{Balances, ProxyType};
 	use codec::Encode;
 	use frame_support::{assert_noop, BoundedVec};
+	use rc_client::AHStakingInterface;
 
 	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
 	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
@@ -1561,18 +1562,40 @@ mod session_keys {
 		});
 	}
 
+	/// Test that purge_keys can be called by any account.
+	///
+	/// Unlike set_keys (which requires validator status), purge_keys allows anyone to call it.
+	/// This matches the original pallet-session behavior and enables validators to purge their
+	/// keys after chilling. The RC will reject with NoKeys if no keys exist.
 	#[test]
-	fn purge_keys_not_validator() {
+	fn purge_keys_allowed_for_any_account() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 101 is a nominator, not a validator
 			let nominator: AccountId = 101;
 
-			// WHEN: Nominator tries to purge keys
-			// THEN: NotValidator error is returned
-			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator),),
-				rc_client::Error::<T>::NotValidator
+			// WHEN: Non-validator calls purge_keys
+			// THEN: Call succeeds - XCM is sent to RC (RC will validate if keys exist)
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator),));
+		});
+	}
+
+	/// Test that a chilled validator can still purge their session keys.
+	#[test]
+	fn purge_keys_after_chilling() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 3 is initially a validator
+			let validator: AccountId = 3;
+			assert!(Staking::is_validator(&validator), "Account 3 should be a validator");
+
+			// WHEN: Validator chills (stops being a validator)
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(validator)));
+			assert!(
+				!Staking::is_validator(&validator),
+				"Account 3 should no longer be a validator"
 			);
+
+			// THEN: Chilled account can still purge their session keys
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
 		});
 	}
 

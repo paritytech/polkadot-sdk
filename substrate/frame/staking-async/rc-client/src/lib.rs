@@ -1037,16 +1037,26 @@ pub mod pallet {
 		///
 		/// This purges the keys from the Relay Chain.
 		///
+		/// Unlike `set_keys`, this does not require the caller to be a registered validator.
+		/// This is intentional: a validator who has chilled (stopped validating) should still
+		/// be able to purge their session keys. This matches the behavior of the original
+		/// `pallet-session::purge_keys` which allows anyone to call it.
+		///
+		/// The Relay Chain will reject the call with `NoKeys` error if the account has no
+		/// keys set, so there's no risk of state pollution. The only "attack" vector would
+		/// be paying transaction fees to send XCM messages that do nothing.
+		/// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
+		/// (storage item) to track accounts that have called set_keys. We will also need to perform
+		/// a migration to populate the state for all validators that have set keys via RC.
+		///
 		/// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// Only registered validators can purge session keys
-			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
-
 			// Forward purge request to RC via XCM
+			// Note: RC will fail with NoKeys if the account has no keys set
 			#[cfg(not(feature = "runtime-benchmarks"))]
 			T::SendToRelayChain::purge_keys(stash.clone())
 				.map_err(|()| Error::<T>::XcmSendFailed)?;
