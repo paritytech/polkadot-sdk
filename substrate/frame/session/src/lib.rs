@@ -1172,6 +1172,7 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	}
 }
 
+#[cfg(feature = "historical")]
 impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 	type ValidatorId = T::ValidatorId;
 	type AccountId = T::AccountId;
