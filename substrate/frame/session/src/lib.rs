@@ -387,34 +387,6 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
-/// Trait for managing session keys.
-///
-/// This trait provides an abstraction for setting and purging session keys,
-/// enabling cross-chain session key management (e.g., from AssetHub via XCM).
-pub trait SessionKeyManager {
-	/// The account identifier type.
-	type AccountId;
-	/// The session keys type.
-	type Keys;
-
-	/// Set session keys for an account.
-	///
-	/// This registers the given keys for the account, handling deposits and
-	/// reference counting as needed.
-	///
-	/// This method does not validate ownership proof. Callers must verify that the keys belong to
-	/// the account before calling this method. In cross-chain scenarios (e.g., AssetHub to Relay
-	/// Chain), the proof validation should be performed on the originating chain before forwarding
-	/// the keys.
-	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
-
-	/// Purge session keys for an account.
-	///
-	/// This removes all session keys for the account, releasing any held deposits
-	/// and decrementing reference counts.
-	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
-}
-
 /// Interface to the session pallet for cross-chain session management.
 ///
 /// This trait provides a complete interface for managing sessions from external contexts,
@@ -937,10 +909,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This ensures that the reference counter in system is incremented appropriately and as such
 	/// must accept an account ID, rather than a validator ID.
-	///
-	/// This function is public to allow cross-chain session key management (e.g., from AssetHub
-	/// via `pallet-staking-async-ah-client`).
-	pub fn do_set_keys(account: &T::AccountId, keys: T::Keys) -> DispatchResult {
+	fn do_set_keys(account: &T::AccountId, keys: T::Keys) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
@@ -1003,11 +972,7 @@ impl<T: Config> Pallet<T> {
 		Ok(old_keys)
 	}
 
-	/// Purge session keys for an account.
-	///
-	/// This function is public to allow cross-chain session key management (e.g., from AssetHub
-	/// via `pallet-staking-async-ah-client`).
-	pub fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
+	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			// `purge_keys` may not have a controller-stash pair any more. If so then we expect the
 			// stash account to be passed in directly and convert that to a `ValidatorId` using the
@@ -1204,19 +1169,6 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 
 	fn disabled_validators() -> Vec<u32> {
 		Self::disabled_validators()
-	}
-}
-
-impl<T: Config> SessionKeyManager for Pallet<T> {
-	type AccountId = T::AccountId;
-	type Keys = T::Keys;
-
-	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
-		Self::do_set_keys(account, keys)
-	}
-
-	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
-		Self::do_purge_keys(account)
 	}
 }
 
