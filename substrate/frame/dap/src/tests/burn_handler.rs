@@ -18,7 +18,11 @@
 //! BurnHandler tests for the DAP pallet.
 
 use crate::mock::*;
-use frame_support::traits::{fungible::Inspect, tokens::BurnHandler};
+use frame_support::{
+	assert_ok,
+	traits::{fungible::Inspect, tokens::BurnHandler},
+};
+use frame_system::RawOrigin;
 
 type DapPallet = crate::Pallet<Test>;
 
@@ -39,5 +43,25 @@ fn on_burned_credits_buffer_and_accumulates() {
 
 		// Then: buffer has ED + 600 (zero amount ignored, others accumulated).
 		assert_eq!(Balances::free_balance(buffer), ed + 600);
+	});
+}
+
+#[test]
+fn on_burned_handles_overflow_gracefully() {
+	new_test_ext().execute_with(|| {
+		let buffer = DapPallet::buffer_account();
+
+		// Given: buffer is set to near-max balance via force_set_balance.
+		let near_max = u64::MAX - 100;
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), buffer, near_max));
+		assert_eq!(Balances::free_balance(buffer), near_max);
+
+		// When: burn would cause overflow (near_max + 200 > u64::MAX).
+		// This should NOT panic due to defensive handling with Precision::BestEffort.
+		<DapPallet as BurnHandler<_, _>>::on_burned(&1u64, 200);
+
+		// Then: buffer balance should be capped at what's possible (best effort).
+		let final_balance = Balances::free_balance(buffer);
+		assert!(final_balance == u64::MAX, "Final balance should be equal to max balance");
 	});
 }

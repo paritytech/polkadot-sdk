@@ -18,7 +18,11 @@
 //! BurnHandler tests for the DAP Satellite pallet.
 
 use crate::mock::*;
-use frame_support::traits::{fungible::Inspect, tokens::BurnHandler};
+use frame_support::{
+	assert_ok,
+	traits::{fungible::Inspect, tokens::BurnHandler},
+};
+use frame_system::RawOrigin;
 
 type DapSatellitePallet = crate::Pallet<Test>;
 
@@ -39,5 +43,25 @@ fn on_burned_credits_satellite_and_accumulates() {
 
 		// Then: satellite has ED + 600 (zero amount ignored, others accumulated).
 		assert_eq!(Balances::free_balance(satellite), ed + 600);
+	});
+}
+
+#[test]
+fn on_burned_handles_overflow_gracefully() {
+	new_test_ext().execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+
+		// Given: satellite is set to near-max balance via force_set_balance.
+		let near_max = u64::MAX - 100;
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), satellite, near_max));
+		assert_eq!(Balances::free_balance(satellite), near_max);
+
+		// When: burn would cause overflow (near_max + 200 > u64::MAX).
+		// This should NOT panic due to defensive handling with Precision::BestEffort.
+		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&1u64, 200);
+
+		// Then: satellite balance should be capped at max balance.
+		let final_balance = Balances::free_balance(satellite);
+		assert!(final_balance == u64::MAX, "Final balance should be equal to max balance");
 	});
 }
