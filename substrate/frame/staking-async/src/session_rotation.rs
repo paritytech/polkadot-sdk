@@ -351,6 +351,9 @@ impl<T: Config> Eras<T> {
 			// insert metadata.
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
 
+			// Track that this validator was active in this era for slash liability tracking.
+			LastValidatorEra::<T>::insert(validator, era);
+
 			// insert validator's overview.
 			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at = idx as Page;

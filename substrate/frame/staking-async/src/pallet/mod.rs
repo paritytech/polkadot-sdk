@@ -505,6 +505,21 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
+	/// Tracks the last era in which an account was active as a validator (included in the era's
+	/// exposure/snapshot).
+	///
+	/// This is used to enforce that accounts who were recently validators must wait the full
+	/// [`Config::BondingDuration`] before their funds can be withdrawn, even if they switch to
+	/// nominator role. This prevents validators from:
+	/// 1. Committing a slashable offence in era N
+	/// 2. Switching to nominator role
+	/// 3. Using the shorter nominator unbonding duration to withdraw funds before being slashed
+	///
+	/// Updated when era snapshots are created (in `ErasStakersPaged`/`ErasStakersOverview`).
+	/// Cleaned up when the stash is killed (fully withdrawn/reaped).
+	#[pallet::storage]
+	pub type LastValidatorEra<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, EraIndex>;
+
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
 	///
@@ -1698,12 +1713,22 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Determine unbonding duration: nominators may have shorter duration when not
-				// slashable. Validators always use full BondingDuration.
-				let unbond_duration = if is_nominator {
-					<Self as sp_staking::StakingInterface>::nominator_bonding_duration()
-				} else {
+				// Determine unbonding duration based on validator history.
+				// If the account was a validator in recent eras (within BondingDuration), they must
+				// wait the full BondingDuration even if they've switched to nominator role.
+				// This prevents validators from avoiding slashing by switching roles and using the
+				// shorter nominator unbonding period.
+				let active_era = session_rotation::Rotator::<T>::active_era();
+				let was_recent_validator = LastValidatorEra::<T>::get(&stash)
+					.map(|last_era| active_era.saturating_sub(last_era) < T::BondingDuration::get())
+					.unwrap_or(false);
+
+				let unbond_duration = if was_recent_validator {
+					// Use full bonding duration for recent validators
 					T::BondingDuration::get()
+				} else {
+					// Use nominator bonding duration for pure nominators
+					<Self as sp_staking::StakingInterface>::nominator_bonding_duration()
 				};
 
 				let era =

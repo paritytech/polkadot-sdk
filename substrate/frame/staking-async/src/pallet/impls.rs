@@ -538,6 +538,9 @@ impl<T: Config> Pallet<T> {
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
 
+		// Clean up validator history tracking.
+		LastValidatorEra::<T>::remove(&stash);
+
 		Ok(())
 	}
 
@@ -1565,13 +1568,19 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
-	/// Returns the bonding duration for nominators.
+	/// Returns the bonding duration for pure nominators.
 	///
-	/// - When [`AreNominatorsSlashable`] is `true`, nominators follow the same bonding duration as
-	///   validators ([`Config::BondingDuration`]).
-	/// - When [`AreNominatorsSlashable`] is `false`, nominators use the configurable fast unbond
-	///   duration ([`Config::NominatorFastUnbondDuration`]) since they are not subject to slashing
-	///   and don't need to wait for potential offence reports.
+	/// This returns the *potential* fast unbonding duration that pure nominators can use:
+	/// - When [`AreNominatorsSlashable`] is `true`, returns full [`Config::BondingDuration`]
+	/// - When [`AreNominatorsSlashable`] is `false`, returns
+	///   [`Config::NominatorFastUnbondDuration`]
+	///
+	/// **Important**: The actual unbonding duration for a specific account is determined in
+	/// `unbond()` based on validator history (see [`LastValidatorEra`]):
+	/// - Validators always use full [`Config::BondingDuration`]
+	/// - Nominators who were validators in recent eras (within [`Config::BondingDuration`]) use
+	///   full [`Config::BondingDuration`] to ensure they can be slashed for past offences
+	/// - Pure nominators use the value returned by this function
 	fn nominator_bonding_duration() -> EraIndex {
 		if AreNominatorsSlashable::<T>::get() {
 			T::BondingDuration::get()

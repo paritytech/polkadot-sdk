@@ -593,3 +593,138 @@ fn mixed_era_offences_processed_based_on_era_specific_setting() {
 			);
 		});
 }
+
+/// Test that validators who switch to nominator role must still use full bonding duration.
+///
+/// This test verifies that a validator cannot avoid slash in following scenario:
+/// 1. A validator commits a slashable offence in era N
+/// 2. The validator switches to nominator role (calling `nominate()`)
+/// 3. Unbond with fast `NominatorFastUnbondDuration` and withdraw before the slash is applied
+#[test]
+fn validator_cannot_switch_to_nominator_to_avoid_slashing() {
+	ExtBuilder::default()
+		.set_nominators_slashable(false)
+		.slash_defer_duration(2) // Defer slashing by 2 eras
+		.build_and_execute(|| {
+			let alice = 11;
+			// Alice is a validator in era 1
+			assert!(Validators::<Test>::contains_key(&alice));
+			assert!(!Nominators::<Test>::contains_key(&alice));
+			assert_eq!(active_era(), 1);
+
+			let validator_stake_before = Staking::ledger(alice.into()).unwrap().active;
+			assert_eq!(validator_stake_before, 1000);
+
+			// Step 1: Alice commits a slashable offence in era 1 (10% slash)
+			add_slash(alice);
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceReported {
+					offence_era: 1,
+					validator: alice,
+					fraction: Perbill::from_percent(10)
+				}]
+			);
+
+			// Process the offence - it will be computed and deferred to era 3 (1 + 2)
+			Session::roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::SlashComputed {
+					offence_era: 1,
+					slash_era: 3,
+					offender: alice,
+					page: 0
+				}]
+			);
+
+			// Step 2: Alice switches to nominator role
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(alice), vec![21]));
+
+			// Verify Alice is now a nominator (no longer a validator)
+			assert!(!Validators::<Test>::contains_key(&alice));
+			assert!(Nominators::<Test>::contains_key(&alice));
+
+			// Step 3: Alice (now a nominator) unbonds partially
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 999));
+			assert_eq!(
+				staking_events_since_last_call(),
+				[Event::Unbonded { stash: alice, amount: 999 }]
+			);
+
+			// Alice should still be a nominator
+			assert!(Nominators::<Test>::contains_key(&alice));
+
+			// Calculate expected unlock eras:
+			// - Fast unbond: current_era (1) + NominatorFastUnbondDuration (2) = 3
+			// - Full unbond: current_era (1) + BondingDuration (3) = 4
+			let fast_unbond_era = 1 + NominatorFastUnbondDuration::get();
+			let validator_unbond_era = 1 + BondingDuration::get();
+
+			assert_eq!(NominatorFastUnbondDuration::get(), 2);
+			assert_eq!(BondingDuration::get(), 3);
+			assert_eq!(fast_unbond_era, 3);
+			assert_eq!(validator_unbond_era, 4);
+
+			// Alice must use full bonding duration despite being a nominator now,
+			// because she was a validator in era 1 (within BondingDuration of active era).
+			// This prevents her from withdrawing before the slash is applied.
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: alice,
+					total: 1000,
+					active: 1,
+					unlocking: bounded_vec![UnlockChunk { value: 999, era: validator_unbond_era }],
+				}
+			);
+
+			// Step 4: Try to withdraw in era 3 (when fast unbond would have completed)
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+
+			// Verify no withdrawal occurred - funds are still locked
+			assert_eq!(staking_events_since_last_call(), []);
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap().total,
+				1000 // initial stake
+			);
+
+			// Step 5: Slash is applied (happens in the next block)
+			Session::roll_next();
+
+			// Verify slash event and that Alice is slashed properly (10% of 1000 = 100)
+			assert_eq!(
+				staking_events_since_last_call(),
+				[Event::Slashed { staker: alice, amount: 100 }]
+			);
+
+			let ledger_after_slash = Staking::ledger(alice.into()).unwrap();
+			assert_eq_error_rate!(
+				ledger_after_slash.total,
+				900, // Expected: 1000 - 10% = 900
+				1    // Allow small error margin due to rounding
+			);
+
+			// Step 6: Wait until era 4 when the full bonding duration expires
+			Session::roll_until_active_era(4);
+			let _ = staking_events_since_last_call();
+
+			// Now Alice can withdraw - the full bonding duration has elapsed
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+
+			// Verify Alice was slashed and stash was reaped (fell below minimum after slash)
+			// Total was reduced to ~900 by the slash, so withdrawn amount is ~900
+			assert_eq!(
+				staking_events_since_last_call(),
+				[
+					Event::StakerRemoved { stash: alice },
+					Event::Withdrawn { stash: alice, amount: 900 }
+				]
+			);
+
+			// Ledger should be fully reaped
+			assert!(Staking::ledger(alice.into()).is_err(), "Ledger should be reaped");
+		});
+}
