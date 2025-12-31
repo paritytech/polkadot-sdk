@@ -136,6 +136,7 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+            sale_id: 0,
 		};
 		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
 		Self::rotate_sale(old_sale, &config, &status);
