@@ -176,12 +176,7 @@ impl PeerData {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			for removed in old_view.difference(&self.view) {
 				// Remove relay parent advertisements if it went out of our (implicit) view.
-				let keep = is_relay_parent_in_implicit_view(
-					removed,
-					implicit_view,
-					active_leaves,
-					peer_state.para_id,
-				);
+				let keep = is_relay_parent_in_implicit_view(removed, implicit_view, active_leaves);
 
 				if !keep {
 					peer_state.advertisements.remove(&removed);
@@ -202,12 +197,7 @@ impl PeerData {
 				// - Relay parent is an active leaf
 				// - It belongs to allowed ancestry under some leaf
 				// Discard otherwise.
-				is_relay_parent_in_implicit_view(
-					hash,
-					implicit_view,
-					active_leaves,
-					peer_state.para_id,
-				)
+				is_relay_parent_in_implicit_view(hash, implicit_view, active_leaves)
 			});
 		}
 	}
@@ -224,12 +214,8 @@ impl PeerData {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
 			PeerState::Collating(ref mut state) => {
-				if !is_relay_parent_in_implicit_view(
-					&on_relay_parent,
-					implicit_view,
-					active_leaves,
-					state.para_id,
-				) {
+				if !is_relay_parent_in_implicit_view(&on_relay_parent, implicit_view, active_leaves)
+				{
 					return Err(InsertAdvertisementError::OutOfOurView)
 				}
 
@@ -572,11 +558,10 @@ fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
 	active_leaves: &HashSet<Hash>,
-	para_id: ParaId,
 ) -> bool {
 	active_leaves.iter().any(|hash| {
 		implicit_view
-			.known_allowed_relay_parents_under(hash, Some(para_id))
+			.known_allowed_relay_parents_under(hash)
 			.unwrap_or_default()
 			.contains(relay_parent)
 	})
@@ -1547,10 +1532,8 @@ where
 			.map_err(Error::ImplicitViewFetchError)?;
 
 		// Order is always descending.
-		let allowed_ancestry = state
-			.implicit_view
-			.known_allowed_relay_parents_under(leaf, None)
-			.unwrap_or_default();
+		let allowed_ancestry =
+			state.implicit_view.known_allowed_relay_parents_under(leaf).unwrap_or_default();
 		for block_hash in allowed_ancestry {
 			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
 				// Safe to use the same v2 receipts config for the allowed relay parents as well

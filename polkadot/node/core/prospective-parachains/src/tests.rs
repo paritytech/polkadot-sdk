@@ -28,8 +28,9 @@ use polkadot_primitives::{
 	async_backing::{
 		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
 	},
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Header,
-	MutateDescriptorV2, PersistedValidationData, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
+	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
+	Header, MutateDescriptorV2, PersistedValidationData, ValidationCodeHash,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use rstest::rstest;
@@ -149,22 +150,20 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 #[derive(Debug, Clone)]
 struct PerParaData {
-	min_relay_parent: BlockNumber,
 	head_data: HeadData,
 	pending_availability: Vec<CandidatePendingAvailability>,
 }
 
 impl PerParaData {
-	pub fn new(min_relay_parent: BlockNumber, head_data: HeadData) -> Self {
-		Self { min_relay_parent, head_data, pending_availability: Vec::new() }
+	pub fn new(head_data: HeadData) -> Self {
+		Self { head_data, pending_availability: Vec::new() }
 	}
 
 	pub fn new_with_pending(
-		min_relay_parent: BlockNumber,
 		head_data: HeadData,
 		pending: Vec<CandidatePendingAvailability>,
 	) -> Self {
-		Self { min_relay_parent, head_data, pending_availability: pending }
+		Self { head_data, pending_availability: pending }
 	}
 }
 
@@ -245,7 +244,7 @@ async fn handle_leaf_activation(
 	test_state: &TestState,
 	parent_hash_fn: impl Fn(Hash) -> Hash,
 ) {
-	let TestLeaf { number, hash, para_data } = leaf;
+	let TestLeaf { number, hash, para_data: _ } = leaf;
 
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -277,14 +276,15 @@ async fn handle_leaf_activation(
 	);
 
 	// Check that subsystem job issues a request for ancestors.
-	let min_min = para_data.iter().map(|(_, data)| data.min_relay_parent).min().unwrap_or(*number);
-	let ancestry_len = number - min_min;
+	// ancestry_len is (lookahead - 1), which determines how many ancestors to fetch.
+	let ancestry_len = (DEFAULT_SCHEDULING_LOOKAHEAD - 1) as usize;
 	let ancestry_hashes: Vec<Hash> =
 		std::iter::successors(Some(*hash), |h| Some(parent_hash_fn(*h)))
 			.skip(1)
-			.take(ancestry_len as usize)
+			.take(ancestry_len)
 			.collect();
-	let ancestry_numbers = (min_min..*number).rev();
+	let min_relay_parent_number = number.saturating_sub(ancestry_len as u32);
+	let ancestry_numbers = (min_relay_parent_number..*number).rev();
 	let ancestry_iter = ancestry_hashes.clone().into_iter().zip(ancestry_numbers).peekable();
 	if ancestry_len > 0 {
 		assert_matches!(
@@ -323,11 +323,14 @@ async fn handle_leaf_activation(
 				parent,
 				RuntimeApiRequest::ParaBackingState(p_id, tx),
 			)) if parent == *hash => {
-				let PerParaData { min_relay_parent, head_data, pending_availability } =
-					leaf.para_data(p_id);
+				let PerParaData { head_data, pending_availability } = leaf.para_data(p_id);
+
+				// Calculate global min_relay_parent_number
+				let min_relay_parent_number =
+					number.saturating_sub((DEFAULT_SCHEDULING_LOOKAHEAD - 1) as u32);
 
 				let constraints = dummy_constraints(
-					*min_relay_parent,
+					min_relay_parent_number,
 					vec![*number],
 					head_data.clone(),
 					test_state.validation_code_hash,
@@ -347,10 +350,16 @@ async fn handle_leaf_activation(
 				test_state.runtime_api_version >=
 					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
 			{
-				let PerParaData { min_relay_parent, head_data, pending_availability: _ } =
-					leaf.para_data(p_id);
+				let PerParaData { head_data, pending_availability: _ } = leaf.para_data(p_id);
+
+				// min_relay_parent_number is global (same for all paras), calculated as:
+				// now - min(lookahead - 1, actual_ancestry_len)
+				// The ancestry_len was calculated during leaf activation and determines
+				// how many ancestors are available (limited by session boundaries).
+				let min_relay_parent_number = number.saturating_sub(ancestry_len as u32);
+
 				let constraints = dummy_constraints(
-					*min_relay_parent,
+					min_relay_parent_number,
 					vec![*number],
 					head_data.clone(),
 					test_state.validation_code_hash,
@@ -405,23 +414,6 @@ async fn handle_leaf_activation(
 			}
 		}
 	}
-
-	// Get minimum relay parents.
-	let (tx, rx) = oneshot::channel();
-	virtual_overseer
-		.send(overseer::FromOrchestra::Communication {
-			msg: ProspectiveParachainsMessage::GetMinimumRelayParents(*hash, tx),
-		})
-		.await;
-
-	let mut resp = rx.await.unwrap();
-
-	resp.sort();
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_eq!(resp, mrp_response);
 }
 
 async fn deactivate_leaf(virtual_overseer: &mut VirtualOverseer, hash: Hash) {
@@ -604,8 +596,8 @@ fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Leaf B
@@ -613,8 +605,8 @@ fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(99, HeadData(vec![3, 4, 5]))),
-				(2.into(), PerParaData::new(101, HeadData(vec![4, 5, 6]))),
+				(1.into(), PerParaData::new(HeadData(vec![3, 4, 5]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
 			],
 		};
 		// Leaf C
@@ -622,8 +614,8 @@ fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
 			number: 102,
 			hash: Hash::from_low_u64_be(132),
 			para_data: vec![
-				(1.into(), PerParaData::new(102, HeadData(vec![5, 6, 7]))),
-				(2.into(), PerParaData::new(98, HeadData(vec![6, 7, 8]))),
+				(1.into(), PerParaData::new(HeadData(vec![5, 6, 7]))),
+				(2.into(), PerParaData::new(HeadData(vec![6, 7, 8]))),
 			],
 		};
 
@@ -775,8 +767,8 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Default::default(),
 			para_data: vec![
-				(1.into(), PerParaData::new(98, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -884,8 +876,8 @@ fn introduce_candidate_multiple_times(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Activate leaves.
@@ -958,8 +950,8 @@ fn fragment_chain_best_chain_length_is_bounded() {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Activate leaves.
@@ -1043,8 +1035,8 @@ fn introduce_candidate_parent_leaving_view() {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Leaf B
@@ -1052,8 +1044,8 @@ fn introduce_candidate_parent_leaving_view() {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(99, HeadData(vec![3, 4, 5]))),
-				(2.into(), PerParaData::new(101, HeadData(vec![4, 5, 6]))),
+				(1.into(), PerParaData::new(HeadData(vec![3, 4, 5]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
 			],
 		};
 		// Leaf C
@@ -1061,8 +1053,8 @@ fn introduce_candidate_parent_leaving_view() {
 			number: 102,
 			hash: Hash::from_low_u64_be(132),
 			para_data: vec![
-				(1.into(), PerParaData::new(102, HeadData(vec![5, 6, 7]))),
-				(2.into(), PerParaData::new(98, HeadData(vec![6, 7, 8]))),
+				(1.into(), PerParaData::new(HeadData(vec![5, 6, 7]))),
+				(2.into(), PerParaData::new(HeadData(vec![6, 7, 8]))),
 			],
 		};
 
@@ -1271,8 +1263,8 @@ fn introduce_candidate_on_multiple_forks(#[case] runtime_api_version: u32) {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(99, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(101, HeadData(vec![4, 5, 6]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
 			],
 		};
 		// Leaf A
@@ -1280,8 +1272,8 @@ fn introduce_candidate_on_multiple_forks(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: get_parent_hash(leaf_b.hash),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -1352,8 +1344,8 @@ fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Activate leaves.
@@ -1456,8 +1448,8 @@ fn check_backable_query_single_candidate() {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -1610,8 +1602,8 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -1886,8 +1878,8 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Leaf A
@@ -1895,8 +1887,8 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: get_parent_hash(leaf_b.hash),
 			para_data: vec![
-				(1.into(), PerParaData::new(98, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -2056,8 +2048,8 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 
@@ -2194,8 +2186,8 @@ fn correctly_updates_leaves() {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
 			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
 			],
 		};
 		// Leaf B
@@ -2203,8 +2195,8 @@ fn correctly_updates_leaves() {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(99, HeadData(vec![3, 4, 5]))),
-				(2.into(), PerParaData::new(101, HeadData(vec![4, 5, 6]))),
+				(1.into(), PerParaData::new(HeadData(vec![3, 4, 5]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
 			],
 		};
 		// Leaf C
@@ -2212,8 +2204,8 @@ fn correctly_updates_leaves() {
 			number: 102,
 			hash: Hash::from_low_u64_be(132),
 			para_data: vec![
-				(1.into(), PerParaData::new(102, HeadData(vec![5, 6, 7]))),
-				(2.into(), PerParaData::new(98, HeadData(vec![6, 7, 8]))),
+				(1.into(), PerParaData::new(HeadData(vec![5, 6, 7]))),
+				(2.into(), PerParaData::new(HeadData(vec![6, 7, 8]))),
 			],
 		};
 
@@ -2300,7 +2292,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 		let leaf_a = TestLeaf {
 			number: 100,
 			hash: Hash::from_low_u64_be(130),
-			para_data: vec![(para_id, PerParaData::new(97, HeadData(vec![1, 2, 3])))],
+			para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
 		};
 		// Activate leaf A.
 		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
@@ -2351,7 +2343,6 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			para_data: vec![(
 				para_id,
 				PerParaData::new_with_pending(
-					98,
 					HeadData(vec![1, 2, 3]),
 					vec![
 						CandidatePendingAvailability {
@@ -2444,7 +2435,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			hash: Hash::from_low_u64_be(12),
 			para_data: vec![(
 				para_id,
-				PerParaData::new_with_pending(98, HeadData(vec![1, 2, 3]), vec![]),
+				PerParaData::new_with_pending(HeadData(vec![1, 2, 3]), vec![]),
 			)],
 		};
 
@@ -2552,10 +2543,7 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 	let mut leaves = vec![TestLeaf {
 		number: 100,
 		hash: Hash::from_low_u64_be(130),
-		para_data: vec![(
-			para_id,
-			PerParaData::new(100 - (scheduling_lookahead - 1), HeadData(vec![1, 2, 3])),
-		)],
+		para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
 	}];
 
 	for index in 1..10 {
@@ -2563,13 +2551,7 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 		leaves.push(TestLeaf {
 			number: prev_leaf.number - 1,
 			hash: get_parent_hash(prev_leaf.hash),
-			para_data: vec![(
-				para_id,
-				PerParaData::new(
-					prev_leaf.number - 1 - (scheduling_lookahead - 1),
-					HeadData(vec![1, 2, 3]),
-				),
-			)],
+			para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
 		});
 	}
 	leaves.reverse();
@@ -2620,16 +2602,14 @@ fn persists_pending_availability_candidate(#[case] runtime_api_version: u32) {
 		let para_head = HeadData(vec![1, 2, 3]);
 
 		// Min allowed relay parent for leaf `a` which goes out of scope in the test.
-		let candidate_relay_parent = Hash::from_low_u64_be(5);
+		// Block 97 will have hash 0x04 given the ancestry chain from leaf_a (hash 0x02).
+		let candidate_relay_parent = Hash::from_low_u64_be(4);
 		let candidate_relay_parent_number = 97;
 
 		let leaf_a = TestLeaf {
-			number: candidate_relay_parent_number + DEFAULT_SCHEDULING_LOOKAHEAD,
+			number: candidate_relay_parent_number + (DEFAULT_SCHEDULING_LOOKAHEAD - 1),
 			hash: Hash::from_low_u64_be(2),
-			para_data: vec![(
-				para_id,
-				PerParaData::new(candidate_relay_parent_number, para_head.clone()),
-			)],
+			para_data: vec![(para_id, PerParaData::new(para_head.clone()))],
 		};
 
 		let leaf_b_hash = Hash::from_low_u64_be(1);
@@ -2677,11 +2657,7 @@ fn persists_pending_availability_candidate(#[case] runtime_api_version: u32) {
 			hash: leaf_b_hash,
 			para_data: vec![(
 				1.into(),
-				PerParaData::new_with_pending(
-					candidate_relay_parent_number + 1,
-					para_head.clone(),
-					vec![candidate_a_pending_av],
-				),
+				PerParaData::new_with_pending(para_head.clone(), vec![candidate_a_pending_av]),
 			)],
 		};
 		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;

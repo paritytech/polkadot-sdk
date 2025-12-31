@@ -75,21 +75,7 @@ pub(super) async fn update_view(
 		let ancestry_numbers = (min_number..=leaf_number).rev();
 		let mut ancestry_iter = ancestry_hashes.clone().zip(ancestry_numbers).peekable();
 		if let Some((hash, number)) = ancestry_iter.next() {
-			assert_matches!(
-				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
-				AllMessages::ChainApi(ChainApiMessage::BlockHeader(.., tx)) => {
-					let header = Header {
-						parent_hash: get_parent_hash(hash),
-						number,
-						state_root: Hash::zero(),
-						extrinsics_root: Hash::zero(),
-						digest: Default::default(),
-					};
-
-					tx.send(Ok(Some(header))).unwrap();
-				}
-			);
-
+			// fetch_ancestors is called first, which requests session for the leaf
 			assert_matches!(
 				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
 				AllMessages::RuntimeApi(
@@ -135,20 +121,37 @@ pub(super) async fn update_view(
 					tx.send(Ok(hashes)).unwrap();
 				}
 			);
-		}
 
-		for _ in ancestry_iter.clone() {
+			// fetch_ancestors checks session for each ancestor
+			for _ in ancestry_iter.clone() {
+				assert_matches!(
+					overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(
+							..,
+							RuntimeApiRequest::SessionIndexForChild(
+								tx
+							)
+						)
+					) => {
+						tx.send(Ok(1)).unwrap();
+					}
+				);
+			}
+
+			// Now fetch_fresh_leaf_and_insert_ancestry requests block headers
 			assert_matches!(
 				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(
-						..,
-						RuntimeApiRequest::SessionIndexForChild(
-							tx
-						)
-					)
-				) => {
-					tx.send(Ok(1)).unwrap();
+				AllMessages::ChainApi(ChainApiMessage::BlockHeader(.., tx)) => {
+					let header = Header {
+						parent_hash: get_parent_hash(hash),
+						number,
+						state_root: Hash::zero(),
+						extrinsics_root: Hash::zero(),
+						digest: Default::default(),
+					};
+
+					tx.send(Ok(Some(header))).unwrap();
 				}
 			);
 		}

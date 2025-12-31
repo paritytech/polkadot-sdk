@@ -994,7 +994,7 @@ async fn handle_active_leaves_update<Context>(
 		None => return Ok(()),
 		Some((leaf, Ok(_))) => {
 			let fresh_relay_parents =
-				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash, None);
+				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash);
 
 			let fresh_relay_parent = match fresh_relay_parents {
 				Some(f) => f.to_vec(),
@@ -1252,15 +1252,13 @@ async fn seconding_sanity_check<Context>(
 	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
 
-	let candidate_para = hypothetical_candidate.candidate_para();
 	let candidate_relay_parent = hypothetical_candidate.relay_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
 		// Check that the candidate relay parent is allowed for para, skip the
 		// leaf otherwise.
-		let allowed_parents_for_para =
-			implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
+		let allowed_parents_for_para = implicit_view.known_allowed_relay_parents_under(head);
 		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
 			continue
 		}
