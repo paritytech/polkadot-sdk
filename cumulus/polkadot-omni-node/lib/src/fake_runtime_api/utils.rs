@@ -1,22 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
-	pub use parachains_common::{AccountId, Balance, Nonce};
+	pub use cumulus_primitives_core::ParaId;
+	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
 		traits::Block as BlockT,
@@ -34,7 +34,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn execute_block(_: $block) {
+				fn execute_block(_: <$block as BlockT>::LazyBlock) {
 					unimplemented!()
 				}
 
@@ -55,6 +55,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn metadata_versions() -> Vec<u32> {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
+				fn relay_parent_offset() -> u32 {
 					unimplemented!()
 				}
 			}
@@ -94,7 +100,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn check_inherents(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: sp_inherents::InherentData
 				) -> sp_inherents::CheckInherentsResult {
 					unimplemented!()
@@ -111,8 +117,14 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl sp_offchain::OffchainWorkerApi<$block> for $runtime {
+				fn offchain_worker(_: &<$block as BlockT>::Header) {
+					unimplemented!()
+				}
+			}
+
 			impl sp_session::SessionKeys<$block> for $runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+				fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 					unimplemented!()
 				}
 
@@ -121,6 +133,7 @@ macro_rules! impl_node_runtime_apis {
 				) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 					unimplemented!()
 				}
+
 			}
 
 			impl
@@ -157,12 +170,11 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
+				fn parachain_id() -> ParaId {
 					unimplemented!()
 				}
 			}
-
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(
@@ -172,7 +184,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn execute_block(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: bool,
 					_: bool,
 					_: frame_try_runtime::TryStateSelect,
@@ -200,6 +212,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
+				#[allow(non_local_definitions)]
 				fn dispatch_benchmark(
 					_: frame_benchmarking::BenchmarkConfig
 				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
@@ -217,6 +230,27 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+					unimplemented!()
+				}
+			}
+
+			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
+				fn validate_statement(
+					_source: sp_statement_store::runtime_api::StatementSource,
+					_statement: sp_statement_store::Statement,
+				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
+				fn target_block_rate() -> u32 {
+					unimplemented!()
+				}
+			}
+
+			impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<$block> for $runtime {
+				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
 					unimplemented!()
 				}
 			}

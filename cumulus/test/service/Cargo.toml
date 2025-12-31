@@ -22,7 +22,6 @@ prometheus = { workspace = true }
 rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }
@@ -75,8 +74,6 @@ cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
-cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
@@ -89,20 +86,10 @@ cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 pallet-timestamp = { workspace = true, default-features = true }
-parachains-common = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
 futures = { workspace = true }
-portpicker = { workspace = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-
-# Polkadot dependencies
-polkadot-test-service = { workspace = true }
-
-# Substrate dependencies
-sc-cli = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
 
 [features]
 runtime-benchmarks = [
@@ -113,7 +100,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",

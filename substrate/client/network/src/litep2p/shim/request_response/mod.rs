@@ -273,6 +273,13 @@ impl RequestResponseProtocol {
 		request_id: RequestId,
 		request: Vec<u8>,
 	) {
+		log::trace!(
+			target: LOG_TARGET,
+			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
+			self.protocol,
+			request.len(),
+		);
+
 		let Some(inbound_queue) = &self.inbound_queue else {
 			log::trace!(
 				target: LOG_TARGET,
@@ -284,12 +291,18 @@ impl RequestResponseProtocol {
 			return;
 		};
 
-		log::trace!(
-			target: LOG_TARGET,
-			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
-			self.protocol,
-			request.len(),
-		);
+		if self.peerstore_handle.is_banned(&peer.into()) {
+			log::trace!(
+				target: LOG_TARGET,
+				"{}: rejecting inbound request from banned {peer:?} ({request_id:?})",
+				self.protocol,
+			);
+
+			self.handle.reject_request(request_id);
+			self.metrics.register_inbound_request_failure("banned-peer");
+			return;
+		}
+
 		let (tx, rx) = oneshot::channel();
 
 		match inbound_queue.try_send(IncomingRequest {
@@ -420,7 +433,7 @@ impl RequestResponseProtocol {
 					Some(sender) => {
 						log::debug!(
 							target: LOG_TARGET,
-							"{}: failed to negotiate protocol with {:?}, try fallback request: ({})",
+							"{}: failed to negotiate protocol with {:?}. Trying the fallback protocol ({})",
 							self.protocol,
 							peer,
 							protocol,

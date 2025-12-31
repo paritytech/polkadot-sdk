@@ -12,6 +12,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 
@@ -82,6 +85,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",

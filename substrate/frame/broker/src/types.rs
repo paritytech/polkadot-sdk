@@ -19,12 +19,12 @@ use crate::{
 	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
 	CORE_MASK_BITS,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, RuntimeDebug};
+use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
@@ -42,7 +42,18 @@ pub type CoreMaskBitCount = u32;
 pub type SignedCoreMaskBitCount = i32;
 
 /// Whether a core assignment is revokable or not.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum Finality {
 	/// The region remains with the same owner allowing the assignment to be altered.
 	Provisional,
@@ -51,7 +62,18 @@ pub enum Finality {
 }
 
 /// Self-describing identity for a Region of Bulk Coretime.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct RegionId {
 	/// The timeslice at which this Region begins.
 	pub begin: Timeslice,
@@ -67,7 +89,7 @@ impl From<u128> for RegionId {
 }
 impl From<RegionId> for u128 {
 	fn from(x: RegionId) -> Self {
-		(x.begin as u128) << 96 | (x.core as u128) << 80 | u128::from(x.mask)
+		((x.begin as u128) << 96) | ((x.core as u128) << 80) | u128::from(x.mask)
 	}
 }
 #[test]
@@ -79,7 +101,7 @@ fn region_id_converts_u128() {
 }
 
 /// The rest of the information describing a Region.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct RegionRecord<AccountId, Balance> {
 	/// The end of the Region.
 	pub end: Timeslice,
@@ -91,7 +113,9 @@ pub struct RegionRecord<AccountId, Balance> {
 pub type RegionRecordOf<T> = RegionRecord<<T as SConfig>::AccountId, BalanceOf<T>>;
 
 /// An distinct item which can be scheduled on a Polkadot Core.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct ScheduleItem {
 	/// The regularity parts in which this Item will be scheduled on the Core.
 	pub mask: CoreMask,
@@ -102,7 +126,7 @@ pub type Schedule = BoundedVec<ScheduleItem, ConstU32<{ CORE_MASK_BITS as u32 }>
 
 /// The record body of a Region which was contributed to the Instantaneous Coretime Pool. This helps
 /// with making pro rata payments to contributors.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ContributionRecord<AccountId> {
 	/// The end of the Region contributed.
 	pub length: Timeslice,
@@ -113,7 +137,7 @@ pub type ContributionRecordOf<T> = ContributionRecord<<T as SConfig>::AccountId>
 
 /// A per-timeslice bookkeeping record for tracking Instantaneous Coretime Pool activity and
 /// making proper payments to contributors.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct InstaPoolHistoryRecord<Balance> {
 	/// The total amount of Coretime (measured in Core Mask Bits minus any contributions which have
 	/// already been paid out.
@@ -128,7 +152,7 @@ pub struct InstaPoolHistoryRecord<Balance> {
 pub type InstaPoolHistoryRecordOf<T> = InstaPoolHistoryRecord<BalanceOf<T>>;
 
 /// How much of a core has been assigned or, if completely assigned, the workload itself.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum CompletionStatus {
 	/// The core is not fully assigned; the inner is the parts which have.
 	Partial(CoreMask),
@@ -153,7 +177,7 @@ impl CompletionStatus {
 }
 
 /// The identity of a possibly renewable Core workload.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PotentialRenewalId {
 	/// The core whose workload at the sale ending with `when` may be renewed to begin at `when`.
 	pub core: CoreIndex,
@@ -165,7 +189,7 @@ pub struct PotentialRenewalId {
 ///
 /// The renewal will only actually be allowed if `CompletionStatus` is `Complete` at the time of
 /// renewal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PotentialRenewalRecord<Balance> {
 	/// The price for which the next renewal can be made.
 	pub price: Balance,
@@ -176,7 +200,7 @@ pub struct PotentialRenewalRecord<Balance> {
 pub type PotentialRenewalRecordOf<T> = PotentialRenewalRecord<BalanceOf<T>>;
 
 /// General status of the system.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct StatusRecord {
 	/// The total number of cores which can be assigned (one plus the maximum index which can
 	/// be used in `Coretime::assign`).
@@ -194,9 +218,7 @@ pub struct StatusRecord {
 }
 
 /// A record of flux in the InstaPool.
-#[derive(
-	Encode, Decode, Clone, Copy, Default, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Copy, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PoolIoRecord {
 	/// The total change of the portion of the pool supplied by purchased Bulk Coretime, measured
 	/// in Core Mask Bits.
@@ -207,7 +229,7 @@ pub struct PoolIoRecord {
 }
 
 /// The status of a Bulk Coretime Sale.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,
@@ -243,7 +265,7 @@ pub type ReservationsRecord<Max> = BoundedVec<Schedule, Max>;
 pub type ReservationsRecordOf<T> = ReservationsRecord<<T as Config>::MaxReservedCores>;
 
 /// Information on a single legacy lease.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct LeaseRecordItem {
 	/// The timeslice until the lease is valid.
 	pub until: Timeslice,
@@ -259,7 +281,9 @@ pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 ///
 /// The blocknumber is the relay chain block height `until` which the original request
 /// for revenue was made.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
 	/// The height of the Relay-chain at the time the revenue request was made.
 	pub until: RelayBlockNumber,
@@ -271,7 +295,9 @@ pub type OnDemandRevenueRecordOf<T> =
 	OnDemandRevenueRecord<RelayBlockNumberOf<T>, RelayBalanceOf<T>>;
 
 /// Configuration of this pallet.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
@@ -313,7 +339,7 @@ where
 }
 
 /// A record containing information regarding auto-renewal for a specific core.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct AutoRenewalRecord {
 	/// The core for which auto renewal is enabled.
 	pub core: CoreIndex,

@@ -19,8 +19,9 @@
 
 use crate::{
 	traits::{
-		DecodeWithVersion, DispatchInfoOf, DispatchOriginOf, Dispatchable, PostDispatchInfoOf,
-		VersTxExtLine, VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
+		Dispatchable, PostDispatchInfoOf, VersTxExtLine, VersTxExtLineMetadataBuilder,
+		VersTxExtLineVersion, VersTxExtLineWeight,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
@@ -46,6 +47,8 @@ impl DecodeWithVersion for InvalidVersion {
 		Err(codec::Error::from("Invalid extension version"))
 	}
 }
+
+impl DecodeWithVersionWithMemTracking for InvalidVersion {}
 
 impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 	fn build_metadata(_builder: &mut VersTxExtLineMetadataBuilder) {

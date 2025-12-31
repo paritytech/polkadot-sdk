@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
 static mut BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
 
@@ -32,9 +32,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(len: u32, );
 
-	let data = unsafe {
-		&BUFFER[..len as usize]
-	};
+	let data = unsafe { &BUFFER[..len as usize] };
 
 	// Place a garbage value in storage, the size of which is specified by the call input.
 	let mut key = [0u8; 32];
@@ -42,9 +40,7 @@ pub extern "C" fn call() {
 
 	api::set_storage(StorageFlags::empty(), &key, data);
 
-	let data = unsafe {
-		&mut &mut BUFFER[..]
-	};
+	let data = unsafe { &mut &mut BUFFER[..] };
 	api::get_storage(StorageFlags::empty(), &key, data).unwrap();
 	assert_eq!(data.len(), len as usize);
 }

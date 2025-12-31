@@ -134,14 +134,6 @@ impl V1SubCommand {
 		match self {
 			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
 				BenchmarkCmd::Pallet(pallet) => {
-					if let Some(spec) = pallet.shared_params.chain {
-						return Err(format!(
-							"Chain specs are not supported. Please remove `--chain={spec}` and use \
-				`--runtime=<PATH>` instead"
-						)
-						.into());
-					}
-
 					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 				},
 				BenchmarkCmd::Overhead(overhead_cmd) =>

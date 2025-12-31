@@ -19,16 +19,16 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
 // If, for whatever reason, you don't to not use a `WeightInfo` trait - it will still work.
-struct Impl;
+pub struct Impl;
 
 impl Impl {
-	fn foo() -> Weight {
+	pub fn foo() -> Weight {
 		Weight::zero()
 	}
 }
 
 #[frame_support::pallet]
-mod parentheses {
+pub mod parentheses {
 	use super::*;
 
 	#[pallet::config]
@@ -48,7 +48,7 @@ mod parentheses {
 }
 
 #[frame_support::pallet]
-mod assign {
+pub mod assign {
 	use super::*;
 
 	#[pallet::config]

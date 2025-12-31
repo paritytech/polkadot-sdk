@@ -157,7 +157,7 @@ impl StorageEntry {
 
 	/// Materialize the internal state.
 	#[cfg(test)]
-	pub(crate) fn materialize(&self) -> Option<alloc::borrow::Cow<[u8]>> {
+	pub(crate) fn materialize(&self) -> Option<alloc::borrow::Cow<'_, [u8]>> {
 		use alloc::borrow::Cow;
 
 		match self {
@@ -210,7 +210,7 @@ impl<K, V> Default for OverlayedMap<K, V> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry> {
 	fn from(storage: sp_core::storage::StorageMap) -> Self {
 		Self {

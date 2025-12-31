@@ -61,7 +61,7 @@ fn assert_powerless(user: RuntimeOrigin, user_is_member: bool) {
 
 #[test]
 fn init_members_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// alliance must be reset first, no witness data
 		assert_noop!(
 			Alliance::init_members(RuntimeOrigin::root(), vec![8], vec![],),
@@ -105,7 +105,7 @@ fn init_members_works() {
 
 #[test]
 fn disband_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();
 		let expected_join_deposit = <Test as Config>::AllyDeposit::get();
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
@@ -168,7 +168,7 @@ fn disband_works() {
 
 #[test]
 fn propose_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
 
 		// only voting member can propose proposal, 4 is ally not have vote rights
@@ -208,7 +208,7 @@ fn propose_works() {
 
 #[test]
 fn vote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
 		assert_ok!(Alliance::propose(
 			RuntimeOrigin::signed(1),
@@ -242,7 +242,7 @@ fn vote_works() {
 
 #[test]
 fn close_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		assert_ok!(Alliance::propose(
@@ -312,7 +312,7 @@ fn close_works() {
 
 #[test]
 fn set_rule_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let cid = test_cid();
 		assert_ok!(Alliance::set_rule(RuntimeOrigin::signed(1), cid.clone()));
 		assert_eq!(alliance::Rule::<Test>::get(), Some(cid.clone()));
@@ -325,7 +325,7 @@ fn set_rule_works() {
 
 #[test]
 fn announce_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let cid = test_cid();
 
 		assert_noop!(Alliance::announce(RuntimeOrigin::signed(2), cid.clone()), BadOrigin);
@@ -341,7 +341,7 @@ fn announce_works() {
 
 #[test]
 fn remove_announcement_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let cid = test_cid();
 		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid.clone()));
 		assert_eq!(alliance::Announcements::<Test>::get(), vec![cid.clone()]);
@@ -361,7 +361,7 @@ fn remove_announcement_works() {
 
 #[test]
 fn join_alliance_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();
 		let join_deposit = <Test as Config>::AllyDeposit::get();
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
@@ -421,7 +421,7 @@ fn join_alliance_works() {
 
 #[test]
 fn nominate_ally_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// check already member
 		assert_noop!(
 			Alliance::nominate_ally(RuntimeOrigin::signed(1), 2),
@@ -476,7 +476,7 @@ fn nominate_ally_works() {
 
 #[test]
 fn elevate_ally_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Alliance::elevate_ally(RuntimeOrigin::signed(2), 4),
 			Error::<Test, ()>::NotAlly
@@ -494,7 +494,7 @@ fn elevate_ally_works() {
 
 #[test]
 fn give_retirement_notice_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Alliance::give_retirement_notice(RuntimeOrigin::signed(4)),
 			Error::<Test, ()>::NotMember
@@ -517,7 +517,7 @@ fn give_retirement_notice_work() {
 
 #[test]
 fn retire_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Alliance::retire(RuntimeOrigin::signed(2)),
 			Error::<Test, ()>::RetirementNoticeNotGiven
@@ -551,7 +551,7 @@ fn retire_works() {
 
 #[test]
 fn abdicate_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
 		assert_ok!(Alliance::abdicate_fellow_status(RuntimeOrigin::signed(3)));
 
@@ -565,7 +565,7 @@ fn abdicate_works() {
 
 #[test]
 fn kick_member_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(Alliance::kick_member(RuntimeOrigin::signed(4), 4), BadOrigin);
 
 		assert_noop!(
@@ -587,7 +587,7 @@ fn kick_member_works() {
 
 #[test]
 fn add_unscrupulous_items_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(Alliance::add_unscrupulous_items(RuntimeOrigin::signed(2), vec![]), BadOrigin);
 
 		assert_ok!(Alliance::add_unscrupulous_items(
@@ -615,7 +615,7 @@ fn add_unscrupulous_items_works() {
 
 #[test]
 fn remove_unscrupulous_items_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Alliance::remove_unscrupulous_items(RuntimeOrigin::signed(2), vec![]),
 			BadOrigin

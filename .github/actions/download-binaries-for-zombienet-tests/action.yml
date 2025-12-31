@@ -1,0 +1,104 @@
+name: "Download binaries for zombienet tests"
+description: "Zombienet native tests expects some set of binaries to be available in the filesystem"
+
+inputs:
+  build-id:
+    description: ""
+    required: true
+  ref-slug:
+    description: "Ref slug (e.g branch-name-short)"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+  destination-path:
+    description: "Destination path for copied files"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-substrate-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/substrate/substrate
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-stable-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/polkadot
+          artifacts/polkadot-execute-worker
+          artifacts/polkadot-prepare-worker
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-stable-cumulus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/polkadot-parachain
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-parachain-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/test-parachain
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-collators-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/adder-collator
+          artifacts/undying-collator
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-malus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        # TODO: should copy polkadot-execute-worker and polkadot-prepare-worker?
+        # if yes then it overlaps with build-linux-stable - address this
+        files-to-copy: |
+          artifacts/malus
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-templates-node-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/minimal-template-node
+          artifacts/parachain-template-node
+          artifacts/solochain-template-node
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"

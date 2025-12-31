@@ -1,0 +1,21 @@
+title: '[pallet-revive] tracing improvements'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Various pallet-revive improvements
+
+    - add check for precompiles addresses,
+    So we can easily identified which one are being called and not supported yet
+
+    - fixes debug_call for revert call
+    If a call revert we still want to get the traces for that call, that matches geth behaviors, diff tests will be added to the test suite for this
+
+    - fixes traces for staticcall
+    The call type was not always being reported properly.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

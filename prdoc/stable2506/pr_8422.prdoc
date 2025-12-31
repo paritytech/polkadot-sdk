@@ -1,0 +1,26 @@
+title: '[AHM] Staking async fixes for XCM and election planning'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR brings a few small fixes related to the XCM messages of stkaing-async, among other small fixes:
+
+
+    * [x] Allows `xcm::validate` to check the message size, and we actually now act upon it in the `staking-async-rc/parachain-runtime`s. The code is a bit duplicate now, and there is a TOOD about how to better refactor it later.
+    * [x] Part of this work is backported separately as https://github.com/paritytech/polkadot-sdk/pull/8409
+    * [x] It brings a default `EraElectionPlannerOf` which should be the right tool to use to ensure elections always happen in time, with an educated guess based on `ElectionProvider::duration` rather than a random number.
+    * [x] It adds a few unit tests about the above
+    * [x] It silences some logs that were needlessly `INFO`, and makes the printing of some types a bit more CLI friendly.
+    * [x] Renames `type SessionDuration` in `staking-async` to `type RelaySessionDuration` for better clarity.
+crates:
+- name: pallet-staking-async-ah-client
+  bump: patch
+- name: pallet-staking-async-rc-client
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: major

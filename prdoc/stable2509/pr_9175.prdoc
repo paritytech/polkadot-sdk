@@ -1,0 +1,22 @@
+title: Deduplicate client-side inherents checking logic
+doc:
+- audience: Node Dev
+  description: Stumbled upon this while working on other issue (https://github.com/paritytech/polkadot-sdk/pull/7902).
+    I thought I might need to change the `CheckInherentsResult` and this deduplication
+    would have made everything easier. Probably changing `CheckInherentsResult` won't
+    be needed in the end, but even so it would be nice to reduce the duplication.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-relay-chain
+  bump: patch
+- name: sc-consensus-aura
+  bump: major
+- name: sc-consensus-babe
+  bump: patch
+- name: sc-consensus-pow
+  bump: patch
+- name: sp-block-builder
+  bump: minor
+- name: sp-inherents
+  bump: patch

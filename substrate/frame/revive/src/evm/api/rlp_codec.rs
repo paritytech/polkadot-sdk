@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! RLP encoding and decoding for Ethereum transactions.
-//! See <https://eth.wiki/fundamentals/rlp> for more information about RLP encoding.
+//! See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/> for more information about RLP encoding.
 
 use super::*;
 use alloc::vec::Vec;
@@ -27,6 +27,10 @@ impl TransactionUnsigned {
 		use TransactionUnsigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
+			Transaction7702Unsigned(ref tx) => {
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
 			Transaction2930Unsigned(ref tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
@@ -49,11 +53,29 @@ impl TransactionUnsigned {
 }
 
 impl TransactionSigned {
+	/// Extract the unsigned transaction from a signed transaction.
+	pub fn unsigned(self) -> TransactionUnsigned {
+		use TransactionSigned::*;
+		use TransactionUnsigned::*;
+		match self {
+			Transaction7702Signed(tx) => Transaction7702Unsigned(tx.transaction_7702_unsigned),
+			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
+			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
+			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
+			TransactionLegacySigned(tx) =>
+				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
+		}
+	}
+
 	/// Encode the Ethereum transaction into bytes.
 	pub fn signed_payload(&self) -> Vec<u8> {
 		use TransactionSigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
+			Transaction7702Signed(ref tx) => {
+				s.append(&tx.transaction_7702_unsigned.r#type.value());
+				s.append(tx);
+			},
 			Transaction2930Signed(ref tx) => {
 				s.append(&tx.transaction_2930_unsigned.r#type.value());
 				s.append(tx);
@@ -76,26 +98,31 @@ impl TransactionSigned {
 
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
-		if data.len() < 1 {
+		if data.is_empty() {
 			return Err(rlp::DecoderError::RlpIsTooShort);
 		}
-		match data[0] {
-			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
-			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
+		let first_byte = data[0];
+
+		// EIP-2718: Typed transactions use type identifiers in [0x00, 0x7f].
+		if first_byte <= 0x7f {
+			match first_byte {
+				TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
+				_ => Err(rlp::DecoderError::Custom("Unknown transaction type")),
+			}
+		} else {
+			rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 		}
 	}
 }
 
 impl TransactionUnsigned {
 	/// Get a signed transaction payload with a dummy 65 bytes signature.
-	pub fn dummy_signed_payload(&self) -> Vec<u8> {
-		const DUMMY_SIGNATURE: [u8; 65] = [0u8; 65];
-		self.unsigned_payload()
-			.into_iter()
-			.chain(DUMMY_SIGNATURE.iter().copied())
-			.collect::<Vec<_>>()
+	pub fn dummy_signed_payload(self) -> Vec<u8> {
+		const DUMMY_SIGNATURE: [u8; 65] = [1u8; 65];
+		self.with_signature(DUMMY_SIGNATURE).signed_payload()
 	}
 }
 
@@ -147,13 +174,7 @@ impl Decodable for TransactionLegacyUnsigned {
 			},
 			value: rlp.val_at(4)?,
 			input: Bytes(rlp.val_at(5)?),
-			chain_id: {
-				if let Ok(chain_id) = rlp.val_at(6) {
-					Some(chain_id)
-				} else {
-					None
-				}
-			},
+			chain_id: rlp.val_at(6).ok(),
 			..Default::default()
 		})
 	}
@@ -191,6 +212,31 @@ impl Encodable for AccessListEntry {
 impl Decodable for AccessListEntry {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
 		Ok(AccessListEntry { address: rlp.val_at(0)?, storage_keys: rlp.list_at(1)? })
+	}
+}
+
+impl Encodable for AuthorizationListEntry {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(6);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+		s.append(&self.y_parity);
+		s.append(&self.r);
+		s.append(&self.s);
+	}
+}
+
+impl Decodable for AuthorizationListEntry {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(AuthorizationListEntry {
+			chain_id: rlp.val_at(0)?,
+			address: rlp.val_at(1)?,
+			nonce: rlp.val_at(2)?,
+			y_parity: rlp.val_at(3)?,
+			r: rlp.val_at(4)?,
+			s: rlp.val_at(5)?,
+		})
 	}
 }
 
@@ -340,7 +386,50 @@ impl Decodable for Transaction2930Signed {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-4844
+//See https://eips.ethereum.org/EIPS/eip-7702
+impl Encodable for Transaction7702Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(10);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.max_priority_fee_per_gas);
+		s.append(&self.max_fee_per_gas);
+		s.append(&self.gas);
+		s.append(&self.to);
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+		s.append_list(&self.authorization_list);
+	}
+}
+
+impl Decodable for Transaction7702Signed {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(Transaction7702Signed {
+			transaction_7702_unsigned: {
+				Transaction7702Unsigned {
+					chain_id: rlp.val_at(0)?,
+					nonce: rlp.val_at(1)?,
+					max_priority_fee_per_gas: rlp.val_at(2)?,
+					max_fee_per_gas: rlp.val_at(3)?,
+					gas_price: rlp.val_at(4)?,
+					gas: rlp.val_at(5)?,
+					to: rlp.val_at(6)?,
+					value: rlp.val_at(7)?,
+					input: Bytes(rlp.val_at(8)?),
+					access_list: rlp.list_at(9)?,
+					authorization_list: rlp.list_at(10)?,
+					r#type: Default::default(),
+				}
+			},
+			y_parity: rlp.val_at(11)?,
+			r: rlp.val_at(12)?,
+			s: rlp.val_at(13)?,
+			v: None,
+		})
+	}
+}
+
 impl Encodable for Transaction4844Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(11);
@@ -355,6 +444,27 @@ impl Encodable for Transaction4844Unsigned {
 		s.append_list(&self.access_list);
 		s.append(&self.max_fee_per_blob_gas);
 		s.append_list(&self.blob_versioned_hashes);
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-7702
+impl Encodable for Transaction7702Signed {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_7702_unsigned;
+		s.begin_list(13);
+		s.append(&tx.chain_id);
+		s.append(&tx.nonce);
+		s.append(&tx.max_priority_fee_per_gas);
+		s.append(&tx.max_fee_per_gas);
+		s.append(&tx.gas);
+		s.append(&tx.to);
+		s.append(&tx.value);
+		s.append(&tx.input.0);
+		s.append_list(&tx.access_list);
+		s.append_list(&tx.authorization_list);
+		s.append(&self.y_parity);
+		s.append(&self.r);
+		s.append(&self.s);
 	}
 }
 
@@ -527,7 +637,6 @@ mod test {
 			),
 			// type 3: EIP4844
 			(
-
 				"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 				r#"
 				{
@@ -552,12 +661,12 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
+				"#,
 			)
 		];
 
 		for (tx, json) in txs {
-			let raw_tx = hex::decode(tx).unwrap();
+			let raw_tx = alloy_core::hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
 			assert_eq!(tx.signed_payload(), raw_tx);
 			let expected_tx = serde_json::from_str(json).unwrap();
@@ -579,8 +688,36 @@ mod test {
 		}
 		.into();
 
-		let dummy_signed_payload = tx.dummy_signed_payload();
+		let dummy_signed_payload = tx.clone().dummy_signed_payload();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
+	}
+
+	#[test]
+	fn rlp_codec_is_compatible_with_ethereum() {
+		// RLP encoded transactions
+		let test_cases = [
+			// Legacy
+			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-2930
+			"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-1559
+			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP4844
+      		"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
+		];
+
+		for hex_tx in test_cases {
+			let rlp_encoded_tx = alloy_core::hex::decode(hex_tx).unwrap();
+
+			// RLP decode using this implementation
+			let tx_revive = TransactionSigned::decode(&rlp_encoded_tx).unwrap();
+
+			// RLP encode using this implementation
+			let rlp_encoded_revive = tx_revive.signed_payload();
+
+			// Verify round-trip: our encoding should decode back to the same transaction
+			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
+		}
 	}
 }

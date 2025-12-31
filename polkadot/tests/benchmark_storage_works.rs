@@ -46,6 +46,7 @@ fn benchmark_storage(db: &str, base_path: &Path) -> ExitStatus {
 		.arg("--weight-path")
 		.arg(base_path)
 		.args(["--state-version", "0"])
+		.args(["--batch-size", "1"])
 		.args(["--warmups", "0"])
 		.args(["--add", "100", "--mul", "1.2", "--metric", "p75"])
 		.status()

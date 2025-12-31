@@ -1,0 +1,11 @@
+title: '[pallet-revive] add fee_history'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add eth_feeHistory method to the eth-rpc
+    fix https://github.com/paritytech/contract-issues/issues/39
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch

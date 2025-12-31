@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{tokens::GetSalary, ConstU32, IsInVec, TryMapSuccess},
+	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
@@ -119,7 +119,7 @@ impl Config for Test {
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<1024>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

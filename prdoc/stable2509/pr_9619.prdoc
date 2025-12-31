@@ -1,0 +1,45 @@
+title: '[AHM/Staking/VMP] Paginated Offence Reports + Retries for Validator Set'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR makes the following changes:
+
+    #### Common
+
+    * `SendToRelayChain` and `SendToAssetHub` traits now return a result, allowing the caller to know if the underlying XCM was sent or not.
+
+    #### Offences
+
+    * `SendToAssetHub::relay_new_offence` is removed. Instead, we use the new `relay_new_offence_paged` which is a vector of self-contained offences, not requiring us to group offences per session in each message.
+    * Offences are not sent immediately anymore.
+    * Instead, they are stored in a paginated `OffenceSendQueue`.
+    * `on-init`, we grab one page of this storage map, and sent it.
+
+    #### Session Report
+    * Session reports now also have a retry mechanism.
+    * Upon each failure, we emit an `UnexpectedEvent`
+    * If our retries run out and we still can't send the session report, we will emit a different `UnexpectedEvent`. We also retore the validator points that we meant to send, and merge them back, so that they are sent in the next session report.
+
+    #### Validator Set
+    * Similar to offences, they are not sent immediately anymore.
+    * Instead, they are stored in a storage item, and are sent on subsequent on-inits.
+    * A maximum retry count is added.
+crates:
+- name: pallet-offences
+  bump: patch
+- name: pallet-root-offences
+  bump: major
+- name: pallet-staking-async-ah-client
+  bump: major
+- name: pallet-staking-async
+  bump: patch
+- name: westend-runtime
+  bump: minor
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async-rc-runtime-constants
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: patch

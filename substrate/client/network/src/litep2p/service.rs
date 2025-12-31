@@ -65,6 +65,12 @@ const LOG_TARGET: &str = "sub-libp2p";
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
 #[derive(Debug)]
 pub enum NetworkServiceCommand {
+	/// Find peers closest to `target` in the DHT.
+	FindClosestPeers {
+		/// Target peer ID.
+		target: PeerId,
+	},
+
 	/// Get value from DHT.
 	GetValue {
 		/// Record key.
@@ -258,15 +264,20 @@ impl NetworkSigner for Litep2pNetworkService {
 		signature: &Vec<u8>,
 		message: &Vec<u8>,
 	) -> Result<bool, String> {
-		let public_key = litep2p::crypto::PublicKey::from_protobuf_encoding(&public_key)
+		let identity = litep2p::PeerId::from_public_key_protobuf(&public_key);
+		let public_key = litep2p::crypto::RemotePublicKey::from_protobuf_encoding(&public_key)
 			.map_err(|error| error.to_string())?;
 		let peer: litep2p::PeerId = peer.into();
 
-		Ok(peer == public_key.to_peer_id() && public_key.verify(message, signature))
+		Ok(peer == identity && public_key.verify(message, signature))
 	}
 }
 
 impl NetworkDHTProvider for Litep2pNetworkService {
+	fn find_closest_peers(&self, target: PeerId) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::FindClosestPeers { target });
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetValue { key: key.clone() });
 	}

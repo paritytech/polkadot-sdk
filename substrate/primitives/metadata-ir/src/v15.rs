@@ -17,10 +17,8 @@
 
 //! Convert the IR to V15 metadata.
 
-use crate::OuterEnumsIR;
-
 use super::types::{
-	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
+	ExtrinsicMetadataIR, MetadataIR, OuterEnumsIR, PalletMetadataIR, RuntimeApiMetadataIR,
 	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
@@ -38,8 +36,6 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 			ir.ty,
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
-			// Substrate does not collect yet the custom metadata fields.
-			// This allows us to extend the V15 easily.
 			CustomMetadata { map: Default::default() },
 		)
 	}

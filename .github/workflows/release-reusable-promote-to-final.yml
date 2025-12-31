@@ -35,16 +35,19 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      PACKAGE: ${{ inputs.package }}
+      TARGET: ${{ inputs.target }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Prepare final tag
         id: prepare_final_tag
         shell: bash
         run: |
-          tag="$(echo ${{ inputs.release_tag }} | sed 's/-rc[0-9]*$//')"
+          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
           echo $tag
           echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
@@ -52,18 +55,23 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="${{ inputs.release_tag }}"
-          if [[ ${{ inputs.package }} == 'polkadot' ]]; then
+          VERSION="$RELEASE_TAG"
+          if [[ "$PACKAGE" == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
-              fetch_release_artifacts_from_s3 $package ${{ inputs.target }}
+              OUTPUT_DIR="./release-artifacts/$TARGET/${package}"
+              fetch_release_artifacts_from_s3 "$package" "$TARGET"
             done
+            NODE_VERSION="$(get_polkadot_node_version_from_code)"
+
+            fetch_debian_package_from_s3 polkadot
+            fetch_rpm_package_from_s3 polkadot
           else
-            fetch_release_artifacts_from_s3 ${{ inputs.package }} ${{ inputs.target }}
+            fetch_release_artifacts_from_s3 "$PACKAGE" "$TARGET"
           fi
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -73,11 +81,11 @@ jobs:
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          if [[ ${{ inputs.package }} == 'polkadot' ]]; then
+          if [[ "$PACKAGE" == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
               upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
             done
           else
-            upload_s3_release ${{ inputs.package }} ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+            upload_s3_release "$PACKAGE" ${{ steps.prepare_final_tag.outputs.final_tag }} "$TARGET"
           fi

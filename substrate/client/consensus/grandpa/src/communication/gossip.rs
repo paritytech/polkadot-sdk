@@ -927,7 +927,9 @@ impl<Block: BlockT> Inner<Block> {
 			&full.message.signature,
 			full.round.0,
 			full.set_id.0,
-		) {
+		)
+		.is_valid()
+		{
 			debug!(target: LOG_TARGET, "Bad message signature {}", full.message.id);
 			telemetry!(
 				self.config.telemetry;
@@ -1188,7 +1190,7 @@ impl<Block: BlockT> Inner<Block> {
 				commit_finalized_height: *local_view.last_commit_height().unwrap_or(&Zero::zero()),
 			};
 
-			let peers = self.peers.inner.iter().map(|(id, _)| id).cloned().collect();
+			let peers = self.peers.inner.keys().cloned().collect();
 
 			(peers, packet)
 		})

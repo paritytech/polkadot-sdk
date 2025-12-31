@@ -29,16 +29,15 @@ pub type Balance = u32;
 
 parameter_types! {
 	// Set the vote weight for any id who's weight has _not_ been set with `set_score_of`.
-	pub static NextVoteWeight: VoteWeight = 0;
 	pub static NextVoteWeightMap: HashMap<AccountId, VoteWeight> = Default::default();
 }
 
 pub struct StakingMock;
-impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
+impl ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
-	fn score(id: &AccountId) -> Self::Score {
-		*NextVoteWeightMap::get().get(id).unwrap_or(&NextVoteWeight::get())
+	fn score(id: &AccountId) -> Option<Self::Score> {
+		NextVoteWeightMap::get().get(id).cloned()
 	}
 
 	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {
@@ -56,13 +55,15 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub static BagThresholds: &'static [VoteWeight] = &[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+	pub static AutoRebagNumber: u32 = 10;
 }
 
 impl bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type BagThresholds = BagThresholds;
 	type ScoreProvider = StakingMock;
+	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
 }
 

@@ -126,6 +126,7 @@ pub fn derive_partial_eq_no_bound(input: proc_macro::TokenStream) -> proc_macro:
 	quote::quote!(
 		const _: () = {
 			#[automatically_derived]
+			#[allow(deprecated)]
 			impl #impl_generics ::core::cmp::PartialEq for #name #ty_generics #where_clause {
 				fn eq(&self, other: &Self) -> bool {
 					#impl_

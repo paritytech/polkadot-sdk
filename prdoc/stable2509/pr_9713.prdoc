@@ -1,0 +1,5 @@
+title: 'Elastic-scaling-guide: Mention slot duration'
+doc:
+- audience: Runtime Dev
+  description: Update the elastic scaling guide with guidelines regarding the handling of slot durations.
+crates: []

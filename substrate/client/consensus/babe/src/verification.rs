@@ -30,7 +30,7 @@ use sp_consensus_babe::{
 		CompatibleDigestItem, PreDigest, PrimaryPreDigest, SecondaryPlainPreDigest,
 		SecondaryVRFPreDigest,
 	},
-	make_vrf_sign_data, AuthorityId, AuthorityPair, AuthoritySignature,
+	make_vrf_sign_data, AuthorityPair, AuthoritySignature,
 };
 use sp_consensus_slots::Slot;
 use sp_core::{
@@ -69,7 +69,6 @@ pub(super) fn check_header<B: BlockT + Sized>(
 ) -> Result<CheckedHeader<B::Header, VerifiedHeaderInfo>, Error<B>> {
 	let VerificationParams { mut header, pre_digest, slot_now, epoch } = params;
 
-	let authorities = &epoch.authorities;
 	let pre_digest = pre_digest.map(Ok).unwrap_or_else(|| find_pre_digest::<B>(&header))?;
 
 	trace!(target: LOG_TARGET, "Checking header");
@@ -90,11 +89,6 @@ pub(super) fn check_header<B: BlockT + Sized>(
 		header.digest_mut().push(seal);
 		return Ok(CheckedHeader::Deferred(header, pre_digest.slot()))
 	}
-
-	let author = match authorities.get(pre_digest.authority_index() as usize) {
-		Some(author) => author.0.clone(),
-		None => return Err(babe_err(Error::SlotAuthorNotFound)),
-	};
 
 	match &pre_digest {
 		PreDigest::Primary(primary) => {
@@ -134,18 +128,12 @@ pub(super) fn check_header<B: BlockT + Sized>(
 		_ => return Err(babe_err(Error::SecondarySlotAssignmentsDisabled)),
 	}
 
-	let info = VerifiedHeaderInfo {
-		pre_digest: CompatibleDigestItem::babe_pre_digest(pre_digest),
-		seal,
-		author,
-	};
+	let info = VerifiedHeaderInfo { seal };
 	Ok(CheckedHeader::Checked(header, info))
 }
 
 pub(super) struct VerifiedHeaderInfo {
-	pub(super) pre_digest: DigestItem,
 	pub(super) seal: DigestItem,
-	pub(super) author: AuthorityId,
 }
 
 /// Check a primary slot proposal header. We validate that the given header is
@@ -159,7 +147,11 @@ fn check_primary_header<B: BlockT + Sized>(
 	epoch: &Epoch,
 	c: (u64, u64),
 ) -> Result<(), Error<B>> {
-	let authority_id = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let authority_id = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)?
+		.0;
 	let mut epoch_index = epoch.epoch_index;
 
 	if epoch.end_slot() <= pre_digest.slot {
@@ -212,7 +204,11 @@ fn check_secondary_plain_header<B: BlockT>(
 		secondary_slot_author(pre_digest.slot, &epoch.authorities, epoch.randomness)
 			.ok_or(Error::NoSecondaryAuthorExpected)?;
 
-	let author = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let author = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)?
+		.0;
 
 	if expected_author != author {
 		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))
@@ -237,7 +233,11 @@ fn check_secondary_vrf_header<B: BlockT>(
 		secondary_slot_author(pre_digest.slot, &epoch.authorities, epoch.randomness)
 			.ok_or(Error::NoSecondaryAuthorExpected)?;
 
-	let author = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let author = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)?
+		.0;
 
 	if expected_author != author {
 		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))

@@ -62,7 +62,7 @@
 
 #[docify::export]
 pub mod transaction_extensions_example {
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		impl_tx_ext_default,
@@ -72,7 +72,7 @@ pub mod transaction_extensions_example {
 
 	// This doesn't actually check anything, but simply allows
 	// some arbitrary `u32` to be added to the extrinsic payload
-	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	#[derive(Debug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToPayload(pub u32);
 
 	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
@@ -87,7 +87,7 @@ pub mod transaction_extensions_example {
 	// This is the opposite; nothing will be added to the extrinsic payload,
 	// but the Implicit type (`1234u32`) will be added to the
 	// payload to be signed.
-	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	#[derive(Debug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToSignaturePayload;
 
 	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {

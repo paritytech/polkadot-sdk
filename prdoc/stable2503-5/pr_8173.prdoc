@@ -1,0 +1,7 @@
+title: Expose current advertised xcm version
+doc:
+- audience: Runtime User
+  description: Exposes `AdvertisedXcmVersion` via a metadata constant.
+crates:
+- name: pallet-xcm
+  bump: patch

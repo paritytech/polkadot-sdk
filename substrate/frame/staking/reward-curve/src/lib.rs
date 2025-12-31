@@ -296,15 +296,15 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 	let mut points = vec![(0, inpos.i_0), (inpos.x_ideal, inpos.i_ideal_times_x_ideal)];
 
 	// For each point p: (next_p.0 - p.0) < segment_length && (next_p.1 - p.1) < segment_length.
-	// This ensures that the total number of segment doesn't overflow max_piece_count.
+	// This ensures that the total number of segments doesn't overflow max_piece_count.
 	let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal) /
 		(input.max_piece_count - 1);
 
 	let mut delta_y = max_length;
 	let mut y = input.max_inflation;
 
-	// The algorithm divide the curve in segment with vertical len and horizontal len less
-	// than `max_length`. This is not very accurate in case of very consequent steep.
+	// The algorithm divides the curve in segments with vertical and horizontal lenghts less
+	// than `max_length`. This is not very accurate in case of very consequent step.
 	while delta_y != 0 {
 		let next_y = y - delta_y;
 
@@ -322,7 +322,8 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
 		if next_x >= 1_000_000 {
 			let prev = points.last().unwrap();
-			// Compute the y corresponding to x=1_000_000 using the this point and the previous one.
+			// Compute the y corresponding to x=1_000_000 using the current point and the previous
+			// one.
 
 			let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64 /
 				(next_x - prev.0) as u64)

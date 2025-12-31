@@ -18,13 +18,27 @@
 
 //! Substrate block-author/full-node API.
 
-pub mod error;
-pub mod hash;
-
 use error::Error;
 use jsonrpsee::proc_macros::rpc;
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::Bytes;
+
+pub mod error;
+pub mod hash;
+
+/// Output of [`AuthorApiServer::rotate_keys_with_owner`].
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct GeneratedSessionKeys {
+	/// The public session keys for registering them on chain.
+	pub keys: Bytes,
+
+	/// The `proof` for verifying ownership of the generated session keys.
+	///
+	/// This will be `None` iff the chain doesn't support generating the `proof`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub proof: Option<Bytes>,
+}
 
 /// Substrate authoring RPC API
 #[rpc(client, server)]
@@ -40,6 +54,15 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// Generate new session keys and returns the corresponding public keys.
 	#[method(name = "author_rotateKeys", with_extensions)]
 	fn rotate_keys(&self) -> Result<Bytes, Error>;
+
+	/// Generate new session keys and returns the corresponding public keys.
+	///
+	/// The `owner` should be something that can be used on chain for verifying the ownership of the
+	/// generated keys using the returned `proof`. For example, `owner` could be set to the account
+	/// id of the account registering the returned public session keys. The actual data to pass for
+	/// `owner` depends on the runtime logic verifying the `proof`.
+	#[method(name = "author_rotateKeysWithOwner", with_extensions)]
+	fn rotate_keys_with_owner(&self, owner: Bytes) -> Result<GeneratedSessionKeys, Error>;
 
 	/// Checks if the keystore has private keys for the given session public keys.
 	///
@@ -61,7 +84,7 @@ pub trait AuthorApi<Hash, BlockHash> {
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic", with_extensions)]
-	fn remove_extrinsic(
+	async fn remove_extrinsic(
 		&self,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<Hash>>,
 	) -> Result<Vec<Hash>, Error>;

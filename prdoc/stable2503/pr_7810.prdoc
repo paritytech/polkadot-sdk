@@ -1,0 +1,11 @@
+title: '[pallet-revive] precompiles 2->9'
+doc:
+- audience: Runtime Dev
+  description: Add missing pre-compiles 02 -> 09
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

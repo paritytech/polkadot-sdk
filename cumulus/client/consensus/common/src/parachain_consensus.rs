@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,12 +9,13 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use cumulus_relay_chain_streams::{finalized_heads, new_best_heads};
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, Finalizer, UsageProvider,
 };
@@ -24,12 +26,16 @@ use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_pov_recovery::{RecoveryKind, RecoveryRequest};
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
-use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, Stream, StreamExt};
+use futures::{
+	channel::mpsc::{Sender, UnboundedSender},
+	pin_mut, select, FutureExt, SinkExt, Stream, StreamExt,
+};
+use sp_core::traits::SpawnEssentialNamed;
 
 use std::sync::Arc;
 
@@ -38,25 +44,13 @@ const FINALIZATION_CACHE_SIZE: u32 = 40;
 
 fn handle_new_finalized_head<P, Block, B>(
 	parachain: &Arc<P>,
-	finalized_head: Vec<u8>,
+	header: Block::Header,
 	last_seen_finalized_hashes: &mut LruMap<Block::Hash, ()>,
 ) where
 	Block: BlockT,
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 {
-	let header = match Block::Header::decode(&mut &finalized_head[..]) {
-		Ok(header) => header,
-		Err(err) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				error = ?err,
-				"Could not decode parachain header while following finalized heads.",
-			);
-			return
-		},
-	};
-
 	let hash = header.hash();
 
 	last_seen_finalized_hashes.insert(hash, ());
@@ -86,18 +80,21 @@ fn handle_new_finalized_head<P, Block, B>(
 	}
 }
 
-/// Follow the finalized head of the given parachain.
+/// Streams finalized parachain heads from the relay chain.
 ///
-/// For every finalized block of the relay chain, it will get the included parachain header
-/// corresponding to `para_id` and will finalize it in the parachain.
-async fn follow_finalized_head<P, Block, B, R>(para_id: ParaId, parachain: Arc<P>, relay_chain: R)
-where
-	Block: BlockT,
-	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
-	R: RelayChainInterface + Clone,
-	B: Backend<Block>,
-{
-	let finalized_heads = match finalized_heads(relay_chain, para_id).await {
+/// This worker continuously monitors the relay chain for finalized blocks and extracts
+/// the corresponding parachain head data for the given `para_id`. The extracted head
+/// data is sent through the provided channel for consumption by the consensus system.
+///
+/// This is necessary because finalization of blocks can take a long
+/// time. During this blocking operation, we should not keep references to finality notifications,
+/// because that prevents the corresponding blocks from getting pruned.
+pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone, Block: BlockT>(
+	mut tx: UnboundedSender<Block::Header>,
+	para_id: ParaId,
+	relay_chain: R,
+) {
+	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
 		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
 			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
@@ -105,9 +102,42 @@ where
 		},
 	};
 
-	let mut imported_blocks = parachain.import_notification_stream().fuse();
-
 	pin_mut!(finalized_heads);
+	loop {
+		if let Some((head_data, _)) = finalized_heads.next().await {
+			let header = match Block::Header::decode(&mut &head_data[..]) {
+				Ok(header) => header,
+				Err(err) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						error = ?err,
+						"Could not decode parachain header while following finalized heads.",
+					);
+					continue
+				},
+			};
+			if let Err(e) = tx.send(header).await {
+				tracing::error!(target: LOG_TARGET, ?e, "Error while sending finalized head.");
+				return;
+			};
+		}
+	}
+}
+
+/// Follow the finalized head of the given parachain.
+///
+/// For every finalized block of the relay chain, it will get the included parachain header
+/// corresponding to `para_id` and will finalize it in the parachain.
+async fn follow_finalized_head<P, Block, B>(
+	parachain: Arc<P>,
+	finalized_head_stream: Box<impl Stream<Item = Block::Header> + Unpin + Send>,
+) where
+	Block: BlockT,
+	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
+	B: Backend<Block>,
+{
+	let mut imported_blocks = parachain.import_notification_stream().fuse();
+	let mut finalized_head_stream = finalized_head_stream.fuse();
 
 	// We use this cache to finalize blocks that are imported late.
 	// For example, a block that has been recovered via PoV-Recovery
@@ -117,7 +147,7 @@ where
 
 	loop {
 		select! {
-			fin = finalized_heads.next() => {
+			fin = finalized_head_stream.next() => {
 				match fin {
 					Some(finalized_head) =>
 						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
@@ -168,6 +198,52 @@ where
 	}
 }
 
+/// Spawns the essential finalization tasks for parachain consensus.
+///
+/// This function creates and spawns two critical background tasks:
+/// 1. A finalized head stream worker that monitors relay chain finality and extracts included
+///    headers
+/// 2. The main parachain consensus task that handles finalization and best block updates
+pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
+	para_id: ParaId,
+	parachain: Arc<P>,
+	relay_chain: R,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
+	spawn_handle: S,
+) where
+	Block: BlockT,
+	P: Finalizer<Block, B>
+		+ UsageProvider<Block>
+		+ Send
+		+ Sync
+		+ BlockBackend<Block>
+		+ BlockchainEvents<Block>
+		+ 'static,
+	for<'a> &'a P: BlockImport<Block>,
+	R: RelayChainInterface + Clone + 'static,
+	S: SpawnEssentialNamed + 'static,
+	B: Backend<Block> + 'static,
+{
+	let (tx, rx) = futures::channel::mpsc::unbounded();
+	let worker = finalized_head_stream_worker::<_, Block>(tx, para_id, relay_chain.clone());
+	let consensus = run_parachain_consensus(
+		para_id,
+		parachain,
+		relay_chain,
+		announce_block,
+		Box::new(rx),
+		recovery_chan_tx,
+	);
+
+	spawn_handle.spawn_essential_blocking("cumulus-consensus", None, Box::pin(consensus));
+	spawn_handle.spawn_essential_blocking(
+		"cumulus-consensus-finality-stream",
+		None,
+		Box::pin(worker),
+	);
+}
+
 /// Run the parachain consensus.
 ///
 /// This will follow the given `relay_chain` to act as consensus for the parachain that corresponds
@@ -183,6 +259,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	parachain: Arc<P>,
 	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	finalized_head_stream: Box<impl Stream<Item = Block::Header> + Unpin + Send>,
 	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
 	Block: BlockT,
@@ -203,7 +280,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 		announce_block,
 		recovery_chan_tx,
 	);
-	let follow_finalized_head = follow_finalized_head(para_id, parachain, relay_chain);
+	let follow_finalized_head = follow_finalized_head(parachain, finalized_head_stream);
 	select! {
 		_ = follow_new_best.fuse() => {},
 		_ = follow_finalized_head.fuse() => {},
@@ -464,44 +541,4 @@ where
 			"Failed to set new best block.",
 		);
 	}
-}
-
-/// Returns a stream that will yield best heads for the given `para_id`.
-async fn new_best_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let new_best_notification_stream =
-		relay_chain.new_best_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(new_best_notification_stream)
-}
-
-/// Returns a stream that will yield finalized heads for the given `para_id`.
-async fn finalized_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let finality_notification_stream =
-		relay_chain.finality_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(finality_notification_stream)
-}
-
-/// Returns head of the parachain at the given relay chain block.
-async fn parachain_head_at(
-	relay_chain: &impl RelayChainInterface,
-	at: PHash,
-	para_id: ParaId,
-) -> RelayChainResult<Option<Vec<u8>>> {
-	relay_chain
-		.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
-		.await
-		.map(|s| s.map(|s| s.parent_head.0))
 }

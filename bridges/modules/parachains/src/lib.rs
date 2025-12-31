@@ -32,7 +32,7 @@ use bp_parachains::{
 	ParaInfo, ParaStoredHeaderData, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
 	SubmitParachainHeadsInfo,
 };
-use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
@@ -76,7 +76,7 @@ struct UpdateParachainHeadArtifacts {
 pub mod pallet {
 	use super::*;
 	use bp_parachains::{
-		BestParaHeadHash, ImportedParaHeadsKeyProvider, ParaStoredHeaderDataBuilder,
+		BestParaHeadHash, ImportedParaHeadsKeyProvider, OnNewHead, ParaStoredHeaderDataBuilder,
 		ParasInfoKeyProvider,
 	};
 	use bp_runtime::{
@@ -183,6 +183,7 @@ pub mod pallet {
 		BoundedBridgeGrandpaConfig<Self::BridgesGrandpaPalletInstance>
 	{
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
@@ -251,6 +252,9 @@ pub mod pallet {
 		/// that exceeds this bound.
 		#[pallet::constant]
 		type MaxParaHeadDataSize: Get<u32>;
+
+		/// Runtime hook for when a parachain head is updated.
+		type OnNewHead: OnNewHead;
 	}
 
 	/// Optional pallet owner.
@@ -457,10 +461,10 @@ pub mod pallet {
 				let parachain_head = match storage.read_parachain_head(parachain) {
 					Ok(Some(parachain_head)) => parachain_head,
 					Ok(None) => {
-						log::trace!(
+						tracing::trace!(
 							target: LOG_TARGET,
-							"The head of parachain {:?} is None. {}",
-							parachain,
+							?parachain,
+							"The head of parachain is None. {}",
 							if ParasInfo::<T, I>::contains_key(parachain) {
 								"Looks like it is not yet registered at the source relay chain"
 							} else {
@@ -471,11 +475,11 @@ pub mod pallet {
 						continue
 					},
 					Err(e) => {
-						log::trace!(
+						tracing::trace!(
 							target: LOG_TARGET,
-							"The read of head of parachain {:?} has failed: {:?}",
-							parachain,
-							e,
+							error=?e,
+							?parachain,
+							"The read of head of parachain has failed"
 						);
 						Self::deposit_event(Event::MissingParachainHead { parachain });
 						continue
@@ -486,13 +490,12 @@ pub mod pallet {
 				// (this isn't strictly necessary, but better safe than sorry)
 				let actual_parachain_head_hash = parachain_head.hash();
 				if parachain_head_hash != actual_parachain_head_hash {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"The submitter has specified invalid parachain {:?} head hash: \
-								{:?} vs {:?}",
-						parachain,
-						parachain_head_hash,
-						actual_parachain_head_hash,
+						?parachain,
+						?parachain_head_hash,
+						?actual_parachain_head_hash,
+						"The submitter has specified invalid parachain head hash"
 					);
 					Self::deposit_event(Event::IncorrectParachainHeadHash {
 						parachain,
@@ -508,10 +511,10 @@ pub mod pallet {
 					match T::ParaStoredHeaderDataBuilder::try_build(parachain, &parachain_head) {
 						Some(parachain_head_data) => parachain_head_data,
 						None => {
-							log::trace!(
+							tracing::trace!(
 								target: LOG_TARGET,
-								"The head of parachain {:?} has been provided, but it is not tracked by the pallet",
-								parachain,
+								?parachain,
+								"The head of parachain has been provided, but it is not tracked by the pallet"
 							);
 							Self::deposit_event(Event::UntrackedParachainRejected { parachain });
 							continue
@@ -537,6 +540,7 @@ pub mod pallet {
 							HeaderId(relay_block_number, relay_block_hash),
 							parachain_head_data,
 							parachain_head_hash,
+							parachain_head,
 						)?;
 
 						if is_free {
@@ -578,12 +582,12 @@ pub mod pallet {
 				&& free_parachain_heads == total_parachains
 				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::has_free_header_slots();
 			let pays_fee = if is_free {
-				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
+				tracing::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
 				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>(
 				);
 				Pays::No
 			} else {
-				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
+				tracing::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
 				Pays::Yes
 			};
 
@@ -637,6 +641,7 @@ pub mod pallet {
 			new_at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
 			new_head_data: ParaStoredHeaderData,
 			new_head_hash: ParaHash,
+			new_head: ParaHead,
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
@@ -656,28 +661,27 @@ pub mod pallet {
 			}
 
 			// verify that the parachain head data size is <= `MaxParaHeadDataSize`
-			let updated_head_data =
-				match StoredParaHeadDataOf::<T, I>::try_from_inner(new_head_data) {
-					Ok(updated_head_data) => updated_head_data,
-					Err(e) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"The parachain head can't be updated. The parachain head data size \
-							for {:?} is {}. It exceeds maximal configured size {}.",
-							parachain,
-							e.value_size,
-							e.maximal_size,
-						);
+			let updated_head_data = match StoredParaHeadDataOf::<T, I>::try_from_inner(
+				new_head_data,
+			) {
+				Ok(updated_head_data) => updated_head_data,
+				Err(e) => {
+					tracing::trace!(
+						target: LOG_TARGET,
+						error=?e,
+						?parachain,
+						"The parachain head can't be updated. The parachain head data size exceeds maximal configured size."
+					);
 
-						Self::deposit_event(Event::RejectedLargeParachainHead {
-							parachain,
-							parachain_head_hash: new_head_hash,
-							parachain_head_size: e.value_size as _,
-						});
+					Self::deposit_event(Event::RejectedLargeParachainHead {
+						parachain,
+						parachain_head_hash: new_head_hash,
+						parachain_head_size: e.value_size as _,
+					});
 
-						return Err(())
-					},
-				};
+					return Err(())
+				},
+			};
 
 			let next_imported_hash_position = stored_best_head
 				.map_or(0, |stored_best_head| stored_best_head.next_imported_hash_position);
@@ -698,23 +702,26 @@ pub mod pallet {
 				next_imported_hash_position,
 				new_head_hash,
 			);
-			ImportedParaHeads::<T, I>::insert(parachain, new_head_hash, updated_head_data);
-			log::trace!(
+			ImportedParaHeads::<T, I>::insert(parachain, new_head_hash, &updated_head_data);
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Updated head of parachain {:?} to {} at relay block {}",
-				parachain,
-				new_head_hash,
-				new_at_relay_block.0,
+				?parachain,
+				%new_head_hash,
+				at_relay_block=%new_at_relay_block.0,
+				"Updated head of parachain"
 			);
+
+			// trigger callback
+			T::OnNewHead::on_new_head(parachain, &new_head);
 
 			// remove old head
 			let prune_happened = head_hash_to_prune.is_ok();
 			if let Ok(head_hash_to_prune) = head_hash_to_prune {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Pruning old head of parachain {:?}: {}",
-					parachain,
-					head_hash_to_prune,
+					?parachain,
+					%head_hash_to_prune,
+					"Pruning old head of parachain"
 				);
 				ImportedParaHeads::<T, I>::remove(parachain, head_hash_to_prune);
 			}
@@ -814,6 +821,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 		relay_head.id(),
 		updated_head_data,
 		parachain_head.hash(),
+		parachain_head,
 	)
 	.expect("failed to insert parachain head in benchmarks");
 }

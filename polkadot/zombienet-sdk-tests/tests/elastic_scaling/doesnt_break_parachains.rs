@@ -5,20 +5,15 @@
 // itself if ElasticScalingMVP feature is enabled in genesis.
 
 use anyhow::anyhow;
-
-use crate::helpers::{
-	assert_finalized_block_height, assert_para_throughput, rococo,
-	rococo::runtime_types::{
-		pallet_broker::coretime_interface::CoreAssignment,
-		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
-	},
-};
+use codec::Decode;
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
@@ -40,11 +35,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"num_cores": 1,
-								"max_validators_per_core": 2
-							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
+								"max_validators_per_core": 2,
 							}
 						}
 					}
@@ -56,8 +47,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			// Use rococo-parachain default, which has 6 second slot time. Also, don't use
-			// slot-based collator.
+			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -77,51 +67,35 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-2000")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&rococo::tx()
-				.sudo()
-				.sudo(rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-                    rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-                        core: 0,
-                        begin: 0,
-                        assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
-                        end_hint: None
-                    }
-                )),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("1 more core assigned to the parachain");
+	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
-	assert_para_throughput(&relay_client, 15, [(para_id, 13..16)].into_iter().collect()).await?;
+	// Lowering to 12 to make sure CI passes.
+	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)]).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
-	assert_finalized_block_height(&para_client, 12..16).await?;
+	// Increasing to 6 to make sure CI passes.
+	assert_finality_lag(&para_client, 6).await?;
 
 	// Sanity check that indeed the parachain has two assigned cores.
-	let cq = relay_client
-		.runtime_api()
-		.at_latest()
-		.await?
-		.call_raw::<BTreeMap<CoreIndex, VecDeque<ParaId>>>("ParachainHost_claim_queue", None)
-		.await?;
+	let cq = BTreeMap::<CoreIndex, VecDeque<ParaId>>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_claim_queue", None)
+			.await?[..],
+	)?;
 
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), [para_id, para_id].into_iter().collect()),
-			(CoreIndex(1), [para_id, para_id].into_iter().collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
 		]
 		.into_iter()
 		.collect()

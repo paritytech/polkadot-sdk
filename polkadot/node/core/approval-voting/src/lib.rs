@@ -21,6 +21,7 @@
 //! of others. It uses this information to determine when candidates and blocks have
 //! been sufficiently approved to finalize.
 
+use futures_timer::Delay;
 use polkadot_node_primitives::{
 	approval::{
 		v1::{BlockApprovalMeta, DelayTranche},
@@ -52,9 +53,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, ApprovalVoteMultipleCandidates,
-	ApprovalVotingParams, BlockNumber, CandidateHash, CandidateIndex, CoreIndex, ExecutorParams,
-	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
+	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
+	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex,
+	Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
 	ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
@@ -122,11 +123,24 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
+/// The maximum number of times we retry to approve a block if is still needed.
+const MAX_APPROVAL_RETRIES: u32 = 16;
+
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
 // The max number of ticks we delay sending the approval after we are ready to issue the approval
 const MAX_APPROVAL_COALESCE_WAIT_TICKS: Tick = 12;
+
+// If the node restarted and the tranche has passed without the assignment
+// being trigger, we won't trigger the assignment at restart because we don't have
+// an wakeup schedule for it.
+// The solution, is to always schedule a wake up after the restart and let the
+// process_wakeup to decide if the assignment needs to be triggered.
+// We need to have a delay after restart to give time to the node to catch up with
+// messages and not trigger its assignment unnecessarily, because it hasn't seen
+// the assignments from the other validators.
+const RESTART_WAKEUP_DELAY: Tick = 12;
 
 /// Configuration for the approval voting subsystem
 #[derive(Debug, Clone)]
@@ -165,6 +179,10 @@ pub struct ApprovalVotingSubsystem {
 	metrics: Metrics,
 	clock: Arc<dyn Clock + Send + Sync>,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	/// The maximum time we retry to approve a block if it is still needed and PoV fetch failed.
+	max_approval_retries: u32,
+	/// The backoff before we retry the approval.
+	retry_backoff: Duration,
 }
 
 #[derive(Clone)]
@@ -493,6 +511,8 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
+			MAX_APPROVAL_RETRIES,
+			APPROVAL_CHECKING_TIMEOUT / 2,
 		)
 	}
 
@@ -505,6 +525,8 @@ impl ApprovalVotingSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+		max_approval_retries: u32,
+		retry_backoff: Duration,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -515,6 +537,8 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			clock,
 			spawner,
+			max_approval_retries,
+			retry_backoff,
 		}
 	}
 
@@ -706,18 +730,53 @@ enum ApprovalOutcome {
 	TimedOut,
 }
 
+#[derive(Clone)]
+struct RetryApprovalInfo {
+	candidate: CandidateReceipt,
+	backing_group: GroupIndex,
+	executor_params: ExecutorParams,
+	core_index: Option<CoreIndex>,
+	session_index: SessionIndex,
+	attempts_remaining: u32,
+	backoff: Duration,
+}
+
 struct ApprovalState {
 	validator_index: ValidatorIndex,
 	candidate_hash: CandidateHash,
 	approval_outcome: ApprovalOutcome,
+	retry_info: Option<RetryApprovalInfo>,
 }
 
 impl ApprovalState {
 	fn approved(validator_index: ValidatorIndex, candidate_hash: CandidateHash) -> Self {
-		Self { validator_index, candidate_hash, approval_outcome: ApprovalOutcome::Approved }
+		Self {
+			validator_index,
+			candidate_hash,
+			approval_outcome: ApprovalOutcome::Approved,
+			retry_info: None,
+		}
 	}
 	fn failed(validator_index: ValidatorIndex, candidate_hash: CandidateHash) -> Self {
-		Self { validator_index, candidate_hash, approval_outcome: ApprovalOutcome::Failed }
+		Self {
+			validator_index,
+			candidate_hash,
+			approval_outcome: ApprovalOutcome::Failed,
+			retry_info: None,
+		}
+	}
+
+	fn failed_with_retry(
+		validator_index: ValidatorIndex,
+		candidate_hash: CandidateHash,
+		retry_info: Option<RetryApprovalInfo>,
+	) -> Self {
+		Self {
+			validator_index,
+			candidate_hash,
+			approval_outcome: ApprovalOutcome::Failed,
+			retry_info,
+		}
 	}
 }
 
@@ -757,6 +816,7 @@ impl CurrentlyCheckingSet {
 							candidate_hash,
 							validator_index,
 							approval_outcome: ApprovalOutcome::TimedOut,
+							retry_info: None,
 						},
 						Some(approval_state) => approval_state,
 					}
@@ -791,6 +851,27 @@ async fn get_extended_session_info<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
 	relay_parent: Hash,
+) -> Option<&'a ExtendedSessionInfo>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match runtime_info.get_session_info(sender, relay_parent).await {
+		Ok(extended_info) => Some(&extended_info),
+		Err(_) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Can't obtain SessionInfo or ExecutorParams"
+			);
+			None
+		},
+	}
+}
+
+async fn get_extended_session_info_by_index<'a, Sender>(
+	runtime_info: &'a mut RuntimeInfo,
+	sender: &mut Sender,
+	relay_parent: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
@@ -813,7 +894,7 @@ where
 	}
 }
 
-async fn get_session_info<'a, Sender>(
+async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
 	relay_parent: Hash,
@@ -822,7 +903,7 @@ async fn get_session_info<'a, Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, relay_parent, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
@@ -916,7 +997,7 @@ impl State {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		let session_info = match get_session_info(
+		let session_info = match get_session_info_by_index(
 			session_info_provider,
 			sender,
 			block_entry.parent_hash(),
@@ -1271,23 +1352,61 @@ where
 						validator_index,
 						candidate_hash,
 						approval_outcome,
+						retry_info,
 					}
 				) = approval_state;
 
 				if matches!(approval_outcome, ApprovalOutcome::Approved) {
 					let mut approvals: Vec<Action> = relay_block_hashes
-						.into_iter()
+						.iter()
 						.map(|block_hash|
 							Action::IssueApproval(
 								candidate_hash,
 								ApprovalVoteRequest {
 									validator_index,
-									block_hash,
+									block_hash: *block_hash,
 								},
 							)
 						)
 						.collect();
 					actions.append(&mut approvals);
+				}
+
+				if let Some(retry_info) = retry_info {
+					for block_hash in relay_block_hashes {
+						if overlayed_db.load_block_entry(&block_hash).map(|block_info| block_info.is_some()).unwrap_or(false) {
+							let sender = to_other_subsystems.clone();
+							let spawn_handle = subsystem.spawner.clone();
+							let metrics = subsystem.metrics.clone();
+							let retry_info = retry_info.clone();
+							let executor_params = retry_info.executor_params.clone();
+							let candidate = retry_info.candidate.clone();
+
+							currently_checking_set
+								.insert_relay_block_hash(
+									candidate_hash,
+									validator_index,
+									block_hash,
+									async move {
+										launch_approval(
+											sender,
+											spawn_handle,
+											metrics,
+											retry_info.session_index,
+											candidate,
+											validator_index,
+											block_hash,
+											retry_info.backing_group,
+											executor_params,
+											retry_info.core_index,
+											retry_info,
+										)
+										.await
+									},
+								)
+								.await?;
+						}
+					}
 				}
 
 				actions
@@ -1340,6 +1459,8 @@ where
 			&mut approvals_cache,
 			&mut subsystem.mode,
 			actions,
+			subsystem.max_approval_retries,
+			subsystem.retry_backoff,
 		)
 		.await?
 		{
@@ -1389,6 +1510,8 @@ pub async fn start_approval_worker<
 		metrics,
 		clock,
 		spawner,
+		MAX_APPROVAL_RETRIES,
+		APPROVAL_CHECKING_TIMEOUT / 2,
 	);
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
@@ -1456,6 +1579,8 @@ async fn handle_actions<
 	approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	mode: &mut Mode,
 	actions: Vec<Action>,
+	max_approval_retries: u32,
+	retry_backoff: Duration,
 ) -> SubsystemResult<bool> {
 	let mut conclude = false;
 	let mut actions_iter = actions.into_iter();
@@ -1542,6 +1667,16 @@ async fn handle_actions<
 						let sender = sender.clone();
 						let spawn_handle = spawn_handle.clone();
 
+						let retry = RetryApprovalInfo {
+							candidate: candidate.clone(),
+							backing_group,
+							executor_params: executor_params.clone(),
+							core_index,
+							session_index: session,
+							attempts_remaining: max_approval_retries,
+							backoff: retry_backoff,
+						};
+
 						currently_checking_set
 							.insert_relay_block_hash(
 								candidate_hash,
@@ -1559,6 +1694,7 @@ async fn handle_actions<
 										backing_group,
 										executor_params,
 										core_index,
+										retry,
 									)
 									.await
 								},
@@ -1732,7 +1868,20 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			match candidate_entry.approval_entry(&block_hash) {
 				Some(approval_entry) => {
 					match approval_entry.local_statements() {
-						(None, None) | (None, Some(_)) => {}, // second is impossible case.
+						(None, None) =>
+							if approval_entry
+								.our_assignment()
+								.map(|assignment| !assignment.triggered())
+								.unwrap_or(false)
+							{
+								actions.push(Action::ScheduleWakeup {
+									block_hash,
+									block_number: block_entry.block_number(),
+									candidate_hash: *candidate_hash,
+									tick: state.clock.tick_now() + RESTART_WAKEUP_DELAY,
+								})
+							},
+						(None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
 							let claimed_core_indices =
 								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
@@ -1773,8 +1922,10 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											match get_extended_session_info(
 												session_info_provider,
 												sender,
-												block_entry.block_hash(),
-												block_entry.session(),
+												candidate_entry
+													.candidate_receipt()
+													.descriptor()
+													.relay_parent(),
 											)
 											.await
 											{
@@ -2558,7 +2709,7 @@ where
 			)),
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -2680,8 +2831,15 @@ where
 						Vec::new(),
 					)),
 			};
-			is_duplicate &= approval_entry.is_assigned(assignment.validator);
-			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
+
+			let is_duplicate_for_candidate = approval_entry.is_assigned(assignment.validator);
+			is_duplicate &= is_duplicate_for_candidate;
+			approval_entry.import_assignment(
+				tranche,
+				assignment.validator,
+				tick_now,
+				is_duplicate_for_candidate,
+			);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -3147,24 +3305,21 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		_ => return Ok(Vec::new()),
 	};
 
-	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
-		match get_extended_session_info(
-			session_info_provider,
-			sender,
-			block_entry.block_hash(),
-			block_entry.session(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(Vec::new()),
-		};
+	let (no_show_slots, needed_approvals) = match get_session_info_by_index(
+		session_info_provider,
+		sender,
+		block_entry.block_hash(),
+		block_entry.session(),
+	)
+	.await
+	{
+		Some(i) => (i.no_show_slots, i.needed_approvals),
+		None => return Ok(Vec::new()),
+	};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
-	let no_show_duration = slot_number_to_tick(
-		state.slot_duration_millis,
-		Slot::from(u64::from(session_info.no_show_slots)),
-	);
+	let no_show_duration =
+		slot_number_to_tick(state.slot_duration_millis, Slot::from(u64::from(no_show_slots)));
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
 
 	gum::trace!(
@@ -3187,7 +3342,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 			tranche_now,
 			block_tick,
 			no_show_duration,
-			session_info.needed_approvals as _,
+			needed_approvals as _,
 		);
 
 		let should_trigger = should_trigger_assignment(
@@ -3222,6 +3377,16 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
+		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
+			session_info_provider,
+			sender,
+			candidate_entry.candidate_receipt().descriptor().relay_parent(),
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(actions),
+		};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
@@ -3329,6 +3494,7 @@ async fn launch_approval<
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
+	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
 	let (code_tx, code_rx) = oneshot::channel();
@@ -3360,6 +3526,7 @@ async fn launch_approval<
 
 	let candidate_hash = candidate.hash();
 	let para_id = candidate.descriptor.para_id();
+	let mut next_retry = None;
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
@@ -3388,7 +3555,6 @@ async fn launch_approval<
 	let background = async move {
 		// Force the move of the timer into the background task.
 		let _timer = timer;
-
 		let available_data = match a_rx.await {
 			Err(_) => return ApprovalState::failed(validator_index, candidate_hash),
 			Ok(Ok(a)) => a,
@@ -3399,10 +3565,27 @@ async fn launch_approval<
 							target: LOG_TARGET,
 							?para_id,
 							?candidate_hash,
+							attempts_remaining = retry.attempts_remaining,
 							"Data unavailable for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
-						// do nothing. we'll just be a no-show and that'll cause others to rise up.
+						// Availability could fail if we did not discover much of the network, so
+						// let's back off and order the subsystem to retry at a later point if the
+						// approval is still needed, because no-show wasn't covered yet.
+						if retry.attempts_remaining > 0 {
+							Delay::new(retry.backoff).await;
+							next_retry = Some(RetryApprovalInfo {
+								candidate,
+								backing_group,
+								executor_params,
+								core_index,
+								session_index,
+								attempts_remaining: retry.attempts_remaining - 1,
+								backoff: retry.backoff,
+							});
+						} else {
+							next_retry = None;
+						}
 						metrics_guard.take().on_approval_unavailable();
 					},
 					&RecoveryError::ChannelClosed => {
@@ -3433,7 +3616,7 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_invalid();
 					},
 				}
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed_with_retry(validator_index, candidate_hash, next_retry)
 			},
 		};
 
@@ -3589,7 +3772,7 @@ async fn issue_approval<
 		},
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -3715,7 +3898,7 @@ async fn maybe_create_signature<
 		None => return Ok(sign_no_later_then),
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),

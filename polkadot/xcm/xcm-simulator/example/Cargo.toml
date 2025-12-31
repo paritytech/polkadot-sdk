@@ -13,8 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
+tracing = { workspace = true }
 
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
@@ -24,17 +24,18 @@ pallet-uniques = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 pallet-xcm = { workspace = true, default-features = true }
-polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 xcm-builder = { workspace = true, default-features = true }
 xcm-executor = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
+
+[dev-dependencies]
+sp-tracing = { workspace = true }
 
 [features]
 default = []

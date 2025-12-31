@@ -20,6 +20,8 @@
 #[cfg(test)]
 mod block_import;
 #[cfg(test)]
+mod conformance;
+#[cfg(test)]
 mod fuzz;
 #[cfg(test)]
 mod service;
@@ -69,7 +71,7 @@ use sc_network_sync::{
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
-			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
+			EncodedProof, VerificationResult, Verifier as WarpVerifier, WarpSyncConfig,
 			WarpSyncProvider,
 		},
 	},
@@ -654,6 +656,25 @@ impl<B: BlockT> VerifierAdapter<B> {
 
 struct TestWarpSyncProvider<B: BlockT>(Arc<dyn HeaderBackend<B>>);
 
+struct TestVerifier<B: BlockT> {
+	genesis_hash: B::Hash,
+}
+
+impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
+	fn verify(
+		&mut self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
+		let EncodedProof(encoded) = proof;
+		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
+		Ok(VerificationResult::Complete(header, Default::default()))
+	}
+
+	fn next_proof_context(&self) -> B::Hash {
+		self.genesis_hash
+	}
+}
+
 impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	fn generate(
 		&self,
@@ -663,18 +684,10 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 		let best_header = self.0.header(info.best_hash).unwrap().unwrap();
 		Ok(EncodedProof(best_header.encode()))
 	}
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		_set_id: SetId,
-		_authorities: AuthorityList,
-	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
-		let EncodedProof(encoded) = proof;
-		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header))
-	}
-	fn current_authorities(&self) -> AuthorityList {
-		Default::default()
+
+	fn create_verifier(&self) -> Box<dyn WarpVerifier<B>> {
+		let genesis_hash = self.0.info().genesis_hash;
+		Box::new(TestVerifier { genesis_hash })
 	}
 }
 
@@ -915,6 +928,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			metrics_registry: None,
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
+			min_peers_to_start_warp_sync: None,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

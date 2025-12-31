@@ -5,11 +5,13 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{assert_finalized_block_height, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
@@ -30,11 +32,8 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"group_rotation_frequency": 4,
-								"lookahead": 2,
-								"max_candidate_depth": 3,
-								"allowed_ancestry_len": 2,
-							},
+								"group_rotation_frequency": 4
+							}
 						}
 					}
 				}))
@@ -79,15 +78,13 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)],
 	)
 	.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates. We can only do this for the collator based on cumulus.
-	assert_finalized_block_height(&para_node_2001.wait_client().await?, 10..16).await?;
+	assert_finality_lag(&para_node_2001.wait_client().await?, 6).await?;
 
 	log::info!("Test finished successfully");
 

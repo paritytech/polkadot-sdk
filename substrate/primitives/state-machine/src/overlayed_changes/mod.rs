@@ -31,7 +31,7 @@ use sp_core::{
 	storage::{well_known_keys::EXTRINSIC_INDEX, ChildInfo, StateVersion},
 };
 #[cfg(feature = "std")]
-use sp_externalities::{Extension, Extensions};
+use sp_externalities::{Extension, Extensions, TransactionType};
 use sp_trie::{empty_child_trie_root, LayoutV1};
 
 #[cfg(not(feature = "std"))]
@@ -228,7 +228,7 @@ impl<H: Hasher> Default for StorageChanges<H> {
 			main_storage_changes: Default::default(),
 			child_storage_changes: Default::default(),
 			offchain_storage_changes: Default::default(),
-			transaction: Default::default(),
+			transaction: BackendTransaction::with_hasher(Default::default()),
 			transaction_storage_root: Default::default(),
 			#[cfg(feature = "std")]
 			transaction_index_changes: Default::default(),
@@ -771,7 +771,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl<H: Hasher> From<sp_core::storage::Storage> for OverlayedChanges<H> {
 	fn from(storage: sp_core::storage::Storage) -> Self {
 		Self {
@@ -815,6 +815,16 @@ where
 pub enum OverlayedExtension<'a> {
 	MutRef(&'a mut Box<dyn Extension>),
 	Owned(Box<dyn Extension>),
+}
+
+#[cfg(feature = "std")]
+impl OverlayedExtension<'_> {
+	fn extension(&mut self) -> &mut dyn Extension {
+		match self {
+			Self::MutRef(ext) => *ext,
+			Self::Owned(ext) => &mut *ext,
+		}
+	}
 }
 
 /// Overlayed extensions which are sourced from [`Extensions`].
@@ -869,6 +879,29 @@ impl<'a> OverlayedExtensions<'a> {
 	/// Returns `true` when there was an extension registered for the given `type_id`.
 	pub fn deregister(&mut self, type_id: TypeId) -> bool {
 		self.extensions.remove(&type_id).is_some()
+	}
+
+	/// Start a transaction.
+	///
+	/// The `ty` declares the type of transaction.
+	pub fn start_transaction(&mut self, ty: TransactionType) {
+		self.extensions.values_mut().for_each(|e| e.extension().start_transaction(ty));
+	}
+
+	/// Commit a transaction.
+	///
+	/// The `ty` declares the type of transaction.
+	pub fn commit_transaction(&mut self, ty: TransactionType) {
+		self.extensions.values_mut().for_each(|e| e.extension().commit_transaction(ty));
+	}
+
+	/// Rollback a transaction.
+	///
+	/// The `ty` declares the type of transaction.
+	pub fn rollback_transaction(&mut self, ty: TransactionType) {
+		self.extensions
+			.values_mut()
+			.for_each(|e| e.extension().rollback_transaction(ty));
 	}
 }
 

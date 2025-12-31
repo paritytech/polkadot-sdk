@@ -40,7 +40,6 @@ sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }

@@ -19,13 +19,9 @@ frame-system = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-contracts = { workspace = true, default-features = true }
-pallet-contracts-proc-macro = { workspace = true, default-features = true }
 pallet-contracts-uapi = { workspace = true }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -43,9 +39,7 @@ xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_matches = { workspace = true }
 pallet-contracts-fixtures = { workspace = true }
-pretty_assertions = { workspace = true }
 
 [features]
 default = ["std"]
@@ -55,10 +49,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-contracts/std",
-	"pallet-insecure-randomness-collective-flip/std",
-	"pallet-proxy/std",
 	"pallet-timestamp/std",
-	"pallet-utility/std",
 	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
@@ -77,9 +68,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",

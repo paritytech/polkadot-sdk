@@ -1,0 +1,11 @@
+title: Always send full parent header, not only hash, part of collation response
+doc:
+- audience: Node Dev
+  description: |-
+    Implementation of https://github.com/paritytech/polkadot-sdk/issues/7733
+
+    # Description
+    Instead of **conditionally** sending the full parent header in the collation response we now **always** send it (never the hash of it).
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

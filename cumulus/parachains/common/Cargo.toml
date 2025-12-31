@@ -16,8 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -27,6 +27,8 @@ pallet-assets = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-multi-asset-bounties = { workspace = true }
+pallet-treasury = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
@@ -35,6 +37,7 @@ sp-runtime = { workspace = true }
 # Polkadot
 pallet-xcm = { workspace = true }
 polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -43,13 +46,7 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
-
-[dev-dependencies]
-pallet-authorship = { workspace = true }
-sp-io = { workspace = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+parachains-common-types = { workspace = true }
 
 [features]
 default = ["std"]
@@ -59,25 +56,28 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-multi-asset-bounties/std",
+	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
+	"parachains-common-types/std",
 	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
@@ -88,9 +88,29 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-tx-payment/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"sp-runtime/try-runtime",
 ]

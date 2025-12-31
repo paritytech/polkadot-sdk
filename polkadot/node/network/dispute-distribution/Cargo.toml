@@ -13,20 +13,17 @@ workspace = true
 
 [dependencies]
 codec = { features = ["std"], workspace = true, default-features = true }
-derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 indexmap = { workspace = true }
-polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-schnellru = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -35,7 +32,6 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }

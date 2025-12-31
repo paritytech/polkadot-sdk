@@ -1,0 +1,17 @@
+title: FeeTracker deduplications
+doc:
+- audience: Runtime Dev
+  description: This PR refactors the FeeTracker trait in order to make it more reusable.
+crates:
+- name: pallet-xcm-bridge-hub-router
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: none

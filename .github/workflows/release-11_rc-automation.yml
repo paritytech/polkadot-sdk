@@ -1,18 +1,14 @@
-name: Release - RC automation
+name: Release - RC tagging automation
 on:
-  # TODO: Activate it and delete old branches patterns, when the release process from stable is setteled
-  #push:
-    # branches:
-    #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
-    #   - release-v[0-9]+.[0-9]+.[0-9]+*
-    #   - release-cumulus-v[0-9]+*
-    #   - release-polkadot-v[0-9]+*
-    #   - stable
-
   workflow_dispatch:
     inputs:
       version:
         description: Current release/rc version in format polkadot-stableYYMM
+  workflow_call:
+    inputs:
+      version:
+        description: Current release/rc version in format polkadot-stableYYMM
+        type: string
 
 jobs:
   tag_rc:
@@ -34,18 +30,18 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
+          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
             owner: paritytech
 
       - name: Checkout sources
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
           token: ${{ steps.generate_write_token.outputs.token }}

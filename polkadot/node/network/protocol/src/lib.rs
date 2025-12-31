@@ -235,43 +235,43 @@ impl View {
 	}
 }
 
-/// A protocol-versioned type.
+/// A protocol-versioned type for validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, V2, V3 = V2> {
+pub enum ValidationProtocols<V3> {
+	/// V3 type.
+	V3(V3),
+}
+
+/// A protocol-versioned type for collation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CollationProtocols<V1, V2> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
-	/// V3 type
-	V3(V3),
 }
 
-impl<V1: Clone, V2: Clone, V3: Clone> Versioned<&'_ V1, &'_ V2, &'_ V3> {
+impl<V3: Clone> ValidationProtocols<&'_ V3> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> Versioned<V1, V2, V3> {
+	pub fn clone_inner(&self) -> ValidationProtocols<V3> {
 		match *self {
-			Versioned::V1(inner) => Versioned::V1(inner.clone()),
-			Versioned::V2(inner) => Versioned::V2(inner.clone()),
-			Versioned::V3(inner) => Versioned::V3(inner.clone()),
+			ValidationProtocols::V3(inner) => ValidationProtocols::V3(inner.clone()),
+		}
+	}
+}
+
+impl<V1: Clone, V2: Clone> CollationProtocols<&'_ V1, &'_ V2> {
+	/// Convert to a fully-owned version of the message.
+	pub fn clone_inner(&self) -> CollationProtocols<V1, V2> {
+		match *self {
+			CollationProtocols::V1(inner) => CollationProtocols::V1(inner.clone()),
+			CollationProtocols::V2(inner) => CollationProtocols::V2(inner.clone()),
 		}
 	}
 }
 
 /// All supported versions of the validation protocol message.
-pub type VersionedValidationProtocol =
-	Versioned<v1::ValidationProtocol, v2::ValidationProtocol, v3::ValidationProtocol>;
-
-impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
-	fn from(v1: v1::ValidationProtocol) -> Self {
-		VersionedValidationProtocol::V1(v1)
-	}
-}
-
-impl From<v2::ValidationProtocol> for VersionedValidationProtocol {
-	fn from(v2: v2::ValidationProtocol) -> Self {
-		VersionedValidationProtocol::V2(v2)
-	}
-}
+pub type VersionedValidationProtocol = ValidationProtocols<v3::ValidationProtocol>;
 
 impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v3: v3::ValidationProtocol) -> Self {
@@ -280,7 +280,8 @@ impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 }
 
 /// All supported versions of the collation protocol message.
-pub type VersionedCollationProtocol = Versioned<v1::CollationProtocol, v2::CollationProtocol>;
+pub type VersionedCollationProtocol =
+	CollationProtocols<v1::CollationProtocol, v2::CollationProtocol>;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v1: v1::CollationProtocol) -> Self {
@@ -294,27 +295,37 @@ impl From<v2::CollationProtocol> for VersionedCollationProtocol {
 	}
 }
 
-macro_rules! impl_versioned_full_protocol_from {
+macro_rules! impl_versioned_validation_full_protocol_from {
 	($from:ty, $out:ty, $variant:ident) => {
 		impl From<$from> for $out {
 			fn from(versioned_from: $from) -> $out {
 				match versioned_from {
-					Versioned::V1(x) => Versioned::V1(x.into()),
-					Versioned::V2(x) => Versioned::V2(x.into()),
-					Versioned::V3(x) => Versioned::V3(x.into()),
+					ValidationProtocols::V3(x) => ValidationProtocols::V3(x.into()),
 				}
 			}
 		}
 	};
 }
-/// Implement `TryFrom` for one versioned enum variant into the inner type.
+
+macro_rules! impl_versioned_collation_full_protocol_from {
+	($from:ty, $out:ty, $variant:ident) => {
+		impl From<$from> for $out {
+			fn from(versioned_from: $from) -> $out {
+				match versioned_from {
+					CollationProtocols::V1(x) => CollationProtocols::V1(x.into()),
+					CollationProtocols::V2(x) => CollationProtocols::V2(x.into()),
+				}
+			}
+		}
+	};
+}
+
+/// Implement `TryFrom` for one versioned validation enum variant into the inner type.
 /// `$m_ty::$variant(inner) -> Ok(inner)`
-macro_rules! impl_versioned_try_from {
+macro_rules! impl_versioned_validation_try_from {
 	(
 		$from:ty,
 		$out:ty,
-		$v1_pat:pat => $v1_out:expr,
-		$v2_pat:pat => $v2_out:expr,
 		$v3_pat:pat => $v3_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
@@ -323,9 +334,7 @@ macro_rules! impl_versioned_try_from {
 			fn try_from(x: $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out)),
-					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out)),
-					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out)),
+					ValidationProtocols::V3($v3_pat) => Ok(ValidationProtocols::V3($v3_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -337,9 +346,45 @@ macro_rules! impl_versioned_try_from {
 			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
-					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
-					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out.clone())),
+					ValidationProtocols::V3($v3_pat) =>
+						Ok(ValidationProtocols::V3($v3_out.clone())),
+					_ => Err(crate::WrongVariant),
+				}
+			}
+		}
+	};
+}
+
+/// Implement `TryFrom` for one versioned collation enum variant into the inner type.
+/// `$m_ty::$variant(inner) -> Ok(inner)`
+macro_rules! impl_versioned_collation_try_from {
+	(
+		$from:ty,
+		$out:ty,
+		$v1_pat:pat => $v1_out:expr,
+		$v2_pat:pat => $v2_out:expr
+	) => {
+		impl TryFrom<$from> for $out {
+			type Error = crate::WrongVariant;
+
+			fn try_from(x: $from) -> Result<$out, Self::Error> {
+				#[allow(unreachable_patterns)] // when there is only one variant
+				match x {
+					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out)),
+					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out)),
+					_ => Err(crate::WrongVariant),
+				}
+			}
+		}
+
+		impl<'a> TryFrom<&'a $from> for $out {
+			type Error = crate::WrongVariant;
+
+			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
+				#[allow(unreachable_patterns)] // when there is only one variant
+				match x {
+					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out.clone())),
+					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -348,69 +393,47 @@ macro_rules! impl_versioned_try_from {
 }
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
-pub type BitfieldDistributionMessage = Versioned<
-	v1::BitfieldDistributionMessage,
-	v2::BitfieldDistributionMessage,
-	v3::BitfieldDistributionMessage,
->;
-impl_versioned_full_protocol_from!(
+pub type BitfieldDistributionMessage = ValidationProtocols<v3::BitfieldDistributionMessage>;
+impl_versioned_validation_full_protocol_from!(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
 	BitfieldDistribution
 );
-impl_versioned_try_from!(
+impl_versioned_validation_try_from!(
 	VersionedValidationProtocol,
 	BitfieldDistributionMessage,
-	v1::ValidationProtocol::BitfieldDistribution(x) => x,
-	v2::ValidationProtocol::BitfieldDistribution(x) => x,
 	v3::ValidationProtocol::BitfieldDistribution(x) => x
 );
 
 /// Version-annotated messages used by the statement distribution subsystem.
-pub type StatementDistributionMessage = Versioned<
-	v1::StatementDistributionMessage,
-	v2::StatementDistributionMessage,
-	v3::StatementDistributionMessage,
->;
-impl_versioned_full_protocol_from!(
+pub type StatementDistributionMessage = ValidationProtocols<v3::StatementDistributionMessage>;
+impl_versioned_validation_full_protocol_from!(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
 	StatementDistribution
 );
-impl_versioned_try_from!(
+impl_versioned_validation_try_from!(
 	VersionedValidationProtocol,
 	StatementDistributionMessage,
-	v1::ValidationProtocol::StatementDistribution(x) => x,
-	v2::ValidationProtocol::StatementDistribution(x) => x,
 	v3::ValidationProtocol::StatementDistribution(x) => x
 );
 
 /// Version-annotated messages used by the approval distribution subsystem.
-pub type ApprovalDistributionMessage = Versioned<
-	v1::ApprovalDistributionMessage,
-	v2::ApprovalDistributionMessage,
-	v3::ApprovalDistributionMessage,
->;
-impl_versioned_full_protocol_from!(
+pub type ApprovalDistributionMessage = ValidationProtocols<v3::ApprovalDistributionMessage>;
+impl_versioned_validation_full_protocol_from!(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
 	ApprovalDistribution
 );
-impl_versioned_try_from!(
+impl_versioned_validation_try_from!(
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
-	v1::ValidationProtocol::ApprovalDistribution(x) => x,
-	v2::ValidationProtocol::ApprovalDistribution(x) => x,
 	v3::ValidationProtocol::ApprovalDistribution(x) => x
 
 );
 
 /// Version-annotated messages used by the gossip-support subsystem (this is void).
-pub type GossipSupportNetworkMessage = Versioned<
-	v1::GossipSupportNetworkMessage,
-	v2::GossipSupportNetworkMessage,
-	v3::GossipSupportNetworkMessage,
->;
+pub type GossipSupportNetworkMessage = ValidationProtocols<v3::GossipSupportNetworkMessage>;
 
 // This is a void enum placeholder, so never gets sent over the wire.
 impl TryFrom<VersionedValidationProtocol> for GossipSupportNetworkMessage {
@@ -427,19 +450,18 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 	}
 }
 
-/// Version-annotated messages used by the bitfield distribution subsystem.
+/// Version-annotated messages used by the collator protocol subsystem.
 pub type CollatorProtocolMessage =
-	Versioned<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
-impl_versioned_full_protocol_from!(
+	CollationProtocols<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
+impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,
 	CollatorProtocol
 );
-impl_versioned_try_from!(
+impl_versioned_collation_try_from!(
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
-	v2::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x
 );
 
@@ -447,106 +469,9 @@ impl_versioned_try_from!(
 pub mod v1 {
 	use codec::{Decode, Encode};
 
-	use polkadot_primitives::{
-		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
-		Id as ParaId, UncheckedSignedAvailabilityBitfield, ValidatorIndex, ValidatorSignature,
-	};
+	use polkadot_primitives::{CollatorId, CollatorSignature, Hash, Id as ParaId};
 
-	use polkadot_node_primitives::{
-		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
-		UncheckedSignedFullStatement,
-	};
-
-	/// Network messages used by the bitfield distribution subsystem.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum BitfieldDistributionMessage {
-		/// A signed availability bitfield for a given relay-parent hash.
-		#[codec(index = 0)]
-		Bitfield(Hash, UncheckedSignedAvailabilityBitfield),
-	}
-
-	/// Network messages used by the statement distribution subsystem.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum StatementDistributionMessage {
-		/// A signed full statement under a given relay-parent.
-		#[codec(index = 0)]
-		Statement(Hash, UncheckedSignedFullStatement),
-		/// Seconded statement with large payload (e.g. containing a runtime upgrade).
-		///
-		/// We only gossip the hash in that case, actual payloads can be fetched from sending node
-		/// via request/response.
-		#[codec(index = 1)]
-		LargeStatement(StatementMetadata),
-	}
-
-	/// Data that makes a statement unique.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, Hash)]
-	pub struct StatementMetadata {
-		/// Relay parent this statement is relevant under.
-		pub relay_parent: Hash,
-		/// Hash of the candidate that got validated.
-		pub candidate_hash: CandidateHash,
-		/// Validator that attested the validity.
-		pub signed_by: ValidatorIndex,
-		/// Signature of seconding validator.
-		pub signature: ValidatorSignature,
-	}
-
-	impl StatementDistributionMessage {
-		/// Get fingerprint describing the contained statement uniquely.
-		pub fn get_fingerprint(&self) -> (CompactStatement, ValidatorIndex) {
-			match self {
-				Self::Statement(_, statement) => (
-					statement.unchecked_payload().to_compact(),
-					statement.unchecked_validator_index(),
-				),
-				Self::LargeStatement(meta) =>
-					(CompactStatement::Seconded(meta.candidate_hash), meta.signed_by),
-			}
-		}
-
-		/// Get the signature from the statement.
-		pub fn get_signature(&self) -> ValidatorSignature {
-			match self {
-				Self::Statement(_, statement) => statement.unchecked_signature().clone(),
-				Self::LargeStatement(metadata) => metadata.signature.clone(),
-			}
-		}
-
-		/// Get contained relay parent.
-		pub fn get_relay_parent(&self) -> Hash {
-			match self {
-				Self::Statement(r, _) => *r,
-				Self::LargeStatement(meta) => meta.relay_parent,
-			}
-		}
-
-		/// Whether this message contains a large statement.
-		pub fn is_large_statement(&self) -> bool {
-			if let Self::LargeStatement(_) = self {
-				true
-			} else {
-				false
-			}
-		}
-	}
-
-	/// Network messages used by the approval distribution subsystem.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum ApprovalDistributionMessage {
-		/// Assignments for candidates in recent, unfinalized blocks.
-		///
-		/// Actually checking the assignment may yield a different result.
-		#[codec(index = 0)]
-		Assignments(Vec<(IndirectAssignmentCert, CandidateIndex)>),
-		/// Approvals for candidates in some recent, unfinalized block.
-		#[codec(index = 1)]
-		Approvals(Vec<IndirectSignedApprovalVote>),
-	}
-
-	/// Dummy network message type, so we will receive connect/disconnect events.
-	#[derive(Debug, Clone, PartialEq, Eq)]
-	pub enum GossipSupportNetworkMessage {}
+	use polkadot_node_primitives::UncheckedSignedFullStatement;
 
 	/// Network messages used by the collator protocol subsystem
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
@@ -562,23 +487,6 @@ pub mod v1 {
 		/// A collation sent to a validator was seconded.
 		#[codec(index = 4)]
 		CollationSeconded(Hash, UncheckedSignedFullStatement),
-	}
-
-	/// All network messages on the validation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum ValidationProtocol {
-		/// Bitfield distribution messages
-		#[codec(index = 1)]
-		#[from]
-		BitfieldDistribution(BitfieldDistributionMessage),
-		/// Statement distribution messages
-		#[codec(index = 3)]
-		#[from]
-		StatementDistribution(StatementDistributionMessage),
-		/// Approval distribution messages
-		#[codec(index = 4)]
-		#[from]
-		ApprovalDistribution(ApprovalDistributionMessage),
 	}
 
 	/// All network messages on the collation peer-set.
@@ -603,18 +511,66 @@ pub mod v1 {
 
 /// v2 network protocol types.
 pub mod v2 {
+	use codec::{Decode, Encode};
+
+	use polkadot_primitives::{CandidateHash, CollatorId, CollatorSignature, Hash, Id as ParaId};
+
+	use polkadot_node_primitives::UncheckedSignedFullStatement;
+
+	/// This parts of the protocol did not change from v1, so just alias them in v2.
+	pub use super::v1::declare_signature_payload;
+
+	/// Network messages used by the collator protocol subsystem
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub enum CollatorProtocolMessage {
+		/// Declare the intent to advertise collations under a collator ID, attaching a
+		/// signature of the `PeerId` of the node using the given collator ID key.
+		#[codec(index = 0)]
+		Declare(CollatorId, ParaId, CollatorSignature),
+		/// Advertise a collation to a validator. Can only be sent once the peer has
+		/// declared that they are a collator with given ID.
+		#[codec(index = 1)]
+		AdvertiseCollation {
+			/// Hash of the relay parent advertised collation is based on.
+			relay_parent: Hash,
+			/// Candidate hash.
+			candidate_hash: CandidateHash,
+			/// Parachain head data hash before candidate execution.
+			parent_head_data_hash: Hash,
+		},
+		/// A collation sent to a validator was seconded.
+		#[codec(index = 4)]
+		CollationSeconded(Hash, UncheckedSignedFullStatement),
+	}
+
+	/// All network messages on the collation peer-set.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
+	pub enum CollationProtocol {
+		/// Collator protocol messages
+		#[codec(index = 0)]
+		#[from]
+		CollatorProtocol(CollatorProtocolMessage),
+	}
+}
+
+/// v3 network protocol types.
+/// Purpose is for changing ApprovalDistributionMessage to
+/// include more than one assignment and approval in a message.
+pub mod v3 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
 	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
-		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
-		Id as ParaId, UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
+		CandidateHash, GroupIndex, Hash, Id as ParaId, UncheckedSignedAvailabilityBitfield,
+		UncheckedSignedStatement,
 	};
 
-	use polkadot_node_primitives::{
-		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
-		UncheckedSignedFullStatement,
+	use polkadot_node_primitives::approval::v2::{
+		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
 	};
+
+	/// This parts of the protocol did not change from v2, so just alias them in v3.
+	pub use super::v2::declare_signature_payload;
 
 	/// Network messages used by the bitfield distribution subsystem.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
@@ -765,111 +721,7 @@ pub mod v2 {
 		/// for the purpose of informing a receiving node which already has the candidate.
 		#[codec(index = 2)]
 		BackedCandidateKnown(BackedCandidateAcknowledgement),
-
-		/// All messages for V1 for compatibility with the statement distribution
-		/// protocol, for relay-parents that don't support asynchronous backing.
-		///
-		/// These are illegal to send to V1 peers, and illegal to send concerning relay-parents
-		/// which support asynchronous backing. This backwards compatibility should be
-		/// considered immediately deprecated and can be removed once the node software
-		/// is not required to support logic from before asynchronous backing anymore.
-		#[codec(index = 255)]
-		V1Compatibility(crate::v1::StatementDistributionMessage),
 	}
-
-	/// Network messages used by the approval distribution subsystem.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum ApprovalDistributionMessage {
-		/// Assignments for candidates in recent, unfinalized blocks.
-		///
-		/// Actually checking the assignment may yield a different result.
-		#[codec(index = 0)]
-		Assignments(Vec<(IndirectAssignmentCert, CandidateIndex)>),
-		/// Approvals for candidates in some recent, unfinalized block.
-		#[codec(index = 1)]
-		Approvals(Vec<IndirectSignedApprovalVote>),
-	}
-
-	/// Dummy network message type, so we will receive connect/disconnect events.
-	#[derive(Debug, Clone, PartialEq, Eq)]
-	pub enum GossipSupportNetworkMessage {}
-
-	/// Network messages used by the collator protocol subsystem
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum CollatorProtocolMessage {
-		/// Declare the intent to advertise collations under a collator ID, attaching a
-		/// signature of the `PeerId` of the node using the given collator ID key.
-		#[codec(index = 0)]
-		Declare(CollatorId, ParaId, CollatorSignature),
-		/// Advertise a collation to a validator. Can only be sent once the peer has
-		/// declared that they are a collator with given ID.
-		#[codec(index = 1)]
-		AdvertiseCollation {
-			/// Hash of the relay parent advertised collation is based on.
-			relay_parent: Hash,
-			/// Candidate hash.
-			candidate_hash: CandidateHash,
-			/// Parachain head data hash before candidate execution.
-			parent_head_data_hash: Hash,
-		},
-		/// A collation sent to a validator was seconded.
-		#[codec(index = 4)]
-		CollationSeconded(Hash, UncheckedSignedFullStatement),
-	}
-
-	/// All network messages on the validation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum ValidationProtocol {
-		/// Bitfield distribution messages
-		#[codec(index = 1)]
-		#[from]
-		BitfieldDistribution(BitfieldDistributionMessage),
-		/// Statement distribution messages
-		#[codec(index = 3)]
-		#[from]
-		StatementDistribution(StatementDistributionMessage),
-		/// Approval distribution messages
-		#[codec(index = 4)]
-		#[from]
-		ApprovalDistribution(ApprovalDistributionMessage),
-	}
-
-	/// All network messages on the collation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum CollationProtocol {
-		/// Collator protocol messages
-		#[codec(index = 0)]
-		#[from]
-		CollatorProtocol(CollatorProtocolMessage),
-	}
-
-	/// Get the payload that should be signed and included in a `Declare` message.
-	///
-	/// The payload is the local peer id of the node, which serves to prove that it
-	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
-		let mut payload = peer_id.to_bytes();
-		payload.extend_from_slice(b"COLL");
-		payload
-	}
-}
-
-/// v3 network protocol types.
-/// Purpose is for changing ApprovalDistributionMessage to
-/// include more than one assignment and approval in a message.
-pub mod v3 {
-	use codec::{Decode, Encode};
-
-	use polkadot_node_primitives::approval::v2::{
-		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
-	};
-
-	/// This parts of the protocol did not change from v2, so just alias them in v3.
-	pub use super::v2::{
-		declare_signature_payload, BackedCandidateAcknowledgement, BackedCandidateManifest,
-		BitfieldDistributionMessage, GossipSupportNetworkMessage, StatementDistributionMessage,
-		StatementFilter,
-	};
 
 	/// Network messages used by the approval distribution subsystem.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
@@ -889,6 +741,10 @@ pub mod v3 {
 		#[codec(index = 1)]
 		Approvals(Vec<IndirectSignedApprovalVoteV2>),
 	}
+
+	/// Dummy network message type, so we will receive connect/disconnect events.
+	#[derive(Debug, Clone, PartialEq, Eq)]
+	pub enum GossipSupportNetworkMessage {}
 
 	/// All network messages on the validation peer-set.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]

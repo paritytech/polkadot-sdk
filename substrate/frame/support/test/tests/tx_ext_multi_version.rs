@@ -17,7 +17,7 @@
 
 //! Test that FRAME support multiple version for transaction extension.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt::Debug;
 use frame_support::{
 	derive_impl,
@@ -38,7 +38,7 @@ use sp_runtime::{
 	DispatchResult,
 };
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 pub struct SimpleExt<const N: u32> {
 	pub token: u8,
 }

@@ -250,7 +250,7 @@ mod v_coretime {
 					return None
 				},
 			};
-			let time_slice = (valid_until + TIMESLICE_PERIOD - 1) / TIMESLICE_PERIOD;
+			let time_slice = valid_until.div_ceil(TIMESLICE_PERIOD);
 			log::trace!(target: "coretime-migration", "Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}", p, valid_until, time_slice);
 			Some(mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});

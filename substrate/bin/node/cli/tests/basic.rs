@@ -1,19 +1,20 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode, Joiner};
 use frame_support::{
@@ -381,21 +382,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund * 2 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -422,7 +409,19 @@ fn full_native_block_import_works() {
 				topics: vec![],
 			},
 		];
-		assert_eq!(System::events(), events);
+		let filtered_events: Vec<_> = System::events()
+			.into_iter()
+			.filter(|ev| {
+				!matches!(
+					ev.event,
+					RuntimeEvent::VoterList(
+						pallet_bags_list::Event::<Runtime, _>::ScoreUpdated { .. }
+					)
+				)
+			})
+			.collect();
+
+		assert_eq!(filtered_events, events);
 	});
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
@@ -480,21 +479,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund - fees_after_refund * 8 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -541,21 +526,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(2),
-				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees_after_refund * 8 / 10,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(2),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees_after_refund - fees_after_refund * 8 / 10,
+					amount: fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -582,7 +553,18 @@ fn full_native_block_import_works() {
 				topics: vec![],
 			},
 		];
-		assert_eq!(System::events(), events);
+		let all_events = System::events();
+		// Ensure that all expected events (`events`) are present in the full event log
+		// (`all_events`). We use this instead of strict equality since some events (like
+		// VoterList::ScoreUpdated) may be emitted non-deterministically depending on runtime
+		// internals or auto-rebagging logic.
+		for expected_event in &events {
+			assert!(
+				all_events.contains(expected_event),
+				"Expected event {:?} not found in actual events",
+				expected_event
+			);
+		}
 	});
 }
 

@@ -19,18 +19,19 @@
 
 use super::*;
 use crate::mock::{
-	authorities, before_session_end_called, force_new_session, new_test_ext,
-	reset_before_session_end_called, session_changed, set_next_validators, set_session_length,
+	authorities, before_session_end_called, create_set_keys_proof, force_new_session, new_test_ext,
+	reset_before_session_end_called, session_changed, session_events_since_last_call, session_hold,
+	set_next_validators, set_session_length, Balances, KeyDeposit, MockSessionKeys,
 	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
-	TestSessionChanged, TestValidatorIdOf,
+	TestSessionChanged, TestValidatorIdOf, ValidatorAccounts,
 };
 
-use codec::Decode;
+use codec::Encode;
 use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{ConstU64, OnInitialize},
 };
 
@@ -87,11 +88,11 @@ fn purge_keys_works_for_stash_id() {
 		let id = DUMMY;
 		assert_eq!(Session::key_owner(id, UintAuthorityId(1).get_raw(id)), Some(1));
 
-		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(10)));
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(2)));
 
-		assert_eq!(Session::load_keys(&10), None);
-		assert_eq!(Session::load_keys(&20), None);
+		assert_eq!(Session::load_keys(&1), None);
+		assert_eq!(Session::load_keys(&2), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(10).get_raw(id)), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(20).get_raw(id)), None);
 	})
@@ -128,7 +129,11 @@ fn authorities_should_track_validators() {
 		reset_before_session_end_called();
 
 		set_next_validators(vec![1, 2, 4]);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(4).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(4),
+			UintAuthorityId(4).into(),
+			create_set_keys_proof(4, &UintAuthorityId(4)),
+		));
 		force_new_session();
 		initialize_block(3);
 		assert_eq!(
@@ -187,27 +192,46 @@ fn session_change_should_work() {
 		// Block 1: No change
 		initialize_block(1);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 2: Session rollover, but no change.
 		initialize_block(2);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 1 }]
+		);
 
 		// Block 3: Set new key for validator 2; no visible change.
 		initialize_block(3);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(2), UintAuthorityId(5).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(2),
+			UintAuthorityId(5).into(),
+			create_set_keys_proof(2, &UintAuthorityId(5)),
+		));
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 4: Session rollover; no visible change.
 		initialize_block(4);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 2 }]
+		);
 
 		// Block 5: No change.
 		initialize_block(5);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 6: Session rollover; authority 2 changes.
 		initialize_block(6);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(5), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 3 }]
+		);
 	});
 }
 
@@ -219,13 +243,25 @@ fn duplicates_are_not_allowed() {
 		System::set_block_number(1);
 		Session::on_initialize(1);
 		assert_noop!(
-			Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(1).into(), vec![]),
+			Session::set_keys(
+				RuntimeOrigin::signed(4),
+				UintAuthorityId(1).into(),
+				create_set_keys_proof(4, &UintAuthorityId(1)),
+			),
 			Error::<Test>::DuplicatedKey,
 		);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(1), UintAuthorityId(10).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1),
+			UintAuthorityId(10).into(),
+			create_set_keys_proof(1, &UintAuthorityId(10)),
+		));
 
 		// is fine now that 1 has migrated off.
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(1).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(4),
+			UintAuthorityId(1).into(),
+			create_set_keys_proof(4, &UintAuthorityId(1)),
+		));
 	});
 }
 
@@ -268,7 +304,11 @@ fn session_changed_flag_works() {
 		assert!(before_session_end_called());
 		reset_before_session_end_called();
 
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(2), UintAuthorityId(5).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(2),
+			UintAuthorityId(5).into(),
+			create_set_keys_proof(2, &UintAuthorityId(5)),
+		));
 		force_new_session();
 		initialize_block(6);
 		assert!(!session_changed());
@@ -279,7 +319,7 @@ fn session_changed_flag_works() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(69),
 			UintAuthorityId(69).into(),
-			vec![]
+			create_set_keys_proof(69, &UintAuthorityId(69)),
 		));
 		force_new_session();
 		initialize_block(7);
@@ -357,28 +397,13 @@ fn periodic_session_works() {
 #[test]
 fn session_keys_generate_output_works_as_set_keys_input() {
 	new_test_ext().execute_with(|| {
-		let new_keys = mock::MockSessionKeys::generate(None);
+		let new_keys = mock::MockSessionKeys::generate(&2u64.encode(), None);
+
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(2),
-			<mock::Test as Config>::Keys::decode(&mut &new_keys[..]).expect("Decode keys"),
-			vec![],
+			new_keys.keys,
+			new_keys.proof.encode(),
 		));
-	});
-}
-
-#[test]
-fn disable_index_returns_false_if_already_disabled() {
-	new_test_ext().execute_with(|| {
-		set_next_validators(vec![1, 2, 3, 4, 5, 6, 7]);
-		force_new_session();
-		initialize_block(1);
-		// apply the new validator set
-		force_new_session();
-		initialize_block(2);
-
-		assert_eq!(Session::disable_index(0), true);
-		assert_eq!(Session::disable_index(0), false);
-		assert_eq!(Session::disable_index(1), true);
 	});
 }
 
@@ -477,8 +502,378 @@ fn test_migration_v1() {
 		);
 		StorageVersion::new(0).put::<Historical>();
 
-		crate::migrations::v1::pre_migrate::<Test, Historical>();
-		crate::migrations::v1::migrate::<Test, Historical>();
-		crate::migrations::v1::post_migrate::<Test, Historical>();
+		crate::migrations::historical::pre_migrate::<Test, Historical>();
+		crate::migrations::historical::migrate::<Test, Historical>();
+		crate::migrations::historical::post_migrate::<Test, Historical>();
 	});
+}
+
+#[test]
+fn set_keys_should_fail_with_insufficient_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 999 is mocked to have KeyDeposit -1
+		let account_id = 999;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Attempt to set keys with an account that has insufficient funds
+		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
+		assert_err!(
+			Session::set_keys(
+				RuntimeOrigin::signed(account_id),
+				keys,
+				create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+			),
+			sp_runtime::TokenError::FundsUnavailable
+		);
+	});
+}
+
+#[test]
+fn set_keys_should_hold_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 1000 is mocked to have sufficient funds
+		let account_id = 1000;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		let deposit = KeyDeposit::get();
+
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Set keys and check the operation succeeds
+		let res = Session::set_keys(
+			RuntimeOrigin::signed(account_id),
+			keys,
+			create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+		);
+		assert_ok!(res);
+
+		// Check that the funds are held
+		assert_eq!(session_hold(account_id), deposit);
+	});
+}
+
+#[test]
+fn purge_keys_should_unhold_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 1000 is mocked to have sufficient funds
+		let account_id = 1000;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		let deposit = KeyDeposit::get();
+
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Ensure system providers are properly set for the test account
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+
+		// First set the keys to reserve the deposit
+		let res = Session::set_keys(
+			RuntimeOrigin::signed(account_id),
+			keys,
+			create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+		);
+		assert_ok!(res);
+
+		// Check the reserved balance after setting keys
+		let reserved_balance_before_purge = Balances::reserved_balance(&account_id);
+		assert!(
+			reserved_balance_before_purge >= deposit,
+			"Deposit should be reserved after setting keys"
+		);
+
+		// Now purge the keys
+		let res = Session::purge_keys(RuntimeOrigin::signed(account_id));
+		assert_ok!(res);
+
+		// Check that the funds were unreserved
+		let reserved_balance_after_purge = Balances::reserved_balance(&account_id);
+		assert_eq!(reserved_balance_after_purge, reserved_balance_before_purge - deposit);
+	});
+}
+
+#[test]
+fn existing_validators_without_hold_are_except() {
+	// upon addition of `SessionDeposit`, a runtime may have some old validators without any held
+	// amount. They can freely still update their session keys. They can also purge them.
+
+	// disable key deposit for initial validators
+	KeyDeposit::set(0);
+	new_test_ext().execute_with(|| {
+		// reset back to the first value.
+		KeyDeposit::set(10);
+		// 1 is an initial validator
+		assert_eq!(session_hold(1), 0);
+
+		// upgrade 1's keys
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1),
+			UintAuthorityId(7).into(),
+			create_set_keys_proof(1, &UintAuthorityId(7))
+		));
+		assert_eq!(session_hold(1), 0);
+
+		// purge 1's keys
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
+		assert_eq!(session_hold(1), 0);
+	});
+}
+
+mod disabling_byzantine_threshold {
+	use super::*;
+	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
+	use sp_staking::offence::OffenceSeverity;
+
+	// Common test data - the stash of the offending validator, the era of the offence and the
+	// active set
+	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const MIN_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
+	const ACTIVE_SET: [<Test as Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
+	const OFFENDER_VALIDATOR_IDX: u32 = 6;
+
+	#[test]
+	fn disable_when_below_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+
+	#[test]
+	fn disable_when_below_custom_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitDisablingStrategy<2> as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+
+	#[test]
+	fn non_slashable_offences_still_disable() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OffenceSeverity(Perbill::from_percent(0)),
+					&initially_disabled,
+				);
+
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+
+	#[test]
+	fn dont_disable_beyond_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(1, MIN_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+			let disabling_decision =
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+}
+
+mod disabling_with_reenabling {
+	use super::*;
+	use crate::disabling::{DisablingStrategy, UpToLimitWithReEnablingDisablingStrategy};
+	use sp_staking::offence::OffenceSeverity;
+
+	// Common test data - the stash of the offending validator, the era of the offence and the
+	// active set
+	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const LOW_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
+	const ACTIVE_SET: [<Test as Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
+	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
+
+	#[test]
+	fn disable_when_below_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			// Disable Offender and do not re-enable anyone
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+			assert_eq!(disabling_decision.reenable, None);
+		});
+	}
+
+	#[test]
+	fn reenable_arbitrary_on_equal_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 0);
+		});
+	}
+
+	#[test]
+	fn do_not_reenable_higher_offenders() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					LOW_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+
+			assert_ok!(Session::do_try_state());
+		});
+	}
+
+	#[test]
+	fn reenable_lower_offenders() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, LOW_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 0);
+
+			assert_ok!(Session::do_try_state());
+		});
+	}
+
+	#[test]
+	fn reenable_lower_offenders_unordered() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 1);
+		});
+	}
+
+	#[test]
+	fn update_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, LOW_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_none());
+			// Disable 7 "again" AKA update their severity
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+		});
+	}
+
+	#[test]
+	fn update_cannot_lower_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					LOW_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+
+	#[test]
+	fn no_accidental_reenablement_on_repeated_offence() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, LOW_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
 }

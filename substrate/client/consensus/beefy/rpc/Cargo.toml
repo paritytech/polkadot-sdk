@@ -28,6 +28,5 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }

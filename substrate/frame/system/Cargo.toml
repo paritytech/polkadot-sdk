@@ -15,6 +15,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
 cfg-if = { workspace = true }
 codec = { features = ["derive"], workspace = true }
@@ -32,6 +36,7 @@ sp-weights = { features = ["serde"], workspace = true }
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 
 [features]
@@ -43,7 +48,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
-	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-version/std",
@@ -55,7 +59,3 @@ runtime-benchmarks = [
 ]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
 experimental = ["frame-support/experimental"]
-
-[[bench]]
-name = "bench"
-harness = false

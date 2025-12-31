@@ -1,0 +1,9 @@
+title: 'DB: Ensure that when we revert blocks, we actually delete all their data'
+doc:
+- audience: Node Dev
+  description: Delete block data on revert and ensure the cache is also cleared.
+crates:
+- name: sc-client-api
+  bump: patch
+- name: sc-client-db
+  bump: patch

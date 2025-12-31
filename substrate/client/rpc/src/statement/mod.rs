@@ -85,18 +85,52 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn submit(&self, encoded: Bytes) -> RpcResult<()> {
+	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.broadcasts_stmt(&match_all_topics)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
+	fn posted_stmt(
+		&self,
+		match_all_topics: Vec<[u8; 32]>,
+		dest: [u8; 32],
+	) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.posted_stmt(&match_all_topics, dest)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: Vec<[u8; 32]>,
+		dest: [u8; 32],
+	) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.posted_clear_stmt(&match_all_topics, dest)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult> {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
 		match self.store.submit(statement, StatementSource::Local) {
-			SubmitResult::New(_) | SubmitResult::Known => Ok(()),
-			// `KnownExpired` should not happen. Expired statements submitted with
-			// `StatementSource::Rpc` should be renewed.
-			SubmitResult::KnownExpired =>
-				Err(Error::StatementStore("Submitted an expired statement.".into()).into()),
-			SubmitResult::Bad(e) => Err(Error::StatementStore(e.into()).into()),
-			SubmitResult::Ignored => Err(Error::StatementStore("Store is full.".into()).into()),
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
+			// We return the result as is but `KnownExpired` should not happen. Expired statements
+			// submitted with `StatementSource::Rpc` should be renewed.
+			result => Ok(result),
 		}
 	}
 

@@ -201,6 +201,8 @@ pub mod pallet {
 		InvalidFutureBlockVotingProof,
 		/// The session of the equivocation proof is invalid
 		InvalidEquivocationProofSession,
+		/// The session of the equivocation proof is not in the mapping (anymore)
+		InvalidEquivocationProofSessionMember,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 		/// Submitted configuration is invalid.
@@ -755,7 +757,8 @@ pub(crate) trait WeightInfoExt: WeightInfo {
 		max_nominators_per_validator: u32,
 		ancestry_proof: &<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
 	) -> Weight {
-		let _weight = <T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context()
+		<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_proof_optimal(&ancestry_proof)
+			.saturating_add(<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context())
 			.saturating_add(
 				<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_non_canonical(
 					ancestry_proof,
@@ -765,12 +768,7 @@ pub(crate) trait WeightInfoExt: WeightInfo {
 				1,
 				validator_count,
 				max_nominators_per_validator,
-			));
-
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
-		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
-		// We need to check that the proof is optimal.
-		Weight::MAX
+			))
 	}
 
 	fn report_future_block_voting(

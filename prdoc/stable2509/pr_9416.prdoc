@@ -1,0 +1,10 @@
+title: 'pallet_revive: Enforce storage deposit limit on plain transfer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The existential deposit to create a new account is part of the storage deposit. Hence if the storage deposit limit is too low to create a new account we fail the transaction. However, this limit was not enforced for plain transfers. The reason is that we only enforce the limit at the end of each frame. But for plain transfers (transferring to a non contract) there is no frame.
+
+    This PR fixes the situation by enforcing the limit when transferring the existential deposit in order to create a new account.
+crates:
+- name: pallet-revive
+  bump: patch

@@ -1,0 +1,8 @@
+title: '`fatxpool`:  add fallback for ready at light'
+doc:
+- audience: Node Dev 
+  description: |
+     Add fallback for `ready_at_light` for the case of not finding a best view that can be used to return a set of ready transactions. Optimised as well how the best view is searched.
+crates:
+- name: sc-transaction-pool
+  bump: major

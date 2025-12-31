@@ -25,6 +25,9 @@ use crate::{dispatch::DispatchResult, traits::misc::Get};
 pub type LockIdentifier = [u8; 8];
 
 /// A currency whose accounts can have liquidity restrictions.
+///
+/// Note: Consider using [`crate::traits::fungible::MutateFreeze`] (and family) as it returns a
+/// `Result`, and is therefore much safer to use.
 pub trait LockableCurrency<AccountId>: Currency<AccountId> {
 	/// The quantity used to denote time; usually just a `BlockNumber`.
 	type Moment;

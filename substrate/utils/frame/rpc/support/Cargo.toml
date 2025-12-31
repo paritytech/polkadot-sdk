@@ -19,13 +19,13 @@ codec = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 jsonrpsee = { features = ["jsonrpsee-types"], workspace = true }
 sc-rpc-api = { workspace = true, default-features = true }
+scale-info = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }
 jsonrpsee = { features = ["jsonrpsee-types", "ws-client"], workspace = true }
-scale-info = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }

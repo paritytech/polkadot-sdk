@@ -168,3 +168,19 @@
 //!    [`crate::polkadot_sdk::templates`].
 //!
 //! [`SolochainDefaultConfig`]: struct@frame_system::pallet::config_preludes::SolochainDefaultConfig
+
+#[cfg(test)]
+mod tests {
+	use cmd_lib::run_cmd;
+
+	const FIRST_RUNTIME: &'static str = "polkadot-sdk-docs-first-runtime";
+
+	#[docify::export_content]
+	#[test]
+	fn build_runtime() {
+		run_cmd!(
+			cargo build --release -p $FIRST_RUNTIME
+		)
+		.expect("Failed to run command");
+	}
+}

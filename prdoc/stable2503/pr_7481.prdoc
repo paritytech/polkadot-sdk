@@ -1,0 +1,14 @@
+title: add genesis presets for glutton westend
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extracted from #7473.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/5704.
+
+    I did not use the presets in the parachain-bin, as we rely on passing custom para-ids to the chains specs to launch many glutton chains on one relay chain. This is currently not compatible with the genesis presets, which hard code the para ID, see https://github.com/paritytech/polkadot-sdk/issues/7618 and https://github.com/paritytech/polkadot-sdk/issues/7384.
+crates:
+- name: glutton-westend-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor

@@ -35,8 +35,8 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	vstaging::OccupiedCore, AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
-	GroupIndex, Hash, HashT, SessionIndex,
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
+	OccupiedCore, SessionIndex,
 };
 use sc_network::ProtocolName;
 

@@ -47,7 +47,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	vstaging::CoreState, CandidateHash, ChunkIndex, CoreIndex, ExecutorParams, GroupIndex, Hash,
+	CandidateHash, ChunkIndex, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
 	Id as ParaId, NodeFeatures, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
@@ -109,7 +109,7 @@ impl TestState {
 		let session_info = make_session_info();
 
 		let our_chunk_index = availability_chunk_index(
-			Some(&node_features),
+			&node_features,
 			session_info.validators.len(),
 			CoreIndex(1),
 			ValidatorIndex(0),

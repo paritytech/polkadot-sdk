@@ -18,100 +18,52 @@
 //! Substrate runtime interface
 //!
 //! This crate provides types, traits and macros around runtime interfaces. A runtime interface is
-//! a fixed interface between a Substrate runtime and a Substrate node. For a native runtime the
-//! interface maps to a direct function call of the implementation. For a wasm runtime the interface
-//! maps to an external function call. These external functions are exported by the wasm executor
-//! and they map to the same implementation as the native calls.
+//! a fixed interface between a Substrate runtime (also called the "guest") and a Substrate node
+//! (also called the "host"). For a native runtime the interface maps to direct function calls of
+//! the implementation. For a non-native runtime the interface maps to an external function call.
+//! These external functions are exported by the runtime and they map to the same implementation
+//! as the native calls, just with some extra code to marshal them through the FFI boundary.
 //!
 //! # Using a type in a runtime interface
 //!
-//! Any type that should be used in a runtime interface as argument or return value needs to
-//! implement [`RIType`]. The associated type
-//! [`FFIType`](./trait.RIType.html#associatedtype.FFIType) is the type that is used in the FFI
-//! function to represent the actual type. For example `[T]` is represented by an `u64`. The slice
-//! pointer and the length will be mapped to an `u64` value. For more information see this
-//! [table](#ffi-type-and-conversion). The FFI function definition is used when calling from the
-//! wasm runtime into the node.
+//! Every argument type and return type must be wrapped in a marker newtype specifying the
+//! marshalling strategy used to pass the value through the FFI boundary between the host
+//! and the runtime. The only exceptions to this rule are a couple of basic, primitive types
+//! which can be passed directly through the FFI boundary and which don't require any special
+//! handling besides a straightforward, direct conversion.
 //!
-//! Traits are used to convert from a type to the corresponding
-//! [`RIType::FFIType`](./trait.RIType.html#associatedtype.FFIType).
-//! Depending on where and how a type should be used in a function signature, a combination of the
-//! following traits need to be implemented:
-//! <!-- markdown-link-check-enable -->
-//! 1. Pass as function argument: [`wasm::IntoFFIValue`] and [`host::FromFFIValue`]
-//! 2. As function return value: [`wasm::FromFFIValue`] and [`host::IntoFFIValue`]
-//! 3. Pass as mutable function argument: [`host::IntoPreallocatedFFIValue`]
+//! You can find the strategy wrapper types in the [`crate::pass_by`] module.
 //!
-//! The traits are implemented for most of the common types like `[T]`, `Vec<T>`, arrays and
-//! primitive types.
-//!
-//! For custom types, we provide the [`PassBy`](./pass_by#PassBy) trait and strategies that define
-//! how a type is passed between the wasm runtime and the node. Each strategy also provides a derive
-//! macro to simplify the implementation.
-//!
-//! # Performance
-//!
-//! To not waste any more performance when calling into the node, not all types are SCALE encoded
-//! when being passed as arguments between the wasm runtime and the node. For most types that
-//! are raw bytes like `Vec<u8>`, `[u8]` or `[u8; N]` we pass them directly, without SCALE encoding
-//! them in front of. The implementation of [`RIType`] each type provides more information on how
-//! the data is passed.
+//! The newtype wrappers are automatically stripped away when the function is called
+//! and applied when the function returns by the `runtime_interface` macro.
 //!
 //! # Declaring a runtime interface
 //!
 //! Declaring a runtime interface is similar to declaring a trait in Rust:
 //!
 //! ```
+//! # mod wrapper {
+//! # use sp_runtime_interface::pass_by::PassFatPointerAndRead;
+//!
 //! #[sp_runtime_interface::runtime_interface]
 //! trait RuntimeInterface {
-//!     fn some_function(value: &[u8]) -> bool {
+//!     fn some_function(value: PassFatPointerAndRead<&[u8]>) -> bool {
 //!         value.iter().all(|v| *v > 125)
 //!     }
 //! }
+//! # }
 //! ```
 //!
 //! For more information on declaring a runtime interface, see
 //! [`#[runtime_interface]`](./attr.runtime_interface.html).
-//!
-//! # FFI type and conversion
-//!
-//! The following table documents how values of types are passed between the wasm and
-//! the host side and how they are converted into the corresponding type.
-//!
-//! | Type | FFI type | Conversion |
-//! |----|----|----|
-//! | `u8` | `u32` | zero-extended to 32-bits |
-//! | `u16` | `u32` | zero-extended to 32-bits |
-//! | `u32` | `u32` | `Identity` |
-//! | `u64` | `u64` | `Identity` |
-//! | `i128` | `u32` | `v.as_ptr()` (pointer to a 16 byte array) |
-//! | `i8` | `i32` | sign-extended to 32-bits |
-//! | `i16` | `i32` | sign-extended to 32-bits |
-//! | `i32` | `i32` | `Identity` |
-//! | `i64` | `i64` | `Identity` |
-//! | `u128` | `u32` | `v.as_ptr()` (pointer to a 16 byte array) |
-//! | `bool` | `u32` | `if v { 1 } else { 0 }` |
-//! | `&str` | `u64` | <code>v.len() 32bit << 32 &#124; v.as_ptr() 32bit</code> |
-//! | `&[u8]` | `u64` | <code>v.len() 32bit << 32 &#124; v.as_ptr() 32bit</code> |
-//! | `Vec<u8>` | `u64` | <code>v.len() 32bit << 32 &#124; v.as_ptr() 32bit</code> |
-//! | `Vec<T> where T: Encode` | `u64` | `let e = v.encode();`<br><br><code>e.len() 32bit << 32 &#124; e.as_ptr() 32bit</code> |
-//! | `&[T] where T: Encode` | `u64` | `let e = v.encode();`<br><br><code>e.len() 32bit << 32 &#124; e.as_ptr() 32bit</code> |
-//! | `[u8; N]` | `u32` | `v.as_ptr()` |
-//! | `*const T` | `u32` | `Identity` |
-//! | `Option<T>` | `u64` | `let e = v.encode();`<br><br><code>e.len() 32bit << 32 &#124; e.as_ptr() 32bit</code> |
-//! | [`T where T: PassBy<PassBy=Inner>`](./pass_by#Inner) | Depends on inner | Depends on inner |
-//! | [`T where T: PassBy<PassBy=Codec>`](./pass_by#Codec)|`u64`|<code>v.len() 32bit << 32 &#124;v.as_ptr() 32bit</code>|
-//!
-//! `Identity` means that the value is converted directly into the corresponding FFI type.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
+pub extern crate alloc;
 extern crate self as sp_runtime_interface;
 
-extern crate alloc;
-
 #[doc(hidden)]
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use sp_wasm_interface;
 
 #[doc(hidden)]
@@ -130,14 +82,16 @@ pub use sp_std;
 /// The macro expects the runtime interface declaration as trait declaration:
 ///
 /// ```
+/// # mod wrapper {
 /// # use sp_runtime_interface::runtime_interface;
+/// # use sp_runtime_interface::pass_by::{PassFatPointerAndDecode, PassFatPointerAndRead, AllocateAndReturnFatPointer};
 ///
 /// #[runtime_interface]
 /// trait Interface {
 ///     /// A function that can be called from native/wasm.
 ///     ///
 ///     /// The implementation given to this function is only compiled on native.
-///     fn call(data: &[u8]) -> Vec<u8> {
+///     fn call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         // Here you could call some rather complex code that only compiles on native or
 ///         // is way faster in native than executing it in wasm.
 ///         Vec::new()
@@ -148,7 +102,7 @@ pub use sp_std;
 ///     /// But old version (above) is still accessible for old runtimes.
 ///     /// Default version is 1.
 ///     #[version(2)]
-///     fn call(data: &[u8]) -> Vec<u8> {
+///     fn call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         // Here you could call some rather complex code that only compiles on native or
 ///         // is way faster in native than executing it in wasm.
 ///         [17].to_vec()
@@ -164,7 +118,7 @@ pub use sp_std;
 ///     /// runtime, but it will already be there for a future version of the runtime that will
 ///     /// switch to using these host function.
 ///     #[version(3, register_only)]
-///     fn call(data: &[u8]) -> Vec<u8> {
+///     fn call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         // Here you could call some rather complex code that only compiles on native or
 ///         // is way faster in native than executing it in wasm.
 ///         [18].to_vec()
@@ -173,7 +127,7 @@ pub use sp_std;
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
 ///     /// `Externalities`. (The generated method does not require
 ///     /// this argument, so the function can be called just with the `optional` argument)
-///     fn set_or_clear(&mut self, optional: Option<Vec<u8>>) {
+///     fn set_or_clear(&mut self, optional: PassFatPointerAndDecode<Option<Vec<u8>>>) {
 ///         match optional {
 ///             Some(value) => self.set_storage([1, 2, 3, 4].to_vec(), value),
 ///             None => self.clear_storage(&[1, 2, 3, 4]),
@@ -186,10 +140,11 @@ pub use sp_std;
 ///     /// That is, conditionally compiled functions with `version`s greater than 1
 ///     /// are not allowed.
 ///     #[cfg(feature = "experimental-function")]
-///     fn gated_call(data: &[u8]) -> Vec<u8> {
+///     fn gated_call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         [42].to_vec()
 ///     }
 /// }
+/// # }
 /// ```
 ///
 /// The given example will generate roughly the following code for native:
@@ -339,13 +294,36 @@ pub use sp_std;
 /// }
 /// ```
 ///
-/// # Argument types
+/// # Argument and return types
 ///
-/// The macro supports any kind of argument type, as long as it implements [`RIType`] and the
-/// required `FromFFIValue`/`IntoFFIValue`. The macro will convert each
-/// argument to the corresponding FFI representation and will call into the host using this FFI
-/// representation. On the host each argument is converted back to the native representation
-/// and the native implementation is called. Any return value is handled in the same way.
+/// Every argument type and return type must be wrapped in a marker newtype specifying the
+/// marshalling strategy used to pass the value through the FFI boundary between the host
+/// and the runtime. The only exceptions to this rule are a couple of basic, primitive types
+/// which can be passed directly through the FFI boundary and which don't require any special
+/// handling besides a straightforward, direct conversion.
+///
+/// The following table documents those types which can be passed between the host and the
+/// runtime without a marshalling strategy wrapper:
+///
+/// | Type | FFI type | Conversion |
+/// |----|----|----|
+/// | `u8` | `u32` | zero-extended to 32-bits |
+/// | `u16` | `u32` | zero-extended to 32-bits |
+/// | `u32` | `u32` | `Identity` |
+/// | `u64` | `u64` | `Identity` |
+/// | `i8` | `i32` | sign-extended to 32-bits |
+/// | `i16` | `i32` | sign-extended to 32-bits |
+/// | `i32` | `i32` | `Identity` |
+/// | `i64` | `i64` | `Identity` |
+/// | `bool` | `u32` | `if v { 1 } else { 0 }` |
+/// | `*const T` | `u32` | `Identity` |
+///
+/// `Identity` means that the value is passed as-is directly in a bit-exact fashion.
+///
+/// You can find the strategy wrapper types in the [`crate::pass_by`] module.
+///
+/// The newtype wrappers are automatically stripped away when the function is called
+/// and applied when the function returns by the `runtime_interface` macro.
 ///
 /// # Wasm only interfaces
 ///
@@ -366,7 +344,7 @@ pub use sp_std;
 pub use sp_runtime_interface_proc_macro::runtime_interface;
 
 #[doc(hidden)]
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use sp_externalities::{
 	set_and_run_with_externalities, with_externalities, ExtensionStore, Externalities,
 	ExternalitiesExt,
@@ -378,36 +356,40 @@ pub use codec;
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
 pub mod polkavm;
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub mod host;
 pub(crate) mod impls;
 pub mod pass_by;
-#[cfg(any(not(feature = "std"), doc))]
+#[cfg(any(substrate_runtime, doc))]
 pub mod wasm;
 
 mod util;
 
 pub use util::{pack_ptr_and_len, unpack_ptr_and_len};
 
-/// Something that can be used by the runtime interface as type to communicate between wasm and the
-/// host.
+/// Something that can be used by the runtime interface as type to communicate between the runtime
+/// and the host.
 ///
 /// Every type that should be used in a runtime interface function signature needs to implement
 /// this trait.
-pub trait RIType {
-	/// The ffi type that is used to represent `Self`.
-	#[cfg(feature = "std")]
+pub trait RIType: Sized {
+	/// The raw FFI type that is used to pass `Self` through the host <-> runtime boundary.
+	#[cfg(not(substrate_runtime))]
 	type FFIType: sp_wasm_interface::IntoValue
 		+ sp_wasm_interface::TryFromValue
 		+ sp_wasm_interface::WasmTy;
-	#[cfg(not(feature = "std"))]
+
+	#[cfg(substrate_runtime)]
 	type FFIType;
+
+	/// The inner type without any serialization strategy wrapper.
+	type Inner;
 }
 
-/// A pointer that can be used in a runtime interface function signature.
-#[cfg(not(feature = "std"))]
+/// A raw pointer that can be used in a runtime interface function signature.
+#[cfg(substrate_runtime)]
 pub type Pointer<T> = *mut T;
 
-/// A pointer that can be used in a runtime interface function signature.
-#[cfg(feature = "std")]
+/// A raw pointer that can be used in a runtime interface function signature.
+#[cfg(not(substrate_runtime))]
 pub type Pointer<T> = sp_wasm_interface::Pointer<T>;

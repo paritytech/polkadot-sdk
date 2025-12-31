@@ -1,0 +1,15 @@
+title: Stabilize pallet view functions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Pallet view functions are no longer marked as experimental, and their use is suggested starting from this PR.
+
+crates:
+- name: pallet-example-view-functions
+  bump: none
+- name: pallet-proxy
+  bump: none
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: minor

@@ -16,7 +16,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

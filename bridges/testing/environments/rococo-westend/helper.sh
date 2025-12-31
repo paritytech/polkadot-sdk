@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ $1 == "auto-log" ]; then
     shift # ignore "auto-log"

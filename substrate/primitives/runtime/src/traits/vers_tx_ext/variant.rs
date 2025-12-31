@@ -21,16 +21,16 @@
 use crate::{
 	generic::ExtensionVersion,
 	traits::{
-		AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, DispatchTransaction,
-		Dispatchable, PostDispatchInfoOf, TransactionExtension, TxExtLineAtVers, VersTxExtLine,
-		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
+		DispatchInfoOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
+		TransactionExtension, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
+		VersTxExtLineVersion, VersTxExtLineWeight,
 	},
 	transaction_validity::TransactionSource,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
 use sp_weights::Weight;
 
 /// Version 0 of the transaction extension version used to construct the inherited
@@ -42,7 +42,7 @@ const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 ///
 /// The generic `ExtensionOtherVersions` must not re-define a transaction extension pipeline for the
 /// version 0, it will be ignored and overwritten by `ExtensionV0`.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
 	/// A transaction extension pipeline for the version 0.
 	V0(ExtensionV0),
@@ -111,6 +111,11 @@ impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersion> DecodeWithV
 			)?)),
 		}
 	}
+}
+
+impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersionWithMemTracking>
+	DecodeWithVersionWithMemTracking for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+{
 }
 
 impl<
@@ -183,7 +188,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,
 	};
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use core::fmt::Debug;
 	use sp_weights::Weight;
 
@@ -225,7 +230,7 @@ mod tests {
 	// --------------------------------------------------------------------
 
 	/// A trivial extension type for "old-school version 0".
-	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 	pub struct ExtV0 {
 		pub success_token: bool,
 		pub w: u64,
@@ -279,7 +284,7 @@ mod tests {
 	// --------------------------------------------------------------------
 
 	/// Another extension for "some version" pipeline.
-	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 	pub struct OtherExtension {
 		pub token: u16,
 		pub w: u64,

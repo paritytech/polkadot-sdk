@@ -20,8 +20,6 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-smallvec = { workspace = true, default-features = true }
-static_assertions = { workspace = true, default-features = true }
 
 binary-merkle-tree = { workspace = true }
 rococo-runtime-constants = { workspace = true }
@@ -59,14 +57,12 @@ pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-child-bounties = { workspace = true }
-pallet-collective = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-democracy = { workspace = true }
 pallet-elections-phragmen = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
-pallet-membership = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-mmr = { workspace = true }
@@ -115,12 +111,9 @@ xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
 remote-externalities = { workspace = true, default-features = true }
-separator = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-sp-trie = { workspace = true, default-features = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
@@ -151,14 +144,12 @@ std = [
 	"pallet-beefy/std",
 	"pallet-bounties/std",
 	"pallet-child-bounties/std",
-	"pallet-collective/std",
 	"pallet-conviction-voting/std",
 	"pallet-democracy/std",
 	"pallet-elections-phragmen/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-indices/std",
-	"pallet-membership/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-mmr/std",
@@ -234,14 +225,12 @@ runtime-benchmarks = [
 	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-child-bounties/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
@@ -255,6 +244,7 @@ runtime-benchmarks = [
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
@@ -294,14 +284,12 @@ try-runtime = [
 	"pallet-beefy/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-child-bounties/try-runtime",
-	"pallet-collective/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-democracy/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-indices/try-runtime",
-	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-mmr/try-runtime",

@@ -46,3 +46,24 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_1::_w`:
    |
 36 |         #[pallet::weight(0)]
    |                          ^
+
+error: associated function `error_metadata` is never used
+  --> tests/pallet_ui/call_missing_index.rs:26:12
+   |
+26 |     #[pallet::pallet]
+   |               ^^^^^^ associated function in this implementation
+   |
+   = note: `-D dead-code` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(dead_code)]`
+
+error: associated functions `new_call_variant_foo` and `new_call_variant_bar` are never used
+  --> tests/pallet_ui/call_missing_index.rs:32:10
+   |
+29 |     #[pallet::call]
+   |               ---- associated functions in this implementation
+...
+32 |         pub fn foo(_: OriginFor<T>) -> DispatchResult {
+   |                ^^^
+...
+37 |         pub fn bar(_: OriginFor<T>) -> DispatchResult {
+   |                ^^^

@@ -19,9 +19,9 @@
 
 use crate::{
 	traits::{
-		DecodeWithVersion, DispatchInfoOf, DispatchOriginOf, Dispatchable, InvalidVersion,
-		PostDispatchInfoOf, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
+		Dispatchable, InvalidVersion, PostDispatchInfoOf, TxExtLineAtVers, VersTxExtLine,
+		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -160,6 +160,10 @@ macro_rules! declare_multi_version_enum {
 			}
 		}
 
+		impl<$( $variant: DecodeWithVersionWithMemTracking + MultiVersionItem, )*>
+			DecodeWithVersionWithMemTracking for MultiVersion<$( $variant, )*>
+		{}
+
 		impl<$( $variant: VersTxExtLineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
 			VersTxExtLineWeight<Call> for MultiVersion<$( $variant, )*>
 		{
@@ -227,7 +231,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,
 	};
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use core::fmt::Debug;
 	use scale_info::TypeInfo;
 	use sp_weights::Weight;
@@ -275,7 +279,7 @@ mod tests {
 	// --------------------------------------------------------
 
 	// A single-version extension pipeline that "succeeds" only if token != 0
-	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 	pub struct SimpleExtensionV4 {
 		pub token: u8,
 		pub declared_weight: u64,
@@ -327,7 +331,7 @@ mod tests {
 	pub type PipelineV4 = TxExtLineAtVers<4, SimpleExtensionV4>;
 
 	// Another single-version extension pipeline, version=7
-	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 	pub struct SimpleExtensionV7 {
 		pub token: u8,
 		pub declared_weight: u64,

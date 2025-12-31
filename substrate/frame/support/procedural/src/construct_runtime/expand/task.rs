@@ -16,7 +16,6 @@
 // limitations under the License
 
 use crate::construct_runtime::Pallet;
-use core::str::FromStr;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::quote;
 
@@ -42,14 +41,7 @@ pub fn expand_outer_task(
 		let instance = decl.instance.as_ref().map(|instance| quote!(, #path::#instance));
 		let task_type = quote!(#path::Task<#runtime_name #instance>);
 
-		let attr = decl.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
-			let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
-				.expect("was successfully parsed before; qed");
-			quote! {
-				#acc
-				#attr
-			}
-		});
+		let attr = decl.get_attributes();
 
 		from_impls.push(quote! {
 			#attr
@@ -96,8 +88,9 @@ pub fn expand_outer_task(
 			Clone, Eq, PartialEq,
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		pub enum RuntimeTask {
 			#( #task_variants )*

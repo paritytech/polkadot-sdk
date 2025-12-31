@@ -257,7 +257,11 @@ mod benchmarks {
 			.map(|l| l.active)
 			.ok_or("ledger not created after")?;
 
-		let _ = asset::mint_existing::<T>(&stash, max_additional).unwrap();
+		let _ = asset::mint_into_existing::<T>(
+			&stash,
+			max_additional + asset::existential_deposit::<T>(),
+		)
+		.unwrap();
 
 		whitelist_account!(stash);
 
@@ -1129,6 +1133,47 @@ mod benchmarks {
 		_(RawOrigin::Root, stash.clone(), None, None, None);
 
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migrate_currency() -> Result<(), BenchmarkError> {
+		let (stash, _ctrl) =
+			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stake = asset::staked::<T>(&stash);
+		migrate_to_old_currency::<T>(stash.clone());
+		// no holds
+		assert!(asset::staked::<T>(&stash).is_zero());
+		whitelist_account!(stash);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash.clone()), stash.clone());
+
+		assert_eq!(asset::staked::<T>(&stash), stake);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn manual_slash() -> Result<(), BenchmarkError> {
+		// Create a validator with nominators
+		// This will add exposure for our validator in the current era.
+		let (validator_stash, _nominators) = create_validator_with_nominators::<T>(
+			T::MaxExposurePageSize::get() as u32,
+			T::MaxExposurePageSize::get() as u32,
+			false,
+			true,
+			RewardDestination::Staked,
+		)?;
+
+		let era = CurrentEra::<T>::get().unwrap();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
+		let slash_fraction = Perbill::from_percent(10);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, validator_stash.clone(), era, slash_fraction);
+
+		assert!(ValidatorSlashInEra::<T>::get(era, &validator_stash).is_some());
 
 		Ok(())
 	}

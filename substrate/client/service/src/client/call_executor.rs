@@ -19,6 +19,7 @@
 use super::{code_provider::CodeProvider, ClientConfig};
 use sc_client_api::{
 	backend, call_executor::CallExecutor, execution_extensions::ExecutionExtensions, HeaderBackend,
+	TrieCacheContext,
 };
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_api::ProofRecorder;
@@ -101,7 +102,7 @@ where
 		let mut changes = OverlayedChanges::default();
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, context.into())?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 		let runtime_code =
@@ -136,7 +137,7 @@ where
 		call_context: CallContext,
 		extensions: &RefCell<Extensions>,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, call_context.into())?;
 
 		let changes = &mut *changes.borrow_mut();
 
@@ -190,7 +191,7 @@ where
 	}
 
 	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 
 		let runtime_code =
@@ -208,7 +209,7 @@ where
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, TrieCacheContext::Untrusted)?;
 
 		let trie_backend = state.as_trie_backend();
 

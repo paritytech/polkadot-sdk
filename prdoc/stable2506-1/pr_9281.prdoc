@@ -1,0 +1,16 @@
+title: 'litep2p/discovery: Ensure non-global addresses are not reported as external'
+doc:
+- audience: Node Dev
+  description: "This PR ensures that external addresses discovered by the identify\
+    \ protocol are not propagated to the litep2p backend if they are not global. This\
+    \ leads to a healthier DHT over time, since nodes will not advertise loopback\
+    \ / non-global addresses.\n\nWe have seen various cases were loopback addresses\
+    \ were reported as external:\n\n```\n2025-07-16 16:18:39.765 TRACE tokio-runtime-worker\
+    \ sub-libp2p::discovery: verify new external address: /ip4/127.0.0.1/tcp/30310/p2p/12D3KooWNw19ScMjzNGLnYYLQxWcM9EK9VYPbCq241araUGgbdLM\n\
+    \n2025-07-16 16:18:39.765  INFO tokio-runtime-worker sub-libp2p: \U0001F50D Discovered\
+    \ new external address for our node: /ip4/127.0.0.1/tcp/30310/p2p/12D3KooWNw19ScMjzNGLnYYLQxWcM9EK9VYPbCq241araUGgbdLM\n\
+    ```\n\nThis PR takes into account the network config for `allow_non_global_addresses`.\n\
+    \nCloses: https://github.com/paritytech/polkadot-sdk/issues/9261\n\ncc @paritytech/networking"
+crates:
+- name: sc-network
+  bump: patch

@@ -1,0 +1,9 @@
+title: '[pallet-revive] rm checked-in metadata'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removed eth-rpc generated metadata.
+    The metadata file will now be generated from the build.rs using the AH-westend runtime
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

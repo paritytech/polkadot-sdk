@@ -140,7 +140,7 @@ impl<T> Value<'_, T> {
 
 /// Runs the given `callback` in the dispatch context and gives access to some user defined value.
 ///
-/// Passes the a mutable reference of [`Value`] to the callback. The value will be of type `T` and
+/// Passes a mutable reference of [`Value`] to the callback. The value will be of type `T` and
 /// is identified using the [`TypeId`] of `T`. This means that `T` should be some unique type to
 /// make the value unique. If no value is set yet [`Value::get()`] and [`Value::get_mut()`] will
 /// return `None`. It is totally valid to have some `T` that is shared between different callers to

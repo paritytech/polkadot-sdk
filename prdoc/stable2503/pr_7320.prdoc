@@ -1,0 +1,14 @@
+title: Add view functions to Proxy pallet for runtime-specific type configuration.
+
+doc:
+- audience: Runtime User
+  description: |-
+    Adds two view functions to `pallet-proxy`:
+    `check_permissions`: Checks if a given RuntimeCall is allowed for a specific ProxyType
+    using the InstanceFilter trait.
+    `is_superset`: Checks if one ProxyType is a superset of another ProxyType by comparing
+    them using the PartialOrd trait.
+
+crates:
+  - name: pallet-proxy
+    bump: minor 

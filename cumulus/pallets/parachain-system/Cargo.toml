@@ -12,9 +12,11 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
+hashbrown = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -25,6 +27,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-message-queue = { workspace = true }
+sp-consensus-babe = { workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { workspace = true }
 sp-inherents = { workspace = true }
@@ -52,20 +55,21 @@ assert_matches = { workspace = true }
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+rstest = { workspace = true }
 trie-standardmap = { workspace = true }
 
+
 # Substrate
-sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true }
+sp-api = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
-cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -85,6 +89,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-consensus-babe/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-inherents/std",
@@ -121,4 +126,12 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental-ump-signals = []
+# Enables `TransactionIndex` host functions for parachain validation
+# without requiring maintenance of a transaction index.
+# However, the host environment (polkadot-prepare/execute-worker) still expects these functions to exist,
+# so we provide a replacement no-op implementation gated by this feature.
+#
+# Used by: `validate_block::implementation::validate_block`.
+#
+# Note: The parachain collator software is expected to use/include `transaction_index::HostFunctions`.
+transaction-index = []

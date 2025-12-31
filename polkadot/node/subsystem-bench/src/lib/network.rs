@@ -56,7 +56,7 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_network_protocol::{self as net_protocol, ValidationProtocols};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
@@ -149,13 +149,14 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
+#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
 	/// A gossip message from node to a peer.
 	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
-	RequestFromNode(AuthorityDiscoveryId, Requests),
+	RequestFromNode(AuthorityDiscoveryId, Box<Requests>),
 	/// A request originating from an emulated peer
 	RequestFromPeer(IncomingRequest),
 }
@@ -164,14 +165,9 @@ impl NetworkMessage {
 	/// Returns the size of the encoded message or request
 	pub fn size(&self) -> usize {
 		match &self {
-			NetworkMessage::MessageFromPeer(_, Versioned::V2(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(_, Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(_, Versioned::V3(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
+			NetworkMessage::MessageFromPeer(_, ValidationProtocols::V3(message)) =>
 				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
-				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
+			NetworkMessage::MessageFromNode(_peer_id, ValidationProtocols::V3(message)) =>
 				message.encoded_size(),
 			NetworkMessage::RequestFromNode(_peer_id, incoming) => incoming.size(),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
@@ -356,7 +352,7 @@ impl NetworkInterface {
 							// usage for the node.
 							let send_task = Self::proxy_send_request(
 								peer.clone(),
-								request,
+								*request,
 								tx_network.clone(),
 								task_rx_limiter.clone(),
 							)
@@ -789,7 +785,7 @@ pub fn new_network(
 	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
-	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
+	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {n_peers} peer network.").bright_blue());
 	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
@@ -833,7 +829,7 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
+	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {connected_count}").bright_black());
 
 	let handle = NetworkEmulatorHandle {
 		peers,
@@ -881,7 +877,8 @@ impl NetworkEmulatorHandle {
 	pub fn send_request_to_peer(&self, peer_id: &AuthorityDiscoveryId, request: Requests) {
 		let peer = self.peer(peer_id);
 		assert!(peer.is_connected(), "forward request only for connected peers.");
-		peer.handle().receive(NetworkMessage::RequestFromNode(peer_id.clone(), request));
+		peer.handle()
+			.receive(NetworkMessage::RequestFromNode(peer_id.clone(), Box::new(request)));
 	}
 
 	/// Send a message from a peer to the node.
@@ -987,14 +984,14 @@ impl Metrics {
 	/// Increment total sent for a peer.
 	pub fn on_peer_sent(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_sent
-			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.with_label_values(vec![format!("node{peer_index}").as_str()].as_slice())
 			.inc_by(bytes as u64);
 	}
 
 	/// Increment total received for a peer.
 	pub fn on_peer_received(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_received
-			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.with_label_values(vec![format!("node{peer_index}").as_str()].as_slice())
 			.inc_by(bytes as u64);
 	}
 }
@@ -1032,6 +1029,13 @@ impl RequestExt for Requests {
 			},
 			// Requested by PeerId
 			Requests::AttestedCandidateV2(_) => None,
+			Requests::DisputeSendingV1(request) => {
+				if let Recipient::Authority(authority_id) = &request.peer {
+					Some(authority_id)
+				} else {
+					None
+				}
+			},
 			request => {
 				unimplemented!("RequestAuthority not implemented for {:?}", request)
 			},
@@ -1055,6 +1059,7 @@ impl RequestExt for Requests {
 			Requests::ChunkFetching(outgoing_request) => outgoing_request.pending_response,
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				outgoing_request.pending_response,
+			Requests::DisputeSendingV1(outgoing_request) => outgoing_request.pending_response,
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1068,6 +1073,8 @@ impl RequestExt for Requests {
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			Requests::AttestedCandidateV2(outgoing_request) =>
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			Requests::DisputeSendingV1(outgoing_request) =>
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1080,6 +1087,7 @@ impl RequestExt for Requests {
 				outgoing_request.payload.encoded_size(),
 			Requests::AttestedCandidateV2(outgoing_request) =>
 				outgoing_request.payload.encoded_size(),
+			Requests::DisputeSendingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
 			_ => unimplemented!("received an unexpected request"),
 		}
 	}

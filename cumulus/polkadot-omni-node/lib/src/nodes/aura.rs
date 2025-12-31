@@ -1,26 +1,27 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::{
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		rpc::BuildParachainRpcExtensions,
+		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
-			BaseNodeSpec, BuildImportQueue, ClientBlockImport, InitBlockImport, NodeSpec,
-			StartConsensus,
+			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
+			NodeSpec, StartConsensus,
 		},
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
@@ -28,8 +29,8 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::DynNodeSpecExt,
 };
+use codec::Encode;
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
 };
@@ -37,36 +38,46 @@ use cumulus_client_collator::service::{
 use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
-use cumulus_client_consensus_aura::collators::{
-	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+use cumulus_client_consensus_aura::{
+	collators::{
+		lookahead::{self as aura, Params as AuraParams},
+		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+	},
+	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
-use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
-#[allow(deprecated)]
+use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
+	RelayParentOffsetApi,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::prelude::*;
-use polkadot_primitives::CollatorPair;
+use futures::{prelude::*, FutureExt};
+use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
-use sc_client_api::BlockchainEvents;
+use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue,
+	BlockImportParams, DefaultImportQueue, LongestChain,
 };
-use sc_service::{Configuration, Error, TaskManager};
+use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
+use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
+use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
-use sp_api::ProvideRuntimeApi;
-use sp_core::traits::SpawnNamed;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_consensus::Environment;
+use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
@@ -118,48 +129,27 @@ where
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-		let verifier_client = client.clone();
-
-		let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
-			<AuraId as AppCrypto>::Pair,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = verifier_client.clone();
-				async move {
-					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
-                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                            *timestamp,
-                            slot_duration,
-                        );
-
-					Ok((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		});
+		let inherent_data_providers =
+			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
+		let registry = config.prometheus_registry();
+		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
+
+		let equivocation_aura_verifier =
+			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
+				client.clone(),
+				inherent_data_providers,
+				telemetry_handle,
+			);
 
 		let verifier = Verifier {
 			client,
+			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
-			aura_verifier: Box::new(aura_verifier),
-			_phantom: PhantomData,
+			_phantom: Default::default(),
 		};
-
-		let registry = config.prometheus_registry();
-		let spawner = task_manager.spawn_essential_handle();
 
 		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 	}
@@ -215,27 +205,273 @@ where
 			InitBlockImport::BlockImport,
 			InitBlockImport::BlockImportAuxiliaryData,
 		> + 'static,
-	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send,
+	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send + 'static,
 	InitBlockImport::BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + 'static,
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
+
+	fn start_dev_node(
+		mut config: Configuration,
+		mode: DevSealMode,
+	) -> sc_service::error::Result<TaskManager> {
+		let PartialComponents {
+			client,
+			backend,
+			mut task_manager,
+			import_queue,
+			keystore_container,
+			select_chain: _,
+			transaction_pool,
+			other: (_, mut telemetry, _, _),
+		} = Self::new_partial(&config)?;
+
+		// Since this is a dev node, prevent it from connecting to peers.
+		config.network.default_peers_set.in_peers = 0;
+		config.network.default_peers_set.out_peers = 0;
+		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+			&config.network,
+			None,
+		);
+
+		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			sc_service::build_network(sc_service::BuildNetworkParams {
+				config: &config,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+				import_queue,
+				net_config,
+				block_announce_validator_builder: None,
+				warp_sync_config: None,
+				block_relay: None,
+				metrics: NotificationMetrics::new(None),
+			})?;
+
+		if config.offchain_worker.enabled {
+			let offchain_workers =
+				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+					runtime_api_provider: client.clone(),
+					keystore: Some(keystore_container.keystore()),
+					offchain_db: backend.offchain_storage(),
+					transaction_pool: Some(OffchainTransactionPoolFactory::new(
+						transaction_pool.clone(),
+					)),
+					network_provider: Arc::new(network.clone()),
+					is_validator: config.role.is_authority(),
+					enable_http_requests: true,
+					custom_extensions: move |_| vec![],
+				})?;
+			task_manager.spawn_handle().spawn(
+				"offchain-workers-runner",
+				"offchain-work",
+				offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+			);
+		}
+
+		let proposer = sc_basic_authorship::ProposerFactory::new(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool.clone(),
+			None,
+			None,
+		);
+
+		// Note: Changing slot durations are currently not supported
+		let slot_duration = sc_consensus_aura::slot_duration(&*client)
+			.expect("slot_duration is always present; qed.");
+
+		// The aura digest provider will provide digests that match the provided timestamp data.
+		// Without this, the AURA parachain runtimes complain about slot mismatches.
+		let aura_digest_provider =
+			AuraConsensusDataProvider::<Block>::new_with_slot_duration(slot_duration);
+
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
+		let create_inherent_data_providers =
+			Self::create_dev_node_inherent_data_providers(client.clone(), para_id, slot_duration);
+
+		match mode {
+			DevSealMode::InstantSeal => {
+				let params = sc_consensus_manual_seal::InstantSealParams {
+					block_import: client.clone(),
+					env: proposer,
+					client: client.clone(),
+					pool: transaction_pool.clone(),
+					select_chain: LongestChain::new(backend.clone()),
+					consensus_data_provider: Some(Box::new(aura_digest_provider)),
+					create_inherent_data_providers,
+				};
+
+				let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+				task_manager.spawn_essential_handle().spawn_blocking(
+					"instant-seal",
+					None,
+					authorship_future,
+				);
+			},
+			DevSealMode::ManualSeal(block_time) => {
+				let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
+				let mut manual_seal_sink_clone = manual_seal_sink.clone();
+				task_manager
+					.spawn_essential_handle()
+					.spawn("block_authoring", None, async move {
+						loop {
+							futures_timer::Delay::new(std::time::Duration::from_millis(block_time))
+								.await;
+							manual_seal_sink_clone
+								.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+									create_empty: true,
+									finalize: true,
+									parent_hash: None,
+									sender: None,
+								})
+								.unwrap();
+						}
+					});
+
+				let params = sc_consensus_manual_seal::ManualSealParams {
+					block_import: client.clone(),
+					env: proposer,
+					client: client.clone(),
+					pool: transaction_pool.clone(),
+					select_chain: LongestChain::new(backend.clone()),
+					commands_stream: Box::pin(manual_seal_stream),
+					consensus_data_provider: Some(Box::new(aura_digest_provider)),
+					create_inherent_data_providers,
+				};
+
+				let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
+				task_manager.spawn_essential_handle().spawn_blocking(
+					"manual-seal",
+					None,
+					authorship_future,
+				);
+			},
+		}
+
+		let rpc_extensions_builder = {
+			let client = client.clone();
+			let transaction_pool = transaction_pool.clone();
+			let backend_for_rpc = backend.clone();
+
+			Box::new(move |_| {
+				let module = Self::BuildRpcExtensions::build_rpc_extensions(
+					client.clone(),
+					backend_for_rpc.clone(),
+					transaction_pool.clone(),
+					None,
+				)?;
+				Ok(module)
+			})
+		};
+
+		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			network,
+			client,
+			keystore: keystore_container.keystore(),
+			task_manager: &mut task_manager,
+			transaction_pool,
+			rpc_builder: rpc_extensions_builder,
+			backend,
+			system_rpc_tx,
+			tx_handler_controller,
+			sync_service,
+			config,
+			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
+		})?;
+
+		Ok(task_manager)
+	}
+}
+
+impl<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
+	AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
+where
+	Block: NodeBlock,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	/// Creates the inherent data providers for manual and instant seal consensus.
+	///
+	/// This function sets up the timestamp and parachain validation data providers
+	/// required for dev seal block production in a parachain environment.
+	fn create_dev_node_inherent_data_providers(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		para_id: ParaId,
+		slot_duration: sp_consensus_aura::SlotDuration,
+	) -> impl Fn(
+		Hash,
+		(),
+	) -> future::Ready<
+		Result<
+			(sp_timestamp::InherentDataProvider, MockValidationDataInherentDataProvider<()>),
+			Box<dyn std::error::Error + Send + Sync>,
+		>,
+	> + Send
+	       + Sync {
+		move |block: Hash, ()| {
+			let current_para_head = client
+				.header(block)
+				.expect("Header lookup should succeed")
+				.expect("Header passed in as parent should be present in backend.");
+
+			let should_send_go_ahead = client
+				.runtime_api()
+				.collect_collation_info(block, &current_para_head)
+				.map(|info| info.new_validation_code.is_some())
+				.unwrap_or_default();
+
+			let current_para_block_head =
+				Some(polkadot_primitives::HeadData(current_para_head.encode()));
+			let current_block_number =
+				UniqueSaturatedInto::<u32>::unique_saturated_into(*current_para_head.number()) + 1;
+			log::info!("Current block number: {current_block_number}");
+
+			let relay_parent_offset =
+				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
+
+			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
+				current_para_block: current_block_number,
+				para_id,
+				current_para_block_head,
+				relay_blocks_per_para_block: 1,
+				relay_parent_offset,
+				para_blocks_per_relay_epoch: 10,
+				upgrade_go_ahead: should_send_go_ahead.then(|| {
+					log::info!("Detected pending validation code, sending go-ahead signal.");
+					UpgradeGoAhead::GoAhead
+				}),
+				..Default::default()
+			};
+
+			let timestamp_provider = sp_timestamp::InherentDataProvider::new(
+				(slot_duration.as_millis() * current_block_number as u64).into(),
+			);
+
+			futures::future::ready(Ok((timestamp_provider, mocked_parachain)))
+		}
+	}
 }
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpecExt>
+) -> Box<dyn DynNodeSpec>
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	AuraId: AuraIdT + Sync,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ GetParachainInfo<Block>,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
-	if extra_args.use_slot_based_consensus {
+	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
 			Block,
 			RuntimeApi,
@@ -264,11 +500,12 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
-		params: SlotBasedParams<
+		params_with_export: SlotBasedParams<
 			Block,
 			ParachainBlockImport<
 				Block,
@@ -291,11 +528,13 @@ where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
-		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-		Spawner: SpawnNamed,
+		Spawner: SpawnEssentialNamed + Clone + 'static,
 	{
-		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+			params_with_export,
+		);
 	}
 }
 
@@ -313,7 +552,8 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -331,16 +571,17 @@ where
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
-		_relay_chain_slot_duration: Duration,
+		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
-		_node_extra_args: NodeExtraArgs,
+		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -348,7 +589,6 @@ where
 			telemetry.clone(),
 		);
 
-		let proposer = Proposer::new(proposer_factory);
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -357,25 +597,49 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let client_clone = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					let has_tx_storage_api = client_clone
+						.runtime_api()
+						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.unwrap_or(false);
+					if has_tx_storage_api {
+						let storage_proof =
+							sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+								client_clone.runtime_api().retention_period(parent)?,
+							)?;
+						Ok(vec![storage_proof])
+					} else {
+						Ok(vec![])
+					}
+				}
+			},
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
 			relay_client: relay_chain_interface,
+			relay_chain_slot_duration,
 			code_hash_provider: move |block_hash| {
 				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			},
 			keystore,
 			collator_key,
+			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
-			slot_drift: Duration::from_secs(1),
+			slot_offset: Duration::from_secs(1),
 			block_import_handle,
-			spawner: task_manager.spawn_handle(),
+			spawner: task_manager.spawn_essential_handle(),
+			export_pov: node_extra_args.export_pov,
+			max_pov_percentage: node_extra_args.max_pov_percentage,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
@@ -441,7 +705,8 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -455,20 +720,20 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
 			prometheus_registry,
 			telemetry.clone(),
 		);
-
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -476,10 +741,30 @@ where
 			client.clone(),
 		);
 
+		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |parent, ()| {
+					let client_clone = client_clone.clone();
+					async move {
+						let has_tx_storage_api = client_clone
+							.runtime_api()
+							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.unwrap_or(false);
+						if has_tx_storage_api {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+									client_clone.runtime_api().retention_period(parent)?,
+								)?;
+							Ok(vec![storage_proof])
+						} else {
+							Ok(vec![])
+						}
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
@@ -492,13 +777,15 @@ where
 				},
 				keystore,
 				collator_key,
+				collator_peer_id,
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
-				proposer: Proposer::new(proposer_factory),
+				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
+				max_pov_percentage: node_extra_args.max_pov_percentage,
 			},
 		};
 

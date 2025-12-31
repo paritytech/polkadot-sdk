@@ -40,7 +40,14 @@ pub trait OnChargeAssetTransaction<T: Config> {
 	/// The underlying integer type in which fees are calculated.
 	type Balance: Balance;
 	/// The type used to identify the assets used for transaction payment.
-	type AssetId: FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default + Eq + TypeInfo;
+	type AssetId: FullCodec
+		+ DecodeWithMemTracking
+		+ Clone
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ Default
+		+ Eq
+		+ TypeInfo;
 	/// The type used to store the intermediate values between pre- and post-dispatch.
 	type LiquidityInfo;
 
@@ -112,7 +119,7 @@ where
 	T: Config,
 	CON: ConversionToAssetBalance<BalanceOf<T>, AssetIdOf<T>, AssetBalanceOf<T>>,
 	HC: HandleCredit<T::AccountId, T::Fungibles>,
-	AssetIdOf<T>: FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default + Eq + TypeInfo,
+	AssetIdOf<T>: FullCodec + Clone + MaybeSerializeDeserialize + Debug + Default + Eq + TypeInfo,
 {
 	type Balance = BalanceOf<T>;
 	type AssetId = AssetIdOf<T>;
@@ -133,11 +140,14 @@ where
 		// less than one (e.g. 0.5) but gets rounded down by integer division we introduce a minimum
 		// fee.
 		let min_converted_fee = if fee.is_zero() { Zero::zero() } else { One::one() };
-		let converted_fee = CON::to_asset_balance(fee, asset_id)
+		let converted_fee = CON::to_asset_balance(fee, asset_id.clone())
 			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?
 			.max(min_converted_fee);
-		let can_withdraw =
-			<T::Fungibles as Inspect<T::AccountId>>::can_withdraw(asset_id, who, converted_fee);
+		let can_withdraw = <T::Fungibles as Inspect<T::AccountId>>::can_withdraw(
+			asset_id.clone(),
+			who,
+			converted_fee,
+		);
 		if can_withdraw != WithdrawConsequence::Success {
 			return Err(InvalidTransaction::Payment.into())
 		}
@@ -167,7 +177,7 @@ where
 		// less than one (e.g. 0.5) but gets rounded down by integer division we introduce a minimum
 		// fee.
 		let min_converted_fee = if fee.is_zero() { Zero::zero() } else { One::one() };
-		let converted_fee = CON::to_asset_balance(fee, asset_id)
+		let converted_fee = CON::to_asset_balance(fee, asset_id.clone())
 			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?
 			.max(min_converted_fee);
 		let can_withdraw =

@@ -28,7 +28,6 @@ use crate::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use codec::Encode;
-use sp_core::RuntimeDebug;
 use sp_weights::Weight;
 
 /// Version 0 of the transaction extension version used to construct the inherited
@@ -45,7 +44,7 @@ const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 /// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
 /// invalid version, making `ExtensionV0` the only supported version. If you want to support more
 /// versions, you need to specify the `ExtensionOtherVersions` parameter.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
 	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
@@ -71,7 +70,7 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = Invali
 /// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
 /// invalid version, making `ExtensionV0` the only supported version. If you want to support more
 /// versions, you need to specify the `ExtensionOtherVersions` parameter.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).

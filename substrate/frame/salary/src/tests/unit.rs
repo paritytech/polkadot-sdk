@@ -17,23 +17,15 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
-
-use core::cell::RefCell;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{tokens::ConvertRank, ConstU64},
-};
-use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
-
 use crate as pallet_salary;
 use crate::*;
+use core::cell::RefCell;
+use frame::{deps::sp_runtime::traits::Identity, testing_prelude::*, traits::tokens::ConvertRank};
+use std::collections::BTreeMap;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -124,7 +116,7 @@ impl RankedMembers for TestClub {
 	}
 	fn demote(who: &Self::AccountId) -> DispatchResult {
 		CLUB.with(|club| match club.borrow().get(who) {
-			None => Err(sp_runtime::DispatchError::Unavailable),
+			None => Err(DispatchError::Unavailable),
 			Some(&0) => {
 				club.borrow_mut().remove(&who);
 				Ok(())
@@ -156,9 +148,9 @@ impl Config for Test {
 	type Budget = Budget;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -613,5 +605,33 @@ fn other_mixed_bankruptcy_fails_gracefully() {
 		assert_eq!(paid(1), 0);
 		assert_eq!(paid(2), 3);
 		assert_eq!(paid(3), 6);
+	});
+}
+
+#[test]
+fn stale_registration_from_previous_cycle_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
+
+		run_to(5);
+		assert_ok!(Salary::bump(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::register(RuntimeOrigin::signed(1)));
+		assert_eq!(Salary::status().unwrap().total_registrations, 1);
+
+		// Miss the payout window for cycle 1 (don't call payout)
+		// Start cycle 2 without claiming from cycle 1
+		run_to(9);
+		assert_ok!(Salary::bump(RuntimeOrigin::signed(1)));
+		assert_eq!(Salary::status().unwrap().cycle_index, 2);
+		assert_eq!(Salary::status().unwrap().total_registrations, 0);
+
+		run_to(11);
+		assert_ok!(Salary::payout(RuntimeOrigin::signed(1)));
+
+		// Should get paid from the unregistered pool
+		assert_eq!(paid(1), 1);
+		assert_eq!(Salary::status().unwrap().total_unregistered_paid, 1);
 	});
 }

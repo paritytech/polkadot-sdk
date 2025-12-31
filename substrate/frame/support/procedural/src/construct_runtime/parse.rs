@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::str::FromStr;
 use frame_support_procedural_tools::syn_ext as ext;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -608,6 +609,18 @@ impl Pallet {
 	/// Return whether pallet contains part
 	pub fn exists_part(&self, name: &str) -> bool {
 		self.find_part(name).is_some()
+	}
+
+	// Get runtime attributes for the pallet, mostly used for macros
+	pub fn get_attributes(&self) -> TokenStream {
+		self.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote::quote! {
+				#acc
+				#attr
+			}
+		})
 	}
 }
 

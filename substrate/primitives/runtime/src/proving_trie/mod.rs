@@ -20,14 +20,25 @@
 pub mod base16;
 pub mod base2;
 
-use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
+use crate::{Decode, DecodeWithMemTracking, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]
 use crate::{Deserialize, Serialize};
 use alloc::vec::Vec;
 use sp_trie::{trie_types::TrieError as SpTrieError, VerifyError};
 
 /// A runtime friendly error type for tries.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrieError {
 	/* From TrieError */

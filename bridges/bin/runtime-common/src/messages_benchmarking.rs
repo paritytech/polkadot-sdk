@@ -303,10 +303,10 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			.encoded_size(),
 		);
 
-		log::trace!(
+		tracing::trace!(
 			target: "runtime::bridge-benchmarks",
-			"generate_xcm_builder_bridge_message_sample with expected_message_size: {}, location_encoded_size: {}, xcm_size: {}, xcm_data_size: {}",
-			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
+			%expected_message_size, %location_encoded_size, %xcm_size, %xcm_data_size,
+			"generate_xcm_builder_bridge_message_sample"
 		);
 
 		let xcm = xcm::VersionedXcm::<()>::from(Xcm(vec![Instruction::<()>::ExpectPallet {

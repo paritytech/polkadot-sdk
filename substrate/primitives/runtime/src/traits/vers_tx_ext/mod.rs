@@ -66,6 +66,7 @@ pub trait VersTxExtLineVersion {
 pub trait VersTxExtLine<Call: Dispatchable>:
 	Encode
 	+ DecodeWithVersion
+	+ DecodeWithVersionWithMemTracking
 	+ Debug
 	+ StaticTypeInfo
 	+ Send
@@ -105,6 +106,10 @@ pub trait DecodeWithVersion: Sized {
 		input: &mut I,
 	) -> Result<Self, codec::Error>;
 }
+
+/// A type implements [`DecodeWithVersion`] where inner decoding is implementing
+/// [`DecodeWithMemTracking`].
+pub trait DecodeWithVersionWithMemTracking: DecodeWithVersion {}
 
 /// A type to build the metadata for the versioned transaction extension pipeline.
 pub struct VersTxExtLineMetadataBuilder {

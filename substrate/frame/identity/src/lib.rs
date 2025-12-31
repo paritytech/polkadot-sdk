@@ -150,9 +150,30 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<Public, Signature> {
+		fn sign_message(message: &[u8]) -> (Public, Signature);
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BenchmarkHelper<sp_runtime::MultiSigner, sp_runtime::MultiSignature> for () {
+		fn sign_message(message: &[u8]) -> (sp_runtime::MultiSigner, sp_runtime::MultiSignature) {
+			let public = sp_io::crypto::sr25519_generate(0.into(), None);
+			let signature = sp_runtime::MultiSignature::Sr25519(
+				sp_io::crypto::sr25519_sign(
+					0.into(),
+					&public.into_account().try_into().unwrap(),
+					message,
+				)
+				.unwrap(),
+			);
+			(public.into(), signature)
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
@@ -225,6 +246,11 @@ pub mod pallet {
 		/// The maximum length of a username, including its suffix and any system-added delimiters.
 		#[pallet::constant]
 		type MaxUsernameLength: Get<u32>;
+
+		/// A set of helper functions for benchmarking.
+		/// The default configuration `()` uses the `SR25519` signature schema.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1208,7 +1234,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			if let Some((who, expiration, provider)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
@@ -1293,7 +1319,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let grace_period_expiry =
 				UnbindingUsernames::<T>::take(&username).ok_or(Error::<T>::NotUnbinding)?;
 			let now = frame_system::Pallet::<T>::block_number();
@@ -1414,7 +1440,7 @@ impl<T: Config> Pallet<T> {
 		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 	) -> bool {
 		IdentityOf::<T>::get(who)
-			.map_or(false, |registration| (registration.info.has_identity(fields)))
+			.map_or(false, |registration| registration.info.has_identity(fields))
 	}
 
 	/// Calculate the deposit required for an identity.

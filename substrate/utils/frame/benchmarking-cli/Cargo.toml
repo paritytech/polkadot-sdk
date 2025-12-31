@@ -24,12 +24,13 @@ codec = { workspace = true, default-features = true }
 comfy-table = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+env_filter = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
+frame-storage-access-test-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 gethostname = { workspace = true }
 handlebars = { workspace = true }
-hex = { workspace = true, default-features = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
@@ -39,13 +40,14 @@ rand = { features = ["small_rng"], workspace = true, default-features = true }
 rand_pcg = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true }
-sc-cli = { workspace = true }
+sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true }
+sc-client-db = { workspace = true, default-features = false }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true }
+sc-executor-wasmtime = { workspace = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
-sc-service = { workspace = true }
+sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -53,7 +55,6 @@ sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-database = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
@@ -61,6 +62,7 @@ sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
@@ -79,9 +81,10 @@ substrate-test-runtime = { workspace = true, default-features = true }
 westend-runtime = { workspace = true, default-features = true }
 
 [features]
-default = ["rocksdb"]
+default = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",

@@ -116,7 +116,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
-use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
@@ -127,7 +127,7 @@ use frame_support::{
 		ConstU32, Contains, Get, Randomness, Time,
 	},
 	weights::{Weight, WeightMeter},
-	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
+	BoundedVec, DebugNoBound, DefaultNoBound,
 };
 use frame_system::{
 	ensure_signed,
@@ -138,7 +138,7 @@ use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup, Zero},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 
 pub use crate::{
@@ -276,6 +276,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -666,7 +667,7 @@ pub mod pallet {
 			// Debug buffer should at least be large enough to accommodate a simple error message
 			const MIN_DEBUG_BUF_SIZE: u32 = 256;
 			assert!(
-				T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,
+				T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE,
 				"Debug buffer should have minimum size of {} (current setting is {})",
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
@@ -705,7 +706,7 @@ pub mod pallet {
 			let storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / 2;
 
 			assert!(
-				max_storage_size < storage_size_limit,
+				max_storage_size <= storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
 				storage_size_limit
@@ -725,7 +726,7 @@ pub mod pallet {
 			.expect("Events size too big");
 
 			assert!(
-				max_events_size < storage_size_limit,
+				max_events_size <= storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
 				storage_size_limit
@@ -1382,7 +1383,7 @@ pub mod pallet {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
@@ -1440,7 +1441,7 @@ struct InstantiateInput<T: Config> {
 
 /// Determines whether events should be collected during execution.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum CollectEvents {
 	/// Collect events.
@@ -1458,7 +1459,7 @@ pub enum CollectEvents {
 
 /// Determines whether debug messages will be collected.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum DebugInfo {
 	/// Collect debug messages.

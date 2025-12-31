@@ -43,12 +43,6 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [

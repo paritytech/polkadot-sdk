@@ -1,0 +1,9 @@
+title: "added baltathar, charleth, dorothy, and ethan to eth-rpc and revive-d\u2026"
+doc:
+- audience: Runtime Dev
+  description: adds more funded accounts to eth-rpc and dev-node
+crates:
+- name: revive-dev-runtime
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -38,14 +38,14 @@ use sp_core::Get;
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
+	BoundedBTreeMap, Debug, DispatchError, DispatchResult,
 };
 
 use self::meter::Diff;
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.
@@ -459,7 +459,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
 			return None
 		}

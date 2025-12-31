@@ -21,13 +21,18 @@
 use console::style;
 use futures::prelude::*;
 use futures_timer::Delay;
-use log::{debug, info, trace};
+use log::{debug, info, log_enabled, trace};
 use sc_client_api::{BlockchainEvents, UsageProvider};
 use sc_network::NetworkStatusProvider;
 use sc_network_sync::{SyncStatusProvider, SyncingService};
 use sp_blockchain::HeaderMetadata;
 use sp_runtime::traits::{Block as BlockT, Header};
-use std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
+use std::{
+	collections::VecDeque,
+	fmt::{Debug, Display},
+	sync::Arc,
+	time::Duration,
+};
 
 mod display;
 
@@ -78,7 +83,20 @@ where
 	};
 }
 
-fn display_block_import<B: BlockT, C>(client: Arc<C>) -> impl Future<Output = ()>
+/// Print the full hash when debug logging is enabled.
+struct PrintFullHashOnDebugLogging<'a, H>(&'a H);
+
+impl<H: Debug + Display> Display for PrintFullHashOnDebugLogging<'_, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if log_enabled!(log::Level::Debug) {
+			Debug::fmt(&self.0, f)
+		} else {
+			Display::fmt(&self.0, f)
+		}
+	}
+}
+
+async fn display_block_import<B: BlockT, C>(client: Arc<C>)
 where
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
@@ -91,8 +109,9 @@ where
 	// Hashes of the last blocks we have seen at import.
 	let mut last_blocks = VecDeque::new();
 	let max_blocks_to_track = 100;
+	let mut notifications = client.import_notification_stream();
 
-	client.import_notification_stream().for_each(move |n| {
+	while let Some(n) = notifications.next().await {
 		// detect and log reorganizations.
 		if let Some((ref last_num, ref last_hash)) = last_best {
 			if n.header.parent_hash() != last_hash && n.is_new_best {
@@ -103,9 +122,9 @@ where
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
 						style(last_num).red().bold(),
-						last_hash,
+						PrintFullHashOnDebugLogging(&last_hash),
 						style(n.header.number()).green().bold(),
-						n.hash,
+						PrintFullHashOnDebugLogging(&n.hash),
 						style(ancestor.number).white().bold(),
 						ancestor.hash,
 					),
@@ -133,11 +152,9 @@ where
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
 				style(n.header.number()).white().bold(),
-				n.header.parent_hash(),
-				n.hash,
+				PrintFullHashOnDebugLogging(n.header.parent_hash()),
+				PrintFullHashOnDebugLogging(&n.hash),
 			);
 		}
-
-		future::ready(())
-	})
+	}
 }

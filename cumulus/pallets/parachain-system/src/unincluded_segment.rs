@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Primitives used for tracking message queues constraints in an unincluded block segment
 //! of the parachain.
@@ -26,10 +26,10 @@ use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::{relay_chain, ParaId};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Constraints on outbound HRMP channel.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct HrmpOutboundLimits {
 	/// The maximum bytes that can be written to the channel.
 	pub bytes_remaining: u32,
@@ -38,7 +38,7 @@ pub struct HrmpOutboundLimits {
 }
 
 /// Limits on outbound message bandwidth.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct OutboundBandwidthLimits {
 	/// The amount of UMP messages remaining.
 	pub ump_messages_remaining: u32,
@@ -80,7 +80,8 @@ impl OutboundBandwidthLimits {
 }
 
 /// The error type for updating bandwidth used by a segment.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum BandwidthUpdateError {
 	/// Too many messages submitted to HRMP channel.
 	HrmpMessagesOverflow {
@@ -127,7 +128,7 @@ pub enum BandwidthUpdateError {
 }
 
 /// The number of messages and size in bytes submitted to HRMP channel.
-#[derive(RuntimeDebug, Default, Copy, Clone, Encode, Decode, TypeInfo)]
+#[derive(Debug, Default, Copy, Clone, Encode, Decode, TypeInfo)]
 pub struct HrmpChannelUpdate {
 	/// The amount of messages submitted to the channel.
 	pub msg_count: u32,
@@ -186,7 +187,7 @@ impl HrmpChannelUpdate {
 ///
 /// This struct can be created with pub items, however, it should
 /// never hit the storage directly to avoid bypassing limitations checks.
-#[derive(Default, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Default, Clone, Encode, Decode, TypeInfo, Debug)]
 pub struct UsedBandwidth {
 	/// The amount of UMP messages sent.
 	pub ump_msg_count: u32,
@@ -247,7 +248,7 @@ impl UsedBandwidth {
 
 /// Ancestor of the block being currently executed, not yet included
 /// into the relay chain.
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Debug)]
 pub struct Ancestor<H> {
 	/// Bandwidth used by this block.
 	used_bandwidth: UsedBandwidth,
@@ -313,7 +314,7 @@ impl HrmpWatermarkUpdate {
 
 /// Struct that keeps track of bandwidth used by the unincluded part of the chain
 /// along with the latest HRMP watermark.
-#[derive(Default, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Default, Encode, Decode, TypeInfo, Debug)]
 pub struct SegmentTracker<H> {
 	/// Bandwidth used by the segment.
 	used_bandwidth: UsedBandwidth,
@@ -342,7 +343,7 @@ impl<H> SegmentTracker<H> {
 		}
 		if let Some(watermark) = self.hrmp_watermark.as_ref() {
 			if let HrmpWatermarkUpdate::Trunk(new) = new_watermark {
-				if &new <= watermark {
+				if &new < watermark {
 					return Err(BandwidthUpdateError::InvalidHrmpWatermark {
 						submitted: new,
 						latest: *watermark,
@@ -707,29 +708,27 @@ mod tests {
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Head(0), &limits)
 			.expect("nothing to compare the watermark with in default segment");
-		assert_matches!(
-			segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(0), &limits),
-			Err(BandwidthUpdateError::InvalidHrmpWatermark {
-				submitted,
-				latest,
-			}) if submitted == 0 && latest == 0
-		);
+		assert_matches!(segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(0), &limits), Ok(()));
 
+		// Trunk updates are allowed when the new watermark is greater than the current one
 		for watermark in 1..5 {
 			segment
 				.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits)
 				.expect("hrmp watermark is valid");
 		}
-		for watermark in 0..5 {
-			assert_matches!(
+		// Trunk updates are not allowed when the new watermark is smaller than the current one
+		for watermark in 0..4 {
+			assert_eq!(
 				segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits),
-				Err(BandwidthUpdateError::InvalidHrmpWatermark {
-					submitted,
-					latest,
-				}) if submitted == watermark && latest == 4
+				Err(BandwidthUpdateError::InvalidHrmpWatermark { submitted: watermark, latest: 4 }),
 			);
 		}
+		// The current watermark is still valid.
+		segment
+			.append(&ancestor, HrmpWatermarkUpdate::Trunk(5), &limits)
+			.expect("hrmp watermark is valid");
 
+		// Head updates are allowed even if the new watermark is smaller than the current one
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Head(4), &limits)
 			.expect("head updates always valid");

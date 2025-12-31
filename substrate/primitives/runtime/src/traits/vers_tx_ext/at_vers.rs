@@ -19,13 +19,14 @@
 
 use crate::{
 	traits::{
-		AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, DispatchOriginOf,
-		DispatchTransaction, Dispatchable, PostDispatchInfoOf, TransactionExtension, VersTxExtLine,
-		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
+		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
+		TransactionExtension, VersTxExtLine, VersTxExtLineMetadataBuilder, VersTxExtLineVersion,
+		VersTxExtLineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
@@ -57,6 +58,11 @@ impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
 			Err(codec::Error::from("Invalid extension version"))
 		}
 	}
+}
+
+impl<const VERSION: u8, Extension: DecodeWithMemTracking> DecodeWithVersionWithMemTracking
+	for TxExtLineAtVers<VERSION, Extension>
+{
 }
 
 impl<const VERSION: u8, Extension> VersTxExtLineVersion for TxExtLineAtVers<VERSION, Extension> {
@@ -114,7 +120,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,
 	};
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use sp_weights::Weight;
 
 	// --- Mock types ---
@@ -150,7 +156,7 @@ mod tests {
 
 	// A trivial extension that sets a known weight and does minimal logic.
 	// We simply store an integer "token" and do check logic on it.
-	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
+	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 	pub struct SimpleExtension {
 		/// The token for validation logic
 		pub token: u32,

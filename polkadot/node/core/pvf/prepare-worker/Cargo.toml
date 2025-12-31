@@ -11,13 +11,15 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "prepare_rococo_runtime"
+harness = false
+
 [dependencies]
-blake3 = { workspace = true }
 cfg-if = { workspace = true }
 gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 nix = { features = ["process", "resource", "sched"], workspace = true }
-rayon = { workspace = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 tikv-jemallocator = { optional = true, workspace = true }
 tracking-allocator = { workspace = true, default-features = true }
@@ -25,16 +27,17 @@ tracking-allocator = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
-sc-executor-common = { workspace = true, default-features = true }
-sc-executor-wasmtime = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = "0.5.0"
-tikv-jemalloc-ctl = "0.5.0"
+tikv-jemallocator = { workspace = true }
+tikv-jemalloc-ctl = { workspace = true }
+
+[dev-dependencies]
+criterion = { features = ["cargo_bench_support"], workspace = true }
+rococo-runtime = { workspace = true }
 
 [features]
 builder = []
@@ -43,12 +46,3 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
-
-[dev-dependencies]
-criterion = { features = ["cargo_bench_support"], workspace = true }
-rococo-runtime = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-
-[[bench]]
-name = "prepare_rococo_runtime"
-harness = false

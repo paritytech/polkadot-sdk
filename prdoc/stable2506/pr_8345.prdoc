@@ -1,0 +1,26 @@
+title: 'tx/metrics: Add metrics for the RPC v2 `transactionWatch_v1_submitAndWatch`'
+doc:
+- audience: Node Operator
+  description: |-
+    This PR adds metrics for the following RPC subscription: [transactionWatch_v1_submitAndWatch](https://paritytech.github.io/json-rpc-interface-spec/api/transactionWatch_v1_submitAndWatch.html)
+
+    Metrics are exposed in two ways:
+    - simple counters of how many events we've seen globally
+    - a histogram vector of execution times, which is labeled by `initial event` -> `final event`
+      - This helps us identify how long it takes the transaction pool to advance the state of the events, and further debug issues
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/8336
+
+    ### (outdated) PoC Dashboards
+
+    ![Screenshot 2025-04-28 at 17 50 48](https://github.com/user-attachments/assets/9fd0bf30-a321-4362-a10b-dfc3de1eb474)
+
+
+    ### Next steps
+    - [x] initial dashboards with a live node
+    - [x] adjust testing
+crates:
+- name: sc-service
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: major

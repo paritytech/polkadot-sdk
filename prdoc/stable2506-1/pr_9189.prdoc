@@ -1,0 +1,8 @@
+title: '`fatxpool`: avoid premature revalidation of transactions'
+doc:
+- audience: Node Dev
+  description: |-
+    After this PR transactions will be revalidated in mempool on finalized blocks only if height of finalized block is greater then the height of the block at which transactions was originally submitted.
+crates:
+- name: sc-transaction-pool
+  bump: minor

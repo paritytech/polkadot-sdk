@@ -1,0 +1,9 @@
+title: added trace logging in EVM interpreter loop
+doc:
+- audience: Runtime Dev
+  description: |-
+    Added trace logging for each instruction to evm::run function.
+    solves https://github.com/paritytech/polkadot-sdk/issues/9575
+crates:
+- name: pallet-revive
+  bump: patch

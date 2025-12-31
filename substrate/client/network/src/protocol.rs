@@ -22,7 +22,6 @@ use crate::{
 	protocol_controller::{self, SetId},
 	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
-	MAX_RESPONSE_SIZE,
 };
 
 use codec::Encode;
@@ -37,7 +36,7 @@ use libp2p::{
 use log::{debug, warn};
 
 use codec::DecodeAll;
-use sc_network_common::role::Roles;
+use sc_network_common::{role::Roles, types::ReputationChange};
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
@@ -55,10 +54,6 @@ pub mod message;
 
 // Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p";
-
-/// Maximum size used for notifications in the block announce and transaction protocols.
-// Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
-pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
@@ -380,6 +375,27 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 						},
 					)
 				}
+			},
+
+			NotificationsOut::ProtocolMisbehavior { peer_id, set_id } => {
+				let index: usize = set_id.into();
+				let protocol_name = self.notification_protocols.get(index);
+
+				debug!(
+					target: LOG_TARGET,
+					"Received unexpected data on outbound notification stream from peer {:?} on protocol {:?}",
+					peer_id,
+					protocol_name
+				);
+
+				self.peer_store_handle.report_peer(
+					peer_id.into(),
+					ReputationChange::new_fatal(
+						"Received unexpected data on outbound notification stream",
+					),
+				);
+
+				None
 			},
 		};
 

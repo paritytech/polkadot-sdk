@@ -57,7 +57,14 @@ type SignedExtra = ();
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
-	#[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeError, RuntimeOrigin, RuntimeTask)]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
 	pub struct Runtime;
 
 	/// Mandatory system pallet that should always be included in a FRAME runtime.
@@ -114,7 +121,7 @@ impl_runtime_apis! {
 
 	impl apis::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion { VERSION }
-		fn execute_block(_: Block) { }
+		fn execute_block(_: <Block as frame::traits::Block>::LazyBlock) { }
 		fn initialize_block(_: &Header) -> ExtrinsicInclusionMode { ExtrinsicInclusionMode::default() }
 	}
 }

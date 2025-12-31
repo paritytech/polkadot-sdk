@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! This provides the option to run a basic relay-chain driven Aura implementation.
 //!
@@ -27,9 +28,9 @@ use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_core::{relay_chain::BlockId as RBlockId, CollectCollationInfo};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
@@ -38,6 +39,7 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
+use sc_network_types::PeerId;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -67,13 +69,15 @@ pub struct Params<BI, CIDP, Client, RClient, Proposer, CS> {
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -105,7 +109,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -129,6 +133,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id,
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -233,19 +238,12 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						params.collator_peer_id,
 					)
 					.await
 			);
 
-			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-				validation_data.max_pov_size
-			} else {
-				// Set the block limit to 50% of the maximum PoV size.
-				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				validation_data.max_pov_size / 2
-			} as usize;
+			let allowed_pov_size = (validation_data.max_pov_size / 2) as usize;
 
 			let maybe_collation = try_request!(
 				collator
@@ -260,9 +258,12 @@ where
 					.await
 			);
 
-			if let Some((collation, _, post_hash)) = maybe_collation {
+			if let Some((collation, block_data)) = maybe_collation {
+				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
+					continue
+				};
 				let result_sender =
-					Some(collator.collator_service().announce_with_barrier(post_hash));
+					Some(collator.collator_service().announce_with_barrier(block_hash));
 				request.complete(Some(CollationResult { collation, result_sender }));
 			} else {
 				request.complete(None);
