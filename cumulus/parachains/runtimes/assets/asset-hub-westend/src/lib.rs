@@ -691,8 +691,8 @@ pub enum ProxyType {
 	Governance,
 	/// Allows access to staking related calls.
 	///
-	/// Contains the `Staking`, `StakingRcClient`, `Session`, `Utility`, `FastUnstake`,
-	/// `VoterList`, `NominationPools` pallets.
+	/// Contains the `Staking`, `StakingRcClient`, `Session`, `Utility`, `VoterList`,
+	/// `NominationPools` pallets.
 	Staking,
 	/// Allows access to nomination pools related calls.
 	///
@@ -838,10 +838,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::StakingRcClient(
-							pallet_staking_async_rc_client::Call::set_keys { .. } |
-								pallet_staking_async_rc_client::Call::purge_keys { .. }
-						) | RuntimeCall::Session(..) |
+						RuntimeCall::StakingRcClient(..) |
+						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
 						RuntimeCall::VoterList(..)
