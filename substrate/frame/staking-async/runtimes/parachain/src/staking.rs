@@ -461,6 +461,16 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 }
 
+// Placeholder session keys for the generic parachain runtime.
+// In production (e.g., asset-hub-westend), this should be replaced with the actual
+// relay chain session keys type that matches the target relay chain.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub aura: sp_consensus_aura::sr25519::AuthorityId,
+	}
+}
+
+// Relay chain session keys type for rc-client.
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -468,6 +478,10 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<5>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type SessionKeys = RelayChainSessionKeys;
+	type MaxSessionKeysLength = ConstU32<256>;
+	type MaxSessionKeysProofLength = ConstU32<512>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -517,6 +531,14 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
+		Ok(())
 	}
 }
 

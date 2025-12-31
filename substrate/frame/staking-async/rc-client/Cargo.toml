@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
@@ -23,6 +24,7 @@ xcm = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -33,6 +35,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

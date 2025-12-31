@@ -271,7 +271,7 @@ impl ah_client::Config for Runtime {
 	type MaximumValidatorsWithPoints = MaximumValidatorsWithPoints;
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
-	type SessionInterface = Self;
+	type SessionInterface = Session;
 	type Fallback = Staking;
 	type MaxSessionReportRetries = ConstU32<3>;
 }

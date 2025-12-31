@@ -82,6 +82,8 @@ use xcm_builder::{
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
+use sp_runtime::traits::OpaqueKeys;
+
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1961,4 +1963,19 @@ fn expensive_erc20_runs_out_of_gas() {
 		)
 		.is_err());
 	});
+}
+
+/// Verify that AssetHub's `RelayChainSessionKeys` is compatible with Westend's `SessionKeys`.
+#[test]
+fn session_keys_are_compatible_between_ah_and_rc() {
+	use asset_hub_westend_runtime::staking::RelayChainSessionKeys;
+
+	// Verify the key type IDs match in order.
+	// This ensures that when keys are encoded on AssetHub and decoded on Westend (or vice versa),
+	// they map to the correct key types.
+	assert_eq!(
+		RelayChainSessionKeys::key_ids(),
+		westend_runtime::SessionKeys::key_ids(),
+		"Session key type IDs must match between AssetHub and Westend"
+	);
 }

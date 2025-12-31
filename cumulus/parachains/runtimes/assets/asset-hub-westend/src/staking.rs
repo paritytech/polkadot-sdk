@@ -302,6 +302,20 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
 
+// Relay Chain session keys type for validating session keys on AssetHub.
+// This must match the exact structure of Westend's `SessionKeys` to ensure
+// proper encoding/decoding compatibility.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -309,6 +323,20 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<64>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type SessionKeys = RelayChainSessionKeys;
+	// | Key                 | Crypto  | Public Key | Signature |
+	// |---------------------|---------|------------|-----------|
+	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
+	// | babe                | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_validator      | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_assignment     | Sr25519 | 32 bytes   | 64 bytes  |
+	// | authority_discovery | Sr25519 | 32 bytes   | 64 bytes  |
+	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
+	// | Total               |         | 193 bytes  | 385 bytes |
+	// We add some buffer for SCALE encoding overhead and future expansions
+	type MaxSessionKeysLength = ConstU32<256>;
+	type MaxSessionKeysProofLength = ConstU32<512>;
+	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
@@ -321,9 +349,16 @@ pub enum RelayChainRuntimePallets {
 
 #[derive(Encode, Decode)]
 pub enum AhClientCalls {
-	// index of `fn validator_set` in `staking-async-ah-client`. It has only one call.
+	// index of `fn validator_set` in `staking-async-ah-client`.
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	// index of `fn set_keys_from_ah` in `staking-async-ah-client`.
+	// Note: proof is validated on AH side, so only keys are sent to RC.
+	#[codec(index = 3)]
+	SetKeys { stash: AccountId, keys: Vec<u8> },
+	// index of `fn purge_keys_from_ah` in `staking-async-ah-client`.
+	#[codec(index = 4)]
+	PurgeKeys { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
@@ -347,6 +382,63 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	}
 }
 
+/// Message to set session keys on the Relay Chain.
+/// Note: proof is validated on AH side, so only keys are sent to RC.
+#[derive(Encode, Decode, Clone)]
+pub struct SetKeysMessage {
+	pub stash: AccountId,
+	pub keys: Vec<u8>,
+}
+
+pub struct SetKeysToXcm;
+impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
+	fn convert(msg: SetKeysMessage) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys {
+					stash: msg.stash,
+					keys: msg.keys,
+				})
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
+/// Message to purge session keys on the Relay Chain.
+#[derive(Encode, Decode, Clone)]
+pub struct PurgeKeysMessage {
+	pub stash: AccountId,
+}
+
+pub struct PurgeKeysToXcm;
+impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
+	fn convert(msg: PurgeKeysMessage) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys {
+					stash: msg.stash,
+				})
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
 }
@@ -362,6 +454,24 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			SetKeysMessage,
+			SetKeysToXcm,
+		>::send(SetKeysMessage { stash, keys })
+	}
+
+	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			PurgeKeysMessage,
+			PurgeKeysToXcm,
+		>::send(PurgeKeysMessage { stash })
 	}
 }
 
