@@ -387,6 +387,34 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
+/// Trait for managing session keys.
+///
+/// This trait provides an abstraction for setting and purging session keys,
+/// enabling cross-chain session key management (e.g., from AssetHub via XCM).
+pub trait SessionKeyManager {
+	/// The account identifier type.
+	type AccountId;
+	/// The session keys type.
+	type Keys;
+
+	/// Set session keys for an account.
+	///
+	/// This registers the given keys for the account, handling deposits and
+	/// reference counting as needed.
+	///
+	/// This method does not validate ownership proof. Callers must verify that the keys belong to
+	/// the account before calling this method. In cross-chain scenarios (e.g., AssetHub to Relay
+	/// Chain), the proof validation should be performed on the originating chain before forwarding
+	/// the keys.
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
+
+	/// Purge session keys for an account.
+	///
+	/// This removes all session keys for the account, releasing any held deposits
+	/// and decrementing reference counts.
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -1128,6 +1156,19 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 
 	fn disabled_validators() -> Vec<u32> {
 		Self::disabled_validators()
+	}
+}
+
+impl<T: Config> SessionKeyManager for Pallet<T> {
+	type AccountId = T::AccountId;
+	type Keys = T::Keys;
+
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		Self::do_set_keys(account, keys)
+	}
+
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		Self::do_purge_keys(account)
 	}
 }
 

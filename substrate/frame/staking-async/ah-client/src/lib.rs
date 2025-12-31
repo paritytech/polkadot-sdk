@@ -156,11 +156,11 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	}
 
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
-		pallet_session::Pallet::<T>::do_set_keys(account, keys)
+		<pallet_session::Pallet<T> as pallet_session::SessionKeyManager>::set_keys(account, keys)
 	}
 
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
-		pallet_session::Pallet::<T>::do_purge_keys(account)
+		<pallet_session::Pallet<T> as pallet_session::SessionKeyManager>::purge_keys(account)
 	}
 
 	fn set_keys_weight() -> Weight {
