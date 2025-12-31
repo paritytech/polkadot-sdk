@@ -720,13 +720,13 @@ The client reserves the first chunks for directory structure. With large chunk s
 
 ### Commitment Model
 
-Each client-provider relationship has an associated MMR (Merkle Mountain Range) of data versions, giving each client their own version history.
+Each bucket has an associated MMR (Merkle Mountain Range) of data versions. The MMR is per-bucket, not per-provider—all providers storing a bucket should converge to the same MMR state.
 
 **Signed payload:**
 
 ```
 {
-  contract_id,    // Option: reference to on-chain contract, or None for best-effort
+  bucket_id,      // Reference to on-chain bucket, or None for best-effort
   mmr_root,       // root of MMR containing all data_roots
   start_seq,      // sequence number of first leaf in this MMR
 }
@@ -734,7 +734,7 @@ Each client-provider relationship has an associated MMR (Merkle Mountain Range) 
 
 Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR.
 
-- **With `contract_id`:** The commitment is enforceable via on-chain challenge. Provider stake is at risk.
+- **With `bucket_id`:** The commitment is enforceable via on-chain challenge. Provider stake is at risk.
 - **Without (`None`):** The commitment proves the provider accepted the data, but there's no on-chain recourse. Reputation-based only.
 
 **MMR leaf structure:**
@@ -765,9 +765,32 @@ By signing the MMR root and start_seq, both parties commit to all leaves and the
 
 The signed commitment is valid off-chain. Alice can:
 - Keep it locally (minimal trust assumption)
-- Checkpoint on-chain (convenience, discoverability)
+- Checkpoint on-chain (convenience, discoverability, conflict resolution)
 
-The contract on-chain stores terms and optionally the latest checkpointed MMR root. Challenges work with or without on-chain checkpoints—signatures prove validity.
+The bucket on-chain stores terms and optionally the latest checkpointed MMR root. Challenges work with or without on-chain checkpoints—signatures prove validity.
+
+**Multi-provider consistency:**
+
+When a bucket is stored by multiple providers, writers are expected to coordinate—sending the same writes to all providers. In the happy path, all providers have identical MMR state.
+
+If providers diverge (network issues, uncoordinated writes):
+
+1. Providers with conflicting state reject new writes that don't extend their current state
+2. Provider returns a 409 Conflict error suggesting the client checkpoint on-chain
+3. Client submits a checkpoint, establishing canonical bucket state
+4. Providers with non-canonical state can now drop it and accept writes from canonical state
+5. Clients with non-canonical commitments must re-apply their writes on top of canonical state
+
+Challenges against non-canonical state can be defended by showing the challenged MMR root differs from the checkpointed canonical state.
+
+**Append-only buckets:**
+
+A bucket can be marked append-only, which:
+- Freezes the `start_seq` at the current checkpoint value
+- Prevents any future deletions (start_seq can never decrease)
+- Is irreversible once set
+
+This ensures historical data cannot be removed, useful for audit logs, public records, or any data that must remain available.
 
 ### Challenge Flow
 
@@ -797,9 +820,11 @@ Most updates extend the existing MMR:
 **Deletions (fresh MMR):**
 
 Client can start a fresh MMR to delete old data:
-- New commitment with seq N+1 but MMR containing only new data
+- New commitment with higher start_seq but MMR containing only new data
 - Old data_roots no longer in MMR → provider can/should delete
 - Challenge against old data_root fails (provider shows it's not in current MMR)
+
+Note: Deletions are not allowed on append-only buckets. The `start_seq` is frozen when append-only mode is enabled, and any attempt to checkpoint a lower `start_seq` will be rejected.
 
 **Size tracking:**
 
