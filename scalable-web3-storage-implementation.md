@@ -6,6 +6,57 @@ This document specifies the on-chain and off-chain interfaces for the storage sy
 
 ---
 
+## Bucket Semantics
+
+A **bucket** is the fundamental unit of storage organization. It defines:
+
+1. **Logical container**: What data belongs together
+2. **Membership**: Who can read, write, or administer
+3. **Canonical state**: The MMR (Merkle Mountain Range) tracking bucket contents
+4. **Physical storage**: Which providers store this data (via storage agreements)
+
+### Key Properties
+
+**Per-bucket MMR**: The bucket has ONE canonical MMR state. Multiple providers may store the bucket, and they should all converge to this state. The MMR is not per-provider.
+
+**Roles**:
+- **Admin**: Can modify members, manage settings, delete data (if not frozen)
+- **Writer**: Can append data
+- **Reader**: Can read data (relevant for private/access-controlled buckets where providers only serve to authorized members)
+
+**Redundancy**: A bucket can have storage agreements with multiple providers. The `min_providers` setting controls how many providers must acknowledge a state before it can be checkpointed. This ensures minimum redundancy for critical data.
+
+**Append-only mode**: When `frozen_start_seq` is set, the bucket becomes append-only from that point. The start_seq can never decrease below the frozen value, preventing deletion of historical data. This is irreversible and requires the current snapshot to meet `min_providers` threshold.
+
+### Storage Model
+
+**Upload and Commit are separate operations**:
+
+1. **Upload**: Clients upload content-addressed data (chunks and internal nodes) to providers. This is just storage — no MMR involvement yet. Providers accept all uploads as long as the bucket has quota. Multiple clients can upload different data concurrently without conflicts.
+
+2. **Commit**: A client requests the provider to add data_root(s) to the bucket's MMR. The provider signs a commitment to the new MMR state. This is when data becomes "committed" and the provider becomes liable.
+
+3. **Checkpoint**: A client submits provider signatures to the chain, establishing canonical state. The chain records which providers acknowledged this state. Only providers in the snapshot are challengeable for this state.
+
+**No conflict rejection**: Providers accept all uploads within quota. "Conflicts" (different clients uploading different data) are fine — the checkpoint determines which state becomes canonical. After checkpoint, providers can prune non-canonical data to reclaim storage.
+
+**Content-addressed storage**: Everything (chunks and internal nodes) is addressed by hash. Internal nodes are data whose content is child hashes. Upload is bottom-up: children must exist before parent can be stored. If a root hash exists, the entire tree is guaranteed complete.
+
+### Multi-Provider Coordination
+
+Providers don't sync with each other. Clients are responsible for uploading to each provider they want to store their data.
+
+**Flow**:
+1. Client uploads data to Provider A, B, C (separately)
+2. Client triggers commit on each provider, collects signatures
+3. Client checkpoints on-chain with collected signatures
+4. Providers not in the snapshot should sync (client re-uploads)
+5. After checkpoint, providers can prune non-canonical roots
+
+**Liability**: A provider is only liable for MMR states they acknowledged (signed). Challenges against the canonical checkpoint only work for providers listed in the snapshot's provider bitfield.
+
+---
+
 ## On-Chain: Pallet Interface
 
 ### Storage Items
@@ -21,11 +72,12 @@ pub type Providers<T: Config> = StorageMap<
 >;
 
 pub struct ProviderInfo<T: Config> {
-    /// Multiaddr for connecting to this provider (e.g., "/ip4/1.2.3.4/tcp/4001/p2p/Qm...")
+    /// Multiaddr for connecting to this provider
     pub multiaddr: BoundedVec<u8, T::MaxMultiaddrLength>,
     /// Total stake locked by this provider
     pub stake: BalanceOf<T>,
-    /// Bytes currently committed under storage agreements
+    /// Total contracted bytes (sum of max_bytes across all agreements)
+    /// Used for stake/bytes ratio — represents commitment, not actual storage
     pub committed_bytes: u64,
     /// Provider settings
     pub settings: ProviderSettings<T>,
@@ -42,18 +94,7 @@ pub struct ProviderSettings<T: Config> {
     pub accepting_extensions: bool,
 }
 
-/// Clients blocked by a provider (cannot extend agreements)
-#[pallet::storage]
-pub type BlockedClients<T: Config> = StorageDoubleMap<
-    _,
-    Blake2_128Concat,
-    T::AccountId,  // provider
-    Blake2_128Concat,
-    T::AccountId,  // blocked client
-    (),
->;
-
-/// Buckets: named containers that multiple clients can write to
+/// Buckets: containers for data with membership and storage agreements
 #[pallet::storage]
 pub type Buckets<T: Config> = StorageMap<
     _,
@@ -68,20 +109,35 @@ pub struct Member<T: Config> {
 }
 
 pub enum Role {
-    /// Can modify members, delete data, and append
+    /// Can modify members, manage settings, delete data (if not frozen)
     Admin,
-    /// Can only append data
+    /// Can append data
     Writer,
-    /// Can only read (for access-controlled content)
+    /// Can read data (for private buckets)
     Reader,
 }
-
-// Note: To make a bucket "append-only forever", remove all admins.
-// No one can delete, only append. Agreement can still be extended by anyone.
 
 pub struct Bucket<T: Config> {
     /// Members who can interact with this bucket
     pub members: BoundedVec<Member<T>, T::MaxMembers>,
+    /// If Some, bucket is append-only from this start_seq
+    /// Checkpoints with start_seq < frozen_start_seq are rejected
+    pub frozen_start_seq: Option<u64>,
+    /// Minimum provider acknowledgments required for checkpoint
+    pub min_providers: u32,
+    /// Current canonical state
+    pub snapshot: Option<BucketSnapshot>,
+}
+
+pub struct BucketSnapshot {
+    /// Canonical MMR root
+    pub mmr_root: H256,
+    /// Start sequence number
+    pub start_seq: u64,
+    /// Block at which checkpointed
+    pub checkpoint_block: BlockNumberFor<T>,
+    /// Which providers acknowledged this root (bitfield)
+    pub providers: BoundedBitField<T::MaxProvidersPerBucket>,
 }
 
 /// Storage agreements: per-provider contracts for a bucket
@@ -91,44 +147,25 @@ pub type StorageAgreements<T: Config> = StorageDoubleMap<
     Blake2_128Concat,
     BucketId,
     Blake2_128Concat,
-    T::AccountId,                    // provider
+    T::AccountId,
     StorageAgreement<T>,
 >;
 
 pub struct StorageAgreement<T: Config> {
-    /// Maximum bytes covered by this agreement
+    /// Maximum bytes (quota) — provider accepts uploads up to this
     pub max_bytes: u64,
     /// Payment locked by client
     pub payment_locked: BalanceOf<T>,
-    /// Agreement expiration block
+    /// Agreement expiration
     pub expires_at: BlockNumberFor<T>,
-    /// Latest MMR snapshot (updated via checkpoint)
-    pub mmr_snapshot: Option<MmrSnapshot>,
 }
 
-pub struct MmrSnapshot {
-    pub mmr_root: H256,
-    pub start_seq: u64,
-}
-
-// Note: Provider stake is global (ProviderInfo.stake). The ratio of
-// stake to committed_bytes determines the provider's "skin in the game".
-// Clients choose providers based on this ratio.
-
-/// Discovery: bucket → providers is derived from StorageAgreements.
-/// Clients query by bucket to find which providers store it.
-/// 
-/// Note: We intentionally don't index by mmr_root. The bucket_id is the
-/// stable reference. Specific versions are tracked off-chain via signed
-/// commitments.
-
-/// Pending challenges indexed by deadline block.
-/// On each block, check Challenges[current_block] for timeouts.
+/// Pending challenges indexed by deadline block
 #[pallet::storage]
 pub type Challenges<T: Config> = StorageMap<
     _,
     Blake2_128Concat,
-    BlockNumberFor<T>,  // deadline block
+    BlockNumberFor<T>,
     BoundedVec<Challenge<T>, T::MaxChallengesPerBlock>,
 >;
 
@@ -146,9 +183,6 @@ pub struct Challenge<T: Config> {
     pub leaf_index: u64,
     pub chunk_index: u64,
 }
-
-// Note: No provider → challenges index. Providers track locally which block
-// they last checked and scan Challenges[last_checked..current] for their account.
 ```
 
 ### Events
@@ -183,44 +217,13 @@ pub enum Event<T: Config> {
 ```rust
 sp_api::decl_runtime_apis! {
     pub trait StorageApi {
-        // ─────────────────────────────────────────────────────────────
-        // Provider queries
-        // ─────────────────────────────────────────────────────────────
-
-        /// Get provider info (multiaddr, stake, committed bytes)
         fn provider_info(provider: AccountId) -> Option<ProviderInfo>;
-
-        // ─────────────────────────────────────────────────────────────
-        // Bucket queries
-        // ─────────────────────────────────────────────────────────────
-
-        /// Get bucket info (members, roles)
         fn bucket_info(bucket_id: BucketId) -> Option<Bucket>;
-
-        /// Get providers for a bucket (derived from active agreements)
         fn bucket_providers(bucket_id: BucketId) -> Vec<AccountId>;
-
-        // ─────────────────────────────────────────────────────────────
-        // Agreement queries
-        // ─────────────────────────────────────────────────────────────
-
-        /// Get storage agreement details (including MMR snapshot)
         fn agreement(bucket_id: BucketId, provider: AccountId) -> Option<StorageAgreement>;
-
-        /// Get pending agreement requests for a bucket
         fn pending_requests(bucket_id: BucketId) -> Vec<(AccountId, AgreementRequest)>;
-
-        /// Get pending agreement requests awaiting this provider
         fn pending_requests_for_provider(provider: AccountId) -> Vec<(BucketId, AgreementRequest)>;
-
-        // ─────────────────────────────────────────────────────────────
-        // Challenge queries
-        // ─────────────────────────────────────────────────────────────
-
-        /// Get challenges for a block range (providers scan for their account)
         fn challenges(from_block: BlockNumber, to_block: BlockNumber) -> Vec<(ChallengeId, Challenge)>;
-
-        /// Get challenge period (blocks to respond)
         fn challenge_period() -> BlockNumber;
     }
 }
@@ -235,8 +238,6 @@ impl<T: Config> Pallet<T> {
     // Provider management
     // ─────────────────────────────────────────────────────────────
 
-    /// Register as a storage provider
-    #[pallet::weight(...)]
     pub fn register_provider(
         origin: OriginFor<T>,
         multiaddr: BoundedVec<u8, T::MaxMultiaddrLength>,
@@ -257,32 +258,26 @@ impl<T: Config> Pallet<T> {
         settings: ProviderSettings,
     ) -> DispatchResult;
 
-    /// Block a client from extending agreements (provider only)
-    #[pallet::weight(...)]
-    pub fn block_client(
-        origin: OriginFor<T>,
-        client: T::AccountId,
-    ) -> DispatchResult;
 
-    /// Unblock a previously blocked client (provider only)
-    #[pallet::weight(...)]
-    pub fn unblock_client(
-        origin: OriginFor<T>,
-        client: T::AccountId,
-    ) -> DispatchResult;
 
     // ─────────────────────────────────────────────────────────────
     // Bucket management
     // ─────────────────────────────────────────────────────────────
 
-    /// Create a new bucket (caller becomes admin)
-    #[pallet::weight(...)]
-    pub fn create_bucket(
+    /// Create bucket (caller becomes admin)
+    pub fn create_bucket(origin: OriginFor<T>, min_providers: u32) -> DispatchResult;
+
+    /// Set minimum providers for checkpoint (admin only)
+    pub fn set_min_providers(
         origin: OriginFor<T>,
+        bucket_id: BucketId,
+        min_providers: u32,
     ) -> DispatchResult;
 
-    /// Add or update member in bucket (admin only)
-    #[pallet::weight(...)]
+    /// Freeze bucket — make append-only (admin only, irreversible)
+    /// Requires snapshot with min_providers acknowledgments
+    pub fn freeze_bucket(origin: OriginFor<T>, bucket_id: BucketId) -> DispatchResult;
+
     pub fn set_member(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -351,9 +346,9 @@ impl<T: Config> Pallet<T> {
     /// 3. Updates end date to now + duration
     /// 
     /// Fails if:
-    /// - Duration below provider's minimum
+    /// - Duration below provider's minimum: TODO: Why minimum? The provider much rather will have some maximum.
     /// - Payment insufficient for duration + bytes
-    /// - Provider has blocked this client or paused extensions
+    /// - Provider has blocked this bucket or paused extensions
     #[pallet::weight(...)]
     pub fn extend_agreement(
         origin: OriginFor<T>,
@@ -383,34 +378,27 @@ impl<T: Config> Pallet<T> {
         bucket_id: BucketId,
     ) -> DispatchResult;
 
-    /// Checkpoint MMR root for a provider (updates on-chain snapshot)
-    #[pallet::weight(...)]
+    // ─────────────────────────────────────────────────────────────
+    // Checkpoints
+    // ─────────────────────────────────────────────────────────────
+
+    /// Submit checkpoint with provider signatures.
+    /// Requires at least min_providers signatures.
+    /// For frozen buckets: start_seq == frozen_start_seq.
     pub fn checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
-        provider: T::AccountId,
         mmr_root: H256,
         start_seq: u64,
-        provider_signature: Signature,
+        signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
     ) -> DispatchResult;
 
     // ─────────────────────────────────────────────────────────────
     // Challenges
-    //
-    // Two ways to challenge:
-    // 1. challenge_checkpoint: Challenge the on-chain MMR snapshot. No signatures
-    //    needed - the chain already has the committed mmr_root.
-    // 2. challenge_offchain: Challenge an off-chain commitment. Requires both
-    //    client and provider signatures to prove the commitment exists.
-    //
-    // In both cases, challenger specifies which leaf (by index) and which chunk
-    // within that leaf's data_root to challenge. Provider must respond with the
-    // chunk data and Merkle proofs, or get slashed.
     // ─────────────────────────────────────────────────────────────
 
-    /// Challenge the on-chain checkpoint.
-    /// Uses the mmr_root stored in the StorageAgreement.
-    #[pallet::weight(...)]
+    /// Challenge on-chain checkpoint (no signatures needed)
+    /// Provider must be in snapshot's provider bitfield
     pub fn challenge_checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -419,10 +407,7 @@ impl<T: Config> Pallet<T> {
         chunk_index: u64,
     ) -> DispatchResult;
 
-    /// Challenge an off-chain commitment.
-    /// Provider signature proves they committed to this MMR root.
-    /// Client signature not needed - if provider signed, they're on the hook.
-    #[pallet::weight(...)]
+    /// Challenge off-chain commitment (requires provider signature)
     pub fn challenge_offchain(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -449,13 +434,11 @@ pub enum EndAction {
     /// Pay provider in full
     Pay,
     /// Burn portion, pay rest (0-100%)
-    PartialBurn { burn_percent: u8 },
-    /// Burn everything
-    FullBurn,
+    Burn { burn_percent: u8 },
 }
 
 pub enum ChallengeResponse {
-    /// Provide the chunk with Merkle proof
+    /// Provide the chunk with proofs
     Proof {
         chunk_data: BoundedVec<u8, T::MaxChunkSize>,
         mmr_proof: MmrProof,
@@ -467,7 +450,13 @@ pub enum ChallengeResponse {
     Deleted {
         new_mmr_root: H256,
         new_start_seq: u64,
+        client: AccountId,
         client_signature: Signature,
+    },
+    /// Challenged state is non-canonical
+    NonCanonical {
+    // TODO: What is this block number? Why is it needed?
+        checkpoint_block: BlockNumberFor<T>,
     },
 }
 ```
@@ -476,58 +465,87 @@ pub enum ChallengeResponse {
 
 ## Off-Chain: Provider Node API
 
-### REST/WebSocket Endpoints
+### Content-Addressed Storage
+
+Everything is content-addressed by hash. Upload is bottom-up: children must exist before parent.
 
 ```
-Provider Metadata
-─────────────────
-GET /info
-
-Response:
-{
-  "provider_id": "5GrwvaEF...",
-  "endpoint": "wss://storage.example.com",
-  "stake": "1000000000000",
-  "terms": {
-    "free_storage": {
-      "max_bytes": 1073741824,
-      "max_duration_hours": 24,
-      "per_peer": true
-    },
-    "paid_storage": {
-      "price_per_gb_month_planck": 10000000000
-    },
-    "contract_required": false,
-    "min_stake_ratio": 0.001
-  }
-}
-```
-
-```
-Write Chunks
-────────────
-POST /write
+Upload Node (chunk or internal node)
+────────────────────────────────────
+PUT /node
 
 Request:
 {
-  "bucket_id": "0x1234..." | null,   // Option<BucketId>
-  "chunks": [
-    { "hash": "0xabc...", "data": "<base64>" },
-    { "hash": "0xdef...", "data": "<base64>" }
-  ]
+  "bucket_id": "0x1234...",
+  "hash": "0xabc...",
+  TODO: base64? Also why a http API?
+  "data": "<base64>",
+  "children": ["0xchild1...", "0xchild2..."] | null  // null for leaf chunks
+}
+
+Response (200 OK):
+{ "stored": true }
+
+Response (400 Bad Request):
+{ "error": "children_missing", "missing": ["0xchild2..."] }
+
+Response (507 Insufficient Storage):
+{ "error": "quota_exceeded", "used": 1000000, "max": 1000000 }
+```
+
+### Sync Protocol
+
+Client discovers which nodes are missing before uploading.
+
+```
+Check Existence (batched)
+─────────────────────────
+POST /exists
+
+Request:
+{
+  "bucket_id": "0x1234...",
+  "hashes": ["0xabc...", "0xdef...", "0x123...", ...]
 }
 
 Response:
 {
-  "data_root": "0x789...",
+  "exists": ["0xabc...", "0x123..."],
+  "missing": ["0xdef..."]
+}
+
+Note: Client traverses tree top-down, checking level by level.
+If a node exists, skip its subtree. Upload missing nodes bottom-up.
+```
+
+### Commit
+
+After uploading, client requests provider to add data_root(s) to MMR.
+
+```
+Commit
+──────
+POST /commit
+
+Request:
+{
+  "bucket_id": "0x1234...",
+  "data_roots": ["0xroot1...", "0xroot2..."]  // roots to add to MMR
+}
+
+Response (200 OK):
+{
   "mmr_root": "0xfed...",
   "start_seq": 0,
-  "leaf_index": 5,
-  "data_size": 2097152,
-  "total_size": 52428800,
+  "leaf_indices": [5, 6],  // indices assigned to each data_root
   "provider_signature": "0x..."
 }
+
+Response (400 Bad Request):
+{ "error": "root_not_found", "missing": ["0xroot2..."] }
 ```
+
+### Read
 
 ```
 Read Chunks
@@ -538,13 +556,27 @@ Response:
 {
   "chunks": [
     { "hash": "0xabc...", "data": "<base64>", "proof": [...] },
-    { "hash": "0xdef...", "data": "<base64>", "proof": [...] }
-  ],
-  "data_root": "0x789..."
+    ...
+  ]
 }
 ```
 
+### Other Endpoints
+
 ```
+Provider Info
+─────────────
+GET /info
+
+Response:
+{
+  "provider_id": "5GrwvaEF...",
+  // TODO: Stake and committed bytes makes little sense to fetch from the provider - they could lie. We should query the chain for that.
+  "stake": "1000000000000",
+  "committed_bytes": "50000000000",
+  "settings": { ... }
+}
+
 Get Commitment
 ──────────────
 GET /commitment?bucket_id=0x...
@@ -554,24 +586,17 @@ Response:
   "bucket_id": "0x1234...",
   "mmr_root": "0xfed...",
   "start_seq": 0,
-  "client_signature": "0x...",
   "provider_signature": "0x..."
 }
-```
 
-```
 Get MMR Proof
 ─────────────
 GET /mmr_proof?bucket_id=0x...&leaf_index=5
 
 Response:
 {
-  "leaf": {
-    "data_root": "0x789...",
-    "data_size": 2097152,
-    "total_size": 52428800
-  },
-  "proof": [...]
+  "leaf": { "data_root": "0x...", "data_size": 2097152, "total_size": 52428800 },
+  "proof": { "peaks": [...], "siblings": [...] }
 }
 ```
 
@@ -609,7 +634,6 @@ pub struct MmrLeaf {
     /// Cumulative unique bytes in MMR at this point
     pub total_size: u64,
 }
-
 // Sequence number is implicit: start_seq + leaf_position
 ```
 
@@ -642,12 +666,12 @@ pub struct MmrProof {
    └─ Provides: signed commitment, leaf_index, chunk_index
    └─ Locks challenge deposit
 
-2. Challenge window opens (e.g., 100 blocks)
+2. Challenge window opens
    └─ Provider must respond within window
 
 3a. Provider responds with valid proof
     └─ Challenge rejected
-    └─ Client loses deposit (pays provider)
+    └─ Client loses deposit (pays provider): TODO: This is wrong. Provider does not get paid, only fees for the submitted proof are paid with the agreed fraction.
 
 3b. Provider responds with deletion proof
     └─ Shows newer commitment with start_seq > challenged seq
@@ -656,7 +680,7 @@ pub struct MmrProof {
 
 3c. Provider fails to respond / invalid proof
     └─ Provider slashed
-    └─ Client receives: deposit back + portion of slash
+    └─ Challenger gets deposit back + slash portion
 ```
 
 ### Verification
@@ -665,6 +689,7 @@ pub struct MmrProof {
 fn verify_challenge_response(
     challenge: &Challenge,
     response: &ChallengeResponse,
+    bucket: &Bucket,
 ) -> Result<(), Error> {
     match response {
         ChallengeResponse::Proof { chunk_data, mmr_proof, chunk_proof } => {
@@ -672,32 +697,37 @@ fn verify_challenge_response(
             let chunk_hash = blake2_256(chunk_data);
             
             // 2. Verify chunk is in data_root
-            verify_merkle_proof(
-                chunk_hash,
-                challenge.chunk_index,
-                &chunk_proof,
-                &mmr_proof.leaf.data_root,
-            )?;
+            verify_merkle_proof(chunk_hash, challenge.chunk_index, chunk_proof, &mmr_proof.leaf.data_root)?;
             
             // 3. Verify data_root is in MMR
-            let leaf_hash = hash_mmr_leaf(&mmr_proof.leaf);
-            verify_mmr_proof(
-                leaf_hash,
-                challenge.leaf_index,
-                &mmr_proof,
-                &challenge.mmr_root,
-            )?;
+            verify_mmr_proof(&mmr_proof, challenge.leaf_index, &challenge.mmr_root)?;
             
             Ok(())
         }
         
-        ChallengeResponse::Deleted { new_mmr_root, new_start_seq, .. } => {
-            // Verify the challenged seq is before new MMR's range
+        ChallengeResponse::Deleted { new_start_seq, .. } => {
+            // Not allowed for frozen buckets
+            if bucket.frozen_start_seq.is_some() {
+                return Err(Error::BucketIsFrozen);
+            }
+            
+            // Challenged seq must be before new start
             let challenged_seq = challenge.start_seq + challenge.leaf_index;
             ensure!(challenged_seq < *new_start_seq, Error::InvalidDeletionProof);
             
-            // Verify signatures on new commitment
-            verify_signatures(new_mmr_root, new_start_seq, ...)?;
+            // Verify client signature on new commitment
+            // ...
+            
+            Ok(())
+        }
+        
+        ChallengeResponse::NonCanonical { checkpoint_block } => {
+            // Verify checkpoint exists and differs from challenged state
+            let snapshot = bucket.snapshot.as_ref().ok_or(Error::NoSnapshot)?;
+            // TODO: This check seems unnecessary
+            ensure!(snapshot.checkpoint_block == *checkpoint_block, Error::InvalidCheckpoint);
+            // TODO: This check does not seem sufficient.
+            ensure!(snapshot.mmr_root != challenge.mmr_root, Error::StateIsCanonical);
             
             Ok(())
         }
@@ -707,66 +737,14 @@ fn verify_challenge_response(
 
 ---
 
-## Client Library Interface
+## Open Questions
 
-```rust
-pub trait StorageClient {
-    /// Write data to provider, optionally under a contract
-    async fn write(
-        &self,
-        provider: &ProviderEndpoint,
-        bucket_id: Option<BucketId>,
-        data: &[u8],
-    ) -> Result<WriteReceipt, Error>;
+1. **Chunk size**: Fixed (256KB) or configurable?
 
-    /// Read data by root and byte range
-    async fn read(
-        &self,
-        provider: &ProviderEndpoint,
-        data_root: H256,
-        offset: u64,
-        length: u64,
-    ) -> Result<Vec<u8>, Error>;
+2. **MMR implementation**: Use `pallet-mmr` or custom?
 
-    /// Get current commitment for a bucket
-    async fn get_commitment(
-        &self,
-        provider: &ProviderEndpoint,
-        bucket_id: BucketId,
-    ) -> Result<SignedCommitment, Error>;
+3. **Signature scheme**: Ed25519, Sr25519, or both?
 
-    /// Initiate a challenge on-chain
-    async fn challenge(
-        &self,
-        bucket_id: BucketId,
-        provider: AccountId,
-        commitment: SignedCommitment,
-        leaf_index: u64,
-        chunk_index: u64,
-    ) -> Result<ChallengeId, Error>;
-}
+4. **Challenge randomness**: On-chain (BABE/VRF) or client-provided?
 
-pub struct WriteReceipt {
-    pub data_root: H256,
-    pub commitment: SignedCommitment,
-    pub leaf_index: u64,
-}
-```
-
----
-
-## Open Implementation Questions
-
-1. **Chunk size:** Fixed (e.g., 256KB) or configurable per contract?
-
-2. **MMR implementation:** Use existing `pallet-mmr` or custom implementation for off-chain use?
-
-3. **Signature scheme:** Ed25519, Sr25519, or support both?
-
-4. **Challenge randomness:** How to select random chunk for challenge? On-chain randomness (BABE/VRF) or client-provided with commitment?
-
-5. **Batch operations:** Support for writing multiple data_roots in single request?
-
-6. **Streaming:** WebSocket streaming for large reads/writes, or chunked HTTP?
-
-7. **Encryption:** Any protocol-level support, or purely application layer?
+5. **Encryption**: Protocol-level or application-layer only?
