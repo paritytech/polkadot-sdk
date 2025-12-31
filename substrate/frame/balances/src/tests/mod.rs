@@ -46,6 +46,7 @@ use sp_runtime::{
 };
 use std::collections::BTreeSet;
 
+mod burn_handler_tests;
 mod consumer_limit_tests;
 mod currency_tests;
 mod dispatchable_tests;
