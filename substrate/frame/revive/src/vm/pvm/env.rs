@@ -304,14 +304,55 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
 			callee_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Make a call to another contract.
+	/// See [`pallet_revive_uapi::HostFn::call_evm`].
+	#[stable]
+	fn call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		value_ptr: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+			let value = memory.read_u256(value_ptr)?;
+			// We also need to detect the 2300: We need to add something scaled.
+			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
+			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::Call { value_ptr },
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -335,14 +376,50 @@ pub mod env {
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall,
 			address_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Same as `delegate_call` but with EVM gas.
+	/// See [`pallet_revive_uapi::HostFn::delegate_call_evm`].
+	#[stable]
+	fn delegate_call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			CallResources::from_ethereum_gas(gas.into(), false)
+		};
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::DelegateCall,
+			callee,
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -877,21 +954,6 @@ pub mod env {
 			},
 			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
 		}
-	}
-
-	/// Replace the contract code at the specified address with new code.
-	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	///
-	/// Disabled until the internal implementation takes care of collecting
-	/// the immutable data of the new code hash.
-	#[mutating]
-	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		let charged = self.charge_gas(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
-		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		if matches!(self.ext.set_code_hash(code_hash)?, crate::CodeRemoved::No) {
-			self.adjust_gas(charged, RuntimeCosts::SetCodeHash { old_code_removed: false });
-		}
-		Ok(())
 	}
 
 	/// Verify a sr25519 signature

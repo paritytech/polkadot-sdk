@@ -43,7 +43,7 @@ use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 use crate::metering::Diff;
@@ -57,15 +57,7 @@ pub enum AccountIdOrAddress<T: Config> {
 
 /// Represents the account information for a contract or an externally owned account (EOA).
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AccountInfo<T: Config> {
@@ -79,15 +71,7 @@ pub struct AccountInfo<T: Config> {
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub enum AccountType<T: Config> {
@@ -473,7 +457,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

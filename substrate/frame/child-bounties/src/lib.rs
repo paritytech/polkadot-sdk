@@ -75,7 +75,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlockNumberProvider, CheckedSub, Saturating, StaticLookup,
 		Zero,
 	},
-	DispatchResult, RuntimeDebug,
+	Debug, DispatchResult,
 };
 
 use frame_support::pallet_prelude::*;
@@ -96,7 +96,7 @@ pub type BlockNumberFor<T> =
 	<<T as pallet_treasury::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A child bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 	/// The parent of this child-bounty.
 	pub parent_bounty: BountyIndex,
@@ -111,7 +111,7 @@ pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 }
 
 /// The status of a child-bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ChildBountyStatus<AccountId, BlockNumber> {
 	/// The child-bounty is added and waiting for curator assignment.
 	Added,

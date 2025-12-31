@@ -36,7 +36,7 @@ use core::{fmt, marker::PhantomData, mem};
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 
 /// Extracts the code and data from a given program blob.
 pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
@@ -225,7 +225,7 @@ impl From<&ExecReturnValue> for ReturnErrorCode {
 }
 
 /// The data passed through when a contract uses `seal_return`.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ReturnData {
 	/// The flags as passed through by the contract. They are still unchecked and
 	/// will later be parsed into a `ReturnFlags` bitflags struct.
@@ -240,7 +240,7 @@ pub struct ReturnData {
 /// occurred (the SupervisorError variant).
 /// The other case is where the trap does not constitute an error but rather was invoked
 /// as a quick way to terminate the application (all other variants).
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum TrapReason {
 	/// The supervisor trapped the contract because of an error condition occurred during
 	/// execution in privileged code.
@@ -631,8 +631,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		flags: CallFlags,
 		call_type: CallType,
 		callee_ptr: u32,
-		deposit_ptr: u32,
-		weight: Weight,
+		resources: &CallResources<E::T>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -646,8 +645,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
-
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		// we do check this in exec.rs but we want to error out early
 		if input_data_len > limits::CALLDATA_BYTES {
@@ -693,24 +690,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(
-					&CallResources::from_weight_and_deposit(weight, deposit_limit),
-					&callee,
-					value,
-					input_data,
-					reentrancy,
-					read_only,
-				)
+				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(
-					&CallResources::from_weight_and_deposit(weight, deposit_limit),
-					callee,
-					input_data,
-				)
+				self.ext.delegate_call(resources, callee, input_data)
 			},
 		};
 
