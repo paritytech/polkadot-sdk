@@ -198,7 +198,23 @@ pub trait StakingInterface {
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
 
 	/// Number of eras that staked funds must remain bonded for.
+	///
+	/// This is the full bonding duration used by validators and recent ex-validators.
 	fn bonding_duration() -> EraIndex;
+
+	/// Number of eras that staked funds of a pure nominator must remain bonded for.
+	///
+	/// Same as [`Self::bonding_duration`] by default, but can be lower for pure nominators
+	/// (who have not been validators in recent eras) when nominators are not slashable.
+	///
+	/// Note: The actual unbonding duration for a specific account may vary:
+	/// - Validators always use [`Self::bonding_duration`]
+	/// - Nominators who were recently validators use [`Self::bonding_duration`]
+	/// - Pure nominators (never validators, or not validators in recent eras) may use a shorter
+	///   duration when not slashable
+	fn nominator_bonding_duration() -> EraIndex {
+		Self::bonding_duration()
+	}
 
 	/// The current era index.
 	///

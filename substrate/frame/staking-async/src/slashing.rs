@@ -41,11 +41,11 @@
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf, OffenceQueue,
-	OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence, SlashRewardFraction,
-	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra, WeightInfo,
+	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
+	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
 };
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
 use scale_info::TypeInfo;
@@ -184,7 +184,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 	};
 
-	add_db_reads_writes(1, 1);
+	add_db_reads_writes(3, 4);
 	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
 		return incomplete_consumed_weight
 	};
@@ -262,8 +262,10 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offender,
 		);
 
+		let nominators_slashed = unapplied.others.len() as u32;
 		apply_slash::<T>(unapplied, offence_era);
-		T::WeightInfo::apply_slash().saturating_add(T::WeightInfo::process_offence_queue())
+		T::WeightInfo::apply_slash(nominators_slashed)
+			.saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
 		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
 		// slashes were applied at the start of the 28th era from `offence_era`.
@@ -287,6 +289,197 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 	}
 }
 
+/// Loads next offence in the processing offence and returns the offense record to be processed.
+///
+/// Note: this can mutate the following storage
+/// - `ProcessingOffence`
+/// - `OffenceQueue`
+/// - `OffenceQueueEras`
+///
+/// This is called when only validators are slashed.
+/// No nominators exposed to the offending validator are slashed.
+fn next_offence_validator_only<T: Config>(
+) -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
+	// Try enqueue the next offence
+	let Some(mut eras) = OffenceQueueEras::<T>::get() else { return None };
+	let Some(&oldest_era) = eras.first() else { return None };
+
+	let mut offence_iter = OffenceQueue::<T>::iter_prefix(oldest_era);
+	let next_offence = offence_iter.next();
+
+	if let Some((ref validator, ref _offence_record)) = next_offence {
+		// Remove from `OffenceQueue`
+		OffenceQueue::<T>::remove(oldest_era, &validator);
+	}
+
+	// If there are no offences left for the era, remove the era from `OffenceQueueEras`.
+	if offence_iter.next().is_none() {
+		if eras.len() == 1 {
+			// If there is only one era left, remove the entire queue.
+			OffenceQueueEras::<T>::kill();
+		} else {
+			// Remove the oldest era
+			eras.remove(0);
+			OffenceQueueEras::<T>::put(eras);
+		}
+	}
+
+	next_offence.map(|(v, o)| (oldest_era, v, o))
+}
+
+pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
+	// We do manual weight tracking for early-returns, and use benchmarks for the final two
+	// branches.
+	let mut incomplete_consumed_weight = Weight::from_parts(0, 0);
+	let mut add_db_reads_writes = |reads, writes| {
+		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+	};
+
+	add_db_reads_writes(2, 2);
+	let Some((offence_era, offender, offence_record)) = next_offence_validator_only::<T>() else {
+		return incomplete_consumed_weight
+	};
+
+	log!(
+		debug,
+		"🦹 Processing offence for {:?} in era {:?} with slash fraction {:?}",
+		offender,
+		offence_era,
+		offence_record.slash_fraction,
+	);
+
+	add_db_reads_writes(1, 0);
+	let reward_proportion = SlashRewardFraction::<T>::get();
+
+	add_db_reads_writes(2, 0);
+	let Some(validator_exposure) = <ErasStakersOverview<T>>::get(&offence_era, &offender) else {
+		// this can only happen if the offence was valid at the time of reporting but became too old
+		// at the time of computing and should be discarded.
+		return incomplete_consumed_weight
+	};
+
+	let slash_defer_duration = T::SlashDeferDuration::get();
+	let slash_era = offence_era.saturating_add(slash_defer_duration);
+
+	add_db_reads_writes(3, 3);
+	// For validator-only slashing, call slash_validator directly instead of compute_slash
+	// to avoid unnecessarily calling slash_nominators (which would be a no-op anyway).
+	let params = SlashParams {
+		stash: &offender,
+		slash: offence_record.slash_fraction,
+		prior_slash: offence_record.prior_slash_fraction,
+		// create exposure only from validator state from the overview
+		exposure: &PagedExposure::from_overview(validator_exposure),
+		slash_era: offence_era,
+		reward_proportion,
+	};
+
+	let (val_slashed, reward_payout) = slash_validator::<T>(params);
+
+	// Build UnappliedSlash for validator-only slashing
+	let Some(mut unapplied) = (val_slashed > Zero::zero()).then_some(UnappliedSlash {
+		validator: offender.clone(),
+		own: val_slashed,
+		others: WeakBoundedVec::force_from(vec![], None),
+		reporter: None,
+		payout: reward_payout,
+	}) else {
+		log!(
+			debug,
+			"🦹 Slash of {:?}% happened in {:?} (reported in {:?}) is discarded, as could not compute slash",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+		);
+		// No slash to apply. Discard.
+		return incomplete_consumed_weight
+	};
+
+	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
+		offence_era,
+		slash_era,
+		offender: offender.clone(),
+		// validator only slashes are always single paged
+		page: 0,
+	});
+
+	log!(
+		debug,
+		"🦹 Slash of {:?}% happened in {:?} (reported in {:?}) is computed",
+		offence_record.slash_fraction,
+		offence_era,
+		offence_record.reported_era,
+	);
+
+	// add the reporter to the unapplied slash.
+	unapplied.reporter = offence_record.reporter;
+
+	if slash_defer_duration == 0 {
+		// Apply right away.
+		log!(
+			debug,
+			"🦹 applying slash instantly of {:?} happened in {:?} (reported in {:?}) to {:?}",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+			offender,
+		);
+
+		// Validator-only slash, so no nominators (n=0).
+		apply_slash::<T>(unapplied, offence_era);
+		T::WeightInfo::apply_slash(0).saturating_add(T::WeightInfo::process_offence_queue())
+	} else {
+		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
+		// slashes were applied at the start of the 28th era from `offence_era`.
+		// However, with paged slashing, applying slashes now takes multiple blocks.
+		// To account for this delay, slashes are now applied at the start of the 27th era from
+		// `offence_era`.
+		log!(
+			debug,
+			"🦹 deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+			slash_era,
+		);
+		UnappliedSlashes::<T>::insert(
+			slash_era,
+			(offender, offence_record.slash_fraction, 0),
+			unapplied,
+		);
+		T::WeightInfo::process_offence_queue()
+	}
+}
+
+/// Process the next offence in the queue, checking the era-specific nominators slashable setting.
+///
+/// This function decides whether to slash nominators based on the [`ErasNominatorsSlashable`]
+/// value for the offence era, ensuring that the rules at the time of the offence are applied.
+///
+/// If there's an in-progress multi-page offence (in `ProcessingOffence`), it continues processing
+/// that offence with full exposure (nominators were already decided to be slashable).
+pub(crate) fn process_offence_for_era<T: Config>() -> Weight {
+	// Check if there's an in-progress multi-page offence
+	if ProcessingOffence::<T>::exists() {
+		// Continue processing the existing multi-page offence with full exposure
+		return process_offence::<T>();
+	}
+
+	// No in-progress offence - peek at the queue to determine the offence era
+	let Some(eras) = OffenceQueueEras::<T>::get() else {
+		return T::DbWeight::get().reads(2); // ProcessingOffence + OffenceQueueEras
+	};
+	let Some(&oldest_era) = eras.first() else { return T::DbWeight::get().reads(2) };
+
+	// Check the era-specific nominators slashable setting
+	// Additional read for ErasNominatorsSlashable
+	if Eras::<T>::are_nominators_slashable(oldest_era) {
+		process_offence::<T>()
+	} else {
+		process_offence_validator_only::<T>()
+	}
+}
+
 /// Computes a slash of a validator and nominators. It returns an unapplied
 /// record to be applied at some later point. Slashing metadata is updated in storage,
 /// since unapplied records are only rarely intended to be dropped.
@@ -302,6 +495,10 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 	let (nom_slashed, nom_reward_payout) =
 		slash_nominators::<T>(params.clone(), &mut nominators_slashed);
 	reward_payout += nom_reward_payout;
+
+	// If nominators are not slashable for this era, the list must be empty
+	// (because we use `from_overview` which creates empty `others`).
+	debug_assert!(Eras::<T>::are_nominators_slashable(params.slash_era));
 
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
@@ -379,12 +576,6 @@ fn slash_nominators<T: Config>(
 	}
 
 	(total_slashed, reward_payout)
-}
-
-/// Clear slashing metadata for an obsolete era.
-pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
-	#[allow(deprecated)]
-	ValidatorSlashInEra::<T>::remove_prefix(&obsolete_era, None);
 }
 
 // apply the slash to a stash account, deducting any missing funds from the reward
