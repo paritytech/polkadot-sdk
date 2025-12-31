@@ -76,6 +76,10 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 	/// The number of blocks that an announcement must be in place for before the corresponding
 	/// call may be dispatched. If zero, then no announcement is needed.
 	pub delay: BlockNumber,
+	/// The maximun amount that can be transferred by this proxy.
+	pub max_amount: Option<BalanceOf<T>>,
+	/// The block number until which the limit is valid.
+	pub valid_until: BlockNumber,
 }
 
 /// Details surrounding a specific instance of an announcement to make a call.
@@ -175,6 +179,9 @@ pub mod pallet {
 		/// The maximum amount of proxies allowed for a single account.
 		#[pallet::constant]
 		type MaxProxies: Get<u32>;
+
+		#[pallet::constant]
+		type MaxTransferAmount: Get<BalanceOf<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -742,6 +749,10 @@ pub mod pallet {
 		Unannounced,
 		/// Cannot add self as proxy.
 		NoSelfProxy,
+		/// The transfer amoun exceeds the allowed limit.
+		TransferLimitExceeded,
+		/// The duration for the transfer limit has expired.
+		DurationExpired,
 	}
 
 	/// The set of account proxies. Maps the account which has delegated to the accounts
@@ -855,6 +866,8 @@ impl<T: Config> Pallet<T> {
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
 		delay: BlockNumberFor<T>,
+		max_amount: Option<BalanceOf<T>>,
+		valid_until: BlockNumberFor<T>
 	) -> DispatchResult {
 		ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
 		Proxies::<T>::try_mutate(delegator, |(ref mut proxies, ref mut deposit)| {
@@ -895,6 +908,8 @@ impl<T: Config> Pallet<T> {
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
 		delay: BlockNumberFor<T>,
+		max_amount: Option<BalanceOf<T>>,
+		valid_until: BlockNumberFor<T>,
 	) -> DispatchResult {
 		Proxies::<T>::try_mutate_exists(delegator, |x| {
 			let (mut proxies, old_deposit) = x.take().ok_or(Error::<T>::NotFound)?;
@@ -902,6 +917,16 @@ impl<T: Config> Pallet<T> {
 				delegate: delegatee.clone(),
 				proxy_type: proxy_type.clone(),
 				delay,
+				max_amount: if proxy_type == ProxyType::AnyWithLimit {
+					max_amount
+				} else {
+					None
+				},
+				valid_until: if proxy_type == ProxyType::AnytWithLimit {
+					valid_unil
+				} else {
+					None
+				},
 			};
 			let i = proxies.binary_search(&proxy_def).ok().ok_or(Error::<T>::NotFound)?;
 			proxies.remove(i);
@@ -1014,7 +1039,22 @@ impl<T: Config> Pallet<T> {
 				Some(Call::remove_proxies { .. }) | Some(Call::kill_pure { .. })
 					if def.proxy_type != T::ProxyType::default() =>
 					false,
-				_ => def.proxy_type.filter(c),
+
+					if def.proxy_type == ProxyType::AnyWithLimit {
+						if let Some(Call::Balances(BalancesCall::transfer_allow_death { value, .. })) = c {
+							// Check the proxy's max_amount limit
+							if let Some(max_amount) = def.max_amount {
+								if *value > max_amount {
+									return false; // Reject the call if it exceeds the proxy's limit
+								}
+							}
+							// Check the global MaxTransferAmount limit
+							if *value > T::MaxTransferAmount::get() {
+								return false; // Reject the call if it exceeds the global limit
+							}
+						}
+					}
+				def.proxy_type.filter(c),
 			}
 		});
 		let e = call.dispatch(origin);
