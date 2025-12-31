@@ -1521,26 +1521,28 @@ mod session_keys {
 
 	#[test]
 	fn set_keys_from_ah_invalid_keys() {
-		ExtBuilder::default()
-			.session_keys(vec![1])
-			.local_queue()
-			.build()
-			.execute_with(|| {
-				// GIVEN: A valid stash and malformed keys that cannot be decoded.
-				let stash: AccountId = 1;
-				let invalid_keys = vec![0xff, 0xfe, 0xfd];
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: A stash with no existing keys and malformed keys that cannot be decoded.
+			let stash: AccountId = 42;
+			let invalid_keys = vec![0xff, 0xfe, 0xfd];
 
-				// WHEN: Setting invalid keys.
-				// THEN: Fails with InvalidKeys error.
-				assert_noop!(
-					ah_client::Pallet::<Runtime>::set_keys_from_ah(
-						RuntimeOrigin::signed(99),
-						stash,
-						invalid_keys,
-					),
-					ah_client::Error::<Runtime>::InvalidKeys
-				);
-			})
+			// WHEN: Setting invalid keys.
+			// THEN: Returns Ok (defensive - this should never happen since AH validates).
+			assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
+				RuntimeOrigin::signed(99),
+				stash,
+				invalid_keys,
+			));
+
+			// AND: An Unexpected event is emitted since this should never happen.
+			assert_eq!(
+				ah_client_events_since_last_call(),
+				vec![ah_client::Event::Unexpected(UnexpectedKind::InvalidKeysFromAssetHub)]
+			);
+
+			// AND: Keys were NOT set (operation silently failed).
+			assert!(pallet_session::NextKeys::<Runtime>::get(stash).is_none());
+		})
 	}
 
 	#[test]

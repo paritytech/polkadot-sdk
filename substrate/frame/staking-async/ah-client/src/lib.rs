@@ -501,6 +501,12 @@ pub mod pallet {
 		/// * Those who are calling into our `RewardsReporter` likely have a bad view of the
 		///   validator set, and are spamming us.
 		ValidatorPointDropped,
+
+		/// Session keys received from AssetHub failed to decode.
+		///
+		/// This should never happen since AssetHub validates keys before forwarding them.
+		/// If this occurs, it indicates a mismatch between AH and RC key types or a bug.
+		InvalidKeysFromAssetHub,
 	}
 
 	#[pallet::call]
@@ -628,8 +634,25 @@ pub mod pallet {
 
 			// Decode the keys from bytes (AH already validated, this is just for type conversion)
 			let session_keys =
-				<<T as Config>::SessionInterface as SessionInterface>::Keys::decode(&mut &keys[..])
-					.map_err(|_| Error::<T>::InvalidKeys)?;
+				match <<T as Config>::SessionInterface as SessionInterface>::Keys::decode(
+					&mut &keys[..],
+				) {
+					Ok(keys) => keys,
+					Err(e) => {
+						// This should never happen since AH validates keys before forwarding.
+						// Emit event and return Ok (not Err) so the event is observable.
+						log!(
+							warn,
+							"InvalidKeysFromAssetHub: failed to decode keys for {:?}: {:?}",
+							stash,
+							e
+						);
+						Self::deposit_event(Event::Unexpected(
+							UnexpectedKind::InvalidKeysFromAssetHub,
+						));
+						return Ok(());
+					},
+				};
 
 			T::SessionInterface::set_keys(&stash, session_keys)?;
 
