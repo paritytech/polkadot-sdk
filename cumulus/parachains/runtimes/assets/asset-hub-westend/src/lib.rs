@@ -245,6 +245,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = Dap;
 }
 
 parameter_types! {
@@ -1399,6 +1400,9 @@ construct_runtime!(
 		AssetRate: pallet_asset_rate = 95,
 		MultiAssetBounties: pallet_multi_asset_bounties = 96,
 
+		// Dynamic Allocation Pool / Issuance Buffer
+		Dap: pallet_dap = 100,
+
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
@@ -1495,6 +1499,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	pallet_dap::migrations::v1::InitBufferAccount<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

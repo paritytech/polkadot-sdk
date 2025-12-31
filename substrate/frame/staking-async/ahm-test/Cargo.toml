@@ -31,6 +31,7 @@ pallet-balances = { workspace = true, default-features = true }
 
 # pallets that we need in AH
 frame-election-provider-support = { workspace = true, default-features = true }
+pallet-dap = { workspace = true, default-features = true }
 pallet-election-provider-multi-block = { workspace = true, default-features = true }
 pallet-staking-async = { workspace = true, default-features = true }
 pallet-staking-async-rc-client = { workspace = true, default-features = true }
@@ -51,6 +52,8 @@ std = [
 ]
 try-runtime = [
 	"pallet-balances/try-runtime",
+
+	"pallet-dap/try-runtime",
 
 	"pallet-staking/try-runtime",
 

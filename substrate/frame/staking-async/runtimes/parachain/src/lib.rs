@@ -229,6 +229,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_balances::DirectBurn<Balances, AccountId>;
 }
 
 parameter_types! {
@@ -1196,6 +1197,9 @@ construct_runtime!(
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
 
+		// Dynamic Allocation Pool / Issuance buffer
+		Dap: pallet_dap = 98,
+
 		// Balances.
 		Vesting: pallet_vesting = 100,
 
@@ -1240,6 +1244,7 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	pallet_dap::migrations::v1::InitBufferAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

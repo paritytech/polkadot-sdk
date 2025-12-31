@@ -30,6 +30,7 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-dap-satellite = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-migrations = { workspace = true }
@@ -112,6 +113,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-dap-satellite/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
@@ -167,6 +169,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
@@ -202,6 +205,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-dap-satellite/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",

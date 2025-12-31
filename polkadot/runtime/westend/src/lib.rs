@@ -107,7 +107,7 @@ use sp_runtime::{
 		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent,
 };
 use sp_staking::{EraIndex, SessionIndex};
 #[cfg(any(feature = "std", test))]
@@ -408,6 +408,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = DapSatellite;
 }
 
 parameter_types! {
@@ -479,11 +480,19 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
+	/// Percentage of fees that go to DAP satellite (0-100).
+	/// The remainder goes to block author. Tips always go 100% to author.
+	/// Westend: 0% to DAP (preserving original behavior of 100% to author)
+	pub const DapSatelliteFeePercent: u32 = 0;
 }
+
+/// Fee handler that splits fees between DAP satellite and block author.
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -923,7 +932,6 @@ impl pallet_fast_unstake::Config for Runtime {
 
 parameter_types! {
 	pub const SpendPeriod: BlockNumber = 6 * DAYS;
-	pub const Burn: Permill = Permill::from_perthousand(2);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
@@ -947,7 +955,7 @@ impl pallet_treasury::Config for Runtime {
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
-	type Burn = Burn;
+	type Burn = ();
 	type BurnDestination = ();
 	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
@@ -1748,6 +1756,15 @@ impl pallet_root_offences::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+}
+
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+}
+
+parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
 
@@ -2027,6 +2044,10 @@ mod runtime {
 	#[runtime::pallet_index(105)]
 	pub type RootOffences = pallet_root_offences;
 
+	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	#[runtime::pallet_index(106)]
+	pub type DapSatellite = pallet_dap_satellite;
+
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
 	pub type Beefy = pallet_beefy;
@@ -2099,6 +2120,7 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 	);
 }
 

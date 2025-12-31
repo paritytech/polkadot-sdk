@@ -28,7 +28,7 @@ use asset_hub_westend_runtime::{
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
+	AllPalletsWithoutSystem, Assets, Balances, Block, Dap, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
@@ -1961,4 +1961,40 @@ fn expensive_erc20_runs_out_of_gas() {
 		)
 		.is_err());
 	});
+}
+
+#[test]
+fn burn_redirects_to_dap_buffer() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let user: AccountId = BOB.into();
+			let initial_balance = 100 * UNITS;
+			let burn_amount = 10 * UNITS;
+
+			// Given: user has initial balance and DAP buffer exists with ED.
+			assert_ok!(Balances::mint_into(&user, initial_balance));
+
+			let dap_buffer = Dap::buffer_account();
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_issuance = Balances::total_issuance();
+
+			// When: user burns some tokens.
+			assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
+
+			// Then: DAP buffer receives the burned amount.
+			assert_eq!(Balances::free_balance(&dap_buffer), initial_dap_balance + burn_amount);
+
+			// And: user's balance is reduced.
+			assert_eq!(Balances::free_balance(&user), initial_balance - burn_amount);
+
+			// And: total issuance is unchanged (funds redirected, not destroyed).
+			assert_eq!(Balances::total_issuance(), initial_issuance);
+		});
 }
