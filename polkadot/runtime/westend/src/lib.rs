@@ -898,7 +898,7 @@ impl ah_client::Config for Runtime {
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type SessionInterface = Self;
+	type SessionInterface = Session;
 	type SendToAssetHub = StakingXcmToAssetHub;
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
