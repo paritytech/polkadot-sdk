@@ -250,11 +250,11 @@ Every write follows the same path:
 
 1. Client uploads data to provider
 2. Provider merkleizes and stores chunks
-3. Both parties sign a commitment: `{contract_id: Option, mmr_root, start_seq}`
+3. Both parties sign a commitment: `{bucket_id: Option, mmr_root, start_seq}`
 4. Done - data is stored and commitment is provable
 
-The `contract_id` is optional:
-- **With contract:** References an on-chain contract with stake, duration, and slashing terms. Full economic guarantee.
+The `bucket_id` is optional:
+- **With bucket:** References an on-chain bucket with stake, duration, and slashing terms. Full economic guarantee.
 - **Without contract (`None`):** Best-effort storage. Provider serves based on reputation and payment priority. No slashing, but the signed commitment still proves the provider accepted the data.
 
 ### Provider Terms
@@ -729,10 +729,11 @@ Each bucket has an associated MMR (Merkle Mountain Range) of data versions. The 
   bucket_id,      // Reference to on-chain bucket, or None for best-effort
   mmr_root,       // root of MMR containing all data_roots
   start_seq,      // sequence number of first leaf in this MMR
+  leaf_count,     // number of leaves in this MMR
 }
 ```
 
-Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR.
+Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR. The canonical range is `[start_seq, start_seq + leaf_count)`.
 
 - **With `bucket_id`:** The commitment is enforceable via on-chain challenge. Provider stake is at risk.
 - **Without (`None`):** The commitment proves the provider accepted the data, but there's no on-chain recourse. Reputation-based only.
@@ -758,7 +759,7 @@ By signing the MMR root and start_seq, both parties commit to all leaves and the
 1. Alice uploads new data → new `data_root`
 2. Provider appends `data_root` as new leaf in MMR
 3. Provider computes new `mmr_root`
-4. Both sign `{contract_id, mmr_root, seq, data_size, total_size}`
+4. Both sign `{bucket_id, mmr_root, start_seq, leaf_count}`
 5. Commitment complete
 
 **On-chain storage is optional:**
@@ -769,19 +770,54 @@ The signed commitment is valid off-chain. Alice can:
 
 The bucket on-chain stores terms and optionally the latest checkpointed MMR root. Challenges work with or without on-chain checkpoints—signatures prove validity.
 
+**Implications of optional snapshots:**
+
+Without an on-chain snapshot:
+- `challenge_offchain` works (challenger provides provider's signature as proof of commitment)
+- `challenge_checkpoint` fails (nothing to challenge)
+- `Deleted` defense works (client signature proves deletion authorization)
+- `Superseded` defense unavailable (no canonical state to supersede)
+- Provider is liable for ALL signed commitments
+- Conflicting forks cannot be pruned (no canonical to determine the winner)
+
+With an on-chain snapshot:
+- Both challenge types work
+- All defenses available
+- Conflicts can be pruned once canonical depth exceeds them
+
+Users who create conflicts without checkpointing waste their quota—providers must keep all signed data. Want to clean up? Submit a checkpoint or don't create conflicts to begin with.
+
 **Multi-provider consistency:**
 
 When a bucket is stored by multiple providers, writers are expected to coordinate—sending the same writes to all providers. In the happy path, all providers have identical MMR state.
 
-If providers diverge (network issues, uncoordinated writes):
+If providers diverge (network issues, uncoordinated writes), the checkpoint determines which state becomes canonical:
 
-1. Providers with conflicting state reject new writes that don't extend their current state
-2. Provider returns a 409 Conflict error suggesting the client checkpoint on-chain
-3. Client submits a checkpoint, establishing canonical bucket state
-4. Providers with non-canonical state can now drop it and accept writes from canonical state
-5. Clients with non-canonical commitments must re-apply their writes on top of canonical state
+1. Providers accept all uploads within quota—there is no conflict rejection at upload time
+2. Different clients can upload different data concurrently without conflicts
+3. When a client checkpoints on-chain, that state becomes canonical (recorded as `start_seq` + `leaf_count`)
+4. Providers not in the checkpoint can sync by having the client re-upload
+5. Non-canonical branches can be pruned once canonical depth exceeds them
 
-Challenges against non-canonical state can be defended by showing the challenged MMR root differs from the checkpointed canonical state.
+**Canonical range and pruning:**
+
+The canonical range is `[start_seq, start_seq + leaf_count)`. A non-canonical branch with range `[A, A+N)` can only be pruned once canonical has range `[B, B+M)` where `B + M > A + N`. This ensures providers remain liable for any data that could still be challenged.
+
+**Challenge defenses based on canonical range:**
+
+- `challenged_seq < canonical.start_seq` → **Deleted** defense (leaf was pruned via deletion)
+- `canonical.start_seq <= challenged_seq < canonical_end` → **Superseded** defense (canonical range covers this seq)
+- `challenged_seq >= canonical_end` → **No defense** - provider signed something beyond canonical, they're liable. Must respond with **Proof**.
+
+**Superseded defense** covers two cases:
+1. **Same data**: The challenged leaf exists in canonical with the same content. Challenger should challenge the canonical snapshot directly.
+2. **Forked data**: The challenged leaf was on a conflicting branch that got superseded when a different branch became canonical. Provider rightfully pruned the fork data since canonical won.
+
+In both cases, canonical has "won" for that seq range. The challenger can challenge the canonical snapshot if they believe the data should be there, or accept that their fork lost the conflict resolution.
+
+Note: Off-chain commitments (signed but not checkpointed) can be larger than the on-chain canonical snapshot. Providers are liable for anything they signed that extends beyond canonical. The Superseded defense only works when the challenged state is smaller/older than canonical.
+
+If there is no on-chain snapshot, the `Superseded` defense is unavailable—provider must respond with `Proof` or `Deleted` for any challenge.
 
 **Append-only buckets:**
 
@@ -794,7 +830,7 @@ This ensures historical data cannot be removed, useful for audit logs, public re
 
 ### Challenge Flow
 
-1. Alice presents: signed `{contract_id, mmr_root, seq:5, ...}` + "challenge chunk X of data_root_v3"
+1. Alice presents: signed `{bucket_id, mmr_root, seq:5, ...}` + "challenge chunk X of data_root_v3"
 2. Alice provides: MMR inclusion proof that `data_root_v3` is leaf 3 under `mmr_root`
 3. Provider must: serve chunk X with Merkle proof to `data_root_v3`
 
@@ -802,9 +838,12 @@ This ensures historical data cannot be removed, useful for audit logs, public re
 
 If data was legitimately deleted (client started fresh MMR):
 
-1. Provider shows: signed `{contract_id, mmr_root_new, seq:8, ...}` with higher seq
-2. Provider proves: seq 3 is not in `mmr_root_new` (i.e., `3 < start_seq`)
-3. Challenge rejected
+1. Provider shows: client-signed `{bucket_id, mmr_root_new, start_seq:8, ...}` with higher start_seq
+2. The client signature proves the client agreed to the new MMR (which excludes the challenged data)
+3. Provider proves: challenged seq is not in new MMR (i.e., `challenged_seq < start_seq`)
+4. Challenge rejected
+
+Note: The client signature is essential—without it, a provider could claim data was "deleted" to avoid challenges. The signature proves the client authorized the deletion.
 
 The MMR structure itself proves whether old data still exists. No separate deletion tracking needed.
 
@@ -821,10 +860,11 @@ Most updates extend the existing MMR:
 
 Client can start a fresh MMR to delete old data:
 - New commitment with higher start_seq but MMR containing only new data
-- Old data_roots no longer in MMR → provider can/should delete
-- Challenge against old data_root fails (provider shows it's not in current MMR)
+- For destructive writes that allow pruning old canonical data: new `start_seq` must be ≥ `old_start_seq + old_leaf_count`
+- Old data_roots no longer in MMR → provider can/should delete once canonical depth exceeds old branch
+- Challenge against old data_root fails (provider shows `challenged_seq < start_seq`)
 
-Note: Deletions are not allowed on append-only buckets. The `start_seq` is frozen when append-only mode is enabled, and any attempt to checkpoint a lower `start_seq` will be rejected.
+Note: Deletions are not allowed on append-only buckets. The `start_seq` is frozen when append-only mode is enabled, and any attempt to checkpoint a different `start_seq` (higher or lower) will be rejected. Only `leaf_count` can increase (appends).
 
 **Size tracking:**
 
@@ -891,38 +931,56 @@ When selecting multiple providers, maximize diversity:
 
 **Scenario:** Group chat where members share photos and videos.
 
-**Requirements:** Low latency, shared access, participants can contribute storage costs.
+**Requirements:** Low latency, shared access, participants can contribute storage costs, handle concurrent writes.
 
 **Flow:**
 
 ```
 1. Channel setup (once):
-   • Creator sets up on-chain storage contract with a provider
-   • Contract specifies: admin (creator), participants (append-only), providers
-   • Creator pays initial deposit
+   • Creator creates a bucket on-chain
+   • Sets members: admin (creator), writers (participants)
+   • Requests storage agreement with 1-2 providers
+   • Creator pays initial deposit, sets min_providers=1
 
 2. Adding members:
-   • Admin adds user public keys to contract on-chain
-   • New members can be added as paying participants (chip in for storage)
-   • Permissions: admin can delete, participants can only append
+   • Admin calls set_member to add users with Writer role
+   • Members can be added as paying participants (top up agreement)
+   • Permissions: Admin can delete, Writers can only append
 
 3. Alice sends a photo:
    • Chunks and encrypts photo with channel key
-   • Appends to channel's MMR (append-only for participants)
-   • Sends message: { mmr_root, seq, offset, length, filename }
+   • Uploads chunks to provider
+   • Commits to bucket's MMR → gets provider signature
+   • Sends message to chat: { mmr_root, start_seq, leaf_count, leaf_index }
 
 4. Bob receives message:
-   • Looks up contract on-chain → gets provider endpoint
-   • Requests chunks from provider
-   • Verifies against mmr_root
+   • Looks up bucket on-chain → gets provider endpoint from agreement
+   • Requests chunks from provider with MMR proof
+   • Verifies against mmr_root from message
    • Decrypts with channel key
+
+5. Concurrent writes (Alice and Carol post simultaneously):
+   • Uploads are parallel and conflict-free (content-addressed chunks)
+   • Alice uploads photo A chunks, Carol uploads photo B chunks
+   • Provider accepts both uploads - data is safely stored
+   • Commits require coordination: MMR leaves have an order
+   • Chat app establishes message order (e.g., via chat protocol sequencing)
+   • Writers commit in agreed order, or one designated committer batches
+   • Worst case conflict: data is still there, just re-commit with correct MMR state
+
+6. Checkpoint (occasional, optional):
+   • Any member can checkpoint current state on-chain
+   • Establishes canonical state for challenge purposes
+   • Not required for normal operation - off-chain commits are sufficient
 ```
 
-**Discovery:** Provider is in the contract. No separate lookup needed.
+**Discovery:** Provider endpoint from storage agreement on-chain. No separate lookup needed.
 
-**Cost sharing:** Participants added as payers contribute to storage costs. The contract tracks who pays what.
+**Cost sharing:** Members can call `top_up_agreement` to contribute. Agreement tracks total locked payment.
 
-**Latency:** Sub-second for write and read.
+**Latency:** Sub-second for write and read. Commits are off-chain, checkpoints are optional.
+
+**Concurrent writes:** Uploads are parallel and conflict-free. Commits need coordination on order - chat app should establish message sequencing. Worst case conflict: data is safe, just re-commit with correct MMR state.
 
 ### Personal Backup
 
@@ -934,35 +992,41 @@ When selecting multiple providers, maximize diversity:
 
 ```
 1. Initial backup:
+   • Create a bucket (user is sole Admin)
    • Recursively chunk all files
    • Build directory Merkle tree
    • Encrypt everything with user's master key
    • Select 2-3 diverse providers (check independence)
+   • Request storage agreements with each provider
    • Upload to all providers in parallel
-   • Request availability contracts from all
-   • Providers commit MMR roots
+   • Commit on each provider → collect signatures
+   • Checkpoint on-chain with min_providers=2
 
 2. Incremental backup (next day):
    • Scan for changed files
    • Re-chunk only modified files (content-defined chunking helps)
-   • Most chunks unchanged → not re-uploaded
+   • Most chunks unchanged → already exist on providers (deduplication)
    • Upload new chunks, build new directory tree
-   • New root committed to MMR
+   • New data_root committed as new MMR leaf
+   • Checkpoint periodically (e.g., weekly) for canonical state
 
 3. Verification (ongoing):
-   • Periodically pick random chunks
-   • Request from each provider
-   • Verify against known roots
-   • Alert if verification fails
+   • Periodically pick random chunks from random providers
+   • Request with MMR proof
+   • Verify against checkpointed mmr_root
+   • Challenge on-chain if verification fails
 
 4. Recovery (rare):
    • Fetch directory tree from any provider
    • Distribute chunk downloads across providers in parallel
-   • Verify all chunks against known roots
+   • Verify all chunks against MMR proofs
    • Decrypt and reconstruct
+   • If one provider fails: others have full copy
 ```
 
-**Tier:** Availability contracts with 2-3 providers.
+**Bucket setup:** Single-user bucket, Admin role only, agreements with 2-3 providers.
+
+**Redundancy:** Same data uploaded to multiple providers. min_providers ensures checkpoint requires multiple acknowledgments.
 
 ### Public Website / CDN
 
@@ -974,30 +1038,34 @@ When selecting multiple providers, maximize diversity:
 
 ```
 1. Publish:
-   • Bundle site assets → chunks → Merkle tree → root
-   • Upload to 1-2 storage providers
-   • Transient storage or availability contract
-   • Publish DNS: site.example.com → root hash
+   • Create a public bucket (Reader role for all, or no access control)
+   • Bundle site assets → chunks → Merkle tree → data_root
+   • Select multiple providers in different geographic regions
+   • Request storage agreements with each provider
+   • Upload to all providers in parallel
+   • Commit data_root to bucket's MMR on each provider
+   • Checkpoint on-chain with min_providers for redundancy
+   • Publish DNS: site.example.com → { bucket_id, leaf_index } or just data_root
 
-2. First visitor (cold cache, Tokyo):
-   • DNS → root hash
-   • Query indexer → find providers (maybe US-based)
-   • Fetch chunks from provider
-   • Tokyo-area caches store chunks
+2. Visitor requests site:
+   • DNS → bucket_id + leaf_index (or data_root directly)
+   • Look up bucket on-chain → find all provider endpoints
+   • Client picks closest/fastest provider (or app suggests based on region)
+   • Fetch chunks from selected provider
+   • Verify against data_root (self-verifying)
 
-3. Subsequent visitors (warm cache, Tokyo):
-   • Query indexer → find providers + Tokyo cache
-   • Fetch from Tokyo cache (faster)
-   • Popular assets cached globally
-
-4. Update:
-   • Build new site → new root
-   • Update DNS: site.example.com → new root
-   • Old caches still serve old version (immutable by hash)
-   • New version gradually populates caches
+3. Update:
+   • Build new site → new data_root
+   • Upload to all providers
+   • Commit as new MMR leaf on each (leaf_index increments)
+   • Checkpoint on-chain
+   • Update DNS: site.example.com → { bucket_id, leaf_index: new }
+   • Old versions still accessible by old leaf_index (immutable)
 ```
 
-**Tier:** Paid Writes or Availability. Heavy reliance on caching.
+**Bucket setup:** Public bucket with agreements across multiple geographically distributed providers. Consider append-only (freeze) for audit trail of all versions.
+
+**Global distribution:** Use multiple providers in different regions. Clients fetch from the closest/fastest provider. All providers have the same content (verified by hash).
 
 ### Business Backup (Compliance, SLA)
 
@@ -1009,36 +1077,43 @@ When selecting multiple providers, maximize diversity:
 
 ```
 1. Setup:
-   • Select 5 providers (diversity required)
-   • Erasure coding: 3-of-5 scheme
-   • Availability contracts with Premium SLA terms
+   • Create bucket with min_providers=3
+   • Select 3-5 providers (diversity required, check stake origins)
+   • Request storage agreements with each provider
    • Encryption with enterprise key management
+   • Freeze bucket immediately for append-only audit trail
 
 2. Backup:
    • Chunk and encrypt data
-   • Erasure encode: split into 5 shards
-   • Each shard → different provider
-   • Each provider commits their shard
+   • Upload to all providers in parallel (full replication)
+   • Each provider commits to same bucket MMR state
+   • Checkpoint on-chain (requires min_providers signatures)
 
 3. Monitoring:
-   • Continuous verification sampling
+   • Continuous verification sampling via off-chain challenges
    • Track response times (SLA compliance)
+   • On-chain challenges if off-chain verification fails
    • Alert on failures or SLA violations
-   • Automatic failover planning
 
 4. Recovery:
-   • Parallel fetch from all 5 providers
-   • Need only 3 responding to reconstruct
-   • SLA guarantees recovery time
-   • Violations → contractual penalties
+   • Fetch from any available provider (all have full copy)
+   • Parallel fetch across providers for speed
+   • If one provider fails, others have identical data
+   • SLA violations → on-chain challenge → slashing
 
 5. Compliance:
-   • All Merkle roots on-chain (audit trail)
+   • Bucket is frozen (append-only) - immutable audit trail
+   • All checkpoints on-chain with timestamps
    • Challenges prove data existed at specific times
    • Provider slashing provides accountability
+   • MMR structure proves ordering of all backups
 ```
 
-**Tier:** Availability with erasure coding across 5 providers.
+**Bucket setup:** Frozen bucket (append-only), min_providers=3, agreements with 3-5 diverse providers.
+
+**Replication:** All providers store identical data. Redundancy through full replication, not erasure coding (would require multiple buckets).
+
+**Audit trail:** Frozen bucket ensures no deletion. On-chain checkpoints provide timestamped proof of all data versions.
 
 ---
 
@@ -1441,11 +1516,11 @@ The design achieves scalability by removing the chain from the hot path:
 
 **Key design choices:**
 
-1. **Unified write model.** Every write follows the same path: upload, merkleize, sign commitment. The `contract_id` in the commitment is optional - with contract you get slashing guarantees, without you get best-effort storage. One protocol, continuous spectrum of guarantees.
+1. **Unified write model.** Every write follows the same path: upload, merkleize, sign commitment. The `bucket_id` in the commitment is optional - with a bucket you get slashing guarantees, without you get best-effort storage. One protocol, continuous spectrum of guarantees.
 
 2. **Protocol-layer opacity.** Providers see only content-addressed chunks. File structure, metadata, directories—all application-layer concerns. Privacy by design: encrypt everything, provider learns nothing.
 
-3. **MMR-based commitments.** Per-client Merkle Mountain Ranges track version history. Both parties sign `{contract_id: Option, mmr_root, start_seq}`. One signature covers entire history. Deletions via fresh MMR with higher start_seq.
+3. **MMR-based commitments.** Per-bucket Merkle Mountain Ranges track version history. Both parties sign `{bucket_id: Option, mmr_root, start_seq, leaf_count}`. One signature covers entire history. Canonical range is `[start_seq, start_seq + leaf_count)`. Deletions via fresh MMR with higher start_seq (requires client signature to prove authorization).
 
 4. **Proof-of-DOT foundation.** Sybil resistance via DOT staking enables identity and reputation. Payment history (not stake) determines service priority. Simple prepayments, no payment channels needed.
 

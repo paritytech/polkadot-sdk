@@ -38,9 +38,47 @@ A **bucket** is the fundamental unit of storage organization. It defines:
 
 3. **Checkpoint**: A client submits provider signatures to the chain, establishing canonical state. The chain records which providers acknowledged this state. Only providers in the snapshot are challengeable for this state.
 
-**No conflict rejection**: Providers accept all uploads within quota. "Conflicts" (different clients uploading different data) are fine — the checkpoint determines which state becomes canonical. After checkpoint, providers can prune non-canonical data to reclaim storage.
+**No conflict rejection**: Providers accept all uploads within quota. "Conflicts" (different clients uploading different data) are fine — the checkpoint determines which state becomes canonical.
+
+**Pruning rule**: Non-canonical branches can only be pruned once a canonical branch exists with greater depth. A branch with range `[A, A+N)` can be pruned once canonical has range `[B, B+M)` where `B + M > A + N`. This ensures providers remain liable for any data that could still be challenged.
+
+**Optional snapshots**: On-chain snapshots are optional. Without a snapshot:
+- `challenge_offchain` works (challenger provides provider signature)
+- `challenge_checkpoint` fails (nothing to challenge)
+- `Superseded` defense unavailable (no canonical to compare against)
+- Provider is liable for ALL signed commitments
+- Conflicting forks cannot be pruned
+
+Users who create conflicts without checkpointing waste their quota—providers must keep all signed data.
 
 **Content-addressed storage**: Everything (chunks and internal nodes) is addressed by hash. Internal nodes are data whose content is child hashes. Upload is bottom-up: children must exist before parent can be stored. If a root hash exists, the entire tree is guaranteed complete.
+
+### Provider Lifecycle in Bucket
+
+**Adding a provider:**
+1. Client calls `request_agreement` with the provider
+2. Provider calls `accept_agreement` → `StorageAgreement` created
+3. Client uploads data to provider
+4. Client requests commit, provider signs → client has provider signature
+5. Client calls `checkpoint` with provider signature → provider added to `snapshot.providers` bitfield
+
+**Binding contract:**
+
+Once accepted, agreements are binding for both parties until expiry:
+- **No early exit for providers**: Providers cannot voluntarily leave. They committed to store data for the agreed duration.
+- **No early cancellation for clients**: Clients cannot cancel and reclaim locked payment. They committed to pay for the agreed duration.
+- **Provider's protection**: Before accepting, providers can set `max_duration` and review the terms. They can also block future extensions via `set_extensions_blocked`.
+- **Client's protection**: Clients can challenge if provider loses data (slashing). At settlement, clients can burn payment to signal poor service.
+
+**Agreement expiry:**
+
+When `expires_at` is reached:
+1. Provider calls `claim_expired_agreement` to receive payment, OR
+2. Client calls `end_agreement` with pay/burn decision within settlement window
+3. Provider is no longer bound to store data
+4. Provider won't be included in future checkpoints
+
+**Snapshot liability**: Providers remain liable for snapshots they signed until those snapshots are superseded by a new checkpoint that doesn't include them, or until the bucket's canonical depth grows past the data they signed for.
 
 ### Multi-Provider Coordination
 
@@ -86,6 +124,8 @@ pub struct ProviderInfo<T: Config> {
 pub struct ProviderSettings<T: Config> {
     /// Minimum agreement duration provider will accept
     pub min_duration: BlockNumberFor<T>,
+    /// Maximum agreement duration provider will accept
+    pub max_duration: BlockNumberFor<T>,
     /// Price per byte per block
     pub price_per_byte: BalanceOf<T>,
     /// Whether accepting new agreements
@@ -134,11 +174,15 @@ pub struct BucketSnapshot {
     pub mmr_root: H256,
     /// Start sequence number
     pub start_seq: u64,
+    /// Number of leaves in the MMR
+    pub leaf_count: u64,
     /// Block at which checkpointed
     pub checkpoint_block: BlockNumberFor<T>,
     /// Which providers acknowledged this root (bitfield)
     pub providers: BoundedBitField<T::MaxProvidersPerBucket>,
 }
+// Canonical range is [start_seq, start_seq + leaf_count)
+// Destructive writes (new MMR that allows pruning old) must set start_seq >= old_start_seq + old_leaf_count
 
 /// Storage agreements: per-provider contracts for a bucket
 #[pallet::storage]
@@ -157,6 +201,33 @@ pub struct StorageAgreement<T: Config> {
     /// Payment locked by client
     pub payment_locked: BalanceOf<T>,
     /// Agreement expiration
+    pub expires_at: BlockNumberFor<T>,
+    /// Whether provider has blocked extensions for this specific agreement
+    pub extensions_blocked: bool,
+}
+
+/// Pending agreement requests (client → provider, awaiting acceptance)
+/// Keyed by (provider, bucket) so providers can efficiently query their pending requests
+#[pallet::storage]
+pub type AgreementRequests<T: Config> = StorageDoubleMap<
+    _,
+    Blake2_128Concat,
+    T::AccountId,  // provider (first key for efficient provider queries)
+    Blake2_128Concat,
+    BucketId,
+    AgreementRequest<T>,
+>;
+
+pub struct AgreementRequest<T: Config> {
+    /// Who requested the agreement
+    pub requester: T::AccountId,
+    /// Maximum bytes requested
+    pub max_bytes: u64,
+    /// Payment locked by requester
+    pub payment_locked: BalanceOf<T>,
+    /// Requested duration
+    pub duration: BlockNumberFor<T>,
+    /// Block at which request expires if not accepted/rejected
     pub expires_at: BlockNumberFor<T>,
 }
 
@@ -190,6 +261,120 @@ pub struct Challenge<T: Config> {
 ```rust
 #[pallet::event]
 pub enum Event<T: Config> {
+    // ─────────────────────────────────────────────────────────────
+    // Provider events
+    // ─────────────────────────────────────────────────────────────
+    
+    ProviderRegistered {
+        provider: T::AccountId,
+        stake: BalanceOf<T>,
+    },
+    ProviderDeregistered {
+        provider: T::AccountId,
+        stake_returned: BalanceOf<T>,
+    },
+    ProviderStakeAdded {
+        provider: T::AccountId,
+        amount: BalanceOf<T>,
+        total_stake: BalanceOf<T>,
+    },
+    ProviderSettingsUpdated {
+        provider: T::AccountId,
+    },
+    ExtensionsBlocked {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        blocked: bool,
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Bucket events
+    // ─────────────────────────────────────────────────────────────
+    
+    BucketCreated {
+        bucket_id: BucketId,
+        admin: T::AccountId,
+    },
+    BucketFrozen {
+        bucket_id: BucketId,
+        frozen_start_seq: u64,
+    },
+    MemberSet {
+        bucket_id: BucketId,
+        member: T::AccountId,
+        role: Role,
+    },
+    MemberRemoved {
+        bucket_id: BucketId,
+        member: T::AccountId,
+    },
+    BucketCheckpointed {
+        bucket_id: BucketId,
+        mmr_root: H256,
+        start_seq: u64,
+        leaf_count: u64,
+        providers: Vec<T::AccountId>,
+    },
+    ProviderAddedToBucket {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Agreement events
+    // ─────────────────────────────────────────────────────────────
+    
+    AgreementRequested {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        requester: T::AccountId,
+        max_bytes: u64,
+        payment: BalanceOf<T>,
+        duration: BlockNumberFor<T>,
+    },
+    AgreementAccepted {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        expires_at: BlockNumberFor<T>,
+    },
+    AgreementRejected {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_returned: BalanceOf<T>,
+    },
+    AgreementRequestWithdrawn {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_returned: BalanceOf<T>,
+    },
+    AgreementToppedUp {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        amount: BalanceOf<T>,
+        new_max_bytes: u64,
+    },
+    AgreementExtended {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        new_expires_at: BlockNumberFor<T>,
+        payment: BalanceOf<T>,
+    },
+    AgreementEnded {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_to_provider: BalanceOf<T>,
+        burned: BalanceOf<T>,
+    },
+    AgreementExpiredClaimed {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_to_provider: BalanceOf<T>,
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Challenge events
+    // ─────────────────────────────────────────────────────────────
+    
     /// A challenge was issued against a provider
     ChallengeCreated {
         challenge_id: ChallengeId,
@@ -202,12 +387,16 @@ pub enum Event<T: Config> {
     ChallengeDefended {
         challenge_id: ChallengeId,
         provider: T::AccountId,
+        response_time_blocks: BlockNumberFor<T>,
+        challenger_cost: BalanceOf<T>,
+        provider_cost: BalanceOf<T>,
     },
     /// Provider failed to respond or provided invalid proof - slashed
     ChallengeSlashed {
         challenge_id: ChallengeId,
         provider: T::AccountId,
         slashed_amount: BalanceOf<T>,
+        challenger_reward: BalanceOf<T>,
     },
 }
 ```
@@ -244,12 +433,18 @@ impl<T: Config> Pallet<T> {
         stake: BalanceOf<T>,
     ) -> DispatchResult;
 
-    /// Add stake (stake can only increase; to withdraw, deregister when committed_bytes == 0)
+    /// Add stake (stake can only increase; to withdraw, use deregister_provider)
     #[pallet::weight(...)]
     pub fn add_stake(
         origin: OriginFor<T>,
         amount: BalanceOf<T>,
     ) -> DispatchResult;
+
+    /// Deregister provider and withdraw stake.
+    /// Fails if committed_bytes > 0 (active agreements exist).
+    /// Provider must wait for all agreements to expire before deregistering.
+    #[pallet::weight(...)]
+    pub fn deregister_provider(origin: OriginFor<T>) -> DispatchResult;
 
     /// Update provider settings (min duration, pricing, whether accepting new agreements)
     #[pallet::weight(...)]
@@ -257,6 +452,17 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         settings: ProviderSettings,
     ) -> DispatchResult;
+
+    /// Block or unblock extensions for a specific bucket (provider only).
+    /// Allows provider to stop a specific bucket from extending while
+    /// continuing to accept extensions from other buckets.
+    #[pallet::weight(...)]
+    pub fn set_extensions_blocked(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        blocked: bool,
+    ) -> DispatchResult;
+
 
 
 
@@ -292,6 +498,8 @@ impl<T: Config> Pallet<T> {
         bucket_id: BucketId,
         member: T::AccountId,
     ) -> DispatchResult;
+
+
 
     // ─────────────────────────────────────────────────────────────
     // Storage agreements (per bucket, per provider)
@@ -346,9 +554,10 @@ impl<T: Config> Pallet<T> {
     /// 3. Updates end date to now + duration
     /// 
     /// Fails if:
-    /// - Duration below provider's minimum: TODO: Why minimum? The provider much rather will have some maximum.
+    /// - Duration below provider's min_duration or above max_duration
     /// - Payment insufficient for duration + bytes
-    /// - Provider has blocked this bucket or paused extensions
+    /// - Provider has globally paused extensions (settings.accepting_extensions == false)
+    /// - Provider has blocked extensions for this specific bucket (agreement.extensions_blocked == true)
     #[pallet::weight(...)]
     pub fn extend_agreement(
         origin: OriginFor<T>,
@@ -384,12 +593,13 @@ impl<T: Config> Pallet<T> {
 
     /// Submit checkpoint with provider signatures.
     /// Requires at least min_providers signatures.
-    /// For frozen buckets: start_seq == frozen_start_seq.
+    /// For frozen buckets: start_seq must equal frozen_start_seq (only leaf_count can increase).
     pub fn checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
         mmr_root: H256,
         start_seq: u64,
+        leaf_count: u64,
         signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
     ) -> DispatchResult;
 
@@ -399,6 +609,7 @@ impl<T: Config> Pallet<T> {
 
     /// Challenge on-chain checkpoint (no signatures needed)
     /// Provider must be in snapshot's provider bitfield
+    /// NOTE: Requires bucket to have a snapshot. Fails if snapshot is None.
     pub fn challenge_checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -408,6 +619,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult;
 
     /// Challenge off-chain commitment (requires provider signature)
+    /// Works regardless of whether bucket has an on-chain snapshot.
     pub fn challenge_offchain(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -453,11 +665,12 @@ pub enum ChallengeResponse {
         client: AccountId,
         client_signature: Signature,
     },
-    /// Challenged state is non-canonical
-    NonCanonical {
-    // TODO: What is this block number? Why is it needed?
-        checkpoint_block: BlockNumberFor<T>,
-    },
+    /// Challenged state has been superseded by a larger canonical checkpoint.
+    /// Valid when: canonical.start_seq <= challenged_seq < canonical.start_seq + canonical.leaf_count
+    /// (The leaf exists in canonical - challenger should challenge the snapshot instead)
+    /// (For challenged_seq < canonical.start_seq, use Deleted response instead)
+    /// (For challenged_seq >= canonical_end, provider is liable - must use Proof)
+    Superseded,
 }
 ```
 
@@ -478,10 +691,14 @@ Request:
 {
   "bucket_id": "0x1234...",
   "hash": "0xabc...",
-  TODO: base64? Also why a http API?
-  "data": "<base64>",
+  "data": "<base64 encoded>",
   "children": ["0xchild1...", "0xchild2..."] | null  // null for leaf chunks
 }
+
+Note: HTTP API is used for simplicity and firewall-friendliness. Binary protocols
+(e.g., libp2p streams) could be added later for efficiency. Base64 encoding adds
+~33% overhead but keeps the API JSON-friendly. For high-throughput scenarios,
+consider a binary endpoint or chunked transfer encoding.
 
 Response (200 OK):
 { "stored": true }
@@ -571,11 +788,32 @@ GET /info
 Response:
 {
   "provider_id": "5GrwvaEF...",
-  // TODO: Stake and committed bytes makes little sense to fetch from the provider - they could lie. We should query the chain for that.
-  "stake": "1000000000000",
-  "committed_bytes": "50000000000",
-  "settings": { ... }
+  "multiaddr": "/ip4/...",
+  "settings": {
+    "min_duration": 100800,
+    "max_duration": 2592000,
+    "price_per_byte": "1000",
+    "accepting_new_agreements": true,
+    "accepting_extensions": true
+  }
 }
+
+Note: Stake and committed_bytes are intentionally omitted — providers could lie.
+Clients should query the chain via runtime API for trustworthy stake information.
+
+Download Node
+─────────────
+GET /node?hash=0x...
+
+Response (200 OK):
+{
+  "hash": "0xabc...",
+  "data": "<base64 encoded>",
+  "children": ["0xchild1...", "0xchild2..."] | null
+}
+
+Response (404 Not Found):
+{ "error": "not_found" }
 
 Get Commitment
 ──────────────
@@ -586,6 +824,7 @@ Response:
   "bucket_id": "0x1234...",
   "mmr_root": "0xfed...",
   "start_seq": 0,
+  "leaf_count": 42,
   "provider_signature": "0x..."
 }
 
@@ -598,6 +837,63 @@ Response:
   "leaf": { "data_root": "0x...", "data_size": 2097152, "total_size": 52428800 },
   "proof": { "peaks": [...], "siblings": [...] }
 }
+
+Get Chunk Proof
+───────────────
+GET /chunk_proof?data_root=0x...&chunk_index=3
+
+Response:
+{
+  "chunk_hash": "0xabc...",
+  "proof": { "siblings": [...], "path": [...] }
+}
+
+Response (404 Not Found):
+{ "error": "data_root_not_found" }
+
+Delete Data
+───────────
+POST /delete
+
+Request:
+{
+  "bucket_id": "0x1234...",
+  "new_start_seq": 10,
+  "client_signature": "0x..."  // signs {bucket_id, new_start_seq}
+}
+
+Response (200 OK):
+{
+  "mmr_root": "0xnew...",
+  "start_seq": 10,
+  "leaf_count": 5,
+  "provider_signature": "0x..."
+}
+
+Response (400 Bad Request):
+{ "error": "invalid_signature" }
+
+Note: This triggers deletion of data before new_start_seq. Provider returns
+new commitment covering remaining data. Client signature authorizes the deletion.
+
+List Buckets
+────────────
+GET /buckets
+
+Response:
+{
+  "buckets": [
+    { "bucket_id": "0x1234...", "mmr_root": "0x...", "start_seq": 0, "leaf_count": 42 },
+    { "bucket_id": "0x5678...", "mmr_root": "0x...", "start_seq": 5, "leaf_count": 10 }
+  ]
+}
+
+Health Check
+────────────
+GET /health
+
+Response (200 OK):
+{ "status": "healthy", "version": "0.1.0" }
 ```
 
 ---
@@ -620,7 +916,10 @@ pub struct CommitmentPayload {
     pub mmr_root: H256,
     /// Sequence number of first leaf in this MMR
     pub start_seq: u64,
+    /// Number of leaves in this MMR
+    pub leaf_count: u64,
 }
+// Canonical range is [start_seq, start_seq + leaf_count)
 ```
 
 ### MMR Leaf
@@ -664,24 +963,37 @@ pub struct MmrProof {
 ```
 1. Client initiates challenge on-chain
    └─ Provides: signed commitment, leaf_index, chunk_index
-   └─ Locks challenge deposit
+   └─ Locks 100% of estimated challenge cost as deposit (margin for price fluctuations)
 
-2. Challenge window opens
+2. Challenge window opens (1-2 days)
    └─ Provider must respond within window
+   └─ Cost split calculated based on response time (in blocks)
 
 3a. Provider responds with valid proof
     └─ Challenge rejected
-    └─ Client loses deposit (pays provider): TODO: This is wrong. Provider does not get paid, only fees for the submitted proof are paid with the agreed fraction.
+    └─ Base cost split: 75% client / 25% provider (from stake)
+    └─ Dynamic adjustment based on response time:
+       • Fast response → provider pays less (e.g., 15%), client refunded more
+       • Slow response → provider pays more (e.g., 50%), client refunded less
+    └─ Client's deposit: pays their share, remainder refunded
+    └─ Client recovers data via the on-chain proof
 
 3b. Provider responds with deletion proof
-    └─ Shows newer commitment with start_seq > challenged seq
+    └─ Shows newer client-signed commitment with start_seq > challenged seq
     └─ Challenge rejected
-    └─ Client loses deposit
+    └─ Client loses deposit (invalid challenge)
 
 3c. Provider fails to respond / invalid proof
-    └─ Provider slashed
-    └─ Challenger gets deposit back + slash portion
+    └─ Provider's contract stake fully slashed
+    └─ Challenger refunded deposit + compensation from slash
+    └─ Clear on-chain evidence of provider fault
 ```
+
+**Why this cost split?**
+- Provider always pays *something* when challenged (deterrent for ignoring off-chain requests)
+- Attacker pays more than victim in base case (griefing is expensive)
+- Fast responses are rewarded, slow responses penalized
+- The on-chain path is expensive for both parties, incentivizing off-chain resolution
 
 ### Verification
 
@@ -706,10 +1018,10 @@ fn verify_challenge_response(
         }
         
         ChallengeResponse::Deleted { new_start_seq, .. } => {
-            // Not allowed for frozen buckets
-            if bucket.frozen_start_seq.is_some() {
-                return Err(Error::BucketIsFrozen);
-            }
+            // Note: We don't check frozen_start_seq here. Freeze protects canonical
+            // checkpoints (enforced at checkpoint time), but off-chain deletions can
+            // race with freeze. If client signed a deletion, provider has valid defense
+            // regardless of freeze state. Off-chain is "messy but functional."
             
             // Challenged seq must be before new start
             let challenged_seq = challenge.start_seq + challenge.leaf_index;
@@ -721,13 +1033,40 @@ fn verify_challenge_response(
             Ok(())
         }
         
-        ChallengeResponse::NonCanonical { checkpoint_block } => {
-            // Verify checkpoint exists and differs from challenged state
+        ChallengeResponse::Superseded => {
+            // Provider can defend if challenged state has been superseded by canonical.
+            //
+            // This defense covers three cases:
+            // 1. Same data: challenged leaf exists in canonical with same content
+            // 2. Forked data: challenged leaf was on a conflicting branch that lost
+            // 3. Deleted data: canonical has moved past via deletion (start_seq increased)
+            //
+            // In all cases, canonical has "moved past" the challenged state. The provider
+            // signed something that is no longer relevant - canonical supersedes it.
+            //
+            // Note: We don't require client signature here (unlike Deleted defense).
+            // Superseded is for when canonical evolved independently - possibly by a
+            // different client/provider. The provider shouldn't be slashed for state
+            // that was superseded by canonical they weren't involved in.
+            //
+            // Deleted vs Superseded:
+            // - Deleted: requires client signature, works without canonical snapshot
+            // - Superseded: requires canonical snapshot, works without client signature
+            // For challenged_seq < snapshot.start_seq, BOTH defenses are valid.
+            // Provider can use whichever they have evidence for.
+            //
+            // Provider IS liable when challenged_seq >= canonical_end: they signed
+            // something that extends BEYOND canonical, so they must Proof it.
+            
             let snapshot = bucket.snapshot.as_ref().ok_or(Error::NoSnapshot)?;
-            // TODO: This check seems unnecessary
-            ensure!(snapshot.checkpoint_block == *checkpoint_block, Error::InvalidCheckpoint);
-            // TODO: This check does not seem sufficient.
-            ensure!(snapshot.mmr_root != challenge.mmr_root, Error::StateIsCanonical);
+            let challenged_seq = challenge.start_seq + challenge.leaf_index;
+            let canonical_end = snapshot.start_seq + snapshot.leaf_count;
+            
+            // Superseded is valid if canonical has moved past challenged state:
+            // - challenged_seq < snapshot.start_seq: canonical deleted past this
+            // - challenged_seq < canonical_end: within canonical range
+            // NOT valid if challenged_seq >= canonical_end: provider is liable
+            ensure!(challenged_seq < canonical_end, Error::LeafBeyondCanonical);
             
             Ok(())
         }
@@ -744,7 +1083,3 @@ fn verify_challenge_response(
 2. **MMR implementation**: Use `pallet-mmr` or custom?
 
 3. **Signature scheme**: Ed25519, Sr25519, or both?
-
-4. **Challenge randomness**: On-chain (BABE/VRF) or client-provided?
-
-5. **Encryption**: Protocol-level or application-layer only?
