@@ -1985,10 +1985,23 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
+	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` should be set to the active
+	/// era.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
+				// ensure `LastValidatorEra` is correctly set
+				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+					log!(
+						warn,
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",
+						validator,
+						era,
+						LastValidatorEra::<T>::get(&validator)
+					);
+				}
+
 				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
 					.map(|(_idx, page)| page)
 					.collect::<Vec<_>>();
