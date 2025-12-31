@@ -7,10 +7,9 @@ concepts, APIs and structures common to most offchain workers.
 Run `cargo doc --package pallet-example-offchain-worker --open` to view this module's
 documentation.
 
-- [`pallet_example_offchain_worker::Trait`](./trait.Trait.html)
+- [`Config`](./trait.Config.html)
 - [`Call`](./enum.Call.html)
 - [`Pallet`](./struct.Pallet.html)
-- [`ValidateUnsignedPriceSubmission`](./struct.ValidateUnsignedPriceSubmission.html)
 
 **This pallet serves as an example showcasing Substrate off-chain worker and is not meant to be
 used in production.**
