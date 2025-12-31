@@ -707,7 +707,6 @@ fn zero_enactment_delay_executes_proposal_at_next_block() {
 fn contribute_decision_deposit_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let initial_count = ReferendumCount::<Test>::get();
-		println!("Initial referendum count: {}", initial_count);
 
 		let h = set_balance_proposal_bounded(2);
 		assert_ok!(Referenda::submit(
@@ -719,22 +718,109 @@ fn contribute_decision_deposit_works() {
 
 		let index = ReferendumCount::<Test>::get() - 1;
 
-		let info_before = ReferendumInfoFor::<Test>::get(index).unwrap();
-		println!("Info before deposit: {:?}", info_before);
-
-		//assert_eq!(Balances::reserved_balance(&2), 6);
-		// Contributor 1: Contributes 6 units initially
 		assert_ok!(Referenda::contribute_decision_deposit(RuntimeOrigin::signed(2), index, 6));
 		assert_eq!(Balances::reserved_balance(&2), 6);
 
-		let info = ReferendumInfoFor::<Test>::get(index).unwrap();
-		println!("Info before deposit: {:?}", info);
-		if let ReferendumInfo::Ongoing { ref status } = info {
-			println!("decision_deposit: {:?}", status.decision_deposit);
-			println!("contributors exists: {:?}", status.decision_deposit.contributors);
+		let info = ReferendumInfoFor::<Test>::get(index).unwrap();	
+        if let ReferendumInfo::Ongoing { ref status } = info {
 			assert_eq!(status.decision_deposit.collected_deposit, 6);
 			assert_eq!(status.decision_deposit.contributors.len(), 1);
 			assert_eq!(status.decision_deposit.contributors[0], (2, 6));
 		}
 	});
+}
+
+#[test]
+fn decision_deposit_contribution_limits() {
+    ExtBuilder::default().build_and_execute(|| {
+        let h = set_balance_proposal_bounded(1);
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(1),
+            Box::new(RawOrigin::Root.into()),
+            h,
+            DispatchTime::At(10),
+        ));
+
+        assert_eq!(Balances::free_balance(&3), 100);
+
+        assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+        // Decision deposit is already placed, users can no longer contribute
+        assert_noop!(
+            Referenda::contribute_decision_deposit(RuntimeOrigin::signed(3), 0, 5),
+            Error::<Test>::HasDeposit
+        );
+
+        let h2 = set_balance_proposal_bounded(2);
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(1),
+            Box::new(RawOrigin::Root.into()),
+            h2,
+            DispatchTime::At(10),
+        ));
+
+        // First contributor
+        assert_ok!(Referenda::contribute_decision_deposit(RuntimeOrigin::signed(2), 1, 6));
+
+        // Second contributor: should only be able to contribute remaining 4 and not 10
+        assert_ok!(Referenda::contribute_decision_deposit(RuntimeOrigin::signed(3), 1, 10));
+        assert_eq!(Balances::reserved_balance(&3), 4);
+        assert_eq!(Balances::free_balance(&3), 96);
+    });
+}
+
+#[test]
+fn decision_deposit_contribution_reordering() {
+    ExtBuilder::default().build_and_execute(|| {
+        let h = set_balance_proposal_bounded(1);
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(1),
+            Box::new(RawOrigin::Root.into()),
+            h,
+            DispatchTime::At(10),
+        ));
+
+        assert_ok!(Referenda::contribute_decision_deposit(
+            RuntimeOrigin::signed(2),
+            0,
+            3
+        ));
+
+        assert_ok!(Referenda::contribute_decision_deposit(
+            RuntimeOrigin::signed(3),
+            0,
+            1
+        ));
+
+        assert_ok!(Referenda::contribute_decision_deposit(
+            RuntimeOrigin::signed(4),
+            0,
+            2
+        ));
+
+        // Ascending by amount
+        let info = ReferendumInfoFor::<Test>::get(0).unwrap();
+        if let ReferendumInfo::Ongoing { status } = info {
+            let contributors = &status.decision_deposit.contributors;
+            assert_eq!(contributors.len(), 3);
+            assert_eq!(contributors[0], (3, 1));
+            assert_eq!(contributors[1], (4, 2));
+            assert_eq!(contributors[2], (2, 3));
+        }
+
+        assert_ok!(Referenda::contribute_decision_deposit(
+            RuntimeOrigin::signed(3),
+            0,
+            4
+        ));
+
+        // User 3 takes priority
+        let info = ReferendumInfoFor::<Test>::get(0).unwrap();
+        if let ReferendumInfo::Ongoing { status } = info {
+            let contributors = &status.decision_deposit.contributors;
+            assert_eq!(contributors.len(), 3);
+            assert_eq!(contributors[0], (4, 2));
+            assert_eq!(contributors[1], (2, 3));
+            assert_eq!(contributors[2], (3, 4));
+        }
+    });
 }

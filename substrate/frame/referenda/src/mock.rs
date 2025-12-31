@@ -210,7 +210,7 @@ impl Config for Test {
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
-	type MaxDepositContributions = ConstU32<10>;
+	type MaxDepositContributions = ConstU32<3>;
 }
 pub struct ExtBuilder {}
 
