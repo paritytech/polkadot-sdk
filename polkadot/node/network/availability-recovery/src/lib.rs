@@ -528,13 +528,13 @@ async fn handle_recover<Context>(
 			let session_info = session_info.clone();
 
 			let n_validators = session_info.validators.len();
-
 			launch_recovery_task(
 				state,
 				ctx,
 				response_sender,
 				recovery_strategies,
 				RecoveryParams {
+					session_index,
 					validator_authority_keys: session_info.discovery_keys.clone(),
 					n_validators,
 					threshold: recovery_threshold(n_validators)?,

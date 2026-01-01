@@ -45,7 +45,8 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use std::{
-	collections::{BTreeMap, HashMap, VecDeque},
+	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
+	ops::Add,
 	time::Duration,
 };
 
@@ -200,6 +201,11 @@ struct Chunk {
 	validator_index: ValidatorIndex,
 }
 
+enum ReceivedAvailableData {
+	Chunk(Chunk),
+	Full,
+}
+
 /// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
 /// same `RecoveryTask`.
 pub struct State {
@@ -211,15 +217,34 @@ pub struct State {
 
 	/// A record of errors returned when requesting a chunk from a validator.
 	recorded_errors: HashMap<(AuthorityDiscoveryId, ValidatorIndex), ErrorRecord>,
+
+	// a counter of received available data including individual chunks and full available data
+	received_available_data_by: HashMap<ValidatorIndex, u64>,
 }
 
 impl State {
 	pub fn new() -> Self {
-		Self { received_chunks: BTreeMap::new(), recorded_errors: HashMap::new() }
+		Self {
+			received_chunks: BTreeMap::new(),
+			recorded_errors: HashMap::new(),
+			received_available_data_by: HashMap::new(),
+		}
 	}
 
 	fn insert_chunk(&mut self, chunk_index: ChunkIndex, chunk: Chunk) {
 		self.received_chunks.insert(chunk_index, chunk);
+	}
+
+	// increase the counter of received available data of the given validator index
+	fn note_received_available_data(&mut self, sender: ValidatorIndex) {
+		let mut counter = self.received_available_data_by.entry(sender).or_default();
+		*counter += 1;
+	}
+
+	// drain the record of chunks received per validator returning
+	// all the contained data
+	pub fn get_download_chunks_metrics(&mut self) -> HashMap<ValidatorIndex, u64> {
+		self.received_available_data_by.drain().collect()
 	}
 
 	fn chunk_count(&self) -> usize {
@@ -467,6 +492,8 @@ impl State {
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
 
+		let mut received_chunks: HashMap<ValidatorIndex, u64> = HashMap::new();
+
 		let mut total_received_responses = 0;
 		let mut error_count = 0;
 
@@ -506,6 +533,7 @@ impl State {
 									chunk.index,
 									Chunk { chunk: chunk.chunk, validator_index },
 								);
+								self.note_received_available_data(validator_index);
 							} else {
 								metrics.on_chunk_request_invalid(strategy_type);
 								error_count += 1;
@@ -669,6 +697,7 @@ mod tests {
 			let (erasure_task_tx, _erasure_task_rx) = mpsc::channel(10);
 
 			Self {
+				session_index: SessionIndex(0),
 				validator_authority_keys: validator_authority_id(&validators),
 				n_validators: validators.len(),
 				threshold: recovery_threshold(validators.len()).unwrap(),
