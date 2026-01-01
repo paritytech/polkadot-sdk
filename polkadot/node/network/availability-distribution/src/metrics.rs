@@ -31,6 +31,12 @@ pub const FAILED: &'static str = "failed";
 /// Label for chunks/PoVs that could not be served, because they were not available.
 pub const NOT_FOUND: &'static str = "not-found";
 
+/// Label for scheduled core origin.
+pub const SCHEDULED: &'static str = "scheduled";
+
+/// Label for occupied core origin.
+pub const OCCUPIED: &'static str = "occupied";
+
 /// Availability Distribution metrics.
 #[derive(Clone, Default)]
 pub struct Metrics(Option<MetricsInner>);
@@ -65,9 +71,9 @@ impl Metrics {
 	}
 
 	/// Increment counter on fetched labels.
-	pub fn on_fetch(&self, label: &'static str) {
+	pub fn on_fetch(&self, label: &'static str, origin: &'static str) {
 		if let Some(metrics) = &self.0 {
-			metrics.fetched_chunks.with_label_values(&[label]).inc()
+			metrics.fetched_chunks.with_label_values(&[label, origin]).inc()
 		}
 	}
 
@@ -109,7 +115,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_fetched_chunks_total",
 						"Total number of fetched chunks.",
 					),
-					&["success"]
+					&["success", "origin"],
 				)?,
 				registry,
 			)?,

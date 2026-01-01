@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+bitvec = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
