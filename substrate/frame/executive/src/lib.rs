@@ -848,6 +848,7 @@ where
 	/// Run the `on_finalize` hook of all pallet.
 	fn on_finalize_hook(block_number: NumberFor<Block>) {
 		<AllPalletsWithSystem as OnFinalize<BlockNumberFor<System>>>::on_finalize(block_number);
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 	}
 
 	/// Apply extrinsic outside of the block execution function.

@@ -32,7 +32,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024, u64::MAX);
 
 parameter_types! {
-	pub Version: RuntimeVersion = RuntimeVersion {
+	pub static Version: RuntimeVersion = RuntimeVersion {
 		spec_name: alloc::borrow::Cow::Borrowed("test"),
 		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,

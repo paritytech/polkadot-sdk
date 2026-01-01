@@ -392,10 +392,26 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, H, C>;
 }
 
+/// Whether to to take `:pending_code` into account
+/// when fetching the runtime code.
+///
+/// We want to use `:pending_code` in block production and import
+/// but avoid using it in runtime api calls.
+///
+/// See <https://github.com/paritytech/polkadot-sdk/issues/64> for more details.
+#[cfg(feature = "std")]
+pub enum TryPendingCode {
+	/// Used by runtime api calls.
+	No,
+	/// Used by block import and block production.
+	Yes,
+}
+
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].
 #[cfg(feature = "std")]
 pub struct BackendRuntimeCode<'a, B, H> {
 	backend: &'a B,
+	try_pending_code: TryPendingCode,
 	_marker: PhantomData<H>,
 }
 
@@ -404,6 +420,18 @@ impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 	for BackendRuntimeCode<'a, B, H>
 {
 	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
+		if matches!(self.try_pending_code, TryPendingCode::Yes) {
+			let pending_code = self
+				.backend
+				.storage(sp_core::storage::well_known_keys::PENDING_CODE)
+				.ok()
+				.flatten()
+				.map(Into::into);
+
+			if pending_code.is_some() {
+				return pending_code
+			}
+		}
 		self.backend
 			.storage(sp_core::storage::well_known_keys::CODE)
 			.ok()
@@ -418,19 +446,32 @@ where
 	H::Out: Encode,
 {
 	/// Create a new instance.
-	pub fn new(backend: &'a B) -> Self {
-		Self { backend, _marker: PhantomData }
+	pub fn new(backend: &'a B, try_pending_code: TryPendingCode) -> Self {
+		Self { backend, try_pending_code, _marker: PhantomData }
 	}
 
-	/// Return the [`RuntimeCode`] build from the wrapped `backend`.
+	/// Return [`RuntimeCode`] build from the wrapped `backend`.
+	///
+	/// This method takes `:pending_code` into account.
 	pub fn runtime_code(&self) -> Result<RuntimeCode<'_>, &'static str> {
-		let hash = self
-			.backend
-			.storage_hash(sp_core::storage::well_known_keys::CODE)
-			.ok()
-			.flatten()
-			.ok_or("`:code` hash not found")?
-			.encode();
+		let maybe_pending_code_hash = match self.try_pending_code {
+			TryPendingCode::No => None,
+			TryPendingCode::Yes => self
+				.backend
+				.storage_hash(sp_core::storage::well_known_keys::PENDING_CODE)
+				.ok()
+				.flatten(),
+		};
+		let hash = if let Some(pending_code_hash) = maybe_pending_code_hash {
+			pending_code_hash.encode()
+		} else {
+			self.backend
+				.storage_hash(sp_core::storage::well_known_keys::CODE)
+				.ok()
+				.flatten()
+				.ok_or("`:code` hash not found")?
+				.encode()
+		};
 		let heap_pages = self
 			.backend
 			.storage(sp_core::storage::well_known_keys::HEAP_PAGES)

@@ -29,7 +29,10 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, HashingFor},
 };
-use sp_state_machine::{backend::AsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
+use sp_state_machine::{
+	backend::{AsTrieBackend, TryPendingCode},
+	OverlayedChanges, StateMachine, StorageProof,
+};
 use std::{cell::RefCell, sync::Arc};
 
 /// Call executor that executes methods locally, querying all required
@@ -104,7 +107,12 @@ where
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
 		let state = self.backend.state_at(at_hash, context.into())?;
 
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		let try_pending_code = match context {
+			CallContext::Onchain => TryPendingCode::Yes,
+			CallContext::Offchain => TryPendingCode::No,
+		};
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
@@ -141,10 +149,15 @@ where
 
 		let changes = &mut *changes.borrow_mut();
 
+		let try_pending_code = match call_context {
+			CallContext::Onchain => TryPendingCode::Yes,
+			CallContext::Offchain => TryPendingCode::No,
+		};
 		// It is important to extract the runtime code here before we create the proof
 		// recorder to not record it. We also need to fetch the runtime code from `state` to
 		// make sure we use the caching layers.
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -192,7 +205,8 @@ where
 
 	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
 		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, TryPendingCode::No);
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -213,7 +227,8 @@ where
 
 		let trie_backend = state.as_trie_backend();
 
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(trie_backend);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, TryPendingCode::No);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;

@@ -189,7 +189,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	system_version: 1,
+	system_version: 3,
 };
 
 #[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	system_version: 1,
+	system_version: 3,
 };
 
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
