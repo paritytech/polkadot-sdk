@@ -8,12 +8,6 @@ doc:
     usage during warp sync by writing trie nodes directly to the database as each
     chunk is received, rather than buffering them all until the sync completes.
 
-    Key changes:
-    - Add `TrieNodeWriter` trait for direct trie node database writes
-    - Implement incremental trie node writing in `StateSync`
-    - Thread `trie_node_writer` through `BuildNetworkParams`
-    - Refactor trie node handling to use `TrieNodeImportMode` enum for type safety
-
 crates:
 - name: sc-client-api
   bump: major

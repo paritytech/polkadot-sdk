@@ -1075,14 +1075,13 @@ struct StorageDb<Block: BlockT> {
 
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		let result = if self.prefix_keys {
-			let lookup_key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			self.state_db.get(&lookup_key, self)
+		if self.prefix_keys {
+			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
+			self.state_db.get(&key, self)
 		} else {
 			self.state_db.get(key.as_ref(), self)
-		};
-
-		result.map_err(|e| format!("Database backend error: {e:?}"))
+		}
+		.map_err(|e| format!("Database backend error: {e:?}"))
 	}
 }
 
