@@ -65,9 +65,10 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header, NumberFor, Zero},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -643,6 +644,14 @@ where
 						number,
 					)
 				},
+				SyncingAction::ImportPartialState { block_hash, partial_state } => {
+					self.import_partial_state(block_hash, partial_state);
+
+					trace!(
+						target: LOG_TARGET,
+						"Processed `SyncingAction::ImportPartialState`",
+					)
+				},
 				// Nothing to do, this is handled internally by `PolkadotSyncingStrategy`.
 				SyncingAction::Finished => {},
 			}
@@ -1135,5 +1144,19 @@ where
 		}
 
 		self.import_queue.import_justifications(peer_id, hash, number, justifications);
+	}
+
+	/// Import partial state.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	fn import_partial_state(
+		&mut self,
+		block_hash: B::Hash,
+		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+	) {
+		self.import_queue.import_partial_state(block_hash, partial_state);
 	}
 }

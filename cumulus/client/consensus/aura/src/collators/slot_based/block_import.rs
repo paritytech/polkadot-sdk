@@ -142,4 +142,8 @@ where
 
 		self.inner.import_block(params).await.map_err(Into::into)
 	}
+
+	async fn import_partial_state(&self, block_hash: B::Hash, partial_state: PrefixedMemoryDB<HashingFor<B>>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(block_hash, partial_state).await
+	}
 }

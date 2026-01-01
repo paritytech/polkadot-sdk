@@ -216,8 +216,14 @@ impl<B: BlockT> StateStrategy<B> {
 			response.proof.len(),
 		);
 
-		match self.state_sync.import(response) {
-			ImportResult::Import(hash, header, state, body, justifications) => {
+		let mut import_result = self.state_sync.import(response);
+
+		if let Some((block_hash, partial_state)) = import_result.take_partial_state() {
+			self.actions.push(SyncingAction::ImportPartialState { block_hash, partial_state });
+		}
+
+		match import_result {
+			ImportResult::Import { hash, header, state, body, justifications, .. } => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
@@ -235,7 +241,7 @@ impl<B: BlockT> StateStrategy<B> {
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
-			ImportResult::Continue => Ok(()),
+			ImportResult::Continue { .. } => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_STATE))

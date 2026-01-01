@@ -35,6 +35,7 @@ use sp_state_machine::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
+use sp_trie::PrefixedMemoryDB;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
@@ -205,6 +206,13 @@ pub trait BlockImportOperation<Block: BlockT> {
 		storage: Storage,
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
+
+	/// Mark block state as present.
+	/// Used when complete state is available after series of `import_partial_state` calls.
+	/// `sc-client-db` expects blocks with state to be marked.
+	/// Otherwise it complains that state is not found.
+	/// Also removes list of partial state node keys from database (used for write deduplication).
+	fn set_partial_state_completed(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(
@@ -678,6 +686,14 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// Inject partial state into the database.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

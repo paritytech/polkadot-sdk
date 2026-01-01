@@ -53,6 +53,7 @@ sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
