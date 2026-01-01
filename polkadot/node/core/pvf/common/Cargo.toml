@@ -17,6 +17,7 @@ futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 nix = { features = ["resource", "sched"], workspace = true }
+rand = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }

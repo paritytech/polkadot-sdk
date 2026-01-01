@@ -21,8 +21,7 @@ use codec::Encode;
 use futures::FutureExt as _;
 use futures_timer::Delay;
 use pin_project::pin_project;
-use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
-use rand::Rng;
+use polkadot_node_core_pvf_common::{tmppath, SecurityStatus, WorkerHandshake};
 use std::{
 	fmt, mem,
 	path::{Path, PathBuf},
@@ -122,44 +121,7 @@ where
 	F: FnOnce(&Path) -> Fut,
 	Fut: futures::Future<Output = Result<T, SpawnErr>> + 'static,
 {
-	/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
-	///
-	/// There is only a certain number of retries. If exceeded this function will give up and return
-	/// an error.
-	pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
-		fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
-			use rand::distributions::Alphanumeric;
-
-			const DISCRIMINATOR_LEN: usize = 10;
-
-			let mut buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
-			buf.extend(prefix.as_bytes());
-			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DISCRIMINATOR_LEN));
-
-			let s = std::str::from_utf8(&buf)
-				.expect("the string is collected from a valid utf-8 sequence; qed");
-
-			let mut path = dir.to_owned();
-			path.push(s);
-			path
-		}
-
-		const NUM_RETRIES: usize = 50;
-
-		let dir = std::env::temp_dir();
-		for _ in 0..NUM_RETRIES {
-			let tmp_path = make_tmppath(prefix, &dir);
-			if !tmp_path.exists() {
-				return Ok(tmp_path)
-			}
-		}
-
-		Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
-	}
-
-	let socket_path = tmppath(&format!("pvf-host-{}-", debug_id))
-		.await
-		.map_err(|_| SpawnErr::TmpPath)?;
+	let socket_path = tmppath(&format!("pvf-host-{}-", debug_id)).map_err(|_| SpawnErr::TmpPath)?;
 	let result = f(&socket_path).await;
 
 	// Best effort to remove the socket file. Under normal circumstances the socket will be removed

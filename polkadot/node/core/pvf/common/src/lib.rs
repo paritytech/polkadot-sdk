@@ -33,10 +33,12 @@ pub use sp_tracing;
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use codec::{Decode, Encode};
+use rand::Rng;
 use sp_core::H256;
 use std::{
 	io::{self, Read, Write},
 	mem,
+	path::{Path, PathBuf},
 };
 
 #[cfg(feature = "test-utils")]
@@ -96,6 +98,41 @@ pub struct ArtifactChecksum(H256);
 /// Compute the checksum of the given artifact.
 pub fn compute_checksum(data: &[u8]) -> ArtifactChecksum {
 	ArtifactChecksum(H256::from_slice(&sp_crypto_hashing::twox_256(data)))
+}
+
+/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
+///
+/// There is only a certain number of retries. If exceeded this function will give up and return
+/// an error.
+pub fn tmppath(prefix: &str) -> io::Result<PathBuf> {
+	fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
+		use rand::distributions::Alphanumeric;
+
+		const DISCRIMINATOR_LEN: usize = 10;
+
+		let mut buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
+		buf.extend(prefix.as_bytes());
+		buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DISCRIMINATOR_LEN));
+
+		let s = std::str::from_utf8(&buf)
+			.expect("the string is collected from a valid utf-8 sequence; qed");
+
+		let mut path = dir.to_owned();
+		path.push(s);
+		path
+	}
+
+	const NUM_RETRIES: usize = 50;
+
+	let dir = std::env::temp_dir();
+	for _ in 0..NUM_RETRIES {
+		let tmp_path = make_tmppath(prefix, &dir);
+		if !tmp_path.exists() {
+			return Ok(tmp_path)
+		}
+	}
+
+	Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
 }
 
 #[cfg(all(test, not(feature = "test-utils")))]

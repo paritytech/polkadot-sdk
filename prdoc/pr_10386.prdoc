@@ -1,0 +1,26 @@
+title: 'Polkadot: Verify the workers at startup'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #8117
+
+    # Description
+    Call into `prepare_worker` to perform security checks on node start-up.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [x] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+crates:
+- name: polkadot-node-core-pvf-common
+  bump: minor
+- name: polkadot-service
+  bump: minor
+- name: polkadot-cli
+  bump: minor
+- name: polkadot
+  bump: minor
+- name: polkadot-node-core-pvf
+  bump: minor
