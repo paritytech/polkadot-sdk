@@ -443,10 +443,17 @@ where
 		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		let with_state = block.with_state();
 		let post_header = block.post_header();
 		let res = self.block_import.import_block(block).await?;
 		if matches!(res, ImportResult::Imported(..)) {
-			self.authorities_tracker.import(&post_header)?;
+			if with_state {
+				// First block being imported from warp sync needs to update the authorities tracker
+				// from the runtime.
+				self.authorities_tracker.import_from_runtime(&post_header)?;
+			} else {
+				self.authorities_tracker.import_from_header(&post_header)?;
+			};
 		}
 		Ok(res)
 	}

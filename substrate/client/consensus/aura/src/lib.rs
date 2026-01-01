@@ -899,11 +899,11 @@ mod tests {
 		};
 		assert!(tracker.is_empty());
 
-		tracker.import(&parent_header).unwrap();
+		tracker.import_from_header(&parent_header).unwrap();
 		let authorities = tracker.fetch(&current_header).unwrap();
 		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
 
-		tracker.import(&current_header).unwrap();
+		tracker.import_from_header(&current_header).unwrap();
 		let authorities = tracker.fetch(&current_header).unwrap();
 		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
 	}
