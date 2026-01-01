@@ -263,14 +263,34 @@ async fn assert_validation_request(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-		) if hash == validation_code.hash() => {
+	// executor_params may be requested before validation (if not cached).
+	// Handle it if present, otherwise proceed to validation code request.
+	let msg = virtual_overseer.recv().await;
+	match msg {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionExecutorParams(_session_index, tx),
+		)) => {
+			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			// Now expect the validation code request
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+				) if hash == validation_code.hash() => {
+					tx.send(Ok(Some(validation_code))).unwrap();
+				}
+			);
+		},
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::ValidationCodeByHash(hash, tx),
+		)) if hash == validation_code.hash() => {
+			// executor_params was cached, go directly to validation code
 			tx.send(Ok(Some(validation_code))).unwrap();
-		}
-	);
+		},
+		other => panic!("Expected SessionExecutorParams or ValidationCodeByHash, got: {:?}", other),
+	}
 }
 
 async fn assert_validate_from_exhaustive(
@@ -591,19 +611,6 @@ async fn activate_leaf(
 			test_state.per_session_cache_state.has_cached_node_features = true;
 		}
 
-		if !test_state.per_session_cache_state.has_cached_executor_params {
-			// Check if subsystem job issues a request for the executor parameters.
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
-				) if parent == hash => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				}
-			);
-			test_state.per_session_cache_state.has_cached_executor_params = true;
-		}
-
 		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
 			// Check if subsystem job issues a request for the minimum backing votes.
 			assert_matches!(
@@ -630,6 +637,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
+	// executor_params is handled inside assert_validation_request
 	assert_validation_request(virtual_overseer, assert_validation_code.clone()).await;
 
 	if fetch_pov {
@@ -1372,36 +1380,48 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	let core_index_1 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_1,
-	)
-	.unwrap();
+	// Build a minimal PerSchedulingParentState for the test
+	let groups: HashMap<CoreIndex, Vec<ValidatorIndex>> = test_state
+		.validator_groups
+		.0
+		.iter()
+		.enumerate()
+		.map(|(i, g)| (CoreIndex(i as u32), g.clone()))
+		.collect();
+
+	let sp_state = PerSchedulingParentState {
+		parent: test_state.relay_parent,
+		node_features: test_state.node_features.clone(),
+		assigned_core: None,
+		backed: HashSet::new(),
+		table: Table::new(),
+		table_context: TableContext {
+			validator: None,
+			disabled_validators: Default::default(),
+			groups,
+			validators: test_state.validator_public.clone(),
+		},
+		issued_statements: HashSet::new(),
+		awaiting_validation: HashSet::new(),
+		fallbacks: HashMap::new(),
+		minimum_backing_votes: test_state.minimum_backing_votes,
+		n_cores: test_state.availability_cores.len() as u32,
+		claim_queue: test_state.claim_queue.clone().into(),
+		validator_to_group: Arc::new(test_state.validator_to_group.clone()),
+		session_index: test_state.session(),
+		group_rotation_info: test_state.validator_groups.1.clone(),
+	};
+
+	let core_index_1 = core_index_from_statement(&sp_state, &signed_statement_1).unwrap();
 
 	assert_eq!(core_index_1, CoreIndex(0));
 
-	let core_index_2 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_2,
-	);
+	let core_index_2 = core_index_from_statement(&sp_state, &signed_statement_2);
 
 	// Must be none, para_id in descriptor is different than para assigned to core
 	assert_eq!(core_index_2, None);
 
-	let core_index_3 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_3,
-	)
-	.unwrap();
+	let core_index_3 = core_index_from_statement(&sp_state, &signed_statement_3).unwrap();
 
 	assert_eq!(core_index_3, CoreIndex(1));
 }

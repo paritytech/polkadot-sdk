@@ -18,7 +18,8 @@ use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, HeadData, Id as ParaId, MutateDescriptorV2,
+	BlockNumber, CandidateCommitments, CandidateDescriptorV2, HeadData, Id as ParaId,
+	MutateDescriptorV2,
 };
 use polkadot_primitives_test_helpers as test_helpers;
 use polkadot_primitives_test_helpers::CandidateDescriptor;
@@ -1648,5 +1649,226 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 			chain.find_backable_chain(ancestors.clone(), 3),
 			hashes(2..3)
 		);
+	}
+}
+
+// Helper to create a V3 committed candidate with a specific scheduling_parent
+fn make_committed_candidate_v3(
+	para_id: ParaId,
+	relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+	scheduling_parent: Hash,
+	parent_head: HeadData,
+	para_head: HeadData,
+	hrmp_watermark: BlockNumber,
+) -> (PersistedValidationData, CommittedCandidateReceipt) {
+	let persisted_validation_data = PersistedValidationData {
+		parent_head,
+		relay_parent_number,
+		relay_parent_storage_root: Hash::zero(),
+		max_pov_size: 1_000_000,
+	};
+
+	let mut descriptor: CandidateDescriptorV2<Hash> = CandidateDescriptor {
+		para_id,
+		relay_parent,
+		collator: test_helpers::dummy_collator(),
+		persisted_validation_data_hash: persisted_validation_data.hash(),
+		pov_hash: Hash::repeat_byte(1),
+		erasure_root: Hash::repeat_byte(1),
+		signature: test_helpers::zero_collator_signature(),
+		para_head: para_head.hash(),
+		validation_code_hash: Hash::repeat_byte(42).into(),
+	}
+	.into();
+
+	// Set V3 version (1) and the scheduling_parent
+	descriptor.set_version(1);
+	descriptor.set_scheduling_parent(scheduling_parent);
+
+	let candidate = CommittedCandidateReceipt {
+		descriptor,
+		commitments: CandidateCommitments {
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			new_validation_code: None,
+			head_data: para_head,
+			processed_downward_messages: 1,
+			hrmp_watermark,
+		},
+	};
+
+	(persisted_validation_data, candidate)
+}
+
+#[test]
+fn test_v3_scheduling_parent_validation() {
+	let mut storage = CandidateStorage::default();
+
+	let para_id = ParaId::from(5u32);
+	let relay_parent_x = Hash::repeat_byte(1);
+	let relay_parent_y = Hash::repeat_byte(2);
+	let relay_parent_z = Hash::repeat_byte(3);
+	let out_of_scope_parent = Hash::repeat_byte(99);
+
+	let relay_parent_x_info =
+		RelayChainBlockInfo { number: 0, hash: relay_parent_x, storage_root: Hash::zero() };
+	let relay_parent_y_info =
+		RelayChainBlockInfo { number: 1, hash: relay_parent_y, storage_root: Hash::zero() };
+	let relay_parent_z_info =
+		RelayChainBlockInfo { number: 2, hash: relay_parent_z, storage_root: Hash::zero() };
+
+	let ancestors = vec![relay_parent_y_info.clone(), relay_parent_x_info.clone()];
+
+	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
+
+	// Test 1: V3 candidate with scheduling_parent == relay_parent (should work like V1/V2)
+	{
+		let (pvd, candidate) = make_committed_candidate_v3(
+			para_id,
+			relay_parent_x,
+			relay_parent_x_info.number,
+			relay_parent_x, // scheduling_parent == relay_parent
+			vec![0x0a].into(),
+			vec![0x0b].into(),
+			relay_parent_x_info.number,
+		);
+		let candidate_hash = candidate.hash();
+		let candidate_entry = CandidateEntry::new(
+			candidate_hash,
+			candidate,
+			pvd,
+			CandidateState::Backed,
+			true, // v3_enabled
+		)
+		.unwrap();
+
+		let (relay_chain_scope, scope) = make_scope(
+			relay_parent_z_info.clone(),
+			base_constraints.clone(),
+			vec![],
+			5,
+			ancestors.clone(),
+		);
+
+		let chain = FragmentChain::init(&relay_chain_scope, scope, CandidateStorage::default());
+		// Should succeed - scheduling_parent is in scope
+		assert!(chain
+			.can_add_candidate_as_potential(&relay_chain_scope, &candidate_entry)
+			.is_ok());
+	}
+
+	// Test 2: V3 candidate with scheduling_parent != relay_parent, both in scope
+	// This is the key V3 feature: relay_parent can be older than scheduling_parent
+	{
+		let (pvd, candidate) = make_committed_candidate_v3(
+			para_id,
+			relay_parent_x, // older relay_parent (block 0)
+			relay_parent_x_info.number,
+			relay_parent_y, // newer scheduling_parent (block 1)
+			vec![0x0a].into(),
+			vec![0x0b].into(),
+			relay_parent_x_info.number,
+		);
+		let candidate_hash = candidate.hash();
+		let candidate_entry = CandidateEntry::new(
+			candidate_hash,
+			candidate,
+			pvd,
+			CandidateState::Backed,
+			true, // v3_enabled
+		)
+		.unwrap();
+
+		let (relay_chain_scope, scope) = make_scope(
+			relay_parent_z_info.clone(),
+			base_constraints.clone(),
+			vec![],
+			5,
+			ancestors.clone(),
+		);
+
+		let chain = FragmentChain::init(&relay_chain_scope, scope, CandidateStorage::default());
+		// Should succeed - both parents are in scope
+		assert!(chain
+			.can_add_candidate_as_potential(&relay_chain_scope, &candidate_entry)
+			.is_ok());
+	}
+
+	// Test 3: V3 candidate with scheduling_parent out of scope (should fail)
+	{
+		let (pvd, candidate) = make_committed_candidate_v3(
+			para_id,
+			relay_parent_x,
+			relay_parent_x_info.number,
+			out_of_scope_parent, // scheduling_parent not in ancestors
+			vec![0x0a].into(),
+			vec![0x0b].into(),
+			relay_parent_x_info.number,
+		);
+		let candidate_hash = candidate.hash();
+		let candidate_entry = CandidateEntry::new(
+			candidate_hash,
+			candidate,
+			pvd,
+			CandidateState::Backed,
+			true, // v3_enabled
+		)
+		.unwrap();
+
+		let (relay_chain_scope, scope) = make_scope(
+			relay_parent_z_info.clone(),
+			base_constraints.clone(),
+			vec![],
+			5,
+			ancestors.clone(),
+		);
+
+		let chain = FragmentChain::init(&relay_chain_scope, scope, CandidateStorage::default());
+		// Should fail - scheduling_parent is not in scope
+		assert_matches!(
+			chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_entry),
+			Err(Error::RelayParentNotInScope(hash, _)) if hash == out_of_scope_parent
+		);
+	}
+
+	// Test 4: V3 candidate in fragment chain - verify scheduling_parent is tracked
+	{
+		let (pvd, candidate) = make_committed_candidate_v3(
+			para_id,
+			relay_parent_x, // older relay_parent
+			relay_parent_x_info.number,
+			relay_parent_y, // newer scheduling_parent
+			vec![0x0a].into(),
+			vec![0x0b].into(),
+			relay_parent_x_info.number,
+		);
+		let candidate_hash = candidate.hash();
+		let candidate_entry = CandidateEntry::new(
+			candidate_hash,
+			candidate,
+			pvd,
+			CandidateState::Backed,
+			true, // v3_enabled
+		)
+		.unwrap();
+
+		// Verify the entry correctly tracks both parents
+		assert_eq!(candidate_entry.relay_parent(), relay_parent_x);
+		assert_eq!(candidate_entry.scheduling_parent(), relay_parent_y);
+
+		storage.add_candidate_entry(candidate_entry).unwrap();
+
+		let (relay_chain_scope, scope) = make_scope(
+			relay_parent_z_info.clone(),
+			base_constraints.clone(),
+			vec![],
+			5,
+			ancestors.clone(),
+		);
+
+		let chain = populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage);
+		// The candidate should be in the chain
+		assert_eq!(chain.best_chain_vec(), vec![candidate_hash]);
 	}
 }

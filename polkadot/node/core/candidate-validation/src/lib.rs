@@ -899,7 +899,6 @@ async fn validate_candidate_exhaustive(
 	let _timer = metrics.time_validate_candidate_exhaustive();
 	let validation_code_hash = validation_code.hash();
 	let relay_parent = candidate_receipt.descriptor.relay_parent();
-	let _scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
 	let para_id = candidate_receipt.descriptor.para_id();
 	let candidate_hash = candidate_receipt.hash();
 

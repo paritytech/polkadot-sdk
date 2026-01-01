@@ -438,9 +438,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
+		_validation_context: ValidationContext,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -647,6 +645,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			true, // v3_enabled - using V2 descriptor
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -671,6 +670,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -695,6 +695,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -728,6 +729,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -757,7 +759,7 @@ fn invalid_session_or_ump_signals() {
 
 	perform_basic_checks(&descriptor, validation_data.max_pov_size, &pov, &validation_code.hash())
 		.unwrap();
-	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V1);
+	assert_eq!(descriptor.version(false), CandidateDescriptorVersion::V1);
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	for exec_kind in
@@ -774,6 +776,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
+			false, // v3_enabled - V1 descriptor
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -798,6 +801,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			false, // v3_enabled - V1 descriptor
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -848,6 +852,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled - V2 descriptor
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -875,6 +880,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled - V2 descriptor
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -932,6 +938,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1017,6 +1024,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1061,6 +1069,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1179,6 +1188,7 @@ fn candidate_validation_retry_on_error_helper(
 		exec_kind,
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 }
@@ -1225,6 +1235,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
@@ -1275,6 +1286,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1328,6 +1340,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1390,6 +1403,7 @@ fn compressed_code_works() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
+		false, // v3_enabled - V1 descriptor
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
@@ -1411,9 +1425,7 @@ impl ValidationBackend for MockPreCheckBackend {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
+		_validation_context: ValidationContext,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -1570,9 +1582,7 @@ impl ValidationBackend for MockHeadsUp {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
+		_validation_context: ValidationContext,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
