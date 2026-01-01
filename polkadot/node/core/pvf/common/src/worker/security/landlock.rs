@@ -34,12 +34,12 @@ use crate::{
 use landlock::*;
 use std::path::{Path, PathBuf};
 
-/// Landlock ABI version. We use ABI V1 because:
+/// Landlock ABI version for FS restrictions. We use ABI V1 because:
 ///
 /// 1. It is supported by our reference kernel version.
 /// 2. Later versions do not (yet) provide additional security that would benefit us.
 ///
-/// # Versions (as of October 2023)
+/// # Versions (as of February 2025)
 ///
 /// - Polkadot reference kernel version: 5.16+
 ///
@@ -53,6 +53,11 @@ use std::path::{Path, PathBuf};
 ///   prevent attackers from affecting a symlinked artifact. We don't strictly need this as we
 ///   plan to check for file integrity anyway; see
 ///   <https://github.com/paritytech/polkadot-sdk/issues/677>.
+///
+/// - ABI V4: kernel 6.7 - Can restrict TCP bind and connect actions to only a set of allowed ports.
+///
+/// - ABI V5: kernel 6.10 - It is possible to restrict the use of ioctl(2) on character and block
+/// - devices.
 ///
 /// # Determinism
 ///
@@ -70,7 +75,14 @@ use std::path::{Path, PathBuf};
 /// from attackers. And, the risk with indeterminacy is low and there are other indeterminacy
 /// vectors anyway. So we will only upgrade to a new ABI if either the reference kernel version
 /// supports it or if it introduces some new feature that is beneficial to security.
-pub const LANDLOCK_ABI: ABI = ABI::V1;
+pub const LANDLOCK_ABI_FS: ABI = ABI::V1;
+/// Landlock ABI version for network restrictions (TCP bind and connect). We use ABI V4 because it
+/// is the first ABI that offers network restrictions.
+///
+/// # See also
+///
+/// See [`LANDLOCK_ABI_FS`] for more info.
+pub const LANDLOCK_ABI_NET: ABI = ABI::V4;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -87,7 +99,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable landlock for the given kind of worker.
-pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
+pub fn enable_for_worker(worker_info: &WorkerInfo, abi: ABI) -> Result<()> {
 	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
 		WorkerKind::Prepare => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
@@ -106,14 +118,16 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 		exceptions,
 	);
 
-	try_restrict(exceptions)
+	try_restrict(exceptions, abi)
 }
 
 // TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
 /// Runs a check for landlock in its own thread, and returns an error indicating whether the given
 /// landlock ABI is fully enabled on the current Linux environment.
-pub fn check_can_fully_enable() -> Result<()> {
-	match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>())).join() {
+pub fn check_can_fully_enable(abi: ABI) -> Result<()> {
+	match std::thread::spawn(move || try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), abi))
+		.join()
+	{
 		Ok(Ok(())) => Ok(()),
 		Ok(Err(err)) => Err(err),
 		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
@@ -131,14 +145,19 @@ pub fn check_can_fully_enable() -> Result<()> {
 /// # Returns
 ///
 /// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-fn try_restrict<I, P, A>(fs_exceptions: I) -> Result<()>
+fn try_restrict<I, P, A>(fs_exceptions: I, abi: ABI) -> Result<()>
 where
 	I: IntoIterator<Item = (P, A)>,
 	P: AsRef<Path>,
 	A: Into<BitFlags<AccessFs>>,
 {
-	let mut ruleset =
-		Ruleset::default().handle_access(AccessFs::from_all(LANDLOCK_ABI))?.create()?;
+	let mut ruleset = Ruleset::default().handle_access(AccessFs::from_all(abi))?;
+	if abi as u32 >= 4 {
+		// Enable network restrictions if supported by the ABI version.
+		ruleset = ruleset.handle_access(AccessNet::from_all(abi))?;
+	}
+	let mut ruleset = ruleset.create()?;
+
 	for (fs_path, access_bits) in fs_exceptions {
 		let paths = &[fs_path.as_ref().to_owned()];
 		let mut rules = path_beneath_rules(paths, access_bits).peekable();
@@ -160,12 +179,17 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{fs, io::ErrorKind, thread};
+	use std::{
+		fs,
+		io::{ErrorKind, Write},
+		net::{TcpListener, TcpStream},
+		thread,
+	};
 
 	#[test]
 	fn restricted_thread_cannot_read_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -187,7 +211,7 @@ mod tests {
 			assert_eq!(s, TEXT);
 
 			// Apply Landlock with a read exception for only one of the files.
-			let status = try_restrict(vec![(path1, AccessFs::ReadFile)]);
+			let status = try_restrict(vec![(path1, AccessFs::ReadFile)], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -208,7 +232,7 @@ mod tests {
 			));
 
 			// Apply Landlock for all files.
-			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -230,7 +254,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_write_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -248,7 +272,7 @@ mod tests {
 			fs::write(path2, TEXT).unwrap();
 
 			// Apply Landlock with a write exception for only one of the files.
-			let status = try_restrict(vec![(path1, AccessFs::WriteFile)]);
+			let status = try_restrict(vec![(path1, AccessFs::WriteFile)], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -266,7 +290,7 @@ mod tests {
 			));
 
 			// Apply Landlock for all files.
-			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -285,11 +309,11 @@ mod tests {
 		assert!(handle.join().is_ok());
 	}
 
-	// Test that checks whether landlock under our ABI version is able to truncate files.
+	// Test that checks whether landlock under the FS ABI version is able to truncate files.
 	#[test]
 	fn restricted_thread_can_truncate_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -304,7 +328,8 @@ mod tests {
 			fs::write(path, TEXT).unwrap();
 
 			// Apply Landlock with all exceptions under the current ABI.
-			let status = try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI))]);
+			let status =
+				try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI_FS))], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -318,5 +343,58 @@ mod tests {
 		});
 
 		assert!(handle.join().is_ok());
+	}
+
+	#[test]
+	fn restricted_thread_cannot_use_tcp_sockets() {
+		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
+		if check_can_fully_enable(LANDLOCK_ABI_NET).is_err() {
+			return
+		}
+
+		// Bind a TCP socket. This should succeed before restrictions.
+		let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind address");
+		let port = listener.local_addr().unwrap().port();
+		let server_address = format!("127.0.0.1:{port}");
+
+		thread::spawn(move || {
+			for stream in listener.incoming() {
+				match stream {
+					Ok(_stream) => (),
+					Err(e) => panic!("Connection failed: {}", e),
+				}
+			}
+		});
+
+		// Restricted thread cannot use a TCP socket.
+		let handle_sandbox = thread::spawn(move || {
+			// Connect to the TCP socket. This should succeed before restrictions.
+			match TcpStream::connect(&server_address) {
+				Ok(mut stream) => {
+					let message = "Hello, server!";
+					stream
+						.write_all(message.as_bytes())
+						.expect("Expected to send message before restrictions.");
+				},
+				Err(e) => panic!("Failed to connect: {}", e),
+			}
+
+			// Apply Landlock with net restrictions.
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_NET);
+			if !matches!(status, Ok(())) {
+				panic!(
+					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
+					status
+				);
+			}
+
+			// Try to bind a TCP socket, it should fail.
+			assert!(TcpListener::bind("127.0.0.1:0").is_err());
+
+			// Try to connect to the server, it should fail.
+			assert!(TcpStream::connect(&server_address).is_err());
+		});
+
+		assert!(handle_sandbox.join().is_ok());
 	}
 }

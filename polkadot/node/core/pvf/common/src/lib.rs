@@ -53,8 +53,10 @@ pub struct SecurityStatus {
 	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
 	/// features are present. All features are enabled on a best-effort basis regardless.
 	pub secure_validator_mode: bool,
-	/// Whether the landlock features we use are fully available on this system.
-	pub can_enable_landlock: bool,
+	/// Whether the landlock FS features we use are fully available on this system.
+	pub can_enable_landlock_fs: bool,
+	/// Whether the landlock network features we use are fully available on this system.
+	pub can_enable_landlock_net: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
 	/// Whether we are able to unshare the user namespace and change the filesystem root.
@@ -105,25 +107,30 @@ mod tests {
 	#[test]
 	fn default_secure_status() {
 		let status = SecurityStatus::default();
+
 		assert!(
 			!status.secure_validator_mode,
-			"secure_validator_mode is false for default security status"
+			"`secure_validator_mode` MUST be `false` for default security status"
 		);
 		assert!(
-			!status.can_enable_landlock,
-			"can_enable_landlock is false for default security status"
+			!status.can_enable_landlock_fs,
+			"`can_enable_landlock_fs` MUST be `false` for default security status"
+		);
+		assert!(
+			!status.can_enable_landlock_net,
+			"`can_enable_landlock_net` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_enable_seccomp,
-			"can_enable_seccomp is false for default security status"
+			"`can_enable_seccomp` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_unshare_user_namespace_and_change_root,
-			"can_unshare_user_namespace_and_change_root is false for default security status"
+			"`can_unshare_user_namespace_and_change_root` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_do_secure_clone,
-			"can_do_secure_clone is false for default security status"
+			"`can_do_secure_clone` MUST be `false` for default security status"
 		);
 	}
 }

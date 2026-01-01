@@ -654,19 +654,22 @@ async fn prepare_can_run_serially() {
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 #[tokio::test]
 async fn all_security_features_work() {
-	let can_enable_landlock = {
+	let supported_abi = {
 		let res = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, 0usize, 0usize, 1u32) };
 		if res == -1 {
 			let err = std::io::Error::last_os_error().raw_os_error().unwrap();
 			if err == libc::ENOSYS {
-				false
+				0 // unsupported
 			} else {
 				panic!("Unexpected errno from landlock check: {err}");
 			}
 		} else {
-			true
+			res
 		}
 	};
+
+	let can_enable_landlock_fs = supported_abi >= 1;
+	let can_enable_landlock_net = supported_abi >= 4;
 
 	let host = TestHost::new().await;
 
@@ -676,7 +679,8 @@ async fn all_security_features_work() {
 			// Disabled in tests to not enforce the presence of security features. This CI-only test
 			// is the only one that tests them.
 			secure_validator_mode: false,
-			can_enable_landlock,
+			can_enable_landlock_fs,
+			can_enable_landlock_net,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
 			can_do_secure_clone: true,
