@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_client_api::{blockchain::Backend as _, Backend, HeaderBackend as _};
+use sc_client_api::{Backend, HeaderBackend as _};
 use sp_blockchain::{HashAndNumber, HeaderMetadata, TreeRoute};
 use sp_runtime::traits::{Block as BlockT, NumberFor, One, Saturating, UniqueSaturatedInto, Zero};
 use std::{

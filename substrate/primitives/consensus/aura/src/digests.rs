@@ -21,6 +21,7 @@
 //! `CompatibleDigestItem` trait to appear in public interfaces.
 
 use crate::AURA_ENGINE_ID;
+use alloc::vec::Vec;
 use codec::{Codec, Encode};
 use sp_consensus_slots::Slot;
 use sp_runtime::generic::DigestItem;
@@ -38,6 +39,9 @@ pub trait CompatibleDigestItem<Signature>: Sized {
 
 	/// If this item is an AuRa pre-digest, return the slot number
 	fn as_aura_pre_digest(&self) -> Option<Slot>;
+
+	/// If this item is an AuRa authorities change, return the new authorities.
+	fn as_authorities_change<A: Codec>(&self) -> Option<Vec<A>>;
 }
 
 impl<Signature> CompatibleDigestItem<Signature> for DigestItem
@@ -58,5 +62,9 @@ where
 
 	fn as_aura_pre_digest(&self) -> Option<Slot> {
 		self.pre_runtime_try_to(&AURA_ENGINE_ID)
+	}
+
+	fn as_authorities_change<A: Codec>(&self) -> Option<Vec<A>> {
+		self.consensus_try_to(&AURA_ENGINE_ID)
 	}
 }

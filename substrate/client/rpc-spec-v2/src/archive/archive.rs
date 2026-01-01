@@ -43,9 +43,7 @@ use sc_client_api::{
 };
 use sc_rpc::utils::Subscription;
 use sp_api::{CallApiAt, CallContext};
-use sp_blockchain::{
-	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
-};
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{Bytes, U256};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},

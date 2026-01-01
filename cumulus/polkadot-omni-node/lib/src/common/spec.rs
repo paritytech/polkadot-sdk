@@ -72,6 +72,7 @@ pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
 	BlockImport: sc_consensus::BlockImport<Block>,
+	BlockImportAuxiliaryData,
 >
 {
 	fn build_import_queue(
@@ -80,6 +81,7 @@ pub(crate) trait BuildImportQueue<
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
+		block_import_auxiliary_data: &BlockImportAuxiliaryData,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
@@ -132,22 +134,6 @@ pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
 }
 
-pub(crate) struct ClientBlockImport;
-
-impl<Block: BlockT, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
-where
-	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-{
-	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
-	type BlockImportAuxiliaryData = ();
-
-	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok((client.clone(), ()))
-	}
-}
-
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
@@ -160,6 +146,7 @@ pub(crate) trait BaseNodeSpec {
 		Self::Block,
 		Self::RuntimeApi,
 		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
@@ -280,6 +267,7 @@ pub(crate) trait BaseNodeSpec {
 			config,
 			telemetry.as_ref().map(|telemetry| telemetry.handle()),
 			&task_manager,
+			&block_import_auxiliary_data,
 		)?;
 
 		Ok(PartialComponents {

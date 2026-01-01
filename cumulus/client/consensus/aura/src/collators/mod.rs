@@ -335,7 +335,11 @@ mod tests {
 	use futures::StreamExt;
 	use polkadot_overseer::{Event, Handle};
 	use polkadot_primitives::HeadData;
-	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+	use sc_consensus::{
+		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges,
+	};
+	use sc_consensus_aura::AuraApi;
+	use sp_api::ProvideRuntimeApi;
 	use sp_consensus::BlockOrigin;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use sp_timestamp::Timestamp;
@@ -345,6 +349,7 @@ mod tests {
 		importer: &I,
 		block: Block,
 		origin: BlockOrigin,
+		state_action: Option<StateAction<Block>>,
 		import_as_best: bool,
 	) {
 		let (header, body) = block.deconstruct();
@@ -352,6 +357,9 @@ mod tests {
 		let mut block_import_params = BlockImportParams::new(origin, header);
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(import_as_best));
 		block_import_params.body = Some(body);
+		if let Some(state_action) = state_action {
+			block_import_params.state_action = state_action;
+		}
 		importer.import_block(block_import_params).await.unwrap();
 	}
 
@@ -364,16 +372,23 @@ mod tests {
 
 		builder
 	}
-	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
-		let sproof = sproof_with_parent_by_hash(client, included);
 
-		let block_builder = client.init_block_builder(None, sproof).block_builder;
-
-		let block = block_builder.build().unwrap().block;
-
-		let origin = BlockOrigin::NetworkInitialSync;
-		import_block(client, block.clone(), origin, true).await;
+	async fn build_and_import_block(
+		client: &Client,
+		included: Hash,
+		origin: BlockOrigin,
+		state_action: Option<StateAction<Block>>,
+	) -> Block {
+		let (block, _) = build_block(client, included);
+		import_block(client, block.clone(), origin, state_action, true).await;
 		block
+	}
+
+	fn build_block(client: &Client, included: Hash) -> (Block, StorageChanges<Block>) {
+		let sproof = sproof_with_parent_by_hash(client, included);
+		let block_builder = client.init_block_builder(None, sproof).block_builder;
+		let (block, storage_changes) = block_builder.build().unwrap().into_inner();
+		(block, StorageChanges::Changes(storage_changes))
 	}
 
 	fn set_up_components(num_authorities: usize) -> (Arc<Client>, KeystorePtr) {
@@ -396,6 +411,8 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
+		sp_tracing::try_init_simple();
+
 		let (client, keystore) = set_up_components(6);
 
 		let genesis_hash = client.chain_info().genesis_hash;
@@ -414,7 +431,13 @@ mod tests {
 		.await
 		.is_some()
 		{
-			let block = build_and_import_block(&client, genesis_hash).await;
+			let block = build_and_import_block(
+				&client,
+				genesis_hash,
+				BlockOrigin::NetworkInitialSync,
+				None,
+			)
+			.await;
 			last_hash = block.header().hash();
 		}
 
