@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Snowfork <hello@snowfork.com>
 // SPDX-FileCopyrightText: 2021-2025 Parity Technologies (UK) Ltd.
 use super::Message;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, Weight};
 use xcm::latest::{SendError, Xcm};
 use Debug;
 
@@ -42,7 +42,12 @@ pub trait MessageProcessor<AccountId> {
 	fn process_message(
 		relayer: AccountId,
 		message: Message,
-	) -> Result<[u8; 32], MessageProcessorError>;
+	) -> Result<([u8; 32], Option<Weight>), MessageProcessorError>;
+
+	/// Returns the worst case message processor weight
+	fn worst_case_message_processor_weight() -> Weight {
+		Weight::default()
+	}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
@@ -63,7 +68,7 @@ impl<AccountId> MessageProcessor<AccountId> for Tuple {
 	fn process_message(
 		relayer: AccountId,
 		message: Message,
-	) -> Result<[u8; 32], MessageProcessorError> {
+	) -> Result<([u8; 32], Option<Weight>), MessageProcessorError> {
 		for_tuples!( #(
  			match Tuple::can_process_message(&relayer, &message) {
 				true => {
@@ -76,5 +81,17 @@ impl<AccountId> MessageProcessor<AccountId> for Tuple {
 		Err(MessageProcessorError::ProcessMessage(DispatchError::Other(
 			"No handler found for message!",
 		)))
+	}
+
+	fn worst_case_message_processor_weight() -> Weight {
+		let mut max_weight = Weight::zero();
+
+		for_tuples!( #(
+			max_weight = max_weight.max(
+				Tuple::worst_case_message_processor_weight()
+			);
+		)* );
+
+		max_weight
 	}
 }
