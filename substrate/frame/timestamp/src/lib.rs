@@ -126,6 +126,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -134,6 +137,8 @@ mod tests;
 pub mod weights;
 
 use core::{cmp, result};
+#[cfg(any(feature = "try-runtime", test))]
+use frame_support::ensure;
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
@@ -228,6 +233,11 @@ pub mod pallet {
 		/// - `O(1)`
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			assert!(DidUpdate::<T>::take(), "Timestamp must be updated once in the block");
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -347,6 +357,33 @@ impl<T: Config> Pallet<T> {
 		Now::<T>::put(now);
 		DidUpdate::<T>::put(true);
 		<T::OnTimestampSet as OnTimestampSet<_>>::on_timestamp_set(now);
+	}
+
+	/// Ensure the correctness of the state of this pallet
+	///
+	/// The following conditions must apply.
+	///
+	/// ## Expectations:
+	///
+	/// * If `Now` exists, `DidUpdate` must be true.
+	/// * If `Now` does not exist, `DidUpdate` must be false.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), TryRuntimeError> {
+		if Now::<T>::exists() {
+			ensure!(
+				DidUpdate::<T>::get(),
+				"`Now` exists but `DidUpdate` is not true"
+			);
+		}
+
+		if !Now::<T>::exists() {
+			ensure!(
+				!DidUpdate::<T>::get(),
+				"`Now` does not exist but `DidUpdate` is not false"
+			);
+		}
+
+		Ok(())
 	}
 }
 
