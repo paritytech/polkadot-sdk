@@ -59,7 +59,7 @@ use polkadot_primitives::{
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Header as HeaderT, One};
+use sp_runtime::traits::{Header as HeaderT, One, Saturating};
 
 mod misc;
 mod weights;
@@ -311,19 +311,14 @@ impl<T: Config> Pallet<T> {
 
 		// Before anything else, update the allowed relay-parents.
 		{
-			let parent_number = now - One::one();
+			let parent_number = now.saturating_sub(One::one());
 			let parent_storage_root = *parent_header.state_root();
 
 			shared::AllowedRelayParents::<T>::mutate(|tracker| {
 				tracker.update(
 					parent_hash,
 					parent_storage_root,
-					scheduler::ClaimQueue::<T>::get()
-						.into_iter()
-						.map(|(core_index, paras)| {
-							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
-						})
-						.collect(),
+					scheduler::Pallet::<T>::claim_queue(),
 					parent_number,
 					config.scheduler_params.lookahead,
 				);
@@ -594,81 +589,48 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		if !upcoming_new_session {
-			let occupied_cores =
-				inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _)| core).collect();
+		let occupied_cores: BTreeSet<_> =
+			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _)| core).collect();
 
-			let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			let mut total_eligible_cores = 0;
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
 
-			for (core_idx, para_id) in Self::eligible_paras(&occupied_cores) {
-				total_eligible_cores += 1;
-				log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
-				eligible.entry(para_id).or_default().insert(core_idx);
-			}
+		let is_blocked = |core_idx| occupied_cores.contains(&core_idx) || upcoming_new_session;
+		let scheduled = scheduler::Pallet::<T>::advance_claim_queue(is_blocked);
+		let total_eligible_cores = scheduled.len();
 
-			let node_features = configuration::ActiveConfig::<T>::get().node_features;
-
-			let allow_v2_receipts = node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
-
-			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
-				backed_candidates,
-				&allowed_relay_parents,
-				concluded_invalid_hashes,
-				eligible,
-				allow_v2_receipts,
-			);
-			let count = count_backed_candidates(&backed_candidates_with_core);
-
-			ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
-
-			METRICS.on_candidates_sanitized(count as u64);
-
-			// Process backed candidates according to scheduled cores.
-			let candidate_receipt_with_backing_validator_indices =
-				inclusion::Pallet::<T>::process_candidates(
-					&allowed_relay_parents,
-					&backed_candidates_with_core,
-					scheduler::Pallet::<T>::group_validators,
-				)?;
-
-			// We need to advance the claim queue on all cores, except for the ones that did not
-			// get freed in this block. The ones that did not get freed also cannot be newly
-			// occupied.
-			scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
-
-			Ok((candidate_receipt_with_backing_validator_indices, backed_candidates_with_core))
-		} else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Upcoming session change, not backing any new candidates."
-			);
-			// If we'll initialize a new session at the end of the block, we don't want to
-			// advance the claim queue.
-
-			Ok((vec![], BTreeMap::new()))
+		for (core_idx, para_id) in scheduled {
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
-	}
 
-	/// Paras that may get backed on cores.
-	///
-	/// 1. The para must be scheduled on core.
-	/// 2. Core needs to be free, otherwise backing is not possible.
-	///
-	/// We get a set of the occupied cores as input.
-	pub(crate) fn eligible_paras<'a>(
-		occupied_cores: &'a BTreeSet<CoreIndex>,
-	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
-		scheduler::ClaimQueue::<T>::get().into_iter().filter_map(|(core_idx, queue)| {
-			if occupied_cores.contains(&core_idx) {
-				return None
-			}
-			let next_scheduled = queue.front()?;
-			Some((core_idx, next_scheduled.para_id()))
-		})
+		let node_features = configuration::ActiveConfig::<T>::get().node_features;
+
+		let allow_v2_receipts = node_features
+			.get(FeatureIndex::CandidateReceiptV2 as usize)
+			.map(|b| *b)
+			.unwrap_or(false);
+
+		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
+			backed_candidates,
+			&allowed_relay_parents,
+			concluded_invalid_hashes,
+			eligible,
+			allow_v2_receipts,
+		);
+		let count = count_backed_candidates(&backed_candidates_with_core);
+
+		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
+
+		METRICS.on_candidates_sanitized(count as u64);
+
+		// Process backed candidates according to scheduled cores.
+		let candidate_receipt_with_backing_validator_indices =
+			inclusion::Pallet::<T>::process_candidates(
+				&allowed_relay_parents,
+				&backed_candidates_with_core,
+				scheduler::Pallet::<T>::group_validators,
+			)?;
+
+		Ok((candidate_receipt_with_backing_validator_indices, backed_candidates_with_core))
 	}
 }
 

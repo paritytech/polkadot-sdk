@@ -60,46 +60,48 @@ where
 
 #[benchmarks]
 mod benchmarks {
-	/// We want to fill the queue to the maximum, so exactly one more item fits.
-	const MAX_FILL_BENCH: u32 = ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE.saturating_sub(1);
+	/// We want to fill the queue to near maximum for realistic benchmarking.
+	/// Leave room for exactly one more item.
+	const QUEUE_BENCH_SIZE: u32 = ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE.saturating_sub(1);
 
 	use super::*;
 	#[benchmark]
-	fn place_order_keep_alive(s: Linear<1, MAX_FILL_BENCH>) {
+	fn place_order_keep_alive() {
 		// Setup
 		let caller = whitelisted_caller();
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		Pallet::<T>::populate_queue(para_id, s);
+		// Populate queue to near-max to benchmark realistic conditions
+		Pallet::<T>::populate_queue(para_id, QUEUE_BENCH_SIZE);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
 	}
 
 	#[benchmark]
-	fn place_order_allow_death(s: Linear<1, MAX_FILL_BENCH>) {
+	fn place_order_allow_death() {
 		// Setup
 		let caller = whitelisted_caller();
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		Pallet::<T>::populate_queue(para_id, s);
+		// Populate queue to near-max to benchmark realistic conditions
+		Pallet::<T>::populate_queue(para_id, QUEUE_BENCH_SIZE);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
 	}
 
 	#[benchmark]
-	fn place_order_with_credits(s: Linear<1, MAX_FILL_BENCH>) {
+	fn place_order_with_credits() {
 		// Setup
 		let caller: T::AccountId = whitelisted_caller();
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		Credits::<T>::insert(&caller, BalanceOf::<T>::max_value());
-
-		Pallet::<T>::populate_queue(para_id, s);
+		// Populate queue to near-max to benchmark realistic conditions
+		Pallet::<T>::populate_queue(para_id, QUEUE_BENCH_SIZE);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)

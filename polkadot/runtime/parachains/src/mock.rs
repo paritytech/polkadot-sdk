@@ -17,16 +17,13 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler,
-	scheduler::common::AssignmentProvider,
-	session_info, shared, ParaId,
+	paras_inherent, scheduler, session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
@@ -54,7 +51,7 @@ use sp_runtime::{
 };
 use std::{
 	cell::RefCell,
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque, HashMap},
+	collections::{btree_map::BTreeMap, HashMap},
 };
 use xcm::{
 	prelude::XcmVersion,
@@ -77,9 +74,7 @@ frame_support::construct_runtime!(
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
-		MockAssigner: mock_assigner,
 		OnDemand: on_demand,
-		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
 		Initializer: initializer,
 		Dmp: dmp,
@@ -271,7 +266,7 @@ impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
 			Some(v) => xcm.into().into_version(v),
-			None => return Err(()),
+			None => Err(()),
 		}
 	}
 }
@@ -347,9 +342,7 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 	fn initializer_on_new_session(_: SessionIndex) {}
 }
 
-impl crate::scheduler::Config for Test {
-	type AssignmentProvider = MockAssigner;
-}
+impl crate::scheduler::Config for Test {}
 
 pub struct TestMessageQueueWeight;
 impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
@@ -422,8 +415,6 @@ impl on_demand::Config for Test {
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
-
-impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
@@ -499,72 +490,6 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type Identification = ();
 	type IdentificationOf = FoolIdentificationOf;
 }
-
-/// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock
-/// assigner provides bare minimum functionality to test scheduler internals. Since they
-/// have no direct effect on scheduler state, AssignmentProvider functions such as
-/// `push_back_assignment` can be left empty.
-pub mod mock_assigner {
-	use crate::scheduler::common::Assignment;
-
-	use super::*;
-	pub use pallet::*;
-
-	#[frame_support::pallet]
-	pub mod pallet {
-		use super::*;
-
-		#[pallet::pallet]
-		#[pallet::without_storage_info]
-		pub struct Pallet<T>(_);
-
-		#[pallet::config]
-		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
-
-		#[pallet::storage]
-		pub(super) type MockAssignmentQueue<T: Config> =
-			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
-		/// scheduler when filling the claim queue for tests.
-		pub fn add_test_assignment(assignment: Assignment) {
-			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-	}
-
-	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		// With regards to popping_assignments, the scheduler just needs to be tested under
-		// the following two conditions:
-		// 1. An assignment is provided
-		// 2. No assignment is provided
-		// A simple assignment queue populated to fit each test fulfills these needs.
-		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Assignment> {
-			let mut queue: VecDeque<Assignment> = MockAssignmentQueue::<T>::get();
-			let front = queue.pop_front();
-			// Write changes to storage.
-			MockAssignmentQueue::<T>::set(queue);
-			front
-		}
-
-		// We don't care about core affinity in the test assigner
-		fn report_processed(_: Assignment) {}
-
-		fn push_back_assignment(assignment: Assignment) {
-			Self::add_test_assignment(assignment);
-		}
-
-		#[cfg(any(feature = "runtime-benchmarks", test))]
-		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
-			Assignment::Bulk(para_id)
-		}
-
-		fn assignment_duplicated(_: &Assignment) {}
-	}
-}
-
-impl mock_assigner::pallet::Config for Test {}
 
 pub struct FoolIdentificationOf;
 impl sp_runtime::traits::Convert<AccountId, Option<()>> for FoolIdentificationOf {
