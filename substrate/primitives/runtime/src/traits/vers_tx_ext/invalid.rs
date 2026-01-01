@@ -35,7 +35,7 @@ use sp_weights::Weight;
 /// An implementation of [`VersTxExtLine`] that consider any version invalid.
 ///
 /// This is mostly used by [`crate::traits::MultiVersion`].
-// NOTE: This type cannot be instantiated.
+// This type cannot be instantiated.
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub enum InvalidVersion {}
 
@@ -62,6 +62,7 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 		_len: usize,
 		_source: TransactionSource,
 	) -> Result<ValidTransaction, TransactionValidityError> {
+		// The type cannot be instantiated so this method is never called.
 		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))
 	}
 	fn dispatch_transaction(
@@ -71,20 +72,21 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+		// The type cannot be instantiated so this method is never called.
 		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)).into())
 	}
 }
 
 impl VersTxExtLineVersion for InvalidVersion {
 	fn version(&self) -> u8 {
-		// NOTE: The type cannot be instantiated so this method is never called.
+		// The type cannot be instantiated so this method is never called.
 		0
 	}
 }
 
 impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
 	fn weight(&self, _call: &Call) -> Weight {
-		// NOTE: The type cannot be instantiated so this method is never called.
+		// The type cannot be instantiated so this method is never called.
 		Weight::zero()
 	}
 }

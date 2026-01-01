@@ -33,8 +33,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
-/// Version 0 of the transaction extension version used to construct the inherited
-/// implication for legacy transactions.
+/// Version 0 of the transaction extension version.
 const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
 /// A versioned transaction extension pipeline defined with 2 variants: one for the version 0 and

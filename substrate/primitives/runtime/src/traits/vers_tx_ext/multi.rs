@@ -51,10 +51,10 @@ impl<const VERSION: u8, Extension> MultiVersionItem for TxExtLineAtVers<VERSION,
 macro_rules! declare_multi_version_enum {
 	($( $variant:tt, )*) => {
 
-		/// An implementation of [`VersTxExtLine`] that aggregate multiple versioned transaction
+		/// An implementation of [`VersTxExtLine`] that aggregates multiple versioned transaction
 		/// extension pipeline.
 		///
-		/// It is an enum where each variant have its own version, duplicated version must be
+		/// It is an enum where each variant has its own version, duplicated version must be
 		/// avoided, only the first used version will be effective other duplicated version will be
 		/// ignored.
 		///
@@ -98,6 +98,7 @@ macro_rules! declare_multi_version_enum {
 			}
 		}
 
+		// It encodes without the variant index.
 		impl<$( $variant: Encode, )*> Encode for MultiVersion<$( $variant, )*> {
 			fn size_hint(&self) -> usize {
 				match self {
@@ -139,6 +140,7 @@ macro_rules! declare_multi_version_enum {
 			}
 		}
 
+		// It decodes from a specified version.
 		impl<$( $variant: DecodeWithVersion + MultiVersionItem, )*>
 			DecodeWithVersion for MultiVersion<$( $variant, )*>
 		{
@@ -147,7 +149,7 @@ macro_rules! declare_multi_version_enum {
 				input: &mut CodecInput,
 			) -> Result<Self, codec::Error> {
 				$(
-					// NOTE: Here we could try all variants without checking for the version,
+					// Here we could try all variants without checking for the version,
 					// but the error would be less informative.
 					// Otherwise we could change the trait `DecodeWithVersion` to return an enum of
 					// 3 variants: ok, error and invalid_version.

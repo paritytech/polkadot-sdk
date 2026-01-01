@@ -42,8 +42,7 @@ pub use variant::ExtensionVariant;
 /// The weight for an instance of a versioned transaction extension pipeline and a call.
 ///
 /// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`]. This is used by
-/// [`crate::generic::UncheckedExtrinsic`] to be backward compatible with its previous version.
+/// rely only on it without bounding the whole trait [`VersTxExtLine`].
 pub trait VersTxExtLineWeight<Call: Dispatchable> {
 	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
 	/// call.
@@ -53,8 +52,7 @@ pub trait VersTxExtLineWeight<Call: Dispatchable> {
 /// The version for an instance of a versioned transaction extension pipeline.
 ///
 /// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`]. This is used by
-/// [`crate::generic::UncheckedExtrinsic`] to be backward compatible with its previous version.
+/// rely only on it without bounding the whole trait [`VersTxExtLine`].
 pub trait VersTxExtLineVersion {
 	/// Return the version for the given versioned transaction extension pipeline.
 	fn version(&self) -> u8;
@@ -126,7 +124,7 @@ impl VersTxExtLineMetadataBuilder {
 		Self { by_version: BTreeMap::new(), in_versions: Vec::new() }
 	}
 
-	/// A function to add a versioned transaction extension to the metadata builder.
+	/// A function to add a versioned transaction extension pipeline to the metadata builder.
 	pub fn push_versioned_extension(
 		&mut self,
 		ext_version: u8,
