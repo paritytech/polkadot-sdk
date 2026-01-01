@@ -57,9 +57,7 @@ impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
 		Ok(match id {
 			// - Default-like
-			"staging" => Box::new(penpal::staging_penpal_local_config(false)),
-			"staging-polkavm" =>
-				Box::new(rococo_parachain::staging_penpal_local_config(true)),
+			"staging" => Box::new(penpal::staging_penpal_local_config()),
 			"tick" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/tick.json")[..],
 			)?),
@@ -201,17 +199,12 @@ impl LoadSpec for ChainSpecLoader {
 					.expect("invalid value")
 					.load_config()?,
 
-			"rococo-parachain-local" =>
-				Box::new(rococo_parachain::rococo_parachain_local_config(false)),
-			"rococo-parachain-local-polkavm" =>
-				Box::new(rococo_parachain::rococo_parachain_local_config(true)),
-
 			// -- Fallback (generic chainspec)
 			"" => {
 				log::warn!(
 					"No ChainSpec.id specified, so using default one, based on Penpal runtime"
 				);
-				Box::new(penpal::staging_penpal_local_config(true))
+				Box::new(penpal::staging_penpal_local_config())
 			},
 
 			// -- Loading a specific spec from disk

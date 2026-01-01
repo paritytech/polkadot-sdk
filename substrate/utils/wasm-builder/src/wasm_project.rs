@@ -95,18 +95,27 @@ impl BlobPaths {
 	}
 
 	/// Returns the path to the bloaty wasm file.
-	fn bloaty(&self) -> PathBuf {
-		self.project.join(format!("{}.wasm", self.blob_name))
+	fn bloaty(&self, target: RuntimeTarget) -> PathBuf {
+		match target {
+			RuntimeTarget::Wasm => self.project.join(format!("{}.wasm", self.blob_name)),
+			RuntimeTarget::Riscv => self.project.join(format!("{}.polkavm", self.blob_name)),
+		}
 	}
 
 	/// Returns the path to the compact wasm file.
-	fn compact(&self) -> PathBuf {
-		self.project.join(format!("{}.compact.wasm", self.blob_name))
+	fn compact(&self, target: RuntimeTarget) -> PathBuf {
+		match target {
+			RuntimeTarget::Wasm => self.project.join(format!("{}.compact.wasm", self.blob_name)),
+			RuntimeTarget::Riscv => self.project.join(format!("{}.compact.polkavm", self.blob_name)),
+		}
 	}
 
 	/// Returns the path to the compact compressed wasm file.
-	fn compact_compressed(&self) -> PathBuf {
-		self.project.join(format!("{}.compact.compressed.wasm", self.blob_name))
+	fn compact_compressed(&self, target: RuntimeTarget) -> PathBuf {
+		match target {
+			RuntimeTarget::Wasm => self.project.join(format!("{}.compact.compressed.wasm", self.blob_name)),
+			RuntimeTarget::Riscv => self.project.join(format!("{}.compact.compressed.polkavm", self.blob_name)),
+		}
 	}
 
 	/// Returns the blob name.
@@ -239,10 +248,11 @@ pub(crate) fn create_and_compile(
 
 	let (final_blob_binary, bloaty_blob_binary, any_changed) = match target {
 		RuntimeTarget::Wasm => {
-			let out_path = blob_paths.bloaty();
+			let out_path = blob_paths.bloaty(target);
 			let bloaty_changed = copy_file_if_changed(&raw_blob_path, &out_path);
 
 			let (final_binary, bloaty_binary, did_compact) = maybe_compact_and_compress_wasm(
+				target,
 				&wasm_project_cargo_toml,
 				WasmBinaryBloaty(out_path),
 				&blob_paths,
@@ -253,7 +263,7 @@ pub(crate) fn create_and_compile(
 			(final_binary, bloaty_binary, bloaty_changed || did_compact)
 		},
 		RuntimeTarget::Riscv => {
-			let out_path = project.join(format!("{}.polkavm", blob_paths.name()));
+			let out_path = blob_paths.bloaty(target);
 			let changed = copy_file_if_changed(&raw_blob_path, &out_path);
 			(None, WasmBinaryBloaty(out_path), changed)
 		},
@@ -288,8 +298,8 @@ fn maybe_compact_and_compress_wasm(
 	match target {
 		RuntimeTarget::Wasm => {
 	let needs_compact = build_config.outer_build_profile.wants_compact();
-	let compact_path = blob_paths.compact();
-	let compressed_path = blob_paths.compact_compressed();
+	let compact_path = blob_paths.compact(target);
+	let compressed_path = blob_paths.compact_compressed(target);
 	let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
 	let should_regenerate = bloaty_changed || (needs_compact && !compact_or_compressed_exists);
 
@@ -313,7 +323,7 @@ fn maybe_compact_and_compress_wasm(
 	let (compact_blob_path, compact_compressed_blob_path) = if needs_compact {
 		let compact_blob_path = compact_wasm(blob_paths, &bloaty_blob_binary);
 		let compact_compressed_blob_path =
-			compact_blob_path.as_ref().and_then(|p| try_compress_blob(blob_paths, p));
+			compact_blob_path.as_ref().and_then(|p| try_compress_blob_as(target, blob_paths, p));
 		(compact_blob_path, compact_compressed_blob_path)
 	} else {
 		// We at least want to lower the `sign-ext` code to `mvp`.
@@ -340,7 +350,7 @@ fn maybe_compact_and_compress_wasm(
 		},
 		RuntimeTarget::Riscv => {
 			let compressed =
-				try_compress_blob_as(target, bloaty_blob_binary.bloaty_path(), blob_name);
+				try_compress_blob_as(target, &blob_paths, &WasmBinary(bloaty_blob_binary.bloaty_path().to_path_buf()));
 			(compressed, bloaty_blob_binary, true)
 		},
 	}
@@ -1099,7 +1109,7 @@ fn build_bloaty_blob(
 }
 
 fn compact_wasm(blob_paths: &BlobPaths, bloaty_binary: &WasmBinaryBloaty) -> Option<WasmBinary> {
-	let wasm_compact_path = blob_paths.compact();
+	let wasm_compact_path = blob_paths.compact(RuntimeTarget::Wasm);
 	let start = std::time::Instant::now();
 	wasm_opt::OptimizationOptions::new_opt_level_0()
 		.mvp_features_only()
@@ -1120,12 +1130,12 @@ fn compact_wasm(blob_paths: &BlobPaths, bloaty_binary: &WasmBinaryBloaty) -> Opt
 
 fn try_compress_blob_as(
 	target: RuntimeTarget,
-	compact_blob_path: &Path,
-	out_name: &str,
+	blob_paths: &BlobPaths,
+	compact_blob: &WasmBinary,
 ) -> Option<WasmBinary> {
 	use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
-	let compact_compressed_blob_path = blob_paths.compact_compressed(); // FIXME! blob path extension by target
+	let compact_compressed_blob_path = blob_paths.compact_compressed(target);
 
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob.wasm_binary_path()).expect("Failed to read WASM binary");

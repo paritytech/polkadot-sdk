@@ -20091,6 +20091,7 @@ dependencies = [
  "log",
  "polkavm",
  "sc-executor-common",
+ "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",
 ]
 
