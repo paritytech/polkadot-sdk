@@ -207,8 +207,11 @@ pub trait Mutate<AccountId>:
 
 		Self::ensure_can_hold(reason, who, amount)?;
 		// Should be infallible now, but we proceed softly anyway.
-		Self::decrease_balance(who, amount, Exact, Protect, Force)?;
 		Self::increase_balance_on_hold(reason, who, amount, BestEffort)?;
+		// decrease free balance after processing holds to allow cases
+		// when hold would decrease free balance below ED and cause dusting
+		// of the leftover (effectively zeroing free balance)
+		Self::decrease_balance(who, amount, Exact, Protect, Force)?;
 		Self::done_hold(reason, who, amount);
 		Ok(())
 	}
@@ -235,14 +238,22 @@ pub trait Mutate<AccountId>:
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(Self::can_deposit(who, amount, Extant) == Success, TokenError::CannotCreate);
+		// Increase the main balance by what we are going to release in the first place to avoid
+		// going below ED if we would decrease first
+		let increased = Self::increase_balance(who, amount, Exact)?;
 		// Get the amount we can actually take from the hold. This might be less than what we want
 		// if we're only doing a best-effort.
-		let amount = Self::decrease_balance_on_hold(reason, who, amount, precision)?;
-		// Increase the main balance by what we took. We always do a best-effort here because we
-		// already checked that we can deposit before.
-		let actual = Self::increase_balance(who, amount, BestEffort)?;
-		Self::done_release(reason, who, actual);
-		Ok(actual)
+		let decreased = Self::decrease_balance_on_hold(reason, who, amount, precision)?;
+
+		// In case precision == BestEffor its possible that we first increased too much than was
+		// later decreased
+		let diff = increased.saturating_sub(decreased);
+		if !diff.is_zero() {
+			Self::decrease_balance(who, diff, Exact, Protect, Force)?;
+		}
+
+		Self::done_release(reason, who, decreased);
+		Ok(decreased)
 	}
 
 	/// Hold or release funds in the account of `who` to bring the balance on hold for `reason` to
