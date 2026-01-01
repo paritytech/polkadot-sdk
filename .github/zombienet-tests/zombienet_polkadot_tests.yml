@@ -252,3 +252,4 @@
   test-filter: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
   runner-type: "default"
   use-zombienet-sdk: true
+

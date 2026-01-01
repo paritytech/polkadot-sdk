@@ -76,6 +76,12 @@ fn main() {
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
 		.build();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("slot-duration-18s")
+		.enable_feature("increment-spec-version")
+		.set_file_name("wasm_binary_slot_duration_18s.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

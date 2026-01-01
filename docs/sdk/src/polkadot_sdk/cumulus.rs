@@ -106,12 +106,17 @@ mod tests {
 		mod consensus_pallets {
 			use super::*;
 
+			parameter_types! {
+				pub const NoOldSlotDuration: Option<u64> = None;
+			}
+
 			impl pallet_aura::Config for Runtime {
 				type AuthorityId = AuraId;
 				type DisabledValidators = ();
 				type MaxAuthorities = ConstU32<100_000>;
 				type AllowMultipleBlocksPerSlot = ConstBool<false>;
 				type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+				type OldSlotDuration = NoOldSlotDuration;
 			}
 
 			#[docify::export(timestamp)]

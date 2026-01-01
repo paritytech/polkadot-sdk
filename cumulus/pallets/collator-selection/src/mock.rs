@@ -83,12 +83,17 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const NoOldSlotDuration: Option<u64> = None;
+}
+
 impl pallet_aura::Config for Test {
 	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
 	type MaxAuthorities = ConstU32<100_000>;
 	type DisabledValidators = ();
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+	type OldSlotDuration = NoOldSlotDuration;
 }
 
 sp_runtime::impl_opaque_keys! {
