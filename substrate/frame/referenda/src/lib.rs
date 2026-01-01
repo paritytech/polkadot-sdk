@@ -555,7 +555,7 @@ pub mod pallet {
 				enactment: enactment_moment,
 				submitted: now,
 				submission_deposit: (who, submission_deposit).into(),
-				decision_deposit: DecisionDeposit::new(track_info.decision_deposit.clone()),
+				decision_deposit: DecisionDeposit::new(track_info.decision_deposit),
 				deciding: None,
 				tally: TallyOf::<T, I>::new(track),
 				in_queue: false,
@@ -609,7 +609,7 @@ pub mod pallet {
 
 			let num_contributors = deposit.contributors.len() as u32;
 			deposit.contributors.into_iter().for_each(|(who, amount)| {
-				Self::refund_deposit(&who, amount.clone());
+				Self::refund_deposit(&who, amount);
 
 				let e = Event::<T, I>::DecisionDepositRefunded { index, who, amount };
 				Self::deposit_event(e);
@@ -661,10 +661,10 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::Killed { index, tally: status.tally });
 			Self::slash_deposit(
 				status.submission_deposit.who.clone(),
-				status.submission_deposit.amount.clone(),
+				status.submission_deposit.amount,
 			);
 			status.decision_deposit.contributors.iter().for_each(|(who, amount)| {
-				Self::slash_deposit(who.clone(), amount.clone());
+				Self::slash_deposit(who.clone(), *amount);
 			});
 			Self::do_clear_metadata(index);
 			let info =
@@ -701,6 +701,7 @@ pub mod pallet {
 		/// - `track`: the track to be advanced.
 		///
 		/// Action item for when there is now one fewer referendum in the deciding phase and the
+		///
 		/// `DecidingCount` is not yet updated. This means that we should either:
 		/// - begin deciding another referendum (and leave `DecidingCount` alone); or
 		/// - decrement `DecidingCount`.
@@ -751,7 +752,7 @@ pub mod pallet {
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(&deposit.who, deposit.amount.clone());
+			Self::refund_deposit(&deposit.who, deposit.amount);
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
 				index,
@@ -1004,8 +1005,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			} else {
 				remaining
 			};
-			
-            if deposit > max_needed {
+
+			if deposit > max_needed {
 				deposit = max_needed;
 			}
 
