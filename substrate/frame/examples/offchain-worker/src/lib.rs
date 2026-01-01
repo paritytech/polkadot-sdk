@@ -264,7 +264,7 @@ pub mod pallet {
 		/// `next_authorized_at`. This ensures only one transaction per interval can be included
 		/// in a block.
 		///
-		/// It's important to specify `weight` for unsigned calls as well, because even though
+		/// It's important to specify `weight` for authorized calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
 		/// number of such transactions.
 		///

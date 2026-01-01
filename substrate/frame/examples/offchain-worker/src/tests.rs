@@ -251,7 +251,7 @@ fn should_submit_signed_transaction_on_chain() {
 }
 
 #[test]
-fn should_submit_unsigned_transaction_on_chain_for_any_account() {
+fn should_submit_authorized_transaction_on_chain_for_any_account() {
 	const PHRASE: &str =
 		"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -307,7 +307,7 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 }
 
 #[test]
-fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
+fn should_submit_authorized_transaction_on_chain_for_all_accounts() {
 	const PHRASE: &str =
 		"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -363,7 +363,7 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 }
 
 #[test]
-fn should_submit_raw_unsigned_transaction_on_chain() {
+fn should_submit_raw_authorized_transaction_on_chain() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
 	let (pool, pool_state) = testing::TestTransactionPoolExt::new();
 
