@@ -158,6 +158,39 @@ pub struct StateSync<B: BlockT, Client> {
 	client: Arc<Client>,
 }
 
+/// Accumulate key-values into the state map (used in Accumulated mode).
+fn accumulate_key_values(
+	state: &mut HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
+	imported_bytes: &mut u64,
+	state_root: Vec<u8>,
+	key_values: Vec<(Vec<u8>, Vec<u8>)>,
+) {
+	let is_top = state_root.is_empty();
+	let entry = state.entry(state_root).or_default();
+
+	if !entry.0.is_empty() && entry.1.len() > 1 {
+		// Already imported child_trie with same root.
+		// Warning this will not work with parallel download.
+		return;
+	}
+
+	let mut child_storage_roots = Vec::new();
+
+	for (key, value) in key_values {
+		// Skip all child key root (will be recalculated on import)
+		if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
+			child_storage_roots.push((value, key));
+		} else {
+			*imported_bytes += key.len() as u64;
+			entry.0.push((key, value));
+		}
+	}
+
+	for (root, storage_key) in child_storage_roots {
+		state.entry(root).or_default().1.push(storage_key);
+	}
+}
+
 impl<B, Client> StateSync<B, Client>
 where
 	B: BlockT,
@@ -196,71 +229,49 @@ where
 		}
 	}
 
-	/// Process trie nodes from a chunk - write incrementally if in Incremental mode.
-	fn process_trie_nodes(&mut self, chunk_nodes: Vec<(Vec<u8>, Vec<u8>)>) {
-		// Only write trie nodes in Incremental mode.
-		// In Accumulated mode, we use key-values instead of trie nodes.
-		if let StateSyncMode::Incremental { writer, nodes_written } = &mut self.sync_mode {
-			let node_count = chunk_nodes.len() as u64;
-			if let Err(e) = writer.write_trie_nodes(chunk_nodes) {
-				// Log error but continue - the final state root check will catch issues
-				debug!(
-					target: LOG_TARGET,
-					"Failed to write trie nodes incrementally: {e}"
-				);
-			} else {
-				*nodes_written += node_count;
-			}
-		}
-	}
-
-	fn process_state_key_values(
+	/// Process a verified chunk of state data.
+	///
+	/// In Incremental mode: writes trie nodes directly to storage, counts bytes from key-values.
+	/// In Accumulated mode: ignores trie nodes, accumulates key-values in memory.
+	fn process_verified_chunk(
 		&mut self,
-		state_root: Vec<u8>,
-		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
+		trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
+		values: KeyValueStates,
 	) {
-		// Only accumulate key-values in Accumulated mode.
-		// In Incremental mode, trie nodes are written directly - skip key-value accumulation.
-		let StateSyncMode::Accumulated { state } = &mut self.sync_mode else {
-			for (key, _value) in key_values {
-				self.metadata.imported_bytes += key.len() as u64;
-			}
-			return;
-		};
-
-		let is_top = state_root.is_empty();
-
-		let entry = state.entry(state_root).or_default();
-
-		if !entry.0.is_empty() && entry.1.len() > 1 {
-			// Already imported child_trie with same root.
-			// Warning this will not work with parallel download.
-			return;
-		}
-
-		let mut child_storage_roots = Vec::new();
-
-		for (key, value) in key_values {
-			// Skip all child key root (will be recalculated on import)
-			if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
-				child_storage_roots.push((value, key));
-			} else {
-				self.metadata.imported_bytes += key.len() as u64;
-				entry.0.push((key, value));
-			}
-		}
-
-		for (root, storage_key) in child_storage_roots {
-			state.entry(root).or_default().1.push(storage_key);
+		match &mut self.sync_mode {
+			StateSyncMode::Incremental { writer, nodes_written } => {
+				// Write trie nodes directly to storage
+				let node_count = trie_nodes.len() as u64;
+				if let Err(e) = writer.write_trie_nodes(trie_nodes) {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to write trie nodes incrementally: {e}"
+					);
+				} else {
+					*nodes_written += node_count;
+				}
+				// Just count bytes from key-values (they're derived from trie nodes)
+				for kv_state in values.0 {
+					for (key, _value) in kv_state.key_values {
+						self.metadata.imported_bytes += key.len() as u64;
+					}
+				}
+			},
+			StateSyncMode::Accumulated { state } => {
+				// Accumulate key-values in memory (ignore trie_nodes)
+				for kv_state in values.0 {
+					accumulate_key_values(
+						state,
+						&mut self.metadata.imported_bytes,
+						kv_state.state_root,
+						kv_state.key_values,
+					);
+				}
+			},
 		}
 	}
 
-	fn process_state_verified(&mut self, values: KeyValueStates) {
-		for values in values.0 {
-			self.process_state_key_values(values.state_root, values.key_values);
-		}
-	}
-
+	/// Process unverified state (no proof, used when skip_proof is true).
 	fn process_state_unverified(&mut self, response: StateResponse) -> bool {
 		let mut complete = true;
 		// if the trie is a child trie and one of its parent trie is empty,
@@ -289,10 +300,25 @@ where
 			}
 
 			let KeyValueStateEntry { state_root, entries, complete: _ } = state;
-			self.process_state_key_values(
-				state_root,
-				entries.into_iter().map(|StateEntry { key, value }| (key, value)),
-			);
+			let key_values: Vec<_> =
+				entries.into_iter().map(|StateEntry { key, value }| (key, value)).collect();
+
+			match &mut self.sync_mode {
+				StateSyncMode::Incremental { .. } => {
+					// Just count bytes (no trie nodes in unverified path)
+					for (key, _value) in key_values {
+						self.metadata.imported_bytes += key.len() as u64;
+					}
+				},
+				StateSyncMode::Accumulated { state } => {
+					accumulate_key_values(
+						state,
+						&mut self.metadata.imported_bytes,
+						state_root,
+						key_values,
+					);
+				},
+			}
 		}
 		complete
 	}
@@ -347,15 +373,13 @@ where
 				trie_nodes.len()
 			);
 
-			// Process trie nodes - either write incrementally or accumulate
-			self.process_trie_nodes(trie_nodes);
-
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
-			self.process_state_verified(values);
+			// Process chunk based on sync mode
+			self.process_verified_chunk(trie_nodes, values);
 			self.metadata.imported_bytes += proof_size;
 			complete
 		} else {
