@@ -302,7 +302,6 @@ where
 ///     Signature,
 ///     ExtensionV0,
 ///     OtherVersions,
-///     DEFAULT_MAX_CALL_SIZE,
 /// >;
 /// ```
 #[derive(DecodeWithMemTracking, Eq, Clone)]
