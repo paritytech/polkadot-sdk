@@ -29,8 +29,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 
 use alloc::vec::Vec;
-use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
+use Debug;
 
 pub mod runtime_api;
 pub use runtime_api::*;
@@ -47,7 +47,7 @@ pub type ValidatorCount = u32;
 	Eq,
 	PartialEq,
 	Default,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 )]
 pub struct MembershipProof {
@@ -115,7 +115,7 @@ where
 	T: ProvideRuntimeApi<Block>,
 	T::Api: SessionKeys<Block>,
 {
-	use sp_api::ApiExt;
+	use sp_api::{ApiError, ApiExt};
 
 	if seeds.is_empty() {
 		return Ok(())
@@ -123,10 +123,22 @@ where
 
 	let mut runtime_api = client.runtime_api();
 
+	let version = runtime_api.api_version::<dyn SessionKeys<Block>>(at)?.ok_or_else(|| {
+		ApiError::Application(Box::from("Could not find `SessionKeys` runtime api"))
+	})?;
+
 	runtime_api.register_extension(sp_keystore::KeystoreExt::from(keystore));
 
 	for seed in seeds {
-		runtime_api.generate_session_keys(at, Some(seed.as_bytes().to_vec()))?;
+		let seed = Some(seed.as_bytes().to_vec());
+
+		if version < 2 {
+			#[allow(deprecated)]
+			runtime_api.generate_session_keys_before_version_2(at, seed.clone())?;
+		} else {
+			// `owner` isn't important here as we don't need a `proof`.
+			runtime_api.generate_session_keys(at, vec![], seed.clone())?;
+		}
 	}
 
 	Ok(())

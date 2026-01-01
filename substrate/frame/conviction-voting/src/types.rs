@@ -19,14 +19,9 @@
 
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{
-	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame_support::{traits::VoteTally, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::traits::{Saturating, Zero};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
@@ -36,7 +31,7 @@ use crate::{AccountVote, Conviction, Vote};
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	Encode,
 	Decode,
@@ -222,7 +217,7 @@ impl<
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

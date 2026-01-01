@@ -27,7 +27,7 @@ use pallet_revive::{
 		hex,
 		sol_types::{SolCall, SolInterface},
 	},
-	ExecConfig, ExecReturnValue, Weight, H160, U256,
+	ExecConfig, ExecReturnValue, TransactionLimits, Weight, H160, U256,
 };
 
 fn tally(index: ReferendumIndex) -> TallyOf<Test> {
@@ -46,8 +46,10 @@ fn call_precompile(
 		RuntimeOrigin::signed(from),
 		precompile_addr,
 		U256::zero(),
-		Weight::MAX,
-		u128::MAX,
+		TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: u128::MAX,
+		},
 		encoded_call,
 		ExecConfig::new_substrate_tx(),
 	);

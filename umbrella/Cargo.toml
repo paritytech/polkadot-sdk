@@ -175,6 +175,7 @@ std = [
 	"pallet-xcm-bridge-hub?/std",
 	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
+	"parachains-common-types?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
 	"polkadot-core-primitives?/std",
@@ -739,6 +740,7 @@ runtime-full = [
 	"pallet-xcm-bridge-hub-router",
 	"pallet-xcm-precompiles",
 	"parachains-common",
+	"parachains-common-types",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
 	"polkadot-primitives",
@@ -1898,6 +1900,11 @@ path = "../polkadot/xcm/pallet-xcm/precompiles"
 default-features = false
 optional = true
 path = "../cumulus/parachains/common"
+
+[dependencies.parachains-common-types]
+default-features = false
+optional = true
+path = "../cumulus/parachains/common/types"
 
 [dependencies.polkadot-core-primitives]
 default-features = false
