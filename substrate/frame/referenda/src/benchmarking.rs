@@ -26,7 +26,10 @@ use frame_benchmarking::v1::{
 };
 use frame_support::{
 	assert_ok,
-	traits::{Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable},
+	traits::{
+		tokens::{Fortitude, Preservation},
+		EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable,
+	},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
@@ -41,9 +44,16 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
+fn funded_account<T: Config<I>, I: 'static>(
+	name: &'static str,
+	index: u32,
+	decision_deposit: BalanceOf<T, I>,
+) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+	//Giving enough balance to cover the decision deposit + the submission deposit + buffer for
+	// fees
+	let amount = T::NativeBalance::minimum_balance() + decision_deposit.saturating_mul(2u32.into());
+	T::NativeBalance::set_balance(&caller, amount);
 	caller
 }
 
@@ -55,7 +65,7 @@ fn dummy_call<T: Config<I>, I: 'static>() -> BoundedCallOf<T, I> {
 
 fn create_referendum<T: Config<I>, I: 'static>(origin: T::RuntimeOrigin) -> ReferendumIndex {
 	if let Ok(caller) = frame_system::ensure_signed(origin.clone()) {
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		T::NativeBalance::set_balance(&caller, BalanceOf::<T, I>::max_value() / 2u32.into());
 		whitelist_account!(caller);
 	}
 
@@ -69,8 +79,11 @@ fn create_referendum<T: Config<I>, I: 'static>(origin: T::RuntimeOrigin) -> Refe
 }
 
 fn place_deposit<T: Config<I>, I: 'static>(index: ReferendumIndex) {
-	let caller = funded_account::<T, I>("caller", 0);
+	let track_info = info::<T, I>(index);
+	let decision_deposit = track_info.decision_deposit;
+	let caller = funded_account::<T, I>("caller", 0, decision_deposit);
 	whitelist_account!(caller);
+
 	assert_ok!(Referenda::<T, I>::place_decision_deposit(RawOrigin::Signed(caller).into(), index));
 }
 
@@ -202,7 +215,7 @@ benchmarks_instance_pallet! {
 		let origin =
 			T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into()).map_err(|_| BenchmarkError::Weightless)?;
 		if let Ok(caller) = frame_system::ensure_signed(origin.clone()) {
-			T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+			T::NativeBalance::set_balance(&caller, BalanceOf::<T, I>::max_value()/2u32.into());
 			whitelist_account!(caller);
 		}
 	}: _<T::RuntimeOrigin>(
@@ -291,7 +304,7 @@ benchmarks_instance_pallet! {
 			T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into()).map_err(|_| BenchmarkError::Weightless)?;
 		let index = create_referendum::<T, I>(origin.clone());
 		let caller = frame_system::ensure_signed(origin.clone()).unwrap();
-		let balance = T::Currency::free_balance(&caller);
+		let balance = T::NativeBalance::reducible_balance(&caller, Preservation::Preserve, Fortitude::Polite);
 		assert_ok!(Referenda::<T, I>::cancel(
 			T::CancelOrigin::try_successful_origin()
 				.expect("CancelOrigin has no successful origin required for the benchmark"),
@@ -301,7 +314,7 @@ benchmarks_instance_pallet! {
 	}: _<T::RuntimeOrigin>(origin, index)
 	verify {
 		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, None, _)));
-		let new_balance = T::Currency::free_balance(&caller);
+		let new_balance = T::NativeBalance::reducible_balance(&caller, Preservation::Preserve, Fortitude::Polite);
 		// the deposit is zero or make sure it was unreserved.
 		assert!(T::SubmissionDeposit::get().is_zero() || new_balance > balance);
 	}

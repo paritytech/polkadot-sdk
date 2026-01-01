@@ -135,7 +135,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
-	type Currency = Balances;
+	type NativeBalance = Balances;
 	// A proposal can be submitted by a member of the Ambassador Program of
 	// [ranks::SENIOR_AMBASSADOR_TIER_3] rank or higher.
 	type SubmitOrigin = pallet_ranked_collective::EnsureMember<
