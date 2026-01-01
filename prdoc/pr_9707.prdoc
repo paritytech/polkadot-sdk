@@ -4,7 +4,7 @@ doc:
   description: Refactoring PR as follow up to https://github.com/paritytech/polkadot-sdk/pull/9272#pullrequestreview-3174417506.
 crates:
 - name: cumulus-client-consensus-aura
-  bump: minor
+  bump: major
 - name: polkadot-omni-node-lib
   bump: patch
 - name: polkadot-node-core-chain-api
@@ -12,13 +12,13 @@ crates:
 - name: polkadot-node-subsystem-types
   bump: minor
 - name: sc-client-api
-  bump: minor
+  bump: patch
 - name: sc-authority-discovery
   bump: patch
 - name: sc-consensus-aura
   bump: major
 - name: sc-client-db
-  bump: minor
+  bump: patch
 - name: sc-network-sync
   bump: patch
 - name: sc-rpc-spec-v2
@@ -28,8 +28,16 @@ crates:
 - name: sc-statement-store
   bump: patch
 - name: sp-blockchain
-  bump: minor
+  bump: major
 - name: mmr-gadget
   bump: patch
 - name: sp-consensus-aura
   bump: major
+- name: sp-consensus
+  bump: patch
+- name: fork-tree
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: patch
+- name: sc-consensus-babe
+  bump: patch
