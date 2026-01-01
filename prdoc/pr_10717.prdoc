@@ -1,0 +1,8 @@
+title: 'libp2p: Register bitswap protocol'
+doc:
+- audience: Node Dev
+  description: |-
+    Ensure we register bitswap protocol config when using libp2p.
+crates:
+- name: sc-network
+  bump: patch

@@ -516,7 +516,10 @@ where
 					user_agent,
 					local_public.into(),
 					discovery_config,
-					request_response_protocols,
+					request_response_protocols
+						.into_iter()
+						.chain(params.bitswap_config.into_iter())
+						.collect(),
 					Arc::clone(&peer_store_handle),
 					external_addresses.clone(),
 					network_config.public_addresses.iter().cloned().map(Into::into).collect(),
