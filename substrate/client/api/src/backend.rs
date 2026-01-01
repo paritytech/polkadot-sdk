@@ -655,9 +655,18 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		expected_state_root: Block::Hash,
 	) -> sp_blockchain::Result<()>;
 
-	/// Verify that the state root node exists in the database.
-	/// Used after incremental state sync to confirm state is complete.
-	fn verify_state_root_exists(&self, root: Block::Hash) -> sp_blockchain::Result<()>;
+	/// Finalize state sync by verifying the state root exists and marking
+	/// the operation's state as committed.
+	///
+	/// This is called after incremental state sync to:
+	/// 1. Verify the state root node exists in the database
+	/// 2. Mark `commit_state = true` on the operation so that `finalized_state`
+	///    is properly set when the block is finalized
+	fn finalize_state_sync(
+		&self,
+		root: Block::Hash,
+		operation: &mut Self::BlockImportOperation,
+	) -> sp_blockchain::Result<()>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an

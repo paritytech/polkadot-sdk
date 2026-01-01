@@ -2408,7 +2408,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(())
 	}
 
-	fn verify_state_root_exists(&self, root: Block::Hash) -> ClientResult<()> {
+	fn finalize_state_sync(
+		&self,
+		root: Block::Hash,
+		operation: &mut Self::BlockImportOperation,
+	) -> ClientResult<()> {
 		if self.storage.db.get(columns::STATE, root.as_ref()).is_none() {
 			return Err(sp_blockchain::Error::Backend(format!(
 				"State root {root:?} not found in database after incremental state sync"
@@ -2418,6 +2422,9 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			target: "state",
 			"Verified state root {root:?} exists in database"
 		);
+
+		// Mark state as committed so finalized_state is set when block is finalized
+		operation.commit_state = true;
 
 		// TODO: Remove before merge - debugging only.
 		// This full trie traversal is expensive for large states (millions of keys).

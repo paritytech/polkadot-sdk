@@ -618,13 +618,14 @@ where
 								nodes_count,
 							}) => {
 								// Trie nodes were written incrementally during state sync.
-								// Just verify the state root exists in the database.
+								// Verify the state root exists and mark state as committed.
 								let expected_root = *import_headers.post().state_root();
 								info!(
 									target: "state",
 									"State sync complete: {nodes_count} trie nodes already imported, verifying state root"
 								);
-								self.backend.verify_state_root_exists(expected_root)?;
+								self.backend
+									.finalize_state_sync(expected_root, &mut operation.op)?;
 								None
 							},
 							StateSource::TrieNodes(TrieNodeStates::Pending(trie_nodes)) => {
@@ -637,6 +638,8 @@ where
 								);
 								self.backend
 									.import_state_from_trie_nodes(trie_nodes, expected_root)?;
+								self.backend
+									.finalize_state_sync(expected_root, &mut operation.op)?;
 								None
 							},
 							StateSource::KeyValues(state) => {
