@@ -32,8 +32,10 @@ use Debug;
 pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
 pub mod parachain_block_data;
+pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
+pub use scheduling::SchedulingProof;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -497,6 +499,20 @@ sp_api::decl_runtime_apis! {
 	pub trait RelayParentOffsetApi {
 		/// Fetch the slot offset that is expected from the relay chain.
 		fn relay_parent_offset() -> u32;
+	}
+
+	/// API to tell the node side whether V3 scheduling is enabled.
+	///
+	/// When enabled, collators must produce V3 candidates with:
+	/// - ParachainBlockData::V2 containing the scheduling proof
+	/// - CandidateDescriptorV3 with scheduling_parent
+	///
+	/// This is mutually exclusive with relay parent offset (building on older
+	/// relay parents). A parachain enables V3 when it wants low-latency block
+	/// production with the dual-parent model.
+	pub trait SchedulingV3EnabledApi {
+		/// Returns true if V3 scheduling is enabled for this parachain.
+		fn scheduling_v3_enabled() -> bool;
 	}
 
 	/// API for parachain target block rate.
