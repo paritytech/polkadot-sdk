@@ -26,7 +26,7 @@ use frame_support::traits::{QueryPreimage, StorePreimage};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait,
+		ConstU128, ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OriginTrait,
 		VoteTally,
 	},
 	weights::Weight,
@@ -375,12 +375,7 @@ impl ExtBuilder {
 		ext
 	}
 
-	pub fn build_and_execute(self, test: impl FnOnce()) {
-		self.build().execute_with(|| {
-			test();
-			// Removed do_try_state() - it doesn't exist in pallet_referenda
-		})
-	}
+
 
 	/// Submit a referendum directly via the pallet (not through precompile).
 	/// Returns the referendum index.

@@ -25,11 +25,7 @@ use pallet_revive::{
 	},
 	ExecConfig, TransactionLimits, U256,
 };
-use sp_runtime::AccountId32;
-// Referenda precompile address (matches the MATCHER in lib.rs)
-// fn referenda_precompile_address() -> H160 {
-// 	H160::from(hex::const_decode_to_array(b"000000000000000000000000000000000000000C").unwrap())
-// }
+
 fn referenda_precompile_address() -> H160 {
 	// Matches: NonZero::new(11) → 0xB0000
 	H160::from_low_u64_be(0xB0000)
@@ -262,11 +258,10 @@ fn test_referenda_submit_lookup_fails_without_preimage() {
 		);
 
 		// Verify the call failed
-		let return_value = match result.result {
+		let _ = match result.result {
 			Ok(value) => value,
 			Err(err) => panic!("ReferendaPrecompile call failed with error: {err:?}"),
 		};
-		// assert!(return_value.did_revert(), "Call should revert due to missing preimage");
 
 		// Verify no referendum was created
 		// assert_eq!(pallet_referenda::ReferendumCount::<Test>::get(), 0);
@@ -292,7 +287,7 @@ fn test_multiple_referenda_submissions() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Test that we can submit multiple referenda
 		let hash1 = note_preimage(ALICE);
-		let hash2 = note_preimage(ALICE);
+		let _ = note_preimage(ALICE);
 
 		let pallets_origin = OriginCaller::system(frame_system::RawOrigin::Signed(ALICE));
 		let encoded_origin = pallets_origin.encode();
