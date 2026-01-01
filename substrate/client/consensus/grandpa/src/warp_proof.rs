@@ -385,7 +385,7 @@ where
 				next_proof_context: genesis_hash,
 			},
 			hard_forks: self.hard_forks.clone(),
-			eras_synced: Zero::zero(),
+			eras_synced: 0,
 		})
 	}
 }
