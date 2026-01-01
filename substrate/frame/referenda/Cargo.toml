@@ -27,7 +27,6 @@ serde = { features = ["derive"], optional = true, workspace = true, default-feat
 sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-debug-derive = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -53,7 +52,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-    "sp-debug-derive/std",
 ]
 runtime-benchmarks = [
 	"assert_matches",

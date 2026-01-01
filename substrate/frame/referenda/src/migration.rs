@@ -21,7 +21,6 @@ use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use log;
-
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
@@ -30,13 +29,46 @@ type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 /// Initial version of storage types.
 pub mod v0 {
 	use super::*;
-	// ReferendumStatus and its dependency types referenced from the latest version while staying
-	// unchanged. [`super::test::referendum_status_v0()`] checks its immutability between v0 and
-	// latest version.
-	#[cfg(test)]
-	pub(super) use super::{ReferendumStatus, ReferendumStatusOf};
 
-	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct ReferendumStatus<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	> {
+		/// The track of this referendum.
+		pub track: TrackId,
+		/// The origin for this referendum.
+		pub origin: RuntimeOrigin,
+		/// The hash of the proposal up for referendum.
+		pub proposal: Call,
+		/// The time the proposal should be scheduled for enactment.
+		pub enactment: DispatchTime<Moment>,
+		/// The time of submission. Once `UndecidingTimeout` passes, it may be closed by anyone if
+		/// `deciding` is `None`.
+		pub submitted: Moment,
+		/// The deposit reserved for the submission of this referendum.
+		pub submission_deposit: Deposit<AccountId, Balance>,
+		/// The deposit reserved for this referendum to be decided.
+		pub decision_deposit: Option<Deposit<AccountId, Balance>>,
+		/// The status of a decision being made. If `None`, it has not entered the deciding period.
+		pub deciding: Option<DecidingStatus<Moment>>,
+		/// The current tally of votes in this referendum.
+		pub tally: Tally,
+		/// Whether we have been placed in the queue for being decided or not.
+		pub in_queue: bool,
+		/// The next scheduled wake-up, if `Some`.
+		pub alarm: Option<(Moment, ScheduleAddress)>,
+	}
+
+	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
 		SystemBlockNumberFor<T>,
@@ -86,6 +118,17 @@ pub mod v0 {
 		Killed(Moment),
 	}
 
+	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		SystemBlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
 	#[storage_alias]
 	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
 		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
@@ -97,7 +140,94 @@ pub mod v1 {
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::v1";
 
-	pub(crate) type ReferendumInfoOf<T, I> = ReferendumInfo<
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct ReferendumStatus<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	> {
+		/// The track of this referendum.
+		pub track: TrackId,
+		/// The origin for this referendum.
+		pub origin: RuntimeOrigin,
+		/// The hash of the proposal up for referendum.
+		pub proposal: Call,
+		/// The time the proposal should be scheduled for enactment.
+		pub enactment: DispatchTime<Moment>,
+		/// The time of submission. Once `UndecidingTimeout` passes, it may be closed by anyone if
+		/// `deciding` is `None`.
+		pub submitted: Moment,
+		/// The deposit reserved for the submission of this referendum.
+		pub submission_deposit: Deposit<AccountId, Balance>,
+		/// The deposit reserved for this referendum to be decided.
+		pub decision_deposit: Option<Deposit<AccountId, Balance>>,
+		/// The status of a decision being made. If `None`, it has not entered the deciding period.
+		pub deciding: Option<DecidingStatus<Moment>>,
+		/// The current tally of votes in this referendum.
+		pub tally: Tally,
+		/// Whether we have been placed in the queue for being decided or not.
+		pub in_queue: bool,
+		/// The next scheduled wake-up, if `Some`.
+		pub alarm: Option<(Moment, ScheduleAddress)>,
+	}
+
+	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		SystemBlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub enum ReferendumInfo<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	> {
+		/// Referendum has been submitted and is being voted on.
+		Ongoing(
+			ReferendumStatus<
+				TrackId,
+				RuntimeOrigin,
+				Moment,
+				Call,
+				Balance,
+				Tally,
+				AccountId,
+				ScheduleAddress,
+			>,
+		),
+		/// Referendum finished with approval. Submission deposit is held.
+		Approved(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with rejection. Submission deposit is held.
+		Rejected(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with cancellation. Submission deposit is held.
+		Cancelled(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished and was never decided. Submission deposit is held.
+		TimedOut(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with a kill.
+		Killed(Moment),
+	}
+
+	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
 		SystemBlockNumberFor<T>,
@@ -145,13 +275,13 @@ pub mod v1 {
 				let maybe_new_value = match value {
 					v0::ReferendumInfo::Ongoing(_) | v0::ReferendumInfo::Killed(_) => None,
 					v0::ReferendumInfo::Approved(e, s, d) =>
-						Some(ReferendumInfo::Approved(e, Some(s), d)),
+						Some(v1::ReferendumInfo::Approved(e, Some(s), d)),
 					v0::ReferendumInfo::Rejected(e, s, d) =>
-						Some(ReferendumInfo::Rejected(e, Some(s), d)),
+						Some(v1::ReferendumInfo::Rejected(e, Some(s), d)),
 					v0::ReferendumInfo::Cancelled(e, s, d) =>
-						Some(ReferendumInfo::Cancelled(e, Some(s), d)),
+						Some(v1::ReferendumInfo::Cancelled(e, Some(s), d)),
 					v0::ReferendumInfo::TimedOut(e, s, d) =>
-						Some(ReferendumInfo::TimedOut(e, Some(s), d)),
+						Some(v1::ReferendumInfo::TimedOut(e, Some(s), d)),
 				};
 				if let Some(new_value) = maybe_new_value {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -172,7 +302,7 @@ pub mod v1 {
 			ensure!(on_chain_version == 1, "must upgrade from version 0 to 1.");
 			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
-			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
+			let post_referendum_count = v1::ReferendumInfoFor::<T, I>::iter().count() as u32;
 			ensure!(post_referendum_count == pre_referendum_count, "must migrate all referendums.");
 			log::info!(target: TARGET, "migrated all referendums.");
 			Ok(())
@@ -180,14 +310,30 @@ pub mod v1 {
 	}
 }
 
-/// Migration for when changing the block number provider.
+/// Migration for when changing the block number type to block number provider.
 ///
-/// This migration is not guarded
+/// This migration does not increment the storage version.
 pub mod switch_block_number_provider {
 	use super::*;
 
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::change_block_number_provider";
+
+	pub type ReferendumInfoOf<T, I> = v1::ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		BlockNumberFor<T, I>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	#[storage_alias]
+	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
+
 	/// Convert from one to another block number provider/type.
 	pub trait BlockNumberConversion<Old, New> {
 		/// Convert the `old` block number type to the new block number type.
@@ -227,7 +373,7 @@ pub mod switch_block_number_provider {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			ensure!(on_chain_version == 1, "must upgrade from version 1 to 2.");
+			ensure!(on_chain_version == 1, "must upgrade from version 1.");
 			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
@@ -251,36 +397,52 @@ pub mod switch_block_number_provider {
 			in_code_version,
 			on_chain_version
 		);
-		if on_chain_version == 0 {
-			log::error!(target: TARGET, "skipping migration from v0 to switch_block_number_provider.");
+		if on_chain_version != 1 {
+			log::error!(target: TARGET, "skipping switch_block_number_provider migration. must migrate from storage version 1.");
 			return weight
 		}
 
 		// Migration logic here
 		v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
 			let maybe_new_value = match value {
-				ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
-				ReferendumInfo::Approved(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(ReferendumInfo::Approved(new_e, s, d))
+				v1::ReferendumInfo::Ongoing(_) | v1::ReferendumInfo::Killed(_) => None,
+				v1::ReferendumInfo::Approved(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Approved(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
 				},
-				ReferendumInfo::Rejected(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(ReferendumInfo::Rejected(new_e, s, d))
+				v1::ReferendumInfo::Rejected(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Rejected(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
 				},
-				ReferendumInfo::Cancelled(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(ReferendumInfo::Cancelled(new_e, s, d))
+				v1::ReferendumInfo::Cancelled(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Cancelled(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
 				},
-				ReferendumInfo::TimedOut(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(ReferendumInfo::TimedOut(new_e, s, d))
+				v1::ReferendumInfo::TimedOut(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::TimedOut(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
 				},
 			};
 			if let Some(new_value) = maybe_new_value {
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 				log::info!(target: TARGET, "migrating referendum #{:?}", &key);
-				ReferendumInfoFor::<T, I>::insert(key, new_value);
+				switch_block_number_provider::ReferendumInfoFor::<T, I>::insert(key, new_value);
 			} else {
 				weight.saturating_accrue(T::DbWeight::get().reads(1));
 			}
@@ -288,6 +450,140 @@ pub mod switch_block_number_provider {
 
 		weight
 	}
+}
+
+pub mod v2 {
+	use super::*;
+
+	/// The log target.
+	const _TARGET: &'static str = "runtime::referenda::migration::v2";
+
+	/// v2 ReferendumStatus (decision_deposit structure changed).
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		PartialEqNoBound,
+		Eq,
+		DebugNoBound,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
+	#[scale_info(skip_type_params(MaxContributors))]
+	pub struct ReferendumStatus<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		MaxContributors: Get<u32>,
+	> {
+		pub track: TrackId,
+		pub origin: RuntimeOrigin,
+		pub proposal: Call,
+		pub enactment: DispatchTime<Moment>,
+		pub submitted: Moment,
+		pub submission_deposit: Deposit<AccountId, Balance>,
+		pub decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+		pub deciding: Option<DecidingStatus<Moment>>,
+		pub tally: Tally,
+		pub in_queue: bool,
+		pub alarm: Option<(Moment, ScheduleAddress)>,
+	}
+
+	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		BlockNumberFor<T, I>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+		<T as Config<I>>::MaxDepositContributions,
+	>;
+
+	/// v2 Referendum info (MaxContributors generic added).
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		PartialEqNoBound,
+		EqNoBound,
+		DebugNoBound,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
+	#[scale_info(skip_type_params(MaxContributors))]
+	pub enum ReferendumInfo<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		MaxContributors: Get<u32>,
+	> {
+		Ongoing {
+			status: v2::ReferendumStatus<
+				TrackId,
+				RuntimeOrigin,
+				Moment,
+				Call,
+				Balance,
+				Tally,
+				AccountId,
+				ScheduleAddress,
+				MaxContributors,
+			>,
+		},
+		Approved {
+			when: Moment,
+			submission_deposit: Option<Deposit<AccountId, Balance>>,
+			decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+		},
+		Rejected {
+			when: Moment,
+			submission_deposit: Option<Deposit<AccountId, Balance>>,
+			decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+		},
+		Cancelled {
+			when: Moment,
+			submission_deposit: Option<Deposit<AccountId, Balance>>,
+			decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+		},
+		TimedOut {
+			when: Moment,
+			submission_deposit: Option<Deposit<AccountId, Balance>>,
+			decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+		},
+		Killed {
+			when: Moment,
+		},
+	}
+
+	pub type ReferendumInfoOf<T, I> = v2::ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		BlockNumberFor<T, I>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+		<T as Config<I>>::MaxDepositContributions,
+	>;
+
+	#[storage_alias]
+	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, v2::ReferendumInfoOf<T, I>>;
 }
 
 #[cfg(test)]
@@ -319,10 +615,32 @@ pub mod test {
 			deciding: None,
 		}
 	}
+
+	// create referendum status v1.
+	fn create_status_v1() -> v1::ReferendumStatusOf<T, ()> {
+		let origin: OriginCaller = frame_system::RawOrigin::Root.into();
+		let track = <T as Config<()>>::Tracks::track_for(&origin).unwrap();
+		v1::ReferendumStatusOf::<T, ()> {
+			track,
+			in_queue: true,
+			origin,
+			proposal: set_balance_proposal_bounded(1),
+			enactment: DispatchTime::At(1),
+			tally: TallyOf::<T, ()>::new(track),
+			submission_deposit: Deposit { who: 1, amount: 10 },
+			submitted: 1,
+			decision_deposit: None,
+			alarm: None,
+			deciding: None,
+		}
+	}
+
 	#[test]
 	pub fn referendum_status_v0() {
 		// make sure the bytes of the encoded referendum v0 is decodable.
-		let ongoing_encoded = sp_core::Bytes::from_str("0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100").unwrap();
+		let ongoing_encoded = sp_core::Bytes::from_str(
+			"0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100"
+		).unwrap();
 		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut &*ongoing_encoded).unwrap();
 		let ongoing = v0::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
 		assert_eq!(ongoing, ongoing_dec);
@@ -349,15 +667,18 @@ pub mod test {
 			// fetch and assert migrated into v1 the ongoing referendum.
 			let ongoing_v1 = v1::ReferendumInfoFor::<T, ()>::get(2).unwrap();
 			// referendum status schema is the same for v0 and v1.
-			assert_eq!(ReferendumInfoOf::<T, ()>::Ongoing(status_v0), ongoing_v1);
+			let v1::ReferendumInfo::Ongoing(status_v1) = ongoing_v1 else {
+				panic!("Expected ReferendumInfo::Ongoing");
+			};
+			assert_eq!(status_v0.encode(), status_v1.encode());
 			// fetch and assert migrated into v1 the approved referendum.
 			let approved_v1 = v1::ReferendumInfoFor::<T, ()>::get(5).unwrap();
 			assert_eq!(
 				approved_v1,
-				ReferendumInfoOf::<T, ()>::Approved(
+				v1::ReferendumInfoOf::<T, ()>::Approved(
 					123,
 					Some(Deposit { who: 1, amount: 10 }),
-					Some(Deposit { who: 2, amount: 20 })
+					Some(Deposit { who: 2, amount: 20 }),
 				)
 			);
 		});
@@ -374,9 +695,11 @@ pub mod test {
 				}
 			}
 
-			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
+			StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v1());
 			let referendum_approved = v1::ReferendumInfoOf::<T, ()>::Approved(
-				50, //old block number
+				50, //old block number.
 				Some(Deposit { who: 1, amount: 10 }),
 				Some(Deposit { who: 2, amount: 20 }),
 			);
@@ -389,17 +712,17 @@ pub mod test {
 
 			migrate_block_number_provider::<MockBlockConverter, T, ()>();
 
-			let ongoing_v2 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
+			let ongoing_post = switch_block_number_provider::ReferendumInfoFor::<T, ()>::get(1).unwrap();
 			assert_eq!(
-				ongoing_v2,
-				ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0())
+				ongoing_post,
+				switch_block_number_provider::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v1())
 			);
 
-			let approved_v2 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			let approved_post = switch_block_number_provider::ReferendumInfoFor::<T, ()>::get(2).unwrap();
 			assert_eq!(
-				approved_v2,
-				ReferendumInfoOf::<T, ()>::Approved(
-					50,
+				approved_post,
+				switch_block_number_provider::ReferendumInfoOf::<T, ()>::Approved(
+					60, // old + 10.
 					Some(Deposit { who: 1, amount: 10 }),
 					Some(Deposit { who: 2, amount: 20 })
 				)
