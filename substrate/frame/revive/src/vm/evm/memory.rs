@@ -53,6 +53,10 @@ impl<T: Config> Memory<T> {
 		&mut self.data[offset..offset + len]
 	}
 
+	fn get_word(&self, offset: usize) -> &[u8; 32] {
+		self.data[offset..offset + 32].try_into().unwrap()
+	}
+
 	/// Get the current memory size in bytes
 	pub fn size(&self) -> usize {
 		self.data.len()
@@ -125,6 +129,20 @@ impl<T: Config> Memory<T> {
 	/// Panics if range is out of scope of allocated memory.
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
 		self.data.copy_within(src..src + len, dst);
+	}
+
+	/// Returns a snapshot of the memory in 32-byte chunks, limited to the specified number of
+	/// chunks.
+	pub fn snapshot(&self, limit: usize) -> Vec<crate::evm::Bytes> {
+		let mut memory_bytes = Vec::new();
+		let words_to_read = core::cmp::min(self.size().div_ceil(32), limit);
+
+		for i in 0..words_to_read {
+			let word = self.get_word(i * 32);
+			memory_bytes.push(crate::evm::Bytes(word.to_vec()));
+		}
+
+		memory_bytes
 	}
 }
 

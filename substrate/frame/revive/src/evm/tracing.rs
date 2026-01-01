@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{CallTrace, Trace},
+	evm::{CallTrace, ExecutionTrace, Trace},
 	tracing::Tracing,
 	Config,
 };
@@ -26,6 +26,9 @@ pub use call_tracing::*;
 mod prestate_tracing;
 pub use prestate_tracing::*;
 
+mod execution_tracing;
+pub use execution_tracing::*;
+
 /// A composite tracer.
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
@@ -33,6 +36,8 @@ pub enum Tracer<T> {
 	CallTracer(CallTracer),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
+	/// A tracer that traces opcodes and syscalls.
+	ExecutionTracer(ExecutionTracer),
 }
 
 impl<T: Config> Tracer<T>
@@ -44,6 +49,7 @@ where
 		match self {
 			Tracer::CallTracer(_) => CallTrace::default().into(),
 			Tracer::PrestateTracer(tracer) => tracer.empty_trace().into(),
+			Tracer::ExecutionTracer(_) => ExecutionTrace::default().into(),
 		}
 	}
 
@@ -52,6 +58,7 @@ where
 		match self {
 			Tracer::CallTracer(inner) => inner as &mut dyn Tracing,
 			Tracer::PrestateTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::ExecutionTracer(inner) => inner as &mut dyn Tracing,
 		}
 	}
 
@@ -60,6 +67,12 @@ where
 		match self {
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),
+			Tracer::ExecutionTracer(inner) => Some(inner.collect_trace().into()),
 		}
+	}
+
+	/// Check if this is an execution tracer.
+	pub fn is_execution_tracer(&self) -> bool {
+		matches!(self, Tracer::ExecutionTracer(_))
 	}
 }

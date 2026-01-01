@@ -41,7 +41,7 @@ macro_rules! impl_hex_codec {
     };
 }
 
-impl_hex_codec!(u8, u32);
+impl_hex_codec!(u8, u32, u64);
 
 impl<const T: usize> HexCodec for [u8; T] {
 	type Error = hex::FromHexError;

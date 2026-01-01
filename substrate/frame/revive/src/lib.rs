@@ -49,8 +49,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit, CallTracer, CreateCallMode, GenericTransaction, PrestateTracer,
-		Trace, Tracer, TracerType, TYPE_EIP1559,
+		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
+		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	storage::{AccountType, DeletionQueueManager},
@@ -2150,6 +2150,8 @@ impl<T: Config> Pallet<T> {
 			TracerType::CallTracer(config) => CallTracer::new(config.unwrap_or_default()).into(),
 			TracerType::PrestateTracer(config) =>
 				PrestateTracer::new(config.unwrap_or_default()).into(),
+			TracerType::ExecutionTracer(config) =>
+				ExecutionTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
@@ -2892,6 +2894,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					tracer_type: $crate::evm::TracerType,
 				) -> Vec<(u32, $crate::evm::Trace)> {
 					use $crate::{sp_runtime::traits::Block, tracing::trace};
+
+					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return Default::default()
+					}
+
 					let mut traces = vec![];
 					let (header, extrinsics) = block.deconstruct();
 					<$Executive>::initialize_block(&header);
@@ -2915,6 +2924,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> Option<$crate::evm::Trace> {
 					use $crate::{sp_runtime::traits::Block, tracing::trace};
 
+					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return None
+					}
+
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let (header, extrinsics) = block.deconstruct();
 
@@ -2937,6 +2952,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					tracer_type: $crate::evm::TracerType,
 				) -> Result<$crate::evm::Trace, $crate::EthTransactError> {
 					use $crate::tracing::trace;
+
+					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
+					}
+
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
 					let t = tracer.as_tracing();
 

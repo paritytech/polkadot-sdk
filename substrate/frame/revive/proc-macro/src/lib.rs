@@ -337,14 +337,26 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let docs = expand_func_doc(def);
 	let stable_syscalls = expand_func_list(def, false);
 	let all_syscalls = expand_func_list(def, true);
+	let lookup_syscall = expand_func_lookup(def);
 
 	quote! {
+		/// Returns the list of all syscalls.
+		pub fn all_syscalls() -> &'static [&'static [u8]] {
+			#all_syscalls
+		}
+
+		/// Returns the list of syscalls with or without unstable ones.
 		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
 			if include_unstable {
 				#all_syscalls
 			} else {
 				#stable_syscalls
 			}
+		}
+
+		/// Return the index of a syscall in the `all_syscalls()` list.
+		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
+			#lookup_syscall
 		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
@@ -422,9 +434,13 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
 
 			quote! {
+				crate::tracing::if_tracing(|tracer| tracer.enter_ecall(#name, self));
+
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
 				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
+
+				crate::tracing::if_tracing(|tracer| tracer.exit_step(self));
 				result
 			}
 		};
@@ -549,6 +565,22 @@ fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
 		{
 			static FUNCS: [&[u8]; #len] = [#(#docs),*];
 			FUNCS.as_slice()
+		}
+	}
+}
+
+fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
+	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let name_str = &f.name;
+		quote! {
+			#name_str => Some(#idx as u8)
+		}
+	});
+
+	quote! {
+		match name {
+			#( #arms, )*
+			_ => None,
 		}
 	}
 }

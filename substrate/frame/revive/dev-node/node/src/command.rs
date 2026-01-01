@@ -125,6 +125,10 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			// Enforce dev
 			cli.run.shared_params.dev = true;
 
+			// Increase max_response_size for large trace responses
+			cli.run.rpc_params.rpc_max_response_size =
+				cli.run.rpc_params.rpc_max_response_size.max(50);
+
 			// Pass Default logging settings if none are specified
 			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {
 				cli.run.shared_params.log = "error,sc_rpc_server=info,runtime::revive=debug"
