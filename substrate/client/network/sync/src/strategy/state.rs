@@ -721,7 +721,7 @@ mod test {
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
 		let state = ImportedState {
 			block: hash,
-			source: StateSource::KeyValues(KeyValueStates(Vec::new())),
+			source: StateSource::Accumulated(KeyValueStates(Vec::new())),
 		};
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 

@@ -750,14 +750,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
 	}
 
-	fn import_state_from_trie_nodes(
-		&self,
-		_trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
-		_expected_state_root: Block::Hash,
-	) -> sp_blockchain::Result<()> {
-		unimplemented!("Not needed for in-mem backend")
-	}
-
 	fn finalize_state_sync(
 		&self,
 		_root: Block::Hash,

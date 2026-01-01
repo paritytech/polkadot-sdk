@@ -126,34 +126,26 @@ pub enum StorageChanges<Block: BlockT> {
 	Import(ImportedState<Block>),
 }
 
-/// State of trie nodes for import.
-#[derive(Clone, Debug)]
-pub enum TrieNodeStates {
-	/// Trie nodes pending import - need to be written to database.
-	Pending(Vec<(Vec<u8>, Vec<u8>)>),
-	/// Trie nodes were already imported to database during state sync.
-	AlreadyImported {
+/// Source of state data for import.
+#[derive(Clone)]
+pub enum StateSource {
+	/// State accumulated in memory as key-value pairs.
+	/// Trie nodes will be computed via delta_trie_root.
+	Accumulated(sp_state_machine::KeyValueStates),
+	/// Trie nodes were already written incrementally to database during state sync.
+	Incremental {
 		/// Number of trie nodes written during state sync.
 		nodes_count: u64,
 	},
 }
 
-/// Source of state data for import.
-#[derive(Clone)]
-pub enum StateSource {
-	/// Import state from key-value pairs (legacy path).
-	/// Trie nodes will be computed via delta_trie_root.
-	KeyValues(sp_state_machine::KeyValueStates),
-	/// Import state from trie nodes directly.
-	TrieNodes(TrieNodeStates),
-}
-
 impl std::fmt::Debug for StateSource {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::KeyValues(state) =>
-				f.debug_struct("KeyValues").field("count", &state.0.len()).finish(),
-			Self::TrieNodes(state) => f.debug_tuple("TrieNodes").field(state).finish(),
+			Self::Accumulated(state) =>
+				f.debug_struct("Accumulated").field("count", &state.0.len()).finish(),
+			Self::Incremental { nodes_count } =>
+				f.debug_struct("Incremental").field("nodes_count", nodes_count).finish(),
 		}
 	}
 }

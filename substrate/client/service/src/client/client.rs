@@ -44,8 +44,7 @@ use sc_client_api::{
 	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
-	StateSource, TrieNodeStates,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction, StateSource,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -613,9 +612,7 @@ where
 					},
 					sc_consensus::StorageChanges::Import(changes) => {
 						match changes.source {
-							StateSource::TrieNodes(TrieNodeStates::AlreadyImported {
-								nodes_count,
-							}) => {
+							StateSource::Incremental { nodes_count } => {
 								// Trie nodes were written incrementally during state sync.
 								// Verify the state root exists and mark state as committed.
 								let expected_root = *import_headers.post().state_root();
@@ -627,21 +624,7 @@ where
 									.finalize_state_sync(expected_root, &mut operation.op)?;
 								None
 							},
-							StateSource::TrieNodes(TrieNodeStates::Pending(trie_nodes)) => {
-								// Trie nodes accumulated in memory, write to STATE column
-								let expected_root = *import_headers.post().state_root();
-								info!(
-									target: "state",
-									"Importing state with {} trie nodes directly",
-									trie_nodes.len()
-								);
-								self.backend
-									.import_state_from_trie_nodes(trie_nodes, expected_root)?;
-								self.backend
-									.finalize_state_sync(expected_root, &mut operation.op)?;
-								None
-							},
-							StateSource::KeyValues(state) => {
+							StateSource::Accumulated(state) => {
 								// Legacy path: import from key-value pairs
 								self.import_state_from_key_values(
 									state,

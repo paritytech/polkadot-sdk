@@ -2379,35 +2379,6 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		})
 	}
 
-	fn import_state_from_trie_nodes(
-		&self,
-		trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
-		expected_state_root: Block::Hash,
-	) -> ClientResult<()> {
-		let mut transaction = Transaction::new();
-		let node_count = trie_nodes.len() as u64;
-
-		for (key, value) in trie_nodes {
-			transaction.set_from_vec(columns::STATE, &key, value);
-		}
-
-		self.storage.db.commit(transaction)?;
-
-		// Verify state root exists after import
-		if self.storage.db.get(columns::STATE, expected_state_root.as_ref()).is_none() {
-			return Err(sp_blockchain::Error::Backend(format!(
-				"State root {expected_state_root:?} not found after importing {node_count} trie nodes"
-			)));
-		}
-
-		log::info!(
-			target: "state",
-			"Imported {node_count} trie nodes directly to STATE column"
-		);
-
-		Ok(())
-	}
-
 	fn finalize_state_sync(
 		&self,
 		root: Block::Hash,

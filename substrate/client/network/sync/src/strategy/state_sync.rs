@@ -25,7 +25,7 @@ use crate::{
 use codec::{Decode, Encode};
 use log::{debug, info};
 use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
-use sc_consensus::{ImportedState, StateSource, TrieNodeStates};
+use sc_consensus::{ImportedState, StateSource};
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
@@ -373,9 +373,7 @@ where
 						target: LOG_TARGET,
 						"State sync complete: {nodes_written} trie nodes written incrementally"
 					);
-					StateSource::TrieNodes(TrieNodeStates::AlreadyImported {
-						nodes_count: *nodes_written,
-					})
+					StateSource::Incremental { nodes_count: *nodes_written }
 				},
 				StateSyncMode::Accumulated { state } => {
 					// Legacy mode: return accumulated key-values
@@ -384,7 +382,7 @@ where
 						"State sync complete: {} key-values accumulated",
 						state.len()
 					);
-					StateSource::KeyValues(std::mem::take(state).into())
+					StateSource::Accumulated(std::mem::take(state).into())
 				},
 			};
 

@@ -646,15 +646,6 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State>;
 
-	/// Import state directly from trie nodes.
-	/// This is used during state sync to write trie nodes directly to the STATE column,
-	/// avoiding the need to recompute them via delta_trie_root.
-	fn import_state_from_trie_nodes(
-		&self,
-		trie_nodes: Vec<(Vec<u8>, Vec<u8>)>,
-		expected_state_root: Block::Hash,
-	) -> sp_blockchain::Result<()>;
-
 	/// Finalize state sync by verifying the state root exists and marking
 	/// the operation's state as committed.
 	///
