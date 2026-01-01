@@ -1,0 +1,16 @@
+title: 'Add prefix-based whitelisting for storage maps'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      The `whitelist_storage` macro now supports storage maps by automatically whitelisting
+      their prefixes. This allows excluding entire maps from weight calculations during
+      benchmarking, improving accuracy for pallets with large storage structures.
+
+crates:
+- name: sc-client-db
+  bump: major
+- name: frame-benchmarking
+  bump: major
+- name: frame-support-procedural
+  bump: major
