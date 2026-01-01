@@ -417,10 +417,11 @@ where
 				TypeParameter::new("Call", Some(meta_type::<Call>())),
 				TypeParameter::new("Signature", Some(meta_type::<Signature>())),
 				TypeParameter::new("Extra", Some(meta_type::<ExtensionV0>())),
-				TypeParameter::new(
-					"GeneralExtensions",
-					Some(meta_type::<ExtensionVariant<ExtensionV0, ExtensionOtherVersions>>()),
-				),
+				// NOTE: We avoid adding `ExtensionOtherVersions` in the type parameter type info
+				// because they break tools like subxt that hard-coded the number of type
+				// parameters. Also in general type parameters are not useful, information related
+				// to transaction extension are available in the metadata like for v16 the fields
+				// `transaction_extensions_by_version` and `transaction_extensions`.
 			])
 			.docs(&["UncheckedExtrinsic raw bytes, requires custom decoding routine"])
 			// Because of the custom encoding, we can only accurately describe the encoding as an
