@@ -3,14 +3,17 @@ title: Allow declaration and usage of multiple transaction extension version in 
 doc:
   - audience: Runtime Dev
     description: |
-        This PR enhance `UncheckedExtrinsic` type with a new optional generic: `ExtensionOtherVersion`.
+        This PR enhance `UncheckedExtrinsic` type with a new optional generic: `ExtensionOtherVersions`.
         This generic defaults to `InvalidVersion` meaning there is not other version than the regular version 0. This is the same behavior as before this PR.
 
         # Breaking change
 
         The types `Preamble`, `CheckedExtrinsic` and `ExtrinsicFormat` also have this new optional generic. Their type definition also have changed a bit, the `General` variant was 2 fields, the version and the extension, it is now only one field, the extension, and the version can be retrieve by calling `extension.version()`
 
-        The type inference for those types may fail because of this PR, to update the code, write some partial type: `UncheckedExtrinsic<_, _, _, _>`, `Preamble<_, _, _>`, `ExtrinsicFormat<_, _> and `CheckedExtrinsic<_, _, _>`.
+        Some trait such as `ExtrinsicMetadata` and `EthExtraImpl` changed their associated type named `Extension` to `ExtensionV0` and have new associated type `ExtensionOtherVersions`. This is because multiple version are now supported.
+        You can always use `InvalidVersions` for `ExtensionOtherVersions` and keep the old `Extension` for `ExtensionV0` to keep the same behavior as before this PR.
+
+        The type inference for those types may fail because of this PR, to update the code by writing the concrete types.
 
         # New feature
 
