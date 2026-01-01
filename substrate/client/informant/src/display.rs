@@ -109,7 +109,7 @@ impl<B: BlockT> InformantDisplay<B> {
 				{
 					let total_mib = (warp.total_bytes as f32) / (1024f32 * 1024f32);
 					let progress_text = if let Some(ref status) = warp.status {
-						format!(" {}, {:.2} Mib", status, total_mib)
+						format!(" {status}, {total_mib:.2} Mib")
 					} else {
 						format!(" {:.2} Mib", total_mib)
 					};
