@@ -1876,7 +1876,7 @@ pub mod pallet {
 		///
 		/// Emits `AssetMinBalanceChanged` event when successful.
 		#[pallet::call_index(33)]
-		#[pallet::weight(T::WeightInfo::set_reserves())]
+		#[pallet::weight(T::WeightInfo::set_reserves(reserves.len() as u32))]
 		pub fn set_reserves(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,

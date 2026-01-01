@@ -2211,3 +2211,20 @@ fn asset_id_cannot_be_reused() {
 		assert!(Asset::<Test>::contains_key(7));
 	});
 }
+
+#[test]
+fn setting_too_many_reserves_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_eq!(Balances::reserved_balance(&1), 1);
+		assert!(Asset::<Test>::contains_key(0));
+
+		let mut reserves = vec![];
+		for i in 0..MAX_RESERVES + 1 {
+			reserves.push(1234u128 + i as u128);
+		}
+		assert!(Assets::set_reserves(RuntimeOrigin::signed(1), 0, reserves).is_err());
+		assert_eq!(Reserves::<Test>::get(0), vec![]);
+	});
+}
