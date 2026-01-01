@@ -60,8 +60,8 @@ use frame_support::{traits::Get, weights::Weight};
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction,
-		SendSignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction, SendSignedTransaction,
+		SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -136,8 +136,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		CreateSignedTransaction<Call<Self>>
-			+ CreateAuthorizedTransaction<Call<Self>>
-			+ frame_system::Config
+		+ CreateAuthorizedTransaction<Call<Self>>
+		+ frame_system::Config
 	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
@@ -154,8 +154,8 @@ pub mod pallet {
 
 		/// Number of blocks of cooldown after an authorized transaction is included.
 		///
-		/// This ensures that we only accept authorized transactions once, every `AuthorizedTxInterval`
-		/// blocks.
+		/// This ensures that we only accept authorized transactions once, every
+		/// `AuthorizedTxInterval` blocks.
 		#[pallet::constant]
 		type AuthorizedTxInterval: Get<BlockNumberFor<Self>>;
 
@@ -260,8 +260,9 @@ pub mod pallet {
 		/// This function can be called only once every `T::AuthorizedTxInterval` blocks.
 		///
 		/// Transactions are de-duplicated on the pool level via the `provides` tag in the
-		/// validation logic (`validate_transaction_parameters`), which returns `next_authorized_at`.
-		/// This ensures only one transaction per interval can be included in a block.
+		/// validation logic (`validate_transaction_parameters`), which returns
+		/// `next_authorized_at`. This ensures only one transaction per interval can be included
+		/// in a block.
 		///
 		/// It's important to specify `weight` for unsigned calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
@@ -496,9 +497,9 @@ impl<T: Config> Pallet<T> {
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// Received price is wrapped into a call to `submit_price_authorized` public function of this
-		// pallet. This means that the transaction, when executed, will simply call that function
-		// passing `price` as an argument.
+		// Received price is wrapped into a call to `submit_price_authorized` public function of
+		// this pallet. This means that the transaction, when executed, will simply call that
+		// function passing `price` as an argument.
 		let call = Call::submit_price_authorized { block_number, price };
 
 		// Now let's create a transaction out of this call and submit it to the pool.
@@ -538,17 +539,10 @@ impl<T: Config> Pallet<T> {
 		let signer = Signer::<T, T::AuthorityId>::any_account();
 
 		// Get the first available account
-		let account = signer
-			.accounts_from_keys()
-			.next()
-			.ok_or("No local accounts available.")?;
+		let account = signer.accounts_from_keys().next().ok_or("No local accounts available.")?;
 
 		// Create the payload to sign
-		let payload = PricePayload {
-			price,
-			block_number,
-			public: account.public.clone(),
-		};
+		let payload = PricePayload { price, block_number, public: account.public.clone() };
 
 		// Sign the payload
 		let signature = <PricePayload<
@@ -558,10 +552,8 @@ impl<T: Config> Pallet<T> {
 			.ok_or("Failed to sign payload")?;
 
 		// Create the call with the signed payload
-		let call = Call::submit_price_authorized_with_signed_payload {
-			price_payload: payload,
-			signature,
-		};
+		let call =
+			Call::submit_price_authorized_with_signed_payload { price_payload: payload, signature };
 
 		// Create an authorized transaction and submit it
 		let xt = T::create_authorized_transaction(call.into());
@@ -592,17 +584,13 @@ impl<T: Config> Pallet<T> {
 		// Iterate over all available accounts
 		for account in signer.accounts_from_keys() {
 			// Create the payload to sign
-			let payload = PricePayload {
-				price,
-				block_number,
-				public: account.public.clone(),
-			};
+			let payload = PricePayload { price, block_number, public: account.public.clone() };
 
 			// Sign the payload
-			let signature = <PricePayload<
-				<T as SigningTypes>::Public,
-				BlockNumberFor<T>,
-			> as SignedPayload<T>>::sign::<T::AuthorityId>(&payload)
+			let signature =
+				<PricePayload<<T as SigningTypes>::Public, BlockNumberFor<T>> as SignedPayload<
+					T,
+				>>::sign::<T::AuthorityId>(&payload)
 				.ok_or("Failed to sign payload")?;
 
 			// Create the call with the signed payload
