@@ -41,6 +41,7 @@ mod trie_backend;
 mod trie_backend_essence;
 
 pub use trie_backend::TrieCacheProvider;
+pub use trie_backend_essence::TrieBackendStorage;
 
 #[cfg(feature = "std")]
 pub use std_reexport::*;
@@ -139,7 +140,7 @@ pub use crate::{
 	},
 	stats::{StateMachineStats, UsageInfo, UsageUnit},
 	trie_backend::{TrieBackend, TrieBackendBuilder},
-	trie_backend_essence::{Storage, TrieBackendStorage},
+	trie_backend_essence::Storage,
 };
 
 #[cfg(not(substrate_runtime))]
@@ -979,13 +980,14 @@ mod execution {
 	/// Check storage range proof on pre-created proving backend.
 	///
 	/// See `read_range_proof_check_with_child`.
-	pub fn read_range_proof_check_with_child_on_proving_backend<H>(
-		proving_backend: &TrieBackend<MemoryDB<H>, H>,
+	pub fn read_range_proof_check_with_child_on_proving_backend<H, S>(
+		proving_backend: &TrieBackend<S, H>,
 		start_at: &[Vec<u8>],
 	) -> Result<(KeyValueStates, usize), Box<dyn Error>>
 	where
 		H: Hasher,
 		H::Out: Ord + Codec,
+		S: TrieBackendStorage<H>,
 	{
 		let mut result = vec![KeyValueStorageLevel {
 			state_root: Default::default(),

@@ -22,6 +22,7 @@ directories = { workspace = true }
 exit-future = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
+hash-db = { workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
@@ -72,6 +73,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["parking_lot", "rt-multi-thread", "time"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
+trie-db = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
 
 [dev-dependencies]

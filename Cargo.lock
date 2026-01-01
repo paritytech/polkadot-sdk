@@ -20621,6 +20621,7 @@ dependencies = [
  "exit-future",
  "futures",
  "futures-timer",
+ "hash-db",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
@@ -20675,6 +20676,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
+ "trie-db",
 ]
 
 [[package]]

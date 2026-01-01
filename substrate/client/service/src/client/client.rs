@@ -1418,7 +1418,7 @@ where
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
-		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
+		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>, _>(
 			&proving_backend,
 			start_key,
 		)?;
@@ -1432,8 +1432,12 @@ where
 		proof: CompactProof,
 		start_key: &[Vec<u8>],
 	) -> sp_blockchain::Result<(KeyValueStates, usize, Vec<(Vec<u8>, Vec<u8>)>)> {
+		use hash_db::Prefix;
+		use sp_state_machine::TrieBackendStorage;
+
+		// Decode the proof into a regular MemoryDB (hash-only keys).
+		// This is used for both verification and node extraction.
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
-		// Compact encoding
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
@@ -1441,37 +1445,59 @@ where
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 
-		// Extract trie nodes from MemoryDB before building backend
-		// These are (prefixed_key, value) pairs that can be written directly to STATE column
-		let trie_nodes: Vec<(Vec<u8>, Vec<u8>)> = db
-			.drain()
-			.into_iter()
-			.filter_map(|(key, (value, rc))| {
-				if rc > 0 {
-					// Add EMPTY_PREFIX to match STATE column key format
-					let prefixed_key =
-						sp_trie::prefixed_key::<HashingFor<Block>>(&key, sp_trie::EMPTY_PREFIX);
-					Some((prefixed_key, value))
-				} else {
-					None
+		// Create a recording wrapper that captures (prefixed_key, value) pairs
+		// as nodes are accessed during trie iteration. This ensures we get the
+		// correct prefixes that match how the trie iterator will look them up.
+		struct RecordingDb<H: sp_core::Hasher> {
+			inner: sp_state_machine::MemoryDB<H>,
+			recorded: Arc<Mutex<Vec<(Vec<u8>, Vec<u8>)>>>,
+		}
+
+		// Implement TrieBackendStorage which is required by TrieBackendBuilder.
+		// This intercepts node reads to record the correct prefixed keys.
+		impl<H: sp_core::Hasher> TrieBackendStorage<H> for RecordingDb<H> {
+			fn get(
+				&self,
+				key: &H::Out,
+				prefix: Prefix,
+			) -> Result<Option<sp_trie::DBValue>, sp_state_machine::DefaultError> {
+				let value = hash_db::HashDB::get(&self.inner, key, prefix);
+				if let Some(ref v) = value {
+					// Record the node with its correct prefixed key
+					let prefixed_key = sp_trie::prefixed_key::<H>(key, prefix);
+					self.recorded.lock().push((prefixed_key, v.clone()));
 				}
-			})
-			.collect();
+				Ok(value)
+			}
+		}
 
-		// Rebuild MemoryDB for proving backend (since we drained it)
-		let mut db2 = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
-		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
-			&mut db2,
-			proof.iter_compact_encoded_nodes(),
-			Some(&root),
-		)
-		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
+		let recorded_nodes: Arc<Mutex<Vec<(Vec<u8>, Vec<u8>)>>> =
+			Arc::new(Mutex::new(Vec::new()));
+		let recording_db = RecordingDb::<HashingFor<Block>> {
+			inner: db,
+			recorded: recorded_nodes.clone(),
+		};
 
-		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db2, root).build();
-		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
+		// Build a trie backend with the recording wrapper
+		let proving_backend =
+			sp_state_machine::TrieBackendBuilder::new(recording_db, root).build();
+
+		// Iterate through all key-value pairs to access all trie nodes.
+		// This records each node with the correct prefix as determined by trie traversal.
+		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>, _>(
 			&proving_backend,
 			start_key,
 		)?;
+
+		// Drop the proving_backend to release the Arc reference held by recording_db
+		drop(proving_backend);
+
+		// Extract the recorded nodes with their correct prefixed keys
+		let trie_nodes = Arc::try_unwrap(recorded_nodes)
+			.map_err(|_| {
+				sp_blockchain::Error::Backend("Failed to unwrap recorded nodes".to_string())
+			})?
+			.into_inner();
 
 		Ok((state.0, state.1, trie_nodes))
 	}

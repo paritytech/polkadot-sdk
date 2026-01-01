@@ -450,12 +450,20 @@ pub(crate) mod columns {
 /// chunk is received during state sync, avoiding memory accumulation.
 pub struct DbTrieNodeWriter {
 	db: Arc<dyn Database<DbHash>>,
+	/// Whether to use prefixed keys (prefix + hash) or just hash.
+	/// When the database supports ref counting, it uses just the hash as key.
+	/// Otherwise, it uses prefixed keys (prefix bytes + hash).
+	prefix_keys: bool,
 }
 
 impl DbTrieNodeWriter {
 	/// Create a new `DbTrieNodeWriter` from a database handle.
-	pub fn new(db: Arc<dyn Database<DbHash>>) -> Self {
-		Self { db }
+	///
+	/// The `prefix_keys` parameter should be `!db.supports_ref_counting()`:
+	/// - When the DB supports ref counting, keys are just the hash
+	/// - Otherwise, keys include a prefix before the hash
+	pub fn new(db: Arc<dyn Database<DbHash>>, prefix_keys: bool) -> Self {
+		Self { db, prefix_keys }
 	}
 }
 
@@ -464,7 +472,28 @@ impl TrieNodeWriter for DbTrieNodeWriter {
 		let mut transaction = Transaction::new();
 		let node_count = nodes.len();
 
-		for (key, value) in nodes {
+		for (prefixed_key, value) in nodes {
+			// The input keys are always in prefixed format:
+			// [prefix bytes][optional nibble][32-byte hash]
+			//
+			// When prefix_keys is true, we use the full prefixed key.
+			// When prefix_keys is false (db supports ref counting), we extract just the hash.
+			let key = if self.prefix_keys {
+				prefixed_key
+			} else {
+				// Extract the hash (last 32 bytes) from the prefixed key
+				if prefixed_key.len() >= DB_HASH_LEN {
+					prefixed_key[prefixed_key.len() - DB_HASH_LEN..].to_vec()
+				} else {
+					log::warn!(
+						target: "state",
+						"Trie node key shorter than hash length: {} bytes",
+						prefixed_key.len()
+					);
+					prefixed_key
+				}
+			};
+
 			transaction.set_from_vec(columns::STATE, &key, value);
 		}
 
@@ -474,8 +503,7 @@ impl TrieNodeWriter for DbTrieNodeWriter {
 
 		log::debug!(
 			target: "state",
-			"Wrote {} trie nodes incrementally to STATE column",
-			node_count
+			"Wrote {node_count} trie nodes incrementally to STATE column"
 		);
 
 		Ok(())
@@ -1047,13 +1075,14 @@ struct StorageDb<Block: BlockT> {
 
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		if self.prefix_keys {
-			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			self.state_db.get(&key, self)
+		let result = if self.prefix_keys {
+			let lookup_key = prefixed_key::<HashingFor<Block>>(key, prefix);
+			self.state_db.get(&lookup_key, self)
 		} else {
 			self.state_db.get(key.as_ref(), self)
-		}
-		.map_err(|e| format!("Database backend error: {e:?}"))
+		};
+
+		result.map_err(|e| format!("Database backend error: {e:?}"))
 	}
 }
 
@@ -1196,7 +1225,10 @@ impl<Block: BlockT> Backend<Block> {
 	/// This allows trie nodes to be written directly to the STATE column
 	/// as each chunk is received during state sync.
 	pub fn trie_node_writer(&self) -> Arc<dyn TrieNodeWriter> {
-		Arc::new(DbTrieNodeWriter::new(self.storage.db.clone()))
+		// prefix_keys is false when db supports ref counting (uses just hash as key)
+		// prefix_keys is true when db doesn't support ref counting (uses prefix + hash as key)
+		let prefix_keys = !self.storage.db.supports_ref_counting();
+		Arc::new(DbTrieNodeWriter::new(self.storage.db.clone(), prefix_keys))
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -2386,6 +2418,36 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			target: "state",
 			"Verified state root {root:?} exists in database"
 		);
+
+		// TODO: Remove before merge - debugging only.
+		// This full trie traversal is expensive for large states (millions of keys).
+		// Verify trie integrity by traversing all key-value pairs.
+		// This ensures all trie nodes are present and correctly linked.
+		log::info!(target: "state", "Verifying trie integrity by traversing all entries...");
+
+		let trie_backend = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root).build();
+
+		// Iterate through all key-value pairs - this will fail if any trie node is missing
+		let mut key_count = 0u64;
+		let mut value_bytes = 0u64;
+
+		for result in trie_backend.pairs(Default::default()).map_err(|e| {
+			sp_blockchain::Error::Backend(format!("Failed to create trie iterator: {e}"))
+		})? {
+			let (_key, value) = result.map_err(|e| {
+				sp_blockchain::Error::Backend(format!(
+					"Trie traversal failed at key {key_count} - missing or corrupt node: {e}"
+				))
+			})?;
+			key_count += 1;
+			value_bytes += value.len() as u64;
+		}
+
+		log::info!(
+			target: "state",
+			"Trie verification complete: {key_count} keys, {value_bytes} total value bytes - all nodes present and valid"
+		);
+
 		Ok(())
 	}
 
