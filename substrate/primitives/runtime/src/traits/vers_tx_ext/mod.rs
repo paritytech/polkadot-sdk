@@ -106,7 +106,7 @@ pub trait DecodeWithVersion: Sized {
 }
 
 /// A type implements [`DecodeWithVersion`] where inner decoding is implementing
-/// [`DecodeWithMemTracking`].
+/// [`codec::DecodeWithMemTracking`].
 pub trait DecodeWithVersionWithMemTracking: DecodeWithVersion {}
 
 /// A type to build the metadata for the versioned transaction extension pipeline.
