@@ -250,12 +250,13 @@ fn candidate_storage_methods() {
 			candidate_hash,
 			candidate.clone(),
 			wrong_pvd.clone(),
-			CandidateState::Seconded
+			CandidateState::Seconded,
+			false
 		),
 		Err(CandidateEntryError::PersistedValidationDataMismatch)
 	);
 	assert_matches!(
-		CandidateEntry::new_seconded(candidate_hash, candidate.clone(), wrong_pvd),
+		CandidateEntry::new_seconded(candidate_hash, candidate.clone(), wrong_pvd, false),
 		Err(CandidateEntryError::PersistedValidationDataMismatch)
 	);
 	// Zero-length cycle.
@@ -266,7 +267,7 @@ fn candidate_storage_methods() {
 		pvd.parent_head = HeadData(vec![1; 10]);
 		candidate.descriptor.set_persisted_validation_data_hash(pvd.hash());
 		assert_matches!(
-			CandidateEntry::new_seconded(candidate_hash, candidate, pvd),
+			CandidateEntry::new_seconded(candidate_hash, candidate, pvd, false),
 			Err(CandidateEntryError::ZeroLengthCycle)
 		);
 	}
@@ -281,6 +282,7 @@ fn candidate_storage_methods() {
 		candidate.clone(),
 		pvd.clone(),
 		CandidateState::Seconded,
+		false,
 	)
 	.unwrap();
 	storage.add_candidate_entry(candidate_entry.clone()).unwrap();
@@ -348,7 +350,7 @@ fn candidate_storage_methods() {
 	);
 	let candidate_hash_2 = candidate_2.hash();
 	let candidate_entry_2 =
-		CandidateEntry::new_seconded(candidate_hash_2, candidate_2, pvd_2).unwrap();
+		CandidateEntry::new_seconded(candidate_hash_2, candidate_2, pvd_2, false).unwrap();
 
 	storage.add_candidate_entry(candidate_entry_2).unwrap();
 	assert_eq!(
@@ -429,9 +431,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_a_hash = candidate_a.hash();
-	let candidate_a_entry =
-		CandidateEntry::new(candidate_a_hash, candidate_a, pvd_a.clone(), CandidateState::Backed)
-			.unwrap();
+	let candidate_a_entry = CandidateEntry::new(
+		candidate_a_hash,
+		candidate_a,
+		pvd_a.clone(),
+		CandidateState::Backed,
+		false,
+	)
+	.unwrap();
 	storage.add_candidate_entry(candidate_a_entry.clone()).unwrap();
 	let (pvd_b, candidate_b) = make_committed_candidate(
 		para_id,
@@ -443,7 +450,8 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_b_hash = candidate_b.hash();
 	let candidate_b_entry =
-		CandidateEntry::new(candidate_b_hash, candidate_b, pvd_b, CandidateState::Backed).unwrap();
+		CandidateEntry::new(candidate_b_hash, candidate_b, pvd_b, CandidateState::Backed, false)
+			.unwrap();
 	storage.add_candidate_entry(candidate_b_entry.clone()).unwrap();
 	let (pvd_c, candidate_c) = make_committed_candidate(
 		para_id,
@@ -455,7 +463,8 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_c_hash = candidate_c.hash();
 	let candidate_c_entry =
-		CandidateEntry::new(candidate_c_hash, candidate_c, pvd_c, CandidateState::Backed).unwrap();
+		CandidateEntry::new(candidate_c_hash, candidate_c, pvd_c, CandidateState::Backed, false)
+			.unwrap();
 	storage.add_candidate_entry(candidate_c_entry.clone()).unwrap();
 
 	// Candidate A doesn't adhere to the base constraints.
@@ -698,6 +707,7 @@ fn test_populate_and_check_potential() {
 			wrong_candidate_c,
 			wrong_pvd_c,
 			CandidateState::Backed,
+			false,
 		)
 		.unwrap();
 		modified_storage.add_candidate_entry(wrong_candidate_c_entry.clone()).unwrap();
@@ -743,6 +753,7 @@ fn test_populate_and_check_potential() {
 		wrong_candidate_c,
 		wrong_pvd_c,
 		CandidateState::Backed,
+		false,
 	)
 	.unwrap();
 	modified_storage.add_candidate_entry(wrong_candidate_c_entry.clone()).unwrap();
@@ -782,6 +793,7 @@ fn test_populate_and_check_potential() {
 		unconnected_candidate_c,
 		unconnected_pvd_c,
 		CandidateState::Backed,
+		false,
 	)
 	.unwrap();
 	modified_storage
@@ -829,6 +841,7 @@ fn test_populate_and_check_potential() {
 				modified_candidate_a,
 				modified_pvd_a,
 				CandidateState::Backed,
+				false,
 			)
 			.unwrap(),
 		)
@@ -868,6 +881,7 @@ fn test_populate_and_check_potential() {
 		wrong_candidate_c,
 		wrong_pvd_c,
 		CandidateState::Backed,
+		false,
 	)
 	.unwrap();
 	modified_storage.add_candidate_entry(wrong_candidate_c_entry.clone()).unwrap();
@@ -1031,7 +1045,8 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_d_hash = candidate_d.hash();
 	let candidate_d_entry =
-		CandidateEntry::new(candidate_d_hash, candidate_d, pvd_d, CandidateState::Backed).unwrap();
+		CandidateEntry::new(candidate_d_hash, candidate_d, pvd_d, CandidateState::Backed, false)
+			.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_d_entry)
 		.is_ok());
@@ -1048,7 +1063,7 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_f_hash = candidate_f.hash();
 	let candidate_f_entry =
-		CandidateEntry::new(candidate_f_hash, candidate_f, pvd_f, CandidateState::Seconded)
+		CandidateEntry::new(candidate_f_hash, candidate_f, pvd_f, CandidateState::Seconded, false)
 			.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_f_entry)
@@ -1066,7 +1081,7 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_a1_hash = candidate_a1.hash();
 	let candidate_a1_entry =
-		CandidateEntry::new(candidate_a1_hash, candidate_a1, pvd_a1, CandidateState::Backed)
+		CandidateEntry::new(candidate_a1_hash, candidate_a1, pvd_a1, CandidateState::Backed, false)
 			.unwrap();
 	// Candidate A1 is created so that its hash is greater than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a_hash, &candidate_a1_hash), Ordering::Less);
@@ -1089,9 +1104,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_b1_hash = candidate_b1.hash();
-	let candidate_b1_entry =
-		CandidateEntry::new(candidate_b1_hash, candidate_b1, pvd_b1, CandidateState::Seconded)
-			.unwrap();
+	let candidate_b1_entry = CandidateEntry::new(
+		candidate_b1_hash,
+		candidate_b1,
+		pvd_b1,
+		CandidateState::Seconded,
+		false,
+	)
+	.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_b1_entry)
 		.is_ok());
@@ -1109,7 +1129,7 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_c1_hash = candidate_c1.hash();
 	let candidate_c1_entry =
-		CandidateEntry::new(candidate_c1_hash, candidate_c1, pvd_c1, CandidateState::Backed)
+		CandidateEntry::new(candidate_c1_hash, candidate_c1, pvd_c1, CandidateState::Backed, false)
 			.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_c1_entry)
@@ -1127,9 +1147,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_c2_hash = candidate_c2.hash();
-	let candidate_c2_entry =
-		CandidateEntry::new(candidate_c2_hash, candidate_c2, pvd_c2, CandidateState::Seconded)
-			.unwrap();
+	let candidate_c2_entry = CandidateEntry::new(
+		candidate_c2_hash,
+		candidate_c2,
+		pvd_c2,
+		CandidateState::Seconded,
+		false,
+	)
+	.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_c2_entry)
 		.is_ok());
@@ -1145,9 +1170,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_a2_hash = candidate_a2.hash();
-	let candidate_a2_entry =
-		CandidateEntry::new(candidate_a2_hash, candidate_a2, pvd_a2, CandidateState::Seconded)
-			.unwrap();
+	let candidate_a2_entry = CandidateEntry::new(
+		candidate_a2_hash,
+		candidate_a2,
+		pvd_a2,
+		CandidateState::Seconded,
+		false,
+	)
+	.unwrap();
 	// Candidate A2 is created so that its hash is greater than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a2_hash, &candidate_a_hash), Ordering::Less);
 
@@ -1168,7 +1198,7 @@ fn test_populate_and_check_potential() {
 	);
 	let candidate_b2_hash = candidate_b2.hash();
 	let candidate_b2_entry =
-		CandidateEntry::new(candidate_b2_hash, candidate_b2, pvd_b2, CandidateState::Backed)
+		CandidateEntry::new(candidate_b2_hash, candidate_b2, pvd_b2, CandidateState::Backed, false)
 			.unwrap();
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
 		.can_add_candidate_as_potential(&relay_chain_scope, &candidate_b2_entry)
@@ -1232,9 +1262,14 @@ fn test_populate_and_check_potential() {
 			relay_parent_y_info.number,
 		);
 		let candidate_c3_hash = candidate_c3.hash();
-		let candidate_c3_entry =
-			CandidateEntry::new(candidate_c3_hash, candidate_c3, pvd_c3, CandidateState::Seconded)
-				.unwrap();
+		let candidate_c3_entry = CandidateEntry::new(
+			candidate_c3_hash,
+			candidate_c3,
+			pvd_c3,
+			CandidateState::Seconded,
+			false,
+		)
+		.unwrap();
 
 		// Candidate C4.
 		let (pvd_c4, candidate_c4) = make_committed_candidate(
@@ -1248,9 +1283,14 @@ fn test_populate_and_check_potential() {
 		let candidate_c4_hash = candidate_c4.hash();
 		// C4 should have a lower candidate hash than C3.
 		assert_eq!(fork_selection_rule(&candidate_c4_hash, &candidate_c3_hash), Ordering::Less);
-		let candidate_c4_entry =
-			CandidateEntry::new(candidate_c4_hash, candidate_c4, pvd_c4, CandidateState::Seconded)
-				.unwrap();
+		let candidate_c4_entry = CandidateEntry::new(
+			candidate_c4_hash,
+			candidate_c4,
+			pvd_c4,
+			CandidateState::Seconded,
+			false,
+		)
+		.unwrap();
 
 		let mut storage = storage.clone();
 		storage.add_candidate_entry(candidate_c3_entry).unwrap();
@@ -1292,8 +1332,14 @@ fn test_populate_and_check_potential() {
 	let candidate_e_hash = candidate_e.hash();
 	storage
 		.add_candidate_entry(
-			CandidateEntry::new(candidate_e_hash, candidate_e, pvd_e, CandidateState::Seconded)
-				.unwrap(),
+			CandidateEntry::new(
+				candidate_e_hash,
+				candidate_e,
+				pvd_e,
+				CandidateState::Seconded,
+				false,
+			)
+			.unwrap(),
 		)
 		.unwrap();
 
@@ -1441,8 +1487,13 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	for (pvd, candidate) in candidates.iter() {
 		storage
 			.add_candidate_entry(
-				CandidateEntry::new_seconded(candidate.hash(), candidate.clone(), pvd.clone())
-					.unwrap(),
+				CandidateEntry::new_seconded(
+					candidate.hash(),
+					candidate.clone(),
+					pvd.clone(),
+					false,
+				)
+				.unwrap(),
 			)
 			.unwrap();
 	}

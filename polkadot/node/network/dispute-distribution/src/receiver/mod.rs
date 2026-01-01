@@ -44,6 +44,7 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
+use polkadot_primitives::node_features::FeatureIndex;
 
 use crate::{
 	metrics::{FAILED, SUCCEEDED},
@@ -324,13 +325,24 @@ where
 	) -> Result<()> {
 		let IncomingRequest { peer, payload, pending_response } = incoming;
 
+		// For disputes, we need session info from the scheduling context
+		// First get a reference relay parent to fetch node features
+		let relay_parent = payload.0.candidate_receipt.descriptor.relay_parent();
+
+		let session_info_for_features = self
+			.runtime
+			.get_session_info_by_index(&mut self.sender, relay_parent, payload.0.session_index)
+			.await?;
+		let v3_enabled =
+			FeatureIndex::CandidateReceiptV3.is_set(&session_info_for_features.node_features);
+
+		// Use scheduling_parent to fetch the session info for dispute validators
+		let scheduling_parent =
+			payload.0.candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+
 		let info = self
 			.runtime
-			.get_session_info_by_index(
-				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent(),
-				payload.0.session_index,
-			)
+			.get_session_info_by_index(&mut self.sender, scheduling_parent, payload.0.session_index)
 			.await?;
 
 		let votes_result = payload.0.try_into_signed_votes(&info.session_info);

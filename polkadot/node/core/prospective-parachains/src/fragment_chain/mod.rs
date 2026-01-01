@@ -216,6 +216,7 @@ impl CandidateStorage {
 			candidate,
 			persisted_validation_data,
 			CandidateState::Backed,
+			false, // TODO: v3_enabled
 		)?;
 
 		self.add_candidate_entry(entry)
@@ -346,11 +347,25 @@ pub enum CandidateEntryError {
 
 #[derive(Debug, Clone)]
 /// Representation of a candidate into the [`CandidateStorage`].
+/// A candidate entry, containing information about a candidate and its state.
+///
+/// For V3 candidate descriptors, this tracks both the relay_parent and scheduling_parent:
+/// - **relay_parent**: Determines execution context (messages, config, etc.). Can be old/finalized.
+/// - **scheduling_parent**: Determines scheduling context (backing group, core). Must be recent.
+///
+/// For V1/V2 candidates, both fields contain the same value (relay_parent).
+///
+/// The fragment chain validates that relay_parent is within the allowed ancestry scope.
+/// The backing subsystem enforces that scheduling_parent is an active leaf for V3.
 pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
 	output_head_data_hash: Hash,
+	/// The relay parent hash. For V3, this is the execution parent and can be older.
 	relay_parent: Hash,
+	/// The scheduling parent hash. For V3, this must be a recent leaf (enforced by backers).
+	/// For V1/V2, this equals relay_parent.
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	candidate: Arc<ProspectiveCandidate>,
 	state: CandidateState,
@@ -362,12 +377,30 @@ impl CandidateEntry {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
+		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
-		Self::new(candidate_hash, candidate, persisted_validation_data, CandidateState::Seconded)
+		Self::new(
+			candidate_hash,
+			candidate,
+			persisted_validation_data,
+			CandidateState::Seconded,
+			v3_enabled,
+		)
 	}
 
 	pub fn hash(&self) -> CandidateHash {
 		self.candidate_hash
+	}
+
+	/// Get the scheduling parent hash.
+	///
+	/// For V3 candidates, this is the scheduling parent (used for backing group selection).
+	/// For V1/V2 candidates, this equals the relay parent.
+	///
+	/// TODO: This will be used for membership queries in Phase 2 of V3 implementation.
+	#[allow(dead_code)]
+	pub fn scheduling_parent(&self) -> Hash {
+		self.scheduling_parent
 	}
 
 	fn new(
@@ -375,6 +408,7 @@ impl CandidateEntry {
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
+		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
 		let para_id = candidate.descriptor.para_id();
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
@@ -389,11 +423,15 @@ impl CandidateEntry {
 			return Err(CandidateEntryError::ZeroLengthCycle)
 		}
 
+		let relay_parent = candidate.descriptor.relay_parent();
+		let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
+
 		Ok(Self {
 			candidate_hash,
 			parent_head_data_hash,
 			output_head_data_hash,
-			relay_parent: candidate.descriptor.relay_parent(),
+			relay_parent,
+			scheduling_parent,
 			state,
 			candidate: Arc::new(ProspectiveCandidate {
 				commitments: candidate.commitments,
@@ -427,12 +465,25 @@ impl HypotheticalOrConcreteCandidate for CandidateEntry {
 		Some(self.output_head_data_hash)
 	}
 
+	/// Get the relay parent hash (execution context).
+	///
+	/// For V3 candidates, this determines execution context and can be older than
+	/// scheduling_parent. For V1/V2 candidates, this is conceptually the same as
+	/// scheduling_parent.
 	fn relay_parent(&self) -> Hash {
 		self.relay_parent
 	}
 
 	fn candidate_hash(&self) -> CandidateHash {
 		self.candidate_hash
+	}
+
+	/// Get the scheduling parent hash.
+	///
+	/// For V3 candidates, this is the scheduling parent (used for backing group selection).
+	/// For V1/V2 candidates, this equals the relay parent.
+	fn scheduling_parent(&self) -> Hash {
+		self.scheduling_parent
 	}
 }
 
@@ -599,6 +650,9 @@ struct FragmentNode {
 	cumulative_modifications: ConstraintModifications,
 	parent_head_data_hash: Hash,
 	output_head_data_hash: Hash,
+	/// The scheduling parent hash. For V3, this determines the backing group.
+	/// For V1/V2, this equals relay_parent.
+	scheduling_parent: Hash,
 	para_id: ParaId,
 }
 
@@ -612,12 +666,15 @@ impl From<&FragmentNode> for CandidateEntry {
 	fn from(node: &FragmentNode) -> Self {
 		// We don't need to perform the checks done in `CandidateEntry::new()`, since a
 		// `FragmentNode` always comes from a `CandidateEntry`
+		let relay_parent = node.relay_parent();
 		Self {
 			candidate_hash: node.candidate_hash,
 			parent_head_data_hash: node.parent_head_data_hash,
 			output_head_data_hash: node.output_head_data_hash,
 			candidate: node.fragment.candidate_clone(),
-			relay_parent: node.relay_parent(),
+			relay_parent,
+			// Use the stored scheduling_parent from the FragmentNode
+			scheduling_parent: node.scheduling_parent,
 			// A fragment node is always backed.
 			state: CandidateState::Backed,
 			para_id: node.para_id,
@@ -952,7 +1009,9 @@ impl FragmentChain {
 			// Only supply candidates which are not yet pending availability. `ancestors` should
 			// have already contained them, but check just in case.
 			if self.scope.get_pending_availability(&elem.candidate_hash).is_none() {
-				res.push((elem.candidate_hash, elem.relay_parent()));
+				// For V3 candidates, return scheduling_parent (used for backing group lookup).
+				// For V1/V2, scheduling_parent equals relay_parent.
+				res.push((elem.candidate_hash, elem.scheduling_parent));
 			} else {
 				break
 			}
@@ -1092,6 +1151,18 @@ impl FragmentChain {
 				relay_chain_scope.earliest_relay_parent().hash,
 			))
 		};
+
+		// For V3 candidates, also check if the scheduling parent is in scope.
+		// The scheduling parent determines the backing group and must be within the implicit view.
+		// For V1/V2 candidates, scheduling_parent equals relay_parent, so this is redundant but
+		// harmless.
+		let scheduling_parent_hash = candidate.scheduling_parent();
+		if relay_chain_scope.ancestor(&scheduling_parent_hash).is_none() {
+			return Err(Error::RelayParentNotInScope(
+				scheduling_parent_hash,
+				relay_chain_scope.earliest_relay_parent().hash,
+			))
+		}
 
 		// Check if the relay parent moved backwards from the latest candidate pending availability.
 		let earliest_rp_of_pending_availability =
@@ -1286,6 +1357,7 @@ impl FragmentChain {
 			candidate_hash: CandidateHash,
 			output_head_data_hash: Hash,
 			parent_head_data_hash: Hash,
+			scheduling_parent: Hash,
 		}
 
 		let mut cumulative_modifications =
@@ -1399,6 +1471,7 @@ impl FragmentChain {
 					};
 
 					let para_id = candidate.para_id;
+					let scheduling_parent = candidate.scheduling_parent;
 
 					Some(Candidate {
 						para_id,
@@ -1406,6 +1479,7 @@ impl FragmentChain {
 						candidate_hash: candidate.candidate_hash,
 						output_head_data_hash: candidate.output_head_data_hash,
 						parent_head_data_hash: candidate.parent_head_data_hash,
+						scheduling_parent,
 					})
 				});
 
@@ -1430,6 +1504,7 @@ impl FragmentChain {
 				candidate_hash,
 				output_head_data_hash,
 				parent_head_data_hash,
+				scheduling_parent,
 			}) = best_candidate
 			{
 				// Remove the candidate from storage.
@@ -1446,6 +1521,7 @@ impl FragmentChain {
 					parent_head_data_hash,
 					output_head_data_hash,
 					cumulative_modifications: cumulative_modifications.clone(),
+					scheduling_parent,
 					para_id,
 				};
 

@@ -1826,14 +1826,11 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(
-	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
-)]
+#[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
 pub struct InternalVersion(pub u8);
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Clone, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
-	/// The legacy candidate descriptor version
 	///
 	/// with deprecated collator id and collator signature.
 	V1,
@@ -2193,7 +2190,10 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		erasure_root: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
-	) -> Self {
+	) -> Self
+	where
+		H: Default,
+	{
 		Self {
 			para_id,
 			relay_parent,
@@ -2205,7 +2205,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
-			scheduling_parent: relay_parent,
+			scheduling_parent: H::default(),
 			reserved2: [0; 32],
 			para_head,
 			validation_code_hash,
@@ -2274,6 +2274,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_session_index(&mut self, session_index: SessionIndex);
 	/// Set the reserved2 field of the descriptor.
 	fn set_reserved2(&mut self, reserved2: [u8; 32]);
+	/// Set the scheduling parent of the descriptor.
+	fn set_scheduling_parent(&mut self, scheduling_parent: H);
 }
 
 #[cfg(feature = "test")]
@@ -2320,6 +2322,10 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_reserved2(&mut self, reserved2: [u8; 32]) {
 		self.reserved2 = reserved2;
+	}
+
+	fn set_scheduling_parent(&mut self, scheduling_parent: H) {
+		self.scheduling_parent = scheduling_parent;
 	}
 }
 

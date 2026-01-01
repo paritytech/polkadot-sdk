@@ -1431,12 +1431,13 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn v2_descriptor(#[case] v2_feature_enabled: bool) {
+#[case(true, false)] // V3 enabled, not crafted
+#[case(false, false)] // V3 disabled, not crafted (detected as V1)
+#[case(false, true)] // V3 disabled, crafted with non-zero reserved (detected as Unknown)
+fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool) {
 	let mut test_state = TestState::default();
 
-	if !v2_feature_enabled {
+	if !v3_feature_enabled {
 		test_state.node_features = NodeFeatures::EMPTY;
 	}
 
@@ -1461,14 +1462,28 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 		)
 		.await;
 
+		// Create a V3 descriptor
 		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
 			.set_persisted_validation_data_hash(dummy_pvd().hash());
-		// First para is assigned to core 0.
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
+
+		if crafted_unknown {
+			// Case 3: Create a crafted descriptor that will be detected as Unknown when
+			// v3_enabled=false Set version field to non-zero but keep all reserved fields zero.
+			// This bypasses old_v1_detected and falls through to the version field check.
+			committed_candidate.descriptor.set_version(3);
+			// Don't set scheduling_parent - keep it as default (zero)
+		} else {
+			// Cases 1 & 2: Normal V3 descriptor
+			// Make it a V3 descriptor by setting version field
+			committed_candidate.descriptor.set_version(3);
+			// Set scheduling_parent to head_b (which is in active leaves)
+			committed_candidate.descriptor.set_scheduling_parent(head_b);
+		}
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let pov = PoV { block_data: BlockData(vec![1]) };
@@ -1512,7 +1527,20 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 			)))
 			.expect("Sending response should succeed");
 
-		if v2_feature_enabled {
+		if crafted_unknown {
+			// Case 3: V3 disabled with crafted descriptor (zero reserved fields, non-zero version)
+			// Should be rejected as Unknown version
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+				) => {
+					assert_eq!(peer_a, peer_id);
+					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+				}
+			);
+		} else if v3_feature_enabled {
+			// Case 1: V3 is enabled, descriptor should be detected as V3 and accepted
 			assert_candidate_backing_second(
 				&mut virtual_overseer,
 				head_b,
@@ -1528,16 +1556,23 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
 				.await;
 		} else {
-			// Reported malicious. Used v2 descriptor without the feature being enabled
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
-				) => {
-					assert_eq!(peer_a, peer_id);
-					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
-				}
-			);
+			// Case 2: V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
+			// should be detected as V1 due to backwards compatibility.
+			// The old reserved fields have non-zero values, which triggers old_v1_detected.
+			assert_candidate_backing_second(
+				&mut virtual_overseer,
+				head_b,
+				test_state.chain_ids[0],
+				&pov,
+				CollationVersion::V2,
+			)
+			.await;
+
+			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
+				.await;
+
+			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
+				.await;
 		}
 
 		virtual_overseer

@@ -45,13 +45,14 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::BlockInfoProspectiveParachains as BlockInfo,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
-	request_backing_constraints, request_candidates_pending_availability,
+	request_backing_constraints, request_candidates_pending_availability, request_node_features,
 	request_session_index_for_child,
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Hash, Header, Id as ParaId, PersistedValidationData,
+	node_features::FeatureIndex, transpose_claim_queue, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
+	NodeFeatures, PersistedValidationData,
 };
 
 use crate::{
@@ -77,6 +78,8 @@ struct RelayBlockViewData {
 	// The relay chain scope containing the relay parent and its allowed ancestors.
 	// This is shared across all paras for this relay parent.
 	relay_chain_scope: fragment_chain::RelayChainScope,
+	// The node features active at this relay parent.
+	node_features: NodeFeatures,
 }
 
 struct View {
@@ -228,6 +231,11 @@ async fn handle_active_leaves_update<Context>(
 		};
 
 		let session_index = request_session_index_for_child(hash, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+		let node_features = request_node_features(hash, session_index, ctx.sender())
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
@@ -395,11 +403,10 @@ async fn handle_active_leaves_update<Context>(
 		}
 
 		view.per_relay_parent
-			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope });
+			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope, node_features });
 
 		view.active_leaves.insert(hash);
 	}
-
 	for deactivated in update.deactivated {
 		view.active_leaves.remove(&deactivated);
 	}
@@ -419,8 +426,7 @@ async fn handle_active_leaves_update<Context>(
 			.flatten()
 			.collect();
 
-		view.per_relay_parent
-			.retain(|relay_parent, _| relay_parents_to_keep.contains(relay_parent));
+		view.per_relay_parent.retain(|h, _| relay_parents_to_keep.contains(h));
 	}
 
 	if metrics.0.is_some() {
@@ -550,20 +556,30 @@ async fn handle_introduce_seconded_candidate(
 	} = request;
 
 	let candidate_hash = candidate.hash();
-	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
-		Ok(candidate) => candidate,
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?para,
-				"Cannot add seconded candidate: {}",
-				err
-			);
+	let candidate_relay_parent = candidate.descriptor.relay_parent();
 
-			let _ = tx.send(false);
-			return
-		},
-	};
+	// Get v3_enabled from the node_features of the candidate's relay_parent
+	let v3_enabled = view
+		.per_relay_parent
+		.get(&candidate_relay_parent)
+		.map(|rp_data| FeatureIndex::CandidateReceiptV3.is_set(&rp_data.node_features))
+		.unwrap_or(false);
+
+	let candidate_entry =
+		match CandidateEntry::new_seconded(candidate_hash, candidate, pvd, v3_enabled) {
+			Ok(candidate) => candidate,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					para_id = ?para,
+					"Cannot add seconded candidate: {}",
+					err
+				);
+
+				let _ = tx.send(false);
+				return
+			},
+		};
 
 	let mut added = Vec::with_capacity(view.per_relay_parent.len());
 	let mut para_scheduled = false;

@@ -264,9 +264,9 @@ mod enter {
 			let dispute_statements = BTreeMap::new();
 
 			let mut backed_and_concluding = BTreeMap::new();
-			backed_and_concluding.insert(0, 1);
-			backed_and_concluding.insert(1, 1);
-			backed_and_concluding.insert(2, 1);
+			backed_and_concluding.insert(0, 2);
+			backed_and_concluding.insert(1, 2);
+			backed_and_concluding.insert(2, 2);
 
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements,
@@ -1739,9 +1739,9 @@ mod enter {
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
-			backed_and_concluding.insert(0, 1);
-			backed_and_concluding.insert(1, 1);
-			backed_and_concluding.insert(2, 1);
+			backed_and_concluding.insert(0, 2);
+			backed_and_concluding.insert(1, 2);
+			backed_and_concluding.insert(2, 2);
 
 			let unavailable_cores = vec![];
 
@@ -1776,11 +1776,12 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
 				.unwrap();
 
-			// We expect all backed candidates to be filtered out.
+			// We expect the unknown version candidate to be filtered out, but V2 candidates to
+			// remain. V2 is now always enabled, so V2 descriptors are valid.
 			let filtered_para_inherend_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
 
-			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
+			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 9);
 
 			let dispatch_error = Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
