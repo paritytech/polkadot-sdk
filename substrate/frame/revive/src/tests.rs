@@ -70,9 +70,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Test;
-	type Extension = SignedExtra;
+	type ExtensionV0 = SignedExtra;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::ExtensionV0 {
 		(
 			frame_system::CheckNonce::from(nonce),
 			ChargeTransactionPayment::from(tip),
