@@ -30,8 +30,7 @@ use crate::{
 use codec::Encode;
 use sp_weights::Weight;
 
-/// Version 0 of the transaction extension version used to construct the inherited
-/// implication for legacy transactions.
+/// Version 0 of the transaction extension version.
 const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically

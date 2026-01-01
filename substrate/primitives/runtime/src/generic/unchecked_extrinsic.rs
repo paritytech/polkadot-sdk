@@ -403,7 +403,14 @@ where
 	ExtensionV0: StaticTypeInfo,
 	ExtensionOtherVersions: StaticTypeInfo,
 {
-	type Identity = UncheckedExtrinsic<Address, Call, Signature, ExtensionOtherVersions>;
+	type Identity = UncheckedExtrinsic<
+		Address,
+		Call,
+		Signature,
+		ExtensionV0,
+		ExtensionOtherVersions,
+		MAX_CALL_SIZE,
+	>;
 
 	fn type_info() -> Type {
 		Type::builder()
