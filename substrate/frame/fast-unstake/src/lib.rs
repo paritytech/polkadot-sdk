@@ -39,7 +39,7 @@
 //! *Being exposed with validator* from the point of view of the staking system means earning
 //! rewards with the validator, and also being at the risk of slashing with the validator. This is
 //! equivalent to the "Active Nominator" role explained in
-//! [here](https://polkadot.com/blog/staking-update-february-2022/).
+//! [here](https://wiki.polkadot.com/learn/learn-nominator/).
 //!
 //! Stakers who are certain about NOT being exposed can register themselves with
 //! [`Pallet::register_fast_unstake`]. This will chill, fully unbond the staker and place them

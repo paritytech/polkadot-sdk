@@ -54,7 +54,7 @@
 //! can be used.
 //!
 //! Additional reading, about how this pallet is used in the context of Polkadot's staking system:
-//! <https://polkadot.com/blog/staking-update-september-2021/#bags-list-in-depth>
+//! <https://wiki.polkadot.com/docs/learn-staking-advanced#bags-list>
 //!
 //! ## Examples
 //!

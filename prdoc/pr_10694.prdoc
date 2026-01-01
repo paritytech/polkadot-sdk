@@ -1,0 +1,31 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[Westend] Remove StateTrieMigration pallet - V0→V1 migration complete"
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Removes the `pallet-state-trie-migration` from Westend Asset Hub runtime.
+
+    The V0 to V1 state trie format migration has completed successfully on Westend Asset Hub,
+    with 2,082,626 top keys and 28,095 child keys migrated. The pallet is no longer needed
+    and its storage will be cleaned up via RemovePallet migration.
+
+    This change:
+    - Removes pallet-state-trie-migration dependency from Cargo.toml
+    - Removes the pallet's Config implementation and parameter_types
+    - Removes the pallet from construct_runtime! macro
+    - Adds RemovePallet migration to clean up orphaned storage
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-bags-list
+  bump: patch
+- name: pallet-fast-unstake
+  bump: patch
+- name: polkadot
+  bump: patch
+- name: polkadot-sdk-docs
+  bump: patch
