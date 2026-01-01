@@ -1,0 +1,10 @@
+title: Refactor lottery pallet to use fungible traits
+doc:
+- audience: Todo
+  description: |-
+    This PR migrates the lottery pallet from the Currency trait to the fungible traits
+    There doesn't seem to be a need for runtime migration
+    This is part of the umbrella task #226
+crates:
+- name: pallet-lottery
+  bump: major
