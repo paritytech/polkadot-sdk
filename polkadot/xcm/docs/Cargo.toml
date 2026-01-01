@@ -17,20 +17,48 @@ xcm-executor = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
 
 # For building FRAME runtimes
+assets-common = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
+cumulus-primitives-utility = { workspace = true, default-features = true }
 frame = { features = ["runtime"], workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 # Some pallets
+cumulus-pallet-xcm = { workspace = true, default-features = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
+parachain-info = { workspace = true, default-features = true }
 
 # For building docs
 docify = { workspace = true }
 simple-mermaid = { workspace = true }
 
 [dev-dependencies]
+sp-tracing = { workspace = true }
 test-log = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
+	"cumulus-primitives-utility/runtime-benchmarks",
+	"frame/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
