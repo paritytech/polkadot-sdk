@@ -17,6 +17,7 @@ workspace = true
 kvdb = { workspace = true }
 kvdb-rocksdb = { optional = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
+array-bytes = { workspace = true, default-features = true }
 
 [features]
 default = []

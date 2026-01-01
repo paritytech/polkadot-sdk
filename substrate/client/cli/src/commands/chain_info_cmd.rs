@@ -75,6 +75,7 @@ impl ChainInfoCmd {
 		let db_config = sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: config.trie_cache_maximum_size,
 			state_pruning: config.state_pruning.clone(),
+			archive_diffs: config.archive_diffs,
 			source: config.database.clone(),
 			blocks_pruning: config.blocks_pruning,
 			metrics_registry: None,

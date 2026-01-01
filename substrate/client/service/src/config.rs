@@ -74,6 +74,8 @@ pub struct Configuration {
 	pub warm_up_trie_cache: Option<TrieCacheWarmUpStrategy>,
 	/// State pruning settings.
 	pub state_pruning: Option<PruningMode>,
+	/// Archive diff storage
+	pub archive_diffs: bool,
 	/// Number of blocks to keep in the db.
 	///
 	/// NOTE: only finalized blocks are subject for removal!
@@ -233,6 +235,7 @@ impl Configuration {
 		sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size,
 			state_pruning: self.state_pruning.clone(),
+			archive_diffs: self.archive_diffs,
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
 			metrics_registry: self.prometheus_registry().cloned(),

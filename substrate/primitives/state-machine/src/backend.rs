@@ -382,14 +382,14 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	}
 }
 
-/// Something that can be converted into a [`TrieBackend`].
+/// Something that can optionally be converted into a [`TrieBackend`].
 #[cfg(feature = "std")]
-pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
+pub trait MaybeAsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 	/// Type of trie backend storage.
 	type TrieBackendStorage: TrieBackendStorage<H>;
 
 	/// Return the type as [`TrieBackend`].
-	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, H, C>;
+	fn as_trie_backend(&self) -> Option<&TrieBackend<Self::TrieBackendStorage, H, C>>;
 }
 
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].

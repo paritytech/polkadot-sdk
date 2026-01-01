@@ -237,6 +237,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		trie_cache_maximum_size: Some(16 * 1024 * 1024),
 		warm_up_trie_cache: None,
 		state_pruning: Default::default(),
+		archive_diffs: false,
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new((*spec).clone()),
 		executor: ExecutorConfiguration::default(),

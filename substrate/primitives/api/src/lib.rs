@@ -126,7 +126,7 @@ use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 #[cfg(feature = "std")]
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
-use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_state_machine::{backend::MaybeAsTrieBackend, Backend as StateBackend, OverlayedChanges};
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
@@ -677,7 +677,7 @@ pub struct CallApiAtParams<'a, Block: BlockT> {
 #[cfg(feature = "std")]
 pub trait CallApiAt<Block: BlockT> {
 	/// The state backend that is used to store the block states.
-	type StateBackend: StateBackend<HashingFor<Block>> + AsTrieBackend<HashingFor<Block>>;
+	type StateBackend: StateBackend<HashingFor<Block>> + MaybeAsTrieBackend<HashingFor<Block>>;
 
 	/// Calls the given api function with the given encoded arguments at the given block and returns
 	/// the encoded result.

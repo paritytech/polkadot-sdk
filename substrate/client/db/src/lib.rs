@@ -32,6 +32,7 @@ pub mod offchain;
 
 pub mod bench;
 
+mod archive_db;
 mod children;
 mod parity_db;
 mod pinned_blocks_cache;
@@ -53,6 +54,7 @@ use std::{
 };
 
 use crate::{
+	archive_db::ArchiveDb,
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -77,7 +79,7 @@ use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
 };
-use sp_database::Transaction;
+use sp_database::{DatabaseWithSeekableIterator, Transaction};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
@@ -87,8 +89,8 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
+	backend::{Backend as StateBackend, MaybeAsTrieBackend},
+	BackendTransaction, ChildStorageCollection, DBValue, DefaultError, IndexOperation, IterArgs,
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
@@ -288,14 +290,14 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	}
 }
 
-impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
+impl<B: BlockT> MaybeAsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
 	type TrieBackendStorage =
 		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
-	) -> &sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashingFor<B>> {
-		&self.state.as_trie_backend()
+	) -> Option<&sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashingFor<B>>> {
+		self.state.as_trie_backend()
 	}
 }
 
@@ -307,6 +309,8 @@ pub struct DatabaseSettings {
 	pub trie_cache_maximum_size: Option<usize>,
 	/// Requested state pruning mode.
 	pub state_pruning: Option<PruningMode>,
+	/// Save state diffs for archive blocks
+	pub archive_diffs: bool,
 	/// Where to find the database.
 	pub source: DatabaseSource,
 	/// Block pruning mode.
@@ -442,6 +446,10 @@ pub(crate) mod columns {
 	/// Transactions
 	pub const TRANSACTION: u32 = 11;
 	pub const BODY_INDEX: u32 = 12;
+	// Diffs for archive blocks
+	pub const ARCHIVE: u32 = 13;
+	// Diffs for new, non-finalized blocks
+	pub const ARCHIVE_PENDING: u32 = 14;
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -828,11 +836,12 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 
 /// Database transaction
 pub struct BlockImportOperation<Block: BlockT> {
-	old_state: RecordStatsState<RefTrackingState<Block>, Block>,
+	old_state: RecordStatsState<TrieOrArchiveState<Block>, Block>,
 	db_updates: PrefixedMemoryDB<HashingFor<Block>>,
 	storage_updates: StorageCollection,
 	child_storage_updates: ChildStorageCollection,
 	offchain_storage_updates: OffchainChangesCollection,
+	new_storage: Option<Storage>,
 	pending_block: Option<PendingBlock<Block>>,
 	aux_ops: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
@@ -893,6 +902,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 		);
 
 		self.db_updates = transaction;
+		self.new_storage = Some(storage);
 		Ok(root)
 	}
 }
@@ -900,7 +910,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	for BlockImportOperation<Block>
 {
-	type State = RecordStatsState<RefTrackingState<Block>, Block>;
+	type State = RecordStatsState<TrieOrArchiveState<Block>, Block>;
 
 	fn state(&self) -> ClientResult<Option<&Self::State>> {
 		Ok(Some(&self.old_state))
@@ -1000,7 +1010,6 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		self.create_gap = create_gap;
 	}
 }
-
 struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	pub state_db: StateDb<Block::Hash, Vec<u8>, StateMetaDb>,
@@ -1107,20 +1116,47 @@ impl<T: Clone> FrozenForDuration<T> {
 
 /// Disk backend.
 ///
-/// Disk backend keeps data in a key-value store. In archive mode, trie nodes are kept from all
-/// blocks. Otherwise, trie nodes are kept only from some recent blocks.
+/// Disk backend keeps data in a key-value store. In diff archive mode, state diffs are stored for
+/// all blocks, while trie nodes for old blocks are discarded. In trie archive mode, trie nodes are
+/// kept from all blocks. Otherwise, trie nodes are kept only from some recent blocks.
 pub struct Backend<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
+	db: BackendDatabase,
 	offchain_storage: offchain::LocalStorage,
 	blockchain: BlockchainDb<Block>,
 	canonicalization_delay: u64,
 	import_lock: Arc<RwLock<()>>,
-	is_archive: bool,
+	is_trie_archive: bool,
+	is_diff_archive: bool,
 	blocks_pruning: BlocksPruning,
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+}
+
+#[derive(Clone)]
+enum BackendDatabase {
+	Database(Arc<dyn Database<DbHash>>),
+	DatabaseWithSeekableIterator(Arc<dyn DatabaseWithSeekableIterator<DbHash>>),
+}
+
+impl Into<Arc<dyn Database<DbHash>>> for BackendDatabase {
+	fn into(self) -> Arc<dyn Database<DbHash>> {
+		match self {
+			BackendDatabase::Database(db) => db.clone(),
+			BackendDatabase::DatabaseWithSeekableIterator(db) => db.clone(),
+		}
+	}
+}
+
+impl AsRef<dyn Database<DbHash>> for BackendDatabase {
+	fn as_ref(&self) -> &(dyn Database<DbHash> + 'static) {
+		match self {
+			BackendDatabase::Database(db) => db.as_ref(),
+			BackendDatabase::DatabaseWithSeekableIterator(db) => db.as_ref(),
+		}
+	}
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1143,7 +1179,7 @@ impl<Block: BlockT> Backend<Block> {
 				Err(as_is) => return Err(as_is.into()),
 			};
 
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
+		Self::from_database(db, canonicalization_delay, &db_config, needs_init)
 	}
 
 	/// Reset the shared trie cache.
@@ -1175,6 +1211,7 @@ impl<Block: BlockT> Backend<Block> {
 		let db_setting = DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
 			state_pruning: Some(state_pruning),
+			archive_diffs: false,
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
 			metrics_registry: None,
@@ -1211,12 +1248,14 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn from_database(
-		db: Arc<dyn Database<DbHash>>,
+		backend_db: BackendDatabase,
 		canonicalization_delay: u64,
 		config: &DatabaseSettings,
 		should_init: bool,
 	) -> ClientResult<Self> {
 		let mut db_init_transaction = Transaction::new();
+
+		let db: Arc<dyn Database<DbHash>> = backend_db.clone().into();
 
 		let requested_state_pruning = config.state_pruning.clone();
 		let state_meta_db = StateMetaDb(db.clone());
@@ -1225,6 +1264,7 @@ impl<Block: BlockT> Backend<Block> {
 		let (state_db_init_commit_set, state_db) = StateDb::open(
 			state_meta_db,
 			requested_state_pruning,
+			config.archive_diffs,
 			!db.supports_ref_counting(),
 			should_init,
 		)
@@ -1257,13 +1297,21 @@ impl<Block: BlockT> Backend<Block> {
 			SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref())
 		});
 
+		if config.archive_diffs &&
+			!matches!(backend_db, BackendDatabase::DatabaseWithSeekableIterator(_))
+		{
+			return Err(ClientError::Backend("Archive diff mode requested, but chosen database doesn't support required seek operations".into()));
+		}
+
 		let backend = Backend {
 			storage: Arc::new(storage_db),
+			db: backend_db,
 			offchain_storage,
 			blockchain,
 			canonicalization_delay,
 			import_lock: Default::default(),
-			is_archive: is_archive_pruning,
+			is_trie_archive: is_archive_pruning,
+			is_diff_archive: config.archive_diffs,
 			io_stats: FrozenForDuration::new(std::time::Duration::from_secs(1)),
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
@@ -1604,16 +1652,54 @@ impl<Block: BlockT> Backend<Block> {
 
 				let mut ops: u64 = 0;
 				let mut bytes: u64 = 0;
-				for (key, value) in operation
-					.storage_updates
-					.iter()
-					.chain(operation.child_storage_updates.iter().flat_map(|(_, s)| s.iter()))
-				{
+				if let Some(new_storage) = operation.new_storage.take() {
+					for (prefix, key, value) in
+						new_storage.top.iter().map(|(k, v)| ([].as_slice(), k, v)).chain(
+							new_storage.children_default.iter().flat_map(|(_, s)| {
+								s.data.iter().map(|(k, v)| (s.child_info.storage_key(), k, v))
+							}),
+						) {
+						bytes += (prefix.len() + key.len() + value.len()) as u64;
+						ops += 1;
+					}
+					if self.is_diff_archive {
+						ArchiveDb::<Block>::add_new_storage(
+							&mut transaction,
+							new_storage,
+							*pending_block.header.number(),
+							hash,
+						);
+					}
+				}
+				self.state_usage.tally_writes(ops, bytes);
+
+				let mut ops: u64 = 0;
+				let mut bytes: u64 = 0;
+				for (prefix, key, value) in
+					operation.storage_updates.iter().map(|(k, v)| ([].as_slice(), k, v)).chain(
+						operation.child_storage_updates.iter().flat_map(|(prefix, s)| {
+							s.into_iter().map(|(k, v)| (prefix.as_slice(), k, v))
+						}),
+					) {
 					ops += 1;
-					bytes += key.len() as u64;
+					bytes += (prefix.len() + key.len()) as u64 + 1;
 					if let Some(v) = value.as_ref() {
 						bytes += v.len() as u64;
 					}
+				}
+				if self.is_diff_archive {
+					ArchiveDb::<Block>::update_storage(
+						&mut transaction,
+						operation.storage_updates,
+						*pending_block.header.number(),
+						hash,
+					);
+					ArchiveDb::<Block>::update_child_storage(
+						&mut transaction,
+						operation.child_storage_updates,
+						*pending_block.header.number(),
+						hash,
+					);
 				}
 				self.state_usage.tally_writes(ops, bytes);
 				let number_u64 = number.saturated_into::<u64>();
@@ -1907,6 +1993,12 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
+		if self.is_diff_archive {
+			let BackendDatabase::DatabaseWithSeekableIterator(db) = &self.db else {
+				panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation");
+			};
+			ArchiveDb::<Block>::finalize_block(db.clone(), transaction, *f_header.number(), f_hash);
+		}
 		if remove_displaced {
 			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(
 				f_hash,
@@ -1968,6 +2060,12 @@ impl<Block: BlockT> Backend<Block> {
 		for &hash in displaced.displaced_blocks.iter() {
 			self.blockchain.insert_persisted_body_if_pinned(hash)?;
 			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
+			if self.is_diff_archive {
+				let BackendDatabase::DatabaseWithSeekableIterator(db) = &self.db else {
+					panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation");
+				};
+				ArchiveDb::<Block>::discard_block(db.clone(), transaction, hash);
+			}
 		}
 		Ok(())
 	}
@@ -2018,13 +2116,26 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
+	fn empty_state(&self) -> RecordStatsState<TrieOrArchiveState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
 		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
-		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
-		RecordStatsState::new(state, None, self.state_usage.clone())
+		let trie_state = RefTrackingState::new(db_state, self.storage.clone(), None);
+		let archive_state = match &self.db {
+			BackendDatabase::DatabaseWithSeekableIterator(db) => Some(ArchiveDb::new(
+				db.clone(),
+				<Block::Header as HeaderT>::Number::zero(),
+				<Block::Header as HeaderT>::Hash::default(),
+			)),
+			_ => None,
+		};
+
+		RecordStatsState::new(
+			TrieOrArchiveState { trie_state: Some(trie_state), archive_state },
+			None,
+			self.state_usage.clone(),
+		)
 	}
 }
 
@@ -2143,10 +2254,291 @@ where
 	}
 }
 
+/// State at a specific block
+/// Either trie state or archive state, depending on which is stored in database
+#[derive(Debug)]
+pub struct TrieOrArchiveState<Block: BlockT> {
+	trie_state: Option<RefTrackingState<Block>>,
+	archive_state: Option<ArchiveDb<Block>>,
+}
+
+/// Iterator for a state at a specific block
+/// Either trie state or archive state, depending on which is stored in database
+pub enum TrieOrArchiveStateIter<Block: BlockT> {
+	/// Iterator over key-value pairs stored in trie backend
+	TrieIter(<RefTrackingState<Block> as StateBackend<HashingFor<Block>>>::RawIter),
+	/// Iterator over key-value pairs stored in archive diff backend
+	/// Iteration can be significantly slower in this mode
+	ArchiveIter(archive_db::RawIter<Block>),
+}
+
+impl<Block: BlockT> StorageIterator<HashingFor<Block>> for TrieOrArchiveStateIter<Block> {
+	type Backend = TrieOrArchiveState<Block>;
+
+	type Error = DefaultError;
+
+	fn next_key(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<core::result::Result<StorageKey, Self::Error>> {
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) =>
+				if let Some(trie_state) = &backend.trie_state {
+					iter.next_key(trie_state)
+				} else {
+					Some(Err(
+						"Trie iterator is used, but trie data does not exist for this state".into()
+					))
+				},
+			TrieOrArchiveStateIter::ArchiveIter(iter) => {
+				if let Some(archive_state) = &backend.archive_state {
+					iter.next_key(archive_state)
+				} else {
+					Some(Err(
+						"Archive iterator is used, but archive data does not exist for this state"
+							.into(),
+					))
+				}
+			},
+		}
+	}
+
+	fn next_pair(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<core::result::Result<(StorageKey, StorageValue), Self::Error>> {
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) =>
+				if let Some(trie_state) = &backend.trie_state {
+					iter.next_pair(trie_state)
+				} else {
+					Some(Err(
+						"Trie iterator is used, but trie data does not exist for this state".into()
+					))
+				},
+			TrieOrArchiveStateIter::ArchiveIter(iter) => {
+				if let Some(archive_state) = &backend.archive_state {
+					iter.next_pair(archive_state)
+				} else {
+					Some(Err(
+						"Archive iterator is used, but archive data does not exist for this state"
+							.into(),
+					))
+				}
+			},
+		}
+	}
+
+	fn was_complete(&self) -> bool {
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) => iter.was_complete(),
+			TrieOrArchiveStateIter::ArchiveIter(iter) => iter.was_complete(),
+		}
+	}
+}
+
+impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
+	type Error = DefaultError;
+
+	type TrieBackendStorage =
+		<RefTrackingState<Block> as MaybeAsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+
+	type RawIter = TrieOrArchiveStateIter<Block>;
+
+	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.main_storage(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn storage_hash(
+		&self,
+		key: &[u8],
+	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage_hash(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.storage_hash(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<<HashingFor<Block> as hash_db::Hasher>::Out>>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.closest_merkle_value(key)
+		} else if let Some(_) = &self.archive_state {
+			Err("Archive state doesn't support 'closest_merkle_value' operation".into())
+		} else {
+			Ok(None)
+		}
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<<HashingFor<Block> as hash_db::Hasher>::Out>>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_closest_merkle_value(child_info, key)
+		} else if let Some(_) = &self.archive_state {
+			Err("Archive state doesn't support 'child_closest_merkle_value' operation".into())
+		} else {
+			Ok(None)
+		}
+	}
+
+	fn child_storage(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<StorageValue>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.child_storage(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn child_storage_hash(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage_hash(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.child_storage_hash(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.next_storage_key(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.next_main_storage_key(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn next_child_storage_key(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<StorageKey>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.next_child_storage_key(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.next_child_storage_key(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (<HashingFor<Block> as hash_db::Hasher>::Out, BackendTransaction<HashingFor<Block>>)
+	where
+		<HashingFor<Block> as hash_db::Hasher>::Out: Ord,
+	{
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage_root(delta, state_version)
+		} else {
+			log::warn!("Archive state doesn't support 'storage_root' operation");
+			(<HashingFor<Block> as hash_db::Hasher>::Out::default(), BackendTransaction::default())
+		}
+	}
+
+	fn child_storage_root<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (<HashingFor<Block> as hash_db::Hasher>::Out, bool, BackendTransaction<HashingFor<Block>>)
+	where
+		<HashingFor<Block> as hash_db::Hasher>::Out: Ord,
+	{
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage_root(child_info, delta, state_version)
+		} else {
+			log::warn!("Archive state doesn't support 'child_storage_root' operation");
+			(
+				<HashingFor<Block> as hash_db::Hasher>::Out::default(),
+				false,
+				BackendTransaction::default(),
+			)
+		}
+	}
+
+	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.raw_iter(args).map(|iter| TrieOrArchiveStateIter::TrieIter(iter))
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state
+				.raw_iter(args)
+				.map(|iter| TrieOrArchiveStateIter::ArchiveIter(iter))
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn register_overlay_stats(&self, stats: &sp_state_machine::StateMachineStats) {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.register_overlay_stats(stats)
+		} else {
+			// processed by RecordStatsState
+		}
+	}
+
+	fn usage_info(&self) -> StateUsageInfo {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.usage_info()
+		} else {
+			// processed by RecordStatsState
+			StateUsageInfo::empty()
+		}
+	}
+}
+
+impl<Block: BlockT> MaybeAsTrieBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
+	type TrieBackendStorage =
+		<RefTrackingState<Block> as MaybeAsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+
+	fn as_trie_backend(
+		&self,
+	) -> Option<
+		&sp_state_machine::TrieBackend<
+			Self::TrieBackendStorage,
+			HashingFor<Block>,
+			sp_trie::cache::LocalTrieCache<HashingFor<Block>>,
+		>,
+	> {
+		if let Some(trie) = &self.trie_state {
+			trie.as_trie_backend()
+		} else {
+			None
+		}
+	}
+}
+
 impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	type BlockImportOperation = BlockImportOperation<Block>;
 	type Blockchain = BlockchainDb<Block>;
-	type State = RecordStatsState<RefTrackingState<Block>, Block>;
+	type State = RecordStatsState<TrieOrArchiveState<Block>, Block>;
 	type OffchainStorage = offchain::LocalStorage;
 
 	fn begin_operation(&self) -> ClientResult<Self::BlockImportOperation> {
@@ -2155,6 +2547,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			old_state: self.empty_state(),
 			db_updates: PrefixedMemoryDB::default(),
 			storage_updates: Default::default(),
+			new_storage: None,
 			child_storage_updates: Default::default(),
 			offchain_storage_updates: Default::default(),
 			aux_ops: Vec::new(),
@@ -2554,8 +2947,28 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						}))
 						.build();
 
-				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
-				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()));
+				let trie_state = Some(RefTrackingState::new(db_state, self.storage.clone(), None));
+
+				let archive_state = if self.is_diff_archive {
+					match &self.db {
+						BackendDatabase::DatabaseWithSeekableIterator(db) =>
+							Some(ArchiveDb::new(
+						db.clone(),
+						<Block::Header as HeaderT>::Number::zero(),
+						hash,
+					)),
+						_ => panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation"),
+					}
+				} else {
+					None
+				};
+				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
+
+				return Ok(RecordStatsState::new(
+					trie_or_archive_state,
+					None,
+					self.state_usage.clone(),
+				));
 			}
 		}
 
@@ -2567,7 +2980,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						.is_some()
 				};
 
-				if let Ok(()) =
+				let trie_state = if let Ok(()) =
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
@@ -2581,20 +2994,35 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								}
 							}))
 							.build();
-					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
-					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
+					let state: RefTrackingState<Block> =
+						RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
+					Some(state)
 				} else {
-					Err(sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for {hash:?}",
-					)))
-				}
+					None
+				};
+				let archive_state = if self.is_diff_archive {
+					match &self.db {
+						BackendDatabase::DatabaseWithSeekableIterator(db) =>
+							Some(ArchiveDb::new(db.clone(), hdr.number, hash)),
+						_ => panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation"),
+					}
+				} else {
+					None
+				};
+
+				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
+				Ok(RecordStatsState::new(
+					trie_or_archive_state,
+					Some(hash),
+					self.state_usage.clone(),
+				))
 			},
 			Err(e) => Err(e),
 		}
 	}
 
 	fn have_state_at(&self, hash: Block::Hash, number: NumberFor<Block>) -> bool {
-		if self.is_archive {
+		if self.is_trie_archive {
 			match self.blockchain.header_metadata(hash) {
 				Ok(header) => sp_state_machine::Storage::get(
 					self.storage.as_ref(),
@@ -2631,7 +3059,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		matches!(
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
-		)
+		) || self.is_diff_archive
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
@@ -2853,6 +3281,7 @@ pub(crate) mod tests {
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(16 * 1024 * 1024),
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
+				archive_diffs: false,
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
 				metrics_registry: None,
