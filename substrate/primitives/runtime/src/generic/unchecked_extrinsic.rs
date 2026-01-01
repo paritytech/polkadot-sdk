@@ -703,7 +703,7 @@ impl<
 	>
 {
 	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
-	type TransactionExtensions = ExtensionV0;
+	type TransactionExtensionsV0 = ExtensionV0;
 	type TransactionExtensionsVersions = ExtensionVariant<ExtensionV0, ExtensionOtherVersions>;
 }
 

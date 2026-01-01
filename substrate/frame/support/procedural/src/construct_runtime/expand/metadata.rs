@@ -133,10 +133,10 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						extensions: <
+						extensions_v0: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::TransactionExtensions
+								>::TransactionExtensionsV0
 								as
 								#scrate::sp_runtime::traits::TransactionExtension::<
 									<#runtime as #system_path::Config>::RuntimeCall

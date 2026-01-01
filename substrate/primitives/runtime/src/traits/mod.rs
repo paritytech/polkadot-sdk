@@ -1503,7 +1503,9 @@ pub trait ExtrinsicMetadata {
 	const VERSIONS: &'static [u8];
 
 	/// The transaction extensions version 0 attached to this `Extrinsic`.
-	type TransactionExtensions;
+	// We could remove this associated type and let user retrieve it from
+	// `TransactionExtensionsVersions`.
+	type TransactionExtensionsV0;
 
 	/// All version of transaction extensions attached to this `Extrinsic`.
 	type TransactionExtensionsVersions;
