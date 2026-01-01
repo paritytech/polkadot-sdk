@@ -942,16 +942,6 @@ pub use polkadot_node_core_pvf_checker;
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
 
-/// Polkadot crate that contains the logic for executing PVFs. Used by the
-/// polkadot-execute-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-execute-worker")]
-pub use polkadot_node_core_pvf_execute_worker;
-
-/// Polkadot crate that contains the logic for preparing PVFs. Used by the
-/// polkadot-prepare-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-prepare-worker")]
-pub use polkadot_node_core_pvf_prepare_worker;
-
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;

@@ -11,6 +11,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [[bench]]
 name = "prepare_rococo_runtime"
 harness = false
