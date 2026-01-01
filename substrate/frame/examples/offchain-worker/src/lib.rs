@@ -60,7 +60,7 @@ use frame_support::{traits::Get, weights::Weight};
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateBare, CreateSignedTransaction, SendSignedTransaction,
+		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction, SendSignedTransaction,
 		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
@@ -135,7 +135,9 @@ pub mod pallet {
 	/// This pallet's configuration trait
 	#[pallet::config]
 	pub trait Config:
-		CreateSignedTransaction<Call<Self>> + CreateBare<Call<Self>> + frame_system::Config
+		CreateSignedTransaction<Call<Self>>
+			+ CreateAuthorizedTransaction<Call<Self>>
+			+ frame_system::Config
 	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
@@ -257,6 +259,10 @@ pub mod pallet {
 		/// we need a way to make sure that only some transactions are accepted.
 		/// This function can be called only once every `T::UnsignedInterval` blocks.
 		///
+		/// Transactions are de-duplicated on the pool level via the `provides` tag in the
+		/// validation logic (`validate_transaction_parameters`), which returns `next_unsigned_at`.
+		/// This ensures only one transaction per interval can be included in a block.
+		///
 		/// It's important to specify `weight` for unsigned calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
 		/// number of such transactions.
@@ -273,16 +279,8 @@ pub mod pallet {
 			block_number: &BlockNumberFor<T>,
 			new_price: &u32,
 		| -> TransactionValidityWithRefund {
-			let validity = Pallet::<T>::validate_transaction_parameters(block_number, new_price);
-			match validity {
-				Ok(valid_tx) => {
-					// This is the amount to refund, here we refund nothing.
-					let refund = Weight::zero();
-
-					Ok((valid_tx, refund))
-				},
-				Err(e) => Err(e),
-			}
+			Pallet::<T>::validate_transaction_parameters(block_number, new_price)
+				.map(|v| (v, /* no refund */ Weight::zero()))
 		})]
 		pub fn submit_price_unsigned(
 			origin: OriginFor<T>,
@@ -314,16 +312,8 @@ pub mod pallet {
 			if !signature_valid {
 				return Err(InvalidTransaction::BadProof.into())
 			}
-			let validity = Pallet::<T>::validate_transaction_parameters(&price_payload.block_number, &price_payload.price);
-			match validity {
-				Ok(valid_tx) => {
-					// This is the amount to refund, here we refund nothing.
-					let refund = Weight::zero();
-
-					Ok((valid_tx, refund))
-				},
-				Err(e) => Err(e),
-			}
+			Pallet::<T>::validate_transaction_parameters(&price_payload.block_number, &price_payload.price)
+				.map(|v| (v, /* no refund */ Weight::zero()))
 		})]
 		pub fn submit_price_unsigned_with_signed_payload(
 			origin: OriginFor<T>,
@@ -516,16 +506,19 @@ impl<T: Config> Pallet<T> {
 		let call = Call::submit_price_unsigned { block_number, price };
 
 		// Now let's create a transaction out of this call and submit it to the pool.
-		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
+		// Here we showcase two ways to send a general transaction / unsigned payload (raw)
 		//
-		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by implementing a `TransactionExtension`. Note that it's EXTREMELY important to carefully
-		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
-		// attack vectors. See validation logic docs for more details.
+		// By default general transactions start the transaction extension pipeline with the origin
+		// `None`. We define custom validation logic using the `#[pallet::authorize]` attribute.
+		// This custom validation is executed by the transaction extension `AuthorizeCall`, which
+		// will change the origin to `frame_system::Origin::Authorized` if validation succeeds.
+		// Note that it's EXTREMELY important to carefully implement custom validation logic, as
+		// any mistakes can lead to opening DoS or spam attack vectors. See validation logic docs
+		// for more details.
 		//
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
-			.map_err(|()| "Unable to submit unsigned transaction.")?;
+			.map_err(|()| "Unable to submit transaction.")?;
 
 		Ok(())
 	}
