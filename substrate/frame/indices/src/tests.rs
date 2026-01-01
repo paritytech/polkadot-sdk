@@ -21,16 +21,13 @@
 
 use super::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, pallet_prelude::Pays};
-use pallet_balances::Error as BalancesError;
-use sp_runtime::MultiAddress::Id;
+
+use sp_runtime::{MultiAddress::Id, TokenError};
 
 #[test]
 fn claiming_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Indices::claim(Some(0).into(), 0),
-			BalancesError::<Test, _>::InsufficientBalance
-		);
+		assert_noop!(Indices::claim(Some(0).into(), 0), TokenError::FundsUnavailable);
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_noop!(Indices::claim(Some(2).into(), 0), Error::<Test>::InUse);
 		assert_eq!(Balances::reserved_balance(1), 1);
@@ -152,10 +149,7 @@ fn poke_deposit_should_fail_for_insufficient_balance() {
 		// Set deposit higher than available balance
 		IndexDeposit::set(1000);
 
-		assert_noop!(
-			Indices::poke_deposit(Some(1).into(), 0),
-			BalancesError::<Test, _>::InsufficientBalance
-		);
+		assert_noop!(Indices::poke_deposit(Some(1).into(), 0), TokenError::FundsUnavailable);
 	});
 }
 
