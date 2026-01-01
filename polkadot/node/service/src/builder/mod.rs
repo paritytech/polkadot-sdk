@@ -98,6 +98,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
+	/// Use experimental collator protocol
+	pub experimental_collator_protocol: bool,
 }
 
 /// Completely built polkadot node service.
@@ -209,6 +211,7 @@ where
 					keep_finalized_for,
 					invulnerable_ah_collators,
 					collator_protocol_hold_off,
+					experimental_collator_protocol,
 				},
 			overseer_connector,
 			partial_components:
@@ -452,6 +455,7 @@ where
 				fetch_chunks_threshold,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
+				experimental_collator_protocol,
 			})
 		};
 

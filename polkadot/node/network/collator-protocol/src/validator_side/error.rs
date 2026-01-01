@@ -19,7 +19,7 @@ use futures::channel::oneshot;
 
 use polkadot_node_subsystem::RuntimeApiError;
 use polkadot_node_subsystem_util::backing_implicit_view;
-use polkadot_primitives::CandidateDescriptorVersion;
+use polkadot_primitives::{CandidateDescriptorVersion, Hash};
 
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -90,22 +90,29 @@ pub enum SecondingError {
 
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
+
+	#[error("ParaId doesn't match the advertisement")]
+	ParaIdMismatch,
+
+	#[error("Collation seconding blocked on parent being seconded: {0}")]
+	BlockedOnParent(Hash),
 }
 
 impl SecondingError {
 	/// Returns true if an error indicates that a peer is malicious.
 	pub fn is_malicious(&self) -> bool {
 		use SecondingError::*;
-		matches!(
-			self,
+		match self {
 			PersistedValidationDataMismatch |
-				CandidateHashMismatch |
-				RelayParentMismatch |
-				ParentHeadDataMismatch |
-				InvalidCoreIndex(_, _) |
-				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
-		)
+			CandidateHashMismatch |
+			RelayParentMismatch |
+			ParentHeadDataMismatch |
+			InvalidCoreIndex(_, _) |
+			InvalidSessionIndex(_, _) |
+			InvalidReceiptVersion(_) => true,
+			ParaIdMismatch => true,
+			_ => false,
+		}
 	}
 }
 
