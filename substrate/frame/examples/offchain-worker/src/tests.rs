@@ -131,14 +131,14 @@ where
 }
 
 parameter_types! {
-	pub const UnsignedPriority: u64 = 1 << 20;
+	pub const AuthorizedTxPriority: u64 = 1 << 20;
 }
 
 impl Config for Test {
 	type AuthorityId = crypto::TestAuthId;
 	type GracePeriod = ConstU64<5>;
-	type UnsignedInterval = ConstU64<128>;
-	type UnsignedPriority = UnsignedPriority;
+	type AuthorizedTxInterval = ConstU64<128>;
+	type AuthorizedTxPriority = AuthorizedTxPriority;
 	type MaxPrices = ConstU32<64>;
 }
 
@@ -281,13 +281,13 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 	// let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
 	t.execute_with(|| {
 		// when
-		Example::fetch_price_and_send_unsigned_for_any_account(1).unwrap();
+		Example::fetch_price_and_send_authorized_tx_for_any_account(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
 		// General transactions are neither inherent nor signed (old-school)
 		assert!(!tx.is_inherent() && !tx.is_signed());
-		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
+		if let RuntimeCall::Example(crate::Call::submit_price_authorized_with_signed_payload {
 			price_payload: body,
 			signature,
 		}) = tx.function
@@ -337,13 +337,13 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 	// let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
 	t.execute_with(|| {
 		// when
-		Example::fetch_price_and_send_unsigned_for_all_accounts(1).unwrap();
+		Example::fetch_price_and_send_authorized_tx_for_all_accounts(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
 		// General transactions are neither inherent nor signed (old-school)
 		assert!(!tx.is_inherent() && !tx.is_signed());
-		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
+		if let RuntimeCall::Example(crate::Call::submit_price_authorized_with_signed_payload {
 			price_payload: body,
 			signature,
 		}) = tx.function
@@ -378,7 +378,7 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 
 	t.execute_with(|| {
 		// when
-		Example::fetch_price_and_send_raw_unsigned(1).unwrap();
+		Example::fetch_price_and_send_raw_authorized(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
@@ -387,7 +387,7 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 		assert!(!tx.is_inherent() && !tx.is_signed());
 		assert_eq!(
 			tx.function,
-			RuntimeCall::Example(crate::Call::submit_price_unsigned {
+			RuntimeCall::Example(crate::Call::submit_price_authorized {
 				block_number: 1,
 				price: 15523
 			})
