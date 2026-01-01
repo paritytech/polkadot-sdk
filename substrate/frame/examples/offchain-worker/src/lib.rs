@@ -60,8 +60,8 @@ use frame_support::{traits::Get, weights::Weight};
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction, SendSignedTransaction,
-		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction,
+		SendSignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -287,8 +287,6 @@ pub mod pallet {
 			_block_number: BlockNumberFor<T>,
 			price: u32,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction
-			// after being validated in `pallet::authorize`.
 			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price);
@@ -320,8 +318,6 @@ pub mod pallet {
 			price_payload: PricePayload<T::Public, BlockNumberFor<T>>,
 			_signature: T::Signature,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction
-			// after being validated in `pallet::authorize`.
 			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price_payload.price);
@@ -538,17 +534,39 @@ impl<T: Config> Pallet<T> {
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// -- Sign using any account
-		let (_, result) = Signer::<T, T::AuthorityId>::any_account()
-			.send_unsigned_transaction(
-				|account| PricePayload { price, block_number, public: account.public.clone() },
-				|payload, signature| Call::submit_price_unsigned_with_signed_payload {
-					price_payload: payload,
-					signature,
-				},
-			)
-			.ok_or("No local accounts accounts available.")?;
-		result.map_err(|()| "Unable to submit transaction")?;
+		// -- Sign using any account and create an authorized transaction
+		let signer = Signer::<T, T::AuthorityId>::any_account();
+
+		// Get the first available account
+		let account = signer
+			.accounts_from_keys()
+			.next()
+			.ok_or("No local accounts available.")?;
+
+		// Create the payload to sign
+		let payload = PricePayload {
+			price,
+			block_number,
+			public: account.public.clone(),
+		};
+
+		// Sign the payload
+		let signature = <PricePayload<
+			<T as SigningTypes>::Public,
+			BlockNumberFor<T>,
+		> as SignedPayload<T>>::sign::<T::AuthorityId>(&payload)
+			.ok_or("Failed to sign payload")?;
+
+		// Create the call with the signed payload
+		let call = Call::submit_price_unsigned_with_signed_payload {
+			price_payload: payload,
+			signature,
+		};
+
+		// Create an authorized transaction and submit it
+		let xt = T::create_authorized_transaction(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
+			.map_err(|()| "Unable to submit transaction")?;
 
 		Ok(())
 	}
@@ -568,19 +586,35 @@ impl<T: Config> Pallet<T> {
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// -- Sign using all accounts
-		let transaction_results = Signer::<T, T::AuthorityId>::all_accounts()
-			.send_unsigned_transaction(
-				|account| PricePayload { price, block_number, public: account.public.clone() },
-				|payload, signature| Call::submit_price_unsigned_with_signed_payload {
-					price_payload: payload,
-					signature,
-				},
-			);
-		for (_account_id, result) in transaction_results.into_iter() {
-			if result.is_err() {
-				return Err("Unable to submit transaction")
-			}
+		// -- Sign using all accounts and create authorized transactions
+		let signer = Signer::<T, T::AuthorityId>::all_accounts();
+
+		// Iterate over all available accounts
+		for account in signer.accounts_from_keys() {
+			// Create the payload to sign
+			let payload = PricePayload {
+				price,
+				block_number,
+				public: account.public.clone(),
+			};
+
+			// Sign the payload
+			let signature = <PricePayload<
+				<T as SigningTypes>::Public,
+				BlockNumberFor<T>,
+			> as SignedPayload<T>>::sign::<T::AuthorityId>(&payload)
+				.ok_or("Failed to sign payload")?;
+
+			// Create the call with the signed payload
+			let call = Call::submit_price_unsigned_with_signed_payload {
+				price_payload: payload,
+				signature,
+			};
+
+			// Create an authorized transaction and submit it
+			let xt = T::create_authorized_transaction(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
+				.map_err(|()| "Unable to submit transaction")?;
 		}
 
 		Ok(())

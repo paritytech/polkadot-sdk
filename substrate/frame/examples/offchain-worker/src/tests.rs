@@ -121,12 +121,12 @@ where
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	fn create_extension() -> Self::Extension {
+		()
 	}
 }
 
@@ -285,7 +285,8 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert!(tx.is_inherent());
+		// General transactions are neither inherent nor signed (old-school)
+		assert!(!tx.is_inherent() && !tx.is_signed());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
@@ -340,7 +341,8 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert!(tx.is_inherent());
+		// General transactions are neither inherent nor signed (old-school)
+		assert!(!tx.is_inherent() && !tx.is_signed());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
@@ -381,7 +383,8 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert!(tx.is_inherent());
+		// General transactions are neither inherent nor signed (old-school)
+		assert!(!tx.is_inherent() && !tx.is_signed());
 		assert_eq!(
 			tx.function,
 			RuntimeCall::Example(crate::Call::submit_price_unsigned {
