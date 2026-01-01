@@ -409,7 +409,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		_ => Default::default(),
 	};
 
-	trace!(target: LOG_TARGET, "Starting import of {} blocks {}", count, blocks_range);
+	debug!(target: LOG_TARGET, "Starting import of {count} blocks {blocks_range} (origin: {blocks_origin:?})");
 
 	let mut imported = 0;
 	let mut results = vec![];
@@ -423,6 +423,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			Some(b) => b,
 			None => {
 				// No block left to import, success!
+				debug!(target: LOG_TARGET, "Imported {imported} out of {count} blocks (origin: {blocks_origin:?})");
 				return ImportManyBlocksResult { block_count: count, imported, results }
 			},
 		};
