@@ -111,7 +111,7 @@ impl<B: BlockT> InformantDisplay<B> {
 					let progress_text = if let Some(ref status) = warp.status {
 						format!(" {status}, {total_mib:.2} Mib")
 					} else {
-						format!(" {:.2} Mib", total_mib)
+						format!(" {total_mib:.2} Mib")
 					};
 
 					("⏩", "Warping".into(), progress_text)
