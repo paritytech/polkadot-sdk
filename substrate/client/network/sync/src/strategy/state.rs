@@ -324,9 +324,9 @@ impl<B: BlockT> StateStrategy<B> {
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		for (peer_id, peer) in self.peers.iter_mut() {
-			if peer.state.is_available()
-				&& peer.best_number >= threshold
-				&& self.disconnected_peers.is_peer_available(peer_id)
+			if peer.state.is_available() &&
+				peer.best_number >= threshold &&
+				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
 				return Some(*peer_id);

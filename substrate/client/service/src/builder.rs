@@ -119,9 +119,8 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } => {
-				LocalKeystore::open(path.clone(), password.clone())?
-			},
+			KeystoreConfig::Path { path, password } =>
+				LocalKeystore::open(path.clone(), password.clone())?,
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -881,8 +880,8 @@ where
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
 	// - block pruning in archive mode: The block's body is kept around
-	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false)
-		&& blocks_pruning.is_archive();
+	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
+		blocks_pruning.is_archive();
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	if is_archive_node {
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
@@ -1045,8 +1044,8 @@ where
 			&mut net_config,
 			network_service_provider.handle(),
 			Arc::clone(&client),
-			config.network.default_peers_set.in_peers as usize
-				+ config.network.default_peers_set.out_peers as usize,
+			config.network.default_peers_set.in_peers as usize +
+				config.network.default_peers_set.out_peers as usize,
 			&spawn_handle,
 		),
 	};
@@ -1469,9 +1468,8 @@ where
 
 	if client.requires_full_sync() {
 		match net_config.network_config.sync_mode {
-			SyncMode::LightState { .. } => {
-				return Err("Fast sync doesn't work for archive nodes".into())
-			},
+			SyncMode::LightState { .. } =>
+				return Err("Fast sync doesn't work for archive nodes".into()),
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
@@ -1480,8 +1478,8 @@ where
 	let genesis_hash = client.info().genesis_hash;
 
 	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize
-			+ net_config.network_config.default_peers_set.reserved_nodes.len();
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
+			net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) =
 			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);

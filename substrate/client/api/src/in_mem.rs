@@ -205,10 +205,10 @@ impl<Block: BlockT> Blockchain<Block> {
 		}
 		let this = self.storage.read();
 		let other = other.storage.read();
-		this.hashes == other.hashes
-			&& this.best_hash == other.best_hash
-			&& this.best_number == other.best_number
-			&& this.genesis_hash == other.genesis_hash
+		this.hashes == other.hashes &&
+			this.best_hash == other.best_hash &&
+			this.best_number == other.best_number &&
+			this.genesis_hash == other.genesis_hash
 	}
 
 	/// Insert header CHT root.

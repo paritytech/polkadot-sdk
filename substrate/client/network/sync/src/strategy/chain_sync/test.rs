@@ -213,9 +213,9 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// the justification request should be scheduled to the
 	// new peer which is at the given block
 	assert!(sync.justification_requests().iter().any(|(p, r)| {
-		*p == peer_id3
-			&& r.fields == BlockAttributes::JUSTIFICATION
-			&& r.from == FromBlock::Hash(b1_hash)
+		*p == peer_id3 &&
+			r.fields == BlockAttributes::JUSTIFICATION &&
+			r.from == FromBlock::Hash(b1_hash)
 	}));
 
 	assert_eq!(

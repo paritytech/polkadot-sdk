@@ -200,9 +200,9 @@ impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
 		match self {
-			StateAction::ApplyChanges(_)
-			| StateAction::Execute
-			| StateAction::ExecuteIfPossible => false,
+			StateAction::ApplyChanges(_) |
+			StateAction::Execute |
+			StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
 		}
 	}

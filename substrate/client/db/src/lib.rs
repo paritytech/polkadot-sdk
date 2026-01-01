@@ -2432,7 +2432,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		// This ensures all trie nodes are present and correctly linked.
 		log::info!(target: "state", "Verifying trie integrity by traversing all entries...");
 
-		let trie_backend = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root).build();
+		let trie_backend =
+			DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root).build();
 
 		// Iterate through all key-value pairs - this will fail if any trie node is missing
 		let mut key_count = 0u64;

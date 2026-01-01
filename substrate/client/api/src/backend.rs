@@ -660,8 +660,8 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	///
 	/// This is called after incremental state sync to:
 	/// 1. Verify the state root node exists in the database
-	/// 2. Mark `commit_state = true` on the operation so that `finalized_state`
-	///    is properly set when the block is finalized
+	/// 2. Mark `commit_state = true` on the operation so that `finalized_state` is properly set
+	///    when the block is finalized
 	fn finalize_state_sync(
 		&self,
 		root: Block::Hash,

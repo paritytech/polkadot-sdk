@@ -577,9 +577,9 @@ where
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
-		if status == blockchain::BlockStatus::Unknown
-			&& *import_headers.post().number() <= info.finalized_number
-			&& !gap_block
+		if status == blockchain::BlockStatus::Unknown &&
+			*import_headers.post().number() <= info.finalized_number &&
+			!gap_block
 		{
 			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
@@ -588,9 +588,8 @@ where
 		// but the general goal is to only make notifications when we are already fully synced
 		// and get a new chain head.
 		let make_notifications = match origin {
-			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
-				true
-			},
+			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
+				true,
 			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
 		};
 
@@ -671,12 +670,11 @@ where
 			)?;
 		}
 
-		let is_new_best = !gap_block
-			&& (finalized
-				|| match fork_choice {
-					ForkChoiceStrategy::LongestChain => {
-						import_headers.post().number() > &info.best_number
-					},
+		let is_new_best = !gap_block &&
+			(finalized ||
+				match fork_choice {
+					ForkChoiceStrategy::LongestChain =>
+						import_headers.post().number() > &info.best_number,
 					ForkChoiceStrategy::Custom(v) => v,
 				});
 
@@ -795,21 +793,18 @@ where
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
 		{
-			(BlockStatus::KnownBad, _) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad))
-			},
+			(BlockStatus::KnownBad, _) =>
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad)),
 			(
 				BlockStatus::InChainPruned,
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(BlockStatus::Unknown, _) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
-			},
+			(BlockStatus::Unknown, _) =>
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
 			(_, StateAction::Skip) => (false, None),
-			(BlockStatus::InChainPruned, StateAction::Execute) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
-			},
+			(BlockStatus::InChainPruned, StateAction::Execute) =>
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
 			(_, StateAction::Execute) => (true, None),
 			(_, StateAction::ExecuteIfPossible) => (true, None),
@@ -1108,13 +1103,12 @@ where
 
 		let hash_and_number = self.backend.blockchain().number(hash)?.map(|n| (hash, n));
 		match hash_and_number {
-			Some((hash, number)) => {
+			Some((hash, number)) =>
 				if self.backend.have_state_at(hash, number) {
 					Ok(BlockStatus::InChainWithState)
 				} else {
 					Ok(BlockStatus::InChainPruned)
-				}
-			},
+				},
 			None => Ok(BlockStatus::Unknown),
 		}
 	}
@@ -1196,9 +1190,8 @@ where
 					let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
 					let storage_key = match ChildType::from_prefixed_key(storage_key) {
 						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-						None => {
-							return Err(Error::Backend("Invalid child storage key.".to_string()))
-						},
+						None =>
+							return Err(Error::Backend("Invalid child storage key.".to_string())),
 					};
 					let entry = storage
 						.children_default
@@ -1306,9 +1299,8 @@ where
 		let child_info = |storage_key: &Vec<u8>| -> sp_blockchain::Result<ChildInfo> {
 			let storage_key = PrefixedStorageKey::new_ref(storage_key);
 			match ChildType::from_prefixed_key(storage_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => {
-					Ok(ChildInfo::new_default(storage_key))
-				},
+				Some((ChildType::ParentKeyId, storage_key)) =>
+					Ok(ChildInfo::new_default(storage_key)),
 				None => Err(Error::Backend("Invalid child storage key.".to_string())),
 			}
 		};
@@ -1368,9 +1360,9 @@ where
 				}
 				total_size += size;
 
-				if current_child.is_none()
-					&& sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice())
-					&& !child_roots.contains(value.as_slice())
+				if current_child.is_none() &&
+					sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice()) &&
+					!child_roots.contains(value.as_slice())
 				{
 					child_roots.insert(value.clone());
 					switch_child_key = Some((next_key.clone(), value.clone()));
@@ -1474,16 +1466,12 @@ where
 			}
 		}
 
-		let recorded_nodes: Arc<Mutex<Vec<(Vec<u8>, Vec<u8>)>>> =
-			Arc::new(Mutex::new(Vec::new()));
-		let recording_db = RecordingDb::<HashingFor<Block>> {
-			inner: db,
-			recorded: recorded_nodes.clone(),
-		};
+		let recorded_nodes: Arc<Mutex<Vec<(Vec<u8>, Vec<u8>)>>> = Arc::new(Mutex::new(Vec::new()));
+		let recording_db =
+			RecordingDb::<HashingFor<Block>> { inner: db, recorded: recorded_nodes.clone() };
 
 		// Build a trie backend with the recording wrapper
-		let proving_backend =
-			sp_state_machine::TrieBackendBuilder::new(recording_db, root).build();
+		let proving_backend = sp_state_machine::TrieBackendBuilder::new(recording_db, root).build();
 
 		// Iterate through all key-value pairs to access all trie nodes.
 		// This records each node with the correct prefix as determined by trie traversal.
@@ -1901,12 +1889,10 @@ where
 			.block_status(hash)
 			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 		{
-			BlockStatus::InChainWithState | BlockStatus::Queued => {
-				return Ok(ImportResult::AlreadyInChain)
-			},
-			BlockStatus::InChainPruned if !import_existing => {
-				return Ok(ImportResult::AlreadyInChain)
-			},
+			BlockStatus::InChainWithState | BlockStatus::Queued =>
+				return Ok(ImportResult::AlreadyInChain),
+			BlockStatus::InChainPruned if !import_existing =>
+				return Ok(ImportResult::AlreadyInChain),
 			BlockStatus::InChainPruned => {},
 			BlockStatus::Unknown => {},
 			BlockStatus::KnownBad => return Ok(ImportResult::KnownBad),
@@ -2072,9 +2058,8 @@ where
 
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>> {
 		Ok(match (self.header(hash)?, self.body(hash)?, self.justifications(hash)?) {
-			(Some(header), Some(extrinsics), justifications) => {
-				Some(SignedBlock { block: Block::new(header, extrinsics), justifications })
-			},
+			(Some(header), Some(extrinsics), justifications) =>
+				Some(SignedBlock { block: Block::new(header, extrinsics), justifications }),
 			_ => None,
 		})
 	}
