@@ -2,7 +2,7 @@ title: 'libp2p: Register bitswap protocol'
 doc:
 - audience: Node Dev
   description: |-
-    Right now we only register the protocol properly for litep2p. What I don't get, why do we need the extra `bitswap_config` field and not just register the protocol directly as req-resp protocol.
+    Ensure we register bitswap protocol config when using libp2p.
 crates:
 - name: sc-network
   bump: patch
