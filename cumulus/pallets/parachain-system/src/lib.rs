@@ -263,6 +263,27 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Enable V3 scheduling validation for candidates.
+		///
+		/// When enabled, this changes how building on older relay parents is enforced:
+		/// - The old `relay_parent_descendants` validation in the inherent is disabled
+		/// - V3 scheduling validation is used instead, with the header chain provided
+		///   via PVF parameters
+		///
+		/// # Migration Guide
+		///
+		/// Before enabling this:
+		/// 1. Ensure all collators are updated to a version that supports V3 candidates
+		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled
+		/// 3. Enable this config option via a runtime upgrade
+		///
+		/// Once enabled, collators will:
+		/// - Stop providing `relay_parent_descendants` in the inherent (empty vec)
+		/// - Provide the header chain via V3 extension in PVF parameters
+		///
+		/// The `RelayParentOffset` config continues to define the header chain length.
+		type SchedulingV3Enabled: Get<bool>;
 	}
 
 	#[pallet::hooks]
@@ -611,9 +632,16 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
-			let expected_rp_descendants_num = T::RelayParentOffset::get();
 
-			if expected_rp_descendants_num > 0 {
+
+			// Relay parent offset validation:
+			// When SchedulingV3Enabled is false: validate relay_parent_descendants (old mechanism)
+			// When SchedulingV3Enabled is true: skip this validation, V3 scheduling validation
+			// happens in validate_block with header chain from PVF params
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+			let v3_enabled = T::SchedulingV3Enabled::get();
+
+			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
@@ -627,6 +655,8 @@ pub mod pallet {
 					);
 				};
 			}
+
+
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =

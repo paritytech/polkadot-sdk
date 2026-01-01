@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -77,12 +77,64 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
+		extension,
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+
+	// Decode block data first - we need it for both scheduling validation and block execution
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
+		.expect("Invalid parachain block data");
+
+	// V3 scheduling validation.
+	// Behavior depends on SchedulingV3Enabled config:
+	// - If V3 disabled: extension should be None (V1/V2 candidates), POV should be V0/V1
+	// - If V3 enabled: extension must be present, POV must be V2 with scheduling_proof
+	let v3_enabled = PSC::SchedulingV3Enabled::get();
+	let _validated_scheduling = match (v3_enabled, &extension.0) {
+		(false, None) => {
+			// V3 disabled and no extension: normal V1/V2 path
+			None
+		},
+		(false, Some(_)) => {
+			// V3 disabled but extension present: this should not happen
+			// The relay chain should not send V3 candidates to parachains that have not enabled it
+			panic!("V3 extension present but SchedulingV3Enabled is false. \
+				Ensure collators and runtime are in sync.");
+		},
+		(true, None) => {
+			// V3 enabled but no extension: candidates must be V3
+			panic!("SchedulingV3Enabled is true but no V3 extension present. \
+				Collators must provide V3 candidates when V3 is enabled.");
+		},
+		(true, Some(polkadot_parachain_primitives::primitives::ValidationParamsExtension::V3 {
+			relay_parent,
+			scheduling_parent,
+		})) => {
+			// V3 enabled and extension present: validate scheduling
+			// Get scheduling proof from POV (must be V2)
+			let scheduling_proof = block_data.scheduling_proof()
+				.expect("V3 candidates require ParachainBlockData::V2 with scheduling_proof");
+
+			let header_chain_length = PSC::RelayParentOffset::get();
+
+			match scheduling::validate_scheduling(
+				scheduling_proof,
+				*relay_parent,
+				*scheduling_parent,
+				header_chain_length,
+			) {
+				Ok(result) => Some(result),
+				Err(e) => panic!("V3 scheduling validation failed: {:?}", e),
+			}
+		},
+	};
+
+
+
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -124,8 +176,6 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
-		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
