@@ -96,6 +96,7 @@ jobs:
     uses: ./.github/workflows/release-41_publish-rpm-package.yml
     with:
       tag: ${{ inputs.release_tag }}
+      distribution: ${{ inputs.distribution }}
     secrets: inherit
 
   # ==============================================
