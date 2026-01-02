@@ -1,0 +1,10 @@
+title: Make BEEFY aware of duplicated authorities
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Added a mechanism to count duplicated authorities as non-equal weight votes.
+    This change is modifying underlying BEEFY auxiliary storage structure, so node needs to resync DB.
+
+crates:
+- name: sc-consensus-beefy
+  bump: major

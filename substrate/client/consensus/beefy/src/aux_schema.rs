@@ -29,7 +29,7 @@ use sp_runtime::traits::Block as BlockT;
 const VERSION_KEY: &[u8] = b"beefy_auxschema_version";
 const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 
-const CURRENT_VERSION: u32 = 4;
+const CURRENT_VERSION: u32 = 5;
 
 pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
 	debug!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
@@ -68,10 +68,10 @@ where
 	match version {
 		None => (),
 
-		Some(v) if 1 <= v && v <= 3 =>
-		// versions 1, 2 & 3 are obsolete and should be ignored
+		Some(v) if 1 <= v && v <= 4 =>
+		// versions 1, 2, 3 & 4 are obsolete and should be ignored
 			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring..."),
-		Some(4) =>
+		Some(5) =>
 			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY),
 		other =>
 			return Err(ClientError::Backend(format!("Unsupported BEEFY DB version: {:?}", other))),
