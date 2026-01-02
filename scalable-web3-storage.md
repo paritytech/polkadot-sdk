@@ -59,6 +59,8 @@ Filecoin has evolved: [Proof of Data Possession (PDP)](https://filecoin.io/blog/
 
 IPFS allows fast writes (just send data to a node), but provides no guarantee the data will persist. The node can drop it immediately or refuse to accept it.
 
+Note here: I would consider the traditional Filecoin approach (which includes the Polkadot based Eiger implementation) completely unsuited for our needs. It is too slow and too heavy (32GB sectors) to serve hot storage demanded by interactive applications.
+
 ### The Storage Problem
 
 Proving that data is stored is expensive. Filecoin uses Proof-of-Replication (PoRep) and Proof-of-Spacetime (PoSt), requiring continuous on-chain proofs. Every 24 hours, every sector must be proven. This creates enormous chain load and operational complexity for storage providers.
@@ -97,15 +99,15 @@ For IPFS, "seconds" is the happy path—when content is found. DHT lookups can f
 
 ## Goals
 
-1. **Write without consensus.** Data writes should not touch the chain. A user sending an image in a chat should experience sub-second latency with no on-chain transaction.
+1. **Write without consensus.** Data writes should not touch the chain. A user sending an image in a chat should experience sub-second latency with no on-chain transaction. On-chain transactions may be used to achieve consensus, where necessary.
 
-2. **Optional, efficient storage guarantees.** Not all data needs the same guarantees. Ephemeral chat images don't need on-chain contracts. Critical backups do. The system should support both, with chain interaction only when guarantees are requested.
+2. **Optional, efficient storage guarantees.** Not all data needs the same guarantees. Ephemeral chat images don't need strong guarantees. Critical backups do. Users pay for what they need.
 
 3. **Incentivized reads.** Providers must be economically motivated to serve data quickly, not just prove they have it. Read performance should improve with competition, not degrade with scale.
 
 4. **Accountable providers.** When a provider commits to storing data, that commitment must be enforceable. Cheating must be detectable and punishable without requiring continuous on-chain proofs.
 
-5. **Permissionless participation.** Anyone can become a storage provider or cache. No gatekeepers, no special hardware requirements beyond storage capacity.
+5. **Permissionless participation.** Anyone can become a storage provider. No gatekeepers, no special hardware requirements beyond storage capacity.
 
 ---
 
@@ -115,7 +117,7 @@ For IPFS, "seconds" is the happy path—when content is found. DHT lookups can f
 
 **Permanent storage.** Unlike Arweave, we do not aim for "store once, available forever." Storage has a duration, contracts have terms. This is a feature: it allows for deletion, reduces costs, and matches how most applications actually use storage.
 
-**Privacy at the protocol level.** Private data is encrypted data. The storage layer sees opaque bytes. Key management, access control, and encryption are application-layer concerns. Future versions could add access control hints (e.g., "only serve to these credentials"), but enforcement ultimately relies on encryption—a provider can always be curious. For now, we keep it simple: bytes are bytes.
+**Privacy at the protocol level.** Private data is encrypted data. The storage layer sees opaque bytes. Key management, access control, and encryption are application-layer concerns. In addition (not to be relied upon), we do introduce permissions and if read is restricted, storage providers should only serve data to clients listed with read permissions in the bucket. Obviously this can't be enforced, so for truly private data this should only be used in addition to encryption.
 
 ---
 
@@ -144,16 +146,6 @@ The design separates writes, storage, and reads into independent layers, connect
 │   │   Client    │ ───────────────> │  Provider   │                  │
 │   │             │ <─────────────── │             │                  │
 │   └─────────────┘      reads       └─────────────┘                  │
-│          │                               │                          │
-│          │ discovery                     │ announce                 │
-│          ▼                               ▼                          │
-│   ┌─────────────────────────────────────────────────┐               │
-│   │              Indexers / DHT                     │               │
-│   └─────────────────────────────────────────────────┘               │
-│                                                                     │
-│   ┌─────────────────────────────────────────────────┐               │
-│   │              Caches (anyone)                    │               │
-│   └─────────────────────────────────────────────────┘               │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                     ▲
@@ -176,12 +168,6 @@ A typical write-then-read flow, showing what touches the chain:
 Timeline:
 ═════════════════════════════════════════════════════════════════════
 
-t=-       Client discovers provider
-          • Query indexer for providers accepting writes TODO: Really?
-          • Or: use known/bookmarked provider
-          • Or: query DHT for nearby providers
-          Chain: read (verify provider's Proof-of-DOT, stake, bytes stored)
-
 t=0ms     Client writes chunks to provider
           • Off-chain, direct connection
           • Provider stores locally
@@ -195,7 +181,8 @@ t=100ms   Data is readable
 
 t=1hour   Provider batches many writes, commits MMR root
           • Optional: only if client requested availability guarantee
-          • One transaction covers thousands of writes
+          • One transaction can cover thousands of writes
+          • Even availability guarantees don't strictly need the chain, but it is a good means to achieve consensus, especially when multiple storage providers are used
           Chain: one commit transaction (batched)
 
 t=1week   Client wants to verify data still exists
@@ -210,7 +197,7 @@ t=never   Dispute (only if provider cheats)
           Chain: dispute transaction (rare, expensive, avoided)
 ```
 
-The key insight: the chain exists as a credible threat, not as the happy path. Rational providers serve data directly because the alternative (on-chain dispute) is expensive for everyone and catastrophic for cheaters.
+The chain exists as a credible threat, not as the happy path. Rational providers serve data directly because the alternative (on-chain dispute) is expensive for everyone and catastrophic for cheaters.
 
 ---
 
@@ -255,7 +242,7 @@ Every write follows the same path:
 
 The `bucket_id` is optional:
 - **With bucket:** References an on-chain bucket with stake, duration, and slashing terms. Full economic guarantee.
-- **Without contract (`None`):** Best-effort storage. Provider serves based on reputation and payment priority. No slashing, but the signed commitment still proves the provider accepted the data.
+- **Without contract (`None`):** Optional and best-effort storage. Provider serves based on reputation and payment priority. No slashing, but the signed commitment still proves the provider accepted the data.
 
 ### Provider Terms
 

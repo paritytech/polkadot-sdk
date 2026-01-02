@@ -1124,6 +1124,16 @@ otherwise our acknowledgments can be abused for censorship: The previous block
 author could not submit any collation on purpose, leaving the whole work to
 us—in our slot, resulting in perfect censorship.
 
+Note that same-slot redundant submission remains straightforward with the
+separate scheduling entry point: the header chain has a fixed length defined by
+the parachain runtime, so for initial submission the internal scheduling parent
+equals the relay parent. The block producer is thus authorized via the existing
+block digest mechanism—no additional signed data is required. The only external
+data needed is the header chain itself, which consists of unsigned relay chain
+headers that any collator can provide. Signed scheduling information from a
+different collator only becomes necessary on resubmission in a later slot, when
+the internal scheduling parent has moved beyond the relay parent.
+
 ### Rewards
 
 Rewards for timely acknowledgments: Given that the relay chain forces us
