@@ -107,6 +107,7 @@ impl pallet_referenda::Config for Runtime {
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type MaxDepositContributions = ConstU32<3>;
 }
 
 parameter_types! {
