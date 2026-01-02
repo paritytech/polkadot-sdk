@@ -45,7 +45,6 @@ use sc_network::{
 	utils::{interval, LruHashSet},
 	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
-use sc_network_common::role::ObservedRole;
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
@@ -292,7 +291,6 @@ pub struct StatementHandler<
 struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
-	role: ObservedRole,
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -330,7 +328,7 @@ where
 				}
 				event = self.notification_service.next_event().fuse() => {
 					if let Some(event) = event {
-						self.handle_notification_event(event)
+						self.handle_notification_event(event).await
 					} else {
 						// `Notifications` has seemingly closed. Closing as well.
 						return
@@ -365,7 +363,7 @@ where
 		}
 	}
 
-	fn handle_notification_event(&mut self, event: NotificationEvent) {
+	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
 				// only accept peers whose role can be determined
@@ -375,22 +373,22 @@ where
 					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
 				let _ = result_tx.send(result);
 			},
-			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
-				let Some(role) = self.network.peer_role(peer, handshake) else {
-					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
-					return
-				};
-
+			NotificationEvent::NotificationStreamOpened { peer, .. } => {
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
 						known_statements: LruHashSet::new(
 							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
 						),
-						role,
 					},
 				);
 				debug_assert!(_was_in.is_none());
+
+				if !self.sync.is_major_syncing() {
+					if let Ok(statements) = self.statement_store.statements() {
+						self.send_statements_to_peer(&peer, &statements).await;
+					}
+				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				let _peer = self.peers.remove(&peer);
@@ -521,72 +519,83 @@ where
 		}
 	}
 
-	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
-		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
-		for (who, peer) in self.peers.iter_mut() {
-			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
+	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+		let Some(peer) = self.peers.get_mut(who) else {
+			return;
+		};
 
-			let to_send = statements
-				.iter()
-				.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
-				.collect::<Vec<_>>();
-			log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
+		let to_send = statements
+			.iter()
+			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
+			.collect::<Vec<_>>();
+		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
-			let mut offset = 0;
-			while offset < to_send.len() {
-				// Try to send as many statements as possible in one notification
-				let mut current_end = to_send.len();
-				log::trace!(target: LOG_TARGET, "Looking for better chunk size");
+		if to_send.is_empty() {
+			return
+		}
 
-				loop {
-					let chunk = &to_send[offset..current_end];
-					let encoded_size = chunk.encoded_size();
-					log::trace!(target: LOG_TARGET, "Chunk: {} statements, {} KB", chunk.len(), encoded_size / 1024);
+		let mut offset = 0;
+		while offset < to_send.len() {
+			// Try to send as many statements as possible in one notification
+			let mut current_end = to_send.len();
+			log::trace!(target: LOG_TARGET, "Looking for better chunk size");
 
-					// If chunk fits, send it
-					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-						if let Err(e) = timeout(
-							SEND_TIMEOUT,
-							self.notification_service.send_async_notification(who, chunk.encode()),
-						)
-						.await
-						{
-							log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected, skipping further batches: {:?}", who, e);
-							offset = to_send.len();
-							break;
-						}
-						offset = current_end;
-						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
-						self.metrics.as_ref().map(|metrics| {
-							metrics.propagated_statements.inc_by(chunk.len() as u64);
-							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
-						});
+			loop {
+				let chunk = &to_send[offset..current_end];
+				let encoded_size = chunk.encoded_size();
+				log::trace!(target: LOG_TARGET, "Chunk: {} statements, {} KB", chunk.len(), encoded_size / 1024);
+
+				// If chunk fits, send it
+				if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+					if let Err(e) = timeout(
+						SEND_TIMEOUT,
+						self.notification_service.send_async_notification(who, chunk.encode()),
+					)
+					.await
+					{
+						log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected, skipping further batches: {:?}", who, e);
+						offset = to_send.len();
 						break;
 					}
-
-					// Size exceeded - split the chunk
-					let split_factor =
-						(encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-					let mut new_chunk_size = (current_end - offset) / split_factor;
-
-					// Single statement is too large
-					if new_chunk_size == 0 {
-						if chunk.len() == 1 {
-							log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
-							self.metrics.as_ref().map(|metrics| {
-								metrics.skipped_oversized_statements.inc();
-							});
-							offset = current_end;
-							break;
-						}
-						// Don't skip more than one statement at once
-						new_chunk_size = 1;
-					}
-
-					// Reduce chunk size and try again
-					current_end = offset + new_chunk_size;
+					offset = current_end;
+					log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
+					self.metrics.as_ref().map(|metrics| {
+						metrics.propagated_statements.inc_by(chunk.len() as u64);
+						metrics.propagated_statements_chunks.observe(chunk.len() as f64);
+					});
+					break;
 				}
+
+				// Size exceeded - split the chunk
+				let split_factor = (encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
+				let mut new_chunk_size = (current_end - offset) / split_factor;
+
+				// Single statement is too large
+				if new_chunk_size == 0 {
+					if chunk.len() == 1 {
+						log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
+						self.metrics.as_ref().map(|metrics| {
+							metrics.skipped_oversized_statements.inc();
+						});
+						offset = current_end;
+						break;
+					}
+					// Don't skip more than one statement at once
+					new_chunk_size = 1;
+				}
+
+				// Reduce chunk size and try again
+				current_end = offset + new_chunk_size;
 			}
+		}
+	}
+
+	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
+		let peers: Vec<_> = self.peers.keys().copied().collect();
+		for who in peers {
+			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
+			self.send_statements_to_peer(&who, statements).await;
 		}
 		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
 	}
@@ -923,10 +932,7 @@ mod tests {
 		let mut peers = HashMap::new();
 		peers.insert(
 			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
-				role: ObservedRole::Full,
-			},
+			Peer { known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()) },
 		);
 
 		let handler = StatementHandler {
