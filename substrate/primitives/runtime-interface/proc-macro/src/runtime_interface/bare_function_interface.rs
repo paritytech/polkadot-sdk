@@ -41,7 +41,7 @@ use syn::{
 
 use proc_macro2::{Span, TokenStream};
 
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 
 use std::iter;
 
@@ -68,6 +68,13 @@ pub fn generate(trait_def: &ItemTrait, is_wasm_only: bool, tracing: bool) -> Res
 				t.extend(function_std_impl(trait_name, method, version, is_wasm_only, tracing)?);
 				Ok(t)
 			});
+
+	// wrappers
+	let result: Result<TokenStream> =
+		runtime_interface.wrappers().try_fold(result?, |mut t, (name, wrapper)| {
+			t.extend(function_wrapper_impl(name, wrapper));
+			Ok(t)
+		});
 
 	result
 }
@@ -96,10 +103,18 @@ fn function_no_std_impl(
 	is_wasm_only: bool,
 ) -> Result<TokenStream> {
 	let should_trap_on_return = method.should_trap_on_return();
+	let is_wrapped = method.is_wrapped();
 	let mut method = (*method).clone();
 	crate::utils::unpack_inner_types_in_signature(&mut method.sig);
 
-	let function_name = &method.sig.ident;
+	let (function_name, maybe_allow_non_snake) = if is_wrapped {
+		(
+			Ident::new(&format!("{}__wrapped", &method.sig.ident), method.sig.ident.span()),
+			quote! { #[allow(non_snake_case)] },
+		)
+	} else {
+		(method.sig.ident.clone(), quote! {})
+	};
 	let host_function_name = create_exchangeable_host_function_ident(&method.sig.ident);
 	let args = get_function_arguments(&method.sig);
 	let arg_names = get_function_argument_names(&method.sig);
@@ -136,6 +151,7 @@ fn function_no_std_impl(
 		#cfg_wasm_only
 		#[cfg(substrate_runtime)]
 		#( #attrs )*
+		#maybe_allow_non_snake
 		pub fn #function_name( #( #args, )* ) #return_value {
 			// Call the host function
 			#host_function_name.get()( #( #arg_names, )* )
@@ -144,11 +160,40 @@ fn function_no_std_impl(
 	})
 }
 
+fn function_wrapper_impl(name: &Ident, wrapper: &TraitItemFn) -> Result<TokenStream> {
+	let attrs = wrapper
+		.attrs
+		.iter()
+		.filter(|a| !a.path().is_ident("wrapper"))
+		.collect::<Vec<_>>();
+	let args = get_function_arguments(&wrapper.sig);
+	let return_value = &wrapper.sig.output;
+	let body = wrapper.default.as_ref().expect("wrapper must have a body").to_token_stream();
+
+	Ok(quote_spanned! { wrapper.span() =>
+		#( #attrs )*
+		pub fn #name( #( #args, )* ) #return_value {
+			#body
+		}
+	})
+}
+
 /// Generate call to latest function version for `cfg(not(substrate_runtime))`
 ///
 /// This should generate simple `fn func(..) { func_version_<latest_version>(..) }`.
-fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result<TokenStream> {
-	let function_name = &method.sig.ident;
+fn function_std_latest_impl(
+	method: &RuntimeInterfaceFunction,
+	latest_version: u32,
+) -> Result<TokenStream> {
+	let (function_name, maybe_allow_non_snake) = if method.is_wrapped() {
+		(
+			Ident::new(&format!("{}__wrapped", &method.sig.ident), method.sig.ident.span()),
+			quote! { #[allow(non_snake_case)] },
+		)
+	} else {
+		(method.sig.ident.clone(), quote! {})
+	};
+	let method = (*method).clone();
 	let args = get_function_arguments(&method.sig).map(pat_ty_to_host_inner).map(FnArg::Typed);
 	let arg_names = get_function_argument_names(&method.sig).collect::<Vec<_>>();
 	let return_value = host_inner_return_ty(&method.sig.output);
@@ -159,6 +204,7 @@ fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result
 	Ok(quote_spanned! { method.span() =>
 		#[cfg(not(substrate_runtime))]
 		#( #attrs )*
+		#maybe_allow_non_snake
 		pub fn #function_name( #( #args, )* ) #return_value {
 			#latest_function_name(
 				#( #arg_names, )*

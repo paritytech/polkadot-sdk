@@ -106,14 +106,10 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use super::*;
 
 				#[no_mangle]
-				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
-					// We convert the `arguments` into a boxed slice and then into `Bytes`.
-					let args = #crate_::validate_block::Box::from_raw(
-						#crate_::validate_block::slice::from_raw_parts_mut(
-							arguments,
-							arguments_len,
-						)
-					);
+				unsafe fn validate_block(arguments_len: usize) -> u64 {
+					let mut args = #crate_::validate_block::vec![0u8; arguments_len];
+					#crate_::validate_block::sp_io::input::read(&mut args[..]);
+
 					let args = #crate_::validate_block::bytes::Bytes::from(args);
 
 					// Then we decode from these bytes the `MemoryOptimizedValidationParams`.

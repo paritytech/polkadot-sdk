@@ -22619,6 +22619,7 @@ dependencies = [
  "sp-api-proc-macro",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
+ "sp-io",
  "sp-metadata-ir",
  "sp-runtime",
  "sp-runtime-interface 24.0.0",
@@ -23130,6 +23131,7 @@ dependencies = [
 name = "sp-io"
 version = "30.0.0"
 dependencies = [
+ "anyhow",
  "byte-slice-cast",
  "bytes",
  "docify",

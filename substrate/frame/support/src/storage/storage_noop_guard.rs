@@ -45,7 +45,7 @@ pub struct StorageNoopGuard<'a> {
 impl<'a> Default for StorageNoopGuard<'a> {
 	fn default() -> Self {
 		Self {
-			storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1),
+			storage_root: sp_io::storage::root(),
 			error_message: "`StorageNoopGuard` detected an attempted storage change.",
 		}
 	}
@@ -59,7 +59,7 @@ impl<'a> StorageNoopGuard<'a> {
 
 	/// Creates a new [`StorageNoopGuard`] with a custom error message.
 	pub fn from_error_message(error_message: &'a str) -> Self {
-		Self { storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1), error_message }
+		Self { storage_root: sp_io::storage::root(), error_message }
 	}
 
 	/// Sets a custom error message for a [`StorageNoopGuard`].
@@ -75,12 +75,7 @@ impl<'a> Drop for StorageNoopGuard<'a> {
 		if std::thread::panicking() {
 			return
 		}
-		assert_eq!(
-			sp_io::storage::root(sp_runtime::StateVersion::V1),
-			self.storage_root,
-			"{}",
-			self.error_message,
-		);
+		assert_eq!(sp_io::storage::root(), self.storage_root, "{}", self.error_message,);
 	}
 }
 
