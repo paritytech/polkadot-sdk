@@ -133,6 +133,12 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// This pallet's configuration trait
+	///
+	/// # Requirements
+	///
+	/// This pallet requires `frame_system::AuthorizeCall` to be included in the runtime's
+	/// transaction extension pipeline (configured via `frame_system::Config::Block`).
+	/// The integrity test will verify this at runtime.
 	#[pallet::config]
 	pub trait Config:
 		CreateSignedTransaction<Call<Self>>
@@ -176,6 +182,32 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Integrity test to ensure AuthorizeCall is configured in the runtime.
+		///
+		/// This pallet uses the `#[pallet::authorize]` attribute on calls that require
+		/// authorization validation. For these calls to work properly, the runtime must
+		/// include `frame_system::AuthorizeCall` as part of its transaction extension pipeline.
+		///
+		/// This test validates that the Block type's Extrinsic includes the necessary
+		/// transaction extension structure by checking the type name.
+		fn integrity_test() {
+			use sp_runtime::traits::Block as BlockT;
+
+			// Get the full type name of the Block's Extrinsic type
+			let extrinsic_type_name = core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
+
+			// Verify that AuthorizeCall is present in the extrinsic type
+			// The extrinsic should contain the AuthorizeCall extension in its structure
+			assert!(
+				extrinsic_type_name.contains("frame_system::extensions::authorize_call::AuthorizeCall"),
+				"The runtime must include `frame_system::AuthorizeCall` in its transaction extension \
+				pipeline for this pallet to work correctly. The pallet uses `#[pallet::authorize]` \
+				which requires AuthorizeCall to validate authorized transactions. \
+				Current extrinsic type: {}",
+				extrinsic_type_name
+			);
+		}
+
 		/// Offchain Worker entry point.
 		///
 		/// By implementing `fn offchain_worker` you declare a new offchain worker.
