@@ -287,8 +287,8 @@ pub mod pallet {
 				description.try_into().map_err(|_| BountiesError::<T>::ReasonTooBig)?;
 			ensure!(value >= T::ChildBountyValueMinimum::get(), BountiesError::<T>::InvalidValue);
 			ensure!(
-				ParentChildBounties::<T>::get(parent_bounty_id) <=
-					T::MaxActiveChildBountyCount::get() as u32,
+				ParentChildBounties::<T>::get(parent_bounty_id) <
+					T::MaxActiveChildBountyCount::get(),
 				Error::<T>::TooManyChildBounties,
 			);
 
