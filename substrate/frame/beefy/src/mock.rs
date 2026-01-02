@@ -33,7 +33,7 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
-	traits::{Header as HeaderT, OpaqueKeys},
+	traits::{Header as HeaderT, Keccak256, OpaqueKeys},
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
@@ -158,6 +158,7 @@ impl pallet_beefy::Config for Test {
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
 	type AncestryHelper = MockAncestryHelper;
+	type SignatureHasher = Keccak256;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =

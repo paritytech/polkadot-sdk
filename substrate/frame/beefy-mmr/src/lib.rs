@@ -47,7 +47,7 @@ use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, NodesUtils, Parent
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	AncestryHelper, AncestryHelperWeightInfo, Commitment, ConsensusLog,
+	AncestryHelper, AncestryHelperWeightInfo, Commitment, ConsensusLog, MmrRootHash,
 	ValidatorSet as BeefyValidatorSet,
 };
 
@@ -69,7 +69,7 @@ pub struct DepositBeefyDigest<T>(core::marker::PhantomData<T>);
 
 impl<T> pallet_mmr::primitives::OnNewRoot<sp_consensus_beefy::MmrRootHash> for DepositBeefyDigest<T>
 where
-	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+	T: pallet_mmr::Config,
 	T: pallet_beefy::Config,
 {
 	fn on_new_root(root: &sp_consensus_beefy::MmrRootHash) {
@@ -77,6 +77,7 @@ where
 			sp_consensus_beefy::BEEFY_ENGINE_ID,
 			codec::Encode::encode(&sp_consensus_beefy::ConsensusLog::<
 				<T as pallet_beefy::Config>::BeefyId,
+				MmrRootHash,
 			>::MmrRoot(*root)),
 		);
 		frame_system::Pallet::<T>::deposit_log(digest);
@@ -187,7 +188,7 @@ where
 
 impl<T: Config> AncestryHelper<HeaderFor<T>> for Pallet<T>
 where
-	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+	T: pallet_mmr::Config,
 {
 	type Proof = AncestryProof<MerkleRootOf<T>>;
 	type ValidationContext = MerkleRootOf<T>;
@@ -214,10 +215,14 @@ where
 		// Extract the MMR root from the header digest
 		header.digest().convert_first(|l| {
 			l.try_to(OpaqueDigestItemId::Consensus(&sp_consensus_beefy::BEEFY_ENGINE_ID))
-				.and_then(|log: ConsensusLog<<T as pallet_beefy::Config>::BeefyId>| match log {
-					ConsensusLog::MmrRoot(mmr_root) => Some(mmr_root),
-					_ => None,
-				})
+				.and_then(
+					|log: ConsensusLog<<T as pallet_beefy::Config>::BeefyId, MerkleRootOf<T>>| {
+						match log {
+							ConsensusLog::MmrRoot(mmr_root) => Some(mmr_root),
+							_ => None,
+						}
+					},
+				)
 		})
 	}
 
@@ -284,7 +289,7 @@ where
 
 impl<T: Config> AncestryHelperWeightInfo<HeaderFor<T>> for Pallet<T>
 where
-	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+	T: pallet_mmr::Config,
 {
 	fn is_proof_optimal(proof: &<Self as AncestryHelper<HeaderFor<T>>>::Proof) -> Weight {
 		<T as Config>::WeightInfo::n_leafs_proof_is_optimal(proof.leaf_count.saturated_into())

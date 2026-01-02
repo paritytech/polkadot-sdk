@@ -43,12 +43,12 @@ use frame_system::{
 };
 use sp_consensus_beefy::{
 	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
-	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
-	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, MmrRootHash, OnNewValidatorSet,
+	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{IsMember, Member, One},
+	traits::{Hash, IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -70,8 +70,7 @@ pub mod pallet {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
-			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
-			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
+			+ BeefyAuthorityId<<Self as Config>::SignatureHasher>
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -102,6 +101,9 @@ pub mod pallet {
 		/// Hook for checking commitment canonicity.
 		type AncestryHelper: AncestryHelper<HeaderFor<Self>>
 			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
+
+		/// A hasher for signature type
+		type SignatureHasher: Hash;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
@@ -604,7 +606,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(new, new_id) {
 			let log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(validator_set.clone()).encode(),
+				ConsensusLog::<T::BeefyId, MmrRootHash>::AuthoritiesChange(validator_set.clone())
+					.encode(),
 			);
 			frame_system::Pallet::<T>::deposit_log(log);
 
@@ -724,7 +727,7 @@ where
 	fn on_disabled(i: u32) {
 		let log = DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<T::BeefyId>::OnDisabled(i as AuthorityIndex).encode(),
+			ConsensusLog::<T::BeefyId, MmrRootHash>::OnDisabled(i as AuthorityIndex).encode(),
 		);
 
 		frame_system::Pallet::<T>::deposit_log(log);
