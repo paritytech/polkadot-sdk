@@ -747,6 +747,17 @@ pub mod pallet {
 			/// Block at which authorization expires and will be removed.
 			expire_at: BlockNumberFor<T>,
 		},
+		/// A code upgrade has been scheduled at a speciic block for a parachain.
+		/// `para_id` `expected_at`
+		CodeUpgradeScheduledAt(ParaId, BlockNumberFor<T>),
+		/// Future code upgrade was removed/ cancelled for a parachain.
+		FutureCodeUpgradeRemoved(ParaId),
+		/// Go-ahead signal was set for a parachain upgrade.
+		UpgradeGoAheadSignalSet(ParaId),
+		/// Upgrade restriction signal was set for a parachain.
+		UpgradeRestrictionSignalSet(ParaId),
+		/// Upgrade restriction signal was removed for a parachain
+		UpgradeRestrictionSignalRemoved(ParaId),
 	}
 
 	#[pallet::error]
@@ -1781,6 +1792,7 @@ impl<T: Config> Pallet<T> {
 				let num = upcoming_upgrades.iter().take_while(|&(_, at)| at <= &now).count();
 				for (para, _) in upcoming_upgrades.drain(..num) {
 					UpgradeGoAheadSignal::<T>::insert(&para, UpgradeGoAhead::GoAhead);
+					Self::deposit_event(Event::UpgradeGoAheadSignalSet(para));
 				}
 				num
 			},
@@ -1811,6 +1823,7 @@ impl<T: Config> Pallet<T> {
 				upgrade_cooldowns.retain(|(para, at)| {
 					if at <= &now {
 						UpgradeRestrictionSignal::<T>::remove(&para);
+						Self::deposit_event(Event::UpgradeRestrictionSignalRemoved(*para));
 						false
 					} else {
 						true
@@ -1959,6 +1972,8 @@ impl<T: Config> Pallet<T> {
 					future_upgrades.insert(insert_idx, (id, expected_at));
 				});
 
+				Self::deposit_event(Event::CodeUpgradeScheduledAt(id, expected_at));
+
 				weight += T::DbWeight::get().reads_writes(0, 2);
 			},
 			UpgradeStrategy::SetGoAheadSignal => {
@@ -1970,6 +1985,8 @@ impl<T: Config> Pallet<T> {
 						.unwrap_or_else(|idx| idx);
 					upcoming_upgrades.insert(insert_idx, (id, expected_at));
 				});
+
+				Self::deposit_event(Event::CodeUpgradeScheduledAt(id, expected_at));
 
 				weight += T::DbWeight::get().reads_writes(1, 3);
 			},
@@ -2011,7 +2028,10 @@ impl<T: Config> Pallet<T> {
 				PvfCheckCause::Upgrade { id, .. } => {
 					weight += T::DbWeight::get().writes(2);
 					UpgradeGoAheadSignal::<T>::insert(&id, UpgradeGoAhead::Abort);
+					Self::deposit_event(Event::UpgradeGoAheadSignalSet(id));
+
 					FutureCodeHash::<T>::remove(&id);
+					Self::deposit_event(Event::FutureCodeUpgradeRemoved(id));
 				},
 			}
 		}
@@ -2255,6 +2275,8 @@ impl<T: Config> Pallet<T> {
 		FutureCodeHash::<T>::insert(&id, &code_hash);
 		UpgradeRestrictionSignal::<T>::insert(&id, UpgradeRestriction::Present);
 
+		Self::deposit_event(Event::UpgradeRestrictionSignalSet(id));
+
 		let next_possible_upgrade_at = inclusion_block_number + cfg.validation_upgrade_cooldown;
 		UpgradeCooldowns::<T>::mutate(|upgrade_cooldowns| {
 			let insert_idx = upgrade_cooldowns
@@ -2366,6 +2388,8 @@ impl<T: Config> Pallet<T> {
 			if expected_at <= execution_context {
 				FutureCodeUpgrades::<T>::remove(&id);
 				UpgradeGoAheadSignal::<T>::remove(&id);
+
+				Self::deposit_event(Event::FutureCodeUpgradeRemoved(id));
 
 				// Both should always be `Some` in this case, since a code upgrade is scheduled.
 				let new_code_hash = if let Some(new_code_hash) = FutureCodeHash::<T>::take(&id) {
