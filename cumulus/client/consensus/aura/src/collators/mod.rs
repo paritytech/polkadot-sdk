@@ -686,6 +686,11 @@ impl RelayParentData {
 		&self.relay_parent
 	}
 
+	/// Returns a reference to the descendants list.
+	pub fn descendants(&self) -> &[RelayHeader] {
+		&self.descendants
+	}
+
 	/// Returns the number of descendants.
 	#[cfg(test)]
 	pub fn descendants_len(&self) -> usize {

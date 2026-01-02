@@ -11,7 +11,7 @@ use cumulus_primitives_core::SchedulingProof;
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Header as HeaderT};
 
 /// Hash type for relay chain.
-pub type RelayHash = polkadot_core_primitives::Hash;
+pub type RelayHash = sp_core::H256;
 
 /// Errors that can occur during scheduling validation.
 #[derive(Debug, Clone, PartialEq, Eq)]

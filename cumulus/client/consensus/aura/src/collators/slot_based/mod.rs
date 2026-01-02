@@ -73,7 +73,7 @@ use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_primitives_core::{RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
@@ -166,7 +166,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block>,
+		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block> + SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -257,6 +257,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 struct CollatorMessage<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block.
 	pub relay_parent: RelayHash,
+	/// The hash of the relay chain block used for scheduling (V3 only).
+	/// For V3 candidates, this is the fresh relay chain tip used for backing group selection.
+	/// For V1/V2 candidates, this is None.
+	pub scheduling_parent: Option<RelayHash>,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.
@@ -267,4 +271,6 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// Maximum pov size. Currently needed only for exporting PoV.
 	pub max_pov_size: u32,
+	/// Optional scheduling proof for V3 candidates.
+	pub scheduling_proof: Option<SchedulingProof>,
 }

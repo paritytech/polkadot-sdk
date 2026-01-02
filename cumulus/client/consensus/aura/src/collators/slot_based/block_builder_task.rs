@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -128,7 +128,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block> + SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -234,6 +234,9 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
+
+			// Extract descendants for V3 scheduling proof before rp_data is moved
+			let rp_descendants: Vec<_> = rp_data.descendants().to_vec();
 
 			let Some((included_header, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -451,13 +454,52 @@ where
 
 			*last_claimed_core_selector = Some(core.core_selector());
 
+			// Check if V3 scheduling is enabled and build scheduling proof if so
+			let scheduling_proof = if para_client
+				.runtime_api()
+				.scheduling_v3_enabled(parent_hash)
+				.unwrap_or(false)
+			{
+				// For V3, build the scheduling proof (header chain from scheduling_parent back to relay_parent)
+				// - scheduling_parent = relay_best_hash (fresh leaf, used for scheduling/backing group)
+				// - relay_parent = older block (used for execution context)
+				// - header_chain contains headers from newest to oldest (scheduling_parent backward)
+				// - header_chain length = relay_parent_offset (number of blocks between them)
+				// - last header's parent_hash = relay_parent (internal scheduling parent)
+
+				// The descendants are ordered from oldest to newest, so reverse them
+				let header_chain: Vec<_> = rp_descendants.iter().rev().cloned().collect();
+
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?relay_best_hash,
+					header_chain_len = header_chain.len(),
+					"Building V3 collation with scheduling proof",
+				);
+
+				Some(SchedulingProof { header_chain })
+			} else {
+				None
+			};
+
+			// For V3, scheduling_parent is the fresh relay chain tip (relay_best_hash)
+			// For V1/V2, scheduling_parent is None
+			let scheduling_parent = if scheduling_proof.is_some() {
+				Some(relay_best_hash)
+			} else {
+				None
+			};
+
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
+				scheduling_parent,
 				parent_header: parent_header.clone(),
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
+				scheduling_proof,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 				return

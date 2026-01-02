@@ -121,6 +121,8 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
+		scheduling_proof,
+		scheduling_parent,
 		parent_header,
 		parachain_candidate,
 		validation_code_hash,
@@ -131,14 +133,25 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	let hash = parachain_candidate.block.header().hash();
 	let number = *parachain_candidate.block.header().number();
-	let (collation, block_data) =
+	let (collation, block_data) = if let Some(scheduling_proof) = scheduling_proof {
+		// V3 candidate with scheduling proof
+		match collator_service.build_collation_v3(&parent_header, hash, parachain_candidate, scheduling_proof) {
+			Some(collation) => collation,
+			None => {
+				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build V3 collation.");
+				return;
+			},
+		}
+	} else {
+		// Legacy candidate
 		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
 			Some(collation) => collation,
 			None => {
 				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
 				return;
 			},
-		};
+		}
+	};
 
 	block_data.log_size_info();
 
@@ -182,6 +195,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
+				scheduling_parent,
 			}),
 			"SubmitCollation",
 		)

@@ -19,7 +19,7 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
+use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof};
 
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -57,6 +57,18 @@ pub trait ServiceInterface<Block: BlockT> {
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+	) -> Option<(Collation, ParachainBlockData<Block>)>;
+
+	/// Build a full [`Collation`] from a given [`ParachainCandidate`] with V3 scheduling proof.
+	///
+	/// This is like `build_collation` but creates a `ParachainBlockData::V2` with the
+	/// provided scheduling proof for V3 candidates.
+	fn build_collation_v3(
+		&self,
+		parent_header: &Block::Header,
+		block_hash: Block::Hash,
+		candidate: ParachainCandidate<Block>,
+		scheduling_proof: SchedulingProof,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Inform networking systems that the block should be announced after a signal has
@@ -316,6 +328,90 @@ where
 		Some((collation, block_data))
 	}
 
+	/// Build a full [`Collation`] from a given [`ParachainCandidate`] with V3 scheduling proof.
+	///
+	/// This is like `build_collation` but creates a `ParachainBlockData::V2` with the
+	/// provided scheduling proof for V3 candidates.
+	pub fn build_collation_v3(
+		&self,
+		parent_header: &Block::Header,
+		block_hash: Block::Hash,
+		candidate: ParachainCandidate<Block>,
+		scheduling_proof: SchedulingProof,
+	) -> Option<(Collation, ParachainBlockData<Block>)> {
+		let block = candidate.block;
+
+		let compact_proof = match candidate
+			.proof
+			.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
+		{
+			Ok(proof) => proof,
+			Err(e) => {
+				tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
+				return None
+			},
+		};
+
+		// Create the parachain block data for the validators.
+		let (collation_info, _api_version) = self
+			.fetch_collation_info(block_hash, block.header())
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to collect collation info.",
+				)
+			})
+			.ok()
+			.flatten()?;
+
+		// Create V2 ParachainBlockData with scheduling proof
+		let block_data = ParachainBlockData::<Block>::V2 {
+			blocks: vec![block],
+			proof: compact_proof,
+			scheduling_proof,
+		};
+
+		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
+			block_data: BlockData(block_data.encode()),
+		});
+
+		let upward_messages = collation_info
+			.upward_messages
+			.try_into()
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+				)
+			})
+			.ok()?;
+		let horizontal_messages = collation_info
+			.horizontal_messages
+			.try_into()
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+				)
+			})
+			.ok()?;
+
+		let collation = Collation {
+			upward_messages,
+			new_validation_code: collation_info.new_validation_code,
+			processed_downward_messages: collation_info.processed_downward_messages,
+			horizontal_messages,
+			hrmp_watermark: collation_info.hrmp_watermark,
+			head_data: collation_info.head_data,
+			proof_of_validity: MaybeCompressedPoV::Compressed(pov),
+		};
+
+		Some((collation, block_data))
+	}
+
 	/// Inform the networking systems that the block should be announced after an appropriate
 	/// signal has been received. This returns the sending half of the signal.
 	pub fn announce_with_barrier(
@@ -346,6 +442,16 @@ where
 		candidate: ParachainCandidate<Block>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_collation(self, parent_header, block_hash, candidate)
+	}
+
+	fn build_collation_v3(
+		&self,
+		parent_header: &Block::Header,
+		block_hash: Block::Hash,
+		candidate: ParachainCandidate<Block>,
+		scheduling_proof: SchedulingProof,
+	) -> Option<(Collation, ParachainBlockData<Block>)> {
+		CollatorService::build_collation_v3(self, parent_header, block_hash, candidate, scheduling_proof)
 	}
 
 	fn announce_with_barrier(
