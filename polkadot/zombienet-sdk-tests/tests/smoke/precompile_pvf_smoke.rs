@@ -127,7 +127,7 @@ async fn precompile_pvf_smoke_test() -> Result<(), anyhow::Error> {
 	log::info!("Parachain {} is producing blocks", PARA_ID);
 
 	// Check Dave didn't prepare PVF
-	// The metric should be 1 (initial count) since dave shouldn't have prepared any PVFs
+	// The metric should be 1 since dave shouldn't have prepared any PVFs
 	log::info!("Checking dave didn't prepare PVF");
 	dave_node
 		.wait_metric_with_timeout(PVF_PREPARATION_COUNT_METRIC, |v| v == 1.0, 30u64)
@@ -146,7 +146,6 @@ async fn precompile_pvf_smoke_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for 1 session boundary");
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	wait_for_nth_session_change(&mut blocks_sub, 1).await?;
-	log::info!("Session boundary passed");
 
 	// Check PVF preparation count is still 1
 	log::info!("Checking PVF preparation count is still 1");

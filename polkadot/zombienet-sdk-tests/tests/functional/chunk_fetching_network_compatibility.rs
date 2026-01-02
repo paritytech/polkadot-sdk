@@ -19,6 +19,21 @@ use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID_2000: u32 = 2000;
 const PARA_ID_2001: u32 = 2001;
+const OLD_TAG: &str = "master-bde0bbe5";
+const SUBSTRATE_BLoCK_HEIGHT_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
+const POLKADOT_PARACHAIN_APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
+	"polkadot_parachain_approval_checking_finality_lag";
+const POLKADOT_PARACHAIN_APPROVALS_NO_SHOWS_TOTAL_METRIC: &str =
+	"polkadot_parachain_approvals_no_shows_total";
+const POLKADOT_PARACHAIN_AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC: &str =
+	"polkadot_parachain_availability_recovery_recoveries_finished{result=\"failure\"}";
+const POLKADOT_PARACHAIN_FETCHED_SUCCESSFUL_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"succeeded\"}";
+const POLKADOT_PARACHAIN_FETCHED_FAILED_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"failed\"}";
+const POLKADOT_PARACHAIN_FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"not-found\"}";
+const NODE_ROLES_METRIC: &str = "node_roles";
 
 /// Test that validators preserve backwards compatibility with the old /req_chunk protocol.
 ///
@@ -44,11 +59,11 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// Check authority status
 	log::info!("Checking node roles");
 	new_node
-		.wait_metric_with_timeout("node_roles", |v| v == 4.0, 30u64)
+		.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("New node role check failed: {}", e))?;
 	old_node
-		.wait_metric_with_timeout("node_roles", |v| v == 4.0, 30u64)
+		.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Old node role check failed: {}", e))?;
 
@@ -71,19 +86,11 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// Check finalized block height
 	log::info!("Checking finalized block height");
 	new_node
-		.wait_metric_with_timeout(
-			"substrate_block_height{status=\"finalized\"}",
-			|v| v >= 30.0,
-			400u64,
-		)
+		.wait_metric_with_timeout(SUBSTRATE_BLoCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
 		.await
 		.map_err(|e| anyhow!("New node finalized height too low: {}", e))?;
 	old_node
-		.wait_metric_with_timeout(
-			"substrate_block_height{status=\"finalized\"}",
-			|v| v >= 30.0,
-			400u64,
-		)
+		.wait_metric_with_timeout(SUBSTRATE_BLoCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
 		.await
 		.map_err(|e| anyhow!("Old node finalized height too low: {}", e))?;
 
@@ -91,7 +98,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	log::info!("Checking approval finality lag");
 	new_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_approval_checking_finality_lag",
+			POLKADOT_PARACHAIN_APPROVAL_CHECKING_FINALITY_LAG_METRIC,
 			|v| v < 3.0,
 			30u64,
 		)
@@ -99,7 +106,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("New node approval lag too high: {}", e))?;
 	old_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_approval_checking_finality_lag",
+			POLKADOT_PARACHAIN_APPROVAL_CHECKING_FINALITY_LAG_METRIC,
 			|v| v < 3.0,
 			30u64,
 		)
@@ -109,11 +116,19 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// Check no-shows are low
 	log::info!("Checking no-shows");
 	new_node
-		.wait_metric_with_timeout("polkadot_parachain_approvals_no_shows_total", |v| v < 3.0, 10u64)
+		.wait_metric_with_timeout(
+			POLKADOT_PARACHAIN_APPROVALS_NO_SHOWS_TOTAL_METRIC,
+			|v| v < 3.0,
+			10u64,
+		)
 		.await
 		.map_err(|e| anyhow!("New node no-shows too high: {}", e))?;
 	old_node
-		.wait_metric_with_timeout("polkadot_parachain_approvals_no_shows_total", |v| v < 3.0, 10u64)
+		.wait_metric_with_timeout(
+			POLKADOT_PARACHAIN_APPROVALS_NO_SHOWS_TOTAL_METRIC,
+			|v| v < 3.0,
+			10u64,
+		)
 		.await
 		.map_err(|e| anyhow!("Old node no-shows too high: {}", e))?;
 
@@ -160,7 +175,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// Check recovery failure metrics
 	new_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_availability_recovery_recoveries_finished{result=\"failure\"}",
+			POLKADOT_PARACHAIN_AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -168,7 +183,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("New node has recovery failures: {}", e))?;
 	old_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_availability_recovery_recoveries_finished{result=\"failure\"}",
+			POLKADOT_PARACHAIN_AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -209,7 +224,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	log::info!("Checking chunk fetching metrics");
 	new_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"succeeded\"}",
+			POLKADOT_PARACHAIN_FETCHED_SUCCESSFUL_CHUNKS_TOTAL_METRIC,
 			|v| v >= 10.0,
 			400u64,
 		)
@@ -217,7 +232,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("New node fetched chunks too low: {}", e))?;
 	old_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"succeeded\"}",
+			POLKADOT_PARACHAIN_FETCHED_SUCCESSFUL_CHUNKS_TOTAL_METRIC,
 			|v| v >= 10.0,
 			400u64,
 		)
@@ -227,7 +242,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// No failed chunk fetches
 	new_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"failed\"}",
+			POLKADOT_PARACHAIN_FETCHED_FAILED_CHUNKS_TOTAL_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -235,7 +250,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("New node has failed chunk fetches: {}", e))?;
 	old_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"failed\"}",
+			POLKADOT_PARACHAIN_FETCHED_FAILED_CHUNKS_TOTAL_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -245,7 +260,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// No not-found chunk fetches
 	new_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"not-found\"}",
+			POLKADOT_PARACHAIN_FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -253,7 +268,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("New node has not-found chunk fetches: {}", e))?;
 	old_node
 		.wait_metric_with_timeout(
-			"polkadot_parachain_fetched_chunks_total{success=\"not-found\"}",
+			POLKADOT_PARACHAIN_FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC,
 			|v| v == 0.0,
 			10u64,
 		)
@@ -271,12 +286,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	// Old image that doesn't speak /req_chunk/2 protocol
 	let old_polkadot_image = std::env::var("POLKADOT_IMAGE")
-		.map(|img| format!("{}:master-bde0bbe5", img.split(':').next().unwrap_or(&img)))
-		.unwrap_or_else(|_| "docker.io/parity/polkadot:master-bde0bbe5".to_string());
+		.map(|img| format!("{}:{}", img.split(':').next().unwrap_or(&img), OLD_TAG))
+		.unwrap_or_else(|_| format!("docker.io/parity/polkadot:{}", OLD_TAG));
 
 	let old_polkadot_command = format!("polkadot{old_suffix}");
-	let old_collator_image =
-		"docker.io/paritypr/polkadot-parachain-debug:master-bde0bbe5".to_string();
+	let old_collator_image = format!("docker.io/paritypr/polkadot-parachain-debug:{}", OLD_TAG);
 	let old_collator_command = format!("polkadot-parachain{old_suffix}");
 
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
