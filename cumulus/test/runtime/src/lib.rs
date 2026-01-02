@@ -385,6 +385,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingV3Enabled = ConstBool<true>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -522,6 +523,13 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			// Enable V3 scheduling for the test runtime
+			true
 		}
 	}
 
