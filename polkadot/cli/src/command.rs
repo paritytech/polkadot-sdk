@@ -278,6 +278,10 @@ where
 				telemetry_worker_handle: None,
 				node_version,
 				secure_validator_mode,
+				verbose_approval_metrics: cli
+					.run
+					.verbose_approval_metrics
+					.unwrap_or(false),
 				workers_path: cli.run.workers_path,
 				workers_names: None,
 				overseer_gen,

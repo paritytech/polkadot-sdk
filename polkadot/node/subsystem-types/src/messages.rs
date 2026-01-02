@@ -64,6 +64,7 @@ use std::{
 /// Network events as transmitted to other subsystems, wrapped in their message types.
 pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
+use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
@@ -730,6 +731,8 @@ pub enum RuntimeApiRequest {
 	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
+	/// Submits the Rewards Approvals Statistics into the transaction pool.
+	SubmitApprovalStatistics(ApprovalStatistics, ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
 	PvfsRequirePrecheck(RuntimeApiSender<Vec<ValidationCodeHash>>),
 	/// Get the validation code used by the specified para, taking the given
@@ -1470,4 +1473,17 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
+}
+
+/// Messages sent to the Statistics Collector subsystem.
+#[derive(Debug)]
+pub enum RewardsStatisticsCollectorMessage {
+	ChunksDownloaded(SessionIndex, CandidateHash, HashMap<ValidatorIndex, u64>),
+	ChunkUploaded(CandidateHash, HashSet<AuthorityDiscoveryId>),
+
+	// Candidate received enough approval and now is approved
+	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),
+
+	// Set of candidates that has not shared votes in time
+	NoShows(CandidateHash, Hash, Vec<ValidatorIndex>),
 }

@@ -40,6 +40,7 @@ use polkadot_primitives::{
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use polkadot_primitives::vstaging::ApprovalStatistics;
 use sp_runtime::traits::One;
 
 /// Implementation for the `validators` function of the runtime API.

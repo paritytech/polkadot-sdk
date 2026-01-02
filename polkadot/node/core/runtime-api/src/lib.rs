@@ -156,6 +156,7 @@ where
 			PvfsRequirePrecheck(relay_parent, pvfs) =>
 				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
 			SubmitPvfCheckStatement(()) => {},
+			SubmitApprovalStatistics(()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
@@ -306,6 +307,10 @@ where
 			Request::PvfsRequirePrecheck(sender) => query!(pvfs_require_precheck(), sender)
 				.map(|sender| Request::PvfsRequirePrecheck(sender)),
 			request @ Request::SubmitPvfCheckStatement(_, _, _) => {
+				// This request is side-effecting and thus cannot be cached.
+				Some(request)
+			},
+			request @ Request::SubmitApprovalStatistics(_, _, _) => {
 				// This request is side-effecting and thus cannot be cached.
 				Some(request)
 			},
@@ -614,6 +619,15 @@ where
 			query!(
 				SubmitPvfCheckStatement,
 				submit_pvf_check_statement(stmt, signature),
+				ver = 2,
+				sender,
+				result = ()
+			)
+		},
+		Request::SubmitApprovalStatistics(payload, signature, sender) => {
+			query!(
+				SubmitApprovalStatistics,
+				submit_approval_statistics(payload, signature),
 				ver = 2,
 				sender,
 				result = ()

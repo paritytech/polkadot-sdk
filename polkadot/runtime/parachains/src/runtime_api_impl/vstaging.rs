@@ -16,10 +16,11 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{disputes, initializer, paras};
+use crate::{disputes, initializer, paras, approvals_rewards};
 use alloc::vec::Vec;
 
-use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex};
+use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex, ValidatorSignature};
+use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// Implementation of `para_ids` runtime API
 pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
@@ -30,4 +31,12 @@ pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
 ) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 	disputes::slashing::Pallet::<T>::unapplied_slashes()
+}
+
+/// Submits the collected approval statistics for a given session.
+pub fn submit_approval_statistics<T: approvals_rewards::Config>(
+	payload: ApprovalStatistics,
+	signature: ValidatorSignature,
+) {
+	approvals_rewards::Pallet::<T>::submit_approval_statistics(payload, signature)
 }

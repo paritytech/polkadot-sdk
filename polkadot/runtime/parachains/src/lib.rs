@@ -40,6 +40,7 @@ pub mod reward_points;
 pub mod scheduler;
 pub mod session_info;
 pub mod shared;
+pub mod approvals_rewards;
 
 pub mod runtime_api_impl;
 
