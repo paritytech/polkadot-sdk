@@ -106,20 +106,20 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 				);
 				let pov_arg = format!("--pov-size={}", pov_size);
 				let complexity_arg = format!("--pvf-complexity={}", complexity);
-			builder.with_parachain(|p| {
-				p.with_id(id)
-					.with_genesis_state_generator(genesis_state_cmd.as_str())
-					.with_default_command("undying-collator")
-					.with_default_image(col_image.as_str())
-					.cumulus_based(false)
-					.with_default_args(vec![
-						"-lparachain=debug".into(),
-					    pov_arg.as_str().into(),
-				    	complexity_arg.as_str().into(),
-					])
-					.with_registration_strategy(RegistrationStrategy::InGenesis)
-					.with_collator(|n| n.with_name(collator))
-			})
+				builder.with_parachain(|p| {
+					p.with_id(id)
+						.with_genesis_state_generator(genesis_state_cmd.as_str())
+						.with_default_command("undying-collator")
+						.with_default_image(col_image.as_str())
+						.cumulus_based(false)
+						.with_default_args(vec![
+							"-lparachain=debug".into(),
+							pov_arg.as_str().into(),
+							complexity_arg.as_str().into(),
+						])
+						.with_registration_strategy(RegistrationStrategy::InGenesis)
+						.with_collator(|n| n.with_name(collator))
+				})
 			});
 
 	builder = builder.with_global_settings(|global_settings| {
@@ -284,11 +284,7 @@ async fn check_pvf_execution_time(node: &NetworkNode, name: &str) -> Result<(), 
 	// Check that we have 0 samples in unacceptable execution buckets (> 2s)
 	for bucket in PVF_EXEC_BUCKETS_UNACCEPTABLE {
 		let count = buckets.get(*bucket).copied().unwrap_or(u64::MAX);
-		assert_eq!(
-			count, 0,
-			"Node {} should have 0 samples in execution bucket {}",
-			name, bucket
-		);
+		assert_eq!(count, 0, "Node {} should have 0 samples in execution bucket {}", name, bucket);
 	}
 
 	Ok(())
