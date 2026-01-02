@@ -1,0 +1,37 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add V3 scheduling validation for parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds support for V3 candidate descriptor scheduling validation in cumulus parachains.
+
+      This introduces a new SchedulingV3Enabled configuration option in the parachain-system
+      pallet that parachains must explicitly enable when ready to use V3 candidates.
+
+      V3 candidates use a dual-parent model where relay_parent provides execution context
+      and scheduling_parent (a recent relay tip) is used for scheduling. This enables
+      building on older relay parents while being scheduled based on current relay state.
+
+      Migration steps:
+      1. Update all collators to a version supporting V3 candidates
+      2. Verify relay chain has CandidateReceiptV3 node feature enabled
+      3. Enable via runtime upgrade: type SchedulingV3Enabled = ConstBool<true>
+
+      When enabled, the old relay_parent_descendants validation is disabled and V3
+      scheduling validation is used instead. The RelayParentOffset config defines
+      the header chain length.
+
+      Important: Do NOT enable until all collators are updated.
+
+  - audience: Node Dev
+    description: |
+      Collator nodes must support V3 candidate production before parachains enable
+      SchedulingV3Enabled. When V3 is enabled, provide header chain via V3 extension
+      instead of relay_parent_descendants in the inherent.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+  - name: polkadot-parachain-primitives

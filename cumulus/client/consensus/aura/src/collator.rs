@@ -374,6 +374,55 @@ where
 		}
 	}
 
+	/// Propose, seal, import a block and packaging it into a V3 collation with scheduling proof.
+	///
+	/// This is like `collate` but creates a V3 collation with the provided scheduling proof.
+	pub async fn collate_v3(
+		&mut self,
+		parent_header: &Block::Header,
+		slot_claim: &SlotClaim<P::Public>,
+		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+		scheduling_proof: cumulus_primitives_core::SchedulingProof,
+	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
+		let maybe_candidate = self
+			.build_block_and_import(BuildBlockAndImportParams {
+				parent_header,
+				slot_claim,
+				additional_pre_digest: additional_pre_digest.into().unwrap_or_default(),
+				parachain_inherent_data: inherent_data.0,
+				extra_inherent_data: inherent_data.1,
+				proposal_duration,
+				max_pov_size,
+				storage_proof_recorder: None,
+				extra_extensions: Default::default(),
+			})
+			.await?;
+
+		let Some(candidate) = maybe_candidate else { return Ok(None) };
+
+		let hash = candidate.block.header().hash();
+		if let Some((collation, block_data)) =
+			self.collator_service.build_collation_v3(parent_header, hash, candidate.into(), scheduling_proof)
+		{
+			block_data.log_size_info();
+
+			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
+				tracing::info!(
+					target: crate::LOG_TARGET,
+					"Compressed PoV size: {}kb (V3 candidate)",
+					pov.block_data.0.len() as f64 / 1024f64,
+				);
+			}
+
+			Ok(Some((collation, block_data)))
+		} else {
+			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce V3 collation"))
+		}
+	}
+
 	/// Get the underlying collator service.
 	pub fn collator_service(&self) -> &CS {
 		&self.collator_service

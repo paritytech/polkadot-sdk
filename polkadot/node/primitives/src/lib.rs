@@ -536,6 +536,8 @@ pub struct SubmitCollationParams {
 	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
 	/// The core index on which the resulting candidate should be backed
 	pub core_index: CoreIndex,
+	/// The scheduling parent hash for V3 candidates. For V1/V2, this is None.
+	pub scheduling_parent: Option<Hash>,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

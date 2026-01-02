@@ -181,6 +181,7 @@ impl CollationGenerationSubsystem {
 			validation_code_hash,
 			result_sender,
 			core_index,
+			scheduling_parent,
 		} = params;
 
 		let mut validation_data = match request_persisted_validation_data(
@@ -227,6 +228,7 @@ impl CollationGenerationSubsystem {
 			n_validators: session_info.n_validators,
 			core_index,
 			session_index,
+			scheduling_parent,
 		};
 
 		construct_and_distribute_receipt(
@@ -445,6 +447,8 @@ impl CollationGenerationSubsystem {
 							n_validators,
 							core_index: descriptor_core_index,
 							session_index,
+							// Legacy CollatorFn path doesn't support V3 scheduling
+							scheduling_parent: None,
 						},
 						&mut task_sender,
 						result_sender,
@@ -526,6 +530,9 @@ struct PreparedCollation {
 	n_validators: usize,
 	core_index: CoreIndex,
 	session_index: SessionIndex,
+	/// For V3 candidates, the scheduling parent (recent relay chain tip).
+	/// When Some, the candidate will use V3 descriptor format.
+	scheduling_parent: Option<Hash>,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -547,6 +554,7 @@ async fn construct_and_distribute_receipt(
 		n_validators,
 		core_index,
 		session_index,
+		scheduling_parent,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -584,8 +592,45 @@ async fn construct_and_distribute_receipt(
 	};
 
 	let receipt = {
-		let ccr = CommittedCandidateReceiptV2 {
-			descriptor: CandidateDescriptorV2::new(
+		// Create the descriptor - use V3 format if scheduling_parent is provided and V3 is enabled
+		let descriptor = if let Some(sp) = scheduling_parent {
+			if v3_enabled {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?sp,
+					"Creating V3 candidate with scheduling_parent",
+				);
+				// V3 descriptor with scheduling_parent set
+				CandidateDescriptorV2::new_v3(
+					para_id,
+					relay_parent,
+					sp, // scheduling_parent
+					core_index,
+					session_index,
+					persisted_validation_data_hash,
+					pov_hash,
+					erasure_root,
+					commitments.head_data.hash(),
+					validation_code_hash,
+				)
+			} else {
+				// V3 not enabled, fall back to V2
+				CandidateDescriptorV2::new(
+					para_id,
+					relay_parent,
+					core_index,
+					session_index,
+					persisted_validation_data_hash,
+					pov_hash,
+					erasure_root,
+					commitments.head_data.hash(),
+					validation_code_hash,
+				)
+			}
+		} else {
+			// No scheduling_parent, use standard V2 constructor
+			CandidateDescriptorV2::new(
 				para_id,
 				relay_parent,
 				core_index,
@@ -595,9 +640,10 @@ async fn construct_and_distribute_receipt(
 				erasure_root,
 				commitments.head_data.hash(),
 				validation_code_hash,
-			),
-			commitments: commitments.clone(),
+			)
 		};
+
+		let ccr = CommittedCandidateReceiptV2 { descriptor, commitments: commitments.clone() };
 
 		ccr.parse_ump_signals(&transposed_claim_queue, v3_enabled)
 			.map_err(Error::CandidateReceiptCheck)?;

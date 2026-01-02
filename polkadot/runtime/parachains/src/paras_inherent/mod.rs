@@ -974,12 +974,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	v3_enabled: bool,
 ) -> bool {
 	let descriptor_version = candidate.descriptor().version(v3_enabled);
-	println!(
-		"DEBUG: Candidate {:?} has version {:?}, v3_enabled={}",
-		candidate.candidate().hash(),
-		descriptor_version,
-		v3_enabled
-	);
 
 	match descriptor_version {
 		CandidateDescriptorVersion::Unknown => {
@@ -1025,11 +1019,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	// For V1/V2: scheduling_parent == relay_parent, so uses same claim queue as before.
 	// For V3: uses the claim queue from the scheduling_parent.
 	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue, v3_enabled) {
-		println!(
-			"DEBUG: UMP signal check failed: {:?} for {:?}",
-			err,
-			candidate.candidate().hash()
-		);
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
@@ -1060,12 +1049,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 
 	// Check if scheduling session is equal to current session index.
 	if scheduling_session != shared::CurrentSessionIndex::<T>::get() {
-		println!(
-			"DEBUG: Session mismatch for {:?}: scheduling_session={}, current={}",
-			candidate.candidate().hash(),
-			scheduling_session,
-			shared::CurrentSessionIndex::<T>::get()
-		);
 		log::debug!(
 			target: LOG_TARGET,
 			"Dropping candidate receipt {:?} for paraid {:?}, invalid scheduling session {}, current session {}",

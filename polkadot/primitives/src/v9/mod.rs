@@ -2212,6 +2212,40 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
+	/// Constructor for V3 candidate descriptors with scheduling_parent.
+	///
+	/// V3 candidates separate the relay_parent (execution context) from
+	/// the scheduling_parent (scheduling context/recent relay chain tip).
+	pub fn new_v3(
+		para_id: Id,
+		relay_parent: H,
+		scheduling_parent: H,
+		core_index: CoreIndex,
+		session_index: SessionIndex,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+	) -> Self {
+		Self {
+			para_id,
+			relay_parent,
+			version: 1, // V3
+			core_index: core_index.0 as u16,
+			session_index,
+			scheduling_session_offset: 0,
+			reserved1: [0; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent,
+			reserved2: [0; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
 	#[cfg(feature = "test")]
 	#[doc(hidden)]
 	pub fn new_from_raw(
