@@ -23,19 +23,18 @@ frame-support = { workspace = true }
 pallet-revive = { workspace = true }
 
 pallet-referenda = { workspace = true }
-pallet-referenda-precompiles = {workspace = true}
+pallet-referenda-precompiles = { workspace = true }
 
 frame-benchmarking = { workspace = true }
-frame-system = { workspace = true}
+frame-system = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-timestamp = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-scheduler = { workspace = true }
+pallet-timestamp = { workspace = true }
 
+scale-info = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-scale-info = { workspace = true }
-
 
 
 [features]
@@ -45,27 +44,27 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-revive/std",
-	"pallet-referenda/std",
-	"pallet-referenda-precompiles/std",
 	"pallet-balances/std",
-	"pallet-timestamp/std",
 	"pallet-preimage/std",
+	"pallet-referenda-precompiles/std",
+	"pallet-referenda/std",
+	"pallet-revive/std",
 	"pallet-scheduler/std",
+	"pallet-timestamp/std",
+	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
-	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-revive/runtime-benchmarks",
-	"pallet-referenda/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

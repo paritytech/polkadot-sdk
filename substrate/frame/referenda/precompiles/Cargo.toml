@@ -20,8 +20,8 @@ tracing = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-revive = { workspace = true }
 pallet-referenda = { workspace = true }
+pallet-revive = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
@@ -43,8 +43,8 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-preimage/std",
-	"pallet-revive/std",
 	"pallet-referenda/std",
+	"pallet-revive/std",
 	"pallet-scheduler/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
@@ -57,8 +57,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-revive/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -67,8 +67,8 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-revive/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-revive/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
