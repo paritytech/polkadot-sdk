@@ -377,17 +377,21 @@ impl DiscoveryBehaviour {
 	///
 	/// If we didn't know this address before, also generates a `Discovered` event.
 	pub fn add_known_address(&mut self, peer_id: PeerId, addr: Multiaddr) {
-		let addrs_list = self.ephemeral_addresses.entry(peer_id).or_default();
-		if addrs_list.contains(&addr) {
-			return
-		}
+		let t = (peer_id, addr);
+		if !self.permanent_addresses.contains(&t) {
+			self.permanent_addresses.push(t.clone());
+			let (peer_id, addr) = t;
 
-		if let Some(k) = self.kademlia.as_mut() {
-			k.add_address(&peer_id, addr.clone());
-		}
+			let addrs_list = self.ephemeral_addresses.entry(peer_id).or_default();
+			if !addrs_list.contains(&addr) {
+				self.pending_events.push_back(DiscoveryOut::Discovered(peer_id));
+				addrs_list.push(addr.clone());
+			}
 
-		self.pending_events.push_back(DiscoveryOut::Discovered(peer_id));
-		addrs_list.push(addr);
+			if let Some(k) = self.kademlia.as_mut() {
+				k.add_address(&peer_id, addr);
+			}
+		}
 	}
 
 	/// Add a self-reported address of a remote peer to the k-buckets of the DHT
