@@ -890,7 +890,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			enactment: DispatchTime::After(Zero::zero()),
 			submitted: now,
 			submission_deposit: Deposit { who: dummy_account_id, amount: Zero::zero() },
-			decision_deposit: DecisionDeposit::new(track_info.decision_deposit.clone()),
+			decision_deposit: DecisionDeposit::new(track_info.decision_deposit),
 			deciding: None,
 			tally: TallyOf::<T, I>::new(class),
 			in_queue: false,
