@@ -70,7 +70,6 @@ pub mod uint;
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
-#[cfg(feature = "bls-experimental")]
 pub mod bls;
 pub mod crypto_bytes;
 pub mod ecdsa;
@@ -78,9 +77,7 @@ pub mod ed25519;
 pub mod paired_crypto;
 pub mod sr25519;
 
-#[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
-#[cfg(feature = "bls-experimental")]
 pub use paired_crypto::{ecdsa_bls377, ecdsa_bls381};
 
 pub use self::{
