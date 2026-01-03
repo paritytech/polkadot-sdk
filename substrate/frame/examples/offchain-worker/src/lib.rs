@@ -46,9 +46,8 @@
 //! The on-chain logic will simply aggregate the results and store last `64` values to compute
 //! the average price.
 //! Additional logic in OCW is put in place to prevent spamming the network with both signed
-//! and unsigned transactions. The pallet uses the `#[pallet::authorize]` attribute to validate
-//! unsigned transactions, ensuring that only one unsigned transaction can be accepted per
-//! `UnsignedInterval` blocks.
+//! and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
+//! one unsigned transaction floating in the network.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -253,6 +252,9 @@ pub mod pallet {
 		/// transaction without a signature, and hence without paying any fees,
 		/// we need a way to make sure that only some transactions are accepted.
 		/// This function can be called only once every `T::UnsignedInterval` blocks.
+		/// Transactions that call that function are de-duplicated on the pool level
+		/// via `validate_unsigned` implementation and also are rendered invalid if
+		/// the function has already been called in current "session".
 		///
 		/// It's important to specify `weight` for unsigned calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
@@ -262,33 +264,13 @@ pub mod pallet {
 		/// purpose is to showcase offchain worker capabilities.
 		#[pallet::call_index(1)]
 		#[pallet::weight({0})]
-		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
-		// be benchmarked.
-		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
-		#[pallet::authorize(|
-			_source: TransactionSource,
-			block_number: &BlockNumberFor<T>,
-			new_price: &u32,
-		| -> TransactionValidityWithRefund {
-			let validity = Pallet::<T>::validate_transaction_parameters(block_number, new_price);
-			match validity {
-				Ok(valid_tx) => {
-					// This is the amount to refund, here we refund nothing.
-					let refund = Weight::zero();
-
-					Ok((valid_tx, refund))
-				},
-				Err(e) => Err(e),
-			}
-		})]
 		pub fn submit_price_unsigned(
 			origin: OriginFor<T>,
 			_block_number: BlockNumberFor<T>,
 			price: u32,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction
-			// after being validated in `pallet::authorize`.
-			ensure_authorized(origin)?;
+			// This ensures that the function can only be called via unsigned transaction.
+			ensure_none(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price);
 			// now increment the block number at which we expect next unsigned transaction.
@@ -299,37 +281,13 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight({0})]
-		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
-		// be benchmarked.
-		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
-		#[pallet::authorize(|
-			_source: TransactionSource,
-			price_payload: &PricePayload<T::Public, BlockNumberFor<T>>,
-			signature: &T::Signature,
-		| -> TransactionValidityWithRefund {
-			let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(price_payload, signature.clone());
-			if !signature_valid {
-				return Err(InvalidTransaction::BadProof.into())
-			}
-			let validity = Pallet::<T>::validate_transaction_parameters(&price_payload.block_number, &price_payload.price);
-			match validity {
-				Ok(valid_tx) => {
-					// This is the amount to refund, here we refund nothing.
-					let refund = Weight::zero();
-
-					Ok((valid_tx, refund))
-				},
-				Err(e) => Err(e),
-			}
-		})]
 		pub fn submit_price_unsigned_with_signed_payload(
 			origin: OriginFor<T>,
 			price_payload: PricePayload<T::Public, BlockNumberFor<T>>,
 			_signature: T::Signature,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction
-			// after being validated in `pallet::authorize`.
-			ensure_authorized(origin)?;
+			// This ensures that the function can only be called via unsigned transaction.
+			ensure_none(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price_payload.price);
 			// now increment the block number at which we expect next unsigned transaction.
@@ -345,6 +303,37 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event generated when new price is accepted to contribute to the average.
 		NewPrice { price: u32, maybe_who: Option<T::AccountId> },
+	}
+
+	#[allow(deprecated)]
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		/// Validate unsigned call to this module.
+		///
+		/// By default unsigned transactions are disallowed, but implementing the validator
+		/// here we make sure that some particular calls (the ones produced by offchain worker)
+		/// are being whitelisted and marked as valid.
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			// Firstly let's check that we call the right function.
+			if let Call::submit_price_unsigned_with_signed_payload {
+				price_payload: ref payload,
+				ref signature,
+			} = call
+			{
+				let signature_valid =
+					SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
+				if !signature_valid {
+					return InvalidTransaction::BadProof.into()
+				}
+				Self::validate_transaction_parameters(&payload.block_number, &payload.price)
+			} else if let Call::submit_price_unsigned { block_number, price: new_price } = call {
+				Self::validate_transaction_parameters(block_number, new_price)
+			} else {
+				InvalidTransaction::Call.into()
+			}
+		}
 	}
 
 	/// A vector of recently submitted prices.
@@ -516,7 +505,7 @@ impl<T: Config> Pallet<T> {
 		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
 		//
 		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by implementing a `TransactionExtension`. Note that it's EXTREMELY important to carefully
+		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
