@@ -881,7 +881,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		let dummy_account_id =
 			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::new(&b"dummy"[..]))
 				.expect("infinite length input; no invalid inputs for type; qed");
-		let track = Self::track(class).expect("Track should exist for `class`");
+		let track_info = T::Tracks::info(class).expect("Track should exist for `class`");
 		let mut status = ReferendumStatusOf::<T, I> {
 			track: class,
 			origin: frame_support::dispatch::RawOrigin::Root.into(),
@@ -890,7 +890,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			enactment: DispatchTime::After(Zero::zero()),
 			submitted: now,
 			submission_deposit: Deposit { who: dummy_account_id, amount: Zero::zero() },
-			decision_deposit: DecisionDeposit::new(track.decision_deposit.clone()),
+			decision_deposit: DecisionDeposit::new(track_info.decision_deposit.clone()),
 			deciding: None,
 			tally: TallyOf::<T, I>::new(class),
 			in_queue: false,
