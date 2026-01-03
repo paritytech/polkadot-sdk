@@ -1224,6 +1224,45 @@ pub mod pallet_macros {
 	/// a future release. Use [`sp_runtime::traits::TransactionExtension`] instead.
 	///
 	/// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
+	/// ---
+	/// Allows the pallet to validate unsigned transactions.
+	///
+	/// Item must be defined as:
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::validate_unsigned]
+	/// 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+	/// 		type Call = Call<T>;
+	///
+	/// 		fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+	/// 			// Your implementation details here
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// I.e. a trait implementation with bound `T: Config`, of trait
+	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
+	/// type `Pallet<T>`, and some optional where clause.
+	///
+	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
+	/// used to add some specific logic for transaction validation.
+	///
+	/// ## Macro expansion
+	///
+	/// The macro currently makes no use of this information, but it might use this information
+	/// in the future to give information directly to [`frame_support::construct_runtime`].
 	pub use frame_support_procedural::validate_unsigned;
 
 	/// Allows defining	view functions on a pallet.
