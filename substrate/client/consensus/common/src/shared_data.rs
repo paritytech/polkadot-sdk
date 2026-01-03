@@ -20,7 +20,9 @@
 
 use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
 use std::sync::Arc;
-
+use sp_runtime::traits::Block as BlockT;
+use sp_consensus_babe::BabeBlockWeight;
+use std::collections::HashMap;
 /// Created by [`SharedDataLocked::release_mutex`].
 ///
 /// As long as the object isn't dropped, the shared data is locked. It is advised to drop this
@@ -111,11 +113,12 @@ impl<'a, T> std::ops::DerefMut for SharedDataLocked<'a, T> {
 /// Holds the shared data and if the shared data is currently locked.
 ///
 /// For more information see [`SharedData`].
-struct SharedDataInner<T> {
+struct SharedDataInner<Block: BlockT, T> {
 	/// The actual shared data that is protected here against concurrent access.
 	shared_data: T,
 	/// Is `shared_data` currently locked and can not be accessed?
 	locked: bool,
+	block_weights: HashMap<Block::Hash, BabeBlockWeight>,
 }
 
 /// Some shared data that provides support for locking this shared data for some time.
@@ -174,8 +177,8 @@ struct SharedDataInner<T> {
 /// deadlock. If you use [`release_mutex`](SharedDataLocked::release_mutex) followed by a call
 /// to [`shared_data`](Self::shared_data) in the same thread will make your program dead lock.
 /// The same applies when you are using a single threaded executor.
-pub struct SharedData<T> {
-	inner: Arc<Mutex<SharedDataInner<T>>>,
+pub struct SharedData<Block: BlockT, T> {
+	inner: Arc<Mutex<SharedDataInner<Block, T>>>,
 	cond_var: Arc<Condvar>,
 }
 
@@ -185,13 +188,23 @@ impl<T> Clone for SharedData<T> {
 	}
 }
 
-impl<T> SharedData<T> {
+impl<Block: BlockT, T> SharedData<Block, T> {
 	/// Create a new instance of [`SharedData`] to share the given `shared_data`.
 	pub fn new(shared_data: T) -> Self {
 		Self {
-			inner: Arc::new(Mutex::new(SharedDataInner { shared_data, locked: false })),
+			inner: Arc::new(Mutex::new(SharedDataInner { shared_data, locked: false, block_weights: HashMap::new() })),
 			cond_var: Default::default(),
 		}
+	}
+
+	pub fn update_block_weight(&self, block_hash: Block::Hash, weight: BabeBlockWeight) {
+		let mut guard = self.inner.lock();
+		guard.block_weights.insert(block_hash, weight);
+	}
+
+	pub fn get_block_weight(&self, block_hash: Block::Hash) -> Option<BabeBlockWeight> {
+		let guard = self.inner.lock();
+		guard.block_weights.get(&block_hash).cloned();
 	}
 
 	/// Acquire access to the shared data.
