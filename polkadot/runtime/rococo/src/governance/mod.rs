@@ -93,4 +93,5 @@ impl pallet_referenda::Config for Runtime {
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
+	type MaxDepositContributions = ConstU32<512>;
 }

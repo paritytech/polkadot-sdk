@@ -161,7 +161,7 @@ impl<T: frame_system::Config> pallet_referenda::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(936), added: 3411, mode: `MaxEncodedLen`)
-	fn refund_decision_deposit() -> Weight {
+	fn refund_decision_deposit(_: u32,) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `279`
 		//  Estimated: `4401`
