@@ -18,16 +18,22 @@
 3. [Goals](#goals)
 4. [Non-Goals](#non-goals)
 5. [Solution Overview](#solution-overview)
-6. [Storage Model](#storage-model)
-7. [Availability Contracts](#availability-contracts)
-8. [Read Incentives](#read-incentives)
-9. [Discovery](#discovery)
-10. [Data Model](#data-model)
-11. [Multi-Provider Redundancy](#multi-provider-redundancy)
-12. [Use Cases](#use-cases)
-13. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
-14. [Bootstrapping](#bootstrapping)
-15. [Open Questions](#open-questions)
+6. [Proof-of-DOT Foundation](#proof-of-dot-foundation)
+7. [Storage Model](#storage-model)
+8. [Buckets and Storage Agreements](#buckets-and-storage-agreements)
+9. [Read Incentives](#read-incentives)
+10. [Discovery](#discovery)
+11. [Data Model](#data-model)
+12. [Multi-Provider Redundancy](#multi-provider-redundancy)
+13. [Encrypted Data: Strong Guarantees Without Sealing](#encrypted-data-strong-guarantees-without-sealing)
+14. [Use Cases](#use-cases)
+15. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
+16. [Related Work](#related-work)
+17. [Bootstrapping and Rollout](#bootstrapping-and-rollout)
+18. [Operational Considerations](#operational-considerations)
+19. [Future Directions](#future-directions)
+20. [Summary](#summary)
+21. [Appendix: Detailed Comparisons](#appendix-detailed-comparisons)
 
 ---
 
@@ -43,9 +49,9 @@ This works because of two foundations:
 
 **Game-theoretic enforcement** replaces continuous cryptographic proofs. Providers commit Merkle roots on-chain and lock stake. Clients can challenge at any time, forcing the provider to prove data availability or lose their stake. The challenge mechanism is expensive for everyone—which is the point. Rational providers serve data directly because being challenged costs them money even if they're honest. Rational clients don't challenge frivolously because it costs them too. The expensive on-chain path exists to make the cheap off-chain path incentive-compatible.
 
-The result: storage that scales with provider capacity, not chain throughput. Writes are instant (no consensus). Reads are fast (direct from provider, no DHT lookup required). Guarantees are optional and tiered—ephemeral data needs no on-chain commitment, critical backups get full availability contracts with slashing.
+The result: storage that scales with provider capacity, not chain throughput. Writes are instant (no consensus). Reads are fast (direct from provider). Guarantees are optional and tiered—ephemeral data needs no on-chain commitment, critical backups get storage agreements with slashing.
 
-This document details the design: tiered storage model, availability contracts, read incentives, discovery, and how it compares to existing solutions.
+This document details the design: storage model, buckets and storage agreements, read incentives, discovery, and how it compares to existing solutions.
 
 ---
 
@@ -215,7 +221,7 @@ Proof-of-DOT (detailed in the [Proof-of-DOT Infrastructure Strategy](https://doc
 
 **For providers:**
 - Same Proof-of-DOT mechanism as clients (sybil resistance, identity)
-- *Separately*: providers lock collateral for availability contracts (see [Availability Contracts](#availability-contracts))
+- *Separately*: providers lock collateral for storage agreements (see [Buckets and Storage Agreements](#buckets-and-storage-agreements))
 - Collateral stake-per-byte ratio signals commitment level
 
 **For priority access:**
@@ -246,99 +252,161 @@ The `bucket_id` is optional:
 
 ### Provider Terms
 
-Providers advertise their terms via metadata endpoint:
+Providers register on-chain with their settings:
+
+- Minimum and maximum agreement duration
+- Price per byte per block
+- Whether accepting new agreements or extensions
+
+Clients query the chain for authoritative provider settings—this is what the
+protocol enforces. Providers also expose a metadata endpoint for dynamic
+information that doesn't belong on-chain:
 
 ```
+GET /info
+
 {
-  free_storage: { max_bytes: 1GB, max_duration: 24h, per_peer: true },
-  paid_storage: { price_per_gb_month: 0.01 DOT },
-  contract_required: false,  // or true for contract-only providers
-  min_stake_ratio: 0.001,    // DOT per GB for contracts
+  "status": "healthy",
+  "version": "0.1.0",
+  "current_load": 0.42,        // 0.0-1.0, helps clients pick least busy provider
+  "region": "eu-west",         // hint for latency-based selection
 }
 ```
 
-Clients choose based on needs:
-- Ephemeral chat image → use free tier, no contract
-- Important backup → pay for contract with high-stake provider
+This is illustrative—the exact fields will evolve. The point: on-chain for
+enforceable terms, off-chain for dynamic hints.
 
-### Why Contracts Matter
+Clients choose providers based on:
+- Price and duration constraints (from chain)
+- Provider stake (from chain—higher stake = more collateral at risk)
+- Reputation (past performance, challenge history)
+- Dynamic hints (from metadata endpoint)
 
-Without contract: Provider can drop data anytime. Your only recourse is reputation - stop using them, tell others.
+### Why Storage Agreements Matter
 
-With contract: Provider has stake at risk. You can challenge anytime. Cheating = slashing. The signed commitment + on-chain contract = economic guarantee.
+Without agreement: Provider can drop data anytime. Your only recourse is reputation—stop using them, tell others.
+
+With agreement: Provider has stake at risk. You can challenge anytime. Cheating = slashing. The signed commitment + on-chain agreement = economic guarantee.
 
 ```
 Guarantee Spectrum:
 ═══════════════════════════════════════════════════════════════════
 
-No contract, no payment:
-  Provider might keep it, might not. Free tier, best effort.
+No bucket, no payment:
+  Provider might keep it, might not. Best effort only.
 
-No contract, with payment:
+No bucket, with payment:
   Provider prioritizes you. Still no slashing, but reputation matters.
 
-Contract with low stake:
+Agreement with low-stake provider:
   Some economic guarantee. Cheap, but slashing hurts less.
 
-Contract with high stake:
+Agreement with high-stake provider:
   Strong guarantee. Provider loses significant value if caught cheating.
 ```
 
-The contract (or lack thereof) determines what recourse you have if the provider misbehaves.
+The agreement (or lack thereof) determines what recourse you have if the provider misbehaves.
 
 ---
 
-## Availability Contracts
+## Buckets and Storage Agreements
 
-### Contract Lifecycle
+A **bucket** is the fundamental unit of storage organization. It defines what
+data belongs together, who can access it, and which providers store it.
+
+### Bucket Structure
 
 ```
-1. NEGOTIATION (off-chain)
-   ────────────────────────────────────────────────────────
-   Client selects provider based on:
-   • Price per byte per duration
-   • Stake-per-byte ratio (higher = more collateral at risk)
-   • Reputation (past performance, challenge history)
-   
-   Client uploads data, provider acknowledges receipt
-
-2. COMMITMENT (on-chain, one transaction)
-   ────────────────────────────────────────────────────────
-   Provider commits MMR root covering client's data
-   • Batched: one commit can cover many clients' data
-   • Stake locked proportional to committed bytes
-   • Contract terms recorded: duration, client, data size
-
-3. ACTIVE PERIOD (off-chain)
-   ────────────────────────────────────────────────────────
-   Provider stores data, serves reads
-   Client can:
-   • Read data anytime (off-chain, priority based on payment)
-   • Verify randomly (off-chain, request chunks and check proofs)
-   • Challenge formally (on-chain, if off-chain verification fails)
-
-4. GRACE PERIOD (contract approaching end)
-   ────────────────────────────────────────────────────────
-   Duration: 7-30 days before contract end
-   Provider must continue serving
-   Client can:
-   • Extend contract (if terms allow)
-   • Migrate data to new provider
-   • Let it expire
-
-5. SETTLEMENT (on-chain, one transaction)
-   ────────────────────────────────────────────────────────
-   Provider requests payment release
-   Client has final challenge window, then:
-   • Pay in full → provider receives payment
-   • Partial pay → remainder burned (not paid to provider)
-   • Don't pay → all burned
-   • Challenge → dispute resolution
+Bucket
+├── members: [{ account, role: Admin|Writer|Reader }, ...]
+├── frozen_start_seq: Option<u64>     // if set, bucket is append-only
+├── min_providers: u32                 // required for checkpoint
+└── snapshot: Option<BucketSnapshot>   // canonical MMR state
+    ├── mmr_root
+    ├── start_seq
+    ├── leaf_count
+    └── providers: bitfield            // which providers acknowledged
 ```
+
+**Roles:**
+- **Admin**: Can modify members, manage settings, delete data (if not frozen)
+- **Writer**: Can append data
+- **Reader**: Can read data (for private buckets where providers enforce access)
+
+### Storage Agreements
+
+Each bucket can have storage agreements with multiple providers. An agreement
+defines quota, payment, and duration:
+
+```
+StorageAgreement
+├── max_bytes: u64          // quota for this bucket
+├── payment_locked: Balance // prepaid by client
+├── expires_at: BlockNumber
+└── extensions_blocked: bool
+```
+
+### Lifecycle
+
+```
+1. BUCKET CREATION (on-chain)
+   ────────────────────────────────────────────────────────
+   • Client creates bucket, becomes Admin
+   • Sets min_providers (minimum acknowledgments for checkpoint)
+   • Optionally adds members with roles
+
+2. AGREEMENT SETUP (on-chain)
+   ────────────────────────────────────────────────────────
+   • Client calls request_agreement(bucket, provider, max_bytes, payment, duration)
+   • Payment locked from client
+   • Provider calls accept_agreement or reject_agreement
+   • On acceptance: StorageAgreement created, provider tracks committed_bytes
+
+3. UPLOAD AND COMMIT (off-chain)
+   ────────────────────────────────────────────────────────
+   • Client uploads chunks to provider
+   • Client requests commit → provider signs MMR commitment
+   • Data is stored, commitment is provable off-chain
+
+4. CHECKPOINT (on-chain, optional)
+   ────────────────────────────────────────────────────────
+   • Client submits provider signatures to chain
+   • Requires min_providers acknowledgments
+   • Establishes canonical state, enables challenge_checkpoint
+
+5. ACTIVE PERIOD (off-chain)
+   ────────────────────────────────────────────────────────
+   • Provider stores data, serves reads
+   • Client can verify randomly, challenge if needed
+   • Client can extend_agreement or top_up_agreement
+
+6. SETTLEMENT (on-chain)
+   ────────────────────────────────────────────────────────
+   • After expires_at: client calls end_agreement with pay/burn decision
+   • Or: provider calls claim_expired_agreement after settlement timeout
+```
+
+### Binding Agreements
+
+Once accepted, agreements are binding for both parties until expiry:
+
+- **Provider cannot exit early**: They committed to store data for the agreed
+  duration. The only way out is to wait for expiry.
+- **Client cannot cancel early**: They committed to pay for the agreed duration.
+  The locked payment cannot be reclaimed.
+
+**Provider protections:**
+- Set `max_duration` in settings to limit exposure
+- Call `set_extensions_blocked` to prevent a specific bucket from extending
+- Set `accepting_extensions: false` globally to pause all extensions
+
+**Client protections:**
+- Challenge if provider loses data → slashing
+- At settlement: burn payment to signal poor service
 
 ### The Burn Option: Lose - Lose
 
-At contract end, the client has locked funds that would normally go to the provider. The client can choose to:
+At agreement end, the client has locked funds that would normally go to the provider. The client can choose to:
 
 1. **Pay** — Provider receives payment. Normal happy path.
 2. **Partial burn** — Provider receives less, remainder burned. Signal: "service was poor but functional."
@@ -421,10 +489,28 @@ cost.
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| Commit deadline | TBD | Depends on exact commit/activation flow (see Open Questions) | TODO
-| Challenge response | Up to ~1-2 days | Cost split shifts toward provider the longer they take |
-| Grace period | 7-30 days | Time for client to migrate data |
-| Settlement window | 3 days | Time for final challenges |
+| Challenge timeout | ~48 hours | Hard deadline, then full slash |
+| Grace period | 7-30 days | Time for client to migrate before agreement expires |
+| Settlement window | 3 days | Time for client to call end_agreement after expiry |
+
+**Challenge response cost split:**
+
+The cost split between challenger and provider shifts based on response time,
+rewarding fast responses:
+
+| Response time | Challenger pays | Provider pays |
+|---------------|-----------------|---------------|
+| Block 1 | 90% | 10% |
+| Blocks 2-5 | 80% | 20% |
+| Blocks 6-20 | 70% | 30% |
+| Blocks 21-100 | 60% | 40% |
+| Blocks 100+ | 50% | 50% |
+| Timeout (~48h) | 0% (refunded) | 100% (slashed) |
+
+This creates strong incentive for immediate response while allowing operational
+slack. At 6-second blocks, 100 blocks is 10 minutes—plenty of time for a
+well-run provider to respond, but slow enough to penalize negligence.
+
 ---
 
 ## Read Incentives
@@ -466,104 +552,24 @@ before quality drops or top up their payment, before service quality degrades.
 But this is optimization—the basic model works without it, more optimizations
 only make sense once we begin to see serious utilization.
 
-### Comparison: Filecoin Retrieval vs. Our Model
+### Why Not Payment Channels?
 
-Filecoin's [retrieval market](https://spec.filecoin.io/systems/filecoin_markets/retrieval_market/) uses [payment channels](https://spec.filecoin.io/systems/filecoin_token/payment_channels/) with incremental payments:
-- Client creates payment channel on-chain, locks funds for entire retrieval upfront
-- Provider sends data in chunks, pauses when payment needed
-- Client sends signed vouchers (cumulative value, increasing nonce) as data arrives
-- Provider submits final voucher on-chain within 12hr window to collect
-- Vouchers are channel-specific (client → provider), so no double-spend risk
+Filecoin's [retrieval market](https://spec.filecoin.io/systems/filecoin_markets/retrieval_market/) uses payment channels: clients lock funds, providers send data in chunks, clients release payment incrementally via signed vouchers. Fine-grained risk control within a single transfer.
 
-Our model is simpler:
-- Pay based on relationship/upfront
-- No per-request cryptographic receipts  
-- If unhappy: switch providers, stop paying
-
-**What each approach actually provides:**
-
-Both models solve the same problem: batching micropayments to avoid per-request on-chain transactions. They differ in how they manage risk.
+We chose a simpler model. The key insight: **bandwidth is cheap**.
 
 | Aspect | Payment Channels | Our Model |
 |--------|------------------|-----------|
-| Trust model | Cryptographic (signed vouchers) | Reputation (track record) |
-| Stranger interactions | Built for this | Small initial exposure, grow with trust |
-| State to track | Channel state, vouchers, nonces | Simple: received/served ratio |
-| Settlement | Explicit on-chain close | None needed (prepaid) |
-| Risk granularity | Per-voucher (arbitrarily fine) | Per-prepayment (relationship-based) |
+| Trust model | Cryptographic (vouchers) | Reputation (track record) |
+| Complexity | Channel lifecycle, vouchers, nonces, deadlines | Simple transfers |
+| Risk control | Per-voucher (fine-grained) | Per-prepayment (relationship-based) |
+| Overhead | Signing per payment interval | One transfer to top up |
 
-Payment channels let you control risk at arbitrary granularity within a single transfer—you release payment incrementally as data arrives. If the provider stops, you've only authorized payment for what you received so far. Note: this is pure risk control, not dispute resolution. Vouchers prove what you *signed*, not what you *received*. Neither system can prove delivery.
+Bandwidth costs ~€0.001/GB. For sub-cent transactions, payment channel overhead (voucher signing, validation, state management) exceeds the value transferred.
 
-Our model controls risk differently: start with small prepayments to unknown providers, increase as trust grows. The maximum exposure is capped by how much you've prepaid, which is proportional to demonstrated track record.
+Our risk profile: start with small prepayments (~10-30 cents) to unknown providers, increase as trust grows. Maximum exposure is a few euros to your most trusted providers. This is acceptable because providers invest equally in building reputation—there's symmetry in the trust relationship.
 
-**Implementation complexity:**
-
-Payment channels require:
-- On-chain channel open/close transactions
-- Channel state machine (open, active, settling, closed)
-- Voucher signing, validation, and persistent storage
-- Nonce tracking to handle out-of-order vouchers
-- Settlement deadline handling (Filecoin uses 12hr windows—miss it and funds revert)
-- Per-provider channel management (funds locked in channel A can't pay provider B)
-
-Our model requires:
-- On-chain balance transfers (already exists)
-- Provider tracks `received/served` per client (simple map, recoverable from chain if lost)
-- Client tracks quality stats per provider (local only)
-
-**Overhead:**
-
-Payment channels add per-interaction overhead: voucher signing and validation on every payment interval. For cheap services where even aggressive intervals (e.g., every 1MB) yield sub-cent payments, this overhead exceeds the value being transferred.
-
-For longer relationships, you could use larger intervals (e.g., daily vouchers), but then you're not getting fine-grained risk control anyway—and you still need the channel infrastructure, settlement deadlines, and locked funds.
-
-Our model has minimal overhead: one on-chain transfer whenever the client wants to top up. No vouchers, no deadlines, no locked funds.
-
-**User experience:**
-
-Payment channels require users to:
-- Decide upfront how much to lock per provider
-- Manage channel lifecycles (open, close, reopen for different providers)
-- Ensure funds are in the right channel before requesting service
-- Monitor settlement windows (or risk losing unclaimed funds)
-
-Our model: transfer some DOT to a provider when you want priority. Done. Switch providers freely—no channel management, no locked funds.
-
-**Why simplicity is sufficient for cheap services:**
-
-Serving data over a network is cheap. Bandwidth costs for providers using affordable infrastructure (Hetzner, OVH, etc.) are roughly €0.001/GB—a tenth of a cent. Even with markup for profit, storage, and operations, gigabyte-scale transfers cost cents, not euros.
-
-Our risk profile:
-
-- New provider: prepay ~10-30 cents, get substantial read access (tens of GB)
-- Established provider: prepay a euro or two, get priority access
-- Maximum exposure: a few euros to your most trusted providers
-
-This is acceptable because there's symmetry: providers invest in building reputation by offering free/cheap service initially. A provider who "exits" with remaining credits is taking money, but they also provided substantial service to earn that trust. It's arguably a legitimate business model—build reputation, provide service, eventually retire and keep the final credits. (And credits only mean priority—they still served *something*.)
-
-**What we accept:**
-
-A provider who systematically underperforms might go undetected longer than with fine-grained voucher tracking. But cumulative reputation effects (clients leaving, lower priority scores) still punish this behavior. We trade granular accounting for simplicity, betting that small exposure limits and easy exit are sufficient for cheap services.
-
-**Why not use payment channels for storage/availability contracts?**
-
-One might consider payment channels for long-term storage: client releases payments incrementally over the contract lifetime, stops paying if problems arise. But this creates new problems:
-
-- Client must come online regularly to release payments
-- If client disappears, provider faces a dilemma: delete data (breaking availability) or continue serving unpaid (hoping for late payment)
-- Long lockup periods tie up client funds
-- The "store and forget" use case breaks entirely
-
-Our upfront payment with challenge mechanism fits better: client pays upfront, provider commits via stake, availability is enforced via challenges. The client doesn't need to be online to "release" payments—they just need to be able to challenge if something goes wrong.
-
-**Future evolution:**
-
-Payment channels remain an option for services where:
-- Per-interaction amounts are significant (not sub-cent)
-- Fine-grained risk control within a single interaction matters
-- The overhead is justified by the amounts at stake
-
-For cheap reads and long-term storage, neither condition holds. No reusable payment channel library exists for Substrate anyway—Filecoin's [go-fil-markets](https://github.com/filecoin-project/go-fil-markets) is Go and tightly coupled to Filecoin, [Rust-Lightning (LDK)](https://github.com/lightningdevkit/rust-lightning) is Bitcoin-specific. Building from scratch isn't justified when the simple model covers our use cases.
+**For storage contracts**, payment channels are even worse: clients must come online regularly to release payments, breaking the "store and forget" use case. Our upfront payment with challenge mechanism fits better.
 
 ### Challenge Economics
 
@@ -592,18 +598,41 @@ The ceiling is approximately `challenge_cost` per read. Above this, clients pref
 
 Most of the time, competition drives prices well below this ceiling. The challenge economics only matter for the edge case: a single provider holding unique data and attempting to extract monopoly rents. The ceiling prevents ransom attacks without requiring continuous oversight.
 
-### Caching
+### Hot Content and Viral Distribution
 
-Anyone can cache and serve data. The protocol doesn't distinguish between "origin" and "cache"—it's all just nodes serving bytes.
+The Proof-of-DOT priority model assumes ongoing relationships: clients pay providers
+over time, providers remember and reward loyalty. This works well for most use
+cases—backups, application data, private storage.
 
-**Why caching works:**
+For viral public content, the dynamic is different:
 
-- Caches fetch data like any client
-- Once cached, they compete with the origin for read payments
-- Origin can't block caches (can't distinguish them from regular clients)
-- Caches earn by serving—no revenue split needed, no permission required
+| Use case | Read:Write ratio | Client relationship |
+|----------|------------------|---------------------|
+| Backup | 0.01:1 | Long-term, single client |
+| Chat media | 10:1 | Moderate, known users |
+| Public website | 1000:1 | One-shot, anonymous |
+| Viral content | 10000+:1 | One-shot, anonymous |
 
-**Privacy:** The protocol sees opaque bytes. Private data is encrypted at the application layer. A cache doesn't know or care whether it's serving a public image or an encrypted backup chunk. This keeps the protocol simple and uniform.
+When millions of anonymous clients each make one request, there's no relationship
+to build. The Proof-of-DOT priority system doesn't directly help here.
+
+**How this resolves in practice:**
+
+1. **The bucket owner pays for bandwidth.** Popular content is someone's content.
+   They benefit from it being served (reputation, ad revenue, user growth). They
+   can prepay providers generously or use multiple providers for capacity.
+
+2. **Free tier with rate limiting.** Providers serve public content at lowest
+   priority. When overloaded, paid clients get preference. Anonymous readers
+   experience slowdowns but still get served.
+
+3. **Popular providers emerge.** Providers who serve hot content well attract
+   more bucket owners who want reliable distribution. This creates some
+   centralization—but permissionless centralization. Anyone can compete.
+
+This mirrors how the web works: CDNs exist because serving at scale requires
+investment. The decentralization benefit isn't that all providers are equal—it's
+that anyone *can become* a major provider without permission.
 
 ---
 
@@ -611,39 +640,61 @@ Anyone can cache and serve data. The protocol doesn't distinguish between "origi
 
 How does a client find who can serve content?
 
-### Chain-Based Discovery
+### Chain as Entry Point
 
-The chain stores the mapping from data roots to providers:
+We recommend using the chain for discovery. The chain provides the root of
+trust—from there, you follow references to find data and providers.
+
+The simplest case: a bucket has storage agreements with providers.
 
 ```
-On-chain storage:
-{
-  data_root → [provider_1, provider_2, ...]
-}
+Bucket → [StorageAgreement(provider_1), StorageAgreement(provider_2), ...]
 ```
 
-**Setting a provider:** Clients submit a transaction with the data_root and provider list. The chain verifies that each provider has signed the commitment before accepting. This prevents clients from claiming providers store data they don't.
+Query the chain for a bucket's storage agreements → get provider accounts →
+look up provider multiaddrs → connect directly.
 
-**Lookup:** Query the chain (or a chain indexer) by data_root → get provider endpoints. Connect directly.
+### Hierarchical Discovery
 
-**Why this is sufficient:**
+Larger systems compose many buckets. A smart contract or a root bucket serves as
+the entry point, with references leading to more specific data:
 
-1. **Chat/messaging:** Roots are shared in messages along with provider info. No chain lookup needed.
-2. **Websites:** Domain → data_root mapping on-chain. One lookup per site.
-3. **Backups:** Client knows their own providers. No discovery needed.
-4. **Shared workspaces:** Contract is on-chain, providers are in the contract.
+```
+Marketplace Contract
+├── references business_1.bucket_id
+├── references business_2.bucket_id
+└── references catalog.bucket_id
+    └── contains data referencing more bucket_ids...
 
-Most use cases either share provider info directly (peer-to-peer) or do a single chain lookup (public content).
+Each business:
+└── bucket with storage agreements → providers
+```
+
+Discovery follows the reference chain: contract → bucket → data → more buckets.
+The chain provides the trusted entry point; the data itself can contain further
+references. This allows complex systems where different organizations own
+different buckets, all discoverable from a common root.
+
+### Examples
+
+1. **Chat/messaging:** Bucket ID shared in the channel. Look up once, cache
+   provider endpoints.
+2. **Websites:** Domain → bucket_id mapping (DNS or on-chain). One lookup per
+   site.
+3. **Backups:** Client created the bucket and agreements. No discovery needed.
+4. **Marketplace:** Contract references seller buckets. Buyer discovers sellers
+   via the contract, then fetches product data from each seller's bucket.
 
 ### Scaling Access
 
-Want content served faster or more reliably? Add more providers:
+Want content served faster or more reliably? Add more storage agreements:
 
-- Store with multiple providers (they all sign the commitment)
+- Request agreements with additional providers
+- Upload data to all providers (client responsibility)
 - Clients pick whichever provider has best latency
-- Trial and error, or providers expose latency hints via metadata
+- Checkpoint with multiple provider signatures for redundancy
 
-No separate "cache" layer needed. More providers = wider access = better availability.
+More providers = wider access = better availability.
 
 ---
 
@@ -912,6 +963,38 @@ When selecting multiple providers, maximize diversity:
 
 ---
 
+## Encrypted Data: Strong Guarantees Without Sealing
+
+For private/encrypted data, we can achieve Filecoin's uniqueness and incompressibility guarantees *without* slow sealing.
+
+**The scheme (needs cryptographic review):**
+
+```
+mask = PRF(provider_key, client_private_key)
+stored_data = encrypted_data XOR mask
+```
+
+Each provider receives different bytes to store. The provider has `stored_data` and their own `provider_key`, but cannot reconstruct the data without the client's private key.
+
+| Property | Filecoin PoRep | Our Encrypted Scheme |
+|----------|----------------|---------------------|
+| Unique per provider | Yes | Yes |
+| Incompressible | Yes | Yes |
+| No cross-provider sharing | Yes | Yes |
+| Sealing time | ~1.5 hours | Seconds |
+| Unsealing time | ~3 hours | Seconds |
+| GPU required | Yes | No |
+
+**Why this works:**
+
+Filecoin needs slow sealing because providers know the sealing algorithm—given enough time, they could regenerate data on demand. Our scheme uses cryptographic secrets instead: the provider *never* knows the mask. No amount of compute helps them reconstruct deleted data.
+
+If a provider loses even one byte, they cannot reconstruct it. A challenge for that byte means full slash. This creates strong incentive for providers to maintain their own redundancy (RAID, backups).
+
+**Limitation:** This only works for private/encrypted data. For public data, anyone can compute the mask. See [Comparison with Existing Solutions](#comparison-with-existing-solutions) for discussion of public data trade-offs.
+
+---
+
 ## Use Cases
 
 ### Media in Chat
@@ -1147,39 +1230,17 @@ The expensive on-chain path is the "nuclear option" that prevents ransom attacks
 
 ### Saturn and Storacha: Filecoin's Hot Storage Layer
 
-[Saturn](https://saturn.tech/) and [Storacha](https://storacha.network/) represent Filecoin's evolution toward hot storage and fast retrieval—similar goals to this design.
-
-**Saturn** is a CDN layer:
-- L1 nodes (edge caches in data centers) and L2 nodes (home computers)
-- Node operators earn FIL based on bytes served, speed metrics, and uptime
-- Centralized orchestrator manages node membership and payment distribution
-- Monthly payouts via FVM smart contract
-- Minimum 14 days uptime per month to qualify for earnings
-
-**Storacha** combines web3.storage with Saturn:
-- Three node types: storage (persist data), indexing (track location), retrieval (CDN/cache)
-- Uses UCANs for authorization
-- Backed by Filecoin PDP for storage proofs
-- Moving to L2 using IPC (Interplanetary Consensus) for scalability
-
-**Comparison:**
+[Saturn](https://saturn.tech/) and [Storacha](https://storacha.network/) represent Filecoin's evolution toward hot storage—similar goals to this design.
 
 | Aspect | Saturn/Storacha | This Design |
 |--------|-----------------|-------------|
-| Sybil resistance | Orchestrator approval | Proof-of-DOT |
-| Payment model | Pooled monthly payouts by metrics | Direct client→provider, priority by ratio |
-| Node membership | Centralized orchestrator | Permissionless with stake |
+| Sybil resistance | Centralized orchestrator | Proof-of-DOT |
+| Payment model | Pooled monthly payouts | Direct client→provider |
+| Node membership | Orchestrator approval | Permissionless with stake |
 | Storage proofs | PDP (periodic) | Challenges (on-demand) |
-| Delivery enforcement | Reputation + SPARK testing | On-chain challenges with slashing |
-| Discovery | IPFS DHT + indexers | Proof-of-DOT indexers + DHT fallback |
+| Delivery enforcement | Reputation + testing | On-chain challenges with slashing |
 
-**Key differences:**
-
-Saturn's centralized orchestrator is a pragmatic choice for bootstrapping—it manages quality control and payment distribution. Our design is more decentralized from the start, using Proof-of-DOT for permissionless participation and on-chain mechanisms for enforcement.
-
-Storacha separates storage/indexing/retrieval into distinct node roles. Our design allows any provider to serve all roles, with specialization emerging from economics rather than protocol requirements.
-
-The most significant difference is enforcement: Saturn/Storacha rely on reputation and testing (SPARK) to ensure quality. Our design has on-chain challenges as a fallback—expensive, but a credible threat that makes off-chain cooperation incentive-compatible.
+The key difference is enforcement: Saturn/Storacha rely on reputation and testing (SPARK). Our design has on-chain challenges as a fallback—expensive, but a credible threat that makes off-chain cooperation incentive-compatible.
 
 ### Polkadot Ecosystem: Eiger and StorageHub
 
@@ -1229,67 +1290,20 @@ The game-theoretic literature supports this: "infrequent but perfectly verifiabl
 
 ### Filecoin's Two-Tier Future: PoRep + PDP
 
-Filecoin launched [Proof of Data Possession (PDP)](https://filecoin.io/blog/posts/introducing-proof-of-data-possession-pdp-verifiable-hot-storage-on-filecoin/) on mainnet in May 2025. This raises the question: will PDP replace PoRep?
+Filecoin launched [Proof of Data Possession (PDP)](https://filecoin.io/blog/posts/introducing-proof-of-data-possession-pdp-verifiable-hot-storage-on-filecoin/) on mainnet in May 2025—a hot storage layer alongside cold storage (PoRep).
 
-**Answer: No. They're complementary, not competing.**
-
-The fundamental difference is what each proves:
-
-| Property | PoRep | PDP |
+| Property | PoRep (cold) | PDP (hot) |
 |----------|-------|-----|
-| Unique copy | Yes (sealed, incompressible) | No (can be shared/compressed) |
-| Immediate access | No (must unseal, ~3 hours) | Yes (raw data) |
-| Consensus-safe | Yes | No |
-| Mutable | No (sector is sealed) | Yes (add/delete/modify) |
+| Unique copy proven | Yes (sealed) | No |
+| Immediate access | No (~3hr unseal) | Yes |
+| Mutable | No | Yes |
 
-**Why PoRep can't be replaced:**
+We're designing for the *hot storage* use case. Filecoin's PDP validates that there's demand for this. But we differ in two ways:
 
-PoRep's sealing creates an *incompressible, unique* encoding of the data. This is essential for storage-based consensus:
-
-1. A provider claims "I'm storing 32GB"
-2. PoRep proves they're storing 32GB of *unique* data that *cannot be regenerated on demand*
-3. The sealing is slow enough (~1.5 hours) that providers can't fake it during the 24-hour PoSt window
-
-Without this, a malicious provider could:
-- Store one copy, claim ten
-- Regenerate data from a compressed version when challenged
-- Share storage across "independent" providers
-
-PDP only proves "I can access this data"—not "I'm dedicating unique physical storage to it." That's fine for hot storage (you just want the data served fast), but breaks the security model that underpins Filecoin's consensus.
-
-**Filecoin's architecture now:**
-
-```
-┌─────────────────────────────────────────────┐
-│              Filecoin Network               │
-├─────────────────────────────────────────────┤
-│                                             │
-│   Cold Storage (PoRep + PoSt)               │
-│   • Archival, long-term                     │
-│   • Sealed sectors, 32GB                    │
-│   • Consensus participation                 │
-│   • ~3 hour unsealing for retrieval         │
-│                                             │
-├─────────────────────────────────────────────┤
-│                                             │
-│   Hot Storage (PDP)                         │
-│   • Fast retrieval                          │
-│   • No sealing, raw data                    │
-│   • Mutable collections                     │
-│   • No consensus weight                     │
-│                                             │
-└─────────────────────────────────────────────┘
-```
-
-**What this means for us:**
-
-We're designing for the *hot storage* use case—fast reads, mutable data, no sealing. Filecoin's PDP validates that there's demand for this. But we differ in two ways:
-
-1. **Challenge frequency:** PDP still requires ongoing proofs (lightweight, but continuous). We use rare, on-demand challenges.
-
+1. **Challenge frequency:** PDP still requires ongoing proofs. We use rare, on-demand challenges.
 2. **Data delivery enforcement:** PDP proves possession but doesn't force serving. Our challenges require submitting actual data on-chain.
 
-The continuous vs. on-demand distinction matters for scalability. PDP's ~415KB proofs are cheap per-proof, but multiply by every provider every period and chain load adds up. Our approach: zero chain load in the happy path.
+Our approach: zero chain load in the happy path.
 
 ### What We Give Up: The Game-Theoretic Trade-off
 
@@ -1345,82 +1359,20 @@ Continuous proofs (Filecoin PoSt, StorageHub) catch *every* cheater, every time.
 
 For archival storage where "never lose a bit" matters more than cost, use Filecoin with PoRep. For hot storage where performance and cost matter, the game-theoretic model is sufficient.
 
-### Encrypted Data: PoRep Guarantees Without Sealing
+### Public Data: The Funding Problem
 
-For private/encrypted data, we can achieve Filecoin's uniqueness and incompressibility guarantees *without* slow sealing.
+For private data, our [encrypted storage scheme](#encrypted-data-strong-guarantees-without-sealing) provides PoRep-equivalent guarantees without sealing. But for public data, anyone can compute the mask—the scheme doesn't apply.
 
-**The scheme (needs cryptographic review):**
+However, PoRep for public data doesn't solve the real problem either: **who pays for redundant copies?**
 
-```
-mask = PRF(provider_key, client_private_key)
-stored_data = encrypted_data XOR mask
-```
+| Data State | What Happens |
+|------------|--------------|
+| Popular/valuable | Many nodes cache it (serving is profitable) |
+| Unpopular | No profit in serving—who pays? |
 
-Each provider receives different bytes to store, because each has a different `provider_key` and the mask is derived using the client's private key. The exact PRF construction needs review to ensure that observing many `stored_data` values doesn't leak information about the mask.
+Filecoin's PoRep can *prove* that N unique copies exist, but someone still has to fund each storage deal. The options are the same in both systems: altruism, collective funding (DAO/foundation), or the uploader pays.
 
-**What the provider has:**
-- `stored_data` (what they must keep)
-- `provider_key` (their own key)
-
-**What the provider does NOT have:**
-- `client_private_key`
-- The XOR mask
-- Any way to reconstruct `stored_data`
-
-**This gives us:**
-
-| Property | Filecoin PoRep | Our Encrypted Scheme |
-|----------|----------------|---------------------|
-| Unique per provider | Yes | Yes |
-| Incompressible | Yes | Yes |
-| No cross-provider sharing | Yes | Yes |
-| Sealing time | ~1.5 hours | Seconds |
-| Unsealing time | ~3 hours | Seconds |
-| GPU required | Yes | No |
-
-**Why Filecoin needs slow sealing but we don't:**
-
-Filecoin's problem: the provider knows the sealing algorithm. Given enough time, they could delete data and regenerate it when challenged. Slow sealing makes "enough time" longer than the challenge window.
-
-Our scheme: the provider *never* knows the mask (it's encrypted with the client's private key). No amount of compute helps them. They either stored the exact bytes or they didn't.
-
-The asymmetry comes from cryptographic secrets, not computational slowness.
-
-**Combined with slashing:**
-
-If a provider loses even one byte (disk failure, deletion, corruption), they cannot reconstruct it. A challenge for that byte means full slash. This creates strong incentive for providers to maintain redundancy (RAID, backups) on their end.
-
-**For public data:**
-
-This scheme doesn't work—anyone can compute the mask. But: **PoRep for public data doesn't solve the real problem either.**
-
-Consider: who pays for redundant copies of public data?
-
-| Data State | What Happens | Redundancy |
-|------------|--------------|------------|
-| Popular/valuable | Many nodes cache it (serving is profitable) | Natural, incentive-driven |
-| Unpopular | No profit in serving | Who pays to store it? |
-
-For unpopular public data, we have a tragedy of the commons. The data belongs to no one, so no one internalizes the benefit of preserving it. Filecoin's PoRep can *prove* that N unique copies exist, but it doesn't solve *who funds* those copies. Someone still has to pay for each storage deal.
-
-Options for preserving public data (same in both systems):
-1. **Altruism** — someone pays because they care
-2. **Collective funding** — DAO/foundation pays
-3. **The uploader pays** — but then it's not really "public" in the commons sense
-
-**Private backup as insurance:**
-
-If someone truly cares about preserving public data, they can store a private encrypted backup with availability contracts. This isn't public storage - it's personal insurance. If public availability ever fails (caches expire, no one serves it anymore), they can republish from their backup. The data stays private until needed, so our encrypted-data guarantees apply fully.
-
-**Our position:**
-
-Public cold storage with proven redundancy is not our primary objective. We optimize for hot storage: fast reads, low latency, mutable data. For that use case, natural caching of popular content works well.
-
-For public data that needs long-term archival with provable redundancy:
-- **Encrypt it** — become the "owner," use our system with full guarantees
-- **Use Filecoin** — their PoRep is designed exactly for this use case
-
-We don't need to be better everywhere. Cold storage of public data can live on Filecoin; it doesn't matter where archival data sits as long as it's preserved. Our value is in the hot path: writes without consensus, fast reads, game-theoretic enforcement without continuous proofs.
+**Our position:** Public cold storage with proven redundancy is not our primary objective. We optimize for hot storage. For public archival data, use Filecoin—it doesn't matter where archival data sits as long as it's preserved.
 
 ### When to Use What
 
@@ -1475,9 +1427,9 @@ Add payment tracking. Providers prioritize paying clients over free-tier. This e
 - Provider competition
 - Market-driven pricing
 
-**Phase 4: Availability Contracts**
+**Phase 4: Storage Agreements with Challenges**
 
-Add on-chain availability commitments with challenge mechanism. For users who need guarantees beyond reputation. This establishes:
+Add on-chain storage agreements with challenge mechanism. For users who need guarantees beyond reputation. This establishes:
 - Full trust model
 - Enterprise-grade guarantees
 - Complete feature set
@@ -1490,6 +1442,143 @@ Providers who join early build reputation before competition intensifies. Users 
 
 ---
 
+## Operational Considerations
+
+This section provides concrete guidance for implementers and operators.
+
+### Provider Economics
+
+Storage providers operate on thin margins. The value proposition is not outsized
+profits but rather:
+
+- **Decentralization premium.** Users pay slightly more than centralized
+  alternatives for censorship resistance and redundancy guarantees.
+- **Ecosystem integration.** Providers who already run validators or collators
+  can amortize infrastructure costs across services.
+- **Market positioning.** Early providers build reputation before competition
+  intensifies.
+
+Providers should expect margins comparable to traditional cloud storage (~10-20%
+above infrastructure costs) rather than cryptocurrency-style returns.
+
+### Recommended Parameters
+
+These are starting points, tunable via governance:
+
+| Parameter | Recommended Value | Rationale |
+|-----------|-------------------|-----------|
+| Chunk size | 256 KB | Balances proof size vs overhead |
+| Min stake per GB | 70-100 μDOT/GB | Must deter lazy providers (see below) |
+| Min agreement duration | 1 week | Prevents gaming via short commitments |
+| Max agreement duration | 2 years | Limits long-term stake lockup |
+| Challenge deposit | ~Cost of 256KB on-chain | Must cover chunk submission in response |
+| Challenge timeout | ~48 hours (blocks) | Allows for temporary outages |
+
+**Stake rationale:**
+
+Cheating is nearly impossible to hide. From PoR (Proof of Retrievability)
+literature, if a provider deletes fraction `f` of data and a client samples `n`
+random chunks:
+
+```
+P(caught) = 1 - (1-f)^n
+```
+
+| Fraction deleted | 10 samples | 100 samples | 365 samples (daily) |
+|------------------|------------|-------------|---------------------|
+| 1% | 9.6% | 63% | 97% |
+| 10% | 65% | 99.99% | ~100% |
+| 50% | 99.9% | ~100% | ~100% |
+
+Daily sampling is trivial for any client (phones, IoT, apps). Some clients
+periodically download all their data (backups, restores)—100% detection.
+
+**Why stake per GB?**
+
+When caught, the provider loses their *entire* stake for that agreement—not just
+the portion for deleted data. Even deleting 1% of 10TB saves ~$0.12/year in
+storage costs while risking the full stake. Any meaningful stake makes cheating
+absurd economics.
+
+The stake-per-GB ratio ensures **pain scales with provider size**:
+- Small provider (10TB) with 100 DOT at stake: losing it hurts
+- Large provider (1PB) with 100 DOT at stake: losing it is a rounding error
+
+The ratio keeps incentives aligned regardless of operation size.
+
+**Recommended stakes:**
+
+| Tier | Stake ratio | 10TB provider | Use case |
+|------|-------------|---------------|----------|
+| Baseline | 5-10 μDOT/GB | 50-100 DOT ($350-700) | General storage |
+| Standard | 10-20 μDOT/GB | 100-200 DOT ($700-1,400) | Business data |
+| Gold | 50-100 μDOT/GB | 500-1,000 DOT ($3,500-7,000) | Critical/enterprise |
+
+**Users control their risk:**
+- **Sample frequently** — daily checks catch almost everything
+- **Use multiple providers** — one losing data doesn't mean total loss
+- **Choose stake tier** — match provider commitment to data importance
+
+**Challenge deposit calculation:** The deposit must cover the cost of submitting
+a full chunk on-chain (provider's response includes the challenged chunk with
+Merkle proofs). With 256KB chunks, this is the dominant cost. The exact amount
+depends on chain weight pricing and should be calculated dynamically or set via
+governance based on current rates.
+
+### Garbage Collection
+
+Providers must implement garbage collection for chunks with no active
+agreements. Recommended approach:
+
+1. Track reference counts per chunk (how many active agreements reference it)
+2. When count reaches zero, mark for deletion after grace period (e.g., 7 days)
+3. Grace period allows for agreement renewals without re-upload
+
+Clients should not assume chunks persist beyond their agreement duration.
+
+---
+
+## Future Directions
+
+### Cache Nodes
+
+A dedicated cache node type could extend the provider model for content delivery:
+
+**Key differences from providers:**
+- No stake requirement, no challenges, no availability guarantees
+- Can self-add to buckets they find profitable (predict viral content)
+- Responsible for fetching data they want to cache from actual providers
+- Serve reads for payment, compete on latency and regional presence
+
+**Discovery is trivial:** Caches are bucket members. Clients query the bucket,
+get the list of providers and caches, try them based on region/reputation.
+
+**Quality enforcement via Proof-of-DOT:** Bad cache? Drop it, try another. Good
+cache hitting rate limits? Start paying. No complex on-chain verification
+needed—market dynamics handle quality.
+
+**Economics for content providers:**
+- Option A: Pay caches to join your bucket (hard to verify they're serving)
+- Option B: Let the market work—caches predict demand and join speculatively
+
+Option B is cleaner. Caches are profit-seeking businesses that bear prediction
+risk. Popular content attracts caches naturally; unpopular content doesn't need
+them.
+
+**Implementation:** Explicit `is_cache` flag on bucket membership (vs. inferring
+from zero stake). Clearer semantics, lets clients filter by role.
+
+### Cross-Chain Storage
+
+With XCM, buckets on one parachain can reference providers on another. This
+enables:
+
+- Specialized storage parachains with optimized economics
+- Cross-chain data availability for rollups
+- Shared storage infrastructure across the ecosystem
+
+---
+
 ## Summary
 
 The design achieves scalability by removing the chain from the hot path:
@@ -1498,21 +1587,152 @@ The design achieves scalability by removing the chain from the hot path:
 |-----------|-------------------|-----------|
 | Write | None | High |
 | Read | None | High |
-| Contract setup | One tx | Low |
+| Bucket/agreement setup | One tx each | Low |
+| Checkpoint | Optional, batched | Low |
 | Challenge | Only if fraud | Rare |
 
 **Key design choices:**
 
-1. **Unified write model.** Every write follows the same path: upload, merkleize, sign commitment. The `bucket_id` in the commitment is optional - with a bucket you get slashing guarantees, without you get best-effort storage. One protocol, continuous spectrum of guarantees.
+1. **Buckets as organizational unit.** A bucket defines what data belongs
+   together, who can access it (members with roles), and which providers store
+   it (via storage agreements). Buckets can be frozen for append-only semantics.
 
-2. **Protocol-layer opacity.** Providers see only content-addressed chunks. File structure, metadata, directories—all application-layer concerns. Privacy by design: encrypt everything, provider learns nothing.
+2. **Storage agreements.** Per-bucket, per-provider contracts with quota,
+   duration, and prepaid payment. Binding once accepted—neither party can exit
+   early. Providers lock stake proportional to committed bytes.
 
-3. **MMR-based commitments.** Per-bucket Merkle Mountain Ranges track version history. Both parties sign `{bucket_id: Option, mmr_root, start_seq, leaf_count}`. One signature covers entire history. Canonical range is `[start_seq, start_seq + leaf_count)`. Deletions via fresh MMR with higher start_seq (requires client signature to prove authorization).
+3. **Unified write model.** Every write follows the same path: upload,
+   merkleize, commit. The `bucket_id` in the commitment is optional—with a
+   bucket you get slashing guarantees, without you get best-effort storage.
 
-4. **Proof-of-DOT foundation.** Sybil resistance via DOT staking enables identity and reputation. Payment history (not stake) determines service priority. Simple prepayments, no payment channels needed.
+4. **Protocol-layer opacity.** Providers see only content-addressed chunks. File
+   structure, metadata, directories—all application-layer concerns. Privacy by
+   design: encrypt everything, provider learns nothing.
 
-5. **Game-theoretic enforcement.** Challenges replace continuous proofs. Rational providers serve data because being challenged is expensive. The burn option lets clients punish bad service at their own cost—no proof needed, just reputation loss.
+5. **MMR-based commitments.** Per-bucket Merkle Mountain Ranges track version
+   history. Provider signs `{bucket_id, mmr_root, start_seq, leaf_count}`.
+   Canonical range is `[start_seq, start_seq + leaf_count)`. Deletions via fresh
+   MMR with higher start_seq (requires client signature).
 
-6. **Chain-based discovery.** Providers are registered on-chain per data_root. For peer-to-peer sharing, provider info travels with the content reference. No separate indexing infrastructure needed.
+6. **Proof-of-DOT foundation.** Sybil resistance via DOT staking enables
+   identity and reputation. Payment history (not stake) determines service
+   priority.
+
+7. **Game-theoretic enforcement.** Challenges replace continuous proofs.
+   Rational providers serve data because being challenged is expensive. The burn
+   option lets clients punish bad service at their own cost.
+
+8. **Bucket-based discovery.** Providers are found via bucket storage
+   agreements. For peer-to-peer sharing, bucket ID travels with the content
+   reference.
 
 The chain exists as a credible threat. Rational actors never use it.
+
+---
+
+## Appendix: Detailed Comparisons
+
+This appendix provides deeper technical comparisons for readers evaluating alternatives.
+
+### A.1 Saturn and Storacha Deep Dive
+
+[Saturn](https://saturn.tech/) and [Storacha](https://storacha.network/) represent Filecoin's evolution toward hot storage and fast retrieval.
+
+**Saturn** is a CDN layer:
+- L1 nodes (edge caches in data centers) and L2 nodes (home computers)
+- Node operators earn FIL based on bytes served, speed metrics, and uptime
+- Centralized orchestrator manages node membership and payment distribution
+- Monthly payouts via FVM smart contract
+- Minimum 14 days uptime per month to qualify for earnings
+
+**Storacha** combines web3.storage with Saturn:
+- Three node types: storage (persist data), indexing (track location), retrieval (CDN/cache)
+- Uses UCANs for authorization
+- Backed by Filecoin PDP for storage proofs
+- Moving to L2 using IPC (Interplanetary Consensus) for scalability
+
+Saturn's centralized orchestrator is a pragmatic choice for bootstrapping—it manages quality control and payment distribution. Our design is more decentralized from the start, using Proof-of-DOT for permissionless participation and on-chain mechanisms for enforcement.
+
+Storacha separates storage/indexing/retrieval into distinct node roles. Our design allows any provider to serve all roles, with specialization emerging from economics rather than protocol requirements.
+
+### A.2 Why Filecoin Needs PoRep (And We Don't)
+
+PoRep's sealing creates an *incompressible, unique* encoding of the data. This is essential for storage-based consensus:
+
+1. A provider claims "I'm storing 32GB"
+2. PoRep proves they're storing 32GB of *unique* data that *cannot be regenerated on demand*
+3. The sealing is slow enough (~1.5 hours) that providers can't fake it during the 24-hour PoSt window
+
+Without this, a malicious provider could:
+- Store one copy, claim ten
+- Regenerate data from a compressed version when challenged
+- Share storage across "independent" providers
+
+PDP only proves "I can access this data"—not "I'm dedicating unique physical storage to it." That's fine for hot storage (you just want the data served fast), but breaks the security model that underpins Filecoin's consensus.
+
+**Filecoin's architecture now:**
+
+```
+┌─────────────────────────────────────────────┐
+│              Filecoin Network               │
+├─────────────────────────────────────────────┤
+│   Cold Storage (PoRep + PoSt)               │
+│   • Archival, long-term                     │
+│   • Sealed sectors, 32GB                    │
+│   • Consensus participation                 │
+│   • ~3 hour unsealing for retrieval         │
+├─────────────────────────────────────────────┤
+│   Hot Storage (PDP)                         │
+│   • Fast retrieval                          │
+│   • No sealing, raw data                    │
+│   • Mutable collections                     │
+│   • No consensus weight                     │
+└─────────────────────────────────────────────┘
+```
+
+### A.3 Payment Channels: Full Comparison
+
+Filecoin's [retrieval market](https://spec.filecoin.io/systems/filecoin_markets/retrieval_market/) uses [payment channels](https://spec.filecoin.io/systems/filecoin_token/payment_channels/) with incremental payments:
+- Client creates payment channel on-chain, locks funds for entire retrieval upfront
+- Provider sends data in chunks, pauses when payment needed
+- Client sends signed vouchers (cumulative value, increasing nonce) as data arrives
+- Provider submits final voucher on-chain within 12hr window to collect
+- Vouchers are channel-specific (client → provider), so no double-spend risk
+
+Payment channels let you control risk at arbitrary granularity within a single transfer—you release payment incrementally as data arrives. If the provider stops, you've only authorized payment for what you received so far. Note: this is pure risk control, not dispute resolution. Vouchers prove what you *signed*, not what you *received*. Neither system can prove delivery.
+
+**Implementation complexity:**
+
+Payment channels require:
+- On-chain channel open/close transactions
+- Channel state machine (open, active, settling, closed)
+- Voucher signing, validation, and persistent storage
+- Nonce tracking to handle out-of-order vouchers
+- Settlement deadline handling (Filecoin uses 12hr windows—miss it and funds revert)
+- Per-provider channel management (funds locked in channel A can't pay provider B)
+
+Our model requires:
+- On-chain balance transfers (already exists)
+- Provider tracks `received/served` per client (simple map, recoverable from chain if lost)
+- Client tracks quality stats per provider (local only)
+
+**User experience:**
+
+Payment channels require users to:
+- Decide upfront how much to lock per provider
+- Manage channel lifecycles (open, close, reopen for different providers)
+- Ensure funds are in the right channel before requesting service
+- Monitor settlement windows (or risk losing unclaimed funds)
+
+Our model: transfer some DOT to a provider when you want priority. Done. Switch providers freely—no channel management, no locked funds.
+
+**Why not payment channels for storage contracts?**
+
+One might consider payment channels for long-term storage: client releases payments incrementally over the contract lifetime, stops paying if problems arise. But this creates new problems:
+
+- Client must come online regularly to release payments
+- If client disappears, provider faces a dilemma: delete data (breaking availability) or continue serving unpaid (hoping for late payment)
+- Long lockup periods tie up client funds
+- The "store and forget" use case breaks entirely
+
+No reusable payment channel library exists for Substrate anyway—Filecoin's [go-fil-markets](https://github.com/filecoin-project/go-fil-markets) is Go and tightly coupled to Filecoin, [Rust-Lightning (LDK)](https://github.com/lightningdevkit/rust-lightning) is Bitcoin-specific. Building from scratch isn't justified when the simple model covers our use cases.

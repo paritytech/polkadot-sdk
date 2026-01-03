@@ -910,6 +910,8 @@ pub struct SignedCommitment {
 }
 
 pub struct CommitmentPayload {
+    /// Protocol version for future compatibility
+    pub version: u8,
     /// Reference to on-chain contract, or None for best-effort
     pub bucket_id: Option<BucketId>,
     /// Root of MMR containing all data_roots
@@ -920,6 +922,7 @@ pub struct CommitmentPayload {
     pub leaf_count: u64,
 }
 // Canonical range is [start_seq, start_seq + leaf_count)
+// Version field enables protocol evolution without breaking existing signatures
 ```
 
 ### MMR Leaf
