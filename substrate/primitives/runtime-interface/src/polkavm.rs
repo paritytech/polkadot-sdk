@@ -21,7 +21,10 @@ pub use polkavm_derive::{polkavm_export, polkavm_import};
 pub mod polkavm_abi {}
 
 impl self::polkavm_abi::FromHost for *mut u8 {
+	#[cfg(target_arch = "riscv32")]
 	type Regs = (u32,);
+	#[cfg(target_arch = "riscv64")]
+	type Regs = (u64,);
 
 	#[inline]
 	fn from_host((value,): Self::Regs) -> Self {

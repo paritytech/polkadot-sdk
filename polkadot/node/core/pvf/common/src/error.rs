@@ -155,6 +155,9 @@ pub enum InternalValidationError {
 		// conversion to `Option<String>`.
 		path: Option<String>,
 	},
+	/// Could not decompress the PVM code.
+	#[error("validation: could not decompress the PVM code: {0}")]
+	CouldNotDecompressPvmCode(String),
 	/// Some error occurred when interfacing with the kernel.
 	#[error("validation: error interfacing with the kernel: {0}")]
 	Kernel(String),
