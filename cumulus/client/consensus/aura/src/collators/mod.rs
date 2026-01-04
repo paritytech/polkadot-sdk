@@ -251,6 +251,12 @@ where
 	// should have length 0 and we can build. Since the hash is not available to the runtime
 	// however, we need this extra check here.
 	if parent_hash == included_block {
+		tracing::trace!(
+			target: crate::LOG_TARGET,
+			?parent_hash,
+			?included_block,
+			"can_build_upon: included block is parent hash, can build"
+		);
 		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
 	}
 
