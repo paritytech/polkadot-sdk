@@ -147,6 +147,7 @@ std = [
 	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-async-reward-fn?/std",
 	"pallet-staking-async-runtime-api?/std",
+	"pallet-staking-async-testing-utils?/std",
 	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
@@ -333,6 +334,7 @@ runtime-benchmarks = [
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
+	"pallet-staking-async-testing-utils?/runtime-benchmarks",
 	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
@@ -476,6 +478,7 @@ try-runtime = [
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
+	"pallet-staking-async-testing-utils?/try-runtime",
 	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
@@ -702,6 +705,7 @@ runtime-full = [
 	"pallet-staking-async-rc-client",
 	"pallet-staking-async-reward-fn",
 	"pallet-staking-async-runtime-api",
+	"pallet-staking-async-testing-utils",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1746,6 +1750,11 @@ path = "../substrate/frame/staking-async/reward-fn"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/runtime-api"
+
+[dependencies.pallet-staking-async-testing-utils]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async-testing-utils"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

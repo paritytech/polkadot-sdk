@@ -41,7 +41,13 @@ use sp_runtime::{
 	Perbill, Percent, Saturating,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
-use testing_utils::*;
+
+use crate::testing_utils::{
+	clear_validators_and_nominators, create_funded_user, create_stash_controller,
+	create_stash_controller_with_balance, create_unique_stash_controller, create_validators,
+	create_validators_with_nominators_for_era, create_validators_with_seed,
+	migrate_to_old_currency, set_active_era,
+};
 
 const SEED: u32 = 0;
 
@@ -161,15 +167,19 @@ impl<T: Config> ListScenario<T> {
 		let validator_account = account("random_validator", 0, SEED);
 		let validator_stake = asset::existential_deposit::<T>() * 1000u32.into();
 		asset::set_stakeable_balance::<T>(&validator_account, validator_stake);
-		assert_ok!(Staking::<T>::bond(
+
+		let bond_result = Staking::<T>::bond(
 			RawOrigin::Signed(validator_account.clone()).into(),
 			validator_stake / 2u32.into(),
-			RewardDestination::Staked
-		));
-		assert_ok!(Staking::<T>::validate(
+			RewardDestination::Staked,
+		);
+		assert_ok!(bond_result);
+
+		let validate_result = Staking::<T>::validate(
 			RawOrigin::Signed(validator_account.clone()).into(),
-			Default::default()
-		));
+			Default::default(),
+		);
+		assert_ok!(validate_result);
 
 		// create accounts with the origin weight
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
@@ -201,6 +211,33 @@ impl<T: Config> ListScenario<T> {
 
 		let dest_weight =
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
+
+		// Ensure dest_weight is different from origin_weight for benchmarks to work
+		// We need the difference to be large enough that when divided by MaxUnlockingChunks,
+		// we still get a non-zero value for tests like rebond
+		let min_diff_needed = T::MaxUnlockingChunks::get().into();
+		let dest_weight = if is_increase {
+			// For increase scenarios (rebond), ensure dest_weight > origin_weight with sufficient
+			// difference
+			if dest_weight.saturating_sub(origin_weight) < min_diff_needed {
+				origin_weight + min_diff_needed + 1u32.into()
+			} else {
+				dest_weight
+			}
+		} else {
+			// For decrease scenarios (unbond), ensure origin_weight > dest_weight with sufficient
+			// difference
+			if origin_weight.saturating_sub(dest_weight) < min_diff_needed {
+				if origin_weight > min_diff_needed + 1u32.into() {
+					origin_weight - min_diff_needed - 1u32.into()
+				} else {
+					// If origin_weight is too small, use a minimal dest_weight
+					1u32.into()
+				}
+			} else {
+				dest_weight
+			}
+		};
 
 		// create an account with the worst case destination weight
 		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
@@ -289,7 +326,7 @@ mod benchmarks {
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
 		let controller = scenario.origin_controller1.clone();
-		let amount = origin_weight - scenario.dest_weight;
+		let amount = origin_weight.saturating_sub(scenario.dest_weight);
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
@@ -739,9 +776,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Pallet::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Pallet::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
@@ -1012,7 +1047,7 @@ mod benchmarks {
 		crate::mock::SlashDeferDuration::set(77);
 
 		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
-		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
+		let all_validators = create_validators_with_nominators_for_era::<T>(
 			// we create more validators, but all of the nominators will back the first one
 			ValidatorCount::<T>::get().max(1),
 			// create two full exposure pages
@@ -1078,7 +1113,7 @@ mod benchmarks {
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
 		let initial_era = Rotator::<T>::planned_era();
-		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
+		let _ = create_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
 			1000,
@@ -1144,9 +1179,7 @@ mod benchmarks {
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
 		// numbers don't matter.
-		crate::testing_utils::create_validators_with_nominators_for_era::<T>(
-			10, 50, 2, false, None,
-		)?;
+		create_validators_with_nominators_for_era::<T>(10, 50, 2, false, None)?;
 
 		// plan new era
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();

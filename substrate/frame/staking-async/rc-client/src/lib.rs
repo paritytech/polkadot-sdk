@@ -584,6 +584,19 @@ pub trait RcClientInterface {
 	fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>);
 }
 
+// Implementation for testing and benchmarking scenarios.
+// Production runtimes use the actual pallet implementation.
+impl RcClientInterface for () {
+	type AccountId = u128;
+
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_tp: Option<u32>,
+	) {
+	}
+}
+
 /// An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 pub struct Offence<AccountId> {

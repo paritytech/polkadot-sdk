@@ -761,10 +761,10 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(feature = "try-runtime")]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// build map to avoid reading storage multiple times.

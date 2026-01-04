@@ -434,6 +434,7 @@ members = [
 	"substrate/frame/society",
 	"substrate/frame/staking",
 	"substrate/frame/staking-async",
+	"substrate/frame/staking-async-testing-utils",
 	"substrate/frame/staking-async/ah-client",
 	"substrate/frame/staking-async/ahm-test",
 	"substrate/frame/staking-async/rc-client",
@@ -1065,6 +1066,7 @@ pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-as
 pallet-staking-async-reward-curve = { path = "substrate/frame/staking-async/reward-curve", default-features = false }
 pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-fn", default-features = false }
 pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
+pallet-staking-async-testing-utils = { path = "substrate/frame/staking-async-testing-utils", default-features = false }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }

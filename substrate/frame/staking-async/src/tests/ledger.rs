@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::testing_utils;
 
 #[test]
 fn paired_account_works() {

@@ -15,26 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::AgentLedgerOuter};
+use crate as delegated_staking;
 use frame_support::{
-	assert_ok, derive_impl,
+	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency, VariantCountOf},
+	traits::{ConstU64, VariantCountOf},
 	PalletId,
 };
 
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+use sp_runtime::{traits::IdentityLookup, Perbill};
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::dispatch::RawOrigin;
-use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
-use sp_staking::{Agent, Stake, StakingInterface};
+
+use crate::types::AgentLedgerOuter;
+use frame_support::{assert_ok, dispatch::RawOrigin, traits::Currency};
+use sp_runtime::BuildStorage;
+use sp_staking::{Agent, DelegationInterface, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -43,6 +45,9 @@ pub type AccountId = u128;
 pub const GENESIS_VALIDATOR: AccountId = 1;
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
+
+// Additional validators for pool integration tests
+pub const EXTRA_VALIDATORS: [AccountId; 5] = [18, 19, 20, 21, 22];
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -89,6 +94,8 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub static BondingDuration: u32 = 3;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
@@ -102,19 +109,19 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type BondingDuration = BondingDuration;
+	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type GenesisElectionProvider = Self::ElectionProvider;
-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
+	type RcClientInterface = ();
 }
 
 parameter_types! {
@@ -165,7 +172,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
-	type Filter = pallet_staking::AllStakers<Runtime>;
+	type Filter = pallet_staking_async::AllStakers<Runtime>;
 }
 
 frame_support::construct_runtime!(
@@ -173,7 +180,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: delegated_staking,
 	}
@@ -188,43 +195,37 @@ impl ExtBuilder {
 		let mut storage =
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-		let _ = pallet_balances::GenesisConfig::<T> {
-			balances: vec![
-				(GENESIS_VALIDATOR, 10000),
-				(GENESIS_NOMINATOR_ONE, 1000),
-				(GENESIS_NOMINATOR_TWO, 2000),
-			],
-			..Default::default()
-		}
-		.assimilate_storage(&mut storage);
+		let balances = vec![
+			(GENESIS_VALIDATOR, 10000),
+			(GENESIS_NOMINATOR_ONE, 1000),
+			(GENESIS_NOMINATOR_TWO, 2000),
+		]
+		.into_iter()
+		// Additional validators for tests
+		.chain(EXTRA_VALIDATORS.iter().map(|&v| (v, 10000)))
+		.collect::<Vec<_>>();
+
+		let _ = pallet_balances::GenesisConfig::<T> { balances, ..Default::default() }
+			.assimilate_storage(&mut storage);
 
 		let stakers = vec![
-			(
-				GENESIS_VALIDATOR,
-				GENESIS_VALIDATOR,
-				1000,
-				sp_staking::StakerStatus::<AccountId>::Validator,
-			),
-			(
-				GENESIS_NOMINATOR_ONE,
-				GENESIS_NOMINATOR_ONE,
-				100,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
-			),
-			(
-				GENESIS_NOMINATOR_TWO,
-				GENESIS_NOMINATOR_TWO,
-				200,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
-			),
-		];
+			(GENESIS_VALIDATOR, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(GENESIS_NOMINATOR_ONE, 100, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
+			(GENESIS_NOMINATOR_TWO, 200, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
+		]
+		.into_iter()
+		// Additional validators for pool integration tests
+		.chain(
+			EXTRA_VALIDATORS
+				.iter()
+				.map(|&v| (v, 1000, sp_staking::StakerStatus::<AccountId>::Validator)),
+		)
+		.collect::<Vec<_>>();
 
-		let _ = pallet_staking::GenesisConfig::<T> {
+		let _ = pallet_staking_async::GenesisConfig::<T> {
 			stakers: stakers.clone(),
 			// ideal validator count
-			validator_count: 2,
-			minimum_validator_count: 1,
-			invulnerables: vec![],
+			validator_count: 6,
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
@@ -237,7 +238,8 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			// for events to be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
-			// set era for staking.
+
+			// Set era for staking
 			start_era(0);
 		});
 
@@ -249,13 +251,13 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
-				frame_system::Pallet::<Runtime>::block_number(),
-				frame_support::traits::TryStateSelect::All,
-			)
-			.unwrap();
-			#[cfg(not(feature = "try-runtime"))]
-			DelegatedStaking::do_try_state().unwrap();
+			{
+				<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
+					frame_system::Pallet::<Runtime>::block_number(),
+					frame_support::traits::TryStateSelect::All,
+				)
+				.unwrap();
+			}
 		});
 	}
 }
@@ -292,15 +294,19 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), delegated_amount);
+	assert_eq!(DelegatedStaking::agent_balance(Agent::from(agent)), Some(delegated_amount));
 	assert_eq!(AgentLedgerOuter::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
 
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
-	CurrentEra::<T>::set(Some(era));
-	ActiveEra::<T>::set(Some(ActiveEraInfo { index: era, start: None }));
+	pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
+		era,
+		BondingDuration::get(),
+		Some(vec![GENESIS_VALIDATOR, 18u128, 19u128, 20u128, 21u128, 22u128]), /* Include all
+		                                                                        * test validators */
+	);
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
