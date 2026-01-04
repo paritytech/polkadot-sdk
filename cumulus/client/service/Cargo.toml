@@ -45,7 +45,6 @@ polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-client-cli = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-network = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }

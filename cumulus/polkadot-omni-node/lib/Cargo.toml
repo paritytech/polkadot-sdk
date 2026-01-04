@@ -137,3 +137,6 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+development = ["assert_cmd", "wait-timeout"]

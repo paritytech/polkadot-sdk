@@ -74,3 +74,6 @@ test-utils = [
 	"dep:polkadot-node-core-pvf-prepare-worker",
 	"dep:sp-maybe-compressed-blob",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["polkadot-node-core-pvf-prepare-worker"]

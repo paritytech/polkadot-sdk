@@ -16,44 +16,30 @@ exclude-from-umbrella = true
 
 [dependencies]
 alloy-consensus = { workspace = true }
-alloy-core = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rlp = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
 hex-literal = { workspace = true }
-parity-bytes = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-serde-big-array = { optional = true, features = ["const-generics"], workspace = true }
 
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-
-ethabi = { workspace = true }
-
 
 [features]
 default = ["std"]
 expensive_tests = []
 std = [
 	"alloy-consensus/std",
-	"alloy-core/std",
 	"alloy-primitives/std",
 	"alloy-rlp/std",
 	"codec/std",
-	"ethabi/std",
 	"ethbloom/std",
 	"ethereum-types/std",
-	"parity-bytes/std",
 	"rlp/std",
 	"scale-info/std",
 	"serde",
-	"serde-big-array",
-	"sp-io/std",
-	"sp-runtime/std",
 	"sp-std/std",
 ]

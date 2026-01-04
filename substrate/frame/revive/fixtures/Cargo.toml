@@ -52,3 +52,6 @@ std = [
 	"sp-io",
 	"toml",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+build = ["pallet-revive-uapi"]

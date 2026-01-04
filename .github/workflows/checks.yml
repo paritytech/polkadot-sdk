@@ -99,13 +99,34 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-  # name of this job must be unique across all workflows
-  # otherwise GitHub will mark all these jobs as required
+
+  cargo-udeps:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: Run cargo-udeps (workspace)
+        id: required
+        run: |
+          cargo install cargo-udeps --locked
+          cargo +nightly udeps --workspace --all-features --all-targets --exclude polkadot-zombienet-sdk-tests --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   confirm-required-checks-passed:
     runs-on: ubuntu-latest
     name: All checks passed
-    # If any new job gets added, be sure to add it to this array
-    needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]
+    needs: [cargo-clippy, check-try-runtime, check-core-crypto-features, cargo-udeps]
     if: always() && !cancelled()
     steps:
       - run: |

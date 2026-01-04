@@ -66,3 +66,6 @@ disable-logging = ["log/max_level_off"]
 # Do not report the documentation in the metadata.
 no-metadata-docs = ["sp-api-proc-macro/no-metadata-docs"]
 frame-metadata = ["sp-metadata-ir"]
+
+[package.metadata.cargo-udeps.ignore]
+development = ["sp-test-primitives"]

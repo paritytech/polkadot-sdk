@@ -34,3 +34,6 @@ std = [
 	"polkadot-primitives/std",
 	"sp-io/std",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["dlmalloc", "polkadot-parachain-primitives"]
