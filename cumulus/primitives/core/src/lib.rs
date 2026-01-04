@@ -35,7 +35,7 @@ pub mod parachain_block_data;
 pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
-pub use scheduling::SchedulingProof;
+pub use scheduling::{SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo};
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,

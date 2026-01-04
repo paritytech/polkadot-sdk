@@ -478,7 +478,11 @@ where
 					"Building V3 collation with scheduling proof",
 				);
 
-				Some(SchedulingProof { header_chain })
+				Some(SchedulingProof {
+					header_chain,
+					// Initial submission: no signature needed, core selection from UMP signals
+					signed_scheduling_info: None,
+				})
 			} else {
 				None
 			};

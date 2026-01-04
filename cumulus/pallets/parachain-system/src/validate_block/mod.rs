@@ -20,7 +20,7 @@
 #[doc(hidden)]
 pub mod implementation;
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(test, not(feature = "std")))]
 #[doc(hidden)]
 pub mod scheduling;
 #[cfg(test)]

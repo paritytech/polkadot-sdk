@@ -451,8 +451,11 @@ where
 					// For V3, build the scheduling proof (header chain from scheduling_parent to
 					// relay_parent) For initial submission, scheduling_parent == relay_parent,
 					// so the header chain contains just the relay_parent header.
-					let scheduling_proof =
-						SchedulingProof { header_chain: vec![relay_parent_header.clone()] };
+					let scheduling_proof = SchedulingProof {
+						header_chain: vec![relay_parent_header.clone()],
+						// Initial submission: no signature needed, core selection from UMP signals
+						signed_scheduling_info: None,
+					};
 
 					tracing::debug!(
 						target: crate::LOG_TARGET,
