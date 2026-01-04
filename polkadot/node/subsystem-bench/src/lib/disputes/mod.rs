@@ -77,6 +77,16 @@ pub struct DisputesOptions {
 	#[clap(short, long, default_value_t = 10)]
 	/// The number of disputes to participate in.
 	pub n_disputes: u32,
+	#[clap(short, long, default_value = "3")]
+	/// Validators that vote against the supermajority. Must be within validator
+	/// range and not include the node under test (index 0).
+	pub misbehaving_validators: Vec<u32>,
+	#[clap(short, long, default_value_t = true)]
+	/// Whether to conclude the dispute as valid.
+	pub concluded_valid: bool,
+	#[clap(short, long, default_value_t = 1)]
+	/// The number of dispute votes per candidate.
+	pub votes_per_candidate: u32,
 }
 
 pub fn make_keystore() -> Arc<LocalKeystore> {
@@ -121,7 +131,7 @@ fn build_overseer(
 	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let mock_availability_recovery = MockAvailabilityRecovery::new();
 	let mock_approval_voting = MockApprovalVotingParallel::new();
-	let mock_candidate_validation = MockCandidateValidation::new();
+	let mock_candidate_validation = MockCandidateValidation::new(state.invalid_candidates());
 	let network_bridge_tx = MockNetworkBridgeTx::new(
 		network,
 		network_interface.subsystem_sender(),
@@ -197,23 +207,41 @@ pub async fn benchmark_dispute_coordinator(
 		let candidate_receipts =
 			state.candidate_receipts.get(&block_info.hash).expect("pregenerated");
 		for candidate_receipt in candidate_receipts.iter() {
-			let peer_id = *env.authorities().peer_ids.get(1).expect("all validators have ids");
-			let payload =
+			let payloads =
 				state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
-			let (pending_response, pending_response_receiver) =
-				futures::channel::oneshot::channel();
-			let request =
-				RawIncomingRequest { peer: peer_id, payload: payload.encode(), pending_response };
-			let peer = env
-				.authorities()
-				.validator_authority_id
-				.get(1)
-				.expect("all validators have keys");
+			let (pending_response_receivers, validator_indices): (Vec<_>, Vec<_>) = payloads
+				.iter()
+				.map(|(validator_index, payload)| {
+					let validator_index = *validator_index as usize;
+					let peer_id = *env
+						.authorities()
+						.peer_ids
+						.get(validator_index)
+						.expect("all validators have ids");
+					let (pending_response, pending_response_receiver) =
+						futures::channel::oneshot::channel();
+					let request = RawIncomingRequest {
+						peer: peer_id,
+						payload: payload.encode(),
+						pending_response,
+					};
+					let peer = env
+						.authorities()
+						.validator_authority_id
+						.get(validator_index)
+						.expect("all validators have keys");
 
-			assert!(env.network().is_peer_connected(peer), "Peer {peer:?} is not connected");
-			env.network().send_request_from_peer(peer, request).unwrap();
-			let res = pending_response_receiver.await.expect("dispute request sent");
-			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peer {res:?}");
+					assert!(
+						env.network().is_peer_connected(peer),
+						"Peer {peer:?} is not connected"
+					);
+					env.network().send_request_from_peer(peer, request).unwrap();
+					(pending_response_receiver, validator_index)
+				})
+				.unzip();
+
+			let _ = futures::future::join_all(pending_response_receivers).await;
+			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peers {validator_indices:?}");
 		}
 
 		let candidate_hashes =
