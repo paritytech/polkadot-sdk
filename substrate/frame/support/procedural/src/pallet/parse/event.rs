@@ -25,6 +25,8 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(generate_deposit);
 	syn::custom_keyword!(deposit_event);
+    syn::custom_keyword!(chain_batch);
+    syn::custom_keyword!(capture);
 }
 
 /// Definition for pallet event enum.
@@ -43,6 +45,10 @@ pub struct EventDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::event attribute.
 	pub attr_span: proc_macro2::Span,
+    /// TODO:
+    pub capture_for_chain_batch: bool,
+    /// TODO:
+	pub captured_fields: Vec<CapturedField>,
 }
 
 /// Attribute for a pallet's Event.
@@ -55,6 +61,19 @@ pub struct PalletEventDepositAttr {
 	pub fn_span: proc_macro2::Span,
 	// Span of the attribute
 	pub span: proc_macro2::Span,
+}
+
+/// TODO:
+pub struct ChainBatchCaptureAttr {
+	pub capture_name: String,
+	pub span: proc_macro2::Span,
+}
+
+/// TODO:
+pub struct CapturedField {
+	pub variant_ident: syn::Ident,
+	pub field_ident: syn::Ident,
+	pub capture_name: String,
 }
 
 impl syn::parse::Parse for PalletEventDepositAttr {
@@ -76,12 +95,30 @@ impl syn::parse::Parse for PalletEventDepositAttr {
 	}
 }
 
+impl syn::parse::Parse for ChainBatchCaptureAttr {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let content;
+		syn::parenthesized!(content in input);
+		
+		content.parse::<keyword::capture>()?;
+		content.parse::<syn::Token![=]>()?;
+		
+		let capture_name = content.parse::<syn::LitStr>()?.value();
+		
+		Ok(ChainBatchCaptureAttr {
+			capture_name,
+			span: input.span(),
+		})
+	}
+}
+
 struct PalletEventAttrInfo {
 	deposit_event: Option<PalletEventDepositAttr>,
+    capture_for_chain_batch: bool,
 }
 
 impl PalletEventAttrInfo {
-	fn from_attrs(attrs: Vec<PalletEventDepositAttr>) -> syn::Result<Self> {
+	fn from_attrs(attrs: Vec<PalletEventDepositAttr>, item_attrs: &[syn::Attribute]) -> syn::Result<Self> {
 		let mut deposit_event = None;
 		for attr in attrs {
 			if deposit_event.is_none() {
@@ -91,7 +128,16 @@ impl PalletEventAttrInfo {
 			}
 		}
 
-		Ok(PalletEventAttrInfo { deposit_event })
+        // Check for #[pallet::capture_for_chain_batch] on the event enum
+		let capture_for_chain_batch = item_attrs.iter().any(|attr| {
+			attr.path().segments.len() == 2 &&
+			attr.path().segments[0].ident == "pallet" &&
+			attr.path().segments[1].ident == "capture_for_chain_batch"
+		});
+
+		Ok(PalletEventAttrInfo { deposit_event, capture_for_chain_batch })
+
+		//Ok(PalletEventAttrInfo { deposit_event })
 	}
 }
 
@@ -111,8 +157,9 @@ impl EventDef {
 
 		let event_attrs: Vec<PalletEventDepositAttr> =
 			helper::take_item_pallet_attrs(&mut item.attrs)?;
-		let attr_info = PalletEventAttrInfo::from_attrs(event_attrs)?;
+		let attr_info = PalletEventAttrInfo::from_attrs(event_attrs, &item.attrs)?;
 		let deposit_event = attr_info.deposit_event;
+        let capture_for_chain_batch = attr_info.capture_for_chain_batch;
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::event, `Event` must be public";
@@ -138,6 +185,54 @@ impl EventDef {
 
 		let event = syn::parse2::<keyword::Event>(item.ident.to_token_stream())?;
 
-		Ok(EventDef { attr_span, index, instances, deposit_event, event, gen_kind, where_clause })
+        // Parse captured fields from event variants
+		let mut captured_fields = Vec::new();
+		if capture_for_chain_batch {
+			for variant in &item.variants {
+				if let syn::Fields::Named(fields_named) = &variant.fields {
+					for field in &fields_named.named {
+						if let Some(ident) = &field.ident {
+							// Look for #[chain_batch(capture = "name")] attributes
+							for attr in &field.attrs {
+								if attr.path().segments.len() == 1 &&
+								   attr.path().segments[0].ident == "chain_batch" {
+                                       									// Use parse_meta to parse the attribute
+									if let syn::Meta::List(meta_list) = &attr.meta {
+										// Convert the meta list to tokens for parsing
+										let tokens = meta_list.tokens.clone();
+										match syn::parse2::<ChainBatchCaptureAttr>(tokens) {
+											Ok(capture_attr) => {
+												captured_fields.push(CapturedField {
+													variant_ident: variant.ident.clone(),
+													field_ident: ident.clone(),
+													capture_name: capture_attr.capture_name,
+												});
+											}
+											Err(_e) => {
+												// If parsing fails, it might be a different chain_batch attribute
+												// or malformed. We'll skip it.
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		Ok(EventDef {
+			attr_span,
+			index,
+			instances,
+			deposit_event,
+			event,
+			gen_kind,
+			where_clause,
+			capture_for_chain_batch,
+			captured_fields,
+		})
+		// Ok(EventDef { attr_span, index, instances, deposit_event, event, gen_kind, where_clause })
 	}
 }
