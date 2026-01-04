@@ -52,10 +52,9 @@ pub fn expand_validate_unsigned(def: &mut Def) -> TokenStream {
 			macro_rules! #macro_ident {
 				($pallet_name:ident) => {
 					#maybe_compile_error
-					#maybe_compile_warning
 				}
 			}
-
+			#maybe_compile_warning
 			#[doc(hidden)]
 			pub use #macro_ident as is_validate_unsigned_part_defined;
 		}
