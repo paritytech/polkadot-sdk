@@ -85,6 +85,7 @@ fn two_party_successful_swap() {
 
 		assert_eq!(Balances::free_balance(A), 100 - 50);
 		assert_eq!(Balances::free_balance(B), 200);
+		AtomicSwap::do_try_state().expect("Invariants should hold");
 	});
 
 	// B creates the swap on chain2.
@@ -100,6 +101,7 @@ fn two_party_successful_swap() {
 
 		assert_eq!(Balances::free_balance(A), 100);
 		assert_eq!(Balances::free_balance(B), 200 - 75);
+		AtomicSwap::do_try_state().expect("Invariants should hold");
 	});
 
 	// A reveals the proof and claims the swap on chain2.
@@ -113,6 +115,7 @@ fn two_party_successful_swap() {
 
 		assert_eq!(Balances::free_balance(A), 100 + 75);
 		assert_eq!(Balances::free_balance(B), 200 - 75);
+		AtomicSwap::do_try_state().expect("Invariants should hold");
 	});
 
 	// B use the revealed proof to claim the swap on chain1.
@@ -126,5 +129,6 @@ fn two_party_successful_swap() {
 
 		assert_eq!(Balances::free_balance(A), 100 - 50);
 		assert_eq!(Balances::free_balance(B), 200 + 50);
+		AtomicSwap::do_try_state().expect("Invariants should hold");
 	});
 }
