@@ -62,3 +62,6 @@ try-runtime = [
 # Construct dummy ring context on genesis.
 # Mostly used for testing and development.
 construct-dummy-ring-context = []
+ec-crypto-hostcalls = [
+	"sp-consensus-sassafras/ec-crypto-hostcalls"
+]

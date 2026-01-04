@@ -35,11 +35,58 @@ use ark_vrf::{
 		ark_ec::CurveGroup,
 		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
 	},
-	suites::bandersnatch::{self, BandersnatchSha512Ell2 as BandersnatchSuite, Secret},
 	Suite,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
+
+#[cfg(any(feature = "std", not(feature = "ec-crypto-hostcalls")))]
+mod bandersnatch {
+	pub use ark_vrf::suites::bandersnatch::{BandersnatchSha512Ell2 as BandersnatchSuite, *};
+}
+
+#[cfg(all(not(feature = "std"), feature = "ec-crypto-hostcalls"))]
+mod bandersnatch {
+	use ark_vrf::{
+		pedersen::PedersenSuite, ring::RingSuite, ring_suite_types, suite_types,
+		suites::bandersnatch::BandersnatchSha512Ell2, Suite,
+	};
+
+	#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+	pub struct BandersnatchSuite;
+
+	impl Suite for BandersnatchSuite {
+		const SUITE_ID: &'static [u8] = BandersnatchSha512Ell2::SUITE_ID;
+		const CHALLENGE_LEN: usize = BandersnatchSha512Ell2::CHALLENGE_LEN;
+		type Affine = sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::EdwardsAffine;
+		type Hasher = <BandersnatchSha512Ell2 as Suite>::Hasher;
+		type Codec = <BandersnatchSha512Ell2 as Suite>::Codec;
+	}
+
+	impl PedersenSuite for BandersnatchSuite {
+		const BLINDING_BASE: AffinePoint = AffinePoint::new_unchecked(
+			BandersnatchSha512Ell2::BLINDING_BASE.x,
+			BandersnatchSha512Ell2::BLINDING_BASE.y,
+		);
+	}
+
+	impl RingSuite for BandersnatchSuite {
+		type Pairing = sp_crypto_ec_utils::bls12_381::Bls12_381;
+		const ACCUMULATOR_BASE: AffinePoint = AffinePoint::new_unchecked(
+			BandersnatchSha512Ell2::ACCUMULATOR_BASE.x,
+			BandersnatchSha512Ell2::ACCUMULATOR_BASE.y,
+		);
+		const PADDING: AffinePoint = AffinePoint::new_unchecked(
+			BandersnatchSha512Ell2::PADDING.x,
+			BandersnatchSha512Ell2::PADDING.y,
+		);
+	}
+
+	suite_types!(BandersnatchSuite);
+
+	ring_suite_types!(BandersnatchSuite);
+}
+use bandersnatch::{BandersnatchSuite, Secret};
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
