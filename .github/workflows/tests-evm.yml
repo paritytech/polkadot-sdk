@@ -111,7 +111,15 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        platform: ["test:pvm", "test:evm"]
+        include:
+          - node: revive-dev-node
+            command: test:pvm:manual
+          - node: revive-dev-node
+            command: test:evm:manual
+          - node: westend
+            command: test:pvm:manual
+          - node: westend
+            command: test:evm:manual
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -120,6 +128,10 @@ jobs:
         run: |
           forklift cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
           forklift cargo build --locked --release -p revive-dev-node --bin revive-dev-node
+          forklift cargo build --locked --release -p polkadot-omni-node --bin polkadot-omni-node
+          forklift cargo build --locked --release -p asset-hub-westend-runtime
+          forklift cargo build --locked --release -p staging-chain-spec-builder --bin chain-spec-builder
+
 
       - name: Checkout evm-tests
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -134,18 +146,56 @@ jobs:
 
       - name: script
         run: |
-          echo "Change to the evm-test-suite directory"
           cd evm-test-suite
 
-          deno --version
+          cleanup() {
+            if [ -n "$NODE_PID" ]; then kill $NODE_PID 2>/dev/null || true; fi
+            if [ -n "$ETH_RPC_PID" ]; then kill $ETH_RPC_PID 2>/dev/null || true; fi
+          }
+          trap cleanup EXIT
 
-          echo "Check that binaries are in place"
-          export REVIVE_DEV_NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
-          export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
-          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
+          if [ "${{ matrix.node }}" = "revive-dev-node" ]; then
+            echo "Starting revive-dev-node"
+            NODE_PATH=$(realpath ../target/release/revive-dev-node)
+            $NODE_PATH --dev --log=error &
+            NODE_PID=$!
+          else
+            echo "Building chain-spec"
+            RUNTIME=$(realpath ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm)
+            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime $RUNTIME named-preset development
+            NODE_PATH=$(realpath ../target/release/polkadot-omni-node)
 
-          echo "== Running tests =="
-          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task ${{ matrix.platform }}
+            # funds 0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+            jq '.genesis.runtimeGenesis.patch.balances.balances += [
+                ["5HYRCKHYJN9z5xUtfFkyMj4JUhsAwWyvuU8vKB1FcnYTf9ZQ", 100000000000000001000000000]
+              ]
+              | .genesis.runtimeGenesis.patch.staking.devStakers = [0, 0]
+            ' "/tmp/ah-westend-spec-raw.json" >"/tmp/ah-westend-spec.json"
+
+            echo "Starting polkadot-omni-node with westend runtime"
+            $NODE_PATH --dev --log=error --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json &
+            NODE_PID=$!
+          fi
+
+          ETH_RPC_PATH=$(realpath ../target/release/eth-rpc)
+          $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 --no-prometheus --log=error &
+          ETH_RPC_PID=$!
+
+          connected=false
+          for i in {1..45}; do
+            if curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","id":1}' http://localhost:8545 > /dev/null 2>&1; then
+              connected=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$connected" = false ]; then
+            echo "Error: Timeout waiting for RPC endpoint at http://localhost:8545" >&2
+            exit 1
+          fi
+
+          deno task --quiet ${{ matrix.command }}
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
