@@ -140,10 +140,25 @@ fi
 # Ensure that we have wasm support
 if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
     printf "🦀 Setting up Rust environment.\n"
-    rustup default stable
-    rustup update
-    rustup target add wasm32-unknown-unknown
-    rustup component add rust-src
+    # Try to align with the CI Rust version used by polkadot-sdk if available.
+    CI_RUST_VERSION=""
+    if [ -f .github/env ]; then
+        # Extract the Rust version from the CI image tag, e.g. ci-unified:bullseye-1.88.0-...
+        CI_RUST_VERSION=$(sed -E 's/.*ci-unified:[^-]+-([0-9]+\.[0-9]+\.[0-9]+).*/\1/' .github/env || true)
+    fi
+    if [ -n "$CI_RUST_VERSION" ]; then
+        printf "🦀 Using CI Rust toolchain %s.\n" "$CI_RUST_VERSION"
+        rustup toolchain install "$CI_RUST_VERSION"
+        rustup override set "$CI_RUST_VERSION"
+        rustup target add wasm32-unknown-unknown --toolchain "$CI_RUST_VERSION"
+        rustup component add rust-src --toolchain "$CI_RUST_VERSION"
+    else
+        printf "🦀 Using stable Rust toolchain.\n"
+        rustup default stable
+        rustup update
+        rustup target add wasm32-unknown-unknown
+        rustup component add rust-src
+    fi
 fi
 
 if ! prompt "\nWould you like to start with one of the templates?"; then
