@@ -60,6 +60,7 @@ use sp_runtime::{
 	Debug, FixedU128, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use frame_system::pallet_prelude::BlockNumberFor;
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -1787,7 +1788,10 @@ pub struct RelayChainState {
 /// This exposes the [`RelayChainState`] to other runtime modules.
 ///
 /// Enables parachains to read relay chain state via state proofs.
-pub trait RelaychainStateProvider {
+pub trait RelaychainStateProvider<BlockNumber, Hash> {
+	/// Returns the block hash of a relay chain block at a specific block number.
+	fn block_hash_at(at: BlockNumber) -> Hash;
+
 	/// May be called by any runtime module to obtain the current state of the relay chain.
 	///
 	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
@@ -1846,7 +1850,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	}
 }
 
-impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
+impl<T: Config> RelaychainStateProvider<BlockNumberFor<T>, T::Hash> for RelaychainDataProvider<T> {
 	fn current_relay_chain_state() -> RelayChainState {
 		ValidationData::<T>::get()
 			.map(|d| RelayChainState {
@@ -1854,6 +1858,11 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 				state_root: d.relay_parent_storage_root,
 			})
 			.unwrap_or_default()
+	}
+
+	/// Returns the block hash of a relay chain block at a specific block number.
+	fn block_hash_at(at: BlockNumberFor<T>) -> T::Hash {
+		frame_system::BlockHash::<T>::get(at)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
