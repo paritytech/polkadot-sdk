@@ -77,7 +77,7 @@ where
 		let origin = AggregateMessageOrigin::Snowbridge(ticket.channel_id);
 
 		if ticket.channel_id != PRIMARY_GOVERNANCE_CHANNEL {
-			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
+			ensure!(!OperatingMode::<T>::get().is_halted(), SendError::Halted);
 		}
 
 		let message = ticket.message.as_bounded_slice();

@@ -147,17 +147,14 @@ pub mod pallet {
 
 	/// Latest imported checkpoint root
 	#[pallet::storage]
-	#[pallet::getter(fn initial_checkpoint_root)]
 	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn latest_finalized_block_root)]
 	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn finalized_beacon_state)]
 	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
@@ -171,7 +168,6 @@ pub mod pallet {
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn validators_root)]
 	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
@@ -188,7 +184,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
@@ -219,7 +214,7 @@ pub mod pallet {
 		/// sync committee.
 		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 			Self::process_update(&update)
 		}
 
@@ -443,7 +438,7 @@ pub mod pallet {
 				Self::find_pubkeys(&participation, (*sync_committee.pubkeys).as_ref(), false);
 			let signing_root = Self::signing_root(
 				&update.attested_header,
-				Self::validators_root(),
+				ValidatorsRoot::<T>::get(),
 				update.signature_slot,
 			)?;
 			// Improvement here per <https://eth2book.info/capella/part2/building_blocks/signatures/#sync-aggregates>
@@ -759,6 +754,31 @@ pub mod pallet {
 
 		pub fn execution_header_gindex() -> usize {
 			config::altair::EXECUTION_HEADER_INDEX
+		}
+
+		// Get latest imported checkpoint root.
+		pub fn initial_checkpoint_root() -> H256 {
+			InitialCheckpointRoot::<T>::get()
+		}
+
+		// Get latest imported finalized block root.
+		pub fn latest_finalized_block_root() -> H256 {
+			LatestFinalizedBlockRoot::<T>::get()
+		}
+
+		// Get beacon state by finalized block root.
+		pub fn finalized_beacon_state(index: H256) -> Option<CompactBeaconState> {
+			FinalizedBeaconState::<T>::get(index)
+		}
+
+		// Get validators root.
+		pub fn validators_root() -> H256 {
+			ValidatorsRoot::<T>::get()
+		}
+
+		// Get current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
 		}
 	}
 }

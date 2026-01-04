@@ -190,7 +190,6 @@ pub mod pallet {
 
 	/// The current operating mode for exporting to Ethereum.
 	#[pallet::storage]
-	#[pallet::getter(fn export_operating_mode)]
 	pub type ExportOperatingMode<T: Config> = StorageValue<_, OperatingMode, ValueQuery>;
 
 	#[pallet::call]
@@ -229,7 +228,7 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			fee_asset: Asset,
 		) -> DispatchResult {
-			ensure!(!Self::export_operating_mode().is_halted(), Error::<T>::Halted);
+			ensure!(!ExportOperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
@@ -422,11 +421,16 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// Get current operating mode for exporting to Ethereum.
+		pub fn export_operating_mode() -> OperatingMode {
+			ExportOperatingMode::<T>::get()
+		}
 	}
 
 	impl<T: Config> ExportPausedQuery for Pallet<T> {
 		fn is_paused() -> bool {
-			Self::export_operating_mode().is_halted()
+			ExportOperatingMode::<T>::get().is_halted()
 		}
 	}
 }
