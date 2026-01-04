@@ -60,7 +60,8 @@ use frame_support::{
 	ensure,
 	traits::{
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, MaybeConsideration, OriginTrait, StorageVersion,
+		InitializeMembers, MaybeConsideration, OriginTrait, QueryPreimage, StorageVersion,
+		StorePreimage,
 	},
 	weights::Weight,
 };
@@ -390,6 +391,8 @@ pub mod pallet {
 		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
 		/// balance under the `runtime-benchmarks` feature.
 		type Consideration: MaybeConsideration<Self::AccountId, u32>;
+
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	#[pallet::genesis_config]
@@ -427,11 +430,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Proposals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
-
-	/// Actual proposal for a given hash, if it's current.
-	#[pallet::storage]
-	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
 	/// Consideration cost created for publishing and storing a proposal.
 	///
@@ -846,7 +844,7 @@ pub mod pallet {
 		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
 			T::KillOrigin::ensure_origin(origin)?;
 			ensure!(
-				ProposalOf::<T, I>::get(&proposal_hash).is_some(),
+				Voting::<T, I>::contains_key(&proposal_hash),
 				Error::<T, I>::ProposalMissing
 			);
 			let burned = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
@@ -880,7 +878,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed_or_root(origin)?;
 			ensure!(
-				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
+				!Voting::<T, I>::contains_key(&proposal_hash),
 				Error::<T, I>::ProposalActive
 			);
 			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
@@ -925,7 +923,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		ensure!(!Voting::<T, I>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
@@ -952,7 +950,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		ensure!(!Voting::<T, I>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let active_proposals =
 			<Proposals<T, I>>::try_mutate(|proposals| -> Result<usize, DispatchError> {
@@ -968,7 +966,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let index = ProposalCount::<T, I>::get();
 
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
-		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
+		T::Preimages::note(proposal.encode().into())?;
+		let votes = {
+			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
+			Votes { index, threshold, ayes: vec![], nays: vec![], end }
+		};
+		<Voting<T, I>>::insert(proposal_hash, votes);
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
@@ -1127,12 +1130,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		length_bound: u32,
 		weight_bound: Weight,
 	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
-		let key = ProposalOf::<T, I>::hashed_key_for(hash);
-		// read the length of the proposal storage entry directly
-		let proposal_len =
-			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
+		let proposal_len = T::Preimages::len(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
-		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
+
+		let bytes = T::Preimages::fetch(hash, Some(proposal_len))
+			.map_err(|_| Error::<T, I>::ProposalMissing)?;
+		let proposal = <T as Config<I>>::Proposal::decode(&mut &bytes[..])
+			.map_err(|_| Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))
@@ -1184,7 +1188,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Removes a proposal from the pallet, cleaning up votes and the vector of proposals.
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
 		// remove proposal and vote
-		ProposalOf::<T, I>::remove(&proposal_hash);
+		T::Preimages::unnote(&proposal_hash);
 		Voting::<T, I>::remove(&proposal_hash);
 		let num_proposals = Proposals::<T, I>::mutate(|proposals| {
 			proposals.retain(|h| h != &proposal_hash);
@@ -1202,12 +1206,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Looking at proposals:
 	///
 	/// * Each hash of a proposal that is stored inside `Proposals` must have a
-	/// call mapped to it inside the `ProposalOf` storage map.
+	/// call mapped to it inside the `Voting` storage map.
 	/// * `ProposalCount` must always be more or equal to the number of
 	/// proposals inside the `Proposals` storage value. The reason why
 	/// `ProposalCount` can be more is because when a proposal is removed the
 	/// count is not deducted.
-	/// * Count of `ProposalOf` should match the count of `Proposals`
+	/// * Count of `Voting` should match the count of `Proposals`
 	///
 	/// Looking at votes:
 	/// * The sum of aye and nay votes for a proposal can never exceed
@@ -1226,8 +1230,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Proposals::<T, I>::get().into_iter().try_for_each(
 			|proposal| -> Result<(), TryRuntimeError> {
 				ensure!(
-					ProposalOf::<T, I>::get(proposal).is_some(),
-					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
+					Voting::<T, I>::contains_key(proposal),
+					"Proposal hash from `Proposals` is not found inside the `Voting` mapping."
 				);
 				Ok(())
 			},
@@ -1238,8 +1242,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			"The actual number of proposals is greater than `ProposalCount`"
 		);
 		ensure!(
-			Proposals::<T, I>::get().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
-			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
+			Proposals::<T, I>::get().into_iter().count() == <Voting<T, I>>::iter_keys().count(),
+			"Proposal count inside `Proposals` is not equal to the proposal count in `Voting`"
 		);
 
 		Proposals::<T, I>::get().into_iter().try_for_each(
