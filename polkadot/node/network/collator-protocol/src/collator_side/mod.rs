@@ -1375,6 +1375,35 @@ async fn handle_network_msg<Context>(
 				unknown_heads: LruMap::new(ByLength::new(10)),
 			});
 
+			// Advertise collations for the current peer in case this is a reconnect.
+			//
+			// We might try to advertise collation T0 to the peer, then the peer disconnects
+			// before receiving the message. Later on, we generate a new collation T1
+			// and the peer reconnects. We need to make sure the peer gets T0 advertised as well.
+			//
+			// The `advertise_collation` ensures we are not readvertising the same collation
+			// multiple times.
+			if let Some(para_id) = state.collating_on {
+				if let Some(implicit_view) = &state.implicit_view {
+					gum::trace!(target: LOG_TARGET, ?peer_id, ?para_id, "Checking collations on possible reconnect");
+
+					for leaf in implicit_view.leaves() {
+						if let Some(per_relay_parent) = state.per_relay_parent.get_mut(leaf) {
+							advertise_collation(
+								ctx,
+								*leaf,
+								per_relay_parent,
+								&peer_id,
+								&state.peer_ids,
+								&mut state.advertisement_timeouts,
+								&state.metrics,
+							)
+							.await;
+						}
+					}
+				}
+			}
+
 			if let Some(authority_ids) = maybe_authority {
 				gum::trace!(
 					target: LOG_TARGET,
