@@ -169,7 +169,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				// defensive: if there is a result to be reported, then we must have had some
 				// leader.
 				if let Some((winner, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
+					Submissions::<T>::take_leader(Self::current_round(), true).defensive()
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
@@ -383,24 +383,27 @@ pub mod pallet {
 			result
 		}
 
-		/// *Fully* **TAKE** (i.e. get and remove) the leader from storage, with all of its
-		/// associated data.
+		/// Takes the leader from the sorted scores for a given round.
 		///
-		/// This removes all associated data of the leader from storage, discarding the submission
-		/// data and score, returning the rest.
-		pub(crate) fn take_leader_with_data(
+		/// This function always removes the leader's score and their submission metadata from storage.
+		///
+		/// If `with_data` is `true`, it will also remove all associated submission pages.
+		/// If `false`, the submission pages are left in storage for later.
+		pub(crate) fn take_leader(
 			round: u32,
+			with_data: bool,
 		) -> Option<(T::AccountId, SubmissionMetadata<T>)> {
 			Self::mutate_checked(round, || {
 				SortedScores::<T>::mutate(round, |sorted| sorted.pop()).and_then(
 					|(submitter, _score)| {
-						// NOTE: safe to remove unbounded, as at most `Pages` pages are stored.
-						let r: MultiRemovalResults = SubmissionStorage::<T>::clear_prefix(
-							(round, &submitter),
-							u32::MAX,
-							None,
-						);
-						debug_assert!(r.unique <= T::Pages::get());
+						if with_data {
+							let r: MultiRemovalResults = SubmissionStorage::<T>::clear_prefix(
+								(round, &submitter),
+								u32::MAX,
+								None,
+							);
+							debug_assert!(r.unique <= T::Pages::get());
+						}
 
 						SubmissionMetadataStorage::<T>::take(round, &submitter)
 							.map(|metadata| (submitter, metadata))
@@ -1004,7 +1007,7 @@ impl<T: Config> Pallet<T> {
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
 	fn handle_solution_rejection(current_round: u32) {
 		if let Some((loser, metadata)) =
-			Submissions::<T>::take_leader_with_data(current_round).defensive()
+			Submissions::<T>::take_leader(current_round, true).defensive()
 		{
 			// Slash the deposit.
 			// Note that an invulnerable is not expelled from the list despite the slashing.
