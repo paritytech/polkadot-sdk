@@ -1,0 +1,14 @@
+title: Update parachain-template-runtime.
+doc:
+- audience: Runtime Dev
+  description: |
+    Updates the parachain template XCM configuration to better reflect common parachain patterns:
+    - Changed native asset from relay chain token to parachain native token (`RelayLocation` → `NativeLocation`)
+    - Updated XCM barrier to allow unpaid execution from Asset Hub instead of the relay chain,
+      reflecting the shift towards Asset Hub as the primary system parachain for asset operations
+    - Added foreign location-to-account mapping using `HashedDescription` for better cross-chain account derivation
+    - Enabled local XCM execution by changing `XcmExecuteFilter` from `Nothing` to `Everything`
+    - Simplified barrier configuration and added support for known query responses
+crates:
+  - name: parachain-template-runtime
+    bump: minor
