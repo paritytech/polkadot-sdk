@@ -87,6 +87,7 @@ decl_test_parachains! {
 			ForeignAssets: penpal_runtime::ForeignAssets,
 			AssetConversion: penpal_runtime::AssetConversion,
 			Balances: penpal_runtime::Balances,
+			ForeignUniques: penpal_runtime::ForeignUniques,
 		}
 	},
 }

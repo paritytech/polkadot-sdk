@@ -3754,8 +3754,11 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-assets",
  "pallet-broker",
  "pallet-message-queue",
+ "pallet-uniques",
+ "pallet-xcm",
  "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
@@ -14598,6 +14601,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
  "pallet-utility",
  "pallet-xcm",
  "parachains-common",
@@ -14629,6 +14633,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tracing",
+ "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
 

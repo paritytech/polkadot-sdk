@@ -36,9 +36,9 @@
 //! soon.
 use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
-	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance,
-	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
+	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance, ForeignUniques,
+	NonZeroIssuance, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 use assets_common::TrustBackedAssetsAsLocation;
@@ -70,8 +70,8 @@ use xcm_builder::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
 	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	LocalMint, NativeAsset, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -195,8 +195,23 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// Means for transacting foreign NFTs (eg. Coretime NFTs)
+pub type ForeignNonFungiblesTransactor = NonFungiblesAdapter<
+	ForeignUniques,
+	ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
+	LocationToAccountId,
+	AccountId,
+	NoChecking,
+	(),
+>;
+
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, FungiblesTransactor);
+pub type AssetTransactors = (
+	FungibleTransactor,
+	ForeignFungiblesTransactor,
+	FungiblesTransactor,
+	ForeignNonFungiblesTransactor,
+);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -286,13 +301,17 @@ pub const RESERVABLE_ASSET_ID: u32 = 1;
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 
 pub const ASSETS_PALLET_ID: u8 = 50;
-pub const ASSET_HUB_ID: u32 = 1000;
 
 pub const USDT_ASSET_ID: u128 = 1984;
+
+use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BROKER_ID};
 
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
+
+	pub SystemCoretimeLocation: Location = Location::new(1, [Parachain(BROKER_ID)]);
+	pub CoretimeAssetLocation: Location = Location::new(1, [Parachain(BROKER_ID), PalletInstance(50)]);
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
 		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
@@ -340,6 +359,7 @@ pub type TrustedReserves = (
 	NativeAsset,
 	ConcreteAssetFromSystem<RelayLocation>,
 	AssetsFrom<SystemAssetHubLocation>,
+	AssetFromChain<CoretimeAssetLocation, SystemCoretimeLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
 

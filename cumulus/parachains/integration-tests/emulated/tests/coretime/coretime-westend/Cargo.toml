@@ -13,8 +13,11 @@ workspace = true
 [dependencies]
 # Substrate
 frame-support = { workspace = true }
+pallet-assets = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true }
+pallet-uniques = { workspace = true }
+pallet-xcm = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
