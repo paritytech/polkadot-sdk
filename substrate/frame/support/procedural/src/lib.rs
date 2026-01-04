@@ -34,6 +34,7 @@ mod pallet;
 mod pallet_error;
 mod runtime;
 mod storage_alias;
+mod stored;
 mod transactional;
 mod tt_macro;
 
@@ -433,6 +434,27 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 	storage_alias::storage_alias(attributes.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
+}
+
+/// Attribute macro for simplifying storage type definitions with consistent field-based bounding.
+///
+/// Automatically extracts field types and applies derives with bounds on those fields, ensuring
+/// consistent behavior across all traits. Supports both structs and enums.
+///
+/// # Example
+///
+/// ```ignore
+/// #[frame_support::stored]
+/// pub struct Foo<T: Config> {
+///     f: T::Foo,
+///     f2: Vec<T::Foo2>,
+/// }
+/// ```
+///
+/// Note: Requires `derive-where` as a dependency in the calling crate.
+#[proc_macro_attribute]
+pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
+	stored::stored(attr, item)
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial

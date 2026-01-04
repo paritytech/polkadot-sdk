@@ -1,0 +1,88 @@
+title: Kanas/refractored storage derive macro
+doc:
+- audience: Todo
+  description: "# Description\n\nThis PR introduces a new `#[stored]` attribute macro\
+    \ that simplifies the definition of storage types in FRAME pallets by automatically\
+    \ generating appropriate derive macros and trait bounds. This reduces boilerplate\
+    \ code and makes storage type definitions more maintainable.\n\n**Problem:** Currently,\
+    \ defining storage types requires extensive boilerplate with multiple derives,\
+    \ `scale_info` attributes, `codec` attributes, and manual trait bounds, making\
+    \ the code verbose and error-prone.\n\n**Solution:** The new `#[stored]` macro\
+    \ automatically applies all necessary derives and intelligently handles phantom\
+    \ type parameters and `MaxEncodedLen` requirements through simple, declarative\
+    \ parameters.\n\n**Example:**\n\n```diff\n- #[derive(\n-     CloneNoBound,\n-\
+    \     PartialEqNoBound,\n-     EqNoBound,\n-     RuntimeDebugNoBound,\n-     TypeInfo,\n\
+    -     Encode,\n-     Decode,\n-     DecodeWithMemTracking,\n-     MaxEncodedLen,\n\
+    - )]\n- #[scale_info(skip_type_params(Total))]\n- #[codec(mel_bound(Votes: MaxEncodedLen))]\n\
+    - pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total>\
+    \ {\n+ #[stored(skip(Total), mel(Votes))]\n+ pub struct Tally<Votes, Total> {\n\
+    \      pub ayes: Votes,\n      pub nays: Votes,\n      dummy: PhantomData<Total>,\n\
+    \  }\n```\n\n## Integration\n\n**This PR is backward compatible and does not require\
+    \ immediate migration.** The `#[stored]` macro is a new optional feature that\
+    \ can be adopted gradually.\n### For Downstream Projects\n\nNo changes are required\
+    \ to existing code. The traditional manual approach continues to work. However,\
+    \ new storage types can benefit from the simplified syntax:\n\n**Basic Usage:**\n\
+    ```rust\nuse frame_support::stored;\n\n// Simple storage type with no generics\n\
+    #[stored]\npub struct SimpleData {\n    pub value: u32,\n    pub count: u64,\n\
+    }\n```\n\n**With Generic Parameters:**\n```rust\n// Automatically adds bounds\
+    \ to generic parameters\n#[stored]\npub struct Account<Balance> {\n    pub free:\
+    \ Balance,\n    pub reserved: Balance,\n}\n```\n\n**With Phantom Types:**\n```rust\n\
+    // Use skip() for phantom type parameters\n#[stored(skip(T))]\npub struct ConfigData<T,\
+    \ Value> {\n    pub data: Value,\n    _phantom: PhantomData<T>,\n}\n```\n**With\
+    \ MaxEncodedLen Requirements:**\n```rust\n// Use mel() to specify which generics\
+    \ need MaxEncodedLen\n#[stored(mel(Balance))]\npub struct BalanceInfo<Balance>\
+    \ {\n    pub total: Balance,\n    pub locked: Balance,\n}\n```\n\n**Multiple Parameters:**\n\
+    ```rust\n// Combine skip() and mel() as needed\n#[stored(skip(T, I), mel(Balance))]\n\
+    pub struct ComplexType<T, Balance, I> {\n    pub value: Balance,\n    _phantom:\
+    \ PhantomData<(T, I)>,\n}\n```\n\n**Advanced Custom Bounds:**\n```rust\n// Use\
+    \ mel_bound() for complex constraints\n#[stored(skip(T), mel_bound(S: MaxEncodedLen\
+    \ + Encode + Decode))]\npub struct AdvancedType<T, S> {\n    pub data: S,\n  \
+    \  _phantom: PhantomData<T>,\n}\n```\n### Migration Notes\n\n- **No breaking changes:**\
+    \ Existing code continues to work without modification\n- **Optional adoption:**\
+    \ Teams can adopt `#[stored]` incrementally for new types or during refactoring\n\
+    - **Functionally equivalent:** The macro generates the same code as the manual\
+    \ approach\n\n## Review Notes\n\n<details>\n<summary>Implementation Details</summary>\n\
+    \n### Architecture\n\nThe macro is implemented in `substrate/frame/support/procedural/src/stored.rs`\
+    \ with clear separation of concerns:\n\n1. **Parsing Layer** (`StoredArgs`, `StoredArg`):\
+    \ Parses the macro attributes using `syn`\n2. **Validation Layer**: Ensures all\
+    \ referenced generic parameters exist and prevents duplicate specifications\n\
+    3. **Generation Layer**: Produces the appropriate derives and attributes based\
+    \ on parsed arguments\n\n### What the Macro Generates\n\nThe `#[stored]` macro\
+    \ automatically applies:\n\n**Derives:**\n- `CloneNoBound`, `PartialEqNoBound`,\
+    \ `EqNoBound`, `RuntimeDebugNoBound`\n- `TypeInfo`, `Encode`, `Decode`, `DecodeWithMemTracking`,\
+    \ `MaxEncodedLen`\n\n**Trait Bounds on Generic Parameters (non-skipped):**\n-\
+    \ `Clone + PartialEq + Eq + Debug + TypeInfo + Codec`\n\n**Attributes:**\n- `#[scale_info(skip_type_params(...))]`\
+    \ for skipped parameters\n- `#[codec(mel_bound(...))]` for MaxEncodedLen requirements\n\
+    \n### Parameter Handling\n\n| Parameter | Purpose | Example | Generated Output\
+    \ |\n|-----------|---------|---------|------------------|\n| `skip(A, B)` | Phantom\
+    \ types to skip in bounds | `skip(T)` | `#[scale_info(skip_type_params(T))]` |\n\
+    | `mel(A, B)` | Params needing MaxEncodedLen | `mel(Balance)` | `#[codec(mel_bound(Balance:\
+    \ MaxEncodedLen))]` |\n| `mel_bound(...)` | Custom MEL bounds | `mel_bound(B:\
+    \ MaxEncodedLen)` | `#[codec(mel_bound(B: MaxEncodedLen))]` |\n\n### Validation\n\
+    \nThe macro validates:\n- \u2705 All `skip` parameters exist as generic type parameters\n\
+    - \u2705 All `mel` parameters exist as generic type parameters\n- \u2705 No duplicate\
+    \ `skip`, `mel`, or `mel_bound` specifications\n- \u2705 Only applied to structs\
+    \ (not enums or unions)\n\n### Testing\n\nUnit tests in `stored.rs` cover:\n-\
+    \ Argument parsing for all parameter types\n- Validation of duplicate arguments\
+    \ (expected failures)\n- Successful macro expansion\n- Error messages for invalid\
+    \ inputs\n\nExample comparison provided in `substrate/frame/support/procedural/examples/stored_demo.rs`.\n\
+    \n</details>\n\n### Files Changed\n\n- **Added:** `substrate/frame/support/procedural/src/stored.rs`\
+    \ - Core implementation with tests\n- **Added:** `substrate/frame/support/procedural/examples/stored_demo.rs`\
+    \ - Usage example\n- **Modified:** `substrate/frame/support/procedural/src/lib.rs`\
+    \ - Exported macro with documentation\n- **Modified:** `substrate/frame/support/src/lib.rs`\
+    \ - Public API exposure with examples\n\n### Leftover TODOs\n\nNone. The implementation\
+    \ is complete and tested.\n\n# Checklist\n\n* [x] My PR includes a detailed description\
+    \ as outlined in the \"Description\" and its two subsections above.\n* [ ] My\
+    \ PR follows the [labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\
+    \ of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ `/cmd label T1-FRAME D3-trivial I7-refactor`\n* [x] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [x] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)\n\n---\n\n\
+    **Recommended bot commands to run:**\n- `/cmd label T1-FRAME D3-trivial I7-refactor`\
+    \ - Add appropriate labels\n- `/cmd fmt` - Format code before final review\n-\
+    \ `/cmd prdoc` - Generate PR documentation if required"
+crates:
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major
