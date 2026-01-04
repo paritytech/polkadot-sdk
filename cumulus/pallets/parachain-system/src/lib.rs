@@ -1277,12 +1277,17 @@ impl<T: Config> Pallet<T> {
 		let (messages, hashed_messages) = horizontal_messages.messages();
 		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
 
+		Self::prune_closed_mqc_heads(ingress_channels, &mut mqc_heads);
+
 		if messages.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
 			let last_processed_msg =
 				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
+
 			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
 			HrmpWatermark::<T>::put(relay_parent_number);
+			LastHrmpMqcHeads::<T>::put(&mqc_heads); // write back in case of modification
+
 			return T::DbWeight::get().reads_writes(1, 2);
 		}
 
@@ -1302,7 +1307,9 @@ impl<T: Config> Pallet<T> {
 			}
 			last_processed_msg.sent_at = msg.sent_at;
 		}
-		<LastHrmpMqcHeads<T>>::put(&mqc_heads);
+
+		LastHrmpMqcHeads::<T>::put(&mqc_heads);
+
 		for (sender, msg) in hashed_messages {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
@@ -1332,6 +1339,19 @@ impl<T: Config> Pallet<T> {
 		HrmpWatermark::<T>::put(last_processed_block);
 
 		weight_used.saturating_add(T::DbWeight::get().reads_writes(2, 3))
+	}
+
+	/// Remove all MQC heads that do not correspond to an open channel.
+	fn prune_closed_mqc_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Complexity is O(N * lg N) but could be optimized for O(N)
+		mqc_heads.retain(|para, _| {
+			ingress_channels
+				.binary_search_by_key(para, |&(channel_sender, _)| channel_sender)
+				.is_ok()
+		});
 	}
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
