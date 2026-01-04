@@ -288,11 +288,20 @@ pub struct StatementHandler<
 }
 
 /// Peer information
+#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 #[derive(Debug)]
-struct Peer {
+pub struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
 	role: ObservedRole,
+}
+
+impl Peer {
+	/// Create a new peer for testing/benchmarking purposes.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_for_testing(known_statements: LruHashSet<Hash>, role: ObservedRole) -> Self {
+		Self { known_statements, role }
+	}
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -300,6 +309,44 @@ where
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
+	/// Create a new `StatementHandler` for testing/benchmarking purposes.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_for_testing(
+		protocol_name: ProtocolName,
+		notification_service: Box<dyn NotificationService>,
+		propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
+		network: N,
+		sync: S,
+		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
+		peers: HashMap<PeerId, Peer>,
+		statement_store: Arc<dyn StatementStore>,
+		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+	) -> Self {
+		Self {
+			protocol_name,
+			notification_service,
+			propagate_timeout,
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network,
+			sync,
+			sync_event_stream,
+			peers,
+			statement_store,
+			queue_sender,
+			metrics: None,
+		}
+	}
+
+	/// Get mutable access to pending statements for testing/benchmarking.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn pending_statements_mut(
+		&mut self,
+	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
+	{
+		&mut self.pending_statements
+	}
+
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
 	/// interrupted.
 	pub async fn run(mut self) {
@@ -416,7 +463,8 @@ where
 	}
 
 	/// Called when peer sends us new statements
-	fn on_statements(&mut self, who: PeerId, statements: Statements) {
+	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
+	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
