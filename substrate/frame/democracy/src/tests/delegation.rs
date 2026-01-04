@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn single_proposal_should_work_with_delegation() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 
 		assert_ok!(propose_set_balance(1, 2, 1));
@@ -62,7 +62,7 @@ fn single_proposal_should_work_with_delegation() {
 
 #[test]
 fn self_delegation_not_allowed() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(
 			Democracy::delegate(RuntimeOrigin::signed(1), 1, Conviction::None, 10),
 			Error::<Test>::Nonsense,
@@ -72,7 +72,7 @@ fn self_delegation_not_allowed() {
 
 #[test]
 fn cyclic_delegation_should_unwind() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 
 		assert_ok!(propose_set_balance(1, 2, 1));
@@ -97,7 +97,7 @@ fn cyclic_delegation_should_unwind() {
 #[test]
 fn single_proposal_should_work_with_vote_and_delegation() {
 	// If transactor already voted, delegated vote is overwritten.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 
 		assert_ok!(propose_set_balance(1, 2, 1));
@@ -119,7 +119,7 @@ fn single_proposal_should_work_with_vote_and_delegation() {
 
 #[test]
 fn single_proposal_should_work_with_undelegation() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 
 		assert_ok!(propose_set_balance(1, 2, 1));
@@ -140,7 +140,7 @@ fn single_proposal_should_work_with_undelegation() {
 #[test]
 fn single_proposal_should_work_with_delegation_and_vote() {
 	// If transactor voted, delegated vote is overwritten.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		// Delegate, undelegate and vote.
 		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
@@ -156,7 +156,7 @@ fn single_proposal_should_work_with_delegation_and_vote() {
 #[test]
 fn conviction_should_be_honored_in_delegation() {
 	// If transactor voted, delegated vote is overwritten.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		// Delegate and vote.
 		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(2), 1, Conviction::Locked6x, 20));
@@ -169,7 +169,7 @@ fn conviction_should_be_honored_in_delegation() {
 #[test]
 fn split_vote_delegation_should_be_ignored() {
 	// If transactor voted, delegated vote is overwritten.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(2), 1, Conviction::Locked6x, 20));
 		assert_ok!(Democracy::vote(
@@ -185,7 +185,7 @@ fn split_vote_delegation_should_be_ignored() {
 #[test]
 fn redelegation_keeps_lock() {
 	// If transactor voted, delegated vote is overwritten.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		// Delegate and vote.
 		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(2), 1, Conviction::Locked6x, 20));
