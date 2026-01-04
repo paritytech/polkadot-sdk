@@ -65,6 +65,14 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let _args: StoredArgs = syn::parse2(attr)?;
 	let mut input: syn::DeriveInput = syn::parse2(item)?;
 
+	// Reject unions immediately 
+	if let syn::Data::Union(_) = &input.data {
+		return Err(Error::new(
+			input.span(),
+			"#[stored] is only supported on structs and enums, not unions",
+		))
+	}
+
 	// Get the frame_support crate path to use __private re-exports
 	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 		Ok(path) => path,
@@ -99,11 +107,11 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			}
 			field_types
 		},
-		syn::Data::Union(_) =>
-			return Err(Error::new(
-				input.span(),
-				"#[stored] is only supported on structs and enums, not unions",
-			)),
+		syn::Data::Union(_) => {
+			// This should never be reached due to the early check above,
+			// but kept for exhaustiveness
+			unreachable!("Unions should be rejected earlier")
+		},
 	};
 
 	// Collect all type parameters for scale_info skip_type_params.

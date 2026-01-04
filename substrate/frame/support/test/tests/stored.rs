@@ -15,12 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Tests for the `#[stored]` macro.
+
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_support::stored;
 use scale_info::TypeInfo;
 
 pub trait Config {
-	type Balance;
-	type AccountId;
+	type Balance: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen;
+	type AccountId: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen;
+}
+
+// This type itself doesn't implement the requirement to be stored.
+// but the associated types in Config does.
+struct NotStored;
+
+impl Config for NotStored {
+	type Balance = u8;
+	type AccountId = u64;
 }
 
 #[stored]
@@ -35,5 +48,18 @@ pub enum Status<T: Config> {
 	Active { account: T::AccountId },
 	Inactive,
 	Pending(T::Balance),
+}
+
+/// Helper function to ensure types implement all required storage traits.
+fn ensure_storable<T: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen>() {}
+
+#[test]
+fn test_stored_struct_implements_required_traits() {
+	ensure_storable::<AccountData<NotStored>>();
+}
+
+#[test]
+fn test_stored_enum_implements_required_traits() {
+	ensure_storable::<Status<NotStored>>();
 }
 
