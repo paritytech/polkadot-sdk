@@ -175,6 +175,24 @@ where
 	let transact_call: D::RuntimeCall =
 		frame_system::Call::authorize_upgrade { code_hash: *code_hash }.into();
 
+	build_xcm_send_call::<T, D>(location, fallback_max_weight, transact_call)
+}
+
+/// Builds a `pallet_xcm::send` call
+/// wrapped in an unpaid XCM `Transact` with `OriginKind::Superuser`.
+pub fn build_xcm_send_call<T, D>(
+	location: Location,
+	fallback_max_weight: Option<Weight>,
+	transact_call: D::RuntimeCall,
+) -> T::RuntimeCall
+where
+	T: Chain,
+	T::Runtime: pallet_xcm::Config,
+	T::RuntimeCall: Encode + From<pallet_xcm::Call<T::Runtime>>,
+	D: Chain,
+	D::Runtime: frame_system::Config<Hash = H256>,
+	D::RuntimeCall: Encode + From<frame_system::Call<D::Runtime>>,
+{
 	let call: T::RuntimeCall = pallet_xcm::Call::send {
 		dest: bx!(VersionedLocation::from(location)),
 		message: bx!(VersionedXcm::from(Xcm(vec![
