@@ -447,6 +447,8 @@ where
 					// contains just the relay_parent header.
 					let scheduling_proof = SchedulingProof {
 						header_chain: vec![relay_parent_header.clone()],
+						// Initial submission: no signature needed, core selection from UMP signals
+						signed_scheduling_info: None,
 					};
 
 					tracing::debug!(
