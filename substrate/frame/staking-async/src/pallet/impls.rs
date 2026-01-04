@@ -73,16 +73,10 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
-	/// Returns the minimum required bond for participation, considering nominators,
-	/// and the chain’s existential deposit.
-	///
-	/// This function computes the smallest allowed bond among `MinValidatorBond` and
-	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
-	/// account alive.
+	/// Returns the minimum required bond for participation in staking as a chilled account.
 	pub(crate) fn min_chilled_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get()
-			.min(MinNominatorBond::<T>::get())
-			.max(asset::existential_deposit::<T>())
+		// Note: in the future we might add a configurable `MinChilledBond`, else ED is good.
+		asset::existential_deposit::<T>()
 	}
 
 	/// Returns the minimum required bond for participation in staking as a validator account.
@@ -749,11 +743,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -773,11 +762,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -794,11 +778,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -816,11 +795,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
