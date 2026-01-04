@@ -316,7 +316,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
 		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }
