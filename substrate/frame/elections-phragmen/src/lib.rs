@@ -103,11 +103,22 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cmp::Ordering;
+
+use frame_support::traits::{
+	fungible,
+	fungible::{Credit, Inspect},
+};
+
 use frame_support::{
 	traits::{
-		defensive_prelude::*, ChangeMembers, Contains, ContainsLengthBound, Currency, Get,
-		InitializeMembers, LockIdentifier, LockableCurrency, OnUnbalanced, ReservableCurrency,
-		SortedMembers, WithdrawReasons,
+		defensive_prelude::*,
+		fungible::{
+			hold::Balanced as FunBalancedHold, Balanced as FunBalanced, Inspect as FunInspect,
+			Mutate as FunMutate, MutateFreeze as FunMutateFreeze, MutateHold as FunMutateHold,
+		},
+		tokens::Precision,
+		ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, LockIdentifier,
+		OnUnbalanced, SortedMembers,
 	},
 	weights::Weight,
 };
@@ -133,10 +144,9 @@ pub mod migrations;
 const LOG_TARGET: &str = "runtime::elections-phragmen";
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 /// An indication that the renouncing account currently has which of the below roles.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
@@ -199,6 +209,22 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Hold deposit for phragmen pallet.
+		Phragmen,
+	}
+
+	/// A reason for freezing funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason<I: 'static = ()> {
+		/// Lock up the funds amount for the upcoming candidancy and election
+		PhragmenLockedBond,
+		/// Release the previous locked up funds due to the the fact that a certain someone is
+		/// removed as a voter
+		PhragmenRemoveLockedBond,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		#[allow(deprecated)]
@@ -209,8 +235,22 @@ pub mod pallet {
 		type PalletId: Get<LockIdentifier>;
 
 		/// The currency that people are electing with.
-		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
-			+ ReservableCurrency<Self::AccountId>;
+
+		type Currency: FunMutate<Self::AccountId>
+			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+
+		// type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		// 	+ FunBalancedHold<Self::AccountId>
+		// 	+ FunBalanced<Self::AccountId>
+		// 	+ FunInspect<Self::AccountId>
+		// 	+ FunMutate<Self::AccountId>
+		// 	+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// What to do when the members change.
 		type ChangeMembers: ChangeMembers<Self::AccountId>;
@@ -238,10 +278,10 @@ pub mod pallet {
 		type VotingBondFactor: Get<BalanceOf<Self>>;
 
 		/// Handler for the unbalanced reduction when a candidate has lost (and is not a runner-up)
-		type LoserCandidate: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type LoserCandidate: OnUnbalanced<CreditOf<Self>>;
 
 		/// Handler for the unbalanced reduction when a member has been kicked.
-		type KickedMember: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type KickedMember: OnUnbalanced<CreditOf<Self>>;
 
 		/// Number of members to elect.
 		#[pallet::constant]
@@ -402,21 +442,31 @@ pub mod pallet {
 				Ordering::Greater => {
 					// Must reserve a bit more.
 					let to_reserve = new_deposit - old_deposit;
-					T::Currency::reserve(&who, to_reserve)
+					T::Currency::hold(&HoldReason::Phragmen.into(), &who, to_reserve)
 						.map_err(|_| Error::<T>::UnableToPayBond)?;
 				},
 				Ordering::Equal => {},
 				Ordering::Less => {
-					// Must unreserve a bit.
 					let to_unreserve = old_deposit - new_deposit;
-					let _remainder = T::Currency::unreserve(&who, to_unreserve);
-					debug_assert!(_remainder.is_zero());
+					// Must unreserve a bit.
+					let released = T::Currency::release(
+						&HoldReason::Phragmen.into(),
+						&who,
+						to_unreserve,
+						Precision::Exact,
+					)
+					.expect("Must be able to unreserve bond");
+					debug_assert!((to_unreserve - released).is_zero());
 				},
 			};
 
 			// Amount to be locked up.
-			let locked_stake = value.min(T::Currency::free_balance(&who));
-			T::Currency::set_lock(T::PalletId::get(), &who, locked_stake, WithdrawReasons::all());
+			let locked_stake = value.min(T::Currency::reducible_balance(&who));
+			let _ = T::Currency::set_freeze(
+				&FreezeReason::PhragmenLockedBond.into(),
+				&who,
+				locked_stake,
+			);
 
 			Voting::<T>::insert(&who, Voter { votes, deposit: new_deposit, stake: locked_stake });
 			Ok(None::<Weight>.into())
@@ -471,7 +521,7 @@ pub mod pallet {
 			ensure!(!Self::is_member(&who), Error::<T>::MemberSubmit);
 			ensure!(!Self::is_runner_up(&who), Error::<T>::RunnerUpSubmit);
 
-			T::Currency::reserve(&who, T::CandidacyBond::get())
+			T::Currency::hold(&HoldReason::Phragmen.into(), &who, T::CandidacyBond::get())
 				.map_err(|_| Error::<T>::InsufficientCandidateFunds)?;
 
 			Candidates::<T>::mutate(|c| c.insert(index, (who, T::CandidacyBond::get())));
@@ -520,8 +570,14 @@ pub mod pallet {
 							.ok_or(Error::<T>::InvalidRenouncing)?;
 						// can't fail anymore.
 						let SeatHolder { deposit, .. } = runners_up.remove(index);
-						let _remainder = T::Currency::unreserve(&who, deposit);
-						debug_assert!(_remainder.is_zero());
+
+						let released = T::Currency::release_all(
+							&HoldReason::Phragmen.into(),
+							&who,
+							Precision::BestEffort,
+						)
+						.expect("Must be able to unreserve bond");
+						debug_assert!((released - deposit).is_zero());
 						Self::deposit_event(Event::Renounced { candidate: who });
 						Ok(())
 					})?;
@@ -533,8 +589,13 @@ pub mod pallet {
 							.binary_search_by(|(c, _)| c.cmp(&who))
 							.map_err(|_| Error::<T>::InvalidRenouncing)?;
 						let (_removed, deposit) = candidates.remove(index);
-						let _remainder = T::Currency::unreserve(&who, deposit);
-						debug_assert!(_remainder.is_zero());
+
+						let _released = T::Currency::thaw(
+							&HoldReason::Phragmen.into(),
+							&who,
+							deposit,
+							Precision::Exact,
+						);
 						Self::deposit_event(Event::Renounced { candidate: who });
 						Ok(())
 					})?;
@@ -736,7 +797,7 @@ pub mod pallet {
 				.map(|(ref member, ref stake)| {
 					// make sure they have enough stake.
 					assert!(
-						T::Currency::free_balance(member) >= *stake,
+						T::Currency::balance(member) >= *stake,
 						"Genesis member does not have enough stake.",
 					);
 
@@ -819,7 +880,8 @@ impl<T: Config> Pallet<T> {
 
 			// slash or unreserve
 			if slash {
-				let (imbalance, _remainder) = T::Currency::slash_reserved(who, removed.deposit);
+				let (imbalance, _remainder) =
+					T::Currency::slash(&HoldReason::Phragmen.into(), who, removed.stake);
 				debug_assert!(_remainder.is_zero());
 				T::LoserCandidate::on_unbalanced(imbalance);
 				Self::deposit_event(Event::SeatHolderSlashed {
@@ -827,7 +889,13 @@ impl<T: Config> Pallet<T> {
 					amount: removed.deposit,
 				});
 			} else {
-				T::Currency::unreserve(who, removed.deposit);
+				T::Currency::release(
+					&HoldReason::Phragmen.into(),
+					who,
+					removed.deposit,
+					Precision::Exact,
+				)
+				.expect("Release failed while removing member");
 			}
 
 			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).inspect(|next_best| {
@@ -933,12 +1001,14 @@ impl<T: Config> Pallet<T> {
 		let Voter { deposit, .. } = Voting::<T>::take(who);
 
 		// remove storage, lock and unreserve.
-		T::Currency::remove_lock(T::PalletId::get(), who);
+		let _ = T::Currency::thaw(&FreezeReason::PhragmenRemoveLockedBond.into(), who);
 
 		// NOTE: we could check the deposit amount before removing and skip if zero, but it will be
 		// a noop anyhow.
-		let _remainder = T::Currency::unreserve(who, deposit);
-		debug_assert!(_remainder.is_zero());
+		let released =
+			T::Currency::release(&HoldReason::Phragmen.into(), who, deposit, Precision::Exact)
+				.expect("Must be able to unreserve bond");
+		debug_assert!((deposit - released).is_zero());
 	}
 
 	/// Run the phragmen election with all required side processes and state updates, if election
@@ -1098,7 +1168,8 @@ impl<T: Config> Pallet<T> {
 						if new_members_ids_sorted.binary_search(c).is_err() &&
 							new_runners_up_ids_sorted.binary_search(c).is_err()
 						{
-							let (imbalance, _) = T::Currency::slash_reserved(c, *d);
+							let (imbalance, _) =
+								T::Currency::slash(&HoldReason::Phragmen.into(), c, *d);
 							T::LoserCandidate::on_unbalanced(imbalance);
 							Self::deposit_event(Event::CandidateSlashed {
 								candidate: c.clone(),
@@ -1389,7 +1460,9 @@ mod tests {
 	impl Config for Test {
 		type PalletId = ElectionsPhragmenPalletId;
 		type RuntimeEvent = RuntimeEvent;
-		type Currency = Balances;
+		type Currency = pallet_balances::Pallet<Self>;
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type CurrencyToVote = ();
 		type ChangeMembers = TestChangeMembers;
 		type InitializeMembers = ();
@@ -2164,7 +2237,8 @@ mod tests {
 
 			// User has 100 free and 50 reserved.
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 150));
-			assert_ok!(Balances::reserve(&2, 50));
+			// TODO: check this
+			assert_ok!(Balances::hold(&HoldReason::Phragmen.into(), &2, 50));
 			// User tries to vote with 150 tokens.
 			assert_ok!(vote(RuntimeOrigin::signed(2), vec![4, 5], 150));
 			// We truncate to only their free balance, after reserving additional for voting.
