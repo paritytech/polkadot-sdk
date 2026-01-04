@@ -803,30 +803,67 @@ is done to ensure that only the block producer can set this information. This
 works, but ties the block to the scheduling.
 
 What we want to do in addition now, is to provide a **separate optional entry
-point to the PVF**, which we give the following:
+point to the PVF**, which receives a `SchedulingProof`:
+
+```rust
+/// V3 scheduling proof included in the POV.
+struct SchedulingProof {
+    /// Relay chain headers proving ancestry from scheduling_parent backward.
+    /// The first header's hash equals the candidate's scheduling_parent.
+    /// The last header's parent_hash is the internal scheduling parent.
+    /// Length is defined by the parachain runtime config.
+    header_chain: Vec<RelayChainHeader>,
+
+    /// Signed scheduling info for core selection override (required for resubmission).
+    signed_scheduling_info: Option<SignedSchedulingInfo>,
+}
+
+/// Signed scheduling information for candidate resubmission.
+struct SignedSchedulingInfo {
+    /// Which core to use (indexes into the parachain's assigned cores).
+    /// Note: the claim queue offset is determined by the runtime and is not
+    /// provided by the collator.
+    core_selector: CoreSelector,
+    /// Peer ID to receive reputation credit for successful collation delivery.
+    /// Overrides the peer ID from the block's commitments, allowing the
+    /// resubmitting collator to receive reputation instead of the original
+    /// block author who failed to deliver.
+    peer_id: PeerId,
+    /// Signature by the eligible collator for the slot at internal_scheduling_parent.
+    signature: CollatorSignature,
+}
+```
+
+The PVF entry point also receives:
 
 - Access to the state of the parachain—at the same block height as the included
   block, or in case of multiple blocks, the block height of the first block in
   the POV
-- The scheduling parent
-- A header chain with a length defined by the runtime from the scheduling parent
-  to an internal scheduling parent
-- The relay parent of the candidate
-- The scheduling information (which core to use essentially)—signed by the
-  responsible collator as of the slot/time information from the internal
-  scheduling parent
+- The scheduling parent and relay parent from the candidate descriptor
 
-That function then:
+The PVF then:
 
 1. Verifies the header chain, in particular that it has the expected fixed
    length
 2. Looks up the eligible block producer based on the internal scheduling parent
-3. Verifies the signature of the scheduling information
+3. Verifies the signature of the scheduling information (if provided)
 4. Checks that the relay parent is either equal to the internal scheduling
    parent or otherwise not part of the header chain from scheduling parent to
    internal scheduling parent
-5. Provides the verified scheduling information for incorporating into candidate
-   commitments
+5. Outputs the verified scheduling information for incorporating into candidate
+   commitments, including the `peer_id` for the collator protocol to use for
+   reputation
+
+The `signed_scheduling_info` field determines the submission mode:
+
+- **`None` usually with `relay_parent == internal_scheduling_parent`**: Initial
+  submission. Core selection comes from the parachain block's UMP signals.
+
+- **`Some` usually with `relay_parent != internal_scheduling_parent`**: Resubmission.
+  The resubmitting collator signs the core selection, overriding the block's
+  UMP signals. The `peer_id` field ensures the resubmitting collator receives
+  the reputation credit for successful delivery, rather than the original block
+  author who failed to submit.
 
 If input for the separate entry point is provided, the provided core by the last
 block gets overridden. The PVF should still reject any POV that is not "sealed"
@@ -946,6 +983,12 @@ the following commitments:
    - (b) We have seen an acknowledgement from the block producer of block X for
      the parent parachain block
    - (c) We have fully imported the block and can confirm its validity
+   - (d) The block contains valid scheduling information (e.g., the core is
+     actually assigned to this parachain). Acknowledging a block with invalid
+     scheduling information would commit us to submitting a collation that can
+     never be successfully advertised, forcing us to attempt resubmission in our
+     own slot and preventing us from submitting our own collation—a censorship
+     vector.
 
 2. **We confirm that the produced block picked the right/latest parent produced
    by us**, if we had been the block producer of the parent parachain block of X
