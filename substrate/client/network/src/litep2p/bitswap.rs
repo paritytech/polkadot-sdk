@@ -25,12 +25,13 @@ use litep2p::protocol::libp2p::bitswap::{
 };
 
 use sc_client_api::BlockBackend;
+use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 
 use std::{future::Future, pin::Pin, sync::Arc};
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::bitswap";
+const LOG_TARGET: &str = "sub-libp2p::ipfs::bitswap";
 
 pub struct BitswapServer<Block: BlockT> {
 	/// Bitswap handle.
@@ -63,7 +64,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 						.into_iter()
 						.filter(|(cid, _)| is_cid_supported(&cid))
 						.map(|(cid, want_type)| {
-							let mut hash = Block::Hash::default();
+							let mut hash = H256::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 							let transaction = match self.client.indexed_transaction(hash) {
 								Ok(ex) => ex,
