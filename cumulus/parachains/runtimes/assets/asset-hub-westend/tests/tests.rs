@@ -35,13 +35,13 @@ use asset_hub_westend_runtime::{
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
-	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
-	ExtBuilder, GovernanceOrigin, SlotDurations,
+	test_cases::exchange_asset_on_asset_hub_works, test_cases_over_bridge::TestBridgingConfig,
+	CollatorSessionKey, CollatorSessionKeys, ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, parameter_types,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{self, Inspect, Mutate},
 		fungibles::{
@@ -68,6 +68,7 @@ use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
 		prelude::{Assets as XcmAssets, *},
@@ -1961,4 +1962,104 @@ fn expensive_erc20_runs_out_of_gas() {
 		)
 		.is_err());
 	});
+}
+
+#[test]
+fn exchange_asset_success() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		500 * UNITS,
+		665 * UNITS,
+		true,
+	);
+}
+
+#[test]
+fn exchange_asset_insufficient_liquidity() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		1_000 * UNITS,
+		2_000 * UNITS,
+		false,
+	);
+}
+
+#[test]
+fn exchange_asset_insufficient_balance() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		5_000 * UNITS, // This amount will be greater than initial balance
+		1_665 * UNITS,
+		false,
+	);
+}
+
+#[test]
+fn exchange_asset_pool_not_created() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		false, // Pool not created
+		500 * UNITS,
+		665 * UNITS,
+		false,
+	);
+}
+
+#[test]
+fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		100_000_000_000u128,
+		1_000_000_000u128,
+		true,
+	);
 }
