@@ -5189,3 +5189,271 @@ fn existential_deposit_shall_not_charged_twice() {
 		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn self_destruct_by_syscall_tracing_works() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
+		Trace,
+	};
+
+	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+
+	struct TestCase {
+		description: &'static str,
+		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
+		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+	}
+
+	let test_cases = vec![
+		TestCase {
+			description: "CallTracer",
+			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
+			expected_trace_fn: Box::new(|addr, _binary| {
+				Trace::Call(CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					call_type: CallType::Call,
+					value: Some(U256::zero()),
+					gas: 0.into(),
+					gas_used: 0.into(),
+					calls: vec![CallTrace {
+						from: addr,
+						to: DJANGO_ADDR,
+						gas: 0.into(),
+
+						call_type: CallType::Selfdestruct,
+						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+						..Default::default()
+					}],
+					..Default::default()
+				})
+			}),
+			modify_trace_fn: Some(Box::new(|mut actual_trace| {
+				if let Trace::Call(trace) = &mut actual_trace {
+					trace.gas = 0.into();
+					trace.gas_used = 0.into();
+					trace.calls[0].gas = 0.into();
+				}
+				actual_trace
+			})),
+		},
+		TestCase {
+			description: "PrestateTracer (diff mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}",
+							"nonce": 1
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "{{CONTRACT_BALANCE}}",
+							"nonce": 1,
+							"code": "{{CONTRACT_CODE}}"
+						}
+					},
+					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}"
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE_POST}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0"
+						}
+					}
+				}"#;
+
+				let alice_balance_pre = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let alice_balance_post = alice_balance_pre - 50_000_000u64;
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance_post = contract_balance;
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+		TestCase {
+			description: "PrestateTracer (prestate mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "{{CONTRACT_BALANCE}}",
+						"nonce": 1,
+						"code": "{{CONTRACT_CODE}}"
+					},
+					"{{DJANGO_ADDR}}": {
+						"balance": "{{DJANGO_BALANCE}}"
+					}
+				}"#;
+
+				let alice_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{ALICE_BALANCE}}", &format!("{:#x}", alice_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+	];
+
+	for TestCase { description, create_tracer, expected_trace_fn, modify_trace_fn } in test_cases {
+		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+			get_contract(&addr);
+
+			let expected_trace = expected_trace_fn(addr, binary.clone());
+			let mut tracer = create_tracer();
+			trace(tracer.as_tracing(), || {
+				builder::call(addr).build().unwrap();
+			});
+
+			let mut trace = tracer.collect_trace().unwrap();
+
+			if let Some(modify_trace_fn) = modify_trace_fn {
+				trace = modify_trace_fn(trace);
+			}
+			let trace_wrapped = match trace {
+				crate::evm::Trace::Call(ct) => Trace::Call(ct),
+				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
+			};
+
+			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
+		});
+	}
+}
+
+#[test]
+fn delegate_call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_evm").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_with_gas").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.data((callee_addr, 1u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		// succeeds, not enough gas but call stipend will be added
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100u64).encode())
+			.build());
+
+		// succeeds, enough gas
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+>>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))
