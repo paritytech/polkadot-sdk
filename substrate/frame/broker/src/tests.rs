@@ -2247,15 +2247,16 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
-		// Task (1003) will now be assigned to that core instead of core #2.
-		assert_eq!(
-			AutoRenewals::<Test>::get().to_vec(),
-			vec![
-				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
-				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
-			]
-		);
+	// With the fix, the auto-renewal setting for task 1002 should persist despite the failure.
+	// Task 1002 should still be in the list for the next renewal attempt.
+	assert_eq!(
+		AutoRenewals::<Test>::get().to_vec(),
+		vec![
+			AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
+			AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },
+			AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
+		]
+	);
 	});
 }
 
@@ -2292,6 +2293,44 @@ fn disable_auto_renew_works() {
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalDisabled { core: region_id.core, task: 1001 }.into(),
 		);
+	});
+}
+
+#[test]
+fn auto_renewal_persists_after_failure() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Enable auto-renewal for a task
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region.core, 1001, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 }]
+		);
+
+		// Advance to the next sale period WITHOUT funding the sovereign account
+		// This should cause the renewal to fail due to insufficient funds
+		advance_to(7);
+
+		// Verify that renewal failed
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: 0, payer: Some(1001) }.into(),
+		);
+
+		// The key fix: auto-renewal setting should persist despite the failure.
+		// Previously, the setting would be removed. Now it should remain with next_renewal
+		// updated to the next period (10).
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+		);
+
+		// The auto-renewal setting is preserved for future attempts, demonstrating that
+		// the fix works as per documentation: "Even if an auto-renewal attempt fails,
+		// the auto-renewal setting remains active for subsequent sales."
 	});
 }
 

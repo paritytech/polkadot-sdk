@@ -351,28 +351,42 @@ impl<T: Config> Pallet<T> {
 					return Some(record)
 				}
 
-				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
-					Self::deposit_event(Event::<T>::AutoRenewalFailed {
-						core: record.core,
-						payer: None,
-					});
-					return None
-				};
+			let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core: record.core,
+					payer: None,
+				});
+				// Keep the auto-renewal setting active for the next period as per documentation:
+				// "Even if an auto-renewal attempt fails, the auto-renewal setting remains
+				// active for subsequent sales."
+				return Some(AutoRenewalRecord {
+					core: record.core,
+					task: record.task,
+					next_renewal: sale.region_end,
+				})
+			};
 
-				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
-					Some(AutoRenewalRecord {
-						core: new_core_index,
-						task: record.task,
-						next_renewal: sale.region_end,
-					})
-				} else {
-					Self::deposit_event(Event::<T>::AutoRenewalFailed {
-						core: record.core,
-						payer: Some(payer),
-					});
+			if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+				Some(AutoRenewalRecord {
+					core: new_core_index,
+					task: record.task,
+					next_renewal: sale.region_end,
+				})
+			} else {
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core: record.core,
+					payer: Some(payer),
+				});
 
-					None
-				}
+				// Keep the auto-renewal setting active for the next period as per documentation:
+				// "Even if an auto-renewal attempt fails, the auto-renewal setting remains
+				// active for subsequent sales."
+				Some(AutoRenewalRecord {
+					core: record.core,
+					task: record.task,
+					next_renewal: sale.region_end,
+				})
+			}
 			})
 			.collect::<Vec<AutoRenewalRecord>>()
 			.try_into()
