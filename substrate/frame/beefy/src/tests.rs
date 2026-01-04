@@ -730,6 +730,7 @@ fn report_double_voting_invalid_equivocation_proof() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn report_double_voting_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
