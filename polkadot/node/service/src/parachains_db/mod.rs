@@ -48,14 +48,28 @@ pub(crate) mod columns {
 
 	pub mod v4 {
 		pub const NUM_COLUMNS: u32 = 5;
+
+		pub const ORDERED_COL: &[u32] = &[
+			super::v5::COL_AVAILABILITY_META,
+			super::v5::COL_CHAIN_SELECTION_DATA,
+			super::v5::COL_DISPUTE_COORDINATOR_DATA,
+		];
+	}
+
+	pub mod v5 {
+		pub const NUM_COLUMNS: u32 = 6;
 		pub const COL_AVAILABILITY_DATA: u32 = 0;
 		pub const COL_AVAILABILITY_META: u32 = 1;
 		pub const COL_APPROVAL_DATA: u32 = 2;
 		pub const COL_CHAIN_SELECTION_DATA: u32 = 3;
 		pub const COL_DISPUTE_COORDINATOR_DATA: u32 = 4;
-
-		pub const ORDERED_COL: &[u32] =
-			&[COL_AVAILABILITY_META, COL_CHAIN_SELECTION_DATA, COL_DISPUTE_COORDINATOR_DATA];
+		pub const COL_REPUTATION_DATA: u32 = 5;
+		pub const ORDERED_COL: &[u32] = &[
+			COL_AVAILABILITY_META,
+			COL_CHAIN_SELECTION_DATA,
+			COL_DISPUTE_COORDINATOR_DATA,
+			COL_REPUTATION_DATA,
+		];
 	}
 }
 
@@ -73,16 +87,19 @@ pub struct ColumnsConfig {
 	pub col_chain_selection_data: u32,
 	/// The column used by dispute coordinator for data.
 	pub col_dispute_coordinator_data: u32,
+	/// The column used for reputation data.
+	pub col_reputation_data: u32,
 }
 
 /// The real columns used by the parachains DB.
 #[cfg(any(test, feature = "full-node"))]
 pub const REAL_COLUMNS: ColumnsConfig = ColumnsConfig {
-	col_availability_data: columns::v4::COL_AVAILABILITY_DATA,
-	col_availability_meta: columns::v4::COL_AVAILABILITY_META,
-	col_approval_data: columns::v4::COL_APPROVAL_DATA,
-	col_chain_selection_data: columns::v4::COL_CHAIN_SELECTION_DATA,
-	col_dispute_coordinator_data: columns::v4::COL_DISPUTE_COORDINATOR_DATA,
+	col_availability_data: columns::v5::COL_AVAILABILITY_DATA,
+	col_availability_meta: columns::v5::COL_AVAILABILITY_META,
+	col_approval_data: columns::v5::COL_APPROVAL_DATA,
+	col_chain_selection_data: columns::v5::COL_CHAIN_SELECTION_DATA,
+	col_dispute_coordinator_data: columns::v5::COL_DISPUTE_COORDINATOR_DATA,
+	col_reputation_data: columns::v5::COL_REPUTATION_DATA,
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -127,13 +144,13 @@ pub fn open_creating_rocksdb(
 
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v4::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
+		.insert(columns::v5::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v4::COL_AVAILABILITY_META, cache_sizes.availability_meta);
+		.insert(columns::v5::COL_AVAILABILITY_META, cache_sizes.availability_meta);
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v4::COL_APPROVAL_DATA, cache_sizes.approval_data);
+		.insert(columns::v5::COL_APPROVAL_DATA, cache_sizes.approval_data);
 
 	let path_str = path
 		.to_str()
