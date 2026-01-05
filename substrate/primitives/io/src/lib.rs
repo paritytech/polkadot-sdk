@@ -653,9 +653,11 @@ pub trait Storage {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			if value_out.len() >= data.len() {
-				value_out[..data.len()].copy_from_slice(data);
-			}
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			// if value_out.len() >= data.len() {
+			// 	value_out[..data.len()].copy_from_slice(data);
+			// }
+			value_out[..out_len].copy_from_slice(&data[..out_len]);
 			data.len() as u32
 		})
 	}
@@ -1015,8 +1017,11 @@ pub trait DefaultChildStorage {
 		self.child_storage(&child_info, key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = core::cmp::min(data.len(), value_out.len());
-			value_out[..written].copy_from_slice(&data[..written]);
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			// if value_out.len() >= data.len() {
+			// 	value_out[..data.len()].copy_from_slice(data);
+			// }
+			value_out[..out_len].copy_from_slice(&data[..out_len]);
 			data.len() as u32
 		})
 	}
