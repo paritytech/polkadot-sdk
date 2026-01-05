@@ -49,7 +49,7 @@ This works because of two foundations:
 
 **Game-theoretic enforcement** replaces continuous cryptographic proofs. Providers commit Merkle roots on-chain and lock stake. Clients can challenge at any time, forcing the provider to prove data availability or lose their stake. The challenge mechanism is expensive for everyone—which is the point. Rational providers serve data directly because being challenged costs them money even if they're honest. Rational clients don't challenge frivolously because it costs them too. The expensive on-chain path exists to make the cheap off-chain path incentive-compatible.
 
-The result: storage that scales with provider capacity, not chain throughput. Writes are instant (no consensus). Reads are fast (direct from provider). Guarantees are optional and tiered—ephemeral data needs no on-chain commitment, critical backups get storage agreements with slashing.
+The result: storage that scales with provider capacity, not chain throughput. Writes are instant (when no consensus is needed). Reads are fast (direct from provider). Guarantees are optional and tiered—ephemeral data needs no on-chain commitment, critical backups get storage agreements with slashing.
 
 This document details the design: storage model, buckets and storage agreements, read incentives, discovery, and how it compares to existing solutions.
 
@@ -69,13 +69,13 @@ Note here: I would consider the traditional Filecoin approach (which includes th
 
 ### The Storage Problem
 
-Proving that data is stored is expensive. Filecoin uses Proof-of-Replication (PoRep) and Proof-of-Spacetime (PoSt), requiring continuous on-chain proofs. Every 24 hours, every sector must be proven. This creates enormous chain load and operational complexity for storage providers.
+Proving that data is stored is expensive. Filecoin uses Proof-of-Replication (PoRep) and Proof-of-Spacetime (PoSt), requiring continuous on-chain proofs. Every 24 hours, every sector is proven. This creates chain load and operational complexity for storage providers.
 
 IPFS requires no proofs at all, meaning users have no assurance their data still exists, which becomes visible in the known poor user experience of IPFS.
 
 ### The Read Problem
 
-This is where existing systems fail most dramatically. Consider the data flow:
+Once you have proven data is available, you still need to be able to read it. Consider the data flow:
 
 ```
 User wants image
@@ -119,7 +119,7 @@ For IPFS, "seconds" is the happy path—when content is found. DHT lookups can f
 
 ## Non-Goals
 
-**Database-style access.** This design optimizes for file-like patterns: store blobs, retrieve by content hash, read ranges. Not for small random key-value lookups, indexes, or queries. You *can* build a Merkle trie on top (like blockchain state), but then you've built a blockchain's state layer—at which point, use a blockchain. Web3 databases are inherently slower than Web2 databases due to consensus; that's a fundamental tradeoff, not something storage-layer design can fix.
+**Database-style access.** This design optimizes for file-like patterns: store blobs, retrieve by content hash, read ranges. Not for small random key-value lookups, indexes, or queries. You *can* build a Merkle trie on top (like blockchain state), but then you've built a blockchain's state layer—at which point, use a blockchain. 
 
 **Permanent storage.** Unlike Arweave, we do not aim for "store once, available forever." Storage has a duration, contracts have terms. This is a feature: it allows for deletion, reduces costs, and matches how most applications actually use storage.
 
@@ -188,7 +188,9 @@ t=100ms   Data is readable
 t=1hour   Provider batches many writes, commits MMR root
           • Optional: only if client requested availability guarantee
           • One transaction can cover thousands of writes
-          • Even availability guarantees don't strictly need the chain, but it is a good means to achieve consensus, especially when multiple storage providers are used
+          • Even availability guarantees don't strictly need the chain, but it
+            is a good means to achieve consensus, especially when multiple storage
+            providers are used
           Chain: one commit transaction (batched)
 
 t=1week   Client wants to verify data still exists
@@ -209,7 +211,7 @@ The chain exists as a credible threat, not as the happy path. Rational providers
 
 ## Proof-of-DOT Foundation
 
-Before discussing storage mechanics, we need identity and sybil resistance. Without it, reputation is meaningless, spam is free, and accountability is impossible.
+Before discussing storage mechanics, we need identity and sybil resistance. Without it, reputation is meaningless, spam is free, and accountability (for clients) is impossible.
 
 Proof-of-DOT (detailed in the [Proof-of-DOT Infrastructure Strategy](https://docs.google.com/document/d/1fNv75FCEBFkFoG__s_Xu10UZd0QsGIE9AKnrouzz-U8/)) provides this foundation:
 
@@ -243,7 +245,7 @@ Every write follows the same path:
 
 1. Client uploads data to provider
 2. Provider merkleizes and stores chunks
-3. Both parties sign a commitment: `{bucket_id: Option, mmr_root, start_seq}`
+3. Both parties sign a commitment: `{bucket_id: Option, mmr_root, start_seq, leaf_count}`
 4. Done - data is stored and commitment is provable
 
 The `bucket_id` is optional:
@@ -346,6 +348,14 @@ StorageAgreement
 └── extensions_blocked: bool
 ```
 
+**Provider stake is global, not per-agreement.** Providers register with a total
+stake amount that covers all their agreements. The Provider struct on-chain
+tracks both `stake` and `committed_bytes` (sum of `max_bytes` across all active
+agreements). The ratio `stake / committed_bytes` determines trustworthiness. A
+provider with 100 DOT stake and 1TB of agreements has a different risk profile
+than one with 100 DOT and 100TB of agreements—clients should prefer higher
+stake-per-byte ratios for important data.
+
 ### Lifecycle
 
 ```
@@ -360,7 +370,7 @@ StorageAgreement
    • Client calls request_agreement(bucket, provider, max_bytes, payment, duration)
    • Payment locked from client
    • Provider calls accept_agreement or reject_agreement
-   • On acceptance: StorageAgreement created, provider tracks committed_bytes
+   • On acceptance: StorageAgreement created, provider starts tracking usage locally
 
 3. UPLOAD AND COMMIT (off-chain)
    ────────────────────────────────────────────────────────
@@ -425,7 +435,7 @@ If clients could reclaim funds by claiming "bad service," they'd have incentive 
 
 **When to burn:**
 
-Burning is for genuine grievances: the provider technically met their availability commitment (not slashable) but provided poor read service, slow responses, or other quality issues. It's a reputation signal that costs the client nothing extra (beyond losing the provider relationship) but denies the provider revenue they arguably didn't earn.
+Burning is for genuine grievances: the provider technically met their availability commitment (not slashable) but provided really poor read service, slow responses, or other serious quality issues. It's a reputation signal that costs the client nothing extra (beyond losing the provider relationship) but denies the provider revenue they arguably didn't earn.
 
 ### On-Chain Challenge
 
@@ -434,40 +444,50 @@ If the provider did not only do a bad service in providing the data, but actuall
 ```
 1. Client initiates challenge
    • Specifies chunks to prove
-   • Deposits 75% of estimated challenge cost
+   • Deposits 100% of estimated challenge cost
 
 2. Provider responds (must respond within deadline)
    • Submits Merkle proofs for challenged chunks
-   • Pays 25% of challenge cost from staked collateral (enforced by protocol)
+   • Pays tx fee (like any extrinsic)
 
 3. Outcomes:
    
    A. Provider proves successfully:
-      • Client "loses" their 75% deposit
-      • Provider "loses" their 25%
-      • But: client now has the data (recovered via proof)
-      • Net: expensive for both, but data recovered
+      • Cost split based on response time (see below)
+      • Provider reimbursed from challenger's deposit
+      • Challenger gets back their share (remainder after provider reimbursement)
+      • Client now has the data (recovered via proof)
    
    B. Provider fails to prove:
-      • Provider's contract stake fully slashed
-      • Client refunded their deposit + compensation from slash
+      • Provider's stake fully slashed
+      • Challenger refunded their deposit + compensation from slash
       • Clear on-chain evidence of fraud
 ```
 
 **Dynamic cost split based on response time:**
 
-Base ratio is 75% challenger / 25% provider, but shifts based on how quickly the provider responds:
-- Fast response → split shifts toward challenger (e.g., 85/15), rewarding responsiveness
-- Slow response → split shifts toward provider (e.g., 50/50), penalizing delay
-- Timeout (1-2 days) → full slash
+The cost split between challenger and provider shifts based on how quickly the
+provider responds. Challenger deposits 100% upfront; after resolution the
+provider is reimbursed for tx costs from this deposit, and the split determines
+how much the challenger gets back:
 
-This incentivizes quick responses without requiring impossibly short deadlines. For actual data recovery, clients send parallel requests anyway—not waiting per-chunk.
+- Fast response → challenger pays most (e.g., 90/10), rewarding responsiveness
+- Slow response → more balanced (e.g., 50/50), penalizing delay
+- Timeout (1-2 days) → full slash, challenger fully refunded + compensated
 
-Why this works:
-- Provider always pays *something* (deterrent for ignoring off-chain requests)
-- Attacker pays more than victim in base case (griefing is expensive)
-- Provider's total exposure is bounded by their stake (they chose this risk level)
-- Large-scale attacks are visible on-chain; governance can intervene in such an unlikely scenario
+This incentivizes quick responses without requiring impossibly short deadlines.
+The challenge mechanism serves as a **pressure tool**: clients who can't get
+data off-chain can recover in a very costly way via challenges, but more importantly forces providers to prioritize their off-chain requests as on-chain response are also more expensive to the provider.
+
+**Why this works:**
+
+- Griefing is expensive: attacker pays 50-90% of challenge cost each time
+- Provider stake is untouched by successful challenges (protected from griefing)
+- Provider's *conceptual* exposure is still bounded by stake: a rational provider
+  stops responding to challenges once cumulative costs approach a significant
+  fraction of their stake (e.g., 20-30%), accepting the slash instead. Providers
+  can configure this threshold on their nodes.
+- Large-scale attacks are visible on-chain; governance can intervene if needed
 
 **Why on-chain resolution is rare:**
 
@@ -490,7 +510,6 @@ cost.
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | Challenge timeout | ~48 hours | Hard deadline, then full slash |
-| Grace period | 7-30 days | Time for client to migrate before agreement expires |
 | Settlement window | 3 days | Time for client to call end_agreement after expiry |
 
 **Challenge response cost split:**
@@ -556,7 +575,7 @@ only make sense once we begin to see serious utilization.
 
 Filecoin's [retrieval market](https://spec.filecoin.io/systems/filecoin_markets/retrieval_market/) uses payment channels: clients lock funds, providers send data in chunks, clients release payment incrementally via signed vouchers. Fine-grained risk control within a single transfer.
 
-We chose a simpler model. The key insight: **bandwidth is cheap**.
+We chose a simpler model, **bandwidth is cheap**:
 
 | Aspect | Payment Channels | Our Model |
 |--------|------------------|-----------|
@@ -567,9 +586,7 @@ We chose a simpler model. The key insight: **bandwidth is cheap**.
 
 Bandwidth costs ~€0.001/GB. For sub-cent transactions, payment channel overhead (voucher signing, validation, state management) exceeds the value transferred.
 
-Our risk profile: start with small prepayments (~10-30 cents) to unknown providers, increase as trust grows. Maximum exposure is a few euros to your most trusted providers. This is acceptable because providers invest equally in building reputation—there's symmetry in the trust relationship.
-
-**For storage contracts**, payment channels are even worse: clients must come online regularly to release payments, breaking the "store and forget" use case. Our upfront payment with challenge mechanism fits better.
+Our risk profile: start with small prepayments (~10-30 cents or even less) to less known providers, increase as trust grows. Maximum exposure could be a few euros to your most trusted providers. This is acceptable because providers invest equally in building reputation—there's symmetry in the trust relationship.
 
 ### Challenge Economics
 
@@ -582,15 +599,15 @@ A client who needs data has two options:
 2. Challenge on-chain and recover the data via proof
 
 If the provider demands more than the challenge cost, the rational client challenges. The client pays roughly the same (challenge cost ≈ ransom price), but the provider:
-- Pays 25% of challenge cost (direct loss)
+- Loses reputation, forced to deal with on-chain challenge
 - Gets no payment for serving
-- Suffers reputation damage (failed to serve, forced on-chain)
+- Loses money, instead of earning
 
 **The provider's calculus:**
 
 A rational provider prices *below* the challenge threshold because:
 - Price below threshold → earn payment, client happy, reputation intact
-- Price at/above threshold → client challenges, provider pays 25%, earns nothing, reputation damaged
+- Price at/above threshold → client challenges, provider loses money instead of earning, reputation damaged
 
 The ceiling is approximately `challenge_cost` per read. Above this, clients prefer the "nuclear option."
 
@@ -631,8 +648,14 @@ to build. The Proof-of-DOT priority system doesn't directly help here.
    centralization—but permissionless centralization. Anyone can compete.
 
 This mirrors how the web works: CDNs exist because serving at scale requires
-investment. The decentralization benefit isn't that all providers are equal—it's
-that anyone *can become* a major provider without permission.
+investment. The difference from Web2: content is verifiable (content-addressed),
+so any cache can serve without trust. Clients verify chunks against known hashes
+rather than trusting the CDN. And caches can join permissionlessly—no contracts
+or business relationships with content owners required.
+
+For high-traffic public content, dedicated cache nodes can provide CDN-like
+distribution without storage guarantees. See [Cache Nodes](#cache-nodes) in
+Future Directions.
 
 ---
 
@@ -695,6 +718,9 @@ Want content served faster or more reliably? Add more storage agreements:
 - Checkpoint with multiple provider signatures for redundancy
 
 More providers = wider access = better availability.
+
+For read-heavy public content, [cache nodes](#cache-nodes) can further extend
+reach without requiring storage agreements or upload coordination.
 
 ---
 
@@ -771,7 +797,17 @@ Each bucket has an associated MMR (Merkle Mountain Range) of data versions. The 
 }
 ```
 
-Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR. The canonical range is `[start_seq, start_seq + leaf_count)`.
+**Sequence numbers** are per-bucket, monotonically increasing identifiers for
+each MMR leaf (each committed `data_root`). They provide a total ordering of
+all versions within a bucket. The `start_seq` indicates where this MMR begins;
+combined with `leaf_count`, it defines the range `[start_seq, start_seq + leaf_count)`
+of leaves this commitment covers.
+
+When data is deleted, `start_seq` increases (old leaves are pruned). When data
+is appended, `leaf_count` increases. This allows efficient reasoning about what
+data exists, what was deleted, and what the provider is liable for.
+
+Both client and provider sign this payload. The dual signatures implicitly commit to everything in the MMR.
 
 - **With `bucket_id`:** The commitment is enforceable via on-chain challenge. Provider stake is at risk.
 - **Without (`None`):** The commitment proves the provider accepted the data, but there's no on-chain recourse. Reputation-based only.
@@ -787,6 +823,21 @@ Each leaf in the MMR contains:
   total_size,     // cumulative unique bytes in MMR at this point
 }
 ```
+
+**Why both size fields?**
+
+- `data_size`: The logical size of this specific version's content. Useful for
+  clients to understand what each commit contains.
+
+- `total_size`: The cumulative unique bytes stored across the entire MMR history
+  at this point. Because chunks are content-addressed, identical chunks across
+  versions are deduplicated. This tracks actual storage used—providers use this
+  for billing and to enforce quota limits against the storage agreement's
+  `max_bytes`.
+
+Example: A 100MB backup where 90MB is unchanged from the previous version has
+`data_size = 100MB` but only adds 10MB to `total_size` (the new/changed chunks).
+The client is billed for the 10MB increase in `total_size`, not the full 100MB.
 
 The sequence number for any leaf is derived as `start_seq + mmr_position`, so it doesn't need to be stored explicitly. This saves space proportional to MMR size while adding only one field to the signed payload.
 
@@ -805,6 +856,13 @@ By signing the MMR root and start_seq, both parties commit to all leaves and the
 The signed commitment is valid off-chain. Alice can:
 - Keep it locally (minimal trust assumption)
 - Checkpoint on-chain (convenience, discoverability, conflict resolution)
+
+A **checkpoint** is an on-chain transaction that establishes canonical MMR state.
+The client submits provider signatures to the chain, proving which providers
+acknowledged the state. The chain records the MMR root, sequence range, and
+which providers are liable. See the
+[implementation doc](./scalable-web3-storage-implementation.md) for the
+`checkpoint` extrinsic details.
 
 The bucket on-chain stores terms and optionally the latest checkpointed MMR root. Challenges work with or without on-chain checkpoints—signatures prove validity.
 
@@ -868,9 +926,15 @@ This ensures historical data cannot be removed, useful for audit logs, public re
 
 ### Challenge Flow
 
-1. Alice presents: signed `{bucket_id, mmr_root, seq:5, ...}` + "challenge chunk X of data_root_v3"
-2. Alice provides: MMR inclusion proof that `data_root_v3` is leaf 3 under `mmr_root`
-3. Provider must: serve chunk X with Merkle proof to `data_root_v3`
+**Challenge from signature** (no checkpoint exists):
+
+1. Alice presents: provider-signed commitment `{bucket_id, mmr_root, start_seq, leaf_count}`
+2. Alice specifies: "prove chunk X of leaf at sequence N" (where N is in the committed range)
+3. Provider must: provide the `data_root` for leaf N, MMR inclusion proof, and chunk X with Merkle proof to that `data_root`
+
+**Challenge from checkpoint**: Same as above, but Alice only needs to reference
+the bucket and provider—the commitment is already on-chain, so no signature
+needs to be submitted.
 
 **Deletion defense:**
 
@@ -1078,7 +1142,7 @@ If a provider loses even one byte, they cannot reconstruct it. A challenge for t
    • Most chunks unchanged → already exist on providers (deduplication)
    • Upload new chunks, build new directory tree
    • New data_root committed as new MMR leaf
-   • Checkpoint periodically (e.g., weekly) for canonical state
+   • Checkpoint periodically (e.g., weekly) for canonical state - or everytime to minimize what the client needs to keep.
 
 3. Verification (ongoing):
    • Periodically pick random chunks from random providers
@@ -1108,7 +1172,7 @@ If a provider loses even one byte, they cannot reconstruct it. A challenge for t
 
 ```
 1. Publish:
-   • Create a public bucket (Reader role for all, or no access control)
+   • Create a public bucket
    • Bundle site assets → chunks → Merkle tree → data_root
    • Select multiple providers in different geographic regions
    • Request storage agreements with each provider
@@ -1200,6 +1264,47 @@ If a provider loses even one byte, they cannot reconstruct it. A challenge for t
 | **Storage duration** | Contract-based (flexible) | Deal-based (fixed) | Permanent | Short-term (DA only) |
 | **Data delivery enforcement** | On-chain (expensive fallback) | None | None | N/A |
 
+### Continuous vs On-Demand Proving: A Deeper Comparison
+
+Most decentralized storage systems use continuous or periodic proving. We use
+on-demand challenges. This is a deliberate trade-off:
+
+| Aspect | Continuous Proving (Filecoin, StorageHub) | On-Demand Challenges (This Design) |
+|--------|-------------------------------------------|-----------------------------------|
+| **Detection guarantee** | 100% per period | Probabilistic (depends on client checks) |
+| **Chain load** | O(storage volume) | O(disputes) ≈ 0 in happy path |
+| **Abandoned data** | Still proven | No guarantee without active client |
+| **Hardware requirements** | Often specialized (GPU for sealing) | Commodity hardware |
+| **L2 required for scale** | Yes (Filecoin acknowledges this for PDP) | No |
+| **Verifier's dilemma** | Avoided (protocol challenges) | Avoided (verification: normal use/cheap) |
+| **Security model** | Cryptographic | Economic/game-theoretic |
+
+**Why continuous proving exists:**
+
+Academic literature identifies real attacks that continuous proving prevents:
+
+1. **Timing attacks:** If challenge response window > time to regenerate data,
+   providers can delete and regenerate on demand. Filecoin solves this with
+   slow sealing (~1.5h) and fast deadlines (30min).
+
+2. **The verifier's dilemma:** If verification costs effort and most providers
+   are honest, rational clients won't verify, degrading security over time.
+
+**Why we don't need it:**
+
+1. **No sealing = no timing attack.** We don't rely on computational barriers.
+   Instead, stake at risk makes cheating unprofitable regardless of timing.
+
+2. **Verification has no real cost.** Bandwidth is flat-rate for most clients
+   today. Client software simply checks a few random chunks by default whenever
+   it runs—no user effort, no marginal cost, just good defaults. The verifier's
+   dilemma assumes verification is costly; when it's free, the dilemma
+   disappears.
+
+3. **Someone must care.** We assume client software is at least occasionally
+   started. If that's not the case—data that must persist without any client
+   ever running again—Filecoin's continuous proving is the better solution.
+
 ### Data Delivery: A Key Differentiator
 
 Proving storage is not the same as serving data.
@@ -1220,11 +1325,11 @@ Data is now on-chain (expensive but recovered)
 If provider fails: full slash + client gets compensation
 ```
 
-The on-chain path is expensive—submitting Merkle proofs with actual chunk data costs significant gas and is slow/has limited bandwidth. This makes recovery of large data unrealistic, but it puts econimic pressure on providers, which makes the cheap direct-serving path incentive-compatible.
+The on-chain path is expensive—submitting Merkle proofs with actual chunk data costs significant gas and is slow/has limited bandwidth. This makes recovery of large data unrealistic, but it puts economic pressure on providers, which makes the cheap direct-serving path incentive-compatible.
 
 A rational provider always serves directly because:
 - Direct serving: earn payment, bandwidth cost only
-- Being challenged: pay 25%+ of challenge cost, lose reputation, data served anyway via chain
+- Being challenged: pay provider fraction of challenge cost, operational burden, lose reputation, data served anyway via chain
 
 The expensive on-chain path is the "nuclear option" that prevents ransom attacks. It exists to never be used.
 
@@ -1312,7 +1417,7 @@ Our design bets on rational adversaries. This is a weaker security model than co
 **Attack: The Lazy Provider**
 
 A provider accepts data, commits the Merkle root, then deletes most of it—betting that:
-1. Most clients never challenge (true in practice)
+1. Most clients never challenge
 2. The few who challenge can be paid off or ignored
 3. Expected profit from cheating > expected loss from slashing
 
@@ -1320,7 +1425,7 @@ This attack is *rational* if `P(challenge) × slash_amount < storage_cost_saved`
 
 **Our mitigations:**
 
-1. **Challenge cost asymmetry.** Challenger pays 75%, provider pays 25%. But if provider fails, they lose *entire stake*. Expected loss for cheating = `P(challenge) × full_stake`, which dominates storage savings for any reasonable challenge probability - for sensible sized stake, but rational clients will prefer higher staked providers.
+1. **Challenge cost asymmetry.** Challenger pays 50-90% of challenge cost depending on response time. If provider fails to respond, they lose their *entire stake*. Expected loss for cheating = `P(challenge) × full_stake`, which dominates storage savings for any reasonable challenge probability. Rational clients will prefer higher-staked providers.
 
 2. **Reputation visibility.** Failed challenges are on-chain. A provider with even one failed challenge is radioactive—no rational client stores with them. The reputational loss exceeds any single-contract gain.
 
@@ -1330,9 +1435,9 @@ A competitor or griefer challenges a honest provider repeatedly to drain their f
 
 **Our mitigations:**
 
-1. **Challenger pays more.** 75/25 split means griefing is expensive.
-2. **Provider wins if honest.** Successful proof means challenger "loses" their deposit (data recovered, but at high cost).
-3. **Threshold for repeated challenges.** Provider exposure is limited by stake. Once stake is gone, provider can't be forced to pay the 25% anymore. We could limit this to only a fraction of the stake too, so large stake is less risky and serves the "do not lose data" property better.
+1. **Challenger pays most.** Challenger loses 50-90% of their deposit on each successful challenge, making sustained griefing expensive.
+2. **Provider stake untouched.** Successful challenges don't deplete provider stake—it's protected from griefing attacks.
+3. **Rational exit threshold.** Provider's conceptual exposure is bounded: once cumulative challenge costs approach a significant fraction of stake (e.g., 20-30%), a rational provider stops responding and accepts the slash rather than continue the costly game.
 
 **Attack: Data Withholding After Commitment**
 
@@ -1342,12 +1447,28 @@ Provider commits root, client pays, provider refuses to serve—betting client w
 
 1. **Challenge recovers data.** Unlike Filecoin, our challenge *forces* data on-chain. Provider can't just prove possession—they must submit the actual chunks.
 2. **Challenge cost < ransom cost.** If provider demands ransom > challenge cost, rational client challenges.
-3. **Provider pays too.** Even "winning" a challenge costs the provider 25%. No profit in forcing challenges.
+3. **No profit in forcing challenges.** Provider gains nothing from making clients challenge—they just deal with operational overhead and reputation damage and pose a share of the cost.
 
 **What we can't prevent:**
 
 - **Irrational adversaries.** Someone willing to lose money to hurt others. Mitigated by stake requirements (expensive to be irrational at scale).
-- **Lazy clients.** If no one ever challenges, the deterrent weakens. Mitigated by making challenges profitable when they catch cheaters.
+- **Lazy clients.** If no one ever challenges, the deterrent weakens. Mitigated by making challenges profitable when they catch cheaters, making them default (built into client software) and cheap/free - if data is served off chain, on chain challenge is unnecessary.
+
+**Design assumption: Someone must care.**
+
+Storage guarantees are only meaningful when someone has an active interest in
+the data. A rational client who paid for storage will periodically verify their
+data exists—either by reading it for actual use, or by automatic background
+checks built into client software.
+
+If no one ever reads or checks data, that data has no practical value worth
+guaranteeing. For archival use cases where data must persist without active
+verification ("store once, never check again"), we recommend purpose-built
+systems like Filecoin's cold storage tier.
+
+This is a feature, not a limitation: we optimize for the common case (active
+data with interested parties) rather than paying continuous overhead for the
+edge case (abandoned data).
 
 **The honest assessment:**
 
@@ -1406,33 +1527,37 @@ The key insight: providing the service is cheap. Bandwidth costs are sub-cent pe
 
 **Rollout phases:**
 
-**Phase 1: Free Service**
+**Phase 1: Buckets and Basic Storage**
 
-We provide storage/read service for free via existing Parity/ecosystem infrastructure. No Proof-of-DOT, no payments. Just a working service that applications can build on. This establishes:
+Deploy on-chain bucket infrastructure and storage agreements. Parity/ecosystem
+runs initial providers offering free or low-cost storage. This establishes:
+- On-chain discovery (buckets → agreements → provider endpoints)
 - Working protocol and implementation
-- Initial user base
-- Baseline performance expectations
+- Initial user base building applications
 
-**Phase 2: Introduce Proof-of-DOT**
+**Phase 2: Challenges and Guarantees**
 
-Add Proof-of-DOT for sybil resistance. Users who register get priority over anonymous users. Still free, but differentiated service quality. This establishes:
+Add the challenge mechanism for storage agreements. Providers must lock stake.
+Clients can challenge if data is unavailable. This establishes:
+- Economic guarantees beyond reputation
+- Slashing for misbehavior
+- Trust model for critical data
+
+**Phase 3: Introduce Proof-of-DOT**
+
+Add Proof-of-DOT for sybil resistance and read prioritization. Users who
+register get priority; providers track payment history. This establishes:
 - Identity layer
-- Quality-of-service differentiation
-- User familiarity with Proof-of-DOT mechanism
+- Quality-of-service differentiation for reads
+- Foundation for competitive provider market
 
-**Phase 3: Introduce Payments**
+**Phase 4: Third-Party Providers and Payments**
 
-Add payment tracking. Providers prioritize paying clients over free-tier. This effectively opens the system to third-party providers—before this phase, other providers *could* join but had no economic incentive. Now there's revenue to compete for. This establishes:
+Open the system to third-party providers competing on price and quality.
+Payment tracking enables sustainable economics. This establishes:
 - Economic sustainability
 - Provider competition
 - Market-driven pricing
-
-**Phase 4: Storage Agreements with Challenges**
-
-Add on-chain storage agreements with challenge mechanism. For users who need guarantees beyond reputation. This establishes:
-- Full trust model
-- Enterprise-grade guarantees
-- Complete feature set
 
 **Why this works:**
 
@@ -1493,12 +1618,40 @@ P(caught) = 1 - (1-f)^n
 Daily sampling is trivial for any client (phones, IoT, apps). Some clients
 periodically download all their data (backups, restores)—100% detection.
 
+**Passive verification in practice:**
+
+Client applications should verify storage as a background operation during
+normal use. A backup client that runs weekly can check a few random chunks after
+each sync—trivial bandwidth cost (~1MB), zero user effort. Consider a typical
+backup app:
+
+```
+Backup app runs weekly
+  → Upload new chunks
+  → Fetch 3 random old chunks (trivial bandwidth, ~768KB)
+  → Verify against known root
+  → Done
+```
+
+With weekly checks of 3 chunks, detection probability over time:
+
+| Provider deleted | 1 month | 3 months | 6 months | 1 year |
+|------------------|---------|----------|----------|--------|
+| 1% of data | 20% | 49% | 74% | 93% |
+| 5% of data | 65% | 96% | 99.8% | ~100% |
+| 10% of data | 88% | 99.8% | ~100% | ~100% |
+
+This eliminates the "verifier's dilemma" identified in academic literature:
+verification isn't a costly conscious decision, it's an automatic byproduct of
+using the system. The user doesn't even know it's happening.
+
 **Why stake per GB?**
 
-When caught, the provider loses their *entire* stake for that agreement—not just
-the portion for deleted data. Even deleting 1% of 10TB saves ~$0.12/year in
-storage costs while risking the full stake. Any meaningful stake makes cheating
-absurd economics.
+When caught, the provider loses their *entire* stake—not just the stake
+proportional to that agreement or the deleted data. A single failed challenge
+means losing everything. Even deleting 1% of one client's 10TB saves ~$0.12/year
+in storage costs while risking the full stake across all agreements. Any
+meaningful stake makes cheating absurd economics.
 
 The stake-per-GB ratio ensures **pain scales with provider size**:
 - Small provider (10TB) with 100 DOT at stake: losing it hurts
@@ -1506,7 +1659,7 @@ The stake-per-GB ratio ensures **pain scales with provider size**:
 
 The ratio keeps incentives aligned regardless of operation size.
 
-**Recommended stakes:**
+**Example stakes:**
 
 | Tier | Stake ratio | 10TB provider | Use case |
 |------|-------------|---------------|----------|
@@ -1531,7 +1684,7 @@ Providers must implement garbage collection for chunks with no active
 agreements. Recommended approach:
 
 1. Track reference counts per chunk (how many active agreements reference it)
-2. When count reaches zero, mark for deletion after grace period (e.g., 7 days)
+2. When count reaches zero, mark for deletion after optional grace period (e.g., 7 days)
 3. Grace period allows for agreement renewals without re-upload
 
 Clients should not assume chunks persist beyond their agreement duration.
@@ -1560,22 +1713,12 @@ needed—market dynamics handle quality.
 **Economics for content providers:**
 - Option A: Pay caches to join your bucket (hard to verify they're serving)
 - Option B: Let the market work—caches predict demand and join speculatively
+- Option C: Similarly to (A), operators just add publicly available caches to
+  their buckets - pay the chain costs. Delivery costs are covered by users.
 
 Option B is cleaner. Caches are profit-seeking businesses that bear prediction
 risk. Popular content attracts caches naturally; unpopular content doesn't need
-them.
-
-**Implementation:** Explicit `is_cache` flag on bucket membership (vs. inferring
-from zero stake). Clearer semantics, lets clients filter by role.
-
-### Cross-Chain Storage
-
-With XCM, buckets on one parachain can reference providers on another. This
-enables:
-
-- Specialized storage parachains with optimized economics
-- Cross-chain data availability for rollups
-- Shared storage infrastructure across the ecosystem
+them. Option C might also work quite well.
 
 ---
 
