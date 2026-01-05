@@ -141,7 +141,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			]);
 
 		// Add validator nodes and unstable validator
-		// NOTE: Once we update zombienet to newer version >v0.3.13,the following can be replaced with a group
+		// NOTE: Once we update zombienet-sdk to newer version >v0.3.13, the following can be replaced with a group
 		r.with_node(|node| node.with_name("validator-0"))
 			.with_node(|node| node.with_name("validator-1"))
 			.with_node(|node| node.with_name("validator-2"))
@@ -258,7 +258,6 @@ async fn verify_beefy_finalized_heads(
 }
 
 /// Verify MMR leaves count
-/// Equivalent to 0003-mmr-leaves.js
 async fn verify_mmr_leaves(
 	network: &Network<zombienet_sdk::LocalFileSystem>,
 	node_name: &str,
