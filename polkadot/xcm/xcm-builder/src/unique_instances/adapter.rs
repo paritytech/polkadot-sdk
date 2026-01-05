@@ -219,7 +219,7 @@ where
 			_ => return Err(MatchError::AssetNotHandled.into()),
 		};
 
-		let nonfungible_asset = (what.id.clone(), asset_instance.clone());
+		let nonfungible_asset = (what.id.clone(), asset_instance);
 		let can_create =
 			InstanceCreateOp::inspect(&nonfungible_asset, CanCreate::default()).unwrap_or(false);
 
