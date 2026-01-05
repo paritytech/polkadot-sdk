@@ -20,7 +20,7 @@ use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 const PARA_ID_2000: u32 = 2000;
 const PARA_ID_2001: u32 = 2001;
 const OLD_TAG: &str = "master-bde0bbe5";
-const SUBSTRATE_BLoCK_HEIGHT_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
+const SUBSTRATE_BLOCK_HEIGHT_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
 const POLKADOT_PARACHAIN_APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
 	"polkadot_parachain_approval_checking_finality_lag";
 const POLKADOT_PARACHAIN_APPROVALS_NO_SHOWS_TOTAL_METRIC: &str =
@@ -86,11 +86,11 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	// Check finalized block height
 	log::info!("Checking finalized block height");
 	new_node
-		.wait_metric_with_timeout(SUBSTRATE_BLoCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
+		.wait_metric_with_timeout(SUBSTRATE_BLOCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
 		.await
 		.map_err(|e| anyhow!("New node finalized height too low: {}", e))?;
 	old_node
-		.wait_metric_with_timeout(SUBSTRATE_BLoCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
+		.wait_metric_with_timeout(SUBSTRATE_BLOCK_HEIGHT_METRIC, |v| v >= 30.0, 400u64)
 		.await
 		.map_err(|e| anyhow!("Old node finalized height too low: {}", e))?;
 
@@ -287,10 +287,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// Old image that doesn't speak /req_chunk/2 protocol
 	let old_polkadot_image = std::env::var("POLKADOT_IMAGE")
 		.map(|img| format!("{}:{}", img.split(':').next().unwrap_or(&img), OLD_TAG))
-		.unwrap_or_else(|_| format!("docker.io/parity/polkadot:{}", OLD_TAG));
+		.unwrap_or_else(|_| format!("docker.io/parity/polkadot:{OLD_TAG}"));
 
 	let old_polkadot_command = format!("polkadot{old_suffix}");
-	let old_collator_image = format!("docker.io/paritypr/polkadot-parachain-debug:{}", OLD_TAG);
+	let old_collator_image = format!("docker.io/paritypr/polkadot-parachain-debug:{OLD_TAG}");
 	let old_collator_command = format!("polkadot-parachain{old_suffix}");
 
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
