@@ -363,7 +363,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -651,35 +651,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// This ensures the Insurance Fund account is created with a provider reference so it can
-		/// receive any amount (including below ED) without risk of being reaped.
-		fn on_runtime_upgrade() -> Weight {
-			let on_chain_version = StorageVersion::get::<Pallet<T>>();
-
-			if on_chain_version < 1 {
-				Self::ensure_insurance_fund_exists();
-				StorageVersion::new(1).put::<Pallet<T>>();
-
-				log::info!(
-					target: LOG_TARGET,
-					"Migrated storage from version {:?} to 1",
-					on_chain_version
-				);
-
-				// Weight: 1 read (storage version) + 1 read (account_exists) + 2 writes
-				// (inc_providers + storage version)
-				T::DbWeight::get().reads_writes(2, 2)
-			} else {
-				log::debug!(
-					target: LOG_TARGET,
-					"No migration needed, on-chain version {:?}",
-					on_chain_version
-				);
-				// Weight: 1 read (storage version check)
-				T::DbWeight::get().reads(1)
-			}
-		}
-
 		/// Idle block housekeeping: update fees for stale vaults.
 		///
 		/// Vaults inactive for >= StaleVaultThreshold get their fees updated.
