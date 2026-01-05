@@ -867,39 +867,36 @@ pub mod pallet {
 					);
 				}
 
-				// Check collateralization ratio if vault has principal or accrued interest
-				let total_obligation = vault
-					.principal
-					.checked_add(&vault.accrued_interest)
-					.ok_or(Error::<T>::ArithmeticOverflow)?;
-
-				if !total_obligation.is_zero() {
-					// Cannot withdraw all collateral if there's outstanding obligation
-					ensure!(!remaining_collateral.is_zero(), Error::<T>::VaultHasDebt);
-
-					// CR = remaining_collateral × Price / (Principal + AccruedInterest)
-					let ratio = Self::calculate_collateralization_ratio(
-						remaining_collateral,
-						total_obligation,
-					)?
-					.ok_or(Error::<T>::ArithmeticOverflow)?;
-					let initial_ratio = InitialCollateralizationRatio::<T>::get();
-					ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
-				}
-
-				T::Currency::release(
-					&HoldReason::VaultDeposit.into(),
-					&who,
-					amount,
-					Precision::Exact,
-				)?;
-
-				Self::deposit_event(Event::CollateralWithdrawn { owner: who.clone(), amount });
-
-				// Remove empty vaults immediately (no collateral + no debt).
 				if remaining_collateral.is_zero() {
+					Self::do_close_vault(vault, &who)?;
 					*maybe_vault = None;
-					Self::deposit_event(Event::VaultClosed { owner: who.clone() });
+				} else {
+					// Partial withdrawal: check CR if there's debt
+					let total_obligation = vault
+						.principal
+						.checked_add(&vault.accrued_interest)
+						.ok_or(Error::<T>::ArithmeticOverflow)?;
+
+					if !total_obligation.is_zero() {
+						// CR = remaining_collateral × Price / (Principal + AccruedInterest)
+
+						let ratio = Self::calculate_collateralization_ratio(
+							remaining_collateral,
+							total_obligation,
+						)?
+						.ok_or(Error::<T>::ArithmeticOverflow)?;
+						let initial_ratio = InitialCollateralizationRatio::<T>::get();
+						ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
+					}
+
+					T::Currency::release(
+						&HoldReason::VaultDeposit.into(),
+						&who,
+						amount,
+						Precision::Exact,
+					)?;
+
+					Self::deposit_event(Event::CollateralWithdrawn { owner: who.clone(), amount });
 				}
 
 				Ok(())
@@ -1254,39 +1251,8 @@ pub mod pallet {
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
 				Self::update_vault_fees(vault, &who, None);
-
-				ensure!(vault.principal.is_zero(), Error::<T>::VaultHasDebt);
-
-				// Collect any accrued interest before closing.
-				if !vault.accrued_interest.is_zero() {
-					let interest = vault.accrued_interest;
-					T::Asset::transfer(
-						T::StablecoinAssetId::get(),
-						&who,
-						&T::InsuranceFund::get(),
-						interest,
-						Preservation::Expendable,
-					)?;
-					vault.accrued_interest = Zero::zero();
-					Self::deposit_event(Event::InterestUpdated {
-						owner: who.clone(),
-						amount: interest,
-					});
-				}
-
-				let released = T::Currency::release_all(
-					&HoldReason::VaultDeposit.into(),
-					&who,
-					Precision::BestEffort,
-				)?;
-
-				Self::deposit_event(Event::CollateralWithdrawn {
-					owner: who.clone(),
-					amount: released,
-				});
-
+				Self::do_close_vault(vault, &who)?;
 				*maybe_vault = None;
-				Self::deposit_event(Event::VaultClosed { owner: who.clone() });
 
 				Ok(())
 			})
@@ -1823,6 +1789,49 @@ pub mod pallet {
 				.checked_add(&vault.accrued_interest)
 				.ok_or(Error::<T>::ArithmeticOverflow)?;
 			Self::calculate_collateralization_ratio(held_collateral, total_debt)
+		}
+
+		/// Close a vault: verify no debt, settle interest, release collateral, emit events.
+		///
+		/// - Accrued interest transferred to [`Config::InsuranceFund`]
+		/// - All collateral released to vault's owner
+		/// - Events emitted ([`Event::InterestUpdated`], [`Event::CollateralWithdrawn`],
+		///   [`Event::VaultClosed`])
+		fn do_close_vault(vault: &Vault<T>, who: &T::AccountId) -> DispatchResult {
+			ensure!(vault.principal.is_zero(), Error::<T>::VaultHasDebt);
+
+			// Settle accrued interest to InsuranceFund
+			if !vault.accrued_interest.is_zero() {
+				T::Asset::transfer(
+					T::StablecoinAssetId::get(),
+					who,
+					&T::InsuranceFund::get(),
+					vault.accrued_interest,
+					Preservation::Expendable,
+				)?;
+				Self::deposit_event(Event::InterestUpdated {
+					owner: who.clone(),
+					amount: vault.accrued_interest,
+				});
+			}
+
+			// Release all collateral
+			let released = T::Currency::release_all(
+				&HoldReason::VaultDeposit.into(),
+				who,
+				Precision::BestEffort,
+			)?;
+
+			if !released.is_zero() {
+				Self::deposit_event(Event::CollateralWithdrawn {
+					owner: who.clone(),
+					amount: released,
+				});
+			}
+
+			Self::deposit_event(Event::VaultClosed { owner: who.clone() });
+
+			Ok(())
 		}
 
 		/// Update the accrued interest for a vault based on elapsed time.
