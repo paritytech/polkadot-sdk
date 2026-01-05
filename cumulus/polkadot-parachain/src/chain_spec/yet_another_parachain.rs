@@ -53,6 +53,7 @@ pub fn yet_another_parachain_config(
 	relay: impl Into<String>,
 	chain_type: ChainType,
 	para_id: u32,
+	is_polkavm: bool,
 ) -> GenericChainSpec {
 	// 	> subkey inspect --network kusama --public \
 	// 6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15
@@ -83,23 +84,27 @@ pub fn yet_another_parachain_config(
 			.map(|k| k.public().into()),
 	);
 
-	GenericChainSpec::builder(
+	let binary = if is_polkavm {
+		yet_another_parachain_runtime::polkavm_binary::WASM_BINARY
+			.expect("PolkaVM binary was not built, please build it!")
+	} else {
 		yet_another_parachain_runtime::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-		Extensions::new_with_relay_chain(relay.into()),
-	)
-	.with_name("Yet Another Parachain")
-	.with_id("yet_another_parachain")
-	.with_chain_type(chain_type)
-	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-	.with_genesis_config_patch(serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
-		},
-		"sudo": { "key": Some(yap_sudo) },
-		"parachainInfo": {
-			"parachainId": para_id,
-		},
-	}))
-	.build()
+			.expect("WASM binary was not built, please build it!")
+	};
+
+	GenericChainSpec::builder(binary, Extensions::new_with_relay_chain(relay.into()))
+		.with_name("Yet Another Parachain")
+		.with_id("yet_another_parachain")
+		.with_chain_type(chain_type)
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+		.with_genesis_config_patch(serde_json::json!({
+			"balances": {
+				"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+			},
+			"sudo": { "key": Some(yap_sudo) },
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
+		.build()
 }

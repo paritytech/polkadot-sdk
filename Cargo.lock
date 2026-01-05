@@ -28254,6 +28254,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-runtime-interface 24.0.0",
  "substrate-wasm-builder",
 ]
 

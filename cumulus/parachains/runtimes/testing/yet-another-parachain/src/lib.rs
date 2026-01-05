@@ -17,9 +17,25 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+// Allocate 2 MiB stack.
+//
+// TODO: A workaround. Invoke polkavm_derive::min_stack_size!() instead
+// later on.
+::core::arch::global_asm!(
+	".pushsection .polkavm_min_stack_size,\"R\",@note\n",
+	".4byte 2097152",
+	".popsection\n",
+);
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+
+#[cfg(feature = "std")]
+pub mod polkavm_binary {
+	include!(concat!(env!("OUT_DIR"), "/polkavm_binary.rs"));
+}
 
 extern crate alloc;
 
@@ -100,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_000,
+	spec_version: 1_004_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -287,8 +303,14 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// This is just to easily check on client side if the runtime is running on Wasm or PolkaVM
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+const ED: u128 = 2 * NANOYAP;
+#[cfg(not(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e")))]
+const ED: u128 = NANOYAP;
+
 parameter_types! {
-	pub const ExistentialDeposit: u128 = NANOYAP;
+	pub const ExistentialDeposit: u128 = ED;
 	pub const TransactionByteFee: u128 = NANOYAP;
 }
 

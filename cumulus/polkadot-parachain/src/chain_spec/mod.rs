@@ -175,9 +175,9 @@ impl LoadSpec for ChainSpecLoader {
 
 			id if id.starts_with("yap-") => {
 				let tok: Vec<String> = id.split('-').map(|s| s.to_owned()).collect();
-				assert!(
-					tok.len() == 4,
-					"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>'"
+				assert!(matches!(
+					tok.len(), 4 | 5),
+					"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>[-<wasm|polkavm>]'"
 				);
 				let relay = if &tok[2] == "live" { tok[1].clone() } else { tok[1..=2].join("-") };
 				let chain_type = match tok[2].as_str() {
@@ -189,7 +189,9 @@ impl LoadSpec for ChainSpecLoader {
 				let para_id: u32 =
 					tok[3].parse().expect(&format!("Illegal para id '{}' provided", tok[3]));
 
-				Box::new(yet_another_parachain_config(relay, chain_type, para_id))
+				let is_polkavm = tok.len() == 5 && tok[4] == "polkavm";
+
+				Box::new(yet_another_parachain_config(relay, chain_type, para_id, is_polkavm))
 			},
 
 			// -- People
