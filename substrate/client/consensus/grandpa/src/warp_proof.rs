@@ -349,11 +349,7 @@ where
 	}
 
 	fn status(&self) -> Option<String> {
-		if self.eras_synced > 0 {
-			Some(format!("{} eras synced", self.eras_synced))
-		} else {
-			None
-		}
+		Some(format!("{} eras synced", self.eras_synced))
 	}
 }
 
