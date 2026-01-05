@@ -3071,7 +3071,7 @@ impl frame_support::traits::Get<AccountId> for InsuranceFundAccount {
 	}
 }
 
-/// Mock oracle adapter that provides a fixed price for noe.
+/// Mock oracle adapter that provides a fixed price for now.
 ///
 /// This adapter implements `ProvidePrice` with a hardcoded DOT price.
 /// For production, replace this with a real oracle integration.
