@@ -14,6 +14,7 @@ mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;
 mod validator_disabling;
+mod beefy_and_mmr;
 
 // Disable PVF test temporarily
 // since depends on the below:

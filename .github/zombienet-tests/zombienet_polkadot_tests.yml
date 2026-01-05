@@ -15,10 +15,9 @@
   use-zombienet-sdk: false
 
 - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
-  test-definition: "0003-beefy-and-mmr.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::beefy_and_mmr::beefy_and_mmr_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
   test-definition: "0004-parachains-garbage-candidate.zndsl"
