@@ -789,7 +789,7 @@ async fn revert_prunes_epoch_changes_and_removes_weights() {
 	assert_eq!(epoch_changes.shared_data().tree().roots().count(), 1);
 
 	// Revert canon chain to block #10 (best(21) - 11)
-	revert(client.clone(), backend, 11).expect("revert should work for baked test scenario");
+	revert(client.clone(), backend, 11, None).expect("revert should work for baked test scenario");
 
 	// Load and check epoch changes.
 
@@ -853,7 +853,7 @@ async fn revert_not_allowed_for_finalized() {
 	client.finalize_block(canon[2], None, false).unwrap();
 
 	// Revert canon chain to last finalized block
-	revert(client.clone(), backend, 100).expect("revert should work for baked test scenario");
+	revert(client.clone(), backend, 100, None).expect("revert should work for baked test scenario");
 
 	let weight_data_check = |hashes: &[Hash], expected: bool| {
 		hashes.iter().all(|hash| {
@@ -1343,3 +1343,4 @@ async fn allows_skipping_epochs_on_some_forks() {
 
 	assert_eq!(epoch_data, epoch3);
 }
+

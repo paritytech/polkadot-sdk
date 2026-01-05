@@ -76,6 +76,9 @@ use std::{
 	time::Duration,
 };
 
+use parking_lot::RwLock;
+use std::collections::HashMap;
+
 use codec::{Decode, Encode};
 use futures::{
 	channel::{
@@ -956,11 +959,49 @@ fn find_next_config_digest<B: BlockT>(
 	Ok(config_digest)
 }
 
+/// Shared storage for block weights to ensure consistent fork-choice.
+///
+/// This stores block weights in memory to provide immediate access for
+/// fork-choice decisions, preventing race conditions that occur when
+/// weights are loaded from the database.
+#[derive(Clone)]
+pub struct SharedBlockWeightStorage<Block: BlockT> {
+	weights: Arc<RwLock<HashMap<Block::Hash, BabeBlockWeight>>>,
+}
+
+impl<Block: BlockT> SharedBlockWeightStorage<Block> {
+	/// Create a new shared weight storage
+	pub fn new() -> Self {
+		Self { weights: Arc::new(RwLock::new(HashMap::new())) }
+	}
+
+	/// Store a block weight
+	pub fn store(&self, hash: Block::Hash, weight: BabeBlockWeight) {
+		self.weights.write().insert(hash, weight);
+	}
+
+	/// Load a block weight
+	pub fn load(&self, hash: &Block::Hash) -> Option<BabeBlockWeight> {
+		self.weights.read().get(hash).copied()
+	}
+
+	/// Remove a block weight
+	pub fn remove(&self, hash: &Block::Hash) {
+		self.weights.write().remove(hash);
+	}
+
+	/// Clear all weights
+	pub fn clear(&self) {
+		self.weights.write().clear();
+	}
+}
+
 /// State that must be shared between the import queue and the authoring logic.
 #[derive(Clone)]
 pub struct BabeLink<Block: BlockT> {
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
 	config: BabeConfiguration,
+	weight_storage: SharedBlockWeightStorage<Block>,
 }
 
 impl<Block: BlockT> BabeLink<Block> {
@@ -972,6 +1013,11 @@ impl<Block: BlockT> BabeLink<Block> {
 	/// Get the config of this link.
 	pub fn config(&self) -> &BabeConfiguration {
 		&self.config
+	}
+
+	/// Get the weight storage of this link.
+	pub fn weight_storage(&self) -> &SharedBlockWeightStorage<Block> {
+		&self.weight_storage
 	}
 }
 
@@ -1121,6 +1167,8 @@ pub struct BabeBlockImport<Block: BlockT, Client, I, CIDP, SC> {
 	//
 	// Will be used when sending equivocation reports.
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+	// Shared block weight storage for consistent fork-choice
+	weight_storage: SharedBlockWeightStorage<Block>,
 }
 
 impl<Block: BlockT, I: Clone, Client, CIDP: Clone, SC: Clone> Clone
@@ -1135,6 +1183,7 @@ impl<Block: BlockT, I: Clone, Client, CIDP: Clone, SC: Clone> Clone
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			select_chain: self.select_chain.clone(),
 			offchain_tx_pool_factory: self.offchain_tx_pool_factory.clone(),
+			weight_storage: self.weight_storage.clone(),
 		}
 	}
 }
@@ -1148,6 +1197,7 @@ impl<Block: BlockT, Client, I, CIDP, SC> BabeBlockImport<Block, Client, I, CIDP,
 		create_inherent_data_providers: CIDP,
 		select_chain: SC,
 		offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+		weight_storage: SharedBlockWeightStorage<Block>,
 	) -> Self {
 		BabeBlockImport {
 			client,
@@ -1157,6 +1207,7 @@ impl<Block: BlockT, Client, I, CIDP, SC> BabeBlockImport<Block, Client, I, CIDP,
 			create_inherent_data_providers,
 			select_chain,
 			offchain_tx_pool_factory,
+			weight_storage,
 		}
 	}
 }
@@ -1671,6 +1722,8 @@ where
 				});
 			}
 
+			self.weight_storage.store(hash, total_weight);
+
 			aux_schema::write_block_weight(hash, total_weight, |values| {
 				block
 					.auxiliary
@@ -1688,8 +1741,12 @@ where
 					// so we don't need to cover again here.
 					parent_weight
 				} else {
-					aux_schema::load_block_weight(&*self.client, last_best)
-						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+					// Try to get weight from shared storage first, then from aux storage
+					self.weight_storage
+						.load(&last_best)
+						.or_else(|| {
+							aux_schema::load_block_weight(&*self.client, last_best).ok().flatten()
+						})
 						.ok_or_else(|| {
 							ConsensusError::ChainLookup(
 								"No block weight for parent header.".to_string(),
@@ -1788,7 +1845,12 @@ where
 		+ 'static,
 {
 	let epoch_changes = aux_schema::load_epoch_changes::<Block, _>(&*client, &config)?;
-	let link = BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone() };
+
+	// Create shared weight storage
+	let weight_storage = SharedBlockWeightStorage::new();
+
+	let link =
+		BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone(), weight_storage };
 
 	// NOTE: this isn't entirely necessary, but since we didn't use to prune the
 	// epoch tree it is useful as a migration, so that nodes prune long trees on
@@ -1796,9 +1858,20 @@ where
 	prune_finalized(client.clone(), &mut epoch_changes.shared_data())?;
 
 	let client_weak = Arc::downgrade(&client);
+	let weight_storage_for_closure = link.weight_storage.clone();
 	let on_finality = move |summary: &FinalityNotification<Block>| {
 		if let Some(client) = client_weak.upgrade() {
-			aux_storage_cleanup(client.as_ref(), summary)
+			// Also clean up from shared storage
+			let hashes = aux_storage_cleanup(client.as_ref(), summary);
+			for op in &hashes {
+				if let (key, None) = op {
+					// Extract hash from key and remove from shared storage
+					if let Ok(hash) = Block::Hash::decode(&mut &key[..]) {
+						weight_storage_for_closure.remove(&hash);
+					}
+				}
+			}
+			hashes
 		} else {
 			Default::default()
 		}
@@ -1813,6 +1886,7 @@ where
 		create_inherent_data_providers,
 		select_chain,
 		offchain_tx_pool_factory,
+		link.weight_storage.clone(),
 	);
 
 	Ok((import, link))
@@ -1901,6 +1975,7 @@ pub fn revert<Block, Client, Backend>(
 	client: Arc<Client>,
 	backend: Arc<Backend>,
 	blocks: NumberFor<Block>,
+	weight_storage: Option<SharedBlockWeightStorage<Block>>,
 ) -> ClientResult<()>
 where
 	Block: BlockT,
@@ -1959,6 +2034,11 @@ where
 				// We've reached the revert point or an already processed branch, stop here.
 				break
 			}
+
+			if let Some(weight_storage) = &weight_storage {
+				weight_storage.remove(&hash);
+			}
+
 			hash = meta.parent;
 		}
 	}
