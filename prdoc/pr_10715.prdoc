@@ -1,10 +1,9 @@
 title: Crowdsourced Decision Deposits
 doc:
-- audience: [Runtime Developer, Runtime User]
+- audience: Runtime Developer & Runtime User
   description: |-
     This update enables multiple users collectively fund decision deposits for referendums
-    instead of requiring a single user pay the full amount. Adds a new
-    `contribute_decision_deposit` extrinsic and updates storage to track contributors.
+    instead of requiring a single user pay the full amount.
 
 crates:
 - name: asset-hub-westend-runtime
