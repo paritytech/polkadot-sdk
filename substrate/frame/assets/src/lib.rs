@@ -1880,7 +1880,7 @@ pub mod pallet {
 		pub fn set_reserves(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			reserves: Vec<T::ReserveData>,
+			reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let origin = ensure_signed(origin.clone())
