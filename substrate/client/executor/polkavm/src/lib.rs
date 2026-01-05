@@ -21,10 +21,10 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
 };
+use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
-use sp_runtime_interface::unpack_ptr_and_len;
 
 #[repr(transparent)]
 pub struct InstancePre(polkavm::InstancePre<ContextState, String>);
@@ -71,17 +71,7 @@ impl WasmInstance for Instance {
 			);
 		}
 
-		// Grab the address of where the guest's heap starts; that's where we've just allocated
-		// the memory for the input payload.
-		// let data_pointer = self.0.module().memory_map().heap_base();
-
-		let mut state = ContextState {
-			input_data: Some(raw_data.to_vec()),
-		};
-
-		// if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
-		// 	return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {err}").into()), None);
-		// }
+		let mut state = ContextState { input_data: Some(raw_data.to_vec()) };
 
 		match self.0.call_typed(&mut state, pc, (raw_data_length,)) {
 			Ok(()) => {},
@@ -104,11 +94,8 @@ impl WasmInstance for Instance {
 			Err(CallError::Step) => unreachable!("stepping is never enabled"),
 		};
 
-		// let result_pointer = self.0.reg(Reg::A0);
-		// let result_length = self.0.reg(Reg::A1);
-
 		let result = self.0.reg(Reg::A0);
-		let (result_pointer, result_length) = dbg!(unpack_ptr_and_len(result));
+		let (result_pointer, result_length) = unpack_ptr_and_len(result);
 
 		let output = match self.0.read_memory(result_pointer as u32, result_length as u32) {
 			Ok(output) => output,
@@ -147,20 +134,8 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 			.map_err(|error| error.to_string())
 	}
 
-	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		let pointer = match self.0.instance.sbrk(0) {
-			Ok(pointer) => pointer.expect("fetching the current heap pointer never fails"),
-			Err(err) => return Err(format!("sbrk failed: {err}")),
-		};
-
-		// TODO: This will leak guest memory; find a better solution.
-		match self.0.instance.sbrk(size) {
-			Ok(Some(_)) => (),
-			Ok(None) => return Err(String::from("allocation error")),
-			Err(err) => return Err(format!("sbrk failed: {err}")),
-		}
-
-		Ok(Pointer::new(pointer))
+	fn allocate_memory(&mut self, _size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
+		unimplemented!("'allocate_memory' is never used when running under PolkaVM");
 	}
 
 	fn deallocate_memory(&mut self, _ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
@@ -177,14 +152,22 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 		ptr: Pointer<u8>,
 		size: WordSize,
 	) -> sp_wasm_interface::Result<()> {
-		let input_data = self.0.user_data.input_data.take().expect("input data is not empty during runtime API call; qed");
+		let input_data = self
+			.0
+			.user_data
+			.input_data
+			.take()
+			.expect("input data is not empty during runtime API call; qed");
 		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
 		self.0.instance.write_memory(u32::from(ptr), &input_data[..])?;
 		Ok(())
 	}
 }
 
-fn call_host_function(caller: &mut Caller<ContextState>, function: &dyn Function) -> Result<(), String> {
+fn call_host_function(
+	caller: &mut Caller<ContextState>,
+	function: &dyn Function,
+) -> Result<(), String> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
