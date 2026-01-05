@@ -134,6 +134,14 @@ pub struct ProviderSettings<T: Config> {
     pub accepting_extensions: bool,
 }
 
+/// Monotonically increasing bucket ID counter. Ensures stable, unique IDs.
+#[pallet::storage]
+pub type NextBucketId<T: Config> = StorageValue<_, BucketId, ValueQuery>;
+
+/// Bucket ID is a stable, unique identifier (not an index into a collection).
+/// Using u64 ensures IDs never get reused even if buckets are deleted.
+pub type BucketId = u64;
+
 /// Buckets: containers for data with membership and storage agreements
 #[pallet::storage]
 pub type Buckets<T: Config> = StorageMap<

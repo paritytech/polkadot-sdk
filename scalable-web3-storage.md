@@ -14,131 +14,253 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Status Quo](#status-quo)
-3. [Goals](#goals)
-4. [Non-Goals](#non-goals)
-5. [Solution Overview](#solution-overview)
-6. [Proof-of-DOT Foundation](#proof-of-dot-foundation)
-7. [Storage Model](#storage-model)
-8. [Buckets and Storage Agreements](#buckets-and-storage-agreements)
-9. [Read Incentives](#read-incentives)
-10. [Discovery](#discovery)
-11. [Data Model](#data-model)
-12. [Multi-Provider Redundancy](#multi-provider-redundancy)
-13. [Encrypted Data: Strong Guarantees Without Sealing](#encrypted-data-strong-guarantees-without-sealing)
-14. [Use Cases](#use-cases)
-15. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
-16. [Related Work](#related-work)
-17. [Bootstrapping and Rollout](#bootstrapping-and-rollout)
-18. [Operational Considerations](#operational-considerations)
-19. [Future Directions](#future-directions)
-20. [Summary](#summary)
-21. [Appendix: Detailed Comparisons](#appendix-detailed-comparisons)
+2. [Core Concepts](#core-concepts)
+3. [Solution Overview](#solution-overview)
+4. [Proof-of-DOT Foundation](#proof-of-dot-foundation)
+5. [Storage Model](#storage-model)
+6. [Buckets and Storage Agreements](#buckets-and-storage-agreements)
+7. [Read Incentives](#read-incentives)
+8. [Discovery](#discovery)
+9. [Data Model](#data-model)
+10. [Multi-Provider Redundancy](#multi-provider-redundancy)
+11. [Use Cases](#use-cases)
+12. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
+13. [Related Work](#related-work)
+14. [Bootstrapping and Rollout](#bootstrapping-and-rollout)
+15. [Operational Considerations](#operational-considerations)
+16. [Future Directions](#future-directions)
+17. [Summary](#summary)
+18. [Appendix: Detailed Comparisons](#appendix-detailed-comparisons)
 
 ---
 
 ## Introduction
 
-Existing decentralized storage systems put the blockchain in the hot path. Filecoin requires continuous on-chain proofs every 24 hours for every sector. StorageHub issues random challenges every block. This creates fundamental scalability limits: chain throughput bounds storage capacity.
+We propose a **bucket-based storage architecture** for Polkadot where:
 
-We propose a different architecture: **the chain exists as a credible threat, not as the happy path**. In normal operation, clients and providers interact directly—no chain transactions for writes, reads, or ongoing storage. The chain is only touched for identity registration (once), payments to providers (simple transfers for priority service), availability commitments (batched, infrequent), and dispute resolution (rare, expensive, avoided by rational actors).
+- **Buckets** are the fundamental unit: they define what data belongs together,
+  who can access it, and which providers store it
+- **Storage agreements** bind providers to buckets with economic guarantees
+- **The chain exists as a credible threat**, not as the hot path
 
-This works because of two foundations:
+A bucket is an on-chain container that groups related data—a chat channel's
+media, a user's backup, a website's assets. Each bucket has:
 
-**Proof-of-DOT** provides sybil resistance and enables reputation. Clients lock DOT against a PeerID; providers track payment history per client. Service quality becomes a competition: providers who serve well attract paying clients, providers who don't get dropped. No complex payment channels needed—just simple transfers and local bookkeeping. The amounts are small (bandwidth costs ~€0.001/GB), so fine-grained payment accounting isn't worth the overhead.
+- **Members** with roles (Admin, Writer, Reader)
+- **Storage agreements** with one or more providers (who lock stake)
+- **A canonical state** (MMR root) that all providers converge to
 
-**Game-theoretic enforcement** replaces continuous cryptographic proofs. Providers commit Merkle roots on-chain and lock stake. Clients can challenge at any time, forcing the provider to prove data availability or lose their stake. The challenge mechanism is expensive for everyone—which is the point. Rational providers serve data directly because being challenged costs them money even if they're honest. Rational clients don't challenge frivolously because it costs them too. The expensive on-chain path exists to make the cheap off-chain path incentive-compatible.
+This simple structure enables:
 
-The result: storage that scales with provider capacity, not chain throughput. Writes are instant (when no consensus is needed). Reads are fast (direct from provider). Guarantees are optional and tiered—ephemeral data needs no on-chain commitment, critical backups get storage agreements with slashing.
+- **Discovery**: Look up a bucket → find its storage agreements → connect to
+  providers directly
+- **Redundancy**: Multiple providers store the same bucket; `min_providers`
+  ensures quorum for checkpoints
+- **Accountability**: Providers are challenged per-bucket; failure means full
+  stake slash
+- **Consensus**: Checkpoints establish canonical state across providers
 
-This document details the design: storage model, buckets and storage agreements, read incentives, discovery, and how it compares to existing solutions.
+**Why this is different from existing systems:**
+
+Existing decentralized storage has fundamental limitations:
+
+- **Filecoin** (traditional): Sealing a 32GB sector takes ~1.5 hours with
+  specialized hardware. Every 24 hours, every sector must be proven on-chain.
+  Great for cold archival storage, but too slow and heavy for interactive
+  applications. Filecoin's newer [PDP](https://filecoin.io/blog/posts/introducing-proof-of-data-possession-pdp-verifiable-hot-storage-on-filecoin/)
+  (May 2025) improves this for hot storage, but still requires periodic proofs.
+
+- **IPFS**: Fast writes, but no persistence guarantees. Nodes can drop data
+  immediately. DHT lookups take 2-10 seconds and often fail. Proving you *have*
+  data doesn't mean anyone will *serve* it—there's no read incentive.
+
+- **The common thread**: Discovery is slow or unreliable. No clear signal of
+  "is my data still available?" And for chain-based systems, throughput bounds
+  storage capacity.
+
+Our architecture inverts this: in normal operation, clients and providers
+interact directly—no chain transactions for writes, reads, or ongoing storage.
+The chain is only touched for bucket creation (once), storage agreement setup
+(per provider), checkpoints (infrequent, batched), and dispute resolution
+(rare, expensive, avoided by rational actors). Discovery is instant: look up a
+bucket, get provider endpoints, connect directly.
+
+**Two foundations make this work:**
+
+**Proof-of-DOT** provides sybil resistance and enables reputation. Clients lock
+DOT against a PeerID; providers track payment history per client. Service
+quality becomes a competition: providers who serve well attract paying clients,
+providers who don't get dropped.
+
+**Game-theoretic enforcement** replaces continuous cryptographic proofs.
+Providers commit Merkle roots and lock stake. Clients can challenge at any
+time, forcing the provider to prove data availability or lose their stake. The
+challenge mechanism is expensive for everyone—which is the point. Rational
+providers serve data directly because being challenged costs them money even if
+they're honest. The expensive on-chain path exists to make the cheap off-chain
+path incentive-compatible.
+
+The result: storage that scales with provider capacity, not chain throughput.
+Writes are instant (when no consensus is needed, even with consensus <1 due to
+fast blocks and reliability work). Reads are fast (direct from provider).
+Guarantees are optional and tiered—ephemeral data needs no on-chain commitment,
+critical backups get storage agreements with slashing.
 
 ---
 
-## Status Quo
+## Core Concepts
 
-### The Write Problem
+Before diving into problems with existing solutions, here's the mental model.
 
-Filecoin was designed around sealed cold storage. The traditional path requires sealing data into sectors with cryptographic proofs—sealing a 32GB sector takes ~1.5 hours and requires specialized hardware (GPUs, CPUs with SHA extensions). 
+### Buckets
 
-Filecoin has evolved: [Proof of Data Possession (PDP)](https://filecoin.io/blog/posts/introducing-proof-of-data-possession-pdp-verifiable-hot-storage-on-filecoin/), launched on mainnet in May 2025, provides a simpler alternative for hot storage without sealing. This moves in a similar direction to the design proposed here. PDP is a legitimate alternative worth considering, though it still requires periodic on-chain proofs and the complexity of Filecoin's deal infrastructure.
-
-IPFS allows fast writes (just send data to a node), but provides no guarantee the data will persist. The node can drop it immediately or refuse to accept it.
-
-Note here: I would consider the traditional Filecoin approach (which includes the Polkadot based Eiger implementation) completely unsuited for our needs. It is too slow and too heavy (32GB sectors) to serve hot storage demanded by interactive applications.
-
-### The Storage Problem
-
-Proving that data is stored is expensive. Filecoin uses Proof-of-Replication (PoRep) and Proof-of-Spacetime (PoSt), requiring continuous on-chain proofs. Every 24 hours, every sector is proven. This creates chain load and operational complexity for storage providers.
-
-IPFS requires no proofs at all, meaning users have no assurance their data still exists, which becomes visible in the known poor user experience of IPFS.
-
-### The Read Problem
-
-Once you have proven data is available, you still need to be able to read it. Consider the data flow:
+A **bucket** is the fundamental unit of storage organization:
 
 ```
-User wants image
-    ↓
-Query DHT to find providers (2-10 seconds)
-    ↓
-Connect to provider (variable, often fails)
-    ↓
-Download data (depends on provider's willingness)
+Bucket (on-chain)
+├── members: [{ account, role: Admin|Writer|Reader }, ...]
+├── min_providers: u32                  // quorum for checkpoints
+├── snapshot: { mmr_root, start_seq, leaf_count }   // canonical state
+└── storage agreements → [Provider A, Provider B, ...]
+    each with: max_bytes, payment_locked, expires_at
 ```
 
-The DHT lookup alone takes seconds. Providers have no incentive to serve quickly—or at all. They proved they *have* the data; nobody pays them to *serve* it. Popular content works because altruistic nodes cache it. Unpopular content may be technically "available" but practically unretrievable.
+Buckets answer: *What data belongs together? Who can access it? Who stores it?*
 
-### The Latency Reality
+**Examples:**
+- A chat channel's media files
+- A user's personal backup
+- A website's static assets
+- A company's compliance archive
 
-| System | Write Latency | Read Latency | Storage Guarantee |
-|--------|---------------|--------------|-------------------|
-| Filecoin (cold) | Hours (sealing) | Hours (unsealing) | Strong (PoSt) |
-| Filecoin (hot/PDP) | Deal negotiation | Seconds | Strong (PDP) |
-| IPFS | Instant | Seconds (DHT lookup) | None |
-| Arweave | ~2 minutes | Seconds | Permanent |
-| Centralized (S3) | ~100ms | ~50ms | SLA-backed |
+**Why buckets, not just content hashes?**
 
-For IPFS, "seconds" is the happy path—when content is found. DHT lookups can fail entirely if providers are offline, unreachable (NAT/firewall), or simply haven't announced the content. There's no way to distinguish "content doesn't exist" from "content exists but I can't find it."
+IPFS uses content addressing: data is identified by its hash, seemingly removing
+provider dependence. But this just moves the availability problem—you can *name*
+data independently of providers, but have no control over whether anyone
+actually stores it. A content hash with no providers is just a dangling pointer.
+
+Buckets make availability explicit and controllable:
+
+- **Provider-independent identity**: The bucket ID is stable even as providers
+  come and go. Switch providers without changing how applications reference data.
+
+- **Explicit availability**: Chain state shows exactly which providers have
+  active agreements—no guessing whether data exists or who's responsible.
+
+- **Mutability with immutable references**: Bucket contents evolve, but MMR
+  commitments provide immutable snapshots for any point in history.
+
+- **Permissionless persistence**: A frozen bucket (append-only) can be funded by
+  *anyone*—not just the owner. If you care about the data, you can pay providers
+  to store it. Data survives even if the original owner disappears.
+
+- **Decentralized ownership**: When the owning account is a smart contract or
+  parachain, data evolution itself becomes decentralized. A DAO can control what
+  gets written; governance can manage a shared dataset.
+
+This gives a spectrum from fully centralized (single admin) to fully
+permissionless (frozen, anyone funds), with decentralized governance in between.
+
+### Storage Agreements
+
+**Storage agreements** bind providers to a bucket with economic guarantees:
+
+```
+StorageAgreement (on-chain, per bucket per provider)
+├── max_bytes: u64          // quota for this provider
+├── payment_locked: Balance // prepaid by client
+└── expires_at: BlockNumber // when agreement ends
+```
+
+Each provider has their own `max_bytes` quota. This enables flexible scaling:
+
+- **Asymmetric growth**: Top up only the providers you want to keep using
+- **Cost optimization**: If a provider raises rates, keep their quota fixed and
+  add a cheaper provider for new data
+- **Graceful transitions**: Old provider serves existing data until agreement
+  ends; new provider handles growth
+
+Each provider locks global stake; the ratio `stake / committed_bytes` (sum of
+max_bytes across all their agreements) signals trustworthiness.
+
+**Binding contract:** Once accepted, neither party can exit early. Providers
+committed to store; clients committed to pay. Protection comes from challenges and burn option
+(for clients) and blocked extensions (for providers).
+
+### Data Model
+
+All data is **chunked and content-addressed**. The protocol sees only opaque
+bytes organized in Merkle trees:
+
+```
+                    data_root
+                   /         \
+               node           node
+              /    \         /    \
+          chunk  chunk   chunk  chunk
+```
+
+Each bucket has an **MMR** (Merkle Mountain Range) tracking versions. Providers
+sign commitments to the MMR state: `{bucket_id, mmr_root, start_seq, leaf_count}`.
+
+- `start_seq` indicates where this MMR begins (increases on deletion)
+- `leaf_count` indicates how many versions exist (increases on append)
+- Both signatures (client + provider) make commitments enforceable
+
+### Discovery
+
+How does a client find who can serve content?
+
+```
+Bucket ID (from app, DNS, or on-chain reference)
+    ↓
+Query chain: Bucket → StorageAgreements
+    ↓
+Get provider accounts → look up multiaddrs
+    ↓
+Connect directly to provider, fetch data
+```
+
+No DHT lookups, no separate discovery layer. The chain is the source of truth
+for who stores what.
+
+### Challenge Mechanism
+
+If a provider doesn't serve data, clients can force on-chain resolution:
+
+1. Client initiates challenge, deposits estimated cost
+2. Provider must submit Merkle proofs with actual chunk data
+3. **Success:** Cost split based on response time; client recovers data via proof
+4. **Failure:** Provider's entire stake slashed; client compensated
+
+This is expensive for everyone—which makes it rare. The threat enforces good
+behavior; the mechanism exists to never be used.
 
 ---
-
-## Goals
-
-1. **Write without consensus.** Data writes should not touch the chain. A user sending an image in a chat should experience sub-second latency with no on-chain transaction. On-chain transactions may be used to achieve consensus, where necessary.
-
-2. **Optional, efficient storage guarantees.** Not all data needs the same guarantees. Ephemeral chat images don't need strong guarantees. Critical backups do. Users pay for what they need.
-
-3. **Incentivized reads.** Providers must be economically motivated to serve data quickly, not just prove they have it. Read performance should improve with competition, not degrade with scale.
-
-4. **Accountable providers.** When a provider commits to storing data, that commitment must be enforceable. Cheating must be detectable and punishable without requiring continuous on-chain proofs.
-
-5. **Permissionless participation.** Anyone can become a storage provider. No gatekeepers, no special hardware requirements beyond storage capacity.
-
----
-
-## Non-Goals
-
-**Database-style access.** This design optimizes for file-like patterns: store blobs, retrieve by content hash, read ranges. Not for small random key-value lookups, indexes, or queries. You *can* build a Merkle trie on top (like blockchain state), but then you've built a blockchain's state layer—at which point, use a blockchain. 
-
-**Permanent storage.** Unlike Arweave, we do not aim for "store once, available forever." Storage has a duration, contracts have terms. This is a feature: it allows for deletion, reduces costs, and matches how most applications actually use storage.
-
-**Privacy at the protocol level.** Private data is encrypted data. The storage layer sees opaque bytes. Key management, access control, and encryption are application-layer concerns. In addition (not to be relied upon), we do introduce permissions and if read is restricted, storage providers should only serve data to clients listed with read permissions in the bucket. Obviously this can't be enforced, so for truly private data this should only be used in addition to encryption.
-
----
-
 ## Solution Overview
 
-The design separates writes, storage, and reads into independent layers, connected by a common foundation: Proof-of-DOT for sybil resistance and identity.
+The design centers on **buckets** as the organizational unit, with the chain
+serving as registry and enforcement layer—not the hot path.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           ON-CHAIN                                  │
 │                                                                     │
-│    Only touched for:                                                │
-│    • Proof-of-DOT registration (once per identity)                  │
-│    • Credit transfers to providers (prepay for priority)            │
-│    • Availability contract commits (batched, infrequent)            │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                         BUCKET                                │  │
+│  │  ├── members: [Admin, Writers, Readers]                       │  │
+│  │  ├── min_providers: 2                                         │  │
+│  │  ├── snapshot: { mmr_root, start_seq, leaf_count }            │  │
+│  │  └── storage agreements:                                      │  │
+│  │       ├── Provider A: { max_bytes, payment, expires_at }      │  │
+│  │       └── Provider B: { max_bytes, payment, expires_at }      │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│    Chain touched for:                                               │
+│    • Bucket creation and membership (once)                          │
+│    • Storage agreement setup (per provider)                         │
+│    • Checkpoints (infrequent, batched)                              │
 │    • Dispute resolution (rare, game-theoretic deterrent)            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -148,19 +270,23 @@ The design separates writes, storage, and reads into independent layers, connect
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          OFF-CHAIN                                  │
 │                                                                     │
-│   ┌─────────────┐      writes      ┌─────────────┐                  │
-│   │   Client    │ ───────────────> │  Provider   │                  │
-│   │             │ <─────────────── │             │                  │
-│   └─────────────┘      reads       └─────────────┘                  │
+│   ┌─────────────┐    writes/reads    ┌─────────────┐                │
+│   │   Client    │ ─────────────────> │  Provider   │                │
+│   │             │ <───────────────── │  (has agree-│                │
+│   └─────────────┘                    │  ment for   │                │
+│          │                           │  bucket)    │                │
+│          │ discovery                 └─────────────┘                │
+│          │                                  ▲                       │
+│          │    bucket → agreements → provider endpoints              │
+│          └──────────────────────────────────┘                       │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                     ▲
-                                    │
                                     │ foundation
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      PROOF-OF-DOT                                   │
 │                                                                     │
-│   Sybil resistance, identity, priority access                       │
+│   Sybil resistance, identity, read priority                         │
 │   See: Proof-of-DOT Infrastructure Strategy                         │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -280,7 +406,7 @@ enforceable terms, off-chain for dynamic hints.
 
 Clients choose providers based on:
 - Price and duration constraints (from chain)
-- Provider stake (from chain—higher stake = more collateral at risk)
+- Provider stake (from chain—higher stake = more collateral at risk) in relation to storage agreements
 - Reputation (past performance, challenge history)
 - Dynamic hints (from metadata endpoint)
 
@@ -321,7 +447,7 @@ data belongs together, who can access it, and which providers store it.
 ```
 Bucket
 ├── members: [{ account, role: Admin|Writer|Reader }, ...]
-├── frozen_start_seq: Option<u64>     // if set, bucket is append-only
+├── frozen_start_seq: Option<u64>      // if set, bucket is append-only
 ├── min_providers: u32                 // required for checkpoint
 └── snapshot: Option<BucketSnapshot>   // canonical MMR state
     ├── mmr_root
@@ -337,24 +463,31 @@ Bucket
 
 ### Storage Agreements
 
-Each bucket can have storage agreements with multiple providers. An agreement
-defines quota, payment, and duration:
+Each bucket can have storage agreements with multiple providers. Each agreement
+has its own `max_bytes` quota, enabling flexible scaling:
 
 ```
 StorageAgreement
-├── max_bytes: u64          // quota for this bucket
+├── max_bytes: u64          // quota for this provider
 ├── payment_locked: Balance // prepaid by client
 ├── expires_at: BlockNumber
 └── extensions_blocked: bool
 ```
 
+**Per-provider quotas enable:**
+- **Asymmetric growth**: Top up only the providers you want to keep using
+- **Cost optimization**: If a provider raises rates, keep their quota fixed and
+  add a cheaper provider for new data
+- **Graceful transitions**: Old provider serves existing data until agreement
+  ends; new provider handles growth
+
 **Provider stake is global, not per-agreement.** Providers register with a total
 stake amount that covers all their agreements. The Provider struct on-chain
-tracks both `stake` and `committed_bytes` (sum of `max_bytes` across all active
+tracks both `stake` and `committed_bytes` (sum of `max_bytes` across all
 agreements). The ratio `stake / committed_bytes` determines trustworthiness. A
-provider with 100 DOT stake and 1TB of agreements has a different risk profile
-than one with 100 DOT and 100TB of agreements—clients should prefer higher
-stake-per-byte ratios for important data.
+provider with 100 DOT stake and 1TB committed has a different risk profile than
+one with 100 DOT and 100TB—clients should prefer higher stake-per-byte ratios
+for important data.
 
 ### Lifecycle
 
@@ -370,7 +503,7 @@ stake-per-byte ratios for important data.
    • Client calls request_agreement(bucket, provider, max_bytes, payment, duration)
    • Payment locked from client
    • Provider calls accept_agreement or reject_agreement
-   • On acceptance: StorageAgreement created, provider starts tracking usage locally
+   • On acceptance: StorageAgreement created, provider starts tracking bucket
 
 3. UPLOAD AND COMMIT (off-chain)
    ────────────────────────────────────────────────────────
@@ -832,8 +965,7 @@ Each leaf in the MMR contains:
 - `total_size`: The cumulative unique bytes stored across the entire MMR history
   at this point. Because chunks are content-addressed, identical chunks across
   versions are deduplicated. This tracks actual storage used—providers use this
-  for billing and to enforce quota limits against the storage agreement's
-  `max_bytes`.
+  for billing and to enforce quota limits against the agreement's `max_bytes`.
 
 Example: A 100MB backup where 90MB is unchanged from the previous version has
 `data_size = 100MB` but only adds 10MB to `total_size` (the new/changed chunks).
@@ -984,9 +1116,63 @@ Storing with a single provider is risky:
 - Provider could be malicious (collude, ransom data)
 - Provider could be slow (poor connectivity to user's region)
 
+Multiple providers seem like the obvious solution, but introduce new challenges.
+
+### The Freeloading Problem
+
+When multiple providers store the same bucket, each provider might reason:
+"Why store the data myself when I can fetch it from the other providers if
+challenged?" This freeloading attack would undermine redundancy guarantees.
+
+**Why freeloading is risky for providers:**
+
+A freeloading provider bets their entire stake on other providers' reliability
+and cooperation. This is a dangerous bet:
+
+1. **The other providers might freeload too.** If A assumes B stores the data,
+   and B assumes A stores it, both get slashed on first challenge.
+
+2. **Other providers might not serve you.** Providers prioritize paying clients.
+   A competitor fetching data to cover their freeloading is not a priority—they
+   might serve slowly or not at all, causing your challenge to timeout.
+
+3. **Read-restricted buckets block this entirely.** If the bucket restricts reads
+   to members, and providers aren't members, they literally cannot fetch from
+   each other. Each must store independently.
+
+4. **The economics don't make sense for high-stake providers.** A provider with
+   1000 DOT at stake won't risk it to save a few cents of storage costs.
+
+### The Stake Homogeneity Principle
+
+**Don't mix high-stake and low-stake providers for the same bucket.**
+
+If Provider A has 1000 DOT stake and Provider B has 10 DOT stake:
+- B can safely assume A stores the data (A is too rational to cheat)
+- B freeloads, risking only 10 DOT
+- A does all the work; B provides no real redundancy
+
+If both providers have similar stake:
+- Neither can safely assume the other stores the data
+- Each must assume the other might be freeloading
+- This forces independent storage
+
+**Client guidance:**
+
+| Data importance | Provider selection |
+|-----------------|-------------------|
+| Critical | Few providers, high stake, similar stake levels, infrastructure diversity |
+| Important | Moderate stake, verify geographic distribution |
+| Nice-to-have | Lower stake acceptable, accept some risk |
+
+Client software should automate these checks—users shouldn't need to manually
+verify IP ranges or stake origins. Good defaults (e.g., "select providers with
+similar stake levels" or "warn if providers share infrastructure") make secure
+choices easy.
+
 ### The Collusion Problem
 
-Naive redundancy fails if providers secretly collude:
+Even with good provider selection, providers might secretly collude:
 
 ```
 Client stores with providers A and B (thinking: redundancy!)
@@ -995,29 +1181,39 @@ Both "fail" simultaneously
 Client loses data despite "redundant" storage
 ```
 
-The main counter measure in this design is the stake, together with picking multiple providers to store the same data, this should already give good guarantees, albeit not perfect: E.g. if they all by accident are the same provider and this one provider is deciding to censor you. Mitigations for this are outside of the scope of this document, but users/applications can build mitigation strategies on top as needed (see below), additionally with proof of personhood we can offer an additional means, with providers optionally proving that they are a person. (Could still collude though)
+**Important:** The freeloading mitigations above (stake homogeneity, read
+restrictions, isolation mode) only work against *non-colluding* providers.
+Colluding providers will serve each other regardless of restrictions. Against
+collusion, the only defenses are detecting it before selection (infrastructure
+analysis, stake origins) or making it expensive (high stake requirements).
 
 ### Mitigation Strategies
-**1. Stake origin analysis**
+
+**1. Read-restricted buckets**
+
+For *non-colluding* providers, the strongest guarantee. If only bucket members
+can read, providers cannot fetch from each other. Each must store independently.
+(Colluding providers would still serve each other.)
+
+See also [Isolation Mode for Independent Verification](#isolation-mode-for-independent-verification)
+in Future Directions for an additional technique to verify providers independently.
+
+**2. Stake and infrastructure analysis**
+
+When selecting providers:
+- Verify different infrastructure (IP ranges, data centers, geographic regions)
+- Check stake origins on-chain (common funding source = suspicious)
+- Prefer providers with long track records
+- Client software can automate these checks
+
+**3. Stake origin analysis**
 
 On-chain, trace where provider stakes originated:
 - Fresh stake from exchange: unknown provenance
 - Stake from known ecosystem participant: some reputation
 - Stake sharing common origin with another provider: suspicious
 
-**2. Historical correlation tracking**
-
-Track failure correlation over time:
-
-```
-correlation(A, B) = P(B fails | A fails) / P(B fails)
-
-If correlation >> 1: A and B likely share infrastructure or identity
-```
-
-I would expect the error rate to be too low for this to be practical though.
-
-**3. Diversity requirements**
+**4. Diversity requirements**
 
 When selecting multiple providers, maximize diversity:
 - Different geographic regions
@@ -1025,37 +1221,17 @@ When selecting multiple providers, maximize diversity:
 - Different ages (time since first contract)
 - Different infrastructure (if verifiable)
 
----
+### Risk Assessment is the Client's Responsibility
 
-## Encrypted Data: Strong Guarantees Without Sealing
+Ultimately, the client knows their data's importance and threat model:
+- How critical is the data?
+- How likely is coordinated censorship?
+- What's the budget for storage?
 
-For private/encrypted data, we can achieve Filecoin's uniqueness and incompressibility guarantees *without* slow sealing.
-
-**The scheme (needs cryptographic review):**
-
-```
-mask = PRF(provider_key, client_private_key)
-stored_data = encrypted_data XOR mask
-```
-
-Each provider receives different bytes to store. The provider has `stored_data` and their own `provider_key`, but cannot reconstruct the data without the client's private key.
-
-| Property | Filecoin PoRep | Our Encrypted Scheme |
-|----------|----------------|---------------------|
-| Unique per provider | Yes | Yes |
-| Incompressible | Yes | Yes |
-| No cross-provider sharing | Yes | Yes |
-| Sealing time | ~1.5 hours | Seconds |
-| Unsealing time | ~3 hours | Seconds |
-| GPU required | Yes | No |
-
-**Why this works:**
-
-Filecoin needs slow sealing because providers know the sealing algorithm—given enough time, they could regenerate data on demand. Our scheme uses cryptographic secrets instead: the provider *never* knows the mask. No amount of compute helps them reconstruct deleted data.
-
-If a provider loses even one byte, they cannot reconstruct it. A challenge for that byte means full slash. This creates strong incentive for providers to maintain their own redundancy (RAID, backups).
-
-**Limitation:** This only works for private/encrypted data. For public data, anyone can compute the mask. See [Comparison with Existing Solutions](#comparison-with-existing-solutions) for discussion of public data trade-offs.
+A client storing a nation-state-targeted dataset will do extensive due diligence.
+A client storing casual backups accepts more risk for lower cost. The protocol
+provides the tools (stake visibility, challenge mechanism, read restrictions);
+the client decides how to use them.
 
 ---
 
@@ -1719,6 +1895,43 @@ needed—market dynamics handle quality.
 Option B is cleaner. Caches are profit-seeking businesses that bear prediction
 risk. Popular content attracts caches naturally; unpopular content doesn't need
 them. Option C might also work quite well.
+
+### Isolation Mode for Independent Verification
+
+Admins could verify each provider independently via "isolation mode":
+
+1. Admin signals: "Providers B and C, stop serving non-members for 48 hours"
+2. Admin challenges Provider A
+3. A cannot fetch from B or C (they're not serving)
+4. A must have stored the data or get slashed
+5. Repeat for B, then C
+
+The 48-hour window matches the challenge timeout—long enough for a challenge to
+complete and slash a misbehaving provider. For cold data that's rarely accessed,
+this temporary unavailability is acceptable.
+
+If 48 hours is too long, shorter isolation still enables *detection* without
+slashing: the admin sees the provider fail to serve, burns payment at settlement,
+and switches providers. Not as punitive, but still effective.
+
+**The deterrent effect:** If client software performs isolation checks by
+default, providers know they *will* be tested. Freeloading becomes irrational—
+why risk detection when storage is cheap? The actual downtime from isolation
+is unlikely to occur because rational providers simply store the data.
+
+**Note:** This only works against non-colluding providers. Colluding providers
+would ignore the isolation signal and serve each other anyway.
+
+**This works for hot buckets too:**
+
+- If the entire bucket is hot, freeloading is irrational —providers need
+  local data for acceptable latency.
+- More commonly, only recent data is hot (the "cold tail" problem). Isolation
+  can target cold data specifically: "Stop serving data older than sequence N."
+  Hot recent data remains available; cold historical data gets verified.
+
+This targeted approach means isolation mode is broadly applicable, not just for
+pure cold storage.
 
 ---
 
