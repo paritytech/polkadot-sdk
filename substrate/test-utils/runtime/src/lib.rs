@@ -831,26 +831,41 @@ impl_runtime_apis! {
 			sp_statement_store::runtime_api::ValidStatement,
 			sp_statement_store::runtime_api::InvalidStatement,
 		> {
-			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
+			use sp_statement_store::{
+				runtime_api::{InvalidStatement, ValidStatement},
+				SignatureVerificationResult,
+			};
 
-			// match statement.verify_signature() {
-				// sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-			return Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+			match statement.verify_signature() {
+				SignatureVerificationResult::Valid(_) =>
+					Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
+				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				SignatureVerificationResult::NoSignature => Err(InvalidStatement::NoProof),
+			}
 		}
 		fn validate_statements(
-		source: sp_statement_store::runtime_api::StatementSource,
-		statements: Vec<sp_statement_store::Statement>,
-	) -> Result<
+			_source: sp_statement_store::runtime_api::StatementSource,
+			statements: Vec<sp_statement_store::Statement>,
+		) -> Result<
 			sp_statement_store::runtime_api::ValidStatement,
 			sp_statement_store::runtime_api::InvalidStatement,
 		> {
-			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
+			use sp_statement_store::{
+				runtime_api::{InvalidStatement, ValidStatement},
+				SignatureVerificationResult,
+			};
 
-			// match statement.verify_signature() {
-				// sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-			return Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+			for statement in statements.iter() {
+				match statement.verify_signature() {
+					SignatureVerificationResult::Valid(_) => {},
+					SignatureVerificationResult::Invalid => return Err(InvalidStatement::BadProof),
+					SignatureVerificationResult::NoSignature => return Err(InvalidStatement::NoProof),
+				}
+			}
+
+			Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+		}
 	}
-}
 }
 
 fn test_ed25519_crypto(

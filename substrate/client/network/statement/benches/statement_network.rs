@@ -357,9 +357,9 @@ fn bench_on_statements(c: &mut Criterion) {
 	}
 }
 
-fn bench_on_butch_statements(c: &mut Criterion) {
+fn bench_on_batch_statements(c: &mut Criterion) {
 	let statement_counts = [2000];
-	let thread_counts = [4];
+	let thread_counts = [1,  4];
 	let executor_types = [("blocking", true)];
 	let batch_limits = [1, 2, 50, 1000, 2000];
 
@@ -380,7 +380,7 @@ fn bench_on_butch_statements(c: &mut Criterion) {
 					};
 
 					let benchmark_name = format!(
-						"on_butch_statements/statements_{}/threads_{}/batch_{}/{}",
+						"on_batch_statements/statements_{}/threads_{}/batch_{}/{}",
 						num_statements, num_threads, batch_limit, executor_name
 					);
 
@@ -388,7 +388,7 @@ fn bench_on_butch_statements(c: &mut Criterion) {
 						b.iter_batched(
 							|| build_handler(executor.clone(), num_threads, batch_limit),
 							|(mut handler, peer_id, _temp_dir, _store)| {
-								handler.on_butch_statements(peer_id, statements.clone());
+								handler.on_batch_statements(peer_id, statements.clone());
 							},
 							criterion::BatchSize::LargeInput,
 						)
@@ -399,5 +399,5 @@ fn bench_on_butch_statements(c: &mut Criterion) {
 	}
 }
 
-criterion_group!(benches, bench_on_statements, bench_on_butch_statements);
+criterion_group!(benches, bench_on_statements, bench_on_batch_statements);
 criterion_main!(benches);

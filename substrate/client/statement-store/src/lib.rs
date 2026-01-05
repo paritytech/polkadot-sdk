@@ -248,7 +248,7 @@ pub struct Store {
 			+ Send
 			+ Sync,
 	>,
-	butch_validate_fn: Box<
+	batch_validate_fn: Box<
 		dyn Fn(
 				Option<BlockHash>,
 				StatementSource,
@@ -644,7 +644,7 @@ impl Store {
 			time_spent_runtime: time_spent_runtime.clone(),
 			time_spent_validate: time_spent_validate.clone(),
 		};
-		let butch_validate_fn = Box::new(move |block, source, statements| {
+		let batch_validate_fn = Box::new(move |block, source, statements| {
 			validator.validate_statements(block, source, statements)
 		});
 
@@ -652,7 +652,7 @@ impl Store {
 			db,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
-			butch_validate_fn,
+			batch_validate_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -1082,7 +1082,7 @@ impl StatementStore for Store {
 
 	/// Submit a batch of statements. Behaves like `submit` but validates using the batch runtime
 	/// call.
-	fn submit_butch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
+	fn submit_batch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
 		let mut iter = statements.into_iter();
 		let Some(statement) = iter.next() else {
 			return SubmitResult::Invalid(InvalidReason::NoProof)
@@ -1137,7 +1137,7 @@ impl StatementStore for Store {
 		let mut batch = Vec::with_capacity(1 + iter.size_hint().0);
 		batch.push(statement.clone());
 		batch.extend(iter);
-		let validation_result = (self.butch_validate_fn)(at_block, source, batch);
+		let validation_result = (self.batch_validate_fn)(at_block, source, batch);
 		self.time_spent_validation
 			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 

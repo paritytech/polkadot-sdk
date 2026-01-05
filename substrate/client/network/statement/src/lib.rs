@@ -558,9 +558,9 @@ where
 		}
 	}
 
-	/// Called when peer sends us new statements; processes them in batches via `submit_butch`.
+	/// Called when peer sends us new statements; processes them in batches via `submit_batch`.
 	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
-	pub fn on_butch_statements(&mut self, who: PeerId, statements: Statements) {
+	pub fn on_batch_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if self.sync.is_major_syncing() {
 			log::trace!(target: LOG_TARGET, "{who}: Ignoring statements while major syncing or offline");
@@ -596,7 +596,7 @@ where
 				if batch.len() == self.batch_limit {
 					let result = self
 						.statement_store
-						.submit_butch(batch.split_off(0), StatementSource::Network);
+						.submit_batch(batch.split_off(0), StatementSource::Network);
 					results.push(result);
 				}
 			}
@@ -604,7 +604,7 @@ where
 			if !batch.is_empty() {
 				let result = self
 					.statement_store
-					.submit_butch(batch, StatementSource::Network);
+					.submit_batch(batch, StatementSource::Network);
 				results.push(result);
 			}
 		} else {
@@ -1025,7 +1025,7 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn submit_butch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
+		fn submit_batch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
 			unimplemented!()
 		}
 
