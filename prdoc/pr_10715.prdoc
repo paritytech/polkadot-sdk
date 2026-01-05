@@ -1,0 +1,25 @@
+title: Crowdsourced Decision Deposits
+doc:
+- audience: [Runtime Developer, Runtime User]
+  description: |-
+    This update enables multiple users collectively fund decision deposits for referendums
+    instead of requiring a single user pay the full amount. Adds a new
+    `contribute_decision_deposit` extrinsic and updates storage to track contributors.
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: minor
+- name: pallet-referenda
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
