@@ -48,12 +48,14 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
+use sp_session::OpaqueGeneratedSessionKeys;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -81,12 +83,12 @@ use parachains_common::{
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::Perbill;
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
 	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocation, TokenLocation,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, XcmConfig,
 };
 
 #[cfg(test)]
@@ -129,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
 	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_021_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -268,6 +270,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -311,6 +314,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = AssetIdForPoolAssets;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
@@ -481,6 +485,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = xcm::v5::Location;
 	type AssetIdParameter = xcm::v5::Location;
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
@@ -506,7 +511,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 // Allow Freezes for the `ForeignAssets` pallet
@@ -565,7 +570,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1433,8 +1438,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -1565,10 +1570,7 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			use crate::xcm_config::XcmConfig;
-
 			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
-
 			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
@@ -1576,8 +1578,9 @@ impl_runtime_apis! {
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
@@ -1693,7 +1696,12 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,
@@ -2067,9 +2075,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			1
 		}
 	}
 

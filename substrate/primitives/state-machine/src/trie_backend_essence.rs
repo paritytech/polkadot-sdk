@@ -128,10 +128,10 @@ where
 				None
 			},
 			Some(Err(error)) => {
-				self.state = IterState::FinishedIncomplete;
 				if matches!(*error, TrieError::IncompleteDatabase(_)) &&
 					self.stop_on_incomplete_database
 				{
+					self.state = IterState::FinishedIncomplete;
 					None
 				} else {
 					Some(Err(format!("TrieDB iteration error: {}", error)))

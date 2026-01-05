@@ -29,8 +29,7 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
-	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
+	ExecutorParam, ExecutorParams, Hash, PersistedValidationData, PvfExecKind as RuntimePvfExecKind,
 };
 use sp_core::H256;
 
@@ -766,8 +765,7 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 	let cache_dir = host.cache_dir.path();
 
 	let set1 = ExecutorParams::default();
-	let set2 =
-		ExecutorParams::from(&[ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 60000)][..]);
+	let set2 = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(128)][..]);
 
 	let _stats = host
 		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)

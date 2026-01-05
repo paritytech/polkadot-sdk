@@ -71,6 +71,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Environment variable defining the location of zombienet network base dir.
 const TXPOOL_TEST_DIR_ENV: &str = "TXPOOL_TEST_DIR";
 
+/// Type for block subscription modes.
+pub enum BlockSubscriptionType {
+	Finalized,
+	Best,
+}
+
 /// Provides logic to spawn a network based on a Zombienet toml file.
 pub struct NetworkSpawner {
 	network: Network<LocalFileSystem>,
@@ -152,7 +158,14 @@ impl NetworkSpawner {
 	}
 
 	/// Waits for blocks production/import to kick-off on given node.
-	pub async fn wait_for_block_production(&self, node_name: &str) -> Result<()> {
+	///
+	/// It subscribes to best/finalized blocks on the given node to determine whether
+	/// the blocks were considered as best/finalized.
+	pub async fn wait_for_block(
+		&self,
+		node_name: &str,
+		subscription_type: BlockSubscriptionType,
+	) -> Result<()> {
 		let node = self
 			.network
 			.get_node(node_name)
@@ -161,11 +174,19 @@ impl NetworkSpawner {
 			.wait_client::<SubstrateConfig>()
 			.await
 			.map_err(|_| Error::FailedToGetOnlineClinet)?;
-		let mut stream = client
-			.blocks()
-			.subscribe_best()
-			.await
-			.map_err(|_| Error::FailedToGetBlocksStream)?;
+		let mut stream = match subscription_type {
+			BlockSubscriptionType::Best => client
+				.blocks()
+				.subscribe_finalized()
+				.await
+				.map_err(|_| Error::FailedToGetBlocksStream)?,
+			BlockSubscriptionType::Finalized => client
+				.blocks()
+				.subscribe_best()
+				.await
+				.map_err(|_| Error::FailedToGetBlocksStream)?,
+		};
+
 		// It should take at most two iterations to return with the best block, if any.
 		for _ in 0..=1 {
 			let Some(block) = stream.next().await else {
@@ -173,11 +194,11 @@ impl NetworkSpawner {
 			};
 
 			if let Some(block) = block.ok().filter(|block| block.number() == 1) {
-				tracing::info!("[{node_name}] found first best block: {:#?}", block.hash());
+				tracing::info!("[{node_name}] found first block: {:#?}", block.hash());
 				break;
 			}
 
-			tracing::info!("[{node_name}] waiting for first best block");
+			tracing::info!("[{node_name}] waiting for first block");
 		}
 		Ok(())
 	}

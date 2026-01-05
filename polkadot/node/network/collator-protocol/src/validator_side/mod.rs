@@ -1730,6 +1730,18 @@ async fn process_msg<Context>(
 	let _timer = state.metrics.time_process_msg();
 
 	match msg {
+		ConnectToBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"PreConnectToBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
+		DisconnectFromBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DisconnectFromBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
 		CollateOn(id) => {
 			gum::warn!(
 				target: LOG_TARGET,

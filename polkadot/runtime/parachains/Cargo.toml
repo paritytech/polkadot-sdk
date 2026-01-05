@@ -44,6 +44,7 @@ pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
+pallet-session-benchmarking = { workspace = true, optional = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
 
@@ -62,12 +63,12 @@ rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-primitives = { workspace = true, features = ["test"] }
-
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -94,6 +95,7 @@ std = [
 	"pallet-broker/std",
 	"pallet-message-queue/std",
 	"pallet-mmr?/std",
+	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
@@ -131,6 +133,7 @@ runtime-benchmarks = [
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
