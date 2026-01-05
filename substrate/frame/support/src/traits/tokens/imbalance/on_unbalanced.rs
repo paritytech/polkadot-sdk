@@ -97,7 +97,8 @@ impl<A: TypedGet, F: fungibles::Balanced<A::Type>> OnUnbalanced<fungibles::Credi
 	}
 }
 
-/// Resolves received asset credit to account `A`, implementing [`OnUnbalanced`].
+/// Resolves received asset credit to account `Target` if `Target::get()` returns some, implementing
+/// [`OnUnbalanced`].
 ///
 /// Credits that cannot be resolved to account `A` are dropped. This may occur if the account for
 /// address `A` does not exist and the existential deposit requirement is not met.
@@ -108,6 +109,8 @@ impl<Target: TypedGet<Type = Option<AccountId>>, F: fungibles::Balanced<AccountI
 	fn on_nonzero_unbalanced(credit: fungibles::Credit<AccountId, F>) {
 		if let Some(account) = Target::get() {
 			let _ = F::resolve(&account, credit).map_err(|c| drop(c));
+		} else {
+			drop(credit);
 		}
 	}
 }
