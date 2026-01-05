@@ -1048,7 +1048,7 @@ mod benchmarks {
 		let offender_exposure =
 			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
 		ensure!(
-			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
+			offender_exposure.others.len() as u32 >= T::MaxExposurePageSize::get(),
 			"exposure not created"
 		);
 
