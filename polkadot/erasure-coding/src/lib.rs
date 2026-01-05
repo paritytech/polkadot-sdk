@@ -344,6 +344,7 @@ pub mod feature_aware {
 	pub fn is_fast_erasure_coding_enabled(node_features: &NodeFeatures) -> bool {
 		node_features
 			.get(node_features::FeatureIndex::FastErasureCoding as u8 as usize)
+			.map(|b| *b)
 			.unwrap_or(false)
 	}
 
