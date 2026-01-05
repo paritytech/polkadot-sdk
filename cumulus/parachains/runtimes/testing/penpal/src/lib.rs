@@ -731,15 +731,12 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 	}
 }
 
-parameter_types! {
-	pub const RelayLocation: Location = Location::parent();
-}
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = Location;
 	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::SwapAssetAdapter<
-		RelayLocation,
+		xcm_config::RelayLocation,
 		NativeAndAssets,
 		AssetConversion,
 		MaybeResolveAssetTo<BlockAuthor, NativeAndAssets, AccountId>,
