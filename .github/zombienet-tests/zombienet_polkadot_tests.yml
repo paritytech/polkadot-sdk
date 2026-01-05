@@ -70,12 +70,9 @@
     OLD_SUFFIX: "-old"
 
 - job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
-  test-definition: "0015-coretime-shared-core.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::coretime_shared_core::coretime_shared_core_test"
   runner-type: "default"
-  use-zombienet-sdk: false
-  additional-setup: |
-    cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
   test-definition: "0019-coretime-collation-fetching-fairness.zndsl"

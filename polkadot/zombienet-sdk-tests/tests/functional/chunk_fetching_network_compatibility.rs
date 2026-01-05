@@ -17,8 +17,7 @@ use tokio::time::Duration;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
-const PARA_ID_2000: u32 = 2000;
-const PARA_ID_2001: u32 = 2001;
+const PARA_IDS: [u32; 2] = [2000, 2001];
 const OLD_TAG: &str = "master-bde0bbe5";
 const SUBSTRATE_BLOCK_HEIGHT_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
 const POLKADOT_PARACHAIN_APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
@@ -56,7 +55,7 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 	let new_client = new_node.wait_client().await?;
 	let old_client = old_node.wait_client().await?;
 
-	// Check authority status
+	// Check authority status.
 	log::info!("Checking node roles");
 	new_node
 		.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 30u64)
@@ -67,20 +66,18 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await
 		.map_err(|e| anyhow!("Old node role check failed: {}", e))?;
 
-	// Ensure parachains are registered
+	// Ensure parachains are registered.
 	log::info!("Checking parachains are registered");
-	assert_para_is_registered(&new_client, ParaId::from(PARA_ID_2000), 20).await?;
-	assert_para_is_registered(&old_client, ParaId::from(PARA_ID_2000), 20).await?;
-	assert_para_is_registered(&old_client, ParaId::from(PARA_ID_2001), 20).await?;
-	assert_para_is_registered(&new_client, ParaId::from(PARA_ID_2001), 20).await?;
-	log::info!("All parachains registered");
+	for para_id in PARA_IDS {
+		assert_para_is_registered(&new_client, ParaId::from(para_id), 20).await?;
+		assert_para_is_registered(&old_client, ParaId::from(para_id), 20).await?;
+	}
 
-	// Ensure parachains made progress and approval checking works
 	log::info!("Waiting for parachains to produce blocks");
-	assert_para_throughput(&new_client, 200, [(ParaId::from(PARA_ID_2000), 15..200)]).await?;
-	assert_para_throughput(&old_client, 200, [(ParaId::from(PARA_ID_2000), 15..200)]).await?;
-	assert_para_throughput(&new_client, 200, [(ParaId::from(PARA_ID_2001), 15..200)]).await?;
-	assert_para_throughput(&old_client, 200, [(ParaId::from(PARA_ID_2001), 15..200)]).await?;
+	for para_id in PARA_IDS {
+		assert_para_throughput(&new_client, 200, [(ParaId::from(para_id), 15..200)]).await?;
+		assert_para_throughput(&old_client, 200, [(ParaId::from(para_id), 15..200)]).await?;
+	}
 	log::info!("Parachains producing blocks");
 
 	// Check finalized block height
@@ -113,7 +110,6 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await
 		.map_err(|e| anyhow!("Old node approval lag too high: {}", e))?;
 
-	// Check no-shows are low
 	log::info!("Checking no-shows");
 	new_node
 		.wait_metric_with_timeout(
@@ -152,7 +148,6 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await?;
 	assert!(result.success(), "Old node should have successful recoveries");
 
-	// Ensure there are no failed recoveries
 	log::info!("Checking no failed recoveries");
 	let result = new_node
 		.wait_log_line_count_with_timeout(
@@ -200,7 +195,6 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await?;
 	assert!(result.success(), "Fallback protocol not used");
 
-	// Ensure systematic recovery was not used
 	log::info!("Checking systematic recovery was not used");
 	let result = old_node
 		.wait_log_line_count_with_timeout(
@@ -239,7 +233,6 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await
 		.map_err(|e| anyhow!("Old node fetched chunks too low: {}", e))?;
 
-	// No failed chunk fetches
 	new_node
 		.wait_metric_with_timeout(
 			POLKADOT_PARACHAIN_FETCHED_FAILED_CHUNKS_TOTAL_METRIC,
@@ -257,7 +250,6 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.await
 		.map_err(|e| anyhow!("Old node has failed chunk fetches: {}", e))?;
 
-	// No not-found chunk fetches
 	new_node
 		.wait_metric_with_timeout(
 			POLKADOT_PARACHAIN_FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC,
@@ -353,45 +345,32 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 	});
 
-	// Add glutton parachain 2000
-	builder = builder.with_parachain(|p| {
-		p.with_id(PARA_ID_2000)
-			.cumulus_based(true)
-			.with_chain("glutton-westend-local-2000")
-			.with_default_image(old_collator_image.as_str())
-			.with_default_command(old_collator_command.as_str())
-			.with_default_args(vec!["-lparachain=debug".into()])
-			.with_genesis_overrides(json!({
-				"patch": {
-					"glutton": {
-						"compute": "50000000",
-						"storage": "2500000000",
-						"trashDataCount": 5120
-					}
-				}
-			}))
-			.with_collator(|n| n.with_name("collator-2000"))
-	});
+	// Add glutton parachains.
+	for para_id in PARA_IDS {
+		let chain_name = format!("glutton-westend-local-{para_id}");
+		let collator_name = format!("collator-{para_id}");
+		let old_collator_image = old_collator_image.clone();
+		let old_collator_command = old_collator_command.clone();
 
-	// Add glutton parachain 2001
-	builder = builder.with_parachain(|p| {
-		p.with_id(PARA_ID_2001)
-			.cumulus_based(true)
-			.with_chain("glutton-westend-local-2001")
-			.with_default_image(old_collator_image.as_str())
-			.with_default_command(old_collator_command.as_str())
-			.with_default_args(vec!["-lparachain=debug".into()])
-			.with_genesis_overrides(json!({
-				"patch": {
-					"glutton": {
-						"compute": "50000000",
-						"storage": "2500000000",
-						"trashDataCount": 5120
+		builder = builder.with_parachain(|p| {
+			p.with_id(para_id)
+				.cumulus_based(true)
+				.with_chain(chain_name.as_str())
+				.with_default_image(old_collator_image.as_str())
+				.with_default_command(old_collator_command.as_str())
+				.with_default_args(vec!["-lparachain=debug".into()])
+				.with_genesis_overrides(json!({
+					"patch": {
+						"glutton": {
+							"compute": "50000000",
+							"storage": "2500000000",
+							"trashDataCount": 5120
+						}
 					}
-				}
-			}))
-			.with_collator(|n| n.with_name("collator-2001"))
-	});
+				}))
+				.with_collator(|n| n.with_name(collator_name.as_str()))
+		});
+	}
 
 	builder = builder.with_global_settings(|global_settings| {
 		match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
