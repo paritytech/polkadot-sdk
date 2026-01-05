@@ -10,3 +10,9 @@ crates:
   bump: minor
 - name: pallet-assets
   bump: minor
+- name: emulated-integration-tests-common
+  bump: minor
+- name: assets-common
+  bump: minor
+- name: asset-test-utils
+  bump: minor
