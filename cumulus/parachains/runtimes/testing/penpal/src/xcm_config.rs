@@ -35,20 +35,18 @@
 //! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this
 //! soon.
 use super::{
-	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
-	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance,
+	AccountId, AllPalletsWithSystem, Authorship, Balance,
+	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
-use assets_common::TrustBackedAssetsAsLocation;
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::imbalance::ResolveAssetTo, ConstU32, Contains,
 		ContainsPair, Equals, Everything, EverythingBut, Get, LinearStoragePrice, Nothing,
-		PalletInfoAccess,
 	},
 	weights::Weight,
 };
@@ -67,16 +65,16 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
+	DescribeAllTerminal, DescribeFamily,
 	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::JustTry, XcmExecutor};
+use xcm_executor::{XcmExecutor};
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
@@ -94,9 +92,6 @@ parameter_types! {
 	].into();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
-	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
-	pub TrustBackedAssetsPalletLocation: Location =
-		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -127,40 +122,6 @@ pub type FungibleTransactor = FungibleAdapter<
 	AccountId,
 	// We don't track any teleports.
 	(),
->;
-
-/// Means for transacting assets besides the native currency on this chain.
-pub type FungiblesTransactor = FungiblesAdapter<
-	// Use this fungibles implementation:
-	Assets,
-	// Use this currency when it is a fungible asset matching the given location or name:
-	(
-		ConvertedConcreteId<
-			AssetIdPalletAssets,
-			Balance,
-			AsPrefixedGeneralIndex<AssetsPalletLocation, AssetIdPalletAssets, JustTry>,
-			JustTry,
-		>,
-		ConvertedConcreteId<
-			AssetIdPalletAssets,
-			Balance,
-			AsPrefixedGeneralIndex<
-				SystemAssetHubAssetsPalletLocation,
-				AssetIdPalletAssets,
-				JustTry,
-			>,
-			JustTry,
-		>,
-	),
-	// Convert an XCM Location into a local account id:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
-	// that this asset is known.
-	LocalMint<NonZeroIssuance<AccountId, Assets>>,
-	// The account to use for tracking teleports.
-	CheckingAccount,
 >;
 
 // Using the latest `Location`, we don't need to worry about migrations for Penpal.
@@ -196,7 +157,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, FungiblesTransactor);
+pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -374,11 +335,6 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
-		TrustBackedAssetsAsLocation<
-			TrustBackedAssetsPalletLocation,
-			Balance,
-			xcm::latest::Location,
-		>,
 		ForeignAssetsConvertedConcreteId,
 	),
 	AccountId,
@@ -408,11 +364,6 @@ impl xcm_executor::Config for XcmConfig {
 			WeightToFee,
 			crate::NativeAndAssets,
 			(
-				TrustBackedAssetsAsLocation<
-					TrustBackedAssetsPalletLocation,
-					Balance,
-					xcm::latest::Location,
-				>,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,

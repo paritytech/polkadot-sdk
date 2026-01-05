@@ -71,25 +71,6 @@ fn penpal_parachain_genesis(
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(sudo.clone()) },
-		assets: AssetsConfig {
-			assets: vec![(
-				crate::xcm_config::TELEPORTABLE_ASSET_ID,
-				sudo.clone(), // owner
-				false,        // is_sufficient
-				crate::EXISTENTIAL_DEPOSIT,
-			)],
-			metadata: vec![(
-				crate::xcm_config::TELEPORTABLE_ASSET_ID,
-				"pal-2".as_bytes().to_vec(),
-				"pal-2".as_bytes().to_vec(),
-				12,
-			)],
-			accounts: vec![(
-				crate::xcm_config::TELEPORTABLE_ASSET_ID,
-				sudo.clone(),
-				crate::EXISTENTIAL_DEPOSIT * 4096,
-			)]
-		},
 		foreign_assets: ForeignAssetsConfig {
 			assets: vec![(
 				crate::xcm_config::RelayLocation::get(),

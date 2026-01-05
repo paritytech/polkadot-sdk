@@ -32,7 +32,7 @@ frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 pallet-asset-conversion = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
+pallet-asset-conversion-tx-payment = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -115,7 +115,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"pallet-asset-conversion/std",
-	"pallet-asset-tx-payment/std",
+	"pallet-asset-conversion-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
@@ -173,7 +173,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
 	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-asset-tx-payment/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
@@ -207,7 +207,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-asset-conversion/try-runtime",
-	"pallet-asset-tx-payment/try-runtime",
+	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
