@@ -11,6 +11,6 @@ doc:
 
 crates:
   - name: sc-network-statement
-    bump: patch
+    bump: minor
   - name: substrate-test-runtime
     bump: patch
