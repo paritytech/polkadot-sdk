@@ -155,6 +155,9 @@ pub trait StatementStore: Send + Sync {
 	/// Submit a statement.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult;
 
+	/// Submit a butch of statements.
+	fn submit_butch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult;
+
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;
 

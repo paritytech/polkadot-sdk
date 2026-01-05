@@ -199,6 +199,31 @@ where
 		Ok(ValidStatement { max_count, max_size })
 	}
 
+	/// Validate multiple statements. Runs the same validation logic for each and returns the last
+	/// computed limits, ignoring individual validation failures.
+	pub fn validate_statements(
+		source: StatementSource,
+		statements: Vec<Statement>,
+	) -> Result<ValidStatement, InvalidStatement> {
+		let mut last_limits: Option<ValidStatement> = None;
+		for statement in statements {
+			match Self::validate_statement(source, statement) {
+				Ok(limits) => last_limits = Some(limits),
+				Err(err) => {
+					log::debug!(target: LOG_TARGET, "Statement batch validation error: {:?}", err);
+					continue
+				},
+			}
+		}
+
+		if let Some(limits) = last_limits {
+			Ok(limits)
+		} else {
+			// No valid statements in batch; return default limits.
+			Ok(ValidStatement { max_count: 0, max_size: 0 })
+		}
+	}
+
 	/// Submit a statement event. The statement will be picked up by the offchain worker and
 	/// broadcast to the network.
 	pub fn submit_statement(account: T::AccountId, statement: Statement) {

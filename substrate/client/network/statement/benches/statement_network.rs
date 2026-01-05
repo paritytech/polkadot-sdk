@@ -110,10 +110,10 @@ impl SyncEventStream for TestSync {
 
 impl sp_consensus::SyncOracle for TestSync {
 	fn is_major_syncing(&self) -> bool {
-		unimplemented!()
+		false
 	}
 	fn is_offline(&self) -> bool {
-		unimplemented!()
+		false
 	}
 }
 
@@ -183,7 +183,8 @@ fn build_handler(
 		dyn Fn(Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>) + Send + Sync,
 	>,
 	num_threads: usize,
-) -> (StatementHandler<TestNetwork, TestSync>, PeerId, tempfile::TempDir) {
+	batch_limit: usize,
+) -> (StatementHandler<TestNetwork, TestSync>, PeerId, tempfile::TempDir, Arc<Store>) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
@@ -226,29 +227,29 @@ fn build_handler(
 						counter += 1;
 						let result = store.submit(statement, StatementSource::Network);
 						if counter % 2000 == 0 {
-							// println!(
-							// 	"Processed {} statements validation {} ms insert {} ms locking {}
-							// ms", 	counter,
-							// 	store
-							// 		.time_spent_validation
-							// 		.load(std::sync::atomic::Ordering::Relaxed) /
-							// 		1_000_000,
-							// 	store
-							// 		.time_spent_inserting
-							// 		.load(std::sync::atomic::Ordering::Relaxed) /
-							// 		1_000_000,
-							// 	store.time_spent_locking.load(std::sync::atomic::Ordering::Relaxed)
-							// / 		1_000_000
-							// );
-							// println!(
-							// 	"Runtime time {} ms, Validate time {} ms",
-							// 	store.time_spent_runtime.load(std::sync::atomic::Ordering::Relaxed)
-							// / 		1_000_000,
-							// 	store
-							// 		.time_spent_validate
-							// 		.load(std::sync::atomic::Ordering::Relaxed) /
-							// 		1_000_000,
-							// );
+							println!(
+								"Processed {} statements validation {} ms insert {} ms locking {}
+							ms", 	counter,
+								store
+									.time_spent_validation
+									.load(std::sync::atomic::Ordering::Relaxed) /
+									1_000_000,
+								store
+									.time_spent_inserting
+									.load(std::sync::atomic::Ordering::Relaxed) /
+									1_000_000,
+								store.time_spent_locking.load(std::sync::atomic::Ordering::Relaxed)
+							/ 		1_000_000
+							);
+							println!(
+								"Runtime time {} ms, Validate time {} ms",
+								store.time_spent_runtime.load(std::sync::atomic::Ordering::Relaxed)
+							/ 		1_000_000,
+								store
+									.time_spent_validate
+									.load(std::sync::atomic::Ordering::Relaxed) /
+									1_000_000,
+							);
 						}
 						let _ = completion.send(result);
 					},
@@ -266,10 +267,11 @@ fn build_handler(
 		TestSync::new(),
 		(Box::pin(stream::pending()) as Pin<Box<dyn Stream<Item = SyncEvent> + Send>>).fuse(),
 		peers,
-		statement_store,
+		statement_store.clone(),
 		queue_sender,
+		batch_limit,
 	);
-	(handler, peer_id, temp_dir)
+	(handler, peer_id, temp_dir, statement_store)
 }
 
 fn non_blocking_executor(
@@ -305,7 +307,7 @@ fn blocking_executor(
 
 fn bench_on_statements(c: &mut Criterion) {
 	let statement_counts = [2000];
-	let thread_counts = [1, 4, 8];
+	let thread_counts = [1, 4];
 	let executor_types = [("blocking", true)];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
@@ -330,8 +332,8 @@ fn bench_on_statements(c: &mut Criterion) {
 
 				c.bench_function(&benchmark_name, |b| {
 					b.iter_batched(
-						|| build_handler(executor.clone(), num_threads),
-						|(mut handler, peer_id, _temp_dir)| {
+						|| build_handler(executor.clone(), num_threads, 1024),
+						|(mut handler, peer_id, _temp_dir, _store)| {
 							handler.on_statements(peer_id, statements.clone());
 
 							runtime.block_on(async {
@@ -355,5 +357,47 @@ fn bench_on_statements(c: &mut Criterion) {
 	}
 }
 
-criterion_group!(benches, bench_on_statements);
+fn bench_on_butch_statements(c: &mut Criterion) {
+	let statement_counts = [2000];
+	let thread_counts = [4];
+	let executor_types = [("blocking", true)];
+	let batch_limits = [1, 2, 50, 1000, 2000];
+
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+	let handle = runtime.handle();
+
+	for &num_statements in &statement_counts {
+		for &num_threads in &thread_counts {
+			for &(executor_name, is_blocking) in &executor_types {
+				for &batch_limit in &batch_limits {
+					let statements: Vec<Statement> =
+						(0..num_statements).map(|i| create_signed_statement(i, &keypair)).collect();
+					let executor = if is_blocking {
+						blocking_executor(&handle)
+					} else {
+						non_blocking_executor(&handle)
+					};
+
+					let benchmark_name = format!(
+						"on_butch_statements/statements_{}/threads_{}/batch_{}/{}",
+						num_statements, num_threads, batch_limit, executor_name
+					);
+
+					c.bench_function(&benchmark_name, |b| {
+						b.iter_batched(
+							|| build_handler(executor.clone(), num_threads, batch_limit),
+							|(mut handler, peer_id, _temp_dir, _store)| {
+								handler.on_butch_statements(peer_id, statements.clone());
+							},
+							criterion::BatchSize::LargeInput,
+						)
+					});
+				}
+			}
+		}
+	}
+}
+
+criterion_group!(benches, bench_on_statements, bench_on_butch_statements);
 criterion_main!(benches);

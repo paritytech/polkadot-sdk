@@ -191,24 +191,47 @@ where
 		source: StatementSource,
 		statement: Statement,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let signature = statement.verify_signature();
+		
+		// let signature = statement.verify_signature();
 
-		return Ok(ValidStatement { max_count: 10000, max_size: 10000 });
+		// return Ok(ValidStatement { max_count: 10000, max_size: 10000 });
 
-		// let start = std::time::Instant::now();
-		// let api = self.client.runtime_api();
-		// let block = block.map(Into::into).unwrap_or_else(|| {
-		// 	// Validate against the finalized state.
-		// 	self.client.info().finalized_hash
-		// });
-		// self.time_spent_runtime
-		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-		// let res = api
-		// 	.validate_statement(block, source, statement)
-		// 	.map_err(|_| InvalidStatement::InternalError)?;
-		// self.time_spent_validate
-		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-		// res
+		let start = std::time::Instant::now();
+		let api = self.client.runtime_api();
+		let block = block.map(Into::into).unwrap_or_else(|| {
+			// Validate against the finalized state.
+			self.client.info().finalized_hash
+		});
+		self.time_spent_runtime
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		let res = api
+			.validate_statement(block, source, statement)
+			.map_err(|_| InvalidStatement::InternalError)?;
+		self.time_spent_validate
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
+	}
+
+	fn validate_statements(
+		&self,
+		block: Option<BlockHash>,
+		source: StatementSource,
+		statements: Vec<Statement>,
+	) -> std::result::Result<ValidStatement, InvalidStatement> {
+		let start = std::time::Instant::now();
+		let api = self.client.runtime_api();
+		let block = block.map(Into::into).unwrap_or_else(|| {
+			// Validate against the finalized state.
+			self.client.info().finalized_hash
+		});
+		self.time_spent_runtime
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		let res = api
+			.validate_statements(block, source, statements)
+			.map_err(|_| InvalidStatement::InternalError)?;
+		self.time_spent_validate
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 }
 
@@ -221,6 +244,15 @@ pub struct Store {
 				Option<BlockHash>,
 				StatementSource,
 				Statement,
+			) -> std::result::Result<ValidStatement, InvalidStatement>
+			+ Send
+			+ Sync,
+	>,
+	butch_validate_fn: Box<
+		dyn Fn(
+				Option<BlockHash>,
+				StatementSource,
+				Vec<Statement>,
 			) -> std::result::Result<ValidStatement, InvalidStatement>
 			+ Send
 			+ Sync,
@@ -598,7 +630,7 @@ impl Store {
 		let time_spent_runtime = Arc::new(AtomicU64::new(0));
 		let time_spent_validate = Arc::new(AtomicU64::new(0));
 		let validator = ClientWrapper {
-			client,
+			client: client.clone(),
 			_block: Default::default(),
 			time_spent_runtime: time_spent_runtime.clone(),
 			time_spent_validate: time_spent_validate.clone(),
@@ -606,11 +638,21 @@ impl Store {
 		let validate_fn = Box::new(move |block, source, statement| {
 			validator.validate_statement(block, source, statement)
 		});
+		let validator = ClientWrapper {
+			client: client.clone(),
+			_block: Default::default(),
+			time_spent_runtime: time_spent_runtime.clone(),
+			time_spent_validate: time_spent_validate.clone(),
+		};
+		let butch_validate_fn = Box::new(move |block, source, statements| {
+			validator.validate_statements(block, source, statements)
+		});
 
 		let store = Store {
 			db,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
+			butch_validate_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -975,6 +1017,127 @@ impl StatementStore for Store {
 
 		let start = std::time::Instant::now();
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
+		self.time_spent_validation
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+
+		let validation = match validation_result {
+			Ok(validation) => validation,
+			Err(InvalidStatement::BadProof) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement validation failed: BadProof, {:?}",
+					HexDisplay::from(&hash),
+				);
+				self.metrics.report(|metrics| metrics.validations_invalid.inc());
+				return SubmitResult::Invalid(InvalidReason::BadProof);
+			},
+			Err(InvalidStatement::NoProof) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement validation failed: NoProof, {:?}",
+					HexDisplay::from(&hash),
+				);
+				self.metrics.report(|metrics| metrics.validations_invalid.inc());
+				return SubmitResult::Invalid(InvalidReason::NoProof);
+			},
+			Err(InvalidStatement::InternalError) =>
+				return SubmitResult::InternalError(Error::Runtime),
+		};
+
+		let current_time = self.timestamp();
+		let mut commit = Vec::new();
+		{
+			let start = std::time::Instant::now();
+
+			let mut index = self.index.write();
+
+			let evicted =
+				match index.insert(hash, &statement, &account_id, &validation, current_time) {
+					Ok(evicted) => evicted,
+					Err(reason) => return SubmitResult::Rejected(reason),
+				};
+			self.time_spent_inserting
+				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			for hash in evicted {
+				commit.push((col::STATEMENTS, hash.to_vec(), None));
+				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			}
+			if let Err(e) = self.db.commit(commit) {
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement validation failed: database error {}, {:?}",
+					e,
+					statement
+				);
+				return SubmitResult::InternalError(Error::Db(e.to_string()))
+			}
+			self.time_spent_locking
+				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		} // Release index lock
+		self.metrics.report(|metrics| metrics.submitted_statements.inc());
+		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
+		SubmitResult::New
+	}
+
+	/// Submit a batch of statements. Behaves like `submit` but validates using the batch runtime
+	/// call.
+	fn submit_butch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
+		let mut iter = statements.into_iter();
+		let Some(statement) = iter.next() else {
+			return SubmitResult::Invalid(InvalidReason::NoProof)
+		};
+
+		let hash = statement.hash();
+		let encoded_size = statement.encoded_size();
+		if encoded_size > MAX_STATEMENT_SIZE {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is too big for propogation: {:?} ({}/{} bytes)",
+				HexDisplay::from(&hash),
+				statement.encoded_size(),
+				MAX_STATEMENT_SIZE
+			);
+			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+				submitted_size: encoded_size,
+				max_size: MAX_STATEMENT_SIZE,
+			});
+		}
+
+		match self.index.read().query(&hash) {
+			IndexQuery::Expired =>
+				if !source.can_be_resubmitted() {
+					return SubmitResult::KnownExpired
+				},
+			IndexQuery::Exists =>
+				if !source.can_be_resubmitted() {
+					return SubmitResult::Known
+				},
+			IndexQuery::Unknown => {},
+		}
+
+		let Some(account_id) = statement.account_id() else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement validation failed: Missing proof ({:?})",
+				HexDisplay::from(&hash),
+			);
+			self.metrics.report(|metrics| metrics.validations_invalid.inc());
+			return SubmitResult::Invalid(InvalidReason::NoProof);
+		};
+
+		// Validate using the batch API.
+		let at_block = if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
+			Some(*block_hash)
+		} else {
+			None
+		};
+
+		let start = std::time::Instant::now();
+		let mut batch = Vec::with_capacity(1 + iter.size_hint().0);
+		batch.push(statement.clone());
+		batch.extend(iter);
+		let validation_result = (self.butch_validate_fn)(at_block, source, batch);
 		self.time_spent_validation
 			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 
