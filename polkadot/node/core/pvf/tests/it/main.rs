@@ -844,8 +844,12 @@ async fn invalid_compressed_pov_fails_validation() {
 		max_pov_size: 4096 * 1024,
 	};
 	let raw_block_data = vec![1u8; POV_BOMB_LIMIT + 1];
-	let block_data =
-		sp_maybe_compressed_blob::compress_weakly_as(MaybeCompressedBlobType::Pov, &raw_block_data, POV_BOMB_LIMIT + 1).unwrap();
+	let block_data = sp_maybe_compressed_blob::compress_weakly_as(
+		MaybeCompressedBlobType::Pov,
+		&raw_block_data,
+		POV_BOMB_LIMIT + 1,
+	)
+	.unwrap();
 	let pov = PoV { block_data: BlockData(block_data) };
 
 	let result = host

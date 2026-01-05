@@ -134,7 +134,11 @@ pub fn decompress_as(
 ///
 /// If the blob's size is over the bomb limit, this will not compress the blob,
 /// as the decoder will not be able to be able to differentiate it from a compression bomb.
-pub fn compress_weakly_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+pub fn compress_weakly_as(
+	ty: MaybeCompressedBlobType,
+	blob: &[u8],
+	bomb_limit: usize,
+) -> Option<Vec<u8>> {
 	compress_with_level_as(ty, blob, bomb_limit, 3)
 }
 
@@ -142,7 +146,11 @@ pub fn compress_weakly_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: 
 ///
 /// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
 /// not be able to be able to differentiate it from a compression bomb.
-pub fn compress_strongly_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+pub fn compress_strongly_as(
+	ty: MaybeCompressedBlobType,
+	blob: &[u8],
+	bomb_limit: usize,
+) -> Option<Vec<u8>> {
 	compress_with_level_as(ty, blob, bomb_limit, 22)
 }
 
@@ -163,7 +171,12 @@ pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) 
 ///
 /// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
 /// not be able to be able to differentiate it from a compression bomb.
-fn compress_with_level_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
+fn compress_with_level_as(
+	ty: MaybeCompressedBlobType,
+	blob: &[u8],
+	bomb_limit: usize,
+	level: i32,
+) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}
@@ -220,14 +233,24 @@ mod tests {
 	fn compress_and_decompress() {
 		let v = vec![0; BOMB_LIMIT];
 
-		let compressed_weakly = compress_weakly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
-		let compressed_strongly = compress_strongly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
+		let compressed_weakly =
+			compress_weakly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
+		let compressed_strongly =
+			compress_strongly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
 
 		assert!(compressed_weakly.starts_with(&CBLOB_ZSTD_LEGACY));
 		assert!(compressed_strongly.starts_with(&CBLOB_ZSTD_LEGACY));
 
-		assert_eq!(&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_weakly, BOMB_LIMIT).unwrap()[..], &v[..]);
-		assert_eq!(&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_strongly, BOMB_LIMIT).unwrap()[..], &v[..]);
+		assert_eq!(
+			&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_weakly, BOMB_LIMIT)
+				.unwrap()[..],
+			&v[..]
+		);
+		assert_eq!(
+			&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_strongly, BOMB_LIMIT)
+				.unwrap()[..],
+			&v[..]
+		);
 	}
 
 	#[test]

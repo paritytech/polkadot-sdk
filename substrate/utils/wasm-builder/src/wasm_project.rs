@@ -106,15 +106,18 @@ impl BlobPaths {
 	fn compact(&self, target: RuntimeTarget) -> PathBuf {
 		match target {
 			RuntimeTarget::Wasm => self.project.join(format!("{}.compact.wasm", self.blob_name)),
-			RuntimeTarget::Riscv => self.project.join(format!("{}.compact.polkavm", self.blob_name)),
+			RuntimeTarget::Riscv =>
+				self.project.join(format!("{}.compact.polkavm", self.blob_name)),
 		}
 	}
 
 	/// Returns the path to the compact compressed wasm file.
 	fn compact_compressed(&self, target: RuntimeTarget) -> PathBuf {
 		match target {
-			RuntimeTarget::Wasm => self.project.join(format!("{}.compact.compressed.wasm", self.blob_name)),
-			RuntimeTarget::Riscv => self.project.join(format!("{}.compact.compressed.polkavm", self.blob_name)),
+			RuntimeTarget::Wasm =>
+				self.project.join(format!("{}.compact.compressed.wasm", self.blob_name)),
+			RuntimeTarget::Riscv =>
+				self.project.join(format!("{}.compact.compressed.polkavm", self.blob_name)),
 		}
 	}
 
@@ -297,41 +300,43 @@ fn maybe_compact_and_compress_wasm(
 ) -> (Option<WasmBinary>, WasmBinaryBloaty, bool) {
 	match target {
 		RuntimeTarget::Wasm => {
-	let needs_compact = build_config.outer_build_profile.wants_compact();
-	let compact_path = blob_paths.compact(target);
-	let compressed_path = blob_paths.compact_compressed(target);
-	let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
-	let should_regenerate = bloaty_changed || (needs_compact && !compact_or_compressed_exists);
+			let needs_compact = build_config.outer_build_profile.wants_compact();
+			let compact_path = blob_paths.compact(target);
+			let compressed_path = blob_paths.compact_compressed(target);
+			let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
+			let should_regenerate =
+				bloaty_changed || (needs_compact && !compact_or_compressed_exists);
 
-	if !should_regenerate {
-		let final_blob = if compressed_path.exists() {
-			Some(WasmBinary(compressed_path))
-		} else if compact_path.exists() {
-			Some(WasmBinary(compact_path))
-		} else {
-			None
-		};
+			if !should_regenerate {
+				let final_blob = if compressed_path.exists() {
+					Some(WasmBinary(compressed_path))
+				} else if compact_path.exists() {
+					Some(WasmBinary(compact_path))
+				} else {
+					None
+				};
 
-		return (final_blob, bloaty_blob_binary, false);
-	}
+				return (final_blob, bloaty_blob_binary, false);
+			}
 
-	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
-	//
-	// This is because, by default the inner profile will be set to `Release` even when the outer
-	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
-	// development activities.
-	let (compact_blob_path, compact_compressed_blob_path) = if needs_compact {
-		let compact_blob_path = compact_wasm(blob_paths, &bloaty_blob_binary);
-		let compact_compressed_blob_path =
-			compact_blob_path.as_ref().and_then(|p| try_compress_blob_as(target, blob_paths, p));
-		(compact_blob_path, compact_compressed_blob_path)
-	} else {
-		// We at least want to lower the `sign-ext` code to `mvp`.
-		wasm_opt::OptimizationOptions::new_opt_level_0()
-			.add_pass(wasm_opt::Pass::SignextLowering)
-			.debug_info(true)
-			.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
-			.expect("Failed to lower sign-ext in WASM binary.");
+			// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
+			//
+			// This is because, by default the inner profile will be set to `Release` even when the
+			// outer profile is `Debug`, because the blob built in `Debug` profile is too slow
+			// for normal development activities.
+			let (compact_blob_path, compact_compressed_blob_path) = if needs_compact {
+				let compact_blob_path = compact_wasm(blob_paths, &bloaty_blob_binary);
+				let compact_compressed_blob_path = compact_blob_path
+					.as_ref()
+					.and_then(|p| try_compress_blob_as(target, blob_paths, p));
+				(compact_blob_path, compact_compressed_blob_path)
+			} else {
+				// We at least want to lower the `sign-ext` code to `mvp`.
+				wasm_opt::OptimizationOptions::new_opt_level_0()
+					.add_pass(wasm_opt::Pass::SignextLowering)
+					.debug_info(true)
+					.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
+					.expect("Failed to lower sign-ext in WASM binary.");
 
 				(None, None)
 			};
@@ -349,8 +354,11 @@ fn maybe_compact_and_compress_wasm(
 			(final_blob_binary, bloaty_blob_binary, true)
 		},
 		RuntimeTarget::Riscv => {
-			let compressed =
-				try_compress_blob_as(target, &blob_paths, &WasmBinary(bloaty_blob_binary.bloaty_path().to_path_buf()));
+			let compressed = try_compress_blob_as(
+				target,
+				&blob_paths,
+				&WasmBinary(bloaty_blob_binary.bloaty_path().to_path_buf()),
+			);
 			(compressed, bloaty_blob_binary, true)
 		},
 	}
