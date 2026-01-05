@@ -36,7 +36,7 @@
 //! soon.
 use super::{
 	AccountId, AllPalletsWithSystem, Authorship, Balance,
-	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance,
+	Balances, CollatorSelection, ForeignAssets,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
@@ -53,12 +53,12 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	xcm_config::{ConcreteAssetFromSystem},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
-use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
+use sp_runtime::traits::{AccountIdConversion, Identity, TryConvertInto};
 use testnet_parachains_constants::westend::currency::deposit;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -251,6 +251,8 @@ pub const ASSET_HUB_ID: u32 = 1000;
 
 pub const USDT_ASSET_ID: u128 = 1984;
 
+pub const SEPOLIA_ID: u64 = 11155111;
+
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
@@ -267,6 +269,11 @@ parameter_types! {
 	pub UsdtFromAssetHub: Location = Location::new(
 		1,
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
+	);
+
+	pub EthFromEthereum: Location = Location::new(
+		2,
+		[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID})],
 	);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.

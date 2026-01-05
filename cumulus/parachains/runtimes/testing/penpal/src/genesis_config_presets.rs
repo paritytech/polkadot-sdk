@@ -35,6 +35,7 @@ use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use xcm::prelude::{GeneralIndex, PalletInstance};
 
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
@@ -77,21 +78,83 @@ fn penpal_parachain_genesis(
 				sudo.clone(),
 				true,
 				crate::EXISTENTIAL_DEPOSIT
-			)],
+			),
+			(
+				Pen2Location::get(),
+				sudo.clone(),
+				true,
+				crate::EXISTENTIAL_DEPOSIT
+			),
+			(
+				crate::xcm_config::UsdtFromAssetHub::get(),
+				sudo.clone(),
+				true,
+				crate::EXISTENTIAL_DEPOSIT
+			),
+			(
+				crate::xcm_config::EthFromEthereum::get(),
+				sudo.clone(),
+				true,
+				crate::EXISTENTIAL_DEPOSIT
+			),
+			],
 			metadata: vec![(
 				crate::xcm_config::RelayLocation::get(),
 				"relay".as_bytes().to_vec(),
 				"relay".as_bytes().to_vec(),
 				12
-			)],
+			),
+				(
+				Pen2Location::get(),
+				"pen-2".as_bytes().to_vec(),
+				"PEN2".as_bytes().to_vec(),
+				12
+			),
+			(
+				crate::xcm_config::UsdtFromAssetHub::get(),
+				"Usdt".as_bytes().to_vec(),
+				"USDT".as_bytes().to_vec(),
+				6
+			),
+			(
+				crate::xcm_config::EthFromEthereum::get(),
+				"Ethereum".as_bytes().to_vec(),
+				"ETH".as_bytes().to_vec(),
+				18
+			),
+			],
 			accounts: vec![(
 				crate::xcm_config::RelayLocation::get(),
-				sudo,
+				sudo.clone(),
 				crate::EXISTENTIAL_DEPOSIT * 4096,
-			)]
+			),
+			(
+				Pen2Location::get(),
+				sudo.clone(),
+				crate::EXISTENTIAL_DEPOSIT * 4096,
+			),
+			(
+				crate::xcm_config::UsdtFromAssetHub::get(),
+				sudo.clone(),
+				100_000, // 0.1 USDT
+			),
+			(
+				crate::xcm_config::EthFromEthereum::get(),
+				sudo,
+				// Todo: proper amount
+				crate::EXISTENTIAL_DEPOSIT * 4096,
+			),
+			]
 		}
 	})
 }
+
+parameter_types! {
+	const PalletForeignAssetsId: u8 = 51;
+
+	pub Pen2Location: Location = Location::new(0, [PalletInstance(PalletForeignAssetsId::get()), GeneralIndex(42)]);
+}
+
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
