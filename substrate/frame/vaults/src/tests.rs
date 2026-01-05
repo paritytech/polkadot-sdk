@@ -1638,7 +1638,7 @@ mod poke {
 				"Collateral should not be reduced by poke"
 			);
 
-			// `InterestUpdated` event should be emitted (poke accrues interest, doesn't collect it)
+			// `InterestUpdated` event should be emitted
 			let events = System::events();
 			let has_interest_event = events
 				.iter()

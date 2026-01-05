@@ -207,7 +207,6 @@ pub trait ProvidePrice {
 pub mod pallet {
 	use super::{AuctionsHandler, CollateralManager, Location, ProvidePrice, PurchaseParams};
 	use crate::weights::WeightInfo;
-	use alloc::boxed::Box;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -229,8 +228,7 @@ pub mod pallet {
 	const LOG_TARGET: &str = "runtime::vaults";
 
 	/// Milliseconds per year for timestamp-based fee calculations.
-	/// 365.25 days × 24 hours × 60 minutes × 60 seconds × 1000 milliseconds = 31,557,600,000
-	const MILLIS_PER_YEAR: u64 = 31_557_600_000;
+	const MILLIS_PER_YEAR: u64 = (365 * 24 + 6) * 60 * 60 * 1000;
 
 	/// The reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
@@ -698,30 +696,37 @@ pub mod pallet {
 
 			let current_timestamp = T::TimeProvider::now();
 			let stale_threshold = T::StaleVaultThreshold::get();
-			let cursor = OnIdleCursor::<T>::get();
 			let per_vault_weight = Self::on_idle_per_vault_weight();
 
 			// Build iterator from cursor position
-			let iter: Box<dyn Iterator<Item = (T::AccountId, Vault<T>)>> = match cursor {
-				Some(ref last_key) =>
-					Box::new(Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(last_key)).skip(1)),
-				None => Box::new(Vaults::<T>::iter()),
+			let cursor = OnIdleCursor::<T>::get();
+			let mut iter = match cursor {
+				Some(ref last_key) => Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(last_key)),
+				None => Vaults::<T>::iter(),
 			};
 
 			let mut last_processed: Option<T::AccountId> = None;
+			let mut stopped_for_weight = false;
 
-			for (owner, mut vault) in iter {
+			loop {
+				let Some((owner, mut vault)) = iter.next() else { break };
+
+				// Skip cursor key itself if it still exists
+				if cursor.as_ref() == Some(&owner) {
+					continue;
+				}
+
 				// Check weight budget for processing this vault.
 				if meter.try_consume(per_vault_weight).is_err() {
+					stopped_for_weight = true;
 					break;
 				}
 
 				// Only process healthy vaults that are stale.
 				if vault.status == VaultStatus::Healthy {
 					let time_since = current_timestamp.saturating_sub(vault.last_fee_update);
-					if time_since >= stale_threshold &&
-						Self::update_vault_fees(&mut vault, &owner).is_ok()
-					{
+					if time_since >= stale_threshold {
+						Self::update_vault_fees(&mut vault, &owner, Some(current_timestamp));
 						log::debug!(
 							target: LOG_TARGET,
 							"on_idle: updated stale vault fees for {:?}, time_since={:?}ms",
@@ -735,18 +740,14 @@ pub mod pallet {
 				last_processed = Some(owner);
 			}
 
-			// Update cursor for next block
-			match last_processed {
-				Some(last) => {
-					if Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(&last)).nth(1).is_none() {
-						OnIdleCursor::<T>::kill();
-					} else {
-						OnIdleCursor::<T>::put(last);
-					}
-				},
-				None => {
-					OnIdleCursor::<T>::kill();
-				},
+			// Update cursor based on how we exited
+			if stopped_for_weight {
+				if let Some(last) = last_processed {
+					OnIdleCursor::<T>::put(last);
+				}
+			} else {
+				// Natural end of iteration - clear cursor to restart next time
+				OnIdleCursor::<T>::kill();
 			}
 
 			meter.consumed()
@@ -780,19 +781,13 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_vault())]
 		pub fn create_vault(origin: OriginFor<T>, initial_deposit: BalanceOf<T>) -> DispatchResult {
-			// Ensure deposit meets minimum requirement
 			ensure!(initial_deposit >= T::MinimumDeposit::get(), Error::<T>::BelowMinimumDeposit);
 
 			let who = ensure_signed(origin)?;
 
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
-				// Ensure user doesn't already have a vault
 				ensure!(maybe_vault.is_none(), Error::<T>::VaultAlreadyExists);
-
-				// Hold collateral
 				T::Currency::hold(&HoldReason::VaultDeposit.into(), &who, initial_deposit)?;
-
-				// Create the vault
 				*maybe_vault = Some(Vault::new());
 
 				Self::deposit_event(Event::VaultCreated { owner: who.clone() });
@@ -834,11 +829,9 @@ pub mod pallet {
 			Vaults::<T>::try_mutate(&who, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot modify a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Update fees
-				Self::update_vault_fees(vault, &who)?;
+				Self::update_vault_fees(vault, &who, None);
 
 				T::Currency::hold(&HoldReason::VaultDeposit.into(), &who, amount)?;
 
@@ -886,13 +879,10 @@ pub mod pallet {
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot modify a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Update fees first
-				Self::update_vault_fees(vault, &who)?;
+				Self::update_vault_fees(vault, &who, None);
 
-				// Available collateral is the held amount
 				let available = vault.get_held_collateral(&who);
 				ensure!(available >= amount, Error::<T>::InsufficientCollateral);
 
@@ -921,12 +911,11 @@ pub mod pallet {
 						remaining_collateral,
 						total_obligation,
 					)?
-					.expect("total_obligation is non-zero; qed");
+					.ok_or(Error::<T>::ArithmeticOverflow)?;
 					let initial_ratio = InitialCollateralizationRatio::<T>::get();
 					ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 				}
 
-				// Release the collateral
 				T::Currency::release(
 					&HoldReason::VaultDeposit.into(),
 					&who,
@@ -982,14 +971,11 @@ pub mod pallet {
 			Vaults::<T>::try_mutate(&who, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot modify a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Ensure mint amount meets minimum.
 				ensure!(amount >= T::MinimumMint::get(), Error::<T>::BelowMinimumMint);
 
-				// Update fees first
-				Self::update_vault_fees(vault, &who)?;
+				Self::update_vault_fees(vault, &who, None);
 
 				let new_principal =
 					vault.principal.checked_add(&amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -1007,11 +993,10 @@ pub mod pallet {
 				// Check collateralization ratio (CR). Use InitialCollateralizationRatio for minting
 				// to create safety buffer.
 				let ratio = Self::get_collateralization_ratio(vault, &who)?
-					.expect("principal is non-zero after mint; qed");
+					.ok_or(Error::<T>::ArithmeticOverflow)?;
 				let initial_ratio = InitialCollateralizationRatio::<T>::get();
 				ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
-				// Mint pUSD to the user
 				T::Asset::mint_into(T::StablecoinAssetId::get(), &who, amount)?;
 
 				Self::deposit_event(Event::Minted { owner: who.clone(), amount });
@@ -1050,11 +1035,9 @@ pub mod pallet {
 			Vaults::<T>::try_mutate(&who, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot modify a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Update fees
-				Self::update_vault_fees(vault, &who)?;
+				Self::update_vault_fees(vault, &who, None);
 
 				// Payment order: interest first, then principal
 				// 1. Calculate how much interest to pay (capped by available amount)
@@ -1099,7 +1082,6 @@ pub mod pallet {
 					})
 				};
 
-				// Emit Repaid event for principal portion
 				if !principal_to_pay.is_zero() {
 					Self::deposit_event(Event::Repaid {
 						owner: who.clone(),
@@ -1107,7 +1089,6 @@ pub mod pallet {
 					});
 				}
 
-				// Only emit ReturnedExcess for truly unused amount
 				if !true_excess.is_zero() {
 					Self::deposit_event(Event::ReturnedExcess {
 						owner: who.clone(),
@@ -1163,11 +1144,9 @@ pub mod pallet {
 			Vaults::<T>::try_mutate(&vault_owner, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot liquidate a vault that's already being liquidated or has been liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Update fees first
-				Self::update_vault_fees(vault, &vault_owner)?;
+				Self::update_vault_fees(vault, &vault_owner, None);
 
 				let principal = vault.principal;
 				let accrued_interest = vault.accrued_interest;
@@ -1182,7 +1161,7 @@ pub mod pallet {
 				ensure!(!total_obligation.is_zero(), Error::<T>::VaultIsSafe);
 				let ratio =
 					Self::calculate_collateralization_ratio(collateral_seized, total_obligation)?
-						.expect("total obligation is non-zero; qed");
+						.ok_or(Error::<T>::ArithmeticOverflow)?;
 				let min_ratio = MinimumCollateralizationRatio::<T>::get();
 				ensure!(ratio < min_ratio, Error::<T>::VaultIsSafe);
 
@@ -1206,10 +1185,7 @@ pub mod pallet {
 					Error::<T>::ExceedsMaxLiquidationAmount
 				);
 
-				// Update CurrentLiquidationAmount accumulator
-				CurrentLiquidationAmount::<T>::mutate(|current| {
-					current.saturating_accrue(total_debt);
-				});
+				CurrentLiquidationAmount::<T>::put(new_liquidation_amount);
 
 				// Emit penalty collected event
 				if !penalty_pusd.is_zero() {
@@ -1304,13 +1280,10 @@ pub mod pallet {
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot close a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				// Update fees
-				Self::update_vault_fees(vault, &who)?;
+				Self::update_vault_fees(vault, &who, None);
 
-				// Can only close when vault has no principal debt
 				ensure!(vault.principal.is_zero(), Error::<T>::VaultHasDebt);
 
 				// Collect any accrued interest before closing.
@@ -1330,7 +1303,6 @@ pub mod pallet {
 					});
 				}
 
-				// Release all collateral to owner.
 				let released = T::Currency::release_all(
 					&HoldReason::VaultDeposit.into(),
 					&who,
@@ -1342,7 +1314,6 @@ pub mod pallet {
 					amount: released,
 				});
 
-				// Remove vault from storage by setting to None
 				*maybe_vault = None;
 				Self::deposit_event(Event::VaultClosed { owner: who.clone() });
 
@@ -1600,10 +1571,9 @@ pub mod pallet {
 			Vaults::<T>::try_mutate(&vault_owner, |maybe_vault| -> DispatchResult {
 				let vault = maybe_vault.as_mut().ok_or(Error::<T>::VaultNotFound)?;
 
-				// Cannot poke a vault that's being liquidated
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &vault_owner)?;
+				Self::update_vault_fees(vault, &vault_owner, None);
 
 				Ok(())
 			})
@@ -1888,45 +1858,47 @@ pub mod pallet {
 		///
 		/// Calculates interest in pUSD and adds it to the vault's accrued_interest.
 		/// Uses actual timestamps for accurate time-based interest calculation.
-		pub fn update_vault_fees(vault: &mut Vault<T>, who: &T::AccountId) -> DispatchResult {
-			let current_timestamp = T::TimeProvider::now();
-			if current_timestamp <= vault.last_fee_update {
-				return Ok(());
+		/// Emits an `InterestUpdated` event if interest was accrued.
+		///
+		/// # Parameters
+		/// - `vault`: The vault to update
+		/// - `who`: The vault owner (for event emission)
+		/// - `now`: Optional timestamp; if `None`, fetches current time
+		pub fn update_vault_fees(
+			vault: &mut Vault<T>,
+			who: &T::AccountId,
+			now: Option<MomentOf<T>>,
+		) {
+			let now = now.unwrap_or_else(T::TimeProvider::now);
+			if now <= vault.last_fee_update {
+				return;
 			}
 
-			let millis_elapsed = current_timestamp.saturating_sub(vault.last_fee_update);
-
+			let millis_elapsed = now.saturating_sub(vault.last_fee_update);
 			let stability_fee = StabilityFee::<T>::get();
 			let annual_interest_pusd = stability_fee.mul_floor(vault.principal);
 
-			// Calculate accrued interest for the elapsed period
-			// accrued = annual_interest * millis_elapsed / MILLIS_PER_YEAR
 			let elapsed_ratio = FixedU128::saturating_from_rational(
 				millis_elapsed.saturated_into::<u64>(),
 				MILLIS_PER_YEAR,
 			);
-			let accrued_interest_pusd = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
+			let accrued = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
 
-			// Store interest in pUSD
-			vault.accrued_interest.saturating_accrue(accrued_interest_pusd);
+			vault.accrued_interest.saturating_accrue(accrued);
+			vault.last_fee_update = now;
 
-			Self::deposit_event(Event::InterestUpdated {
-				owner: who.clone(),
-				amount: accrued_interest_pusd,
-			});
-
-			vault.last_fee_update = current_timestamp;
-			Ok(())
+			if !accrued.is_zero() {
+				Self::deposit_event(Event::InterestUpdated { owner: who.clone(), amount: accrued });
+			}
 		}
 
-		/// Base weight for `on_idle` overhead (cursor read/write, threshold read).
+		/// Base weight for `on_idle` overhead.
 		///
 		/// Includes:
-		/// - Reading the cursor
-		/// - Reading StaleVaultThreshold
-		/// - Writing cursor update
+		/// - Reading the cursor (1 read)
+		/// - Writing cursor update (1 write, worst case)
 		pub fn on_idle_base_weight() -> Weight {
-			T::DbWeight::get().reads_writes(2, 1)
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 
 		/// Benchmarked weight to process one stale vault.
