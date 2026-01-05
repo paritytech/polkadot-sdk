@@ -102,8 +102,8 @@ impl<A: TypedGet, F: fungibles::Balanced<A::Type>> OnUnbalanced<fungibles::Credi
 /// Credits that cannot be resolved to account `A` are dropped. This may occur if the account for
 /// address `A` does not exist and the existential deposit requirement is not met.
 pub struct MaybeResolveAssetTo<Target, F, AccountId>(PhantomData<(Target, F, AccountId)>);
-impl<Target: TypedGet<Type=Option<AccountId>>, F: fungibles::Balanced<AccountId>, AccountId> OnUnbalanced<fungibles::Credit<AccountId, F>>
-for MaybeResolveAssetTo<Target, F, AccountId>
+impl<Target: TypedGet<Type = Option<AccountId>>, F: fungibles::Balanced<AccountId>, AccountId>
+	OnUnbalanced<fungibles::Credit<AccountId, F>> for MaybeResolveAssetTo<Target, F, AccountId>
 {
 	fn on_nonzero_unbalanced(credit: fungibles::Credit<AccountId, F>) {
 		if let Some(account) = Target::get() {
@@ -111,4 +111,3 @@ for MaybeResolveAssetTo<Target, F, AccountId>
 		}
 	}
 }
-

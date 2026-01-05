@@ -49,10 +49,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
-use assets_common::{
-	foreign_creators::ForeignCreators,
-	local_and_foreign_assets::{TargetFromLeft},
-};
+use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
@@ -60,10 +57,13 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types,
-	pallet_prelude::Weight,
+	pallet_prelude::{TypedGet, Weight},
 	parameter_types,
 	traits::{
-		tokens::{fungible, imbalance::ResolveAssetTo},
+		tokens::{
+			fungible,
+			imbalance::{MaybeResolveAssetTo, ResolveAssetTo},
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Everything,
 		TransformOrigin,
 	},
@@ -84,8 +84,6 @@ use parachains_common::{
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use smallvec::smallvec;
-use frame_support::pallet_prelude::TypedGet;
-use frame_support::traits::tokens::imbalance::MaybeResolveAssetTo;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -734,7 +732,7 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 }
 
 parameter_types! {
-    pub const RelayLocation: Location = Location::parent();
+	pub const RelayLocation: Location = Location::parent();
 }
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
