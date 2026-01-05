@@ -9,3 +9,13 @@ doc:
 crates:
 - name: sp-metadata-ir
   bump: patch
+  validate: false
+- name: frame-support
+  bump: patch
+  validate: false
+- name: substrate-wasm-builder
+  bump: patch
+  validate: false
+- name: pallet-example-view-functions
+  bump: patch
+  validate: false
