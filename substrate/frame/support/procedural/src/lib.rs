@@ -316,47 +316,6 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
 }
 
-/// Derive [`Debug`], if `std` is enabled it uses `frame_support::DebugNoBound`, if `std` is not
-/// enabled it just returns `"<wasm:stripped>"`.
-/// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
-#[proc_macro_derive(RuntimeDebugNoBound)]
-pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	let try_runtime_or_std_impl: proc_macro2::TokenStream =
-		no_bound::debug::derive_debug_no_bound(input.clone()).into();
-
-	let stripped_impl = {
-		let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-		let name = &input.ident;
-		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-		quote::quote!(
-			const _: () = {
-				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
-						fmt.write_str("<wasm:stripped>")
-					}
-				}
-			};
-		)
-	};
-
-	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
-		Ok(frame_support) => frame_support,
-		Err(e) => return e.to_compile_error().into(),
-	};
-
-	quote::quote!(
-		#frame_support::try_runtime_or_std_enabled! {
-			#try_runtime_or_std_impl
-		}
-		#frame_support::try_runtime_and_std_not_enabled! {
-			#stripped_impl
-		}
-	)
-	.into()
-}
-
 /// Derive [`PartialEq`] but do not bound any generic.
 ///
 /// Docs at `frame_support::PartialEqNoBound`.
@@ -1120,10 +1079,9 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Allows you to define some service work that can be recognized by a script or an
-/// off-chain worker.
+/// Allows you to define some service work that can be recognized by the off-chain worker.
 ///
-/// Such a script can then create and submit all such work items at any given time.
+/// The off-chain worker can then create and submit all such work items at any given time.
 ///
 /// These work items are defined as instances of the `Task` trait (found at
 /// `frame_support::traits::Task`). [`pallet:tasks_experimental`](macro@tasks_experimental) when
@@ -1140,11 +1098,11 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 /// All of such Tasks are then aggregated into a `RuntimeTask` by
 /// [`construct_runtime`](macro@construct_runtime).
 ///
-/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
-/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+/// Finally, the `RuntimeTask` can then be used by the off-chain worker to create and
+/// submit such tasks via an extrinsic defined in `frame_system` called `do_task` which accepts
+/// unsigned transaction from local source.
 ///
-/// When submitted as unsigned transactions (for example via an off-chain workder), note
-/// that the tasks will be executed in a random order.
+/// When submitted as unsigned transactions, note that the tasks will be executed in a random order.
 ///
 /// ## Example
 #[doc = docify::embed!("examples/proc_main/tasks.rs", tasks_example)]

@@ -29,18 +29,15 @@ asset-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-rococo-runtime = { workspace = true, default-features = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 collectives-westend-runtime = { workspace = true }
-coretime-rococo-runtime = { workspace = true }
 coretime-westend-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
-people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 polkadot-omni-node-lib = { features = [
 	"rococo-native",
 	"westend-native",
 ], workspace = true }
-rococo-parachain-runtime = { workspace = true }
 
 # Substrate
 sc-chain-spec = { workspace = true, default-features = true }
@@ -77,13 +74,10 @@ runtime-benchmarks = [
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-westend-runtime/runtime-benchmarks",
-	"coretime-rococo-runtime/runtime-benchmarks",
 	"coretime-westend-runtime/runtime-benchmarks",
 	"glutton-westend-runtime/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
-	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
-	"rococo-parachain-runtime/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
@@ -95,17 +89,14 @@ try-runtime = [
 	"bridge-hub-rococo-runtime/try-runtime",
 	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-westend-runtime/try-runtime",
-	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
 	"parachains-common/try-runtime",
 	"penpal-runtime/try-runtime",
-	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",
 	"bridge-hub-westend-runtime/fast-runtime",
-	"coretime-rococo-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]

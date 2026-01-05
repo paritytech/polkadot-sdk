@@ -60,7 +60,7 @@ fn sanity_check_teleport_assets_weight() {
 		dest: Box::new(Here.into()),
 		beneficiary: Box::new(Here.into()),
 		assets: Box::new((Here, 200_000).into()),
-		fee_asset_id: Box::new(Here.into()),
+		fee_asset_item: 0,
 		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
