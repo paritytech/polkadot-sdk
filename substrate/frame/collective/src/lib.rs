@@ -47,7 +47,6 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
-use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
@@ -335,13 +334,19 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
+	/// A type alias for the runtime call type.
+	pub type ProposalOf<T, I> = <T as Config<I>>::RuntimeCall;
+
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The runtime origin type.
 		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
 
 		/// The runtime call dispatch type.
-		type Proposal: Parameter
+		///
+		/// This is the same as `frame_system::Config::RuntimeCall` but with explicit bounds
+		/// required by this pallet.
+		type RuntimeCall: Parameter
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config<I>>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
@@ -643,7 +648,7 @@ pub mod pallet {
 		))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			proposal: Box<<T as Config<I>>::Proposal>,
+			proposal: Box<ProposalOf<T, I>>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -703,7 +708,7 @@ pub mod pallet {
 		pub fn propose(
 			origin: OriginFor<T>,
 			#[pallet::compact] threshold: MemberCount,
-			proposal: Box<<T as Config<I>>::Proposal>,
+			proposal: Box<ProposalOf<T, I>>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -851,10 +856,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::kill(1, T::MaxProposals::get()))]
 		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
 			T::KillOrigin::ensure_origin(origin)?;
-			ensure!(
-				Voting::<T, I>::contains_key(&proposal_hash),
-				Error::<T, I>::ProposalMissing
-			);
+			ensure!(Voting::<T, I>::contains_key(&proposal_hash), Error::<T, I>::ProposalMissing);
 			let burned = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
 				cost.burn(&who);
 				Self::deposit_event(Event::ProposalCostBurned { proposal_hash, who });
@@ -885,10 +887,7 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 		) -> DispatchResult {
 			ensure_signed_or_root(origin)?;
-			ensure!(
-				!Voting::<T, I>::contains_key(&proposal_hash),
-				Error::<T, I>::ProposalActive
-			);
+			ensure!(!Voting::<T, I>::contains_key(&proposal_hash), Error::<T, I>::ProposalActive);
 			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
 				cost.drop(&who)?;
 				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
@@ -919,7 +918,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Execute immediately when adding a new proposal.
 	pub fn do_propose_execute(
-		proposal: Box<<T as Config<I>>::Proposal>,
+		proposal: Box<ProposalOf<T, I>>,
 		length_bound: MemberCount,
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
 		let proposal_len = proposal.encoded_size();
@@ -946,7 +945,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn do_propose_proposed(
 		who: T::AccountId,
 		threshold: MemberCount,
-		proposal: Box<<T as Config<I>>::Proposal>,
+		proposal: Box<ProposalOf<T, I>>,
 		length_bound: MemberCount,
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
@@ -1137,13 +1136,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		hash: &T::Hash,
 		length_bound: u32,
 		weight_bound: Weight,
-	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
+	) -> Result<(ProposalOf<T, I>, usize), DispatchError> {
 		let proposal_len = T::Preimages::len(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 
 		let bytes = T::Preimages::fetch(hash, Some(proposal_len))
 			.map_err(|_| Error::<T, I>::ProposalMissing)?;
-		let proposal = <T as Config<I>>::Proposal::decode(&mut &bytes[..])
+		let proposal = ProposalOf::<T, I>::decode(&mut &bytes[..])
 			.map_err(|_| Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
@@ -1168,7 +1167,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		seats: MemberCount,
 		yes_votes: MemberCount,
 		proposal_hash: T::Hash,
-		proposal: <T as Config<I>>::Proposal,
+		proposal: ProposalOf<T, I>,
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
 

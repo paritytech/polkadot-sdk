@@ -19,7 +19,7 @@ use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	BoundedVec, dispatch::Pays,
+	dispatch::Pays,
 	migrations::SteppedMigration,
 	parameter_types,
 	traits::{
@@ -27,6 +27,7 @@ use frame_support::{
 		ConstU32, ConstU64, StorageVersion,
 	},
 	weights::WeightMeter,
+	BoundedVec, Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::{ConstU128, H256};
@@ -36,8 +37,6 @@ use sp_runtime::{
 	BuildStorage, FixedU128,
 };
 use std::{borrow::Cow, cell::RefCell, collections::HashMap};
-use frame_support::Hashable;
-
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
@@ -134,7 +133,7 @@ type CollectiveDeposit =
 
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -154,7 +153,7 @@ type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBas
 
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -182,7 +181,7 @@ type DefaultCollectiveDeposit =
 	deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -1767,7 +1766,9 @@ fn kill_proposal_with_deposit() {
 					proposal_hash: last_hash.unwrap(),
 					who: 1,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash: last_hash.unwrap() })),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared {
+					hash: last_hash.unwrap()
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Killed {
 					proposal_hash: last_hash.unwrap(),
 				})),
@@ -1905,24 +1906,20 @@ fn constant_deposit_work() {
 
 #[test]
 fn test_proposal_migration_works() {
-
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(100);
 		let proposal_hash = BlakeTwo256::hash_of(&proposal);
 
-		crate::migrations::v5::OldProposalOf::<Test, Instance1>::insert(proposal_hash, proposal.clone());
+		crate::migrations::v5::OldProposalOf::<Test, Instance1>::insert(
+			proposal_hash,
+			proposal.clone(),
+		);
 
 		let proposals: BoundedVec<_, MaxProposals> = vec![proposal_hash].try_into().unwrap();
 		Proposals::<Test, Instance1>::put(proposals);
 		ProposalCount::<Test, Instance1>::put(1u32);
 
-		let votes = Votes {
-			index: 0,
-			threshold: 1,
-			ayes: vec![],
-			nays: vec![],
-			end: 100,
-		};
+		let votes = Votes { index: 0, threshold: 1, ayes: vec![], nays: vec![], end: 100 };
 		Voting::<Test, Instance1>::insert(proposal_hash, votes);
 
 		StorageVersion::new(0).put::<Collective>();
@@ -1931,10 +1928,8 @@ fn test_proposal_migration_works() {
 		let mut meter = WeightMeter::with_limit(Weight::MAX);
 
 		loop {
-			let result = crate::migrations::v5::MigrateToV5::<Test, Instance1>::step(
-				cursor,
-				&mut meter,
-			);
+			let result =
+				crate::migrations::v5::MigrateToV5::<Test, Instance1>::step(cursor, &mut meter);
 
 			match result {
 				Ok(maybe_next) => {
@@ -1945,12 +1940,14 @@ fn test_proposal_migration_works() {
 				},
 				Err(e) => {
 					panic!("Migration failed: {:?}", e);
-				}
+				},
 			}
 		}
 
 		assert!(pallet_preimage::RequestStatusFor::<Test>::contains_key(proposal_hash));
 
-		assert!(crate::migrations::v5::OldProposalOf::<Test, Instance1>::get(proposal_hash).is_none());
+		assert!(
+			crate::migrations::v5::OldProposalOf::<Test, Instance1>::get(proposal_hash).is_none()
+		);
 	});
 }
