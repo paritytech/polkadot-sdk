@@ -517,7 +517,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Staking::ErasStakersOverview` (r:1 w:0)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ClaimedRewards` (r:1 w:1)
-	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(229), added: 2704, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)
@@ -543,12 +543,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Staking::Payee` (r:513 w:0)
 	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 512]`.
-	fn payout_stakers_alive_staked(_n: u32, ) -> Weight {
+	fn payout_stakers_alive_staked(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `7120 + n * (956 ±0)`
+		//  Measured:  `9500 + n * (2363 ±0)`
 		//  Estimated: `1656954`
-		// Minimum execution time: 235_000_000 picoseconds.
-		Weight::from_parts(46_382_000_000, 1656954)
+		// Minimum execution time: 257_000_000 picoseconds.
+		Weight::from_parts(49_123_000_000, 9500)
+			.saturating_add(Weight::from_parts(0, 2363).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(3086_u64))
 			.saturating_add(T::DbWeight::get().writes(1540_u64))
 	}
@@ -1428,7 +1429,7 @@ impl WeightInfo for () {
 	/// Storage: `Staking::ErasStakersOverview` (r:1 w:0)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ClaimedRewards` (r:1 w:1)
-	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(229), added: 2704, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)
@@ -1454,12 +1455,13 @@ impl WeightInfo for () {
 	/// Storage: `Staking::Payee` (r:513 w:0)
 	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 512]`.
-	fn payout_stakers_alive_staked(_n: u32, ) -> Weight {
+	fn payout_stakers_alive_staked(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `7120 + n * (956 ±0)`
+		//  Measured:  `9500 + n * (2363 ±0)`
 		//  Estimated: `1656954`
-		// Minimum execution time: 235_000_000 picoseconds.
-		Weight::from_parts(46_382_000_000, 1656954)
+		// Minimum execution time: 257_000_000 picoseconds.
+		Weight::from_parts(49_123_000_000, 9500)
+			.saturating_add(Weight::from_parts(0, 2363).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3086_u64))
 			.saturating_add(RocksDbWeight::get().writes(1540_u64))
 	}
