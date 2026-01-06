@@ -22,8 +22,8 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
 use alloc::vec::Vec;
-use codec::Decode;
 use core::cmp;
+use cumulus_pallet_session_benchmarking as session_benchmarking;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
@@ -31,11 +31,11 @@ use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
 
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as super::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const SEED: u32 = 0;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: Config>(generic_event: <T as super::Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -54,36 +54,24 @@ fn create_funded_user<T: Config>(
 	user
 }
 
-fn keys<T: Config + session::Config>(c: u32) -> <T as session::Config>::Keys {
-	use rand::{RngCore, SeedableRng};
+fn validator<T: Config + session_benchmarking::Config>(
+	c: u32,
+) -> (T::AccountId, <T as session::Config>::Keys, Vec<u8>) {
+	let validator = create_funded_user::<T>("candidate", c, 1000);
+	let (keys, proof) = T::generate_session_keys_and_proof(validator.clone());
 
-	let keys = {
-		let mut keys = [0u8; 128];
-
-		if c > 0 {
-			let mut rng = rand::rngs::StdRng::seed_from_u64(c as u64);
-			rng.fill_bytes(&mut keys);
-		}
-
-		keys
-	};
-
-	Decode::decode(&mut &keys[..]).unwrap()
+	(validator, keys, proof)
 }
 
-fn validator<T: Config + session::Config>(c: u32) -> (T::AccountId, <T as session::Config>::Keys) {
-	(create_funded_user::<T>("candidate", c, 1000), keys::<T>(c))
-}
-
-fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::AccountId> {
+fn register_validators<T: Config + session_benchmarking::Config>(count: u32) -> Vec<T::AccountId> {
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
-	for (who, keys) in validators.clone() {
+	for (who, keys, proof) in validators.clone() {
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 	}
 
-	validators.into_iter().map(|(who, _)| who).collect()
+	validators.into_iter().map(|(who, _, _)| who).collect()
 }
 
 fn register_candidates<T: Config>(count: u32) {
@@ -114,7 +102,7 @@ fn min_invulnerables<T: Config>() -> u32 {
 	min_collators.saturating_sub(candidates_length)
 }
 
-#[benchmarks(where T: pallet_authorship::Config + session::Config)]
+#[benchmarks(where T: pallet_authorship::Config + session_benchmarking::Config)]
 mod benchmarks {
 	use super::*;
 
@@ -155,16 +143,15 @@ mod benchmarks {
 		// add one more to the list. should not be in `b` (invulnerables) because it's the account
 		// we will _add_ to invulnerables. we want it to be in `candidates` because we need the
 		// weight associated with removing it.
-		let (new_invulnerable, new_invulnerable_keys) = validator::<T>(b.max(c) + 1);
-		candidates.push((new_invulnerable.clone(), new_invulnerable_keys));
+		let (new_invulnerable, new_invulnerable_keys, new_proof) = validator::<T>(b.max(c) + 1);
+		candidates.push((new_invulnerable.clone(), new_invulnerable_keys, new_proof));
 		// set their keys ...
-		for (who, keys) in candidates.clone() {
+		for (who, keys, proof) in candidates.clone() {
 			<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
-			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new())
-				.unwrap();
+			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 		}
 		// ... and register them.
-		for (who, _) in candidates.iter() {
+		for (who, _, _) in candidates.iter() {
 			let deposit = CandidacyBond::<T>::get();
 			<T as pallet::Config>::Currency::make_free_balance_be(who, deposit * 1000_u32.into());
 			CandidateList::<T>::try_mutate(|list| {
@@ -299,14 +286,11 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let bond: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 2u32.into();
 		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
-		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
-			keys::<T>(c + 1),
-			Vec::new(),
-		)
-		.unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
+			.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -328,13 +312,11 @@ mod benchmarks {
 		let bond: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 10u32.into();
 		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
+
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
-		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
-			keys::<T>(c + 1),
-			Vec::new(),
-		)
-		.unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
+			.unwrap();
 
 		let target = CandidateList::<T>::get().iter().last().unwrap().who.clone();
 

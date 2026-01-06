@@ -3,7 +3,7 @@ timeout = 1000
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
-chain = "rococo-local"
+chain = "westend-local"
 command = "polkadot"
 
   [[relaychain.nodes]]
@@ -20,7 +20,7 @@ command = "polkadot"
 
 [[parachains]]
 id = 1005
-chain = "coretime-rococo-local"
+chain = "coretime-westend-local"
 
   [parachains.collator]
   name = "coretime-collator"
