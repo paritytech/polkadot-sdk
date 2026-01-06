@@ -364,6 +364,8 @@ impl xcm_executor::Config for XcmConfig {
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
 		// Allow native asset to pay the execution fee
 		UsingComponents<WeightToFee, PenpalNativeCurrency, AccountId, Balances, ToAuthor<Runtime>>,
+		// This trader allows to pay with any assets exchangeable to native asset with
+		// [`AssetConversion`].
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			RelayLocation,
 			crate::AssetConversion,
