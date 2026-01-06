@@ -27,6 +27,7 @@ use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
 use pallet_staking_async_rc_client::{OutgoingValidatorSet, SessionReport, ValidatorSetReport};
 use sp_staking::SessionIndex;
+use xcm::latest::Assets;
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -490,6 +491,23 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub static NextRelayDeliveryFails: bool = false;
+	/// Mock XCM delivery fees to return from set_keys/purge_keys.
+	/// If None, returns empty Assets. If Some(amount), returns that amount of native token.
+	pub static MockDeliveryFees: Option<u128> = None;
+	/// When true, simulates fee charging failure (e.g., insufficient balance).
+	pub static MockFeeChargingFails: bool = false;
+}
+
+/// Helper to create mock delivery fees as Assets.
+fn mock_delivery_fees() -> Assets {
+	MockDeliveryFees::get()
+		.map(|amount| {
+			Assets::from(xcm::latest::Asset {
+				id: xcm::latest::AssetId(xcm::latest::Location::here()),
+				fun: xcm::latest::Fungibility::Fungible(amount),
+			})
+		})
+		.unwrap_or_default()
 }
 
 pub struct DeliverToRelay;
@@ -529,10 +547,15 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		Ok(())
 	}
 
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<Assets, ()> {
 		Self::ensure_delivery_guard()?;
+		// Simulate fee charging failure (e.g., insufficient balance)
+		if MockFeeChargingFails::take() {
+			return Err(());
+		}
 		if LocalQueue::get().is_some() {
-			return Ok(());
+			// Return mock fees if configured
+			return Ok(mock_delivery_fees());
 		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
@@ -543,13 +566,19 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 			)
 			.unwrap();
 		});
-		Ok(())
+		// Return mock fees if configured
+		Ok(mock_delivery_fees())
 	}
 
-	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
+	fn purge_keys(stash: Self::AccountId) -> Result<Assets, ()> {
 		Self::ensure_delivery_guard()?;
+		// Simulate fee charging failure (e.g., insufficient balance)
+		if MockFeeChargingFails::take() {
+			return Err(());
+		}
 		if LocalQueue::get().is_some() {
-			return Ok(());
+			// Return mock fees if configured
+			return Ok(mock_delivery_fees());
 		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
@@ -558,7 +587,8 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 			)
 			.unwrap();
 		});
-		Ok(())
+		// Return mock fees if configured
+		Ok(mock_delivery_fees())
 	}
 }
 

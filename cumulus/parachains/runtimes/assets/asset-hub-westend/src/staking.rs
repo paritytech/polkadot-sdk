@@ -443,6 +443,14 @@ parameter_types! {
 	pub RelayLocation: Location = Location::parent();
 }
 
+/// Converts an AccountId to an XCM Location for fee charging.
+pub struct AccountIdToLocation;
+impl sp_runtime::traits::Convert<AccountId, Location> for AccountIdToLocation {
+	fn convert(account: AccountId) -> Location {
+		Junction::AccountId32 { network: None, id: account.into() }.into()
+	}
+}
+
 pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
@@ -456,22 +464,32 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		>::send(report)
 	}
 
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<xcm::latest::Assets, ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
 			SetKeysMessage,
 			SetKeysToXcm,
-		>::send(SetKeysMessage { stash, keys })
+		>::send_with_fees::<
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			AccountIdToLocation,
+		>(SetKeysMessage { stash: stash.clone(), keys }, stash)
 	}
 
-	fn purge_keys(stash: Self::AccountId) -> Result<(), ()> {
+	fn purge_keys(stash: Self::AccountId) -> Result<xcm::latest::Assets, ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
 			PurgeKeysMessage,
 			PurgeKeysToXcm,
-		>::send(PurgeKeysMessage { stash })
+		>::send_with_fees::<
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			AccountIdToLocation,
+		>(PurgeKeysMessage { stash: stash.clone() }, stash)
 	}
 }
 

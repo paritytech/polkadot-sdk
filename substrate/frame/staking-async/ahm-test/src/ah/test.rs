@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ah::mock::*;
+use crate::ah::mock::{MockDeliveryFees, *};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::assert_ok;
@@ -1417,17 +1417,28 @@ mod session_keys {
 	#[test]
 	fn set_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator
+			// GIVEN: Account 1 is a validator with mock delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
+			let mock_fee_amount: u128 = 1_000_000;
+			MockDeliveryFees::set(Some(mock_fee_amount));
 
 			// WHEN: Validator sets session keys
-			// THEN: No error returned (keys forwarded to RC via XCM)
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
 				proof,
 			));
+
+			// THEN: DeliveryFeesPaid event is emitted with the fees
+			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
+				id: xcm::latest::AssetId(xcm::latest::Location::here()),
+				fun: xcm::latest::Fungibility::Fungible(mock_fee_amount),
+			});
+			System::assert_has_event(
+				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
+					.into(),
+			);
 		});
 	}
 
@@ -1552,13 +1563,23 @@ mod session_keys {
 	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 3 is a validator
+			// GIVEN: Account 3 is a validator with mock delivery fees configured
 			let validator: AccountId = 3;
+			let mock_fee_amount: u128 = 500_000;
+			MockDeliveryFees::set(Some(mock_fee_amount));
 
 			// WHEN: Validator purges session keys
 			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
 
-			// THEN: No error returned (purge forwarded to RC via XCM)
+			// THEN: DeliveryFeesPaid event is emitted with the fees
+			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
+				id: xcm::latest::AssetId(xcm::latest::Location::here()),
+				fun: xcm::latest::Fungibility::Fungible(mock_fee_amount),
+			});
+			System::assert_has_event(
+				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
+					.into(),
+			);
 		});
 	}
 
@@ -1697,6 +1718,51 @@ mod session_keys {
 		shared::in_rc(|| {
 			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+	}
+
+	#[test]
+	fn set_keys_fails_when_fee_charging_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator but fee charging will fail (simulates insufficient balance)
+			let validator: AccountId = 1;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			MockFeeChargingFails::set(true);
+
+			// WHEN: Validator tries to set keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+
+			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			assert!(System::events().iter().all(|e| !matches!(
+				e.event,
+				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+			)));
+		});
+	}
+
+	#[test]
+	fn purge_keys_fails_when_fee_charging_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Any account but fee charging will fail (simulates insufficient balance)
+			let account: AccountId = 3;
+			MockFeeChargingFails::set(true);
+
+			// WHEN: Account tries to purge keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account)),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+
+			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			assert!(System::events().iter().all(|e| !matches!(
+				e.event,
+				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+			)));
 		});
 	}
 }

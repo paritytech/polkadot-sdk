@@ -130,7 +130,7 @@ use sp_runtime::{
 	Perbill, TransactionOutcome,
 };
 use sp_staking::SessionIndex;
-use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
+use xcm::latest::{send_xcm, validate_send, Assets, ExecuteXcm, Location, SendError, SendXcm, Xcm};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
@@ -168,14 +168,18 @@ pub trait SendToRelayChain {
 	///
 	/// The keys are forwarded to `pallet-staking-async-ah-client::set_keys_from_ah` on the RC.
 	/// Note: proof is validated on AH side, so only validated keys are sent.
+	///
+	/// Returns the delivery fees charged on success.
 	#[allow(clippy::result_unit_err)]
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<(), ()>;
+	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<Assets, ()>;
 
 	/// Send a request to purge session keys on the relay chain.
 	///
 	/// The request is forwarded to `pallet-staking-async-ah-client::purge_keys_from_ah` on the RC.
+	///
+	/// Returns the delivery fees charged on success.
 	#[allow(clippy::result_unit_err)]
-	fn purge_keys(stash: Self::AccountId) -> Result<(), ()>;
+	fn purge_keys(stash: Self::AccountId) -> Result<Assets, ()>;
 }
 
 #[cfg(feature = "std")]
@@ -184,10 +188,10 @@ impl SendToRelayChain for () {
 	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		unimplemented!();
 	}
-	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<(), ()> {
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<Assets, ()> {
 		unimplemented!();
 	}
-	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
+	fn purge_keys(_stash: Self::AccountId) -> Result<Assets, ()> {
 		unimplemented!();
 	}
 }
@@ -464,6 +468,50 @@ where
 		let dest = Destination::get();
 		// send_xcm already calls validate internally
 		send_xcm::<Sender>(dest, xcm).map(|_| ()).map_err(|_| ())
+	}
+
+	/// Send the message with fee charging.
+	///
+	/// This method validates the XCM message first, charges delivery fees from the payer,
+	/// and only then delivers the message. This ensures fees are collected before the
+	/// message is sent.
+	///
+	/// - `message`: The message to send
+	/// - `payer`: The account paying delivery fees
+	///
+	/// Generic parameters:
+	/// - `XcmExec`: The XCM executor that implements `charge_fees`
+	/// - `Call`: The runtime call type (used by XcmExec)
+	/// - `AccountId`: The account identifier type
+	/// - `AccountToLocation`: Converter from AccountId to XCM Location
+	///
+	/// Returns the fees charged on success.
+	#[allow(clippy::result_unit_err)]
+	pub fn send_with_fees<XcmExec, Call, AccountId, AccountToLocation>(
+		message: Message,
+		payer: AccountId,
+	) -> Result<Assets, ()>
+	where
+		XcmExec: ExecuteXcm<Call>,
+		AccountToLocation: Convert<AccountId, Location>,
+	{
+		let payer_location = AccountToLocation::convert(payer);
+		let xcm = ToXcm::convert(message);
+		let dest = Destination::get();
+
+		let (ticket, price) = validate_send::<Sender>(dest, xcm).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to validate XCM: {:?}", e);
+		})?;
+
+		XcmExec::charge_fees(payer_location, price.clone()).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to charge XCM fees: {:?}", e);
+		})?;
+
+		Sender::deliver(ticket).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to deliver XCM: {:?}", e);
+		})?;
+
+		Ok(price)
 	}
 }
 
@@ -831,6 +879,8 @@ pub mod pallet {
 		},
 		/// A new offence was reported.
 		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
+		/// XCM delivery fees were charged for a user operation (set_keys or purge_keys).
+		DeliveryFeesPaid { who: T::AccountId, fees: Assets },
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1023,8 +1073,11 @@ pub mod pallet {
 
 			// Forward validated keys to RC (no proof needed, already validated)
 			#[cfg(not(feature = "runtime-benchmarks"))]
-			T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
-				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			{
+				let fees = T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
+					.map_err(|()| Error::<T>::XcmSendFailed)?;
+				Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
+			}
 			#[cfg(feature = "runtime-benchmarks")]
 			let _ = (stash.clone(), keys);
 
@@ -1058,8 +1111,11 @@ pub mod pallet {
 			// Forward purge request to RC via XCM
 			// Note: RC will fail with NoKeys if the account has no keys set
 			#[cfg(not(feature = "runtime-benchmarks"))]
-			T::SendToRelayChain::purge_keys(stash.clone())
-				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			{
+				let fees = T::SendToRelayChain::purge_keys(stash.clone())
+					.map_err(|()| Error::<T>::XcmSendFailed)?;
+				Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
+			}
 			#[cfg(feature = "runtime-benchmarks")]
 			let _ = stash.clone();
 

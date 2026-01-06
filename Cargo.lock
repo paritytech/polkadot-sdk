@@ -11311,6 +11311,7 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-tracing 16.0.0",
+ "staging-xcm",
 ]
 
 [[package]]

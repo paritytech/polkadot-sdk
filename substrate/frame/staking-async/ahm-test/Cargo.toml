@@ -25,6 +25,7 @@ sp-core = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
 
 # pallets we need in both
 pallet-balances = { workspace = true, default-features = true }

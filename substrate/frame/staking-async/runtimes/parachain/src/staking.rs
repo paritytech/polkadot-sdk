@@ -533,12 +533,14 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		>::send(report)
 	}
 
-	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<(), ()> {
-		Ok(())
+	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<xcm::latest::Assets, ()> {
+		// Stub implementation for test runtime - no actual fees charged
+		Ok(Default::default())
 	}
 
-	fn purge_keys(_stash: Self::AccountId) -> Result<(), ()> {
-		Ok(())
+	fn purge_keys(_stash: Self::AccountId) -> Result<xcm::latest::Assets, ()> {
+		// Stub implementation for test runtime - no actual fees charged
+		Ok(Default::default())
 	}
 }
 
