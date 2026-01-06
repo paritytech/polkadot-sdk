@@ -241,7 +241,7 @@ impl StorageInput {
 		}
 
 		let (total_length, exists) =
-			if let Some(total_length) = sp_io::storage::read(&key, &mut buffer, 0) {
+			if let Some(total_length) = sp_io::storage::read(&key, &mut buffer, 0, 1) {
 				(total_length, true)
 			} else {
 				(0, false)
@@ -267,7 +267,7 @@ impl StorageInput {
 		}
 
 		if let Some(length_minus_offset) =
-			sp_io::storage::read(&self.key, &mut self.buffer[present_bytes..], self.offset)
+			sp_io::storage::read(&self.key, &mut self.buffer[present_bytes..], self.offset, 1)
 		{
 			let bytes_read =
 				core::cmp::min(length_minus_offset as usize, self.buffer.len() - present_bytes);
@@ -311,7 +311,7 @@ impl StorageInput {
 		}
 
 		if let Some(length_minus_offset) =
-			sp_io::storage::read(&self.key, &mut out_remaining, self.offset)
+			sp_io::storage::read(&self.key, &mut out_remaining, self.offset, 1)
 		{
 			if (length_minus_offset as usize) < out_remaining.len() {
 				return Err("Not enough data to fill the buffer".into())
