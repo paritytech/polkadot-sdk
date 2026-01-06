@@ -99,7 +99,9 @@ snapshots_archive() {
 }
 
 snapshots_test_local() {
-    echo "==> Testing with local snapshots"
+    echo "==> Testing with local snapshots:"
+    echo "- ${SCRIPT_DIR}/${RELAYCHAIN_DB}"
+    echo "- ${SCRIPT_DIR}/${PARACHAIN_DB}"
 
     [[ -f "${SCRIPT_DIR}/${RELAYCHAIN_DB}" ]] || { echo "Error: $RELAYCHAIN_DB not found" >&2; exit 1; }
     [[ -f "${SCRIPT_DIR}/${PARACHAIN_DB}" ]] || { echo "Error: $PARACHAIN_DB not found" >&2; exit 1; }
@@ -117,11 +119,13 @@ snapshots_test_local() {
         -- full_node_warp_sync
 
     echo "Test passed - snapshots validated"
-    echo "Snapshot are ready to upload to google storage"
+    echo "Snapshots ready to upload to google storage:"
+    echo "- ${SCRIPT_DIR}/${RELAYCHAIN_DB}"
+    echo "- ${SCRIPT_DIR}/${PARACHAIN_DB}"
 }
 
 all() {
-    # build_binaries
+    build_binaries
     chainspec_parachain
     chainspec_relaychain
     snapshots_generate

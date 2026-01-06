@@ -23,7 +23,7 @@ use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
 	zombie_ci::full_node_warp_sync::common::{
 		add_parachain_collator_and_wait, add_relaychain_node_and_wait, build_network_config,
-		PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID, RELAY_BEST_BLOCK_TO_WAIT_FOR,
+		PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
 	},
 };
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
@@ -32,6 +32,8 @@ use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkNode,
 };
+
+pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
 // Asserting Warp sync requires at least sync=debug level
 async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {

@@ -23,7 +23,6 @@ use zombienet_sdk::{
 pub const PARA_ID: u32 = 2000;
 
 pub const PARA_BEST_BLOCK_TO_WAIT_FOR: f64 = 930.0;
-pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/full_node_warp_sync_db/relaychain-db.tgz";
 const DB_SNAPSHOT_PARACHAIN: &str =
@@ -196,7 +195,7 @@ pub(crate) async fn build_network_config(
 ///
 /// # Returns
 /// Reference to the added node
-pub async fn add_relaychain_node_and_wait<'a>(
+pub async fn add_relaychain_node_and_wait(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
 	is_validator: bool,
@@ -238,7 +237,7 @@ pub async fn add_relaychain_node_and_wait<'a>(
 ///
 /// # Returns
 /// Reference to the added node
-pub async fn add_parachain_collator_and_wait<'a>(
+pub async fn add_parachain_collator_and_wait(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
 	is_validator: bool,
