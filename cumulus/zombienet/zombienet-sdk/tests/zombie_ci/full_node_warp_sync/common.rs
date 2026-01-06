@@ -195,6 +195,7 @@ pub(crate) async fn build_network_config(
 ///
 /// # Returns
 /// Reference to the added node
+#[cfg(not(feature = "generate-snapshots"))]
 pub async fn add_relaychain_node_and_wait(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
@@ -237,6 +238,7 @@ pub async fn add_relaychain_node_and_wait(
 ///
 /// # Returns
 /// Reference to the added node
+#[cfg(not(feature = "generate-snapshots"))]
 pub async fn add_parachain_collator_and_wait(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
