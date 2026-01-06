@@ -12,5 +12,9 @@ doc:
 crates:
   - name: sc-network-statement
     bump: minor
+  - name: sc-rpc
+    bump: patch
+  - name: sc-rpc-spec-v2
+    bump: patch
   - name: substrate-test-runtime
     bump: patch
