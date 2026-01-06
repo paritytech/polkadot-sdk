@@ -1,8 +1,10 @@
 title: Backport revive changes to stable2512
+
 doc:
-- audience: Runtime Dev
-  description: |-
-  	Backport all the pallet_revive changes that are already on unstable2507.
+  - audience: Runtime Dev
+    description: |
+      Backport revive changes to stable2512.
+
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
