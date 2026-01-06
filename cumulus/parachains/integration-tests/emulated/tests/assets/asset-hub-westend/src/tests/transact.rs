@@ -251,6 +251,9 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 		amount_of_wnd_to_transfer_to_ah,
 	);
 
+	// Create a pool to pay fees with WND
+	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
+
 	// We create a pool between WND and USDT in AssetHub so we can do the exchange
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
