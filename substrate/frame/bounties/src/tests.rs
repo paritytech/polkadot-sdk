@@ -175,7 +175,6 @@ impl Config for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	type NativeAsset = Balances;
-	type AssetId = u32;
 	type Assets = Assets;
 	type RelevantAssets = RelevantAssets;
 }
@@ -195,7 +194,6 @@ impl Config<Instance1> for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	type NativeAsset = Balances;
-	type AssetId = u32;
 	type Assets = Assets;
 	type RelevantAssets = RelevantAssets;
 }
@@ -611,7 +609,7 @@ fn close_bounty_with_random_references_works() {
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 3, pot, 10));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 4, pot, 10));
 
-		for ((s, c), p) in (0..5).zip(0..5).zip(0..5) {
+		for ((s, c), p) in (0..10).zip(0..10).zip(0..10) {
 			hypothetically!({
 				// Completely mess up the account's references and check that closing still works
 				frame_system::Account::<Test>::mutate(&pot, |a| {

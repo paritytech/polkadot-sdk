@@ -103,14 +103,16 @@ use frame_support::traits::{
 	Get, Imbalance, OnUnbalanced, ReservableCurrency,
 };
 
+#[cfg(feature = "std")]
+use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
 	Debug, DispatchResult, Permill,
 };
 
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::EnsureOrigin,
+};
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
@@ -286,17 +288,11 @@ pub mod pallet {
 		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Mutate assets.
-		type Assets: FungiblesMutate<
-			Self::AccountId,
-			Balance = BalanceOf<Self, I>,
-			AssetId = Self::AssetId,
-		>;
-
-		/// Asset ID of the `Assets` item.
-		type AssetId: Parameter + MaxEncodedLen;
+		type Assets: FungiblesMutate<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Assets that should returned to the treasury by `close_bounty`.
-		type RelevantAssets: Get<Vec<Self::AssetId>>;
+		#[pallet::constant]
+		type RelevantAssets: Get<Vec<<Self::Assets as FungiblesInspect<Self::AccountId>>::AssetId>>;
 	}
 
 	#[pallet::error]
@@ -981,6 +977,23 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
+		}
+
+		/// Sanity check for Currency and Fungible adapter,
+		#[cfg(feature = "std")]
+		fn integrity_test() {
+			let Ok(alice) = Decode::decode(&mut TrailingZeroInput::zeroes()) else {
+				// cannot perform check...
+				return;
+			};
+			let amount = T::Currency::minimum_balance();
+
+			assert_ok!(T::Currency::deposit_creating(&alice, amount));
+			assert_eq!(
+				T::NativeAsset::total_balance(&alice),
+				amount,
+				"Currency and NativeAsset config items are configured to difference sources"
+			);
 		}
 	}
 }
