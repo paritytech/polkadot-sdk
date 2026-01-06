@@ -206,6 +206,10 @@ fn build_handler(
 		Statement,
 		futures::channel::oneshot::Sender<sp_statement_store::SubmitResult>,
 	)>(MAX_PENDING_STATEMENTS);
+	let (batch_queue_sender, batch_queue_receiver) = async_channel::bounded::<(
+		Vec<Statement>,
+		futures::channel::oneshot::Sender<sp_statement_store::SubmitResult>,
+	)>(MAX_PENDING_STATEMENTS);
 
 	let network = TestNetwork::new();
 	let peer_id = PeerId::random();
@@ -261,6 +265,22 @@ fn build_handler(
 			}
 		}));
 	}
+	{
+		let store = statement_store.clone();
+		let receiver = batch_queue_receiver.clone();
+		executor(Box::pin(async move {
+			loop {
+				let task = receiver.recv().await;
+				match task {
+					Ok((statements, completion)) => {
+						let result = store.submit_batch(statements, StatementSource::Network);
+						let _ = completion.send(result);
+					},
+					Err(_) => return,
+				}
+			}
+		}));
+	}
 
 	let handler = StatementHandler::new_for_testing(
 		"/statement/1".into(),
@@ -272,6 +292,7 @@ fn build_handler(
 		peers,
 		statement_store.clone(),
 		queue_sender,
+		batch_queue_sender,
 		batch_limit,
 	);
 	(handler, peer_id, temp_dir, statement_store)
@@ -365,7 +386,7 @@ fn bench_on_batch_statements(c: &mut Criterion) {
 	let statement_counts = [2000];
 	let thread_counts = [1,  4];
 	let executor_types = [("blocking", true)];
-	let batch_limits = [1, 2, 50, 1000, 2000];
+	let batch_limits = [1, 50, 200, 1000];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
@@ -393,6 +414,17 @@ fn bench_on_batch_statements(c: &mut Criterion) {
 							|| build_handler(executor.clone(), num_threads, batch_limit),
 							|(mut handler, peer_id, _temp_dir, _store)| {
 								handler.on_batch_statements(peer_id, statements.clone());
+
+								runtime.block_on(async {
+									while handler.pending_batches_mut().next().await.is_some() {}
+								});
+
+								let pending = handler.pending_batches_mut();
+								assert!(
+									pending.is_empty(),
+									"Pending batches not empty: {}",
+									pending.len()
+								);
 							},
 							criterion::BatchSize::LargeInput,
 						)

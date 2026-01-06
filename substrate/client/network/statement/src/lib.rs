@@ -206,6 +206,8 @@ impl StatementHandlerPrototype {
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		let (batch_queue_sender, mut batch_queue_receiver) =
+			async_channel::bounded(MAX_PENDING_STATEMENTS);
 
 		let store = statement_store.clone();
 		executor(
@@ -229,6 +231,23 @@ impl StatementHandlerPrototype {
 			}
 			.boxed(),
 		);
+		let store = statement_store.clone();
+		executor(
+			async move {
+				loop {
+					let task: Option<(Vec<Statement>, oneshot::Sender<SubmitResult>)> =
+						batch_queue_receiver.next().await;
+					match task {
+						None => return,
+						Some((statements, completion)) => {
+							let result = store.submit_batch(statements, StatementSource::Network);
+							let _ = completion.send(result);
+						},
+					}
+				}
+			}
+			.boxed(),
+		);
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -238,12 +257,14 @@ impl StatementHandlerPrototype {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			pending_batches: FuturesUnordered::new(),
 			network,
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
 			peers: HashMap::new(),
 			statement_store,
 			queue_sender,
+			batch_queue_sender,
 			metrics: if let Some(r) = metrics_registry {
 				Some(Metrics::register(r)?)
 			} else {
@@ -285,6 +306,9 @@ pub struct StatementHandler<
 	peers: HashMap<PeerId, Peer>,
 	statement_store: Arc<dyn StatementStore>,
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+	batch_queue_sender: async_channel::Sender<(Vec<Statement>, oneshot::Sender<SubmitResult>)>,
+	/// Pending statements verification tasks.
+	pending_batches: FuturesUnordered<Pin<Box<dyn Future<Output = (PeerId, Option<SubmitResult>)> + Send>>>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 	pub time_hashing: u64,
@@ -325,6 +349,7 @@ where
 		peers: HashMap<PeerId, Peer>,
 		statement_store: Arc<dyn StatementStore>,
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+		batch_queue_sender: async_channel::Sender<(Vec<Statement>, oneshot::Sender<SubmitResult>)>,
 		batch_limit: usize,
 	) -> Self {
 		Self {
@@ -339,6 +364,8 @@ where
 			peers,
 			statement_store,
 			queue_sender,
+			batch_queue_sender,
+			pending_batches: FuturesUnordered::new(),
 			metrics: None,
 			time_hashing: 0,
 			batch_limit,
@@ -352,6 +379,17 @@ where
 	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
 	{
 		&mut self.pending_statements
+	}
+
+	/// Get mutable access to pending statement batches for testing/benchmarking.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn pending_batches_mut(
+		&mut self,
+	) -> &mut FuturesUnordered<
+		Pin<Box<dyn Future<Output = (PeerId, Option<SubmitResult>)> + Send>>,
+	>
+	{
+		&mut self.pending_batches
 	}
 
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -374,6 +412,12 @@ where
 						log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
 					}
 				},
+				(peer, result) = self.pending_batches.select_next_some() => {
+					if let Some(result) = result {
+						self.on_handle_statement_import(peer, &result);
+					}
+				},
+
 				sync_event = self.sync_event_stream.next() => {
 					if let Some(sync_event) = sync_event {
 						self.handle_sync_event(sync_event);
@@ -567,7 +611,6 @@ where
 			return
 		}
 
-		let mut results = Vec::new();
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut batch = Vec::with_capacity(self.batch_limit.max(1));
 			for s in statements.into_iter() {
@@ -594,26 +637,56 @@ where
 				batch.push(s);
 
 				if batch.len() == self.batch_limit {
-					let result = self
-						.statement_store
-						.submit_batch(batch.split_off(0), StatementSource::Network);
-					results.push(result);
+					let (completion_sender, completion_receiver) = oneshot::channel();
+					match self.batch_queue_sender.try_send((batch.split_off(0), completion_sender)) {
+						Ok(()) => {
+							let peer = who.clone();
+							self.pending_batches.push(
+								async move { (peer, completion_receiver.await.ok()) }.boxed(),
+							);
+						},
+						Err(async_channel::TrySendError::Full(_)) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Dropped statement batch because validation channel is full",
+							);
+						},
+						Err(async_channel::TrySendError::Closed(_)) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"Dropped statement batch because validation channel is closed",
+							);
+						},
+					}
 				}
 			}
 
 			if !batch.is_empty() {
-				let result = self
-					.statement_store
-					.submit_batch(batch, StatementSource::Network);
-				results.push(result);
+				let (completion_sender, completion_receiver) = oneshot::channel();
+				match self.batch_queue_sender.try_send((batch, completion_sender)) {
+					Ok(()) => {
+						let peer = who.clone();
+						self.pending_batches.push(
+							async move { (peer, completion_receiver.await.ok()) }.boxed(),
+						);
+					},
+					Err(async_channel::TrySendError::Full(_)) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Dropped statement batch because validation channel is full",
+						);
+					},
+					Err(async_channel::TrySendError::Closed(_)) => {
+						log::trace!(
+							target: LOG_TARGET,
+							"Dropped statement batch because validation channel is closed",
+						);
+					},
+				}
 			}
 		} else {
 			log::trace!(target: LOG_TARGET, "Dropping statements from unknown peer {}", who);
 			return
-		}
-
-		for result in results {
-			self.on_handle_statement_import(who, &result);
 		}
 	}
 
@@ -1077,6 +1150,7 @@ mod tests {
 			queue_sender,
 			metrics: None,
 			time_hashing: 0,
+			batch_limit: 10,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
