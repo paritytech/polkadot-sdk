@@ -22,7 +22,7 @@ use codec::Encode;
 use core::ops::Mul;
 use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_noop, assert_ok,
 	traits::{
 		fungible::Mutate,
 		fungibles::{InspectEnumerable, Mutate as FungiblesMutate},
@@ -2000,7 +2000,7 @@ pub fn exchange_asset_on_asset_hub_works<
 				if give_amount > liquidity_native * 3 {
 					// Insufficient balance test - provide less than give_amount
 					total_balance_needed = total_balance_needed
-						.saturating_add(Balance::from(give_amount).saturating_sub(Balance::from(1_000 * UNITS)))
+						.saturating_add(Balance::from(give_amount).saturating_sub(Balance::from(give_amount / 2)))
 						.saturating_add(Balance::from(1_000 * UNITS)); // Small buffer for ED
 				} else {
 					// Other failure cases (e.g., insufficient liquidity) - provide enough balance but exchange will fail

@@ -66,6 +66,7 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
+use sp_tracing::{capture_test_logs, tracing::Level};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
@@ -1986,42 +1987,48 @@ fn exchange_asset_success() {
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	exchange_asset_on_asset_hub_works::<
-		Runtime,
-		RuntimeCall,
-		RuntimeOrigin,
-		Block,
-		ForeignAssetsInstance,
-	>(
-		collator_session_keys(),
-		ASSET_HUB_ID,
-		AccountId::from(ALICE),
-		WestendLocation::get(),
-		true,
-		1_000 * UNITS,
-		2_000 * UNITS,
-		false,
-	);
+	let log_capture = capture_test_logs!(Level::TRACE, true, {
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			1_000 * UNITS,
+			2_000 * UNITS,
+			false,
+		);
+	});
+	assert!(log_capture.contains("NoDeal"));
 }
 
 #[test]
 fn exchange_asset_insufficient_balance() {
-	exchange_asset_on_asset_hub_works::<
-		Runtime,
-		RuntimeCall,
-		RuntimeOrigin,
-		Block,
-		ForeignAssetsInstance,
-	>(
-		collator_session_keys(),
-		ASSET_HUB_ID,
-		AccountId::from(ALICE),
-		WestendLocation::get(),
-		true,
-		5_000 * UNITS, // This amount will be greater than initial balance
-		1_665 * UNITS,
-		false,
-	);
+	let log_capture = capture_test_logs!(Level::TRACE, true, {
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			5_000 * UNITS, // This amount will be greater than initial balance
+			1_665 * UNITS,
+			false,
+		);
+	});
+	assert!(log_capture.contains("Funds are unavailable"));
 }
 
 #[test]
