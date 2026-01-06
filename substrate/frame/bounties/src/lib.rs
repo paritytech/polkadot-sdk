@@ -95,7 +95,12 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
+	fungible::Inspect as FungibleInspect,
+	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
+	tokens::{Fortitude, Preservation},
+	Currency,
+	ExistenceRequirement::AllowDeath,
+	Get, Imbalance, OnUnbalanced, ReservableCurrency,
 };
 
 use sp_runtime::{
@@ -276,6 +281,15 @@ pub mod pallet {
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
+
+		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
+		type AssetId: Parameter + MaxEncodedLen;
+		type Assets: FungiblesMutate<
+			Self::AccountId,
+			Balance = BalanceOf<Self, I>,
+			AssetId = Self::AssetId,
+		>;
+		type RelevantAssets: Get<Vec<Self::AssetId>>;
 	}
 
 	#[pallet::error]
@@ -797,13 +811,40 @@ pub mod pallet {
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
 
-					let balance = T::Currency::free_balance(&bounty_account);
+					// Transfer out all relevant assets
+					for id in T::RelevantAssets::get() {
+						let balance = T::Assets::reducible_balance(
+							id.clone(),
+							&bounty_account,
+							Preservation::Expendable,
+							Fortitude::Force,
+						);
+						if balance.is_zero() {
+							continue;
+						}
+
+						let res = T::Assets::transfer(
+							id,
+							&bounty_account,
+							&Self::account_id(),
+							balance,
+							Preservation::Expendable,
+						);
+						// This can only fail if the treasury account does not exist, hence ignored.
+						debug_assert!(res.is_ok());
+					}
+
+					let balance = T::NativeAsset::reducible_balance(
+						&bounty_account,
+						Preservation::Expendable,
+						Fortitude::Force,
+					);
 					let res = T::Currency::transfer(
 						&bounty_account,
 						&Self::account_id(),
 						balance,
 						AllowDeath,
-					); // should not fail
+					);
 					debug_assert!(res.is_ok());
 
 					*maybe_bounty = None;

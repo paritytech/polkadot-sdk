@@ -19,21 +19,25 @@
 
 #![cfg(test)]
 
-use super::*;
 use crate as pallet_bounties;
+use crate::pallet::*;
 
+use crate::{Bounty, BountyStatus};
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok,
+	pallet_prelude::*,
+	parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
 	PalletId,
 };
-
+use frame_system::{pallet_prelude::*, EnsureSigned};
 use sp_runtime::{
 	traits::{BadOrigin, IdentityLookup},
-	BuildStorage, Perbill, Storage,
+	BuildStorage, Perbill, Permill, Storage,
 };
 
 use super::Event as BountiesEvent;
@@ -51,6 +55,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Bounties: pallet_bounties,
 		Bounties1: pallet_bounties::<Instance1>,
 		Treasury: pallet_treasury,
@@ -132,6 +137,19 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BenchmarkHelper = ();
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type AssetDeposit = ConstU64<1>;
+	type AssetAccountDeposit = ConstU64<10>;
+	type MetadataDepositBase = ConstU64<1>;
+	type MetadataDepositPerByte = ConstU64<1>;
+	type ApprovalDeposit = ConstU64<1>;
+}
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
@@ -139,6 +157,7 @@ parameter_types! {
 	pub const CuratorDepositMin: Balance = 3;
 	pub static BountyUpdatePeriod: u64 = 20;
 	pub static DataDepositPerByte: u64 = 1;
+	pub static RelevantAssets: Vec<u32> = vec![1, 2];
 }
 
 impl Config for Test {
@@ -155,6 +174,10 @@ impl Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type NativeAsset = Balances;
+	type AssetId = u32;
+	type Assets = Assets;
+	type RelevantAssets = RelevantAssets;
 }
 
 impl Config<Instance1> for Test {
@@ -171,6 +194,10 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type NativeAsset = Balances;
+	type AssetId = u32;
+	type Assets = Assets;
+	type RelevantAssets = RelevantAssets;
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
@@ -194,6 +221,17 @@ impl ExtBuilder {
 			},
 			treasury: Default::default(),
 			treasury_1: Default::default(),
+			assets: pallet_assets::GenesisConfig {
+				assets: vec![
+					(0, 0, false, 5),
+					(1, 0, false, 5),
+					(2, 0, true, 5),
+					(3, 0, false, 5),
+					(4, 0, true, 5),
+				],
+				accounts: vec![(0, 0, 100), (1, 0, 100), (2, 0, 100), (3, 0, 100), (4, 0, 100)],
+				..Default::default()
+			},
 		}
 		.build_storage()
 		.unwrap()
@@ -457,6 +495,150 @@ fn close_bounty_works() {
 		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
 
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
+	});
+}
+
+#[test]
+#[allow(deprecated)]
+fn close_bounty_with_additional_assets_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let pot = Bounties::bounty_account_id(0);
+		let ed = 1;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 1));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0));
+
+		assert!(matches!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap().status,
+			BountyStatus::Active { .. }
+		));
+		// Send the Bounty account some funds
+		Balances::make_free_balance_be(&pot, 100);
+
+		// We *could* close the bounty now
+		hypothetically_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+
+		// If we send an insufficient asset to the bounty, then the reaping will preserve ED.
+		// Otherwise it will transfer out all balance.
+		// Case 1: Bounty acc is blocked
+		hypothetically!({
+			// Send irrelevant insufficient asset to the bounty account.
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 0, pot, 10));
+
+			// Now we can close the bounty, but the account is not gone
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			// Bounty account must exist
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+
+			assert_eq!(Balances::total_balance(&pot), ed, "ED is preserved");
+			// This ^ was fixed by #TODO. Otherwise, instead of just ED, everything would remain.
+		});
+
+		// Case 2: Bounty acc is not blocked and transfers our all balances
+		hypothetically!({
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 3: Blocked by relevant asset (insufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 1, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 4: Blocked by relevant asset (sufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 2, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 5: Blocked by irrelevant asset (sufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 4, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+			assert_eq!(Assets::balance(4, &pot), 10);
+		});
+
+		// Case 6: Blocked by irrelevant asset (insufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 3, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), ed, "ED is preserved");
+			assert_eq!(Assets::balance(3, &pot), 10);
+		});
+	});
+}
+
+#[test]
+#[allow(deprecated)]
+fn close_bounty_with_random_references_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let pot = Bounties::bounty_account_id(0);
+		let ed = 1;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 1));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0));
+
+		assert!(matches!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap().status,
+			BountyStatus::Active { .. }
+		));
+		// Send some funds and assets to the bounty account
+		Balances::make_free_balance_be(&pot, 100);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 0, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 1, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 2, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 3, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 4, pot, 10));
+
+		for ((s, c), p) in (0..5).zip(0..5).zip(0..5) {
+			hypothetically!({
+				// Completely mess up the account's references and check that closing still works
+				frame_system::Account::<Test>::mutate(&pot, |a| {
+					a.sufficients = s;
+					a.consumers = c;
+					a.providers = p;
+				});
+
+				// Bounty acc has all the balances
+				assert_eq!(Balances::total_balance(&pot), 100);
+				assert_eq!(Assets::balance(0, &pot), 10);
+				assert_eq!(Assets::balance(1, &pot), 10);
+				assert_eq!(Assets::balance(2, &pot), 10);
+				assert_eq!(Assets::balance(3, &pot), 10);
+				assert_eq!(Assets::balance(4, &pot), 10);
+
+				assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+				// Native balance not more than ED
+				assert!(Balances::total_balance(&pot) <= ed);
+				// Only the non-relevant assets remain
+				assert_eq!(Assets::balance(0, &pot), 10);
+				assert_eq!(Assets::balance(1, &pot), 0);
+				assert_eq!(Assets::balance(2, &pot), 0);
+				assert_eq!(Assets::balance(3, &pot), 10);
+				assert_eq!(Assets::balance(4, &pot), 10);
+			});
+		}
 	});
 }
 
