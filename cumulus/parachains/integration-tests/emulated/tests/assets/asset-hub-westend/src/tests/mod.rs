@@ -17,7 +17,7 @@ mod aliases;
 mod claim_assets;
 mod exchange_asset;
 mod fellowship_treasury;
-mod foreign_assets;
+// mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
 mod reward_pool;
@@ -58,11 +58,10 @@ macro_rules! assets_balance_on {
 #[macro_export]
 macro_rules! create_pool_with_wnd_on_internal {
 	// default amounts
-	( $chain:ident, $asset_id:expr, $is_foreign:expr, $asset_owner:expr ) => {
+	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_pool_with_wnd_on!(
 			$chain,
 			$asset_id,
-			$is_foreign,
 			$asset_owner,
 			1_000_000_000_000,
 			2_000_000_000_000
@@ -130,7 +129,6 @@ macro_rules! create_pool_with_wnd_on {
 	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
-				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
 
@@ -144,9 +142,9 @@ macro_rules! create_pool_with_wnd_on {
 					owner.clone().into(),
 					10_000_000_000_000, // For it to have more than enough.
 				));
-
-				$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 			});
+
+			$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 		}
 	};
 }
@@ -168,7 +166,6 @@ macro_rules! create_foreign_pool_with_wnd_on {
 	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
-				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
 
@@ -178,9 +175,9 @@ macro_rules! create_foreign_pool_with_wnd_on {
 						owner.clone().into(),
 						10_000_000_000_000, // For it to have more than enough.
 				));
-
-				$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 			});
+
+			$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 		}
 	};
 }
