@@ -60,7 +60,6 @@ struct EnvDef {
 /// Parsed host function definition.
 struct HostFn {
 	item: syn::ItemFn,
-	is_stable: bool,
 	name: String,
 	returns: HostFnReturn,
 	cfg: Option<syn::Attribute>,
@@ -124,22 +123,15 @@ impl HostFn {
 		};
 
 		// process attributes
-		let msg = "Only #[stable], #[cfg] and #[mutating] attributes are allowed.";
+		let msg = "Only #[cfg] and #[mutating] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
-		let mut is_stable = false;
 		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
-				"stable" => {
-					if is_stable {
-						return Err(err(span, "#[stable] can only be specified once"))
-					}
-					is_stable = true;
-				},
 				"mutating" => {
 					if mutating {
 						return Err(err(span, "#[mutating] can only be specified once"))
@@ -253,7 +245,7 @@ impl HostFn {
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
-						Ok(Self { item, is_stable, name, returns, cfg })
+						Ok(Self { item, name, returns, cfg })
 					},
 					_ => Err(err(span, &msg)),
 				}
@@ -324,16 +316,11 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
-	let stable_syscalls = expand_func_list(def, false);
-	let all_syscalls = expand_func_list(def, true);
+	let all_syscalls = expand_func_list(def);
 
 	quote! {
-		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
-			if include_unstable {
-				#all_syscalls
-			} else {
-				#stable_syscalls
-			}
+		pub fn list_syscalls() -> &'static [&'static [u8]] {
+			#all_syscalls
 		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
@@ -501,17 +488,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 				});
 				quote! { #( #docs )* }
 			};
-			let availability = if func.is_stable {
-				let info = "\n# Stable API\nThis API is stable and will never change.";
-				quote! { #[doc = #info] }
-			} else {
-				let info =
-				"\n# Unstable API\nThis API is not standardized and only available for testing.";
-				quote! { #[doc = #info] }
-			};
 			quote! {
 				#func_docs
-				#availability
 			}
 		};
 		quote! {
@@ -525,8 +503,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 	}
 }
 
-fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
-	let docs = def.host_funcs.iter().filter(|f| include_unstable || f.is_stable).map(|f| {
+fn expand_func_list(def: &EnvDef) -> TokenStream2 {
+	let docs = def.host_funcs.iter().map(|f| {
 		let name = Literal::byte_string(f.name.as_bytes());
 		quote! {
 			#name.as_slice()
