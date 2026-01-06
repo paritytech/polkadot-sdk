@@ -1981,54 +1981,51 @@ fn exchange_asset_success() {
 		true,
 		500 * UNITS,
 		665 * UNITS,
-		true,
+		None,
 	);
 }
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	let log_capture = capture_test_logs!(Level::TRACE, true, {
-		exchange_asset_on_asset_hub_works::<
-			Runtime,
-			RuntimeCall,
-			RuntimeOrigin,
-			Block,
-			ForeignAssetsInstance,
-		>(
-			collator_session_keys(),
-			ASSET_HUB_ID,
-			AccountId::from(ALICE),
-			WestendLocation::get(),
-			true,
-			1_000 * UNITS,
-			2_000 * UNITS,
-			false,
-		);
-	});
-	assert!(log_capture.contains("NoDeal"));
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		1_000 * UNITS,
+		2_000 * UNITS,
+		Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+	);
 }
 
 #[test]
 fn exchange_asset_insufficient_balance() {
-	let log_capture = capture_test_logs!(Level::TRACE, true, {
-		exchange_asset_on_asset_hub_works::<
-			Runtime,
-			RuntimeCall,
-			RuntimeOrigin,
-			Block,
-			ForeignAssetsInstance,
-		>(
-			collator_session_keys(),
-			ASSET_HUB_ID,
-			AccountId::from(ALICE),
-			WestendLocation::get(),
-			true,
-			5_000 * UNITS, // This amount will be greater than initial balance
-			1_665 * UNITS,
-			false,
-		);
-	});
-	assert!(log_capture.contains("Funds are unavailable"));
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		5_000 * UNITS, // This amount will be greater than initial balance
+		1_665 * UNITS,
+		Some(xcm::v5::InstructionError {
+			index: 0,
+			error: xcm::v5::Error::FailedToTransactAsset(""),
+		}),
+	);
 }
 
 #[test]
@@ -2047,7 +2044,7 @@ fn exchange_asset_pool_not_created() {
 		false, // Pool not created
 		500 * UNITS,
 		665 * UNITS,
-		false,
+		Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
 	);
 }
 
@@ -2067,6 +2064,6 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 		true,
 		100_000_000_000u128,
 		1_000_000_000u128,
-		true,
+		None,
 	);
 }

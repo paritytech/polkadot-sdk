@@ -22,7 +22,7 @@ use codec::Encode;
 use core::ops::Mul;
 use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{
 		fungible::Mutate,
 		fungibles::{InspectEnumerable, Mutate as FungiblesMutate},
@@ -1946,7 +1946,7 @@ pub fn exchange_asset_on_asset_hub_works<
 	create_pool: bool,
 	give_amount: Balance,
 	want_amount: Balance,
-	should_succeed: bool,
+	expected_error: Option<xcm::v5::InstructionError>,
 ) where
 	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
@@ -1980,41 +1980,25 @@ pub fn exchange_asset_on_asset_hub_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			let native_asset_id = xcm::v5::AssetId(native_asset_location.clone());
 			let origin = RuntimeOrigin::signed(account.clone());
 			let asset_location: Location = Location::new(1, [Parachain(2001)]);
+			let asset_id = xcm::v5::AssetId(asset_location.clone());
 
-			// Setup initial state - need enough for liquidity + give_amount + fees
-			let liquidity_native = 1_000_000_000_000u128;
-			// Need: ED + liquidity_native (for pool) + (optionally give_amount for exchange) + buffer for fees
-			// For insufficient balance tests, we intentionally provide less than give_amount + fees
-			// Calculate total needed: liquidity_native + (give_amount only if should_succeed) + buffer for fees and ED
-			let mut total_balance_needed = Balance::from(liquidity_native);
-			if should_succeed {
-				// For success cases, provide enough for give_amount + fees
+			let mut total_balance_needed = Balance::from(1_000 * UNITS);
+			if expected_error.is_none() {
+				total_balance_needed = total_balance_needed.saturating_add(Balance::from(give_amount));
+			} else if give_amount > 1_000_000_000_000u128 * 3 {
 				total_balance_needed = total_balance_needed
-					.saturating_add(Balance::from(give_amount))
-					.saturating_add(Balance::from(10_000 * UNITS)); // Large buffer for fees and ED
+					.saturating_add(Balance::from(give_amount).saturating_sub(Balance::from(give_amount / 2)));
 			} else {
-				// For failure cases, check if give_amount is very large (> 3x liquidity)
-				// If so, assume we're testing insufficient balance - provide less than give_amount
-				if give_amount > liquidity_native * 3 {
-					// Insufficient balance test - provide less than give_amount
-					total_balance_needed = total_balance_needed
-						.saturating_add(Balance::from(give_amount).saturating_sub(Balance::from(give_amount / 2)))
-						.saturating_add(Balance::from(1_000 * UNITS)); // Small buffer for ED
-				} else {
-					// Other failure cases (e.g., insufficient liquidity) - provide enough balance but exchange will fail
-					total_balance_needed = total_balance_needed
-						.saturating_add(Balance::from(give_amount))
-						.saturating_add(Balance::from(10_000 * UNITS)); // Large buffer for fees and ED
-				}
+				total_balance_needed = total_balance_needed.saturating_add(Balance::from(give_amount));
 			}
 			assert_ok!(<pallet_balances::Pallet<Runtime> as Mutate<_>>::mint_into(
 				&account,
 				total_balance_needed
 			));
 
-			// Create the foreign asset
 			assert_ok!(pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::force_create(
 				RuntimeOrigin::root(),
 				asset_location.clone().into(),
@@ -2023,22 +2007,18 @@ pub fn exchange_asset_on_asset_hub_works<
 				1
 			));
 
-			// Setup pool if required
 			if create_pool {
-				// Mint foreign assets for liquidity
 				assert_ok!(pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::mint_into(
 					asset_location.clone(),
 					&account,
 					10_000_000_000_000
 				));
 
-				// Convert to v5 locations for pool creation
 				let native_v5 = xcm::v5::Location::try_from(native_asset_location.clone())
 					.expect("conversion works");
 				let asset_v5 = xcm::v5::Location::try_from(asset_location.clone())
 					.expect("conversion works");
 
-				// Create pool and add liquidity
 				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
 					RuntimeOrigin::signed(account.clone()),
 					Box::new(native_v5.clone()),
@@ -2048,7 +2028,7 @@ pub fn exchange_asset_on_asset_hub_works<
 					RuntimeOrigin::signed(account.clone()),
 					Box::new(native_v5.clone()),
 					Box::new(asset_v5.clone()),
-					liquidity_native,
+					1_000_000_000_000,
 					2_000_000_000_000,
 					0,
 					0,
@@ -2056,42 +2036,31 @@ pub fn exchange_asset_on_asset_hub_works<
 				));
 			}
 
-			// Calculate want_amount_min - use quoted amount if pool exists and we expect success, otherwise use provided want_amount
-			let want_amount_min = if create_pool && should_succeed {
-				// Convert to v5 locations for quoting
+			let foreign_balance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
+			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+
+			let want_amount_min = if create_pool && expected_error.is_none() {
 				let native_v5 = xcm::v5::Location::try_from(native_asset_location.clone())
 					.expect("conversion works");
 				let asset_v5 = xcm::v5::Location::try_from(asset_location.clone())
 					.expect("conversion works");
-
-				// Calculate want_amount based on actual pool reserves and fees
 				pallet_asset_conversion::Pallet::<Runtime>::quote_price_exact_tokens_for_tokens(
 					native_v5,
 					asset_v5,
 					give_amount,
-					true, // include fee
+					true,
 				)
-				.map(|quoted| (quoted * 90) / 100) // Use 90% of quoted amount as minimum
+				.map(|quoted| (quoted * 90) / 100)
 				.unwrap_or(want_amount)
 			} else {
-				// For failure cases or when pool doesn't exist, use the provided want_amount directly
 				want_amount
 			};
 
-			// Execute the exchange
-			let foreign_balance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
-			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
-
-			// Use v4 locations in XCM - matcher will convert to v5 to match pool
-			let give: Assets = (native_asset_location.clone(), give_amount).into();
-			let want: Assets = (asset_location.clone(), want_amount_min).into();
+			let give: Assets = (native_asset_id, give_amount).into();
+			let want: Assets = (asset_id, want_amount_min).into();
 			let xcm = Xcm(vec![
 				WithdrawAsset(give.clone().into()),
-				ExchangeAsset {
-					give: Definite((native_asset_location.clone(), give_amount).into()),
-					want: want.clone().into(),
-					maximal: true,
-				},
+				ExchangeAsset { give: give.into(), want: want.into(), maximal: true },
 				DepositAsset { assets: Wild(All), beneficiary: account.clone().into() },
 			]);
 
@@ -2101,42 +2070,34 @@ pub fn exchange_asset_on_asset_hub_works<
 				Weight::MAX
 			);
 
-			// Verify results
 			let foreign_balance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.into(), &account);
 			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
 
-			if should_succeed {
-				assert_ok!(result);
-				assert!(
-					foreign_balance_after >= foreign_balance_before + want_amount_min,
-					"Expected foreign balance to increase by at least {want_amount_min}, got {foreign_balance_after} from {foreign_balance_before}"
+			if let Some(xcm::v5::InstructionError { index, error }) = expected_error {
+				assert_err_ignore_postinfo!(
+					result,
+					pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
+						index,
+						error: error.into()
+					}
 				);
 				assert_eq!(
-					native_balance_after,
-					native_balance_before - give_amount,
-					"Expected native balance to decrease by {give_amount}, got {native_balance_after} from {native_balance_before}"
-				);
-			} else {
-				// Check that execution failed - XCM execution can return Ok even if the XCM itself failed
-				// The real indicator of failure is that balances didn't change
-				// We check balances first, and if they changed, we verify the result was an error
-				if foreign_balance_after != foreign_balance_before || native_balance_after != native_balance_before {
-					// Balances changed, so execution must have succeeded - this is unexpected
-					panic!(
-						"Expected execution to fail but balances changed. Result: {:?}, foreign: {} -> {}, native: {} -> {}",
-						result, foreign_balance_before, foreign_balance_after, native_balance_before, native_balance_after
-					);
-				}
-				// Balances didn't change, which indicates failure - this is expected
-				assert_eq!(
-					foreign_balance_after,
-					foreign_balance_before,
+					foreign_balance_after, foreign_balance_before,
 					"Foreign balance changed unexpectedly: got {foreign_balance_after}, expected {foreign_balance_before}"
 				);
 				assert_eq!(
-					native_balance_after,
-					native_balance_before,
+					native_balance_after, native_balance_before,
 					"Native balance changed unexpectedly: got {native_balance_after}, expected {native_balance_before}"
+				);
+			} else {
+				assert_ok!(result);
+				assert!(
+					foreign_balance_after >= foreign_balance_before + want_amount_min,
+					"Expected foreign balance to increase by at least {want_amount_min} units, got {foreign_balance_after} from {foreign_balance_before}"
+				);
+				assert_eq!(
+					native_balance_after, native_balance_before - give_amount,
+					"Expected WND balance to decrease by {give_amount} units, got {native_balance_after} from {native_balance_before}"
 				);
 			}
 		});
