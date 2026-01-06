@@ -16,8 +16,9 @@ mod spam_statement_distribution_requests;
 mod sync_backing;
 mod validator_disabling;
 
-// Disable PVF test temporarily
+// Disable following tests temporarily
 // since depends on the below:
 // https://github.com/paritytech/zombienet-sdk/pull/487
 // https://github.com/paritytech/zombienet-sdk/pull/484
-//mod parachains_pvf;
+// mod parachains_pvf;
+// mod parachains_disputes;

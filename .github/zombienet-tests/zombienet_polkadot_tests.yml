@@ -6,13 +6,11 @@
 #   test-filter: "functional::parachains_pvf::parachains_pvf_test"
 #   runner-type: "default"
 #   use-zombienet-sdk: true
-
-- job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
-  test-definition: "0002-parachains-disputes.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
-  runner-type: "default"
-  concurrency: 1
-  use-zombienet-sdk: false
+#
+# - job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
+#   test-filter: "functional::parachains_disputes::parachains_disputes_test"
+#   runner-type: "default"
+#   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
   test-filter: "functional::beefy_and_mmr::beefy_and_mmr_test"

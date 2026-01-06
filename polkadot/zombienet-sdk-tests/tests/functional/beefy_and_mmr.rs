@@ -7,12 +7,10 @@
 //!
 //! Checks performed:
 //! - BEEFY metrics and finalized heads across validators.
-//! - Pause/resume an "unstable" validator and confirm the chain continues
-//!   finalizing and the validator set rotates.
+//! - Pause/resume an "unstable" validator and confirm the chain continues finalizing and the
+//!   validator set rotates.
 //! - Use RPCs to inspect MMR leaves and to generate and verify MMR proofs
-//!
 
-use crate::utils::{env_or_default, initialize_network, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use subxt::ext::subxt_rpcs::client::RpcParams;
@@ -20,6 +18,8 @@ use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	Network, NetworkConfig, NetworkConfigBuilder,
 };
+
+use crate::utils::{env_or_default, initialize_network, INTEGRATION_IMAGE_ENV};
 
 const VALIDATOR_NAMES: [&str; 3] = ["validator-0", "validator-1", "validator-2"];
 const UNSTABLE: &str = "validator-unstable";
@@ -141,7 +141,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			]);
 
 		// Add validator nodes and unstable validator
-		// NOTE: Once we update zombienet-sdk to newer version >v0.3.13, the following can be replaced with a group
+		// NOTE: Once we update zombienet-sdk to newer version >v0.3.13, the following can be
+		// replaced with a group
 		r.with_node(|node| node.with_name("validator-0"))
 			.with_node(|node| node.with_name("validator-1"))
 			.with_node(|node| node.with_name("validator-2"))
