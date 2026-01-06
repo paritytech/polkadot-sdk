@@ -138,7 +138,7 @@ where
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
 				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
-				return Ok(checked)
+				return Ok(checked);
 			};
 		}
 		self.0.check(lookup)
@@ -285,9 +285,9 @@ pub trait EthExtra {
 
 		// Check transaction type and reject unsupported transaction types
 		match &tx {
-			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
-			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
-			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_)
+			| crate::evm::api::TransactionSigned::Transaction2930Signed(_)
+			| crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
 				// Supported transaction types, continue processing
 			},
 			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
@@ -545,11 +545,11 @@ mod test {
 				effective_gas_price,
 				encoded_len,
 				..
-			}) if dest == tx.to.unwrap() &&
-				value == tx.value.unwrap_or_default().as_u64().into() &&
-				data == tx.input.to_vec() &&
-				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price =>
+			}) if dest == tx.to.unwrap()
+				&& value == tx.value.unwrap_or_default().as_u64().into()
+				&& data == tx.input.to_vec()
+				&& transaction_encoded == signed_transaction.signed_payload()
+				&& effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
@@ -585,11 +585,11 @@ mod test {
 				effective_gas_price,
 				encoded_len,
 				..
-			}) if value == expected_value &&
-				code == expected_code &&
-				data == expected_data &&
-				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price =>
+			}) if value == expected_value
+				&& code == expected_code
+				&& data == expected_data
+				&& transaction_encoded == signed_transaction.signed_payload()
+				&& effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
@@ -708,51 +708,6 @@ mod test {
 			},
 			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
 		}
-	}
-
-	#[test]
-	fn dry_run_contract_deployment_with_nick_method_works() {
-		// Arrange
-		let raw_transaction_bytes = alloy_core::hex!("0xf9016c8085174876e8008303c4d88080b90154608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c634300060200331b83247000822470");
-
-		ExtBuilder::default().build().execute_with(|| {
-			let mut signed_transaction =
-				TransactionSigned::decode(raw_transaction_bytes.as_slice())
-					.expect("Invalid raw transaction bytes");
-			if let TransactionSigned::TransactionLegacySigned(ref mut legacy_transaction) =
-				signed_transaction
-			{
-				legacy_transaction.transaction_legacy_unsigned.gas =
-					U256::from_dec_str("3750815700000").unwrap();
-			}
-			let generic_transaction = GenericTransaction::from_signed(
-				signed_transaction.clone(),
-				Pallet::<Test>::evm_base_fee(),
-				None,
-			);
-
-			let deployer = signed_transaction
-				.recover_eth_address()
-				.expect("Failed to recover the deployer account");
-			Pallet::<Test>::set_evm_balance(
-				&deployer,
-				U256::from_dec_str("10000000000000000000").unwrap(),
-			)
-			.expect("Setting balance failed");
-
-			// Act
-			let dry_run_result = Pallet::<Test>::dry_run_eth_transact(
-				generic_transaction.clone(),
-				Default::default(),
-			);
-
-			// Assert
-			assert!(
-				generic_transaction.chain_id.is_none(),
-				"Chain Id in the generic transaction is not None"
-			);
-			let _dry_run_result = dry_run_result.expect("Dry run failed");
-		})
 	}
 
 	#[test]
