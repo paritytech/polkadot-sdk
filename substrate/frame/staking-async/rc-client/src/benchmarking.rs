@@ -125,12 +125,3 @@ mod benchmarks {
 		Ok(())
 	}
 }
-
-/// Converts an AccountId to an XCM Location for benchmarking fee charging.
-pub struct AccountIdToLocation;
-
-impl<AccountId: Into<[u8; 32]>> Convert<AccountId, Location> for AccountIdToLocation {
-	fn convert(account: AccountId) -> Location {
-		xcm::latest::Junction::AccountId32 { network: None, id: account.into() }.into()
-	}
-}
