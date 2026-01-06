@@ -1,39 +1,8 @@
 title: 'statement-store: Add latency bench'
 doc:
 - audience: Node Dev
-  description: "# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\
-    \n*A concise description of what your PR is doing, and what potential issue it\
-    \ is solving. Use [Github semantic\nlinking](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword)\n\
-    to link the PR to an issue that must be closed once this is merged.*\n\n## Integration\n\
-    \n*In depth notes about how this PR should be integrated by downstream projects.\
-    \ This part is\nmandatory, and should be reviewed by reviewers, if the PR does\
-    \ NOT have the\n`R0-no-crate-publish-required` label. In case of a `R0-no-crate-publish-required`,\
-    \ it can be\nignored.*\n\n## Review Notes\n\n*In depth notes about the **implementation**\
-    \ details of your PR. This should be the main guide for reviewers to\nunderstand\
-    \ your approach and effectively review it. If too long, use\n[`<details>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details)*.\n\
-    \n*Imagine that someone who is depending on the old code wants to integrate your\
-    \ new code and the only information that\nthey get is this section. It helps to\
-    \ include example usage and default value here, with a `diff` code-block to show\n\
-    possibly integration.*\n\n*Include your leftover TODOs, if any, here.*\n\n# Checklist\n\
-    \n* [ ] My PR includes a detailed description as outlined in the \"Description\"\
-    \ and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
-    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
-    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
-    \ labels manually\n* [ ] I have made corresponding changes to the documentation\
-    \ (if applicable)\n* [ ] I have added tests that prove my fix is effective or\
-    \ that my feature works (if applicable)\n\n## Bot Commands\n\nYou can use the\
-    \ following bot commands in comments to help manage your PR:\n\n**Labeling (Self-service\
-    \ for contributors):**\n* `/cmd label T1-FRAME` - Add a single label\n* `/cmd\
-    \ label T1-FRAME R0-no-crate-publish-required` - Add multiple labels\n* `/cmd\
-    \ label T6-XCM D2-substantial I5-enhancement` - Add multiple labels at once\n\
-    * See [label documentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html)\
-    \ for all available labels\n\n**Other useful commands:**\n* `/cmd fmt` - Format\
-    \ code (cargo +nightly fmt and taplo)\n* `/cmd prdoc` - Generate PR documentation\n\
-    * `/cmd bench` - Run benchmarks\n* `/cmd update-ui` - Update UI tests\n* `/cmd\
-    \ --help` - Show help for all available commands\n\nYou can remove the \"Checklist\"\
-    \ section once all have been checked. Thank you for your contribution!\n\n\u2704\
-    \ -----------------------------------------------------------------------------"
+  description: |
+    Adds a latency benchmark for the statement store to measure propagation performance across distributed nodes.
 crates:
 - name: people-westend-runtime
   bump: patch
