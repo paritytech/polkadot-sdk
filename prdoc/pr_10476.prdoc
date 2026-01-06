@@ -54,3 +54,7 @@ doc:
 crates:
 - name: pallet-revive
   bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: sc-cli
+  bump: minor
