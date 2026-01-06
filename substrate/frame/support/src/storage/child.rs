@@ -117,33 +117,6 @@ pub fn exists(child_info: &ChildInfo, key: &[u8]) -> bool {
 	}
 }
 
-/// Remove all `storage_key` key/values
-///
-/// Deletes all keys from the overlay and up to `limit` keys from the backend if
-/// it is set to `Some`. No limit is applied when `limit` is set to `None`.
-///
-/// The limit can be used to partially delete a child trie in case it is too large
-/// to delete in one go (block).
-///
-/// # Note
-///
-/// Please note that keys that are residing in the overlay for that child trie when
-/// issuing this call are all deleted without counting towards the `limit`. Only keys
-/// written during the current block are part of the overlay. Deleting with a `limit`
-/// mostly makes sense with an empty overlay for that child trie.
-///
-/// Calling this function multiple times per block for the same `storage_key` does
-/// not make much sense because it is not cumulative when called inside the same block.
-/// Use this function to distribute the deletion of a single child trie across multiple
-/// blocks.
-#[deprecated = "Use `clear_storage` instead"]
-pub fn kill_storage(child_info: &ChildInfo, limit: Option<u32>) -> KillStorageResult {
-	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::storage_kill(child_info.storage_key(), limit),
-	}
-}
-
 /// Partially clear the child storage of each key-value pair.
 ///
 /// # Limit
@@ -179,21 +152,15 @@ pub fn kill_storage(child_info: &ChildInfo, limit: Option<u32>) -> KillStorageRe
 pub fn clear_storage(
 	child_info: &ChildInfo,
 	maybe_limit: Option<u32>,
-	_maybe_cursor: Option<&[u8]>,
+	maybe_cursor: Option<&[u8]>,
 ) -> MultiRemovalResults {
-	// TODO: Once the network has upgraded to include the new host functions, this code can be
-	// enabled.
-	// sp_io::default_child_storage::storage_kill(prefix, maybe_limit, maybe_cursor)
-	let r = match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::storage_kill(child_info.storage_key(), maybe_limit),
-	};
-	use sp_io::KillStorageResult::*;
-	let (maybe_cursor, backend) = match r {
-		AllRemoved(db) => (None, db),
-		SomeRemaining(db) => (Some(child_info.storage_key().to_vec()), db),
-	};
-	MultiRemovalResults { maybe_cursor, backend, unique: backend, loops: backend }
+	match child_info.child_type() {
+		ChildType::ParentKeyId => sp_io::default_child_storage::storage_kill(
+			child_info.storage_key(),
+			maybe_limit,
+			maybe_cursor,
+		),
+	}
 }
 
 /// Ensure `key` has no explicit entry in storage.
@@ -221,10 +188,9 @@ pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 }
 
 /// Calculate current child root value.
-pub fn root(child_info: &ChildInfo, version: StateVersion) -> Vec<u8> {
+pub fn root(child_info: &ChildInfo) -> Vec<u8> {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::root(child_info.storage_key(), version),
+		ChildType::ParentKeyId => sp_io::default_child_storage::root(child_info.storage_key()),
 	}
 }
 

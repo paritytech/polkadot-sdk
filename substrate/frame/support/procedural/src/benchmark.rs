@@ -822,7 +822,7 @@ pub fn benchmarks(
 
 						// Time the storage root recalculation.
 						let start_storage_root = #krate::current_time();
-						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
+						#krate::__private::storage_root();
 						let finish_storage_root = #krate::current_time();
 						let elapsed_storage_root = finish_storage_root - start_storage_root;
 
