@@ -13,10 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, foreign_balance_on, imports::{
-	asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
-	*,
-}};
+use crate::{
+	assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on,
+	foreign_balance_on,
+	imports::{
+		asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
+		*,
+	},
+};
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };

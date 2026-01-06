@@ -284,12 +284,6 @@ parameter_types! {
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
 
-	// Todo: This needs to be removed, we no longer have the trust backed assets instance
-	pub storage LocalTeleportableToAssetHub: Location = Location::new(
-		0,
-		[PalletInstance(ASSET_HUB_ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
-	);
-
 	pub const NativeAssetId: AssetId = AssetId(Location::here());
 	pub const NativeAssetFilter: AssetFilter = Wild(AllOf { fun: WildFungible, id: NativeAssetId::get() });
 	pub AssetHubTrustedTeleporter: (AssetFilter, Location) = (NativeAssetFilter::get(), SystemAssetHubLocation::get());
@@ -315,7 +309,7 @@ pub type TrustedReserves = (
 );
 
 pub type TrustedTeleporters = (
-	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,
+	AssetFromChain<PenpalNativeCurrency, SystemAssetHubLocation>,
 	// This is used in the `IsTeleporter` configuration, meaning it accepts
 	// native tokens teleported from Asset Hub.
 	xcm_builder::Case<AssetHubTrustedTeleporter>,

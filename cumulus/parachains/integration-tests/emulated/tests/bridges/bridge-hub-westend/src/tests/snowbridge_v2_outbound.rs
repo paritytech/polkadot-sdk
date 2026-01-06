@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	imports::*,
+	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::PenpalNativeCurrency, *},
 	tests::{snowbridge_common::*, usdt_at_ah_westend},
 };
 use bridge_hub_westend_runtime::{
@@ -22,7 +22,6 @@ use bridge_hub_westend_runtime::{
 };
 use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
-use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
@@ -714,8 +713,7 @@ fn register_token_from_penpal() {
 			},
 		],
 	);
-	let asset_location_on_penpal =
-		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalNativeCurrency::get());
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 			.appended_with(asset_location_on_penpal)
@@ -840,8 +838,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 		let remote_fee_asset_on_ethereum =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
-		let pna =
-			Asset { id: AssetId(LocalTeleportableToAssetHub::get()), fun: Fungible(TOKEN_AMOUNT) };
+		let pna = Asset { id: AssetId(PenpalNativeCurrency::get()), fun: Fungible(TOKEN_AMOUNT) };
 
 		let ena = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT / 2) };
 

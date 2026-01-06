@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use crate::{
+	create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, foreign_balance_on, imports::*,
+};
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
@@ -1325,7 +1327,11 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 	// Setup the pool between `relay_asset_penpal_pov` and `usdt_from_asset_hub` on PenpalA.
 	// So we can swap the custom asset that comes from AssetHubWestend for native asset to pay for
 	// fees.
-	create_foreign_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), PenpalAssetOwner::get());
+	create_foreign_pool_with_wnd_on!(
+		PenpalA,
+		PenpalUsdtFromAssetHub::get(),
+		PenpalAssetOwner::get()
+	);
 
 	let assets: Assets = vec![(
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())],
@@ -1430,7 +1436,11 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	);
 	create_pool_with_wnd_on!(AssetHubWestend, usdt, AssetHubWestendSender::get());
 	// We also need a pool between WND and USDT on PenpalB.
-	create_foreign_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), PenpalAssetOwner::get());
+	create_foreign_pool_with_wnd_on!(
+		PenpalB,
+		PenpalUsdtFromAssetHub::get(),
+		PenpalAssetOwner::get()
+	);
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
 	PenpalA::execute_with(|| {

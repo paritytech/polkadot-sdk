@@ -113,7 +113,6 @@ macro_rules! create_pool_with_wnd_on_internal {
 	};
 }
 
-
 #[macro_export]
 macro_rules! create_pool_with_wnd_on {
 	// default amounts
@@ -151,7 +150,6 @@ macro_rules! create_pool_with_wnd_on {
 		}
 	};
 }
-
 
 #[macro_export]
 macro_rules! create_foreign_pool_with_wnd_on {

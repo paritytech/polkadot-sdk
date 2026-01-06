@@ -99,20 +99,10 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// PenpalA's teleportable asset representation
-				(
-					PenpalATeleportableAssetLocation::get(),
-					PenpalASiblingSovereignAccount::get(),
-					false,
-					ED,
-				),
-				// PenpalB's teleportable asset representation
-				(
-					PenpalBTeleportableAssetLocation::get(),
-					PenpalBSiblingSovereignAccount::get(),
-					false,
-					ED,
-				),
+				// PenpalA's native asset representation
+				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), false, ED),
+				// PenpalB's native asset representation
+				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), false, ED),
 				// Ether
 				(
 					Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
@@ -135,14 +125,8 @@ pub fn genesis() -> Storage {
 				),
 			],
 			reserves: vec![
-				(
-					PenpalATeleportableAssetLocation::get(),
-					vec![(PenpalALocation::get(), true).into()],
-				),
-				(
-					PenpalBTeleportableAssetLocation::get(),
-					vec![(PenpalBLocation::get(), true).into()],
-				),
+				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
+				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
 				(
 					Location::new(
