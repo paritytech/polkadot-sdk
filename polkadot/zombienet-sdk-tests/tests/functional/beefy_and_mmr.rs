@@ -96,7 +96,11 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	log::info!("Checking BEEFY finalized heads across all validators");
 	verify_beefy_finalized_heads(
 		&network,
-		VALIDATOR_NAMES.iter().chain(std::iter::once(&UNSTABLE)).copied().collect(),
+		&VALIDATOR_NAMES
+			.iter()
+			.copied()
+			.chain(std::iter::once(UNSTABLE))
+			.collect::<Vec<_>>(),
 	)
 	.await?;
 
@@ -107,7 +111,7 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	// Verify MMR proof generation and verification
 	log::info!("Generating and verifying MMR proofs");
 	// Note: Only verify on active validators
-	verify_mmr_proofs(&network, "validator-0", VALIDATOR_NAMES.to_vec()).await?;
+	verify_mmr_proofs(&network, "validator-0", &VALIDATOR_NAMES).await?;
 
 	// Resume unstable and verify it catches up
 	log::info!("Resuming unstable validator: {}", UNSTABLE);
@@ -165,7 +169,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 /// Verify BEEFY finalized heads across all validator nodes
 async fn verify_beefy_finalized_heads(
 	network: &Network<zombienet_sdk::LocalFileSystem>,
-	node_names: Vec<&str>,
+	node_names: &[&str],
 ) -> Result<(), anyhow::Error> {
 	#[derive(Debug)]
 	struct FinalizedHeadInfo {
@@ -176,7 +180,7 @@ async fn verify_beefy_finalized_heads(
 
 	// Get finalized head for each node
 	let mut finalized_heads = Vec::new();
-	for &node_name in &node_names {
+	for &node_name in node_names {
 		let node = network.get_node(node_name)?;
 		let rpc_client = node.rpc().await?;
 		// Get BEEFY finalized head
@@ -302,7 +306,7 @@ async fn verify_mmr_leaves(
 async fn verify_mmr_proofs(
 	network: &Network<zombienet_sdk::LocalFileSystem>,
 	node_name: &str,
-	validator_names: Vec<&str>,
+	validator_names: &[&str],
 ) -> Result<(), anyhow::Error> {
 	let node = network.get_node(node_name)?;
 	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
@@ -330,14 +334,14 @@ async fn verify_mmr_proofs(
 
 	// Generate proof using RPC
 	let mut proof_params = RpcParams::new();
-	proof_params.push(vec![1u32, 9u32, 20u32])?;
+	proof_params.push(vec![1u32, 9, 20])?;
 	proof_params.push(Some(block_21))?;
 	proof_params.push(format!("{:?}", at_block_hash))?;
 	let proof: LeavesProof = rpc_client.request("mmr_generateProof", proof_params).await?;
 	log::info!("Generated MMR proof at block hash: {}", proof.block_hash);
 
 	// Verify proof on all validators (stateful)
-	for &validator in &validator_names {
+	for &validator in validator_names {
 		let val_node = network.get_node(validator)?;
 		let val_rpc = val_node.rpc().await?;
 
@@ -352,7 +356,7 @@ async fn verify_mmr_proofs(
 	}
 
 	// Verify proof on all validators (stateless)
-	for &validator in &validator_names {
+	for &validator in validator_names {
 		let val_node = network.get_node(validator)?;
 		let val_rpc = val_node.rpc().await?;
 
