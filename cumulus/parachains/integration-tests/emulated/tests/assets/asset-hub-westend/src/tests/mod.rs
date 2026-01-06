@@ -56,30 +56,20 @@ macro_rules! assets_balance_on {
 }
 
 #[macro_export]
-macro_rules! create_pool_with_wnd_on_internal {
-	// default amounts
-	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
-		$crate::create_pool_with_wnd_on!(
-			$chain,
-			$asset_id,
-			$asset_owner,
-			1_000_000_000_000,
-			2_000_000_000_000
-		);
-	};
-
-	// custom amounts
-	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
+macro_rules! create_pool_with_native_location_on {
+	( $chain:ident, $native_location:expr, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
-				let wnd_location: Location = Parent.into();
+				let native_location: Location = $native_location;
+
+				// panic!("Pair: {:?}-> {:?}", native_location, $asset_id);
 
 				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
 					signed_owner.clone(),
-					Box::new(wnd_location.clone()),
+					Box::new(native_location.clone()),
 					Box::new($asset_id.clone()),
 				));
 
@@ -92,7 +82,7 @@ macro_rules! create_pool_with_wnd_on_internal {
 
 				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
 					signed_owner,
-					Box::new(wnd_location),
+					Box::new(native_location),
 					Box::new($asset_id),
 					$wnd_amount,
 					$asset_amount,
@@ -144,7 +134,8 @@ macro_rules! create_pool_with_wnd_on {
 				));
 			});
 
-			$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
+			let wnd_location: Location = Parent.into();
+			$crate::create_pool_with_native_location_on!($chain, wnd_location, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 		}
 	};
 }
@@ -177,7 +168,42 @@ macro_rules! create_foreign_pool_with_wnd_on {
 				));
 			});
 
-			$crate::create_pool_with_wnd_on_internal!($chain, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
+			let wnd_location: Location = Parent.into();
+			$crate::create_pool_with_native_location_on!($chain, wnd_location, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! create_foreign_pool_with_native_on {
+	// default amounts
+	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
+		$crate::create_foreign_pool_with_native_on!(
+			$chain,
+			$asset_id,
+			$asset_owner,
+			1_000_000_000_000,
+			2_000_000_000_000
+		);
+	};
+
+	// custom amounts
+	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				let owner = $asset_owner;
+				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
+
+				assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
+						signed_owner.clone(),
+						$asset_id.clone().into(),
+						owner.clone().into(),
+						10_000_000_000_000, // For it to have more than enough.
+				));
+			});
+
+			let native_location: Location = Here.into();
+			$crate::create_pool_with_native_location_on!($chain, native_location, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 		}
 	};
 }

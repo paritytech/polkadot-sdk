@@ -83,20 +83,6 @@ parameter_types! {
 		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
 	pub PenpalBLocation: xcm::v5::Location
 		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
-	pub PenpalATeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_A_ID),
-				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
-			]
-		);
-	pub PenpalBTeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_B_ID),
-				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
-			]
-		);
 	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }

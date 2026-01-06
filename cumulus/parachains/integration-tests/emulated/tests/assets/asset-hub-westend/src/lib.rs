@@ -48,7 +48,7 @@ mod imports {
 			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
 		xcm_simulator::helpers::TopicIdTracker,
-		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub(crate) use parachains_common::{AccountId, Balance};
 	pub(crate) use westend_system_emulated_network::{
@@ -61,7 +61,7 @@ mod imports {
 					XcmConfig as AssetHubWestendXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
-				ExistentialDeposit as AssetHubWestendExistentialDeposit, ForeignAssetReserveData,
+				ExistentialDeposit as AssetHubWestendExistentialDeposit,
 			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,

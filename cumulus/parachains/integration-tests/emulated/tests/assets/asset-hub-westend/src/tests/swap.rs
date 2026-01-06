@@ -114,7 +114,7 @@ fn swap_locally_on_chain_using_local_assets() {
 fn swap_locally_on_chain_using_foreign_assets() {
 	let asset_native = Box::new(Location::try_from(RelayLocation::get()).unwrap());
 	let asset_location_on_penpal = PenpalA::execute_with(|| {
-		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap()
+		Location::try_from(PenpalNativeCurrency::get()).unwrap()
 	});
 	let foreign_asset_at_asset_hub_westend =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
