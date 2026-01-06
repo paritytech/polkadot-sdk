@@ -76,6 +76,12 @@ pub struct CliCommand {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub prometheus_params: PrometheusParams,
+
+	/// By default, the node rejects any transaction that's unprotected (i.e., that doesn't have a
+	/// chain-id). If the user wishes the submit such a transaction then they can use this flag to
+	/// instruct the RPC to ignore this check.
+	#[arg(long)]
+	pub allow_unprotected_txs: bool,
 }
 
 /// Initialize the logger
@@ -164,6 +170,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		earliest_receipt_block,
 		index_last_n_blocks,
 		shared_params,
+		allow_unprotected_txs,
 		..
 	} = cmd;
 
@@ -222,7 +229,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		&rpc_config,
 		prometheus_registry,
 		tokio_handle,
-		|| rpc_module(is_dev, client.clone(), rpc_params.allow_unprotected_txs),
+		|| rpc_module(is_dev, client.clone(), allow_unprotected_txs),
 		None,
 	)?;
 

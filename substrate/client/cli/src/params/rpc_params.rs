@@ -188,12 +188,6 @@ pub struct RpcParams {
 	/// `--dev` mode the default is to allow all origins.
 	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
-
-	/// By default, the node rejects any transaction that's unprotected (i.e., that doesn't have a
-	/// chain-id). If the user wishes the submit such a transaction then they can use this flag to
-	/// instruct the RPC to ignore this check.
-	#[arg(long)]
-	pub allow_unprotected_txs: bool,
 }
 
 impl RpcParams {
@@ -230,8 +224,8 @@ impl RpcParams {
 			for endpoint in &self.experimental_rpc_endpoint {
 				// Technically, `0.0.0.0` isn't a public IP address, but it's a way to listen on
 				// all interfaces. Thus, we consider it as a public endpoint and warn about it.
-				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global() ||
-					endpoint.listen_addr.ip().is_unspecified()
+				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global()
+					|| endpoint.listen_addr.ip().is_unspecified()
 				{
 					eprintln!(
 						"It isn't safe to expose RPC publicly without a proxy server that filters \
