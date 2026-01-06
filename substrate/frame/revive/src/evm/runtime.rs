@@ -710,6 +710,15 @@ mod test {
 		}
 	}
 
+	/// The raw bytes seen in this test is of a deployment transaction from [eip-2470] which publish
+	/// a contract at a predicable address on any chain that it's run on. We use these bytes to test
+	/// that if we were to run this transaction on pallet-revive that it would run and also produce
+	/// a contract at the address described in the EIP.
+	///
+	/// Note: the linked EIP is not an EIP for Nick's method, it's just an EIP that makes use of
+	/// Nick's method.
+	///
+	/// [eip-2470]: https://eips.ethereum.org/EIPS/eip-2470
 	#[test]
 	fn contract_deployment_with_nick_method_works() {
 		// Arrange
