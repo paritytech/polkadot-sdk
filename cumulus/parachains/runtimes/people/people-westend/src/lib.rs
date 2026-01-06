@@ -1178,6 +1178,15 @@ impl_runtime_apis! {
 				})
 			}
 		}
+		fn validate_statements(
+			source: StatementSource,
+			statements: Vec<Statement>,
+		) -> Vec<Result<ValidStatement, InvalidStatement>> {
+			statements
+				.into_iter()
+				.map(|statement| Self::validate_statement(source, statement))
+				.collect()
+		}
 	}
 }
 

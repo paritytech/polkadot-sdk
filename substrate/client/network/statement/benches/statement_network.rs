@@ -110,10 +110,10 @@ impl SyncEventStream for TestSync {
 
 impl sp_consensus::SyncOracle for TestSync {
 	fn is_major_syncing(&self) -> bool {
-		false
+		unimplemented!()
 	}
 	fn is_offline(&self) -> bool {
-		false
+		unimplemented!()
 	}
 }
 
@@ -184,8 +184,7 @@ fn build_handler(
 	>,
 	num_threads: usize,
 	max_runtime_instances: usize,
-	batch_limit: usize,
-) -> (StatementHandler<TestNetwork, TestSync>, PeerId, tempfile::TempDir, Arc<Store>) {
+) -> (StatementHandler<TestNetwork, TestSync>, PeerId, tempfile::TempDir) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
@@ -203,8 +202,10 @@ fn build_handler(
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
-		Statement,
-		futures::channel::oneshot::Sender<sp_statement_store::SubmitResult>,
+		Vec<Statement>,
+		futures::channel::oneshot::Sender<
+			Vec<(sp_statement_store::Hash, sp_statement_store::SubmitResult)>,
+		>,
 	)>(MAX_PENDING_STATEMENTS);
 
 	let network = TestNetwork::new();
@@ -222,39 +223,12 @@ fn build_handler(
 		let store = statement_store.clone();
 		let receiver = queue_receiver.clone();
 		executor(Box::pin(async move {
-			let mut counter = 0;
 			loop {
 				let task = receiver.recv().await;
 				match task {
-					Ok((statement, completion)) => {
-						counter += 1;
-						let result = store.submit(statement, StatementSource::Network);
-						if counter % 2000 == 0 {
-							println!(
-								"Processed {} statements validation {} ms insert {} ms locking {}
-							ms", 	counter,
-								store
-									.time_spent_validation
-									.load(std::sync::atomic::Ordering::Relaxed) /
-									1_000_000,
-								store
-									.time_spent_inserting
-									.load(std::sync::atomic::Ordering::Relaxed) /
-									1_000_000,
-								store.time_spent_locking.load(std::sync::atomic::Ordering::Relaxed)
-							/ 		1_000_000
-							);
-							println!(
-								"Runtime time {} ms, Validate time {} ms",
-								store.time_spent_runtime.load(std::sync::atomic::Ordering::Relaxed)
-							/ 		1_000_000,
-								store
-									.time_spent_validate
-									.load(std::sync::atomic::Ordering::Relaxed) /
-									1_000_000,
-							);
-						}
-						let _ = completion.send(result);
+					Ok((statements, completion)) => {
+						let results = store.submit_batch(statements, StatementSource::Network);
+						let _ = completion.send(results);
 					},
 					Err(_) => return,
 				}
@@ -270,11 +244,10 @@ fn build_handler(
 		TestSync::new(),
 		(Box::pin(stream::pending()) as Pin<Box<dyn Stream<Item = SyncEvent> + Send>>).fuse(),
 		peers,
-		statement_store.clone(),
+		statement_store,
 		queue_sender,
-		batch_limit,
 	);
-	(handler, peer_id, temp_dir, statement_store)
+	(handler, peer_id, temp_dir)
 }
 
 fn non_blocking_executor(
@@ -309,10 +282,10 @@ fn blocking_executor(
 }
 
 fn bench_on_statements(c: &mut Criterion) {
-	let statement_counts = [2000];
-	let thread_counts = [1, 4];
+	let statement_counts = [100, 500, 1000, 2000];
+	let thread_counts = [1, 2, 4, 8];
 	let max_runtime_instances = 8;
-	let executor_types = [("blocking", true)];
+	let executor_types = [("blocking", true), ("non_blocking", false)];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
@@ -336,8 +309,8 @@ fn bench_on_statements(c: &mut Criterion) {
 
 				c.bench_function(&benchmark_name, |b| {
 					b.iter_batched(
-						|| build_handler(executor.clone(), num_threads, max_runtime_instances, 1024),
-						|(mut handler, peer_id, _temp_dir, _store)| {
+						|| build_handler(executor.clone(), num_threads, max_runtime_instances),
+						|(mut handler, peer_id, _temp_dir)| {
 							handler.on_statements(peer_id, statements.clone());
 
 							runtime.block_on(async {
@@ -350,8 +323,6 @@ fn bench_on_statements(c: &mut Criterion) {
 								"Pending statements not empty: {}",
 								pending.len()
 							);
-							// println!("Completed processing {} ns statements",
-							// handler.time_hashing);
 						},
 						criterion::BatchSize::LargeInput,
 					)
@@ -361,47 +332,5 @@ fn bench_on_statements(c: &mut Criterion) {
 	}
 }
 
-fn bench_on_batch_statements(c: &mut Criterion) {
-	let statement_counts = [2000];
-	let thread_counts = [1,  4];
-	let executor_types = [("blocking", true)];
-	let batch_limits = [1, 2, 50, 1000, 2000];
-
-	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
-	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-	let handle = runtime.handle();
-
-	for &num_statements in &statement_counts {
-		for &num_threads in &thread_counts {
-			for &(executor_name, is_blocking) in &executor_types {
-				for &batch_limit in &batch_limits {
-					let statements: Vec<Statement> =
-						(0..num_statements).map(|i| create_signed_statement(i, &keypair)).collect();
-					let executor = if is_blocking {
-						blocking_executor(&handle)
-					} else {
-						non_blocking_executor(&handle)
-					};
-
-					let benchmark_name = format!(
-						"on_batch_statements/statements_{}/threads_{}/batch_{}/{}",
-						num_statements, num_threads, batch_limit, executor_name
-					);
-
-					c.bench_function(&benchmark_name, |b| {
-						b.iter_batched(
-							|| build_handler(executor.clone(), num_threads, batch_limit),
-							|(mut handler, peer_id, _temp_dir, _store)| {
-								handler.on_batch_statements(peer_id, statements.clone());
-							},
-							criterion::BatchSize::LargeInput,
-						)
-					});
-				}
-			}
-		}
-	}
-}
-
-criterion_group!(benches, bench_on_statements, bench_on_batch_statements);
+criterion_group!(benches, bench_on_statements);
 criterion_main!(benches);

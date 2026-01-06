@@ -831,39 +831,34 @@ impl_runtime_apis! {
 			sp_statement_store::runtime_api::ValidStatement,
 			sp_statement_store::runtime_api::InvalidStatement,
 		> {
-			use sp_statement_store::{
-				runtime_api::{InvalidStatement, ValidStatement},
-				SignatureVerificationResult,
-			};
+			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
 
 			match statement.verify_signature() {
-				SignatureVerificationResult::Valid(_) =>
-					Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				SignatureVerificationResult::NoSignature => Err(InvalidStatement::NoProof),
+				sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
 			}
 		}
+
 		fn validate_statements(
 			_source: sp_statement_store::runtime_api::StatementSource,
-			statements: Vec<sp_statement_store::Statement>,
-		) -> Result<
-			sp_statement_store::runtime_api::ValidStatement,
-			sp_statement_store::runtime_api::InvalidStatement,
+			statements: sp_runtime::Vec<sp_statement_store::Statement>,
+		) -> sp_runtime::Vec<
+			Result<
+				sp_statement_store::runtime_api::ValidStatement,
+				sp_statement_store::runtime_api::InvalidStatement,
+			>,
 		> {
-			use sp_statement_store::{
-				runtime_api::{InvalidStatement, ValidStatement},
-				SignatureVerificationResult,
-			};
+			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
 
-			for statement in statements.iter() {
-				match statement.verify_signature() {
-					SignatureVerificationResult::Valid(_) => {},
-					SignatureVerificationResult::Invalid => return Err(InvalidStatement::BadProof),
-					SignatureVerificationResult::NoSignature => return Err(InvalidStatement::NoProof),
-				}
-			}
-
-			Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+			statements
+				.into_iter()
+				.map(|statement| {
+					match statement.verify_signature() {
+						sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+						_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
+					}
+				})
+				.collect()
 		}
 	}
 }

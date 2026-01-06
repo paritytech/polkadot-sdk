@@ -3266,7 +3266,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		fn validate_statements(
 			source: sp_statement_store::runtime_api::StatementSource,
 			statements: Vec<sp_statement_store::Statement>,
-		) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
+		) -> Vec<Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement>> {
 			Statement::validate_statements(source, statements)
 		}
 	}

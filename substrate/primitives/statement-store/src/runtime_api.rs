@@ -85,12 +85,12 @@ sp_api::decl_runtime_apis! {
 			source: StatementSource,
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement>;
-		/// Validate multiple statements. Performs the same checks as `validate_statement` but
-		/// always returns the computed limits.
+		/// Validate multiple statements in a batch.
+		/// Returns a result for each statement in the same order as the input.
 		fn validate_statements(
 			source: StatementSource,
 			statements: Vec<Statement>,
-		) -> Result<ValidStatement, InvalidStatement>;
+		) -> Vec<Result<ValidStatement, InvalidStatement>>;
 	}
 }
 

@@ -32,5 +32,6 @@ pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;
 
-/// Maximum number of statements to submit in a single batch when using batch submission.
-pub const MAX_BATCH_SUBMIT: usize = 1024;
+/// Number of statements to group together for batch validation.
+/// This controls how many statements are processed together before sending to the statement store.
+pub const BATCH_SIZE: usize = 50;
