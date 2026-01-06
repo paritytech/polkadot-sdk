@@ -185,17 +185,14 @@ pub(crate) async fn build_network_config(
 	Ok(config)
 }
 
-/// Add a relaychain node to the network and wait until it is up.
+/// Add a relaychain node to the network.
 ///
 /// # Arguments
 /// * `network` - The zombienet network
 /// * `name` - Name of the node to add
 /// * `is_validator` - Whether the node is a validator
-///
-/// # Returns
-/// Reference to the added node
 #[cfg(not(feature = "generate-snapshots"))]
-pub async fn add_relaychain_node_and_wait(
+pub async fn add_relaychain_node(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
 	is_validator: bool,
@@ -222,23 +219,18 @@ pub async fn add_relaychain_node_and_wait(
 	};
 
 	network.add_node(name, options).await?;
-	let node = network.get_node(name)?;
-	node.wait_until_is_up(20u64).await?;
 
 	Ok(())
 }
 
-/// Add a parachain collator to the network and wait until it is up.
+/// Add a parachain collator to the network.
 ///
 /// # Arguments
 /// * `network` - The zombienet network
 /// * `name` - Name of the node to add
 /// * `is_validator` - Whether the node is a validator
-///
-/// # Returns
-/// Reference to the added node
 #[cfg(not(feature = "generate-snapshots"))]
-pub async fn add_parachain_collator_and_wait(
+pub async fn add_parachain_collator(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
 	is_validator: bool,
@@ -267,8 +259,6 @@ pub async fn add_parachain_collator_and_wait(
 	};
 
 	network.add_collator(name, options, PARA_ID).await?;
-	let node = network.get_node(name)?;
-	node.wait_until_is_up(20u64).await?;
 
 	Ok(())
 }

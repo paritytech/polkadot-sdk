@@ -22,7 +22,7 @@ use polkadot_primitives::Id as ParaId;
 use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
 	zombie_ci::full_node_warp_sync::common::{
-		add_parachain_collator_and_wait, add_relaychain_node_and_wait, build_network_config,
+		add_parachain_collator, add_relaychain_node, build_network_config,
 		PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
 	},
 };
@@ -198,12 +198,17 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		network.get_node(name)?.pause().await?;
 	}
 
-	// Add ferdie and six dynamically and let them sync from the nodes that have
-	// just synced
-	add_relaychain_node_and_wait(&mut network, "ferdie", true).await?;
-	add_parachain_collator_and_wait(&mut network, "six", true).await?;
+	// Add ferdie and six dynamically (without waiting)
+	log::info!("Adding ferdie and six to the network");
+	add_relaychain_node(&mut network, "ferdie", true).await?;
+	add_parachain_collator(&mut network, "six", true).await?;
 
-	// Assert warp and gap sync for ferdie
+	// Wait for both nodes to be up in parallel
+	log::info!("Waiting for ferdie and six to be up");
+	network.get_node("ferdie")?.wait_until_is_up(60u64).await?;
+	network.get_node("six")?.wait_until_is_up(60u64).await?;
+
+	// Assert warp and gap sync for ferdie and six
 	for name in ["ferdie", "six"] {
 		assert_warp_sync(network.get_node(name)?).await?;
 		assert_gap_sync(network.get_node(name)?).await?;
