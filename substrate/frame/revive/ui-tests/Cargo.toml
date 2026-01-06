@@ -37,6 +37,7 @@ polkadot-sdk = { optional = true, workspace = true, features = [
 [features]
 default = ["std"]
 std = [
+  "alloy-core/std",
   "codec/std",
   "polkadot-sdk/std",
   "scale-info/std",
