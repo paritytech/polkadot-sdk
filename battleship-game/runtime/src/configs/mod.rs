@@ -341,8 +341,8 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	/// Turn timeout: ~5 minutes at 6 second blocks
-	pub const TurnTimeout: BlockNumber = 50;
+	/// Turn timeout: ~3 minutes at 4 blocks/second (24 blocks per 6 seconds)
+	pub const TurnTimeout: BlockNumber = 720;
 }
 
 /// Configure the battleship pallet.

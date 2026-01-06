@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Battleship (On-Chain)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e8e8e8;
+    }
+
+    /* Menu Styles */
+    #menu {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    #menu h1 {
+      font-size: 4rem;
+      letter-spacing: 0.5rem;
+      margin-bottom: 2rem;
+      text-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+      background: linear-gradient(180deg, #fff 0%, #64c8ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #menu p {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      color: #aaa;
+    }
+
+    #menu p span {
+      color: #64c8ff;
+      font-weight: bold;
+    }
+
+    .menu-button {
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      margin: 0.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 250px;
+    }
+
+    #local-game-btn {
+      background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+      color: white;
+    }
+
+    #local-game-btn:hover {
+      background: linear-gradient(135deg, #5aa0e9 0%, #458acd 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(74, 144, 217, 0.4);
+    }
+
+    #multiplayer-btn {
+      background: #444;
+      color: #888;
+      cursor: not-allowed;
+    }
+
+    /* Game Styles */
+    #game {
+      display: none;
+      padding: 1rem;
+    }
+
+    #header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    #header h1 {
+      font-size: 2rem;
+      letter-spacing: 0.3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    #status {
+      font-size: 1.1rem;
+      color: #64c8ff;
+      min-height: 1.5rem;
+    }
+
+    #instructions {
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-top: 0.5rem;
+    }
+
+    #boards {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+
+    .board-container {
+      text-align: center;
+    }
+
+    .board-container h2 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.2rem;
+    }
+
+    canvas {
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .control-button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: linear-gradient(135deg, #3a5a7a 0%, #2a4a6a 100%);
+      color: white;
+    }
+
+    .control-button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #4a6a8a 0%, #3a5a7a 100%);
+      transform: translateY(-1px);
+    }
+
+    .control-button:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    #commit-btn {
+      background: linear-gradient(135deg, #4a9a4a 0%, #3a8a3a 100%);
+    }
+
+    #commit-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #5aaa5a 0%, #4a9a4a 100%);
+    }
+
+    #surrender-btn {
+      background: linear-gradient(135deg, #9a4a4a 0%, #8a3a3a 100%);
+    }
+
+    #surrender-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #aa5a5a 0%, #9a4a4a 100%);
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      #boards {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Menu Screen -->
+  <div id="menu">
+    <h1>BATTLESHIP</h1>
+    <p>Playing as: <span id="player-name">Alice</span></p>
+    <p style="font-size: 0.9rem; margin-bottom: 1rem;">
+      Open another browser at <code>?player=bob</code> to play as Bob
+    </p>
+    <button id="local-game-btn" class="menu-button">Join Local Game</button>
+    <button id="multiplayer-btn" class="menu-button" disabled>Join Multiplayer Game</button>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game">
+    <div id="header">
+      <h1>BATTLESHIP</h1>
+      <div id="status">Connecting...</div>
+      <div id="instructions">Place your ships on the board</div>
+    </div>
+
+    <div id="boards">
+      <div class="board-container">
+        <h2>Your Fleet</h2>
+        <canvas id="player-board" width="700" height="400"></canvas>
+      </div>
+      <div class="board-container">
+        <h2>Enemy Waters</h2>
+        <canvas id="enemy-board" width="700" height="400"></canvas>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button id="rotate-btn" class="control-button">Rotate (R)</button>
+      <button id="random-btn" class="control-button">Random</button>
+      <button id="commit-btn" class="control-button" disabled>Commit Grid</button>
+      <button id="surrender-btn" class="control-button" disabled>Surrender</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

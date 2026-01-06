@@ -220,7 +220,7 @@ pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 * TARGET_BLOCK_RATE;
 /// Relay chain slot duration, in milliseconds.
 pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// Target number of blocks per relay chain slot.
-pub(crate) const TARGET_BLOCK_RATE: u32 = 1;
+pub(crate) const TARGET_BLOCK_RATE: u32 = 24;
 
 /// Aura consensus hook
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
