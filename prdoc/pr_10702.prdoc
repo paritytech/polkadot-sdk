@@ -1,12 +1,9 @@
-title: Add pallet-meta-tx to Westend Asset Hub testnet runtime.
+title: Add `pallet-meta-tx` to Westend Asset Hub testnet runtime.
 doc:
-- audience: Todo
-  description: |-
-    # Description
+- audience: Runtime User
+  description: |
+    Meta-transactions are now available in the Westend Asset Hub runtime.
 
-    * Add `pallet-meta-tx` to Westend Asset Hub.
-
-    * Related to #8768.
 crates:
 - name: asset-hub-westend-runtime
   bump: major
