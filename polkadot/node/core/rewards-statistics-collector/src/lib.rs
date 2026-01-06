@@ -248,10 +248,12 @@ pub(crate) async fn run_iteration<Context>(
 					response_channel: tx,
 				};
 				ctx.send_message(ancestor_req_message).await;
-				let finalized_hashes = rx
+
+				let mut finalized_hashes = rx
 					.map_err(JfyiError::OverseerCommunication)
 					.await?
 					.map_err(JfyiError::ChainApiCallError)?;
+				finalized_hashes.push(fin_block_hash);
 
 				let (mut before, after) : (HashMap<_, _>, HashMap<_, _>) = view.per_relay
 					.clone()

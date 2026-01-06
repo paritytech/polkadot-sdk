@@ -80,13 +80,37 @@ async fn activate_leaf(
 
 async fn finalize_block(
 	virtual_overseer: &mut VirtualOverseer,
-	finalized: (Hash, BlockNumber),
-	session_index: SessionIndex,
+	finalized: (Hash, BlockNumber, SessionIndex),
+	latest_finalized_block_number: BlockNumber,
+	finalized_hashes: Vec<Hash>,
 ) {
 	let fin_block_hash = finalized.0;
+	let fin_block_number = finalized.1;
+	let fin_block_session_idx = finalized.2;
+
 	virtual_overseer
-		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, finalized.1)))
+		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)))
 		.await;
+
+	let expected_amt_request_blocks = (fin_block_number.saturating_sub(latest_finalized_block_number) as usize);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ChainApi(
+			 ChainApiMessage::Ancestors { hash, k, response_channel }
+		) if hash == fin_block_hash && k == expected_amt_request_blocks  => {
+			response_channel.send(Ok(finalized_hashes)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+		) if parent == fin_block_hash => {
+			tx.send(Ok(fin_block_session_idx)).unwrap();
+		}
+	);
 }
 
 async fn candidate_approved(
@@ -610,14 +634,19 @@ fn prune_unfinalized_forks() {
 		)
 	];
 
-	// relay node A should be the root
 	assert_relay_view_approval_stats(&view, expect.clone());
 
 	// Finalizing block C should prune the current unfinalized mapping
 	// and aggregate data of the finalized chain on the per session view
 	// the collected data for block D should remain untouched
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		finalize_block(&mut virtual_overseer, (hash_c.clone(), number_c), session_zero).await;
+		finalize_block(
+			&mut virtual_overseer,
+			(hash_c.clone(), number_c, session_zero),
+			0 as BlockNumber,
+			// send the parent hash and the genesis hash (all zeroes)
+			vec![hash_a, Default::default()],
+		).await;
 		virtual_overseer
 	});
 
@@ -719,7 +748,12 @@ fn prune_unfinalized_forks() {
 			.await;
 
 		// finalizing relay block E
-		finalize_block(&mut virtual_overseer, (hash_e.clone(), number_e), session_one).await;
+		finalize_block(
+			&mut virtual_overseer,
+			(hash_e.clone(), number_e, session_one),
+			number_c,
+			vec![hash_d, hash_c],
+		).await;
 
 		virtual_overseer
 	});
