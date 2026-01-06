@@ -124,7 +124,7 @@ pub struct ArtifactPathId {
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, path: &Path, checksum: ArtifactChecksum) -> Self {
+	pub fn new(artifact_id: ArtifactId, path: &Path, checksum: ArtifactChecksum) -> Self {
 		Self { id: artifact_id, path: path.to_owned(), checksum }
 	}
 }

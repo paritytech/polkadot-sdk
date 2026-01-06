@@ -51,6 +51,7 @@ use polkadot_node_core_pvf_common::{
 	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
+use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
 use std::{
 	fs,
 	io::{self, Read},
@@ -196,13 +197,14 @@ fn end_memory_tracking() -> isize {
 /// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
 ///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
+	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
-		WorkerKind::Prepare,
+		worker_kind,
 		socket_path,
 		worker_dir_path,
 		node_version,
@@ -298,7 +300,8 @@ pub fn worker_entrypoint(
 
 fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
 	let maybe_compressed_code = pvf.maybe_compressed_code();
-	let raw_validation_code = sp_maybe_compressed_blob::decompress(
+	let raw_validation_code = decompress_as(
+		MaybeCompressedBlobType::Wasm,
 		&maybe_compressed_code,
 		pvf.validation_code_bomb_limit() as usize,
 	)

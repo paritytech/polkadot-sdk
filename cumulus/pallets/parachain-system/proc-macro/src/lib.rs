@@ -104,9 +104,12 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 			#[doc(hidden)]
 			mod parachain_validate_block {
 				use super::*;
+				#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+				use sp_runtime_interface::polkavm::{polkavm_export, self};
 
 				#[no_mangle]
-				unsafe fn validate_block(arguments_len: usize) -> u64 {
+				#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), polkavm_export(abi = sp_runtime_interface::polkavm::polkavm_abi))]
+				pub unsafe extern "C" fn validate_block(arguments_len: usize) -> u64 {
 					let mut args = #crate_::validate_block::vec![0u8; arguments_len];
 					#crate_::validate_block::sp_io::input::read(&mut args[..]);
 

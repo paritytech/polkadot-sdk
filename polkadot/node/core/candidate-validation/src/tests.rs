@@ -1336,15 +1336,20 @@ fn candidate_validation_code_mismatch_is_invalid() {
 
 #[test]
 fn compressed_code_works() {
+	use sp_maybe_compressed_blob::{compress_as, MaybeCompressedBlobType};
+
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let head_data = HeadData(vec![1, 1, 1]);
 
 	let raw_code = vec![2u8; 16];
-	let validation_code =
-		sp_maybe_compressed_blob::compress_strongly(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize)
-			.map(ValidationCode)
-			.unwrap();
+	let validation_code = sp_maybe_compressed_blob::compress_strongly_as(
+		MaybeCompressedBlobType::Wasm,
+		&raw_code,
+		VALIDATION_CODE_BOMB_LIMIT as usize,
+	)
+	.map(ValidationCode)
+	.unwrap();
 
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),

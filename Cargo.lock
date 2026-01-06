@@ -15599,6 +15599,8 @@ dependencies = [
  "rand 0.8.5",
  "rococo-runtime",
  "rusty-fork",
+ "sc-executor",
+ "sc-executor-polkavm",
  "sc-sysinfo",
  "sc-tracing",
  "slotmap",
@@ -15649,6 +15651,7 @@ dependencies = [
  "polkadot-primitives",
  "sc-executor",
  "sc-executor-common",
+ "sc-executor-polkavm",
  "sc-executor-wasmtime",
  "seccompiler",
  "sp-core 28.0.0",
@@ -20088,6 +20091,7 @@ dependencies = [
  "log",
  "polkavm",
  "sc-executor-common",
+ "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",
 ]
 
@@ -28250,6 +28254,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-runtime-interface 24.0.0",
  "substrate-wasm-builder",
 ]
 

@@ -234,9 +234,12 @@ impl WasmBuilder {
 	}
 
 	/// Build the WASM binary.
-	pub fn build(mut self) {
+	pub fn build(self) {
 		let target = RuntimeTarget::new();
+		self.build_for_target(target)
+	}
 
+	pub fn build_for_target(mut self, target: RuntimeTarget) {
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
 				self.rust_flags.push("-C link-arg=--export=__heap_base".into());

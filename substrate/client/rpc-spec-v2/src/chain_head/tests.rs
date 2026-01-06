@@ -41,6 +41,9 @@ use sp_core::{
 	storage::well_known_keys::{self, CODE},
 	Blake2Hasher, Hasher,
 };
+use sp_maybe_compressed_blob::{
+	compress_as, decompress_as, MaybeCompressedBlobType, CODE_BLOB_BOMB_LIMIT,
+};
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{
@@ -416,16 +419,18 @@ async fn follow_with_runtime() {
 	// The `RuntimeVersion` is embedded into the WASM blob at the `runtime_version`
 	// section. Modify the `RuntimeVersion` and commit the changes to a new block.
 	// The RPC must notify the runtime event change.
-	let wasm = sp_maybe_compressed_blob::decompress(
+	let wasm = decompress_as(
+		MaybeCompressedBlobType::Wasm,
 		runtime::wasm_binary_unwrap(),
-		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
+		CODE_BLOB_BOMB_LIMIT,
 	)
 	.unwrap();
 	// Update the runtime spec version.
 	let mut runtime = runtime;
 	runtime.spec_version += 1;
 	let embedded = sp_version::embed::embed_runtime_version(&wasm, runtime.clone()).unwrap();
-	let wasm = sp_maybe_compressed_blob::compress_strongly(
+	let wasm = sp_maybe_compressed_blob::compress_strongly_as(
+		MaybeCompressedBlobType::Wasm,
 		&embedded,
 		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
 	)

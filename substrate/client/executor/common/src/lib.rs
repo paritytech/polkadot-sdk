@@ -29,7 +29,8 @@ pub mod util;
 pub mod wasm_runtime;
 
 pub(crate) fn is_polkavm_enabled() -> bool {
-	std::env::var_os("SUBSTRATE_ENABLE_POLKAVM").map_or(false, |value| value == "1")
+	true
+	// std::env::var_os("SUBSTRATE_ENABLE_POLKAVM").map_or(false, |value| value == "1")
 }
 
 // Defines the divide between host-allocating host functions and runtime-allocating host functions.

@@ -21,15 +21,16 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
 };
+use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
 
 #[repr(transparent)]
-pub struct InstancePre(polkavm::InstancePre<(), String>);
+pub struct InstancePre(polkavm::InstancePre<ContextState, String>);
 
 #[repr(transparent)]
-pub struct Instance(polkavm::Instance<(), String>);
+pub struct Instance(polkavm::Instance<ContextState, String>);
 
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
@@ -59,9 +60,7 @@ impl WasmInstance for Instance {
 			);
 		};
 
-		// TODO: This will leak guest memory; find a better solution.
-
-		// Make sure that the memory is cleared...
+		// Make sure that the memory is cleared
 		if let Err(err) = self.0.reset_memory() {
 			return (
 				Err(format!(
@@ -72,26 +71,9 @@ impl WasmInstance for Instance {
 			);
 		}
 
-		// ... and allocate space for the input payload.
-		if let Err(err) = self.0.sbrk(raw_data_length) {
-			return (
-				Err(format!(
-					"call into the runtime method '{name}' failed: reset memory failed: {err}"
-				)
-				.into()),
-				None,
-			);
-		}
+		let mut state = ContextState { input_data: Some(raw_data.to_vec()) };
 
-		// Grab the address of where the guest's heap starts; that's where we've just allocated
-		// the memory for the input payload.
-		let data_pointer = self.0.module().memory_map().heap_base();
-
-		if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
-			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {err}").into()), None);
-		}
-
-		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
+		match self.0.call_typed(&mut state, pc, (raw_data_length,)) {
 			Ok(()) => {},
 			Err(CallError::Trap) =>
 				return (
@@ -112,8 +94,9 @@ impl WasmInstance for Instance {
 			Err(CallError::Step) => unreachable!("stepping is never enabled"),
 		};
 
-		let result_pointer = self.0.reg(Reg::A0);
-		let result_length = self.0.reg(Reg::A1);
+		let result = self.0.reg(Reg::A0);
+		let (result_pointer, result_length) = unpack_ptr_and_len(result);
+
 		let output = match self.0.read_memory(result_pointer as u32, result_length as u32) {
 			Ok(output) => output,
 			Err(error) => {
@@ -121,11 +104,15 @@ impl WasmInstance for Instance {
 			},
 		};
 
-		(Ok(output), None)
+		(Ok(output.to_vec()), None)
 	}
 }
 
-struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, ()>);
+struct ContextState {
+	input_data: Option<Vec<u8>>,
+}
+
+struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, ContextState>);
 
 impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn read_memory_into(
@@ -147,20 +134,8 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 			.map_err(|error| error.to_string())
 	}
 
-	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		let pointer = match self.0.instance.sbrk(0) {
-			Ok(pointer) => pointer.expect("fetching the current heap pointer never fails"),
-			Err(err) => return Err(format!("sbrk failed: {err}")),
-		};
-
-		// TODO: This will leak guest memory; find a better solution.
-		match self.0.instance.sbrk(size) {
-			Ok(Some(_)) => (),
-			Ok(None) => return Err(String::from("allocation error")),
-			Err(err) => return Err(format!("sbrk failed: {err}")),
-		}
-
-		Ok(Pointer::new(pointer))
+	fn allocate_memory(&mut self, _size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
+		unimplemented!("'allocate_memory' is never used when running under PolkaVM");
 	}
 
 	fn deallocate_memory(&mut self, _ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
@@ -174,14 +149,25 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 
 	fn fill_input_data(
 		&mut self,
-		_ptr: Pointer<u8>,
-		_size: WordSize,
+		ptr: Pointer<u8>,
+		size: WordSize,
 	) -> sp_wasm_interface::Result<()> {
-		todo!("Implement 'fill_input_data' for PolkaVM");
+		let input_data = self
+			.0
+			.user_data
+			.input_data
+			.take()
+			.expect("input data is not empty during runtime API call; qed");
+		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
+		self.0.instance.write_memory(u32::from(ptr), &input_data[..])?;
+		Ok(())
 	}
 }
 
-fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {
+fn call_host_function(
+	caller: &mut Caller<ContextState>,
+	function: &dyn Function,
+) -> Result<(), String> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
@@ -293,7 +279,7 @@ where
 	let mut linker = polkavm::Linker::new();
 
 	for function in H::host_functions() {
-		linker.define_untyped(function.name(), |mut caller: Caller<()>| {
+		linker.define_untyped(function.name(), |mut caller: Caller<ContextState>| {
 			call_host_function(&mut caller, function)
 		})?;
 	}
