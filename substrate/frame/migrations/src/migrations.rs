@@ -146,9 +146,9 @@ where
 /// # Parameters
 ///
 /// - `T`: The runtime configuration. Used to access weight definitions and other runtime types.
-/// - `P`: A type implementing `Get<&'static str>` that provides the pallet name.
-/// - `S`: A type implementing `Get<Option<&'static str>>` that provides the storage name. When
-///   `None`, all storage items for the pallet will be removed.
+/// - `Pallet`: A type implementing `Get<&'static str>` that provides the pallet name.
+/// - `Storage`: A type implementing `Get<Option<&'static str>>` that provides the storage name.
+///   When `None`, all storage items for the pallet will be removed.
 ///
 /// # Example
 ///
@@ -192,21 +192,21 @@ where
 ///
 /// - The migration processes keys in batches based on available weight, preventing block overload.
 /// - Progress is tracked using a boolean cursor: `false` means in progress, `true` means complete.
-/// - When `S` returns `None`, all storage for the pallet is cleared (similar to [`ResetPallet`] but
-///   without updating the storage version).
-pub struct ClearStorage<T, P, S>(PhantomData<(T, P, S)>);
+/// - When `Storage` returns `None`, all storage for the pallet is cleared (similar to
+///   [`ResetPallet`] but without updating the storage version).
+pub struct ClearStorage<T, Pallet, Storage>(PhantomData<(T, Pallet, Storage)>);
 
-impl<T, P, S> ClearStorage<T, P, S>
+impl<T, Pallet, Storage> ClearStorage<T, Pallet, Storage>
 where
-	P: Get<&'static str>,
-	S: Get<Option<&'static str>>,
+	Pallet: Get<&'static str>,
+	Storage: Get<Option<&'static str>>,
 {
 	fn storage_prefix() -> alloc::vec::Vec<u8> {
-		match S::get() {
+		match Storage::get() {
 			Some(storage) =>
-				frame_support::storage::storage_prefix(P::get().as_bytes(), storage.as_bytes())
+				frame_support::storage::storage_prefix(Pallet::get().as_bytes(), storage.as_bytes())
 					.to_vec(),
-			None => twox_128(P::get().as_bytes()).to_vec(),
+			None => twox_128(Pallet::get().as_bytes()).to_vec(),
 		}
 	}
 
@@ -222,17 +222,17 @@ where
 	}
 }
 
-impl<T, P, S> SteppedMigration for ClearStorage<T, P, S>
+impl<T, Pallet, Storage> SteppedMigration for ClearStorage<T, Pallet, Storage>
 where
 	T: Config,
-	P: Get<&'static str>,
-	S: Get<Option<&'static str>>,
+	Pallet: Get<&'static str>,
+	Storage: Get<Option<&'static str>>,
 {
 	type Cursor = bool;
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
-		("ClearStorage", P::get(), S::get()).using_encoded(twox_128)
+		("ClearStorage", Pallet::get(), Storage::get()).using_encoded(twox_128)
 	}
 
 	fn step(
@@ -273,7 +273,11 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let num_keys: u64 = Self::num_keys();
-		log::info!("ClearStorage<{}, {:?}>: Trying to remove {num_keys} keys.", P::get(), S::get());
+		log::info!(
+			"ClearStorage<{}, {:?}>: Trying to remove {num_keys} keys.",
+			Pallet::get(),
+			Storage::get()
+		);
 		Ok(num_keys.encode())
 	}
 
@@ -284,12 +288,16 @@ where
 		let keys_now = Self::num_keys();
 		log::info!(
 			"ClearStorage<{}, {:?}>: Keys remaining after migration: {keys_now}",
-			P::get(),
-			S::get()
+			Pallet::get(),
+			Storage::get()
 		);
 
 		if keys_before <= keys_now {
-			log::error!("ClearStorage<{}, {:?}>: Did not remove any keys.", P::get(), S::get());
+			log::error!(
+				"ClearStorage<{}, {:?}>: Did not remove any keys.",
+				Pallet::get(),
+				Storage::get()
+			);
 			Err("ClearStorage failed")?;
 		}
 
