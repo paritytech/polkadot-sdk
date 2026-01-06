@@ -38,12 +38,12 @@ pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 	/// Total accumulated weight from authorities that have already voted.
 	/// This value is incremented based on the voting weight of each unique vote received.
-	already_voted: VoteWeight,
+	accumulated_votes_weight: VoteWeight,
 }
 
 impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
 	fn default() -> Self {
-		Self { votes: Default::default(), already_voted: Default::default() }
+		Self { votes: Default::default(), accumulated_votes_weight: Default::default() }
 	}
 }
 
@@ -57,8 +57,8 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 			return false;
 		}
 
-		match self.already_voted.checked_add(vote_weight) {
-			Some(aggregated_vote) => self.already_voted = aggregated_vote,
+		match self.accumulated_votes_weight.checked_add(vote_weight) {
+			Some(aggregated_vote) => self.accumulated_votes_weight = aggregated_vote,
 			None => {
 				return false;
 			},
@@ -70,7 +70,7 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 	}
 
 	fn is_done(&self, threshold: usize) -> bool {
-		self.already_voted as usize >= threshold
+		self.accumulated_votes_weight as usize >= threshold
 	}
 }
 
