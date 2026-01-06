@@ -125,12 +125,12 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
 	}
 
-	fn generate_proof_of_possession(&mut self, _owner: &[u8]) -> Option<Self::Signature> {
-		None
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::Signature> {
+		Some(TestSignature(self.0, owner.to_vec()))
 	}
 
-	fn verify_proof_of_possession(&self, _owner: &[u8], _pop: &Self::Signature) -> bool {
-		false
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool {
+		traits::Verify::verify(pop, owner, &self.0)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -151,6 +151,10 @@ impl OpaqueKeys for UintAuthorityId {
 
 	fn get<T: Decode>(&self, _: KeyTypeId) -> Option<T> {
 		self.using_encoded(|mut x| T::decode(&mut x)).ok()
+	}
+
+	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+		true
 	}
 }
 
