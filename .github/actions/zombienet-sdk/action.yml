@@ -71,12 +71,12 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
 
-    # - name: k8s_auth
-    #   if: env.ZOMBIE_PROVIDER == 'k8s'
-    #   shell: bash
-    #   run: |
-    #     . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-    #     k8s_auth
+    - name: k8s_auth
+      if: env.ZOMBIE_PROVIDER == 'k8s'
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
 
     - name: zombie_test
       shell: bash
@@ -97,13 +97,6 @@ runs:
           # no need to check other runner variables. for k8s they shall store the same value
           if [[ $ZOMBIENET_SDK_DEFAULT_RUNNER == "parity-zombienet" ]]; then
             export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
-          fi
-
-          if [[ -v GHA_CLUSTER_SERVER_ADDR ]]; then
-            kubectl config set-cluster parity-zombienet --server="${GHA_CLUSTER_SERVER_ADDR}" --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-            kubectl config set-credentials pod-token --token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-            kubectl config set-context pod-context --cluster=parity-zombienet --user=pod-token
-            kubectl config use-context pod-context
           fi
         fi
 

@@ -58,8 +58,6 @@ jobs:
   zombienet-cumulus-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
-    container:
-      image: ${{ matrix.test.use-provider == 'k8s' && 'docker.io/paritytech/zombienet:v1.3.136' || null }}
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
     # Run if: called from build workflow OR merge_group OR (changes detected)
@@ -71,7 +69,7 @@ jobs:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      ZOMBIE_PROVIDER: ${{ matrix.test.use-provider && matrix.test.use-provider || needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
 
     strategy:
       fail-fast: false
@@ -81,12 +79,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Set additional environment variables
-        if: ${{ matrix.test.additional-env }}
-        shell: bash
-        run: |
-          echo '${{ toJson(matrix.test.additional-env) }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
 
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         if: ${{ matrix.test.needs-wasm-binary }}
