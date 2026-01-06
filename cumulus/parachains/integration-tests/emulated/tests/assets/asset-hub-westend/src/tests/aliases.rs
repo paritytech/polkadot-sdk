@@ -77,13 +77,20 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 	// origin and target are different accounts on different chains
 	let origin: AccountId = [1; 32].into();
 	let target: AccountId = [2; 32].into();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	PenpalB::mint_foreign_asset(
 		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
+	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		Location::parent(),
+		PenpalAssetOwner::get()
 	);
 
 	// Aliasing different account on different chains
