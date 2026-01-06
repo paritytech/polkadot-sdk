@@ -83,11 +83,11 @@
 //! ```bash
 //! # Generate snapshots
 //! export ZOMBIENET_SDK_BASE_DIR=<absolute-existing-dir-path>
-//! ./update-warp-sync-test.sh snapshots-run
-//! ./update-warp-sync-test.sh snapshots-archive
+//! ./generate-snapshots.sh snapshots-run
+//! ./generate-snapshots.sh snapshots-archive
 //!
 //! # Test locally before uploading
-//! ./update-warp-sync-test.sh snapshots-test-local
+//! ./generate-snapshots.sh snapshots-test-local
 //!
 //! # Upload to GCS (requires credentials) and update constants
 //! ```
@@ -105,13 +105,13 @@
 //! For relaychain:
 //! ```bash
 //! cd $ZOMBIENET_SDK_BASE_DIR/alice
-//! tar -czf alice-db.tgz data/
+//! tar -czf relaychain-db.tgz data/
 //! ```
 //!
 //! For parachain:
 //! ```bash
 //! cd $ZOMBIENET_SDK_BASE_DIR/one
-//! tar -czf one-db.tgz data/ relay-data/
+//! tar -czf parachain-db.tgz data/ relay-data/
 //! ```
 //!
 //! 3. Test locally before uploading:

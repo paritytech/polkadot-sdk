@@ -25,9 +25,9 @@ pub const PARA_ID: u32 = 2000;
 pub const PARA_BEST_BLOCK_TO_WAIT_FOR: f64 = 930.0;
 pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
-const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/full_node_warp_sync_db/alice-db.tgz";
+const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/full_node_warp_sync_db/relaychain-db.tgz";
 const DB_SNAPSHOT_PARACHAIN: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/full_node_warp_sync_db/one-db.tgz";
+	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/full_node_warp_sync_db/parachain-db.tgz";
 
 // Helper to support local snapshot testing via environment variables
 fn get_snapshot_url(default: &str, env_var: &str) -> String {

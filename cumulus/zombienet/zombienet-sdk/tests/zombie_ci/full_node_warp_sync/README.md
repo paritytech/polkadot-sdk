@@ -30,8 +30,8 @@ Once the snapshots are validated they are ready to upload to google storage.
 ## Testing local snapshots
 
 ```bash
-DB_SNAPSHOT_RELAYCHAIN_OVERRIDE=$(realpath alice-db.tgz) \
-DB_SNAPSHOT_PARACHAIN_OVERRIDE=$(realpath one-db.tgz) \
+DB_SNAPSHOT_RELAYCHAIN_OVERRIDE=$(realpath relaychain-db.tgz) \
+DB_SNAPSHOT_PARACHAIN_OVERRIDE=$(realpath parachain-db.tgz) \
 TARGET_DIR=$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release \
 PATH="$TARGET_DIR:$PATH" \
 RUST_LOG=info,zombienet_orchestrator=debug \

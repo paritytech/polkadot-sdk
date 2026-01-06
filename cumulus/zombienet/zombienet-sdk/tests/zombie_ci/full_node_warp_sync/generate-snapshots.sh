@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RELAYCHAIN_DB="relaychain-db.tgz"
+PARACHAIN_DB="parachain-db.tgz"
 
 # Config
 PARACHAIN_SPEC="$SCRIPT_DIR/warp-sync-parachain-spec.json"
@@ -87,11 +89,11 @@ snapshots_archive() {
     [[ -d "$SNAPSHOT_DIR/one/data" ]] || { echo "Error: one database not found" >&2; exit 1; }
 
     cd "$SCRIPT_DIR"
-    tar -czf alice-db.tgz -C "$SNAPSHOT_DIR/alice" data/
-    tar -czf one-db.tgz -C "$SNAPSHOT_DIR/one" data/ relay-data/
+    tar -czf $RELAYCHAIN_DB -C "$SNAPSHOT_DIR/alice" data/
+    tar -czf $PARACHAIN_DB -C "$SNAPSHOT_DIR/one" data/ relay-data/
 
-    echo "Created: $SCRIPT_DIR/alice-db.tgz ($(du -h alice-db.tgz | cut -f1))"
-    echo "Created: $SCRIPT_DIR/one-db.tgz ($(du -h one-db.tgz | cut -f1))"
+    echo "Created: ${SCRIPT_DIR}/${RELAYCHAIN_DB} ($(du -h $RELAYCHAIN_DB | cut -f1))"
+    echo "Created: ${SCRIPT_DIR}/${PARACHAIN_DB} ($(du -h $PARACHAIN_DB | cut -f1))"
     echo
     echo "Next: $0 snapshots-test-local"
 }
@@ -99,11 +101,11 @@ snapshots_archive() {
 snapshots_test_local() {
     echo "==> Testing with local snapshots"
 
-    [[ -f "$SCRIPT_DIR/alice-db.tgz" ]] || { echo "Error: alice-db.tgz not found" >&2; exit 1; }
-    [[ -f "$SCRIPT_DIR/one-db.tgz" ]] || { echo "Error: one-db.tgz not found" >&2; exit 1; }
+    [[ -f "${SCRIPT_DIR}/${RELAYCHAIN_DB}" ]] || { echo "Error: $RELAYCHAIN_DB not found" >&2; exit 1; }
+    [[ -f "${SCRIPT_DIR}/${PARACHAIN_DB}" ]] || { echo "Error: $PARACHAIN_DB not found" >&2; exit 1; }
 
-    export DB_SNAPSHOT_RELAYCHAIN_OVERRIDE="$SCRIPT_DIR/alice-db.tgz"
-    export DB_SNAPSHOT_PARACHAIN_OVERRIDE="$SCRIPT_DIR/one-db.tgz"
+    export DB_SNAPSHOT_RELAYCHAIN_OVERRIDE="${SCRIPT_DIR}/${RELAYCHAIN_DB}"
+    export DB_SNAPSHOT_PARACHAIN_OVERRIDE="${SCRIPT_DIR}/${PARACHAIN_DB}"
     export PATH="$TARGET_DIR:$PATH"
     export RUST_LOG=info,zombienet_orchestrator=debug
     export ZOMBIE_PROVIDER=native
