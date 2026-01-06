@@ -159,7 +159,6 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		asset_location,
-		false,
 		para_sovereign_account.clone(),
 		9_000_000_000_000_000,
 		9_000_000_000_000

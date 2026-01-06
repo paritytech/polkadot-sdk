@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{assets_balance_on, create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use crate::{assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
@@ -116,15 +116,14 @@ fn transact_from_para_to_para_through_asset_hub() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt,
-		false,
 		AssetHubWestendSender::get(),
 		1_000_000_000_000,
 		20_000_000_000
 	);
 	// We also need a pool between WND and USDT on PenpalA.
-	create_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
+	create_foreign_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), PenpalAssetOwner::get());
 	// We also need a pool between WND and USDT on PenpalB.
-	create_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
+	create_foreign_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), PenpalAssetOwner::get());
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
 	PenpalA::execute_with(|| {
@@ -245,7 +244,6 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
-		false,
 		AssetHubWestendSender::get(),
 		1_000_000_000_000,
 		20_000_000_000
@@ -467,7 +465,6 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
-		false,
 		AssetHubWestendSender::get(),
 		1_000_000_000_000,
 		20_000_000_000

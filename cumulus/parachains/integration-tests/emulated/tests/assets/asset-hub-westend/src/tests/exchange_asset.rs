@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	assets_balance_on, create_pool_with_wnd_on, foreign_balance_on,
-	imports::{
-		asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
-		*,
-	},
-};
+use crate::{assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, foreign_balance_on, imports::{
+	asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
+	*,
+}};
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
@@ -106,7 +103,7 @@ fn test_exchange_asset(
 	});
 
 	if create_pool {
-		create_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), true, alice.clone());
+		create_foreign_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), alice.clone());
 	}
 
 	// Execute and verify swap
@@ -190,7 +187,6 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
-		false,
 		AssetHubWestendSender::get(),
 		1_000_000_000_000,
 		20_000_000_000

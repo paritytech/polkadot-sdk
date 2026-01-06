@@ -15,7 +15,7 @@
 
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
-use crate::{create_pool_with_wnd_on, imports::*};
+use crate::{create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, imports::*};
 
 use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::dispatch::RawOrigin;
@@ -398,7 +398,6 @@ fn usdt_fee_estimation_in_usdt_works() {
 	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt_location_on_ah.clone(),
-		false,
 		AssetHubWestendSender::get(),
 		1_000_000_000_000, // 1 WND
 		2_000_000          // 2 USDT (1:2 ratio)
@@ -406,10 +405,9 @@ fn usdt_fee_estimation_in_usdt_works() {
 
 	// Create a liquidity pool between WND and USDT on PenpalA as well
 	// This is needed for PenpalA to perform asset conversion for fee estimation
-	create_pool_with_wnd_on!(
+	create_foreign_pool_with_wnd_on!(
 		PenpalA,
 		usdt_location_on_penpal.clone(),
-		true,
 		PenpalAssetOwner::get(),
 		1_000_000_000_000, // 1 WND
 		2_000_000          // 2 USDT (1:2 ratio)
