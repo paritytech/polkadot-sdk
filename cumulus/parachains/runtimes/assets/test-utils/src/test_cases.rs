@@ -40,10 +40,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{
-	latest::prelude::{Definite, *},
-	VersionedAssetId, VersionedAssets, VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
 use xcm_executor::{
 	traits::{ConvertLocation, TransferType},
 	XcmExecutor,
