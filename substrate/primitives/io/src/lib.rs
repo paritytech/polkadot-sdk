@@ -643,9 +643,10 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
-	/// even if the value is longer than `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2)]
+	#[wrapped]
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -664,15 +665,27 @@ pub trait Storage {
 		})
 	}
 
+	/// A convenience wrapper providing backward-compatible interface to the `read` host function.
+	#[wrapper]
+	fn read(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read__wrapped(key.as_ref(), &mut value_out[..], value_offset, 0)
+	}
+
+	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
+	#[wrapper]
+	fn read_partial(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read__wrapped(key.as_ref(), &mut value_out[..], value_offset, 1)
+	}
+
 	/// A convenience wrapper implementing the deprecated `get` host function
 	/// functionality through the new interface.
 	#[wrapper]
 	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
-		let len = read(key.as_ref(), &mut value_out[..], 0, 0)?;
+		let len = read(key.as_ref(), &mut value_out[..], 0)?;
 		if len as usize > value_out.len() {
 			value_out.resize(len as usize, 0);
-			read(key.as_ref(), &mut value_out[..], 0, 0)?;
+			read(key.as_ref(), &mut value_out[..], 0)?;
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
@@ -1036,9 +1049,10 @@ pub trait DefaultChildStorage {
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	///
-	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
-	/// even if the value is longer than `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2)]
+	#[wrapped]
 	fn read(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1061,15 +1075,37 @@ pub trait DefaultChildStorage {
 			.into()
 	}
 
+	/// A convenience wrapper providing backward-compatible interface to the `read` host function.
+	#[wrapper]
+	fn read(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read__wrapped(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 0)
+	}
+
+	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
+	#[wrapper]
+	fn read_partial(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read__wrapped(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 1)
+	}
+
 	/// A convenience wrapper implementing the deprecated `get` host function
 	/// functionality through the new interface.
 	#[wrapper]
 	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
-		let len = read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0, 0)?;
+		let len = read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
 		if len as usize > value_out.len() {
 			value_out.resize(len as usize, 0);
-			read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0, 0)?;
+			read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
@@ -3919,10 +3955,10 @@ mod tests {
 
 		t.execute_with(|| {
 			let mut v = [0u8; 4];
-			assert_eq!(storage::read(b":test", &mut v[..], 0, 0).unwrap(), value.len() as u32);
+			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [11u8, 0, 0, 0]);
 			let mut w = [0u8; 11];
-			assert_eq!(storage::read(b":test", &mut w[..], 4, 0).unwrap(), value.len() as u32 - 4);
+			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
 			assert_eq!(&w, b"Hello world");
 		});
 	}
