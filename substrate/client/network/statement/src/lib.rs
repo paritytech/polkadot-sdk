@@ -249,8 +249,6 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
-			time_hashing: 0,
-			batch_limit: MAX_BATCH_SUBMIT,
 		};
 
 		Ok(handler)
@@ -287,8 +285,6 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
-	pub time_hashing: u64,
-	batch_limit: usize,
 }
 
 /// Peer information
@@ -325,7 +321,6 @@ where
 		peers: HashMap<PeerId, Peer>,
 		statement_store: Arc<dyn StatementStore>,
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
-		batch_limit: usize,
 	) -> Self {
 		Self {
 			protocol_name,
@@ -340,8 +335,6 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
-			time_hashing: 0,
-			batch_limit,
 		}
 	}
 
@@ -476,8 +469,6 @@ where
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
 			for s in statements {
-				let start = std::time::Instant::now();
-
 				if self.pending_statements.len() > MAX_PENDING_STATEMENTS {
 					log::debug!(
 						target: LOG_TARGET,
@@ -490,8 +481,8 @@ where
 					});
 					break
 				}
+
 				let hash = s.hash();
-				//TODO:  Why do we just insert known_statement and never actually check on this?
 				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {
@@ -515,8 +506,6 @@ where
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
-						self.time_hashing += start.elapsed().as_nanos() as u64;
-
 						let (completion_sender, completion_receiver) = oneshot::channel();
 						match self.queue_sender.try_send((s, completion_sender)) {
 							Ok(()) => {
@@ -544,8 +533,6 @@ where
 						}
 					},
 					Entry::Occupied(mut entry) => {
-						self.time_hashing += start.elapsed().as_nanos() as u64;
-
 						if !entry.get_mut().insert(who) {
 							// Already received this from the same peer.
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
@@ -555,65 +542,6 @@ where
 
 				statements_left -= 1;
 			}
-		}
-	}
-
-	/// Called when peer sends us new statements; processes them in batches via `submit_batch`.
-	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
-	pub fn on_batch_statements(&mut self, who: PeerId, statements: Statements) {
-		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
-		if self.sync.is_major_syncing() {
-			log::trace!(target: LOG_TARGET, "{who}: Ignoring statements while major syncing or offline");
-			return
-		}
-
-		let mut results = Vec::new();
-		if let Some(ref mut peer) = self.peers.get_mut(&who) {
-			let mut batch = Vec::with_capacity(self.batch_limit.max(1));
-			for s in statements.into_iter() {
-				let hash = s.hash();
-				peer.known_statements.insert(hash);
-				if self.statement_store.has_statement(&hash) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.known_statements_received.inc();
-					});
-
-					if let Some(peers) = self.pending_statements_peers.get(&hash) {
-						if peers.contains(&who) {
-							log::trace!(
-								target: LOG_TARGET,
-								"Already received the statement from the same peer {who}.",
-							);
-							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-						}
-					}
-					continue;
-				}
-
-				self.network.report_peer(who, rep::ANY_STATEMENT);
-				batch.push(s);
-
-				if batch.len() == self.batch_limit {
-					let result = self
-						.statement_store
-						.submit_batch(batch.split_off(0), StatementSource::Network);
-					results.push(result);
-				}
-			}
-
-			if !batch.is_empty() {
-				let result = self
-					.statement_store
-					.submit_batch(batch, StatementSource::Network);
-				results.push(result);
-			}
-		} else {
-			log::trace!(target: LOG_TARGET, "Dropping statements from unknown peer {}", who);
-			return
-		}
-
-		for result in results {
-			self.on_handle_statement_import(who, &result);
 		}
 	}
 
@@ -1025,7 +953,11 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn submit_batch(&self, statements: Vec<Statement>, source: StatementSource) -> SubmitResult {
+		fn submit_batch(
+			&self,
+			_statements: Vec<Statement>,
+			_source: StatementSource,
+		) -> SubmitResult {
 			unimplemented!()
 		}
 
@@ -1076,7 +1008,6 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
-			time_hashing: 0,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
