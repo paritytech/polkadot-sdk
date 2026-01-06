@@ -1730,6 +1730,7 @@ mod benches {
 		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
 		[pallet_election_provider_multi_block::signed, MultiBlockElectionSigned]
 		[pallet_message_queue, MessageQueue]
+		[pallet_meta_tx, MetaTx]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_multisig, Multisig]
