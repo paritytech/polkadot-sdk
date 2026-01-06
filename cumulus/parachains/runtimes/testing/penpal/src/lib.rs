@@ -527,11 +527,11 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+/// Union fungibles implementation for [`ForeignAssets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	ForeignAssets,
-	TargetFromLeft<xcm_config::RelayLocation, xcm::latest::Location>,
+	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
 	xcm::latest::Location,
 	AccountId,
 >;
