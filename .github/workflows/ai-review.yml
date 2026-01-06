@@ -1,0 +1,43 @@
+name: AI PR Review
+
+on:
+  # pull_request: # enable this when we think this is ready
+  #   types: [opened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: review-pr-${{ github.event.inputs.pr_number || github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Process PR
+        uses: polka-codes/action@v2
+        with:
+          pr_number: ${{ github.event.inputs.pr_number || github.event.number }}
+          review: true
+          config: .config/review.polkacodes.yml
+        env:
+          POLKA_API_PROVIDER: google
+          POLKA_MODEL: gemini-3-pro-preview
+          GITHUB_TOKEN: ${{ github.token }}
+          POLKA_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          POLKA_BUDGET: 5
+
