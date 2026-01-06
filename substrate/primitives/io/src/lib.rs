@@ -643,21 +643,23 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
+	/// even if the value is longer than `value_out`.
 	#[version(2)]
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
 		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
+		allow_partial: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
 			let out_len = core::cmp::min(data.len(), value_out.len());
-			// if value_out.len() >= data.len() {
-			// 	value_out[..data.len()].copy_from_slice(data);
-			// }
-			value_out[..out_len].copy_from_slice(&data[..out_len]);
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
 			data.len() as u32
 		})
 	}
@@ -1033,21 +1035,26 @@ pub trait DefaultChildStorage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	#[version(2)]
+	///
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
+	/// even if the value is longer than `value_out`.
+	#[version(2, register_only)]
 	fn read(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
+		allow_partial: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key)
 			.map(|value| {
 				let value_offset = value_offset as usize;
 				let data = &value[value_offset.min(value.len())..];
-				if value_out.len() >= data.len() {
-					value_out[..data.len()].copy_from_slice(data);
+				let out_len = core::cmp::min(data.len(), value_out.len());
+				if value_out.len() >= data.len() || allow_partial != 0 {
+					value_out[..out_len].copy_from_slice(&data[..out_len]);
 				}
 				data.len() as u32
 			})
