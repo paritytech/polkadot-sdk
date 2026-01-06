@@ -15,10 +15,9 @@
 // limitations under the License.
 
 use anyhow::anyhow;
-use zombienet_sdk::{
-	AddCollatorOptions, AddNodeOptions, LocalFileSystem, Network, NetworkConfig,
-	NetworkConfigBuilder,
-};
+#[cfg(not(feature = "generate-snapshots"))]
+use zombienet_sdk::{AddCollatorOptions, AddNodeOptions, LocalFileSystem, Network};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 pub const PARA_ID: u32 = 2000;
 

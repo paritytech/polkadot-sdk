@@ -61,7 +61,7 @@ chainspec_relaychain() {
     echo "Created: $RELAYCHAIN_SPEC"
 }
 
-snapshots_generate() {
+snapshots_run() {
     echo "==> Running test to generate snapshots (24h)"
     echo "Output directory: $SNAPSHOT_DIR"
 
@@ -72,12 +72,12 @@ snapshots_generate() {
     export ZOMBIE_PROVIDER=native
     export ZOMBIENET_SDK_BASE_DIR=$SNAPSHOT_DIR
 
-    echo cargo nextest run --release \
+    cargo nextest run --release \
         -p cumulus-zombienet-sdk-tests \
         --features zombie-ci,generate-snapshots \
         --no-capture \
         -- full_node_warp_sync::generate_snapshots
-    unset ZOMBIENET_SDK_BASE_DIRG
+    unset ZOMBIENET_SDK_BASE_DIR
 
     echo "Snapshots ready in: $SNAPSHOT_DIR"
 }
@@ -128,7 +128,7 @@ all() {
     build_binaries
     chainspec_parachain
     chainspec_relaychain
-    snapshots_generate
+    snapshots_run
     snapshots_archive
     snapshots_test_local
     echo "All phases complete"
@@ -141,7 +141,7 @@ case "$1" in
     build)                build_binaries ;;
     chainspec-parachain)  chainspec_parachain ;;
     chainspec-relaychain) chainspec_relaychain ;;
-    snapshots-generate)   snapshots_generate ;;
+    snapshots-run)        snapshots_run;;
     snapshots-archive)    snapshots_archive ;;
     snapshots-test-local) snapshots_test_local ;;
     all)                  all ;;
