@@ -224,8 +224,8 @@ impl RpcParams {
 			for endpoint in &self.experimental_rpc_endpoint {
 				// Technically, `0.0.0.0` isn't a public IP address, but it's a way to listen on
 				// all interfaces. Thus, we consider it as a public endpoint and warn about it.
-				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global()
-					|| endpoint.listen_addr.ip().is_unspecified()
+				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global() ||
+					endpoint.listen_addr.ip().is_unspecified()
 				{
 					eprintln!(
 						"It isn't safe to expose RPC publicly without a proxy server that filters \
