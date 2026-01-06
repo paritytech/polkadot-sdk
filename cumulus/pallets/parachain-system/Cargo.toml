@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
@@ -124,3 +125,13 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+# Enables `TransactionIndex` host functions for parachain validation
+# without requiring maintenance of a transaction index.
+# However, the host environment (polkadot-prepare/execute-worker) still expects these functions to exist,
+# so we provide a replacement no-op implementation gated by this feature.
+#
+# Used by: `validate_block::implementation::validate_block`.
+#
+# Note: The parachain collator software is expected to use/include `transaction_index::HostFunctions`.
+transaction-index = []

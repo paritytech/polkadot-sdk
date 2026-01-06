@@ -115,8 +115,8 @@ pub use sp_core::{
 #[cfg(feature = "std")]
 pub use sp_core::{bounded_btree_map, bounded_vec};
 
-/// Re-export `RuntimeDebug`, to avoid dependency clutter.
-pub use sp_core::RuntimeDebug;
+/// Re-export `Debug`, to avoid dependency clutter.
+pub use core::fmt::Debug;
 
 /// Re-export big_uint stuff.
 pub use sp_arithmetic::biguint;
@@ -216,7 +216,7 @@ impl From<Justification> for Justifications {
 
 use traits::{Lazy, Verify};
 
-use crate::traits::IdentifyAccount;
+use crate::traits::{IdentifyAccount, LazyExtrinsic};
 #[cfg(feature = "serde")]
 pub use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -278,15 +278,7 @@ pub type ConsensusEngineId = [u8; 4];
 /// Signature verify that can work with any known signature types.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-	Eq,
-	PartialEq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Eq, PartialEq, Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
@@ -352,16 +344,7 @@ impl TryFrom<MultiSignature> for ecdsa::Signature {
 
 /// Public key for any known crypto algorithm.
 #[derive(
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
@@ -519,7 +502,7 @@ impl Verify for MultiSignature {
 }
 
 /// Signature verify that can work with any known signature types..
-#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AnySignature(H512);
 
@@ -1001,20 +984,54 @@ macro_rules! assert_eq_error_rate_float {
 
 /// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
 /// correctly.
-#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
-pub struct OpaqueExtrinsic(Vec<u8>);
+#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking)]
+pub struct OpaqueExtrinsic(bytes::Bytes);
+
+impl TypeInfo for OpaqueExtrinsic {
+	type Identity = Self;
+	fn type_info() -> scale_info::Type {
+		scale_info::Type::builder()
+			.path(scale_info::Path::new("OpaqueExtrinsic", module_path!()))
+			.composite(
+				scale_info::build::Fields::unnamed()
+					.field(|f| f.ty::<Vec<u8>>().type_name("Vec<u8>")),
+			)
+	}
+}
 
 impl OpaqueExtrinsic {
 	/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
-	pub fn from_bytes(mut bytes: &[u8]) -> Result<Self, codec::Error> {
+	pub fn try_from_encoded_extrinsic(mut bytes: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode(&mut bytes)
+	}
+
+	/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
+	#[deprecated = "Use `try_from_encoded_extrinsic()` instead"]
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, codec::Error> {
+		Self::try_from_encoded_extrinsic(bytes)
+	}
+
+	/// Create a new instance of `OpaqueExtrinsic` from a `Vec<u8>`.
+	pub fn from_blob(bytes: Vec<u8>) -> Self {
+		Self(bytes.into())
+	}
+
+	/// Get the actual blob.
+	pub fn inner(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl LazyExtrinsic for OpaqueExtrinsic {
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Ok(Self(data.to_vec().into()))
 	}
 }
 
 impl core::fmt::Debug for OpaqueExtrinsic {
 	#[cfg(feature = "std")]
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
-		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0))
+		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0.as_ref()))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -1111,7 +1128,7 @@ pub enum ExtrinsicInclusionMode {
 }
 
 /// Simple blob that hold a value in an encoded form without committing to its type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct OpaqueValue(Vec<u8>);
 impl OpaqueValue {
 	/// Create a new `OpaqueValue` using the given encoded representation.
@@ -1137,6 +1154,7 @@ macro_rules! create_runtime_str {
 // TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
 #[doc(hidden)]
 pub use alloc::borrow::Cow;
+
 // TODO: Remove in future versions
 /// Deprecated alias to improve upgrade experience
 #[deprecated = "Use String or Cow<'static, str> instead"]
@@ -1154,7 +1172,7 @@ mod tests {
 
 	#[test]
 	fn opaque_extrinsic_serialization() {
-		let ex = super::OpaqueExtrinsic(vec![1, 2, 3, 4]);
+		let ex = OpaqueExtrinsic::from_blob(vec![1, 2, 3, 4]);
 		assert_eq!(serde_json::to_string(&ex).unwrap(), "\"0x1001020304\"".to_owned());
 	}
 

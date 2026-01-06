@@ -9,8 +9,10 @@ use frame_support::{
 	BoundedVec,
 };
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
-use snowbridge_core::{AgentId, AgentIdOf, ParaId};
+use scale_info::TypeInfo;
+use snowbridge_core::{AgentId, AgentIdOf, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 use sp_core::{ConstU32, H160, H256};
@@ -88,6 +90,29 @@ parameter_types! {
 	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 }
 
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	MaxEncodedLen,
+	Clone,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Debug,
+)]
+pub enum AggregateMessageOrigin {
+	Snowbridge(ChannelId),
+	SnowbridgeV2(H256),
+}
+
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -107,6 +132,7 @@ impl crate::Config for Test {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 }
 
 fn setup() {

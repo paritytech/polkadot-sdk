@@ -108,6 +108,7 @@ std = [
 	"pallet-migrations?/std",
 	"pallet-mixnet?/std",
 	"pallet-mmr?/std",
+	"pallet-multi-asset-bounties?/std",
 	"pallet-multisig?/std",
 	"pallet-nft-fractionalization?/std",
 	"pallet-nfts-runtime-api?/std",
@@ -170,6 +171,7 @@ std = [
 	"pallet-xcm-bridge-hub?/std",
 	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
+	"parachains-common-types?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
 	"polkadot-core-primitives?/std",
@@ -300,6 +302,7 @@ runtime-benchmarks = [
 	"pallet-meta-tx?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
+	"pallet-multi-asset-bounties?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",
 	"pallet-nft-fractionalization?/runtime-benchmarks",
 	"pallet-nfts?/runtime-benchmarks",
@@ -371,6 +374,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-test-utils?/try-runtime",
 	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
@@ -441,6 +445,7 @@ try-runtime = [
 	"pallet-migrations?/try-runtime",
 	"pallet-mixnet?/try-runtime",
 	"pallet-mmr?/try-runtime",
+	"pallet-multi-asset-bounties?/try-runtime",
 	"pallet-multisig?/try-runtime",
 	"pallet-nft-fractionalization?/try-runtime",
 	"pallet-nfts?/try-runtime",
@@ -654,6 +659,7 @@ runtime-full = [
 	"pallet-migrations",
 	"pallet-mixnet",
 	"pallet-mmr",
+	"pallet-multi-asset-bounties",
 	"pallet-multisig",
 	"pallet-nft-fractionalization",
 	"pallet-nfts",
@@ -720,6 +726,7 @@ runtime-full = [
 	"pallet-xcm-bridge-hub-router",
 	"pallet-xcm-precompiles",
 	"parachains-common",
+	"parachains-common-types",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
 	"polkadot-primitives",
@@ -857,7 +864,6 @@ node = [
 	"cumulus-client-collator",
 	"cumulus-client-consensus-aura",
 	"cumulus-client-consensus-common",
-	"cumulus-client-consensus-proposer",
 	"cumulus-client-consensus-relay-chain",
 	"cumulus-client-network",
 	"cumulus-client-parachain-inherent",
@@ -1526,6 +1532,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/merkle-mountain-range"
 
+[dependencies.pallet-multi-asset-bounties]
+default-features = false
+optional = true
+path = "../substrate/frame/multi-asset-bounties"
+
 [dependencies.pallet-multisig]
 default-features = false
 optional = true
@@ -1855,6 +1866,11 @@ path = "../polkadot/xcm/pallet-xcm/precompiles"
 default-features = false
 optional = true
 path = "../cumulus/parachains/common"
+
+[dependencies.parachains-common-types]
+default-features = false
+optional = true
+path = "../cumulus/parachains/common/types"
 
 [dependencies.polkadot-core-primitives]
 default-features = false
@@ -2215,11 +2231,6 @@ path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
 path = "../cumulus/client/consensus/common"
-
-[dependencies.cumulus-client-consensus-proposer]
-default-features = false
-optional = true
-path = "../cumulus/client/consensus/proposer"
 
 [dependencies.cumulus-client-consensus-relay-chain]
 default-features = false

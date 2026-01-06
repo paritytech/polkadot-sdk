@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, NativeOrWithId},
 		fungibles::{Inspect as FungiblesInspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
 		OriginTrait,
 	},
 	weights::Weight,
@@ -924,4 +924,129 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
+}
+
+/// Tests that validation rejects transactions that would result in `ReducedToZero` for native
+/// assets.
+#[test]
+fn transaction_payment_rejects_reduced_to_zero_in_native_asset() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let ed = Balances::minimum_balance();
+			let len = 10;
+			let weight = 5;
+			let tip = 5;
+
+			let asset_id = NativeOrWithId::Native;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.clone().into()));
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+
+			// Calculate the actual fee
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
+
+			// Set balance to cause ReducedToZero
+			let balance = ed + fee - 1;
+			let caller = 1;
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), caller, balance));
+
+			// Verify that can_withdraw returns ReducedToZero
+			let consequence = Balances::can_withdraw(&caller, fee);
+			assert!(
+				matches!(consequence, WithdrawConsequence::ReducedToZero(_)),
+				"can_withdraw should return ReducedToZero, got: {:?}",
+				consequence
+			);
+
+			let result = ext.validate_only(
+				Some(caller).into(),
+				CALL,
+				&info,
+				len,
+				sp_runtime::transaction_validity::TransactionSource::External,
+				0,
+			);
+
+			// ReducedToZero should be rejected during validation
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
+		});
+}
+
+/// Tests that validation rejects transactions that would result in `ReducedToZero` for assets.
+#[test]
+fn transaction_payment_rejects_reduced_to_zero_in_asset() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			// create the asset
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   /* owner */
+				true, /* is_sufficient */
+				min_balance
+			));
+
+			setup_lp(asset_id, balance_factor);
+
+			let caller = 999;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let len = 10;
+			let weight = 5;
+			let tip = 5;
+
+			// Calculate the actual fee
+			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()));
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+
+			let fee_in_native =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
+
+			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_in_native,
+				true,
+			)
+			.unwrap();
+
+			// Set asset balance to cause ReducedToZero
+			let asset_balance = min_balance + fee_in_asset - 1;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, asset_balance));
+
+			// Verify that can_withdraw returns ReducedToZero
+			let consequence = Assets::can_withdraw(asset_id, &caller, fee_in_asset);
+			assert!(
+				matches!(consequence, WithdrawConsequence::ReducedToZero(_)),
+				"can_withdraw should return ReducedToZero, got: {:?}",
+				consequence
+			);
+
+			let result = ext.validate_only(
+				Some(caller).into(),
+				CALL,
+				&info,
+				len,
+				sp_runtime::transaction_validity::TransactionSource::External,
+				0,
+			);
+
+			// ReducedToZero should be rejected during validation
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
+		});
 }

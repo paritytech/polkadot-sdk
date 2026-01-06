@@ -3,19 +3,19 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{derive_impl, parameter_types};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{ParaId, TokenId};
 use snowbridge_inbound_queue_primitives::{
-	v2::{CreateAssetCallInfo, MessageToXcm},
+	v2::{CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor},
 	Log, Proof, VerificationError,
 };
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeConvert},
+	traits::{IdentityLookup, MaybeConvert, TryConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
@@ -106,33 +106,78 @@ parameter_types! {
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
 	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
+	pub const SetReservesCallIndex: [u8;2] = [53, 33];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 	pub const LocalNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
-	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateAssetDeposit::get(),min_balance:1};
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo {
+		create_call: CreateAssetCallIndex::get(),
+		deposit: CreateAssetDeposit::get(),
+		min_balance: 1,
+		set_reserves_call: SetReservesCallIndex::get(),
+	};
 	pub AssetHubParaId: ParaId = ParaId::from(1000);
+	pub TargetLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
+}
+
+pub struct DummyPrefix;
+
+impl MessageProcessor<AccountId> for DummyPrefix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		false
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor<AccountId> for DummySuffix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		true
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
 }
 
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type XcmSender = MockXcmSender;
-	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
-	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		EthereumNetwork,
-		LocalNetwork,
-		GatewayAddress,
-		InboundQueueLocation,
-		AssetHubParaId,
-		MockTokenIdConvert,
-		AccountId,
-	>;
+	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (
+		DummyPrefix,
+		XcmMessageProcessor<
+			Test,
+			MockXcmSender,
+			MockXcmExecutor,
+			MessageToXcm<
+				CreateAssetCall,
+				EthereumNetwork,
+				LocalNetwork,
+				GatewayAddress,
+				InboundQueueLocation,
+				AssetHubParaId,
+				MockTokenIdConvert,
+				AccountId,
+			>,
+			MockAccountLocationConverter<AccountId>,
+			TargetLocation,
+		>,
+		DummySuffix,
+	);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
-	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;

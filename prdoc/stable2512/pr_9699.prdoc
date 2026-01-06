@@ -1,0 +1,16 @@
+title: Rve/revm selfdestruct2
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/polkadot-sdk/issues/9621
+
+    Behavior of `terminate` is changed in accordance with EIP-6780 (and EVM in general):
+    - `terminate` only deletes the code from storage if it is called in the same transaction the contract was created.
+    - `terminate` does not destroy the contract instantly. The contract is registered for destruction, which happens at the end of the transaction.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

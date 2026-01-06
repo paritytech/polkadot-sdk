@@ -121,6 +121,7 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 			.sign(&signer);
 		let mut encoded = transaction.into_encoded();
 
-		OpaqueExtrinsic::from_bytes(&mut encoded).map_err(|_| "Unable to construct OpaqueExtrinsic")
+		OpaqueExtrinsic::try_from_encoded_extrinsic(&mut encoded)
+			.map_err(|_| "Unable to construct OpaqueExtrinsic")
 	}
 }

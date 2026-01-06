@@ -25,7 +25,7 @@ use crate::{justification::GrandpaJustification, AuthoritySet};
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
-use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
+use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
 	collections::{
 		btree_map::{
@@ -47,7 +47,7 @@ type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
 >;
 
 /// Votes ancestries with useful methods.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct AncestryChain<Header: HeaderT> {
 	/// We expect all forks in the ancestry chain to be descendants of base.
 	base: HeaderId<Header::Hash, Header::Number>,
@@ -136,7 +136,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum Error {
 	/// Could not convert `AuthorityList` to `VoterSet`.
 	InvalidAuthorityList,
@@ -154,7 +154,7 @@ pub enum Error {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum PrecommitError {
 	/// Justification contains redundant votes.
 	RedundantAuthorityVote,
@@ -170,7 +170,7 @@ pub enum PrecommitError {
 }
 
 /// The context needed for validating GRANDPA finality proofs.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct JustificationVerificationContext {
 	/// The authority set used to verify the justification.
 	pub voter_set: VoterSet<AuthorityId>,

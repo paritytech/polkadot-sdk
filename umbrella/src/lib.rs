@@ -92,10 +92,6 @@ pub use cumulus_client_consensus_aura;
 #[cfg(feature = "cumulus-client-consensus-common")]
 pub use cumulus_client_consensus_common;
 
-/// A Substrate `Proposer` for building parachain blocks.
-#[cfg(feature = "cumulus-client-consensus-proposer")]
-pub use cumulus_client_consensus_proposer;
-
 /// The relay-chain provided consensus algorithm.
 #[cfg(feature = "cumulus-client-consensus-relay-chain")]
 pub use cumulus_client_consensus_relay_chain;
@@ -539,6 +535,10 @@ pub use pallet_mixnet;
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
 
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
 pub use pallet_multisig;
@@ -810,6 +810,10 @@ pub use pallet_xcm_precompiles;
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
 pub use parachains_common;
+
+/// Common types for parachains.
+#[cfg(feature = "parachains-common-types")]
+pub use parachains_common_types;
 
 /// Utils for Runtimes testing.
 #[cfg(feature = "parachains-runtimes-test-utils")]

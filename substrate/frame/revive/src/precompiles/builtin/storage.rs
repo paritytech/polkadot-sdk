@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
@@ -51,8 +52,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		}
 
 		use IStorage::IStorageCalls;
-		let max_size = env.max_value_size();
+		let max_size = limits::STORAGE_BYTES;
 		match input {
+			IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)
+				if env.is_read_only() =>
+				Err(Error::Error(crate::Error::<Self::T>::StateChangeDenied.into())),
+
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
@@ -63,7 +68,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::ClearStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {
@@ -75,7 +80,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let contained_key = outcome != WriteOutcome::New;
 				let ret = (contained_key, outcome.old_len());
-				env.gas_meter_mut().adjust_gas(charged, costs(outcome.old_len()));
+				env.frame_meter_mut().adjust_weight(charged, costs(outcome.old_len()));
 				Ok(ret.abi_encode())
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
@@ -92,7 +97,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::ContainsStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {
@@ -102,7 +107,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let value_len = outcome.unwrap_or(0);
 				let ret = (outcome.is_some(), value_len);
-				env.gas_meter_mut().adjust_gas(charged, costs(value_len));
+				env.frame_meter_mut().adjust_weight(charged, costs(value_len));
 				Ok(ret.abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
@@ -115,7 +120,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::TakeStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {
@@ -125,10 +130,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 
 				if let crate::storage::WriteOutcome::Taken(value) = outcome {
-					env.gas_meter_mut().adjust_gas(charged, costs(value.len() as u32));
+					env.frame_meter_mut().adjust_weight(charged, costs(value.len() as u32));
 					Ok(value.abi_encode())
 				} else {
-					env.gas_meter_mut().adjust_gas(charged, costs(0));
+					env.frame_meter_mut().adjust_weight(charged, costs(0));
 					Ok(Vec::<u8>::new().abi_encode())
 				}
 			},

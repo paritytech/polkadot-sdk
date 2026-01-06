@@ -24,18 +24,19 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	codec::{Codec, Decode, DecodeWithMemTracking, Encode},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike},
 	traits::{
-		self, Block as BlockT, Header as HeaderT, MaybeSerialize, MaybeSerializeDeserialize,
-		Member, NumberFor,
+		self, Block as BlockT, Header as HeaderT, LazyExtrinsic, MaybeSerialize,
+		MaybeSerializeDeserialize, Member, NumberFor,
 	},
-	Justifications,
+	Justifications, OpaqueExtrinsic,
 };
 use alloc::vec::Vec;
-use sp_core::RuntimeDebug;
+use core::marker::PhantomData;
+use Debug;
 
 /// Something to identify a block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 pub enum BlockId<Block: BlockT> {
 	/// Identify by block header hash.
 	Hash(Block::Hash),
@@ -77,9 +78,74 @@ impl<Block: BlockT> fmt::Display for BlockId<Block> {
 	}
 }
 
+/// Abstraction over a substrate block that allows us to lazily decode its extrinsics.
+#[derive(Debug, Encode, Decode, scale_info::TypeInfo)]
+pub struct LazyBlock<Header, Extrinsic> {
+	/// The block header.
+	pub header: Header,
+	/// The accompanying extrinsics.
+	pub extrinsics: Vec<OpaqueExtrinsic>,
+
+	_phantom: PhantomData<Extrinsic>,
+}
+
+impl<Header, Extrinsic: Into<OpaqueExtrinsic>> LazyBlock<Header, Extrinsic> {
+	/// Creates a new instance of `LazyBlock` from its parts.
+	pub fn new(header: Header, extrinsics: Vec<Extrinsic>) -> Self {
+		Self {
+			header,
+			extrinsics: extrinsics.into_iter().map(|xt| xt.into()).collect(),
+			_phantom: Default::default(),
+		}
+	}
+}
+
+impl<Header, Extrinsic: Into<OpaqueExtrinsic>> From<Block<Header, Extrinsic>>
+	for LazyBlock<Header, Extrinsic>
+{
+	fn from(block: Block<Header, Extrinsic>) -> Self {
+		LazyBlock::new(block.header, block.extrinsics)
+	}
+}
+
+impl<Header, Extrinsic> EncodeLike<LazyBlock<Header, Extrinsic>> for Block<Header, Extrinsic>
+where
+	Block<Header, Extrinsic>: Encode,
+	LazyBlock<Header, Extrinsic>: Encode,
+{
+}
+
+impl<Header, Extrinsic> EncodeLike<Block<Header, Extrinsic>> for LazyBlock<Header, Extrinsic>
+where
+	Block<Header, Extrinsic>: Encode,
+	LazyBlock<Header, Extrinsic>: Encode,
+{
+}
+
+impl<Header, Extrinsic> traits::LazyBlock for LazyBlock<Header, Extrinsic>
+where
+	Header: HeaderT,
+	Extrinsic: core::fmt::Debug + LazyExtrinsic,
+{
+	type Extrinsic = Extrinsic;
+	type Header = Header;
+
+	fn header(&self) -> &Self::Header {
+		&self.header
+	}
+
+	fn header_mut(&mut self) -> &mut Self::Header {
+		&mut self.header
+	}
+
+	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>> {
+		self.extrinsics.iter().map(|xt| Self::Extrinsic::decode_unprefixed(&xt.0))
+	}
+}
+
 /// Abstraction over a substrate block.
 #[derive(
-	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, scale_info::TypeInfo,
+	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, scale_info::TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -101,11 +167,17 @@ where
 impl<Header, Extrinsic: MaybeSerialize> traits::Block for Block<Header, Extrinsic>
 where
 	Header: HeaderT + MaybeSerializeDeserialize,
-	Extrinsic: Member + Codec + DecodeWithMemTracking + traits::ExtrinsicLike,
+	Extrinsic: Member
+		+ Codec
+		+ DecodeWithMemTracking
+		+ traits::ExtrinsicLike
+		+ Into<OpaqueExtrinsic>
+		+ LazyExtrinsic,
 {
 	type Extrinsic = Extrinsic;
 	type Header = Header;
 	type Hash = <Self::Header as traits::Header>::Hash;
+	type LazyBlock = LazyBlock<Header, Extrinsic>;
 
 	fn header(&self) -> &Self::Header {
 		&self.header
@@ -119,13 +191,10 @@ where
 	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
 		Block { header, extrinsics }
 	}
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8> {
-		(header, extrinsics).encode()
-	}
 }
 
 /// Abstraction over a substrate block and justification.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

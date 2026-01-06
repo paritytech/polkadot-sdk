@@ -26,7 +26,6 @@ use cumulus_primitives_core::{relay_chain::BlockId, ParaId};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::{debug, error};
 use num_traits::Zero;
-use parachains_common::Hash as ParaHash;
 use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService, Multiaddr};
 use sc_service::TaskManager;
 use std::sync::Arc;
@@ -57,7 +56,7 @@ pub struct StartBootnodeTasksParams<'a> {
 	/// Whether to advertise non-global IP addresses.
 	pub advertise_non_global_ips: bool,
 	/// Parachain genesis hash.
-	pub parachain_genesis_hash: ParaHash,
+	pub parachain_genesis_hash: Vec<u8>,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
 	/// Parachain public addresses provided by the operator.
@@ -71,7 +70,7 @@ async fn bootnode_advertisement(
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	parachain_network: Arc<dyn NetworkService>,
 	advertise_non_global_ips: bool,
-	parachain_genesis_hash: ParaHash,
+	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
 	public_addresses: Vec<Multiaddr>,
 ) {
@@ -95,7 +94,7 @@ async fn bootnode_advertisement(
 async fn bootnode_discovery(
 	para_id: ParaId,
 	parachain_network: Arc<dyn NetworkService>,
-	parachain_genesis_hash: ParaHash,
+	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_fork_id: Option<String>,
@@ -177,7 +176,7 @@ pub fn start_bootnode_tasks(
 				request_receiver,
 				parachain_network.clone(),
 				advertise_non_global_ips,
-				parachain_genesis_hash,
+				parachain_genesis_hash.clone(),
 				parachain_fork_id.clone(),
 				parachain_public_addresses,
 			),

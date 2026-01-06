@@ -29,7 +29,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker, CompatibilityMode};
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
@@ -79,7 +79,8 @@ pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: AuthoritiesTracker<P, Block, Client>,
+	// Unused for now. Will be plugged in with a later PR.
+	_authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -105,7 +106,7 @@ where
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			authorities_tracker: AuthoritiesTracker::new(client),
+			_authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -144,10 +145,10 @@ where
 
 		// check seal and update pre-hash/post-hash
 		{
-			let authorities = self
-				.authorities_tracker
-				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
-				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
+			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
+				.map_err(|e| {
+				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
+			})?;
 
 			let slot_duration = self
 				.client
@@ -202,14 +203,6 @@ where
 							post_hash,
 						))
 					}
-
-					self.authorities_tracker.import(&block_params.post_header()).map_err(|e| {
-						format!(
-							"Could not import authorities for block {:?} at number {}: {e}",
-							post_hash,
-							block_params.header.number(),
-						)
-					})?;
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
 					telemetry!(
@@ -302,7 +295,7 @@ where
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker: AuthoritiesTracker::new(client.clone()),
+		_authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
@@ -337,7 +330,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			authorities_tracker: AuthoritiesTracker::new(client.clone()),
+			_authorities_tracker: AuthoritiesTracker::new(client.clone()),
 		};
 
 		let genesis = client.info().best_hash;

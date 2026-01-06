@@ -88,7 +88,7 @@ where
 	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
 		self.client
 			.runtime_api()
-			.execute_block(*block.header().parent_hash(), block)
+			.execute_block(*block.header().parent_hash(), block.into())
 			.map_err(Into::into)
 	}
 }
@@ -278,14 +278,14 @@ where
 				extrinsics_len = block.extrinsics().len(),
 			);
 			let _guard = dispatcher_span.enter();
+
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
 				self.execute_block.execute_block(self.block, block)
 			}) {
 				return Err(Error::Dispatch(format!(
-					"Failed to collect traces and execute block: {}",
-					e
+					"Failed to collect traces and execute block: {e:?}"
 				)))
 			}
 		}

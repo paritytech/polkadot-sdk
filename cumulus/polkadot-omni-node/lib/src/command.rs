@@ -35,11 +35,9 @@ use clap::{CommandFactory, FromArgMatches};
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use sc_cli::{CliConfiguration, Result, SubstrateCli};
+use sc_cli::{Result, SubstrateCli};
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-
-const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -303,17 +301,8 @@ where
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 
-				if cli.run.base.is_dev()? {
-					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
-					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
-						.map_err(Into::into);
-				}
-
-				if let Some(dev_block_time) = cli.dev_block_time {
-					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
-						.map_err(Into::into);
+				if let Some(dev_mode) = cli.dev_mode() {
+					return node_spec.start_dev_node(config, dev_mode).map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

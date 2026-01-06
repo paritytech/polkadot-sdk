@@ -8,7 +8,7 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
 use snowbridge_core::{ParaId, TokenId};
-use sp_core::{Get, RuntimeDebug, H160};
+use sp_core::{Get, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
@@ -24,7 +24,7 @@ const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
 /// Representation of an intermediate parsed message, before final
 /// conversion to XCM.
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct PreparedMessage {
 	/// Ethereum account that initiated this messaging operation
 	pub origin: H160,
@@ -39,17 +39,18 @@ pub struct PreparedMessage {
 }
 
 /// An asset transfer instruction
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub enum AssetTransfer {
 	ReserveDeposit(Asset),
 	ReserveWithdraw(Asset),
 }
 
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct CreateAssetCallInfo {
-	pub call: CallIndex,
+	pub create_call: CallIndex,
 	pub deposit: u128,
 	pub min_balance: u128,
+	pub set_reserves_call: CallIndex,
 }
 
 pub struct AssetHubUniversal<LocalNetwork, AssetHubParaId>(
@@ -135,9 +136,9 @@ where
 				Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }])
 			});
 
-		let mut remote_xcm: Xcm<()> = match &message.xcm {
-			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
-			XcmPayload::CreateAsset { token, network } => Self::make_create_asset_xcm(
+		let mut remote_xcm: Xcm<()> = match &message.payload {
+			Payload::Raw(raw) => Self::decode_raw_xcm(raw),
+			Payload::CreateAsset { token, network } => Self::make_create_asset_xcm(
 				token,
 				*network,
 				message.value,
@@ -236,8 +237,9 @@ where
 		let eth_asset: xcm::prelude::Asset =
 			(Location::new(2, [GlobalConsensus(EthereumNetwork::get())]), eth_value).into();
 
-		let create_call_index: [u8; 2] = CreateAssetCall::get().call;
+		let create_call_index: [u8; 2] = CreateAssetCall::get().create_call;
 		let create_min_blance: u128 = CreateAssetCall::get().min_balance;
+		let set_reserves_call_index: [u8; 2] = CreateAssetCall::get().set_reserves_call;
 
 		let asset_id = Location::new(
 			2,
@@ -250,6 +252,7 @@ where
 		match network {
 			super::message::Network::Polkadot => Ok(Self::make_create_asset_xcm_for_polkadot(
 				create_call_index,
+				set_reserves_call_index,
 				create_min_blance,
 				asset_id,
 				bridge_owner,
@@ -263,6 +266,7 @@ where
 	/// Construct the asset creation XCM for the Polkdot network.
 	fn make_create_asset_xcm_for_polkadot(
 		create_call_index: [u8; 2],
+		set_reserves_call_index: [u8; 2],
 		create_min_blance: u128,
 		asset_id: Location,
 		bridge_owner: AccountId,
@@ -271,6 +275,10 @@ where
 		claimer: Location,
 	) -> Xcm<()> {
 		let bridge_owner_bytes: [u8; 32] = bridge_owner.into();
+		let reserve_data = assets_common::local_and_foreign_assets::ForeignAssetReserveData {
+			reserve: Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+			teleportable: false,
+		};
 		vec![
 			// Exchange eth for dot to pay the asset creation deposit.
 			ExchangeAsset {
@@ -296,6 +304,12 @@ where
 				)
 					.encode()
 					.into(),
+			},
+			// Call to set Ethereum as the asset's reserve.
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
+				call: (set_reserves_call_index, asset_id, vec![reserve_data]).encode().into(),
 			},
 			RefundSurplus,
 			// Deposit leftover funds to Snowbridge sovereign
@@ -355,7 +369,7 @@ where
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
 		let message = Self::prepare(message)?;
 
-		log::trace!(target: LOG_TARGET, "prepared message: {:?}", message);
+		tracing::trace!(target: LOG_TARGET, ?message, "prepared message");
 
 		let mut instructions = vec![
 			DescendOrigin(InboundQueueLocation::get()),
@@ -429,11 +443,17 @@ mod tests {
 			[GlobalConsensus(EthereumNetwork::get())].into();
 		pub AssetHubParaId: ParaId = 1000.into();
 		pub const CreateAssetCallIndex: [u8;2] = [53, 0];
+		pub const SetReservesCallIndex: [u8;2] = [53, 33];
 		pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 		pub const CreateAssetMinBalance: u128 = 1;
 		pub EthereumLocation: Location = Location::new(2,EthereumUniversalLocation::get());
 		pub BridgeHubContext: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1002)].into();
-		pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateAssetDeposit::get(),min_balance: CreateAssetMinBalance::get()};
+		pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo {
+			create_call: CreateAssetCallIndex::get(),
+			deposit: CreateAssetDeposit::get(),
+			min_balance: CreateAssetMinBalance::get(),
+			set_reserves_call: SetReservesCallIndex::get(),
+		};
 	}
 
 	pub struct MockFailedTokenConvert;
@@ -502,7 +522,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer,
 				value,
 				execution_fee,
@@ -639,7 +659,7 @@ mod tests {
 			nonce: 0,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
+			payload: Payload::Raw(versioned_xcm.encode()),
 			claimer,
 			value,
 			execution_fee,
@@ -691,7 +711,7 @@ mod tests {
 			nonce: 0,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
+			payload: Payload::Raw(versioned_xcm.encode()),
 			claimer,
 			value,
 			execution_fee,
@@ -728,7 +748,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer,
 				value,
 				execution_fee,
@@ -797,7 +817,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm),
+				payload: Payload::Raw(versioned_xcm),
 				claimer: Some(claimer.encode()),
 				value,
 				execution_fee,
@@ -833,7 +853,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer: None,
 				value,
 				execution_fee,
@@ -870,7 +890,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				value,
 				execution_fee,
@@ -911,7 +931,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer: None,
 				value,
 				execution_fee,

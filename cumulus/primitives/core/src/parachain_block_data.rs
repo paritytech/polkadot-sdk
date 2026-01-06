@@ -68,16 +68,15 @@ impl<'a, I: codec::Input> codec::Input for PrependBytesInput<'a, I> {
 /// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
 /// passed to the parachain validation Wasm blob to be validated.
 #[derive(Clone)]
-pub enum ParachainBlockData<Block: BlockT> {
+pub enum ParachainBlockData<Block> {
 	V0 { block: [Block; 1], proof: CompactProof },
 	V1 { blocks: Vec<Block>, proof: CompactProof },
 }
 
-impl<Block: BlockT> Encode for ParachainBlockData<Block> {
+impl<Block: Encode> Encode for ParachainBlockData<Block> {
 	fn encode(&self) -> Vec<u8> {
 		match self {
-			Self::V0 { block, proof } =>
-				(block[0].header(), block[0].extrinsics(), &proof).encode(),
+			Self::V0 { block, proof } => (&block[0], &proof).encode(),
 			Self::V1 { blocks, proof } => {
 				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
 				1u8.encode_to(&mut res);
@@ -89,7 +88,7 @@ impl<Block: BlockT> Encode for ParachainBlockData<Block> {
 	}
 }
 
-impl<Block: BlockT> Decode for ParachainBlockData<Block> {
+impl<Block: Decode> Decode for ParachainBlockData<Block> {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let mut prefix = [0u8; VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.len()];
 		input.read(&mut prefix)?;
@@ -106,16 +105,15 @@ impl<Block: BlockT> Decode for ParachainBlockData<Block> {
 			}
 		} else {
 			let mut input = PrependBytesInput { prepend: &prefix, read: 0, inner: input };
-			let header = Block::Header::decode(&mut input)?;
-			let extrinsics = Vec::<Block::Extrinsic>::decode(&mut input)?;
+			let block = Block::decode(&mut input)?;
 			let proof = CompactProof::decode(&mut input)?;
 
-			Ok(Self::V0 { block: [Block::new(header, extrinsics)], proof })
+			Ok(Self::V0 { block: [block], proof })
 		}
 	}
 }
 
-impl<Block: BlockT> ParachainBlockData<Block> {
+impl<Block> ParachainBlockData<Block> {
 	/// Creates a new instance of `Self`.
 	pub fn new(blocks: Vec<Block>, proof: CompactProof) -> Self {
 		Self::V1 { blocks, proof }
@@ -160,7 +158,9 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 			Self::V1 { blocks, proof } => (blocks, proof),
 		}
 	}
+}
 
+impl<Block: BlockT> ParachainBlockData<Block> {
 	/// Log the size of the individual components (header, extrinsics, storage proof) as info.
 	pub fn log_size_info(&self) {
 		tracing::info!(

@@ -51,10 +51,11 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 		match self.finality_proofs_stream.ensure_stream(&self.source_client).await {
 			Ok(_) => {},
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not connect to the {} `FinalityProofsStream`: {e:?}",
-					P::SOURCE_NAME,
+					error=?e,
+					source=%P::SOURCE_NAME,
+					"Could not connect to `FinalityProofsStream`"
 				);
 
 				// Reconnect to the source client if needed
@@ -67,10 +68,11 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 		match self.target_client.best_finalized_header_number().await {
 			Ok(block_num) => Some(block_num),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not read best finalized header number from {}: {e:?}",
-					P::TARGET_NAME,
+					error=?e,
+					target=%P::TARGET_NAME,
+					"Could not read best finalized header number"
 				);
 
 				// Reconnect target client and move on

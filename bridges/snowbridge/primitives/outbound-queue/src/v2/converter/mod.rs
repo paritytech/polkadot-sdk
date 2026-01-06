@@ -65,55 +65,56 @@ where
 		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		log::debug!(target: TARGET, "message route through bridge {message:?}.");
+		tracing::debug!(target: TARGET, ?message, "message route through bridge.");
 
 		let expected_network = EthereumNetwork::get();
 		let universal_location = UniversalLocation::get();
 
 		if network != expected_network {
-			log::trace!(target: TARGET, "skipped due to unmatched bridge network {network:?}.");
+			tracing::trace!(target: TARGET, ?network, "skipped due to unmatched bridge network.");
 			return Err(SendError::NotApplicable)
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
 		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
-			log::trace!(target: TARGET, "skipped due to unmatched remote destination {dest:?}.");
+			tracing::trace!(target: TARGET, destination=?dest, "skipped due to unmatched remote destination.");
 			return Err(SendError::NotApplicable)
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
-		let (local_net, local_sub) = universal_source.clone()
-            .ok_or_else(|| {
-                log::error!(target: TARGET, "universal source not provided.");
-                SendError::MissingArgument
-            })?
-            .split_global()
-            .map_err(|()| {
-                log::error!(target: TARGET, "could not get global consensus from universal source '{universal_source:?}'.");
-                SendError::NotApplicable
-            })?;
+		let (local_net, local_sub) = universal_source
+			.clone()
+			.ok_or_else(|| {
+				tracing::error!(target: TARGET, "universal source not provided.");
+				SendError::MissingArgument
+			})?
+			.split_global()
+			.map_err(|()| {
+				tracing::error!(target: TARGET, ?universal_source, "could not get global consensus.");
+				SendError::NotApplicable
+			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
-			log::trace!(target: TARGET, "skipped due to unmatched relay network {local_net:?}.");
+			tracing::trace!(target: TARGET, relay_network=?local_net, "skipped due to unmatched relay network.");
 			return Err(SendError::NotApplicable)
 		}
 
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
-				log::error!(target: TARGET, "could not get parachain id from universal source '{local_sub:?}'.");
+				tracing::error!(target: TARGET, universal_source=?local_sub, "could not get parachain id.");
 				return Err(SendError::NotApplicable)
 			},
 		};
 
 		if ParaId::from(para_id) != AssetHubParaId::get() {
-			log::error!(target: TARGET, "is not from asset hub '{para_id:?}'.");
+			tracing::error!(target: TARGET, ?para_id, "is not from asset hub.");
 			return Err(SendError::NotApplicable)
 		}
 
 		let message = message.clone().ok_or_else(|| {
-			log::error!(target: TARGET, "xcm message not provided.");
+			tracing::error!(target: TARGET, "xcm message not provided.");
 			SendError::MissingArgument
 		})?;
 
@@ -136,13 +137,13 @@ where
 
 		let mut converter = XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network);
 		let message = converter.convert().map_err(|err| {
-			log::error!(target: TARGET, "unroutable due to pattern matching error '{err:?}'.");
+			tracing::error!(target: TARGET, error=?err, "unroutable due to pattern matching.");
 			SendError::Unroutable
 		})?;
 
 		// validate the message
 		let ticket = OutboundQueue::validate(&message).map_err(|err| {
-			log::error!(target: TARGET, "OutboundQueue validation of message failed. {err:?}");
+			tracing::error!(target: TARGET, error=?err, "OutboundQueue validation of message failed.");
 			SendError::Unroutable
 		})?;
 
@@ -152,16 +153,16 @@ where
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
 		let ticket: OutboundQueue::Ticket = OutboundQueue::Ticket::decode(&mut blob.0.as_ref())
 			.map_err(|_| {
-				log::trace!(target: TARGET, "undeliverable due to decoding error");
+				tracing::trace!(target: TARGET, "undeliverable due to decoding error");
 				SendError::NotApplicable
 			})?;
 
 		let message_id = OutboundQueue::deliver(ticket).map_err(|_| {
-			log::error!(target: TARGET, "OutboundQueue submit of message failed");
+			tracing::error!(target: TARGET, "OutboundQueue submit of message failed");
 			SendError::Transport("other transport error")
 		})?;
 
-		log::info!(target: TARGET, "message delivered {message_id:#?}.");
+		tracing::info!(target: TARGET, "message delivered {message_id:#?}.");
 		Ok(message_id.into())
 	}
 }
