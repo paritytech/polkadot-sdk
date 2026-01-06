@@ -69,15 +69,6 @@ pub fn genesis(para_id: u32) -> Storage {
 			..Default::default()
 		},
 		sudo: penpal_runtime::SudoConfig { key: Some(PenpalSudoAccount::get()) },
-		assets: penpal_runtime::AssetsConfig {
-			assets: vec![(
-				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
-				PenpalAssetOwner::get(),
-				false,
-				ED,
-			)],
-			..Default::default()
-		},
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// Relay Native asset representation

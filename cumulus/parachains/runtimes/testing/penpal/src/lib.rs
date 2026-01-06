@@ -459,7 +459,7 @@ parameter_types! {
 }
 
 /// Another pallet assets instance to store foreign assets from bridgehub.
-pub type ForeignAssetsInstance = pallet_assets::Instance1;
+pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -500,7 +500,7 @@ ord_parameter_types! {
 
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
-pub type PoolAssetsInstance = pallet_assets::Instance2;
+pub type PoolAssetsInstance = pallet_assets::Instance3;
 impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -830,8 +830,8 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 
 		// The main stage.
-		ForeignAssets: pallet_assets::<Instance1> = 51,
-		PoolAssets: pallet_assets::<Instance2> = 52,
+		ForeignAssets: pallet_assets::<Instance2> = 51,
+		PoolAssets: pallet_assets::<Instance3> = 52,
 		AssetConversion: pallet_asset_conversion = 53,
 
 		Revive: pallet_revive = 60,
