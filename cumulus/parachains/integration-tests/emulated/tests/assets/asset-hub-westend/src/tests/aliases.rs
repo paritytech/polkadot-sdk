@@ -19,6 +19,7 @@ use crate::imports::*;
 use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
+use crate::create_foreign_pool_with_native_on;
 
 const ALLOWED: bool = true;
 const DENIED: bool = false;
@@ -31,13 +32,20 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	// origin and target are the same account on different chains
 	let origin: AccountId = [1; 32].into();
 	let target = origin.clone();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	PenpalB::mint_foreign_asset(
 		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
+	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		Location::parent(),
+		PenpalAssetOwner::get()
 	);
 
 	// On Asset Hub we don't want to support aliasing from other chains:
