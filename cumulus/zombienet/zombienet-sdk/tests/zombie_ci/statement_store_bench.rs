@@ -810,7 +810,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	});
 
 	let collator_names: Vec<String> =
-		(0..config.num_nodes).map(|i| format!("collator{}", i)).collect();
+		(0..config.num_nodes).map(|i| format!("collator{i}")).collect();
 	let collator_names: Vec<&str> = collator_names.iter().map(|s| s.as_str()).collect();
 
 	let network = spawn_network(&collator_names).await?;
@@ -849,7 +849,6 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		.map(|client_id| {
 			let config = Arc::clone(&config);
 			let barrier = Arc::clone(&barrier);
-			let sync_start = sync_start.clone();
 			let test_run_id = Arc::clone(&test_run_id);
 			let (keyring, _) = sr25519::Pair::generate();
 			let node_idx = (client_id as usize) % config.num_nodes;
@@ -858,8 +857,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 			let neighbour_node_idx = (neighbour_id as usize) % config.num_nodes;
 			if node_idx == neighbour_node_idx && config.num_nodes > 1 {
 				panic!(
-					"Client {} and neighbour {} are on the same node {}!",
-					client_id, neighbour_id, node_idx
+					"Client {client_id} and neighbour {neighbour_id} are on the same node {node_idx}!"
 				);
 			}
 
