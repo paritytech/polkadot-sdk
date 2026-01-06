@@ -105,7 +105,8 @@ impl ClaimQueueState {
 		}
 	}
 
-	/// Creates a fork of the claim queue where `target_relay_parent` is the leaf.
+	/// Creates a fork of the claim queue at `target_relay_parent`. Returns `ClaimQueueState` for
+	/// the new fork where the last block is `target_relay_parent`.
 	///
 	/// For the fork:
 	/// - The `block_state` will contain all the claims up until the provided `target_relay_parent`

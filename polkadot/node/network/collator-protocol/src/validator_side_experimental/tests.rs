@@ -3207,6 +3207,54 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	test_state.assert_collation_request(third_adv).await;
 }
 
+#[tokio::test]
+// Test that activating a new leaf on top of an existing one doesn't overwrite the `PerRelayParent`
+// state.
+async fn test_view_update_preserves_relay_parent_state() {
+	let mut test_state = TestState::default();
+	let leaf_a = get_hash(10);
+	let leaf_a_info = test_state.rp_info.get(&leaf_a).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, leaf_a).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(1);
+
+	let (_, adv_a) = dummy_candidate(
+		leaf_a,
+		100.into(),
+		peer,
+		leaf_a_info.assigned_core,
+		leaf_a_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer, 100.into()).await;
+
+	test_state.handle_advertisement(&mut state, adv_a).await;
+
+	assert_eq!(state.advertisements(), [adv_a].into());
+
+	// Now activate a new leaf B which has A in its allowed ancestry
+	test_state.rp_info.insert(
+		get_hash(11),
+		RelayParentInfo {
+			number: 11,
+			parent: get_parent_hash(11),
+			session_index: leaf_a_info.session_index,
+			claim_queue: leaf_a_info.claim_queue.clone(),
+			assigned_core: leaf_a_info.assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 11).await;
+
+	// Advertisement A should still be there
+	assert_eq!(state.advertisements(), [adv_a].into());
+}
+
 // Launching new collations:
 // - multiple candidates per relay parent (including from implicit view and which occupy future
 //   claims, including which will make claims across different leaves)
