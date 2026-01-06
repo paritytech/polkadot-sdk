@@ -1,0 +1,10 @@
+title: 'frame-executive: Remove unused deprecated tag'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Recent compiler versions complain about useless deprecation warning on `OnRuntimeUpgrade` parameter in `frame-executive`.
+crates:
+- name: frame-executive
+  bump: patch
