@@ -19,13 +19,15 @@ pub use pallet::*;
 
 #[polkadot_sdk::frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use polkadot_sdk::frame_support::{
-		dispatch::{Pays, PostDispatchInfo},
-		ensure,
-		pallet_prelude::DispatchResultWithPostInfo,
-		weights::Weight,
+	use polkadot_sdk::{
+		frame_support::{
+			dispatch::{Pays, PostDispatchInfo},
+			ensure,
+			pallet_prelude::DispatchResultWithPostInfo,
+			weights::Weight,
+		},
+		frame_system::pallet_prelude::*,
 	};
-	use polkadot_sdk::frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
