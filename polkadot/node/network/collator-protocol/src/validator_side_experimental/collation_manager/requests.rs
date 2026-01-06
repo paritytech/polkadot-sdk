@@ -30,6 +30,7 @@ use polkadot_node_network_protocol::request_response::{
 	outgoing::Recipient, v1 as request_v1, v2 as request_v2, OutgoingRequest, OutgoingResult,
 	Requests,
 };
+use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio_util::sync::CancellationToken;
 
@@ -44,7 +45,11 @@ impl PendingRequests {
 		self.cancellation_tokens.contains_key(advertisement)
 	}
 
-	pub fn launch(&mut self, advertisement: &Advertisement) -> Requests {
+	pub fn launch(
+		&mut self,
+		advertisement: &Advertisement,
+		advertisement_lifetime_timer: Option<HistogramTimer>,
+	) -> Requests {
 		let cancellation_token = CancellationToken::new();
 
 		let (req, response_recv) = match advertisement.prospective_candidate {
@@ -78,6 +83,7 @@ impl PendingRequests {
 			advertisement: *advertisement,
 			from_collator: response_recv,
 			cancellation_future: cancellation_token.cancelled_owned().boxed(),
+			_lifetime_timer: advertisement_lifetime_timer,
 		});
 
 		req
@@ -113,6 +119,8 @@ struct CollationFetchRequest {
 	from_collator: BoxFuture<'static, OutgoingResult<request_v2::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	cancellation_future: BoxFuture<'static, ()>,
+	/// A metric histogram for the lifetime of the request
+	_lifetime_timer: Option<HistogramTimer>,
 }
 
 impl Future for CollationFetchRequest {

@@ -198,6 +198,11 @@ impl ConnectedPeers {
 		self.per_para.keys()
 	}
 
+	/// Returns the number of connected peers.
+	pub fn len(&self) -> usize {
+		self.peer_info.len()
+	}
+
 	fn contains(&self, peer_id: &PeerId) -> bool {
 		self.peer_info.contains_key(peer_id)
 	}

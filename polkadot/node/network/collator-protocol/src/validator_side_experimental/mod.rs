@@ -187,6 +187,8 @@ async fn process_msg<Context>(
 ) {
 	use CollatorProtocolMessage::*;
 
+	let _timer = state.metrics().time_process_msg();
+
 	match msg {
 		CollateOn(id) => {
 			gum::warn!(

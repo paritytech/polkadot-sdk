@@ -46,7 +46,7 @@ use std::time::Duration;
 pub struct State<B> {
 	peer_manager: PeerManager<B>,
 	collation_manager: CollationManager,
-	_metrics: Metrics,
+	metrics: Metrics,
 }
 
 impl<B: Backend> State<B> {
@@ -56,7 +56,12 @@ impl<B: Backend> State<B> {
 		collation_manager: CollationManager,
 		metrics: Metrics,
 	) -> Self {
-		Self { peer_manager, collation_manager, _metrics: metrics }
+		Self { peer_manager, collation_manager, metrics }
+	}
+
+	/// Access the metrics.
+	pub fn metrics(&self) -> &Metrics {
+		&self.metrics
 	}
 
 	/// Handle a new peer connection.
@@ -102,6 +107,8 @@ impl<B: Backend> State<B> {
 				);
 			},
 		}
+
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 	}
 
 	/// Handle a peer disconnection.
@@ -115,6 +122,8 @@ impl<B: Backend> State<B> {
 		self.peer_manager.disconnected(&peer_id);
 
 		self.collation_manager.remove_peer(&peer_id);
+
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 	}
 
 	/// Handle a peer's declaration message.
@@ -299,6 +308,8 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		res: CollationFetchResponse,
 	) {
+		let _timer = self.metrics.time_handle_collation_request_result();
+		let fetch_result = res.1.is_ok();
 		let advertisement = res.0;
 
 		if let Err(err) = &res.1 {
@@ -317,6 +328,10 @@ impl<B: Backend> State<B> {
 		}
 
 		let can_second = self.collation_manager.note_fetched(sender, res).await;
+
+		// To be consistent with the old implementation, if the fetch is successful we count the
+		// request as successful, despite we might not be able to second it.
+		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
 				sender
@@ -364,6 +379,8 @@ impl<B: Backend> State<B> {
 				);
 			},
 		};
+
+		self.metrics.on_request(collation_request_metrics_result);
 	}
 
 	pub async fn handle_invalid_collation(&mut self, receipt: CandidateReceipt) {
@@ -491,9 +508,14 @@ impl<B: Backend> State<B> {
 		let all_free_slots = self.collation_manager.all_free_slots();
 		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
 
-		let (requests, maybe_delay) = self
-			.collation_manager
-			.try_make_new_fetch_requests(connected_rep_query_fn, max_reps);
+		let metrics = &self.metrics;
+		let create_timer_fn = || metrics.time_collation_request_duration();
+
+		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
+			connected_rep_query_fn,
+			max_reps,
+			create_timer_fn,
+		);
 
 		if !requests.is_empty() {
 			gum::debug!(

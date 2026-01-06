@@ -951,7 +951,7 @@ async fn make_state<B: Backend>(
 			.await
 			.unwrap();
 
-		State::new(peer_manager, collation_manager, Metrics)
+		State::new(peer_manager, collation_manager, Metrics::default())
 	};
 
 	let (state, ..) = futures::join!(initializer, responder);

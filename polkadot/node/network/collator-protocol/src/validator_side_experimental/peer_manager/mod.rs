@@ -372,6 +372,11 @@ impl<B: Backend> PeerManager<B> {
 		self.db.max_scores_for_paras(paras).await
 	}
 
+	/// Returns the number of connected peers.
+	pub fn connected_peer_count(&self) -> usize {
+		self.connected.len()
+	}
+
 	#[cfg(test)]
 	pub fn connected_peers(&self) -> BTreeSet<PeerId> {
 		self.connected.clone().consume().0.into_keys().collect()

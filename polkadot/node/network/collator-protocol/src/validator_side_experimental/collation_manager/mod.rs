@@ -41,9 +41,9 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView, request_claim_queue, request_node_features,
-	request_session_index_for_child, request_validator_groups, request_validators,
-	runtime::recv_runtime,
+	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
+	request_claim_queue, request_node_features, request_session_index_for_child,
+	request_validator_groups, request_validators, runtime::recv_runtime,
 };
 use polkadot_primitives::{
 	node_features, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
@@ -377,10 +377,14 @@ impl CollationManager {
 		Ok(())
 	}
 
-	pub fn try_make_new_fetch_requests<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+	pub fn try_make_new_fetch_requests<
+		RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>,
+		TimerFn: FnMut() -> Option<HistogramTimer>,
+	>(
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
+		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
 		let now = Instant::now();
 
@@ -442,7 +446,7 @@ impl CollationManager {
 						maybe_candidate_hash = ?advertisement.candidate_hash(),
 						"Requesting collation",
 					);
-					let req = self.fetching.launch(&advertisement);
+					let req = self.fetching.launch(&advertisement, create_timer_fn());
 					requests.push(req);
 					continue
 				} else {
