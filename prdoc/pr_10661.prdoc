@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "statement-store: Add networking benchmark"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds a benchmark for the statement store networking to measure performance
+      of statement propagation and validation under various conditions.
+
+crates:
+  - name: sc-network-statement
+    bump: minor
+  - name: sc-rpc
+    bump: patch
+  - name: sc-rpc-spec-v2
+    bump: patch
+  - name: substrate-test-runtime
+    bump: patch
