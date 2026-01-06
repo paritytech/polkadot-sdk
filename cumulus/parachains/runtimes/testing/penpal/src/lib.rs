@@ -57,7 +57,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types,
-	pallet_prelude::{TypedGet, Weight},
+	pallet_prelude::Weight,
 	parameter_types,
 	traits::{
 		tokens::{
@@ -79,6 +79,7 @@ use frame_system::{
 };
 use pallet_revive::evm::runtime::EthExtra;
 use parachains_common::{
+	impls::BlockAuthor,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 };
@@ -731,7 +732,6 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 	}
 }
 
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = Location;
@@ -739,22 +739,12 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		xcm_config::RelayLocation,
 		NativeAndAssets,
 		AssetConversion,
-		MaybeResolveAssetTo<BlockAuthor, NativeAndAssets, AccountId>,
+		MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>,
 	>;
 	type WeightInfo = ();
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetConversionTxHelper;
-}
-
-pub struct BlockAuthor;
-
-impl TypedGet for BlockAuthor {
-	type Type = Option<AccountId>;
-
-	fn get() -> Self::Type {
-		pallet_authorship::Pallet::<Runtime>::author()
-	}
 }
 
 parameter_types! {
