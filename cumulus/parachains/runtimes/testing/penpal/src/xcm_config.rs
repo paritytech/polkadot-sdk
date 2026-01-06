@@ -362,7 +362,7 @@ impl xcm_executor::Config for XcmConfig {
 		// This trader allows to pay with any assets exchangeable to native asset with
 		// [`AssetConversion`].
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			RelayLocation,
+			PenpalNativeCurrency,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
