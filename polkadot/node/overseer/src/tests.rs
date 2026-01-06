@@ -1165,6 +1165,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (pvf_checker_unbounded_tx, _) = metered::unbounded();
 	let (prospective_parachains_unbounded_tx, _) = metered::unbounded();
 	let (approval_voting_parallel_unbounded_tx, _) = metered::unbounded();
+	let (rewards_statistics_collector_tx) =metered::unbounded();
 
 	let channels_out = ChannelsOut {
 		candidate_validation: candidate_validation_bounded_tx.clone(),
@@ -1216,6 +1217,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		pvf_checker_unbounded: pvf_checker_unbounded_tx.clone(),
 		prospective_parachains_unbounded: prospective_parachains_unbounded_tx.clone(),
 		approval_voting_parallel_unbounded: approval_voting_parallel_unbounded_tx.clone(),
+		rewards_statistics_collector_unbounded: rewards_statistics_collector_tx.clone(),
 	};
 
 	let (mut signal_tx, signal_rx) = metered::channel(CHANNEL_CAPACITY);

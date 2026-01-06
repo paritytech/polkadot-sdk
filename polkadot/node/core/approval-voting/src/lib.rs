@@ -3239,7 +3239,7 @@ where
 		}
 
 		if newly_approved {
-			gum::info!(
+			gum::debug!(
 				target: LOG_TARGET,
 				?block_hash,
 				?candidate_hash,
@@ -3256,7 +3256,6 @@ where
 
 			if status.no_show_validators.len() > 0 {
 				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
-					candidate_entry.candidate.hash(),
 					block_hash,
 					block_number,
 					status.no_show_validators,
@@ -4180,7 +4179,6 @@ fn collect_useful_approvals<Sender>(
 
 		_ = sender
 			.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
-				candidate_hash,
 				block_hash,
 				block_number,
 				collected_useful_approvals,

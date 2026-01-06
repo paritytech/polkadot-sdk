@@ -14,50 +14,54 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{metrics::Metrics, View};
+use crate::{metrics::Metrics, PerRelayView, View};
 use polkadot_primitives::{BlockNumber, CandidateHash, Hash, SessionIndex, ValidatorIndex};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ApprovalsStats {
-	pub votes: HashSet<ValidatorIndex>,
-	pub no_shows: HashSet<ValidatorIndex>,
-}
-
-impl ApprovalsStats {
-	pub fn new(votes: HashSet<ValidatorIndex>, no_shows: HashSet<ValidatorIndex>) -> Self {
-		Self { votes, no_shows }
-	}
+	pub votes: BTreeMap<ValidatorIndex, u32>,
+	pub no_shows: BTreeMap<ValidatorIndex, u32>,
 }
 
 pub fn handle_candidate_approved(
 	view: &mut View,
 	block_hash: Hash,
 	block_number: BlockNumber,
-	candidate_hash: CandidateHash,
 	approvals: Vec<ValidatorIndex>,
 ) {
-	if let Some(relay_view) = view.per_relay.get_mut(&(block_hash, block_number)) {
-		relay_view
-			.approvals_stats
-			.entry(candidate_hash)
-			.and_modify(|a: &mut ApprovalsStats| a.votes.extend(approvals.iter()))
-			.or_insert_with(|| ApprovalsStats::new(HashSet::from_iter(approvals), HashSet::new()));
-	}
+	view
+		.per_relay
+		.entry((block_hash, block_number))
+		.and_modify(|relay_view| {
+			for validator_index in approvals {
+				relay_view
+					.approvals_stats
+					.votes
+					.entry(validator_index)
+					.and_modify(|count| { *count = count.saturating_add(1) })
+					.or_insert(1);
+			}
+		});
 }
 
 pub fn handle_observed_no_shows(
 	view: &mut View,
 	block_hash: Hash,
 	block_number: BlockNumber,
-	candidate_hash: CandidateHash,
 	no_show_validators: Vec<ValidatorIndex>,
 ) {
-	if let Some(relay_view) = view.per_relay.get_mut(&(block_hash, block_number)) {
-		relay_view
-			.approvals_stats
-			.entry(candidate_hash)
-			.and_modify(|a: &mut ApprovalsStats| a.no_shows.extend(no_show_validators.iter()))
-			.or_insert(ApprovalsStats::new(HashSet::new(), HashSet::from_iter(no_show_validators)));
-	}
+	view
+		.per_relay
+		.entry((block_hash, block_number))
+		.and_modify(|relay_view| {
+			for validator_index in no_show_validators {
+				relay_view
+					.approvals_stats
+					.no_shows
+					.entry(validator_index)
+					.and_modify(|count| { *count = count.saturating_add(1) })
+					.or_insert(1);
+			}
+		});
 }

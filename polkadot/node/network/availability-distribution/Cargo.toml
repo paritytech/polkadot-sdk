@@ -35,7 +35,7 @@ schnellru = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-async-trait = "0.1.88"
+async-trait = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

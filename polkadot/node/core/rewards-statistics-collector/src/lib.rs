@@ -73,14 +73,14 @@ pub struct Config {
 #[derive(Debug, Default, Clone)]
 struct PerRelayView {
 	session_index: SessionIndex,
-	approvals_stats: HashMap<CandidateHash, ApprovalsStats>,
+	approvals_stats: ApprovalsStats,
 }
 
 impl PerRelayView {
 	fn new(session_index: SessionIndex) -> Self {
 		PerRelayView {
 			session_index,
-			approvals_stats: HashMap::new(),
+			approvals_stats: ApprovalsStats::default(),
 		}
 	}
 }
@@ -92,12 +92,15 @@ struct PerValidatorTally {
 }
 
 impl PerValidatorTally {
-	fn increment_noshow(&mut self) {
-		self.no_shows += 1;
+	fn increment_stats(&mut self, total_approvals: u32, total_noshows: u32) {
+
+	}
+	fn increment_noshow_by(&mut self, value: u32) {
+		self.no_shows += value;
 	}
 
-	fn increment_approval(&mut self) {
-		self.approvals += 1;
+	fn increment_approval_by(&mut self, value: u32) {
+		self.approvals += value;
 	}
 }
 
@@ -185,6 +188,11 @@ async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult
 pub(crate) async fn run_iteration<Context>(
 	ctx: &mut Context,
 	view: &mut View,
+	// the boolean flag indicates to the subsystem's
+	// inner metric to publish the accumulated tallies
+	// per session per validator, enabling the flag
+	// could cause overhead to prometheus depending on
+	// the amount of active validators
 	metrics: (&Metrics, bool),
 ) -> Result<()> {
 	loop {
@@ -272,20 +280,18 @@ pub(crate) async fn run_iteration<Context>(
 				RewardsStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) =>
 					handle_chunk_uploaded(view, candidate_hash, authority_ids),
 				RewardsStatisticsCollectorMessage::CandidateApproved(
-					candidate_hash,
 					block_hash,
 					block_number,
 					approvals,
 				) => {
-					handle_candidate_approved(view, block_hash, block_number, candidate_hash, approvals);
+					handle_candidate_approved(view, block_hash, block_number, approvals);
 				},
 				RewardsStatisticsCollectorMessage::NoShows(
-					candidate_hash,
 					block_hash,
 					block_number,
 					no_show_validators,
 				) => {
-					handle_observed_no_shows(view, block_hash, block_number, candidate_hash, no_show_validators);
+					handle_observed_no_shows(view, block_hash, block_number, no_show_validators);
 				},
 			},
 		}
@@ -308,24 +314,20 @@ fn aggregate_finalized_approvals_stats(
 				metrics.1,
 			);
 
-			for stats in per_relay_view.approvals_stats.values() {
-				// Increment no-show tallies
-				for &validator_idx in &stats.no_shows {
-					session_view
-						.validators_tallies
-						.entry(validator_idx)
-						.or_default()
-						.increment_noshow();
-				}
+			for (validator_idx, total_votes) in &per_relay_view.approvals_stats.votes {
+				session_view
+					.validators_tallies
+					.entry(*validator_idx)
+					.or_default()
+					.increment_approval_by(*total_votes);
+			}
 
-				// Increment approval tallies
-				for &validator_idx in &stats.votes {
-					session_view
-						.validators_tallies
-						.entry(validator_idx)
-						.or_default()
-						.increment_approval();
-				}
+			for (validator_idx, total_noshows) in &per_relay_view.approvals_stats.no_shows {
+				session_view
+					.validators_tallies
+					.entry(*validator_idx)
+					.or_default()
+					.increment_noshow_by(*total_noshows);
 			}
 		}
 	}
