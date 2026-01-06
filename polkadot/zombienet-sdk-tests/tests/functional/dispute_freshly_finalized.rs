@@ -8,7 +8,8 @@
 //! candidates and verifies that disputes are properly concluded.
 
 use crate::utils::{
-	env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
 };
 
 use anyhow::anyhow;
@@ -109,11 +110,7 @@ async fn dispute_freshly_finalized() -> Result<(), anyhow::Error> {
 	// Check approval finality lag
 	log::info!("Checking approval finality lag");
 	honest
-		.wait_metric_with_timeout(
-			"polkadot_parachain_approval_checking_finality_lag",
-			|v| v < 2.0,
-			30u64,
-		)
+		.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG_METRIC, |v| v < 2.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Approval finality lag too high: {}", e))?;
 

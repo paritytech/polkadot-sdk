@@ -11,10 +11,34 @@ use zombienet_sdk::{
 
 pub const PARACHAIN_VALIDATOR_METRIC: &str = "polkadot_node_is_parachain_validator";
 pub const ACTIVE_VALIDATOR_METRIC: &str = "polkadot_node_is_active_validator";
-pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
 pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 pub const MALUS_IMAGE_ENV: &str = "MALUS_IMAGE";
+pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
+pub const NODE_ROLES_METRIC: &str = "node_roles";
+pub const PEERS_COUNT_METRIC: &str = "substrate_sub_libp2p_peers_count";
+pub const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
+pub const BLOCK_HEIGHT_METRIC: &str = "substrate_block_height{status=\"best\"}";
+pub const DISPUTES_TOTAL_METRIC: &str = "polkadot_parachain_candidate_disputes_total";
+pub const DISPUTE_VOTES_VALID_METRIC: &str =
+	"polkadot_parachain_candidate_dispute_votes{validity=\"valid\"}";
+pub const DISPUTE_CONCLUDED_VALID_METRIC: &str =
+	"polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}";
+pub const DISPUTE_CONCLUDED_INVALID_METRIC: &str =
+	"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
+pub const SUBSTRATE_BLOCK_HEIGHT_FINALIZED_METRIC: &str =
+	"substrate_block_height{status=\"finalized\"}";
+pub const APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
+	"polkadot_parachain_approval_checking_finality_lag";
+pub const APPROVALS_NO_SHOWS_TOTAL_METRIC: &str = "polkadot_parachain_approvals_no_shows_total";
+pub const AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC: &str =
+	"polkadot_parachain_availability_recovery_recoveries_finished{result=\"failure\"}";
+pub const FETCHED_SUCCESSFUL_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"succeeded\"}";
+pub const FETCHED_FAILED_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"failed\"}";
+pub const FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC: &str =
+	"polkadot_parachain_fetched_chunks_total{success=\"not-found\"}";
 
 pub async fn initialize_network(
 	config: NetworkConfig,

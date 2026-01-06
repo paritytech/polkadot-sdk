@@ -9,7 +9,7 @@
 
 use crate::utils::{
 	env_or_default, fetch_genesis_header, fetch_validation_code, initialize_network, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -24,7 +24,6 @@ use zombienet_sdk::{
 };
 
 const PARA_IDS: [u32; 4] = [2000, 2001, 2002, 2003];
-const NODE_ROLES_METRIC: &str = "node_roles";
 
 /// Creates a sudo call to assign a core to multiple parachains with equal parts.
 fn create_assign_shared_core_call(core: u32, para_ids: &[u32], parts_each: u32) -> Value {

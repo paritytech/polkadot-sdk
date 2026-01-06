@@ -4,6 +4,8 @@
 // Test that a parachain can keep producing blocks even if the other parachain with which it's
 // sharing a core doesn't
 
+use crate::utils::initialize_network;
+
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
@@ -63,8 +65,7 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 			anyhow!("config errs: {errs}")
 		})?;
 
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node_2000 = network.get_node("collator-2000")?;

@@ -126,12 +126,11 @@
 #     POLKADOT_PR_ARTIFACTS_URL: ${{ needs.preflight.outputs.POLKADOT_PR_ARTIFACTS_URL }}
 #   use-zombienet-sdk: false
 
-# Malus tests using traditional zombienet
+# Malus tests using zombienet-sdk
 - job-name: "zombienet-polkadot-malus-0001-dispute-valid"
-  test-definition: "0001-dispute-valid-block.zndsl"
-  local-dir: "./polkadot/node/malus/integrationtests"
+  test-filter: "malus::dispute_valid_block::dispute_valid_block_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 # SDK tests using zombienet-sdk
 # TODO: Disabled

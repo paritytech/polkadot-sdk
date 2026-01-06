@@ -13,6 +13,10 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
+use crate::utils::{
+	env_or_default, initialize_network, APPROVALS_NO_SHOWS_TOTAL_METRIC, COL_IMAGE_ENV,
+};
+
 #[tokio::test(flavor = "multi_thread")]
 async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -96,7 +100,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 	for node in network.nodes() {
 		assert_finality_lag(&node.wait_client().await?, no_show_slots).await?;
 		assert!(
-			node.reports("polkadot_parachain_approvals_no_shows_total").await.unwrap() < 3.0,
+			node.reports(APPROVALS_NO_SHOWS_TOTAL_METRIC).await.unwrap() < 3.0,
 			"No-shows should be less than 3"
 		);
 	}
