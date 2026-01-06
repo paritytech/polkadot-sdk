@@ -1,4 +1,4 @@
-title: Backport revive changes to stable2512
+title: "[stable2512] Backport pallet_revive changes"
 
 doc:
   - audience: Runtime Dev
