@@ -86,3 +86,9 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
   needs-wasm-binary: true
+
+- job-name: "zombienet-cumulus-0015-overshooting_shall_not_happen"
+  test-filter: "zombie_ci::overshooting_shall_not_happen_test::overshooting_shall_not_happen_test"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
