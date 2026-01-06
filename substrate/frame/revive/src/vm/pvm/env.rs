@@ -198,7 +198,7 @@ pub mod env {
 	}
 
 	/// Set the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::set_storage_v2`]
+	/// See [`pallet_revive_uapi::HostFn::set_storage`]
 	#[mutating]
 	fn set_storage(
 		&mut self,
@@ -847,7 +847,7 @@ pub mod env {
 	}
 
 	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::return_data`].
+	/// See [`pallet_revive_uapi::HostFn::return_data_copy`].
 	fn return_data_copy(
 		&mut self,
 		memory: &mut M,
@@ -895,7 +895,7 @@ pub mod env {
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
+	/// See `uapi/sol/ISystem.sol`.
 	fn ecdsa_to_eth_address(
 		&mut self,
 		memory: &mut M,
@@ -916,7 +916,7 @@ pub mod env {
 	}
 
 	/// Verify a sr25519 signature
-	/// See [`pallet_revive_uapi::HostFn::sr25519_verify`].
+	/// See `uapi/sol/ISystem.sol`.
 	fn sr25519_verify(
 		&mut self,
 		memory: &mut M,
