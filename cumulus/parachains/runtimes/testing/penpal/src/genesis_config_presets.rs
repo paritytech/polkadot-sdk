@@ -38,7 +38,6 @@ use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use xcm::prelude::{GeneralIndex, PalletInstance};
 
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
