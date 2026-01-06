@@ -41,7 +41,7 @@ use asset_test_utils::{
 use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, parameter_types,
+	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{self, Inspect, Mutate},
 		fungibles::{
