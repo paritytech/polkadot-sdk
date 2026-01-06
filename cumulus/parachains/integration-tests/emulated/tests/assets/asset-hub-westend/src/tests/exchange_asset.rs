@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::{
-	assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on,
-	foreign_balance_on,
+	assets_balance_on, create_foreign_pool_with_native_on, create_foreign_pool_with_wnd_on,
+	create_pool_with_wnd_on, foreign_balance_on,
 	imports::{
 		asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
 		*,
@@ -194,6 +194,13 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 		AssetHubWestendSender::get(),
 		1_000_000_000_000,
 		20_000_000_000
+	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		wnd_from_parachain_pov.clone(),
+		PenpalAssetOwner::get()
 	);
 
 	// Query initial balances
