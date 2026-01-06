@@ -245,6 +245,8 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 pub const ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
 
+pub const PENPAL_FOREIGN_ASSETS_PALLET_ID: u8 = 51;
+
 pub const USDT_ASSET_ID: u128 = 1984;
 
 pub const SEPOLIA_ID: u64 = 11155111;
@@ -271,6 +273,9 @@ parameter_types! {
 		2,
 		[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID})],
 	);
+
+	/// A PEN2 test asset.
+	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(42)]);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios

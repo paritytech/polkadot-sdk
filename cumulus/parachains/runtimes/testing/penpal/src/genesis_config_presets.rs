@@ -28,7 +28,10 @@
 
 //! Penpal Parachain Runtime genesis config presets
 
-use crate::*;
+use crate::{
+	xcm_config::{EthFromEthereum, LocalPen2Asset, RelayLocation, UsdtFromAssetHub},
+	*,
+};
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -74,74 +77,46 @@ fn penpal_parachain_genesis(
 		sudo: SudoConfig { key: Some(sudo.clone()) },
 		foreign_assets: ForeignAssetsConfig {
 			assets: vec![
-				(
-					crate::xcm_config::RelayLocation::get(),
-					sudo.clone(),
-					true,
-					crate::EXISTENTIAL_DEPOSIT
-				),
-				(Pen2Location::get(), sudo.clone(), true, crate::EXISTENTIAL_DEPOSIT),
-				(
-					crate::xcm_config::UsdtFromAssetHub::get(),
-					sudo.clone(),
-					true,
-					crate::EXISTENTIAL_DEPOSIT
-				),
-				(
-					crate::xcm_config::EthFromEthereum::get(),
-					sudo.clone(),
-					true,
-					crate::EXISTENTIAL_DEPOSIT
-				),
+				(RelayLocation::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
+				(LocalPen2Asset::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
+				(UsdtFromAssetHub::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
+				(EthFromEthereum::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
 			],
 			metadata: vec![
 				(
-					crate::xcm_config::RelayLocation::get(),
+					RelayLocation::get(),
 					"relay".as_bytes().to_vec(),
 					"relay".as_bytes().to_vec(),
 					12
 				),
-				(Pen2Location::get(), "pen-2".as_bytes().to_vec(), "PEN2".as_bytes().to_vec(), 12),
 				(
-					crate::xcm_config::UsdtFromAssetHub::get(),
+					LocalPen2Asset::get(),
+					"pen-2".as_bytes().to_vec(),
+					"PEN2".as_bytes().to_vec(),
+					12
+				),
+				(
+					UsdtFromAssetHub::get(),
 					"Usdt".as_bytes().to_vec(),
 					"USDT".as_bytes().to_vec(),
 					6
 				),
 				(
-					crate::xcm_config::EthFromEthereum::get(),
+					EthFromEthereum::get(),
 					"Ethereum".as_bytes().to_vec(),
 					"ETH".as_bytes().to_vec(),
 					18
 				),
 			],
 			accounts: vec![
-				(
-					crate::xcm_config::RelayLocation::get(),
-					sudo.clone(),
-					crate::EXISTENTIAL_DEPOSIT * 4096,
-				),
-				(Pen2Location::get(), sudo.clone(), crate::EXISTENTIAL_DEPOSIT * 4096,),
-				(
-					crate::xcm_config::UsdtFromAssetHub::get(),
-					sudo.clone(),
-					100_000, // 0.1 USDT
-				),
-				(
-					crate::xcm_config::EthFromEthereum::get(),
-					sudo,
-					// Todo: proper amount
-					crate::EXISTENTIAL_DEPOSIT * 4096,
-				),
+				(RelayLocation::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
+				(LocalPen2Asset::get(), sudo.clone(), crate::EXISTENTIAL_DEPOSIT * 4096,),
+				(UsdtFromAssetHub::get(), sudo.clone(), 100_000,),
+				// Todo: proper ED
+				(EthFromEthereum::get(), sudo, EXISTENTIAL_DEPOSIT * 4096,),
 			]
 		}
 	})
-}
-
-parameter_types! {
-	const PalletForeignAssetsId: u8 = 51;
-
-	pub Pen2Location: Location = Location::new(0, [PalletInstance(PalletForeignAssetsId::get()), GeneralIndex(42)]);
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
