@@ -152,12 +152,10 @@ impl<A, F, C> LocalPay<F, A, C> {
 	fn match_asset(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
 		match asset {
 			VersionedLocatableAsset::V3 { location, asset_id } if location.is_here() => {
-				let asset_id: xcm::opaque::v3::AssetId = *asset_id;
-				let asset_id_v4: Result<xcm::opaque::v4::AssetId, _> = asset_id.try_into();
-				match asset_id_v4 {
-					Ok(id) => id.try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
-					Err(_) => Err(()),
-				}
+				// Convert V3 asset_id to V5 Location (must go through V4)
+				let v4_asset_id: xcm::v4::AssetId = (*asset_id).try_into().map_err(|_| ())?;
+				let v5_asset_id: xcm::v5::AssetId = v4_asset_id.try_into().map_err(|_| ())?;
+				Ok(v5_asset_id.0)
 			},
 			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
 				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
