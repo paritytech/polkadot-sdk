@@ -11698,6 +11698,8 @@ dependencies = [
 name = "pallet-battleship"
 version = "0.1.0"
 dependencies = [
+ "binary-merkle-tree",
+ "bitvec",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

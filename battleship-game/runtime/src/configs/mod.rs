@@ -340,8 +340,16 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	/// Turn timeout: ~5 minutes at 6 second blocks
+	pub const TurnTimeout: BlockNumber = 50;
+}
+
 /// Configure the battleship pallet.
 impl pallet_battleship::Config for Runtime {
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type TurnTimeout = TurnTimeout;
 	type WeightInfo = pallet_battleship::weights::SubstrateWeight<Runtime>;
 }
 
