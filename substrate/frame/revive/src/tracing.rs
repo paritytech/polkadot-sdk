@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key};
+use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -44,6 +44,9 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 pub trait FrameTraceInfo {
 	/// Get the amount of gas remaining in the current frame.
 	fn gas_left(&self) -> u64;
+
+	/// Returns how much weight was spent
+	fn weight_consumed(&self) -> Weight;
 
 	/// Get the output from the last frame.
 	fn last_frame_output(&self) -> Bytes;
@@ -141,4 +144,13 @@ pub trait Tracing {
 	/// # Parameters
 	/// - `trace_info`: Information about the current execution frame.
 	fn exit_step(&mut self, _trace_info: &dyn FrameTraceInfo) {}
+
+	/// Called once the transaction completes to report the gas consumed by the meter.
+	///
+	/// # Parameters
+	/// - `base_call_weight`: Extrinsic base weight that is added on top of `weight_consumed` when
+	///   charging.
+	/// - `weight_consumed`: Weight used by the transaction logic, excluding the extrinsic base
+	///   weight.
+	fn dispatch_result(&mut self, _base_call_weight: Weight, _weight_consumed: Weight) {}
 }

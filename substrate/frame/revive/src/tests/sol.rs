@@ -631,20 +631,24 @@ fn execution_tracing_works_for_evm() {
 
 		let mut actual_trace = tracer.collect_trace();
 		actual_trace.struct_logs.iter_mut().for_each(|step| {
-			step.gas = 0u64;
-			step.gas_cost = 0u64;
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
 		});
 
 		let expected_trace = ExecutionTrace {
 			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
 			failed: false,
 			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
 			struct_logs: vec![
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					error: None,
 					kind: ExecutionStepKind::EVMOpcode {
 						pc: 0,
@@ -655,11 +659,12 @@ fn execution_tracing_works_for_evm() {
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::EVMOpcode {
 						pc: 2,
 						op: PUSH1,
@@ -669,11 +674,12 @@ fn execution_tracing_works_for_evm() {
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::EVMOpcode {
 						pc: 4,
 						op: MSTORE,
@@ -686,11 +692,12 @@ fn execution_tracing_works_for_evm() {
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::EVMOpcode {
 						pc: 5,
 						op: CALLVALUE,
@@ -700,11 +707,12 @@ fn execution_tracing_works_for_evm() {
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::EVMOpcode {
 						pc: 6,
 						op: DUP1,
@@ -752,61 +760,69 @@ fn execution_tracing_works_for_pvm() {
 
 		let mut actual_trace = tracer.collect_trace();
 		actual_trace.struct_logs.iter_mut().for_each(|step| {
-			step.gas = 0u64;
-			step.gas_cost = 0u64;
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
 		});
 
 		let expected_trace = ExecutionTrace {
 			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
 			failed: false,
 			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
 			struct_logs: vec![
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
 					},
 				},
 				ExecutionStep {
-					gas: 0u64,
-					gas_cost: 0u64,
 					depth: 1,
 					return_data: crate::evm::Bytes::default(),
 					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("seal_return").unwrap_or_default(),
 					},

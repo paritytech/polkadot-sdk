@@ -486,7 +486,7 @@ async fn get_evm_block_from_storage(
 
 async fn test_evm_blocks_should_match(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let (node_client, node_rpc_client, _) =
-		client::connect(SharedResources::node_rpc_url()).await.unwrap();
+		client::connect(SharedResources::node_rpc_url(), 1024, 1024).await.unwrap();
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -705,7 +705,8 @@ async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow:
 	// Prepare substrate transactions (simple remarks)
 	log::trace!(target: LOG_TARGET, "Creating {num_substrate_txs} substrate remark transactions");
 	let alice_signer = subxt_signer::sr25519::dev::alice();
-	let (node_client, _, _) = client::connect(SharedResources::node_rpc_url()).await.unwrap();
+	let (node_client, _, _) =
+		client::connect(SharedResources::node_rpc_url(), 1024, 1024).await.unwrap();
 
 	let substrate_txs =
 		prepare_substrate_transactions(&node_client, &alice_signer, num_substrate_txs).await?;
@@ -736,7 +737,7 @@ async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow:
 
 async fn test_runtime_pallets_address_upload_code(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let (node_client, node_rpc_client, _) =
-		client::connect(SharedResources::node_rpc_url()).await?;
+		client::connect(SharedResources::node_rpc_url(), 1024, 1024).await?;
 
 	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let signer = Account::default();

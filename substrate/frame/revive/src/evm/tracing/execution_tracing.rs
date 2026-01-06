@@ -21,7 +21,7 @@ use crate::{
 	},
 	tracing::{EVMFrameTraceInfo, FrameTraceInfo},
 	vm::pvm::env::lookup_syscall_index,
-	DispatchError, ExecReturnValue, Key,
+	DispatchError, ExecReturnValue, Key, Weight,
 };
 use alloc::{
 	collections::BTreeMap,
@@ -49,6 +49,12 @@ pub struct ExecutionTracer {
 	/// Total gas used by the transaction.
 	total_gas_used: u64,
 
+	/// The base call weight of the transaction.
+	base_call_weight: Weight,
+
+	/// The Weight consumed by the transaction meter.
+	weight_consumed: Weight,
+
 	/// Whether the transaction failed.
 	failed: bool,
 
@@ -68,6 +74,8 @@ impl ExecutionTracer {
 			depth: 0,
 			step_count: 0,
 			total_gas_used: 0,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
 			failed: false,
 			return_value: Bytes::default(),
 			storages_per_call: alloc::vec![Default::default()],
@@ -76,8 +84,16 @@ impl ExecutionTracer {
 
 	/// Collect the traces and return them.
 	pub fn collect_trace(self) -> ExecutionTrace {
-		let Self { steps: struct_logs, return_value, total_gas_used: gas, failed, .. } = self;
-		ExecutionTrace { gas, failed, return_value, struct_logs }
+		let Self {
+			steps: struct_logs,
+			weight_consumed,
+			base_call_weight,
+			return_value,
+			total_gas_used: gas,
+			failed,
+			..
+		} = self;
+		ExecutionTrace { gas, weight_consumed, base_call_weight, failed, return_value, struct_logs }
 	}
 
 	/// Record an error in the current step.
@@ -91,6 +107,11 @@ impl ExecutionTracer {
 impl Tracing for ExecutionTracer {
 	fn is_execution_tracer(&self) -> bool {
 		true
+	}
+
+	fn dispatch_result(&mut self, base_call_weight: Weight, weight_consumed: Weight) {
+		self.base_call_weight = base_call_weight;
+		self.weight_consumed = weight_consumed;
 	}
 
 	fn enter_opcode(&mut self, pc: u64, opcode: u8, trace_info: &dyn EVMFrameTraceInfo) {
@@ -118,7 +139,8 @@ impl Tracing for ExecutionTracer {
 
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
-			gas_cost: 0u64, // Will be set in exit_step
+			gas_cost: Default::default(),
+			weight_cost: trace_info.weight_consumed(),
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -149,7 +171,8 @@ impl Tracing for ExecutionTracer {
 
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
-			gas_cost: 0u64, // Will be set in exit_step
+			gas_cost: Default::default(),
+			weight_cost: trace_info.weight_consumed(),
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -165,6 +188,7 @@ impl Tracing for ExecutionTracer {
 	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo) {
 		if let Some(step) = self.steps.last_mut() {
 			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
+			step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
 		}
 	}
 

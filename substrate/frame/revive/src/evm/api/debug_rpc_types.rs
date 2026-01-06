@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::Bytes;
+use crate::{evm::Bytes, Weight};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
@@ -224,7 +224,8 @@ impl Default for ExecutionTracerConfig {
 fn test_tracer_config_serialization() {
 	let tracers = vec![
 		(
-			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true }"#,
+			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false,
+		"enableReturnData": true }"#,
 			TracerConfig {
 				config: TracerType::ExecutionTracer(Some(ExecutionTracerConfig {
 					enable_memory: true,
@@ -263,18 +264,26 @@ fn test_tracer_config_serialization() {
 			},
 		),
 		(
-			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout": "10ms"}"#,
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout":
+		"10ms"}"#,
 			TracerConfig {
 				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
 				timeout: Some(core::time::Duration::from_millis(10)),
 			},
 		),
 		(
-			r#"{"tracer": "ExecutionTracer"}"#,
+			r#"{"tracer": "executionTracer"}"#,
 			TracerConfig { config: TracerType::ExecutionTracer(None), timeout: None },
 		),
 		(
-			r#"{"tracer": "ExecutionTracer", "tracerConfig": { "enableMemory": true }}"#,
+			r#"{"tracer": "executionTracer", "tracerConfig": { "enableMemory": true }}"#,
+			TracerConfig {
+				config: ExecutionTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				timeout: None,
+			},
+		),
+		(
+			r#"{ "enableMemory": true }"#,
 			TracerConfig {
 				config: ExecutionTracerConfig { enable_memory: true, ..Default::default() }.into(),
 				timeout: None,
@@ -285,7 +294,7 @@ fn test_tracer_config_serialization() {
 	for (json_data, expected) in tracers {
 		let result: TracerConfig =
 			serde_json::from_str(json_data).expect("Deserialization should succeed");
-		assert_eq!(result, expected);
+		assert_eq!(result, expected, "invalid serialization for {json_data}");
 	}
 }
 
@@ -471,8 +480,11 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
-	#[codec(compact)]
 	pub gas: u64,
+	/// The weight consumed by the transaction meter.
+	pub weight_consumed: Weight,
+	/// The base call weight of the transaction.
+	pub base_call_weight: Weight,
 	/// Whether the transaction failed.
 	pub failed: bool,
 	/// The return value of the transaction.
@@ -488,9 +500,11 @@ pub struct ExecutionStep {
 	/// Remaining gas before executing this step.
 	#[codec(compact)]
 	pub gas: u64,
-	/// Cost of executing this step.
+	/// Gas Cost of executing this step.
 	#[codec(compact)]
 	pub gas_cost: u64,
+	/// Weight cost of executing this step.
+	pub weight_cost: Weight,
 	/// Current call depth.
 	pub depth: u16,
 	/// Return data from last frame output.
