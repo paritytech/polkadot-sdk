@@ -535,7 +535,7 @@ fn close_bounty_with_additional_assets_works() {
 			assert!(frame_system::Account::<Test>::contains_key(pot));
 
 			assert_eq!(Balances::total_balance(&pot), ed, "ED is preserved");
-			// This ^ was fixed by #TODO. Otherwise, instead of just ED, everything would remain.
+			// This ^ was fixed by #10728. Otherwise, instead of just ED, everything would remain.
 		});
 
 		// Case 2: Bounty acc is not blocked and transfers our all balances

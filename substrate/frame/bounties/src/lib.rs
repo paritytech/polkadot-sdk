@@ -282,13 +282,20 @@ pub mod pallet {
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 
+		/// Native asset. Must be the same as `Currency`.
 		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
-		type AssetId: Parameter + MaxEncodedLen;
+
+		/// Mutate assets.
 		type Assets: FungiblesMutate<
 			Self::AccountId,
 			Balance = BalanceOf<Self, I>,
 			AssetId = Self::AssetId,
 		>;
+
+		/// Asset ID of the `Assets` item.
+		type AssetId: Parameter + MaxEncodedLen;
+
+		/// Assets that should returned to the treasury by `close_bounty`.
 		type RelevantAssets: Get<Vec<Self::AssetId>>;
 	}
 
