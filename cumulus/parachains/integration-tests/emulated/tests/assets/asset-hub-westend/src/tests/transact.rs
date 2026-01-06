@@ -13,10 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	assets_balance_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on,
-	foreign_balance_on, imports::*,
-};
+use crate::{assets_balance_on, create_foreign_pool_with_native_on, create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
@@ -123,14 +120,14 @@ fn transact_from_para_to_para_through_asset_hub() {
 		1_000_000_000_000,
 		20_000_000_000
 	);
-	// We also need a pool between WND and USDT on PenpalA.
-	create_foreign_pool_with_wnd_on!(
+	// We also need a pool between the native currency on PenpalA and USDT on PenpalA.
+	create_foreign_pool_with_native_on!(
 		PenpalA,
 		PenpalUsdtFromAssetHub::get(),
 		PenpalAssetOwner::get()
 	);
-	// We also need a pool between WND and USDT on PenpalB.
-	create_foreign_pool_with_wnd_on!(
+	// We also need a pool between the native currency on PenpalB and USDT on PenpalB.
+	create_foreign_pool_with_native_on!(
 		PenpalB,
 		PenpalUsdtFromAssetHub::get(),
 		PenpalAssetOwner::get()
