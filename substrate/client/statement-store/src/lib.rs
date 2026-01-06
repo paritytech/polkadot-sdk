@@ -51,7 +51,6 @@ mod metrics;
 
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 
-use core::time;
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
@@ -69,7 +68,7 @@ use sp_statement_store::{
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	sync::{atomic::AtomicU64, Arc},
+	sync::Arc,
 };
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
@@ -174,8 +173,12 @@ struct Index {
 struct ClientWrapper<Block, Client> {
 	client: Arc<Client>,
 	_block: std::marker::PhantomData<Block>,
-	time_spent_runtime: Arc<AtomicU64>,
-	time_spent_validate: Arc<AtomicU64>,
+}
+
+impl<Block, Client> Clone for ClientWrapper<Block, Client> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _block: self._block.clone() }
+	}
 }
 
 impl<Block, Client> ClientWrapper<Block, Client>
@@ -191,25 +194,13 @@ where
 		source: StatementSource,
 		statement: Statement,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		
-		// let signature = statement.verify_signature();
-
-		// return Ok(ValidStatement { max_count: 10000, max_size: 10000 });
-
-		let start = std::time::Instant::now();
 		let api = self.client.runtime_api();
 		let block = block.map(Into::into).unwrap_or_else(|| {
 			// Validate against the finalized state.
 			self.client.info().finalized_hash
 		});
-		self.time_spent_runtime
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-		let res = api
-			.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?;
-		self.time_spent_validate
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-		res
+		api.validate_statement(block, source, statement)
+			.map_err(|_| InvalidStatement::InternalError)?
 	}
 
 	fn validate_statements(
@@ -218,19 +209,14 @@ where
 		source: StatementSource,
 		statements: Vec<Statement>,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let start = std::time::Instant::now();
 		let api = self.client.runtime_api();
 		let block = block.map(Into::into).unwrap_or_else(|| {
 			// Validate against the finalized state.
 			self.client.info().finalized_hash
 		});
-		self.time_spent_runtime
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		let res = api
 			.validate_statements(block, source, statements)
 			.map_err(|_| InvalidStatement::InternalError)?;
-		self.time_spent_validate
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 }
@@ -261,11 +247,6 @@ pub struct Store {
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
-	pub time_spent_validation: AtomicU64,
-	pub time_spent_inserting: AtomicU64,
-	pub time_spent_locking: AtomicU64,
-	pub time_spent_runtime: Arc<AtomicU64>,
-	pub time_spent_validate: Arc<AtomicU64>,
 }
 
 enum IndexQuery {
@@ -627,23 +608,11 @@ impl Store {
 			},
 		}
 
-		let time_spent_runtime = Arc::new(AtomicU64::new(0));
-		let time_spent_validate = Arc::new(AtomicU64::new(0));
-		let validator = ClientWrapper {
-			client: client.clone(),
-			_block: Default::default(),
-			time_spent_runtime: time_spent_runtime.clone(),
-			time_spent_validate: time_spent_validate.clone(),
-		};
-		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
+		let validator = ClientWrapper { client: client.clone(), _block: Default::default() };
+		let validate_fn = Box::new({
+			let validator = validator.clone();
+			move |block, source, statement| validator.validate_statement(block, source, statement)
 		});
-		let validator = ClientWrapper {
-			client: client.clone(),
-			_block: Default::default(),
-			time_spent_runtime: time_spent_runtime.clone(),
-			time_spent_validate: time_spent_validate.clone(),
-		};
 		let batch_validate_fn = Box::new(move |block, source, statements| {
 			validator.validate_statements(block, source, statements)
 		});
@@ -656,11 +625,6 @@ impl Store {
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
-			time_spent_validation: AtomicU64::new(0),
-			time_spent_inserting: AtomicU64::new(0),
-			time_spent_locking: AtomicU64::new(0),
-			time_spent_runtime,
-			time_spent_validate,
 		};
 		store.populate()?;
 		Ok(store)
@@ -1014,12 +978,7 @@ impl StatementStore for Store {
 		} else {
 			None
 		};
-
-		let start = std::time::Instant::now();
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
-		self.time_spent_validation
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-
 		let validation = match validation_result {
 			Ok(validation) => validation,
 			Err(InvalidStatement::BadProof) => {
@@ -1047,8 +1006,6 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		{
-			let start = std::time::Instant::now();
-
 			let mut index = self.index.write();
 
 			let evicted =
@@ -1056,8 +1013,6 @@ impl StatementStore for Store {
 					Ok(evicted) => evicted,
 					Err(reason) => return SubmitResult::Rejected(reason),
 				};
-			self.time_spent_inserting
-				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
@@ -1072,8 +1027,6 @@ impl StatementStore for Store {
 				);
 				return SubmitResult::InternalError(Error::Db(e.to_string()))
 			}
-			self.time_spent_locking
-				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
@@ -1133,13 +1086,10 @@ impl StatementStore for Store {
 			None
 		};
 
-		let start = std::time::Instant::now();
 		let mut batch = Vec::with_capacity(1 + iter.size_hint().0);
 		batch.push(statement.clone());
 		batch.extend(iter);
 		let validation_result = (self.batch_validate_fn)(at_block, source, batch);
-		self.time_spent_validation
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 
 		let validation = match validation_result {
 			Ok(validation) => validation,
@@ -1168,8 +1118,6 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		{
-			let start = std::time::Instant::now();
-
 			let mut index = self.index.write();
 
 			let evicted =
@@ -1177,8 +1125,6 @@ impl StatementStore for Store {
 					Ok(evicted) => evicted,
 					Err(reason) => return SubmitResult::Rejected(reason),
 				};
-			self.time_spent_inserting
-				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
@@ -1193,8 +1139,6 @@ impl StatementStore for Store {
 				);
 				return SubmitResult::InternalError(Error::Db(e.to_string()))
 			}
-			self.time_spent_locking
-				.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
