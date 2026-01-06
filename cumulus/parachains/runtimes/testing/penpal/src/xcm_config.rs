@@ -242,7 +242,7 @@ pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 
-pub const ASSETS_PALLET_ID: u8 = 50;
+pub const ASSET_HUB_ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
 
 pub const PENPAL_FOREIGN_ASSETS_PALLET_ID: u8 = 51;
@@ -256,17 +256,17 @@ parameter_types! {
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
-		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
+		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_ID)]);
 	pub AssetsPalletLocation: Location =
-		Location::new(0, [PalletInstance(ASSETS_PALLET_ID)]);
+		Location::new(0, [PalletInstance(ASSET_HUB_ASSETS_PALLET_ID)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub LocalReservableFromAssetHub: Location = Location::new(
 		1,
-		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
 	);
 	pub UsdtFromAssetHub: Location = Location::new(
 		1,
-		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
 	);
 
 	pub EthFromEthereum: Location = Location::new(
@@ -283,9 +283,11 @@ parameter_types! {
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
+
+	// Todo: This needs to be removed, we no longer have the trust backed assets instance
 	pub storage LocalTeleportableToAssetHub: Location = Location::new(
 		0,
-		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+		[PalletInstance(ASSET_HUB_ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
 
 	pub const NativeAssetId: AssetId = AssetId(Location::here());
