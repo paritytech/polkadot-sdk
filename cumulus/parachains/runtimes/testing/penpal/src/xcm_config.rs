@@ -63,11 +63,12 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
 	ExternalConsensusLocationsConverterFor, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
-	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, MatchedConvertedConcreteId,
+	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
+	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -338,7 +339,18 @@ pub type TrustBackedAssetsConvertedConcreteId =
 pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
-	(ForeignAssetsConvertedConcreteId,),
+	(
+		ForeignAssetsConvertedConcreteId,
+		// `ForeignAssetsConvertedConcreteId` doesn't include the native token, so we handle it
+		// explicitly here.
+		MatchedConvertedConcreteId<
+			Location,
+			Balance,
+			Equals<PenpalNativeCurrency>,
+			WithLatestLocationConverter<Location>,
+			TryConvertInto,
+		>,
+	),
 	AccountId,
 >;
 

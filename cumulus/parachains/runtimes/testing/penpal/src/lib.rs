@@ -549,7 +549,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
-		xcm_config::RelayLocation,
+		xcm_config::PenpalNativeCurrency,
 		AccountId,
 		Self::AssetKind,
 		PoolIdToAccountId,
@@ -557,7 +557,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeAsset = xcm_config::RelayLocation;
+	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
@@ -567,7 +567,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		xcm_config::RelayLocation,
+		xcm_config::PenpalNativeCurrency,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::latest::Location,
@@ -636,7 +636,7 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetLocationId = AssetLocationId(xcm_config::RelayLocation::get());
+	pub FeeAssetId: AssetLocationId = AssetLocationId(xcm_config::PenpalNativeCurrency::get());
 	/// The base fee for the message delivery fees (3 CENTS).
 	pub const BaseDeliveryFee: u128 = (1_000_000_000_000u128 / 100).saturating_mul(3);
 }
@@ -736,7 +736,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = Location;
 	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::SwapAssetAdapter<
-		xcm_config::RelayLocation,
+		xcm_config::PenpalNativeCurrency,
 		NativeAndAssets,
 		AssetConversion,
 		MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>,
@@ -1008,7 +1008,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable_assets = vec![AssetLocationId(xcm_config::RelayLocation::get())];
+			let acceptable_assets = vec![AssetLocationId(xcm_config::PenpalNativeCurrency::get())];
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
