@@ -13,21 +13,24 @@ crates:
 - name: penpal-runtime
   bump: minor
 - name: pallet-xcm-precompiles
-  bump: minor
+  bump: patch
 - name: pallet-assets-precompiles
-  bump: minor
+  bump: patch
 - name: pallet-contracts
-  bump: minor
+  bump: patch
 - name: pallet-revive
   bump: minor
+  validate: false
 - name: revive-dev-runtime
   bump: minor
 - name: pallet-revive-fixtures
   bump: minor
+  validate: false
 - name: pallet-revive-proc-macro
-  bump: minor
+  bump: patch
 - name: pallet-revive-eth-rpc
   bump: minor
+  validate: false
 - name: pallet-revive-uapi
   bump: minor
 - name: substrate-wasm-builder
