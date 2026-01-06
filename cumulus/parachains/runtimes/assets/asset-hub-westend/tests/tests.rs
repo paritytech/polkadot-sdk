@@ -1987,45 +1987,51 @@ fn exchange_asset_success() {
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	exchange_asset_on_asset_hub_works::<
-		Runtime,
-		RuntimeCall,
-		RuntimeOrigin,
-		Block,
-		ForeignAssetsInstance,
-	>(
-		collator_session_keys(),
-		ASSET_HUB_ID,
-		AccountId::from(ALICE),
-		WestendLocation::get(),
-		true,
-		1_000 * UNITS,
-		2_000 * UNITS,
-		Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
-	);
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			1_000 * UNITS,
+			2_000 * UNITS,
+			Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+		);
+	});
+	assert!(log_capture.contains("NoDeal"));
 }
 
 #[test]
 fn exchange_asset_insufficient_balance() {
-	exchange_asset_on_asset_hub_works::<
-		Runtime,
-		RuntimeCall,
-		RuntimeOrigin,
-		Block,
-		ForeignAssetsInstance,
-	>(
-		collator_session_keys(),
-		ASSET_HUB_ID,
-		AccountId::from(ALICE),
-		WestendLocation::get(),
-		true,
-		5_000 * UNITS, // This amount will be greater than initial balance
-		1_665 * UNITS,
-		Some(xcm::v5::InstructionError {
-			index: 0,
-			error: xcm::v5::Error::FailedToTransactAsset(""),
-		}),
-	);
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			5_000 * UNITS, // This amount will be greater than initial balance
+			1_665 * UNITS,
+			Some(xcm::v5::InstructionError {
+				index: 0,
+				error: xcm::v5::Error::FailedToTransactAsset(""),
+			}),
+		);
+	});
+	assert!(log_capture.contains("Funds are unavailable"));
 }
 
 #[test]

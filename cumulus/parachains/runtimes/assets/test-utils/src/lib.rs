@@ -16,6 +16,7 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
+pub mod test_cases;
 pub mod test_cases_over_bridge;
 pub mod xcm_helpers;
 
