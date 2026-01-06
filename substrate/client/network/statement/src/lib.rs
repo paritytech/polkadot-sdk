@@ -535,7 +535,6 @@ where
 					break
 				}
 				let hash = s.hash();
-				//TODO:  Why do we just insert known_statement and never actually check on this?
 				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {

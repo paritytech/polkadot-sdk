@@ -265,7 +265,7 @@ fn build_handler(
 			}
 		}));
 	}
-	{
+	for _ in 0..num_threads {
 		let store = statement_store.clone();
 		let receiver = batch_queue_receiver.clone();
 		executor(Box::pin(async move {
@@ -387,7 +387,8 @@ fn bench_on_batch_statements(c: &mut Criterion) {
 	let thread_counts = [1,  4];
 	let executor_types = [("blocking", true)];
 	let batch_limits = [1, 50, 200, 1000];
-
+	let max_runtime_instances = 8;
+	
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
 	let handle = runtime.handle();
@@ -411,7 +412,7 @@ fn bench_on_batch_statements(c: &mut Criterion) {
 
 					c.bench_function(&benchmark_name, |b| {
 						b.iter_batched(
-							|| build_handler(executor.clone(), num_threads, batch_limit),
+							|| build_handler(executor.clone(), num_threads, max_runtime_instances, batch_limit),
 							|(mut handler, peer_id, _temp_dir, _store)| {
 								handler.on_batch_statements(peer_id, statements.clone());
 
