@@ -414,14 +414,21 @@ fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
-fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+fn host_storage_read(
+	key: &[u8],
+	value_out: &mut [u8],
+	value_offset: u32,
+	allow_partial: u32,
+) -> Option<u32> {
 	match with_externalities(|ext| ext.storage(key)) {
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = core::cmp::min(data.len(), value_out.len());
-			value_out[..written].copy_from_slice(&data[..written]);
-			Some(value.len() as u32)
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
+			Some(data.len() as u32)
 		},
 		None => None,
 	}
@@ -509,15 +516,18 @@ fn host_default_child_storage_read(
 	key: &[u8],
 	value_out: &mut [u8],
 	value_offset: u32,
+	allow_partial: u32,
 ) -> Option<u32> {
 	let child_info = ChildInfo::new_default(storage_key);
 	match with_externalities(|ext| ext.child_storage(&child_info, key)) {
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = core::cmp::min(data.len(), value_out.len());
-			value_out[..written].copy_from_slice(&data[..written]);
-			Some(value.len() as u32)
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
+			Some(data.len() as u32)
 		},
 		None => None,
 	}
