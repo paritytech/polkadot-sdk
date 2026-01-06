@@ -1,6 +1,6 @@
 [package]
 name = "ui-tests"
-version = "0.0.0"
+version = "0.1.0"
 license = "Apache-2.0"
 authors.workspace = true
 homepage.workspace = true
@@ -11,38 +11,37 @@ edition.workspace = true
 array-bytes = { workspace = true }
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
-  "pallet-balances",
-  "pallet-revive",
-  "pallet-sudo",
-  "pallet-timestamp",
-  "pallet-transaction-payment",
-  "pallet-transaction-payment-rpc-runtime-api",
-  "parachains-common",
-  "polkadot-runtime-common",
-  "runtime",
-  "with-tracing",
+	"pallet-balances",
+	"pallet-revive",
+	"pallet-sudo",
+	"pallet-timestamp",
+	"pallet-transaction-payment",
+	"pallet-transaction-payment-rpc-runtime-api",
+	"parachains-common",
+	"polkadot-runtime-common",
+	"runtime",
+	"with-tracing",
 ] }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = [
-  "alloc",
+	"alloc",
 ] }
 sp-debug-derive = { workspace = true, features = ["force-debug"] }
-alloy-core = { workspace = true, features = ["sol-types"] }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = [
-  "substrate-wasm-builder",
+	"substrate-wasm-builder",
 ] }
 
 [features]
 default = ["std"]
 std = [
-  "alloy-core/std",
-  "codec/std",
-  "polkadot-sdk/std",
-  "scale-info/std",
-  "serde_json/std",
-  "sp-debug-derive/std",
+	"alloy-core/std",
+	"codec/std",
+	"polkadot-sdk/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-debug-derive/std",
 ]
 
 [dev-dependencies]
