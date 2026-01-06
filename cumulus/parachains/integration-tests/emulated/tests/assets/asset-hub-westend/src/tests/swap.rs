@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::PenpalALocation;
 use crate::imports::*;
 
 #[test]
@@ -113,12 +114,7 @@ fn swap_locally_on_chain_using_local_assets() {
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
 	let asset_native = Box::new(Location::try_from(RelayLocation::get()).unwrap());
-	let asset_location_on_penpal =
-		PenpalA::execute_with(|| Location::try_from(PenpalNativeCurrency::get()).unwrap());
-	let foreign_asset_at_asset_hub_westend =
-		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
-			.appended_with(asset_location_on_penpal)
-			.unwrap();
+	let foreign_asset_at_asset_hub_westend = PenpalALocation::get();
 
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(penpal_as_seen_by_ah);

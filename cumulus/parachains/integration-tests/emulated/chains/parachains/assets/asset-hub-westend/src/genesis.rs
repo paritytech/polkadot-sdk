@@ -23,7 +23,7 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators,
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
-	// PenpalALocation, PenpalASiblingSovereignAccount,
+	PenpalALocation, PenpalASiblingSovereignAccount,
 	// PenpalBLocation, PenpalBSiblingSovereignAccount,
 	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
@@ -100,7 +100,7 @@ pub fn genesis() -> Storage {
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// // PenpalA's native asset representation
-				// (PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), false, ED),
+				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), false, ED),
 				// // PenpalB's native asset representation
 				// (PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), false, ED),
 				// Ether
@@ -125,7 +125,7 @@ pub fn genesis() -> Storage {
 				),
 			],
 			reserves: vec![
-				// (PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
+				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
 				// (PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
 				(
