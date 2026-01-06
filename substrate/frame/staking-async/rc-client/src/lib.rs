@@ -1072,14 +1072,9 @@ pub mod pallet {
 			);
 
 			// Forward validated keys to RC (no proof needed, already validated)
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			{
-				let fees = T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
-					.map_err(|()| Error::<T>::XcmSendFailed)?;
-				Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
-			}
-			#[cfg(feature = "runtime-benchmarks")]
-			let _ = (stash.clone(), keys);
+			let fees = T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
+				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys validated and set for {stash:?}, forwarded to RC");
 
@@ -1110,14 +1105,9 @@ pub mod pallet {
 
 			// Forward purge request to RC via XCM
 			// Note: RC will fail with NoKeys if the account has no keys set
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			{
-				let fees = T::SendToRelayChain::purge_keys(stash.clone())
-					.map_err(|()| Error::<T>::XcmSendFailed)?;
-				Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
-			}
-			#[cfg(feature = "runtime-benchmarks")]
-			let _ = stash.clone();
+			let fees = T::SendToRelayChain::purge_keys(stash.clone())
+				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
 

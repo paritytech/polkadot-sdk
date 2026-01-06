@@ -21,6 +21,8 @@ use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use xcm::latest::Location;
+use xcm_builder::EnsureDelivery;
 
 use crate::*;
 
@@ -30,14 +32,29 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 /// Configuration trait for benchmarking `pallet-staking-async-rc-client`.
 ///
 /// The runtime must implement this trait to provide session keys generation
-/// for benchmarking purposes.
+/// and XCM delivery setup for benchmarking purposes.
 pub trait Config: crate::Config {
+	/// Helper that ensures successful XCM delivery for benchmarks.
+	type DeliveryHelper: EnsureDelivery;
+
+	/// The relay chain location for XCM delivery.
+	fn relay_chain_location() -> Location {
+		Location::parent()
+	}
+
+	/// Convert an AccountId to an XCM Location for fee charging.
+	fn account_to_location(account: Self::AccountId) -> Location;
+
 	/// Generate relay chain session keys and ownership proof for benchmarking.
 	///
 	/// Returns the SCALE-encoded session keys and SCALE-encoded ownership proof.
 	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>);
 
 	/// Setup a validator account for benchmarking.
+	///
+	/// Should return an account that:
+	/// - Is registered as a validator in the staking pallet
+	/// - Has sufficient balance for XCM delivery fees
 	fn setup_validator() -> Self::AccountId;
 }
 
@@ -45,6 +62,7 @@ pub trait Config: crate::Config {
 mod benchmarks {
 	use super::*;
 	use frame_support::BoundedVec;
+	use xcm_executor::traits::FeeReason;
 
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
@@ -54,6 +72,15 @@ mod benchmarks {
 			keys.try_into().expect("keys should fit in bounded vec");
 		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
 			proof.try_into().expect("proof should fit in bounded vec");
+
+		// Ensure XCM delivery will succeed by setting up required fees/accounts.
+		let stash_location = T::account_to_location(stash.clone());
+		let dest = T::relay_chain_location();
+		T::DeliveryHelper::ensure_successful_delivery(
+			&stash_location,
+			&dest,
+			FeeReason::ChargeFees,
+		);
 
 		#[extrinsic_call]
 		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, proof);
@@ -70,6 +97,21 @@ mod benchmarks {
 		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
 			proof.try_into().expect("proof should fit in bounded vec");
 
+		// Ensure XCM delivery will succeed for both set_keys and purge_keys.
+		let stash_location = T::account_to_location(stash.clone());
+		let dest = T::relay_chain_location();
+		// Need to ensure delivery for both calls (set_keys + purge_keys)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&stash_location,
+			&dest,
+			FeeReason::ChargeFees,
+		);
+		T::DeliveryHelper::ensure_successful_delivery(
+			&stash_location,
+			&dest,
+			FeeReason::ChargeFees,
+		);
+
 		// First set keys so we have something to purge
 		assert_ok!(crate::Pallet::<T>::set_keys(
 			RawOrigin::Signed(stash.clone()).into(),
@@ -81,5 +123,14 @@ mod benchmarks {
 		crate::Pallet::<T>::purge_keys(RawOrigin::Signed(stash));
 
 		Ok(())
+	}
+}
+
+/// Converts an AccountId to an XCM Location for benchmarking fee charging.
+pub struct AccountIdToLocation;
+
+impl<AccountId: Into<[u8; 32]>> Convert<AccountId, Location> for AccountIdToLocation {
+	fn convert(account: AccountId) -> Location {
+		xcm::latest::Junction::AccountId32 { network: None, id: account.into() }.into()
 	}
 }

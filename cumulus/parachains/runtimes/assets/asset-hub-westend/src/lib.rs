@@ -2239,7 +2239,28 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 			}
 
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
+			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					WestendLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+
+				pub RandomParaId: ParaId = ParaId::new(43211234);
+			}
+
 			impl pallet_staking_async_rc_client::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					PriceForParentDelivery,
+				>;
+
+				fn account_to_location(account: Self::AccountId) -> Location {
+					[AccountId32 { network: None, id: account.into() }].into()
+				}
+
 				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>) {
 					use staking::RelayChainSessionKeys;
 					let keys = RelayChainSessionKeys::generate(&owner.encode(), None);
@@ -2269,17 +2290,6 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 					stash
 				}
-			}
-
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
-			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					WestendLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-
-				pub RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;

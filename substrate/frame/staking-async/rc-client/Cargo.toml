@@ -19,6 +19,8 @@ sp-core = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 xcm = { workspace = true }
+xcm-builder = { optional = true, workspace = true }
+xcm-executor = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -32,6 +34,8 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"xcm-builder?/std",
+	"xcm-executor?/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -40,6 +44,8 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
