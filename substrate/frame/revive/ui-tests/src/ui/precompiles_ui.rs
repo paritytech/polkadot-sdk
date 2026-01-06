@@ -2,7 +2,6 @@ use polkadot_sdk::pallet_revive::precompiles::Precompile;
 use polkadot_sdk::pallet_revive::Config;
 use polkadot_sdk::pallet_revive::precompiles::AddressMatcher;
 use core::num::NonZeroU16;
-use alloy_core::sol_types::SolInterface;
 use alloy_core::sol;
 
 use ui_tests::runtime::Runtime;

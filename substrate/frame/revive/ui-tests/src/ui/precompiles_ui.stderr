@@ -1,11 +1,3 @@
-warning: unused import: `alloy_core::sol_types::SolInterface`
- --> src/ui/precompiles_ui.rs
-  |
-  | use alloy_core::sol_types::SolInterface;
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: `#[warn(unused_imports)]` on by default
-
 error[E0080]: evaluation panicked: Precompiles with duplicate matcher detected
  --> $WORKSPACE/substrate/frame/revive/src/precompiles.rs
   |

@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use pallet::*;
-
 #[polkadot_sdk::frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use polkadot_sdk::{
