@@ -4,7 +4,8 @@ Integration test verifying warp sync functionality for relay chain and parachain
 
 ## Updating Test Artifacts
 
-Test maintenance involves updating chain specs and database snapshots after runtime changes to `cumulus-test-runtime` or `rococo-local`.
+Test maintenance involves updating chain specs and database snapshots after runtime changes to `cumulus-test-runtime`
+or `rococo-local`.
 
 ### Using `generate-snapshots.sh` script
 
