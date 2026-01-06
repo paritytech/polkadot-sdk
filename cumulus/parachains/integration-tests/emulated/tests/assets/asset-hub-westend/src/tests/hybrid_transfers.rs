@@ -19,7 +19,10 @@ use emulated_integration_tests_common::xcm_helpers::{
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
-use crate::{create_foreign_pool_with_native_on, imports::*, tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt};
+use crate::{
+	create_foreign_pool_with_native_on, imports::*,
+	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
+};
 
 fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -683,11 +686,7 @@ fn bidirectional_teleport_foreign_asset_between_para_and_asset_hub_using_explici
 /// Sovereign Account on Asset Hub.
 #[test]
 fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
-	create_foreign_pool_with_native_on!(
-		PenpalA,
-		RelayLocation::get(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
 
 	// Init values for Relay
 	let destination = Westend::child_location_of(PenpalA::para_id());

@@ -65,8 +65,6 @@ macro_rules! create_pool_with_native_location_on {
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
 				let native_location: Location = $native_location;
 
-				// panic!("Pair: {:?}-> {:?}", native_location, $asset_id);
-
 				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
 					signed_owner.clone(),
 					Box::new(native_location.clone()),

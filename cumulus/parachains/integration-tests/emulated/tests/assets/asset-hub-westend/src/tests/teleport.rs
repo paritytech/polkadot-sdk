@@ -629,7 +629,10 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	assert!(ah_receiver_balance_after < ah_receiver_balance_before + fee_amount_to_send);
 
 	// Sender's balance is reduced by exact amount
-	assert_eq!(penpal_sender_native_balance_before - asset_amount_to_send, penpal_sender_native_balance_after);
+	assert_eq!(
+		penpal_sender_native_balance_before - asset_amount_to_send,
+		penpal_sender_native_balance_after
+	);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + asset_amount_to_send);
 
@@ -655,8 +658,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let ah_assets: Assets = vec![
-        (Parent, fee_amount_to_send).into(),
-        (penpal_native_as_foreign_asset_at_asset_hub.clone(), asset_amount_to_send).into(),
+		(Parent, fee_amount_to_send).into(),
+		(penpal_native_as_foreign_asset_at_asset_hub.clone(), asset_amount_to_send).into(),
 	]
 	.into();
 	let fee_asset_index = ah_assets
@@ -724,12 +727,17 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
-	assert!(penpal_receiver_balance_after < penpal_receiver_foreign_assets_before + fee_amount_to_send);
+	assert!(
+		penpal_receiver_balance_after < penpal_receiver_foreign_assets_before + fee_amount_to_send
+	);
 
 	// Sender's balance is reduced by exact amount
 	assert_eq!(ah_sender_assets_before - asset_amount_to_send, ah_sender_assets_after);
 	// Receiver's balance is increased by exact amount
-	assert_eq!(penpal_receiver_assets_after, penpal_receiver_native_balance_before + asset_amount_to_send);
+	assert_eq!(
+		penpal_receiver_assets_after,
+		penpal_receiver_native_balance_before + asset_amount_to_send
+	);
 }
 
 /// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work
