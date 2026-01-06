@@ -520,7 +520,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
 					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
 					foreign_asset_id_location.clone().into(),
-					vec![foreign_asset_reserve_data],
+					vec![foreign_asset_reserve_data].try_into().unwrap(),
 				)
 			);
 
