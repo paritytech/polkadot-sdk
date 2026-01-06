@@ -2527,7 +2527,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					assert_ok!(ForeignAssets::set_reserves(
 						RuntimeOrigin::signed(account),
 						roc_id.clone().into(),
-						vec![reserves.clone()],
+						vec![reserves.clone()].try_into().unwrap(),
 					));
 					(reserves.reserve, roc)
 				});

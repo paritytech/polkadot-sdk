@@ -153,7 +153,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend --fail-fast
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
- %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+ %(prog)s --runtime westend --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
