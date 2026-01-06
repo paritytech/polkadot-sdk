@@ -25,7 +25,7 @@ use sp_consensus_beefy::{
 	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
 	ValidatorSetId, VoteMessage,
 };
-use sp_runtime::traits::{Block, NumberFor, One};
+use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
 
 /// Tracks for each round which validators have voted/signed and
@@ -106,7 +106,6 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
-	// Subset of authorities with non-default (≠1) voting weights
 	voting_weights: BTreeMap<AuthorityId, VoteWeight>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
@@ -121,17 +120,11 @@ where
 		session_start: NumberFor<B>,
 		validator_set: ValidatorSet<AuthorityId>,
 	) -> Self {
-		let voting_weights = validator_set
-			.validators()
-			.iter()
-			.fold(BTreeMap::new(), |mut acc, authority| {
+		let voting_weights =
+			validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
 				*acc.entry(authority.to_owned()).or_insert(0) += 1;
 				acc
-			})
-			.into_iter()
-			// Persist only weights that are different than 1
-			.filter(|(_, weight)| *weight > 1)
-			.collect();
+			});
 
 		Rounds {
 			rounds: BTreeMap::new(),
@@ -154,12 +147,6 @@ where
 
 	pub(crate) fn validators(&self) -> &[AuthorityId] {
 		self.validator_set.validators()
-	}
-
-	/// Return voting weight associated with given authority or default 1 in case mapping does not
-	/// exist
-	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> VoteWeight {
-		*self.voting_weights.get(authority).unwrap_or(&One::one())
 	}
 
 	pub(crate) fn session_start(&self) -> NumberFor<B> {
@@ -215,7 +202,7 @@ where
 		}
 
 		// add valid vote
-		let vote_weight = self.vote_weight(&vote.id);
+		let vote_weight = self.voting_weights.get(&vote.id).copied().unwrap_or(1);
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
 		if round.add_vote((vote.id, vote.signature), vote_weight) &&
 			round.is_done(threshold(self.validator_set.len()))
@@ -369,7 +356,7 @@ mod tests {
 
 		// Ensure that by default all authorities have equal weight
 		for authority in rounds.validators() {
-			assert_eq!(rounds.vote_weight(authority), 1);
+			assert_eq!(rounds.voting_weights.get(authority), Some(&1));
 		}
 	}
 
@@ -411,12 +398,29 @@ mod tests {
 			rounds.validators()
 		);
 
-		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()), 3);
-		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Bob.public()), 1);
-		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()), 2);
-		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()), 1);
-		// Eve is not part of the committee, should have default weight
-		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Eve.public()), 1);
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()),
+			Some(&3)
+		);
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Bob.public()),
+			Some(&1)
+		);
+		assert_eq!(
+			rounds
+				.voting_weights
+				.get(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()),
+			Some(&2)
+		);
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()),
+			Some(&1)
+		);
+		// Eve is not part of the committee, should have no weight
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Eve.public()),
+			None
+		);
 	}
 
 	#[test]
