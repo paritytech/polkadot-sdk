@@ -19,13 +19,7 @@ use sp_core::storage::Storage;
 use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
-use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators,
-	snowbridge::{ETHER_MIN_BALANCE, WETH},
-	xcm_emulator::ConvertLocation,
-	PenpalALocation, PenpalASiblingSovereignAccount,
-	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
-};
+use emulated_integration_tests_common::{accounts, build_genesis_storage, collators, snowbridge::{ETHER_MIN_BALANCE, WETH}, xcm_emulator::ConvertLocation, PenpalALocation, PenpalASiblingSovereignAccount, PenpalBLocation, PenpalBSiblingSovereignAccount, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID};
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::WESTEND_GENESIS_HASH};
@@ -98,8 +92,9 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// // PenpalA's native asset representation
+				// // Penpals' native asset representation
 				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), false, ED),
+				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), false, ED),
 				// Ether
 				(
 					Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
@@ -123,6 +118,7 @@ pub fn genesis() -> Storage {
 			],
 			reserves: vec![
 				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
+				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
 				(
 					Location::new(

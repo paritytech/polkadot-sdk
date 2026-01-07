@@ -20,7 +20,7 @@ use crate::{
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
-use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetLocation};
+use emulated_integration_tests_common::{impls::Decode, PenpalBLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
@@ -843,7 +843,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 		let ena = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT / 2) };
 
 		let transfer_asset_reanchor_on_ah = Asset {
-			id: AssetId(PenpalBTeleportableAssetLocation::get()),
+			id: AssetId(PenpalBLocation::get()),
 			fun: Fungible(TOKEN_AMOUNT),
 		};
 

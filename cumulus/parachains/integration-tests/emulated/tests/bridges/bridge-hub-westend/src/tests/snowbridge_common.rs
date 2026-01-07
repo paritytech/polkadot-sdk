@@ -15,14 +15,12 @@
 
 use crate::{imports::*, tests::bridged_roc_at_ah_westend};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
-use emulated_integration_tests_common::{
-	snowbridge::{SEPOLIA_ID, WETH},
-	PenpalBTeleportableAssetLocation,
-};
+use emulated_integration_tests_common::{snowbridge::{SEPOLIA_ID, WETH}, PenpalBLocation};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
+use frame_support::traits::fungible::Mutate as _;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::{
-	penpal_runtime::xcm_config::{CheckingAccount, TELEPORTABLE_ASSET_ID},
+	penpal_runtime::xcm_config::{CheckingAccount},
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
@@ -191,18 +189,15 @@ pub fn fund_on_penpal() {
 		));
 	});
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			TELEPORTABLE_ASSET_ID,
+		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
 			&PenpalBReceiver::get(),
 			INITIAL_FUND,
 		));
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			TELEPORTABLE_ASSET_ID,
+		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			TELEPORTABLE_ASSET_ID,
+		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
 			&sudo_account,
 			INITIAL_FUND,
 		));
@@ -381,7 +376,7 @@ pub fn register_pal_on_bh() {
 
 		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
 			RuntimeOrigin::root(),
-			Box::new(VersionedLocation::from(PenpalBTeleportableAssetLocation::get())),
+			Box::new(VersionedLocation::from(PenpalBLocation::get())),
 			AssetMetadata {
 				name: "pal".as_bytes().to_vec().try_into().unwrap(),
 				symbol: "pal".as_bytes().to_vec().try_into().unwrap(),

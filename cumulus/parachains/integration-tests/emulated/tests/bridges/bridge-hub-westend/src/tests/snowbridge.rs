@@ -15,7 +15,7 @@
 use crate::{
 	imports::{
 		penpal_emulated_chain::penpal_runtime::xcm_config::{
-			CheckingAccount, TELEPORTABLE_ASSET_ID,
+			CheckingAccount,
 		},
 		*,
 	},
@@ -41,6 +41,7 @@ use emulated_integration_tests_common::{
 };
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
+use frame_support::traits::fungible::Mutate as _;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
 	penpal_emulated_chain::PARA_ID_B, westend_emulated_chain::westend_runtime::Dmp,
@@ -1631,8 +1632,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal =
-		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
+	let asset_location_on_penpal = Location::here();
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())
@@ -1671,8 +1671,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	// Fund on Penpal
 	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			TELEPORTABLE_ASSET_ID,
+		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
@@ -1739,7 +1738,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Assets(pallet_assets::Event::Burned{ .. }) => {},]
+			vec![RuntimeEvent::Balances(pallet_balances::Event::Burned{ .. }) => {},]
 		);
 	});
 
@@ -1846,7 +1845,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Assets(pallet_assets::Event::Issued{..}) => {},]
+			vec![RuntimeEvent::Balances(pallet_balances::Event::Issued{..}) => {},]
 		);
 	})
 }

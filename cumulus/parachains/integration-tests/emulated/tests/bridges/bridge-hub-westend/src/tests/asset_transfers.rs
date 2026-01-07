@@ -14,11 +14,8 @@
 // limitations under the License.
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
-use emulated_integration_tests_common::{
-	macros::Dmp,
-	xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id},
-	xcm_simulator::helpers::TopicIdTracker,
-};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::Dmp, xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id}, xcm_simulator::helpers::TopicIdTracker, PenpalBLocation};
+use frame_support::traits::fungible;
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -64,6 +61,14 @@ fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
 		sender.clone(),
 		amount * 2,
 	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		wnd_at_westend_parachains.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	(wnd_at_westend_parachains, wnd_at_asset_hub_rococo)
 }
 
@@ -460,8 +465,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 	create_foreign_pool_with_parent_native_on!(
 		PenpalA,
 		wnd_at_rococo_parachains.clone(),
-		true,
-		asset_owner
+		asset_owner.clone()
 	);
 
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
@@ -589,7 +593,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 	create_foreign_pool_with_parent_native_on!(
 		PenpalA,
 		wnd_at_rococo_parachains.clone(),
-		asset_owner
+		asset_owner.clone()
 	);
 
 	Westend::execute_with(|| {
@@ -1415,23 +1419,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let (wnd_at_westend_parachains, wnd_at_rococo_parachains) =
 		set_up_wnds_for_penpal_westend_through_ahw_to_ahr(&sender, amount);
 
-	let pens_location_on_penpal = PenpalB::execute_with(|| {
-		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap()
-	});
-	let pens_id_on_penpal = match pens_location_on_penpal.last() {
-		Some(Junction::GeneralIndex(id)) => *id as u32,
-		_ => unreachable!(),
-	};
+	let pens_location_on_penpal = Location::here();
 
-	let penpal_parachain_junction = Junction::Parachain(PenpalB::para_id().into());
-	let pens_at_ahw = Location::new(
-		1,
-		pens_location_on_penpal
-			.interior()
-			.clone()
-			.pushed_front_with(penpal_parachain_junction)
-			.unwrap(),
-	);
+	let pens_at_ahw = PenpalBLocation::get();
 	let pens_at_rococo_parachains = Location::new(
 		2,
 		pens_at_ahw
@@ -1446,15 +1436,11 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let pens_to_send = amount;
 
 	// ---------- Set up Penpal Westend ----------
-	// Fund Penpal's sender account. No need to create the asset (only mint), it exists in genesis.
-	PenpalB::mint_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(owner.clone()),
-		pens_id_on_penpal,
-		sender.clone(),
-		pens_to_send * 2,
-	);
-	// fund Penpal's check account to be able to teleport
-	PenpalB::fund_accounts(vec![(penpal_check_account.clone().into(), pens_to_send * 2)]);
+	PenpalB::fund_accounts(vec![
+		(sender.clone(), pens_to_send * 2),
+		// fund Penpal's check account to be able to teleport
+		(penpal_check_account.clone().into(), pens_to_send * 2)
+	]);
 
 	// ---------- Set up Asset Hub Rococo ----------
 	// create PEN at AHR
@@ -1475,8 +1461,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		)
 	});
 	let sender_pens_before = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::Assets;
-		<Assets as Inspect<_>>::balance(pens_id_on_penpal, &PenpalBSender::get())
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&PenpalBSender::get())
 	});
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
 		ByGenesis(ROCOCO_GENESIS_HASH),
@@ -1546,10 +1532,11 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 			&PenpalBSender::get(),
 		)
 	});
+
 	let sender_pens_after = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::Assets;
-		<Assets as Inspect<_>>::balance(pens_id_on_penpal, &PenpalBSender::get())
-	});
+			type Balances = <PenpalB as PenpalBPallet>::Balances;
+			<Balances as fungible::Inspect<_>>::balance(&PenpalBSender::get())
+		});
 	let wnds_in_reserve_on_ahw_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let pens_in_reserve_on_ahw_after = AssetHubWestend::execute_with(|| {

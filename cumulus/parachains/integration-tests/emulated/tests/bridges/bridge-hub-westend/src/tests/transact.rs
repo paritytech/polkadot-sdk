@@ -141,7 +141,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		bridged_weth.clone(),
-		snowbridge_sovereign,
+		snowbridge_sovereign.clone(),
 		1_000_000_000_000,
 		20_000_000_000
 	);
