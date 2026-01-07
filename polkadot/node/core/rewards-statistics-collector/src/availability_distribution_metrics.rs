@@ -35,6 +35,13 @@ impl AvailabilityChunks {
 		}
 	}
 
+	pub fn new_with_upload(auth_id: AuthorityDiscoveryId, count: u64) -> Self {
+		Self {
+			downloads_per_candidate: Default::default(),
+			uploads_per_candidate: vec![(auth_id, count)].into_iter().collect()
+		}
+	}
+
 	pub fn note_candidate_chunk_downloaded(
 		&mut self,
 		authority_id: AuthorityDiscoveryId,
@@ -115,21 +122,11 @@ pub fn handle_chunk_uploaded(
 	};
 
 	// aggregate the statistic on the most up-to-date session
-	if let Some((session_idx, session_view)) = view.per_session.iter().next_back() {
-		let av_chunks = view.availability_chunks.entry(*session_idx);
-		match av_chunks {
-			btree_map::Entry::Occupied(mut entry) => {
-				entry.get_mut().note_candidate_chunk_uploaded(
-					auth_id,
-					1,
-				);
-			},
-			btree_map::Entry::Vacant(entry) => {
-				entry.insert(AvailabilityChunks::new()).note_candidate_chunk_uploaded(
-					auth_id,
-					1,
-				);
-			},
-		}
+	if let Some(highest_session) = view.per_session.keys().max() {
+		let av_chunks = view
+			.availability_chunks
+			.entry(*highest_session)
+			.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
+			.or_insert(AvailabilityChunks::new_with_upload(auth_id, 1));
 	}
 }
