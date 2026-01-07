@@ -1100,7 +1100,7 @@ partial_sort = { version = "0.2.0" }
 paste = { version = "1.0.15", default-features = false }
 pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal", version = "0.1.0" }
-penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal", version = "0.34.0" }
+penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal", version = "0.34.1" }
 people-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo", version = "0.1.0" }
 people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-rococo", version = "0.20.0" }
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend", version = "0.1.0" }
