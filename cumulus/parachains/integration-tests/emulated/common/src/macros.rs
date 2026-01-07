@@ -61,7 +61,7 @@ pub use xcm_runtime_apis::{
 pub use frame_support::traits::{fungible::Mutate, fungibles::Inspect, Currency};
 pub use sp_runtime::{traits::Dispatchable, AccountId32};
 
-pub use crate::{ASSETS_PALLET_ID, USDT_ID, create_foreign_pool_with_native_on};
+pub use crate::{create_foreign_pool_with_native_on, ASSETS_PALLET_ID, USDT_ID};
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
