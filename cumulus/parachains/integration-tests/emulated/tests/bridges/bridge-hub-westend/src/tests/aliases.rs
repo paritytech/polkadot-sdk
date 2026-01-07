@@ -17,7 +17,7 @@
 
 use crate::imports::*;
 use bridge_hub_westend_runtime::xcm_config::XcmConfig;
-use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
@@ -32,7 +32,7 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	// origin and target are the same account on different chains
 	let origin: AccountId = [1; 32].into();
 	let target = origin.clone();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	PenpalB::mint_foreign_asset(
 		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
@@ -40,6 +40,9 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 		origin.clone(),
 		fees * 10,
 	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// On Bridge Hub we don't want to support aliasing from other chains: there is no real world
 	// demand for it, only low-level power users (like relayers) directly interact with Bridge
