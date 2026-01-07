@@ -30,7 +30,5 @@ crates:
   bump: patch
 - name: sc-client-db
   bump: patch
-- name: cumulus-client-pov-recovery
-  bump: patch
 - name: sp-consensus
-  bump: patch
+  bump: major
