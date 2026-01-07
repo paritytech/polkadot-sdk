@@ -48,4 +48,5 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
+	"pallet-revive/std",
 ]
