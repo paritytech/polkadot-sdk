@@ -33,8 +33,8 @@ use crate::{
 use futures::{future, stream, StreamExt};
 use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
 use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, ProofProvider,
-	StorageProvider,
+	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, KeyOptions,
+	ProofProvider, ReadChildProofParams, ReadProofParams, StorageProvider,
 };
 use sc_rpc_api::state::ReadProof;
 use sc_tracing::block::TracingExecuteBlock;
@@ -369,9 +369,25 @@ where
 	) -> std::result::Result<ReadProof<Block::Hash>, Error> {
 		self.block_or_best(block)
 			.and_then(|block| {
+				let params = ReadProofParams {
+					block,
+					keys: keys
+						.iter()
+						.map(|key| KeyOptions {
+							key: key.0.clone(),
+							skip_value: false,
+							include_descendants: false,
+						})
+						.collect(),
+					only_keys_after: None,
+					only_keys_after_ignore_last_nibble: false,
+					size_limit: usize::MAX,
+				};
 				self.client
-					.read_proof(block, &mut keys.iter().map(|key| key.0.as_ref()))
-					.map(|proof| proof.into_iter_nodes().map(|node| node.into()).collect())
+					.read_proof(params)
+					.map(|(proof, _count)| {
+						proof.into_iter_nodes().map(|node| node.into()).collect()
+					})
 					.map(|proof| ReadProof { at: block, proof })
 			})
 			.map_err(client_err)
@@ -523,13 +539,26 @@ where
 						ChildInfo::new_default(storage_key),
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
+				let params = ReadChildProofParams {
+					block,
+					child_info,
+					keys: keys
+						.iter()
+						.map(|key| KeyOptions {
+							key: key.0.clone(),
+							skip_value: false,
+							include_descendants: false,
+						})
+						.collect(),
+					only_keys_after: None,
+					only_keys_after_ignore_last_nibble: false,
+					size_limit: usize::MAX,
+				};
 				self.client
-					.read_child_proof(
-						block,
-						&child_info,
-						&mut keys.iter().map(|key| key.0.as_ref()),
-					)
-					.map(|proof| proof.into_iter_nodes().map(|node| node.into()).collect())
+					.read_child_proof(params)
+					.map(|(proof, _count)| {
+						proof.into_iter_nodes().map(|node| node.into()).collect()
+					})
 					.map(|proof| ReadProof { at: block, proof })
 			})
 			.map_err(client_err)

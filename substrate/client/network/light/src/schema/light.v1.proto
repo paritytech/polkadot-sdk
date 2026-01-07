@@ -11,6 +11,7 @@ message Request {
 		RemoteReadRequest remote_read_request = 2;
 		RemoteReadChildRequest remote_read_child_request = 4;
 		// Note: ids 3 and 5 were used in the past. It would be preferable to not re-use them.
+		RemoteReadRequestV2 remote_read_request_v2 = 6; // RFC-0009
 	}
 }
 
@@ -64,4 +65,41 @@ message RemoteReadChildRequest {
 	required bytes storage_key = 3;
 	// Storage keys.
 	repeated bytes keys = 6;
+}
+
+// RFC-0009: Improved light client requests
+
+// Child trie information for V2 requests.
+message ChildTrieInfo {
+	enum ChildTrieNamespace {
+		DEFAULT = 1;
+	}
+	// Hash of the child trie root.
+	required bytes hash = 1;
+	// Namespace of the child trie.
+	required ChildTrieNamespace namespace = 2;
+}
+
+// Key with options for V2 requests.
+message Key {
+	// Storage key.
+	required bytes key = 1;
+	// If true, return hash instead of value (for state_version=1 with values > 32 bytes).
+	optional bool skip_value = 2;
+	// If true, include all descendant keys under this prefix.
+	optional bool include_descendants = 3;
+}
+
+// Remote storage read request V2 (RFC-0009).
+message RemoteReadRequestV2 {
+	// Block at which to perform the read.
+	required bytes block = 1;
+	// Child trie to query. If absent, query the main trie.
+	optional ChildTrieInfo child_trie_info = 2;
+	// Keys to read with their options.
+	repeated Key keys = 3;
+	// Lower bound for returned keys (pagination). Keys <= this value are excluded.
+	optional bytes only_keys_after = 4;
+	// If true, ignore the last 4 bits (nibble) of only_keys_after.
+	optional bool only_keys_after_ignore_last_nibble = 5;
 }

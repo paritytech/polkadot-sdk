@@ -1230,7 +1230,22 @@ mod tests {
 		let (db, root) = witness_backend();
 		let backend =
 			sp_state_machine::TrieBackendBuilder::<_, crate::Hashing>::new(db, root).build();
-		let proof = sp_state_machine::prove_read(backend, vec![b"value3"]).unwrap();
+		let proof = sp_state_machine::prove_read(
+			backend,
+			None,
+			sp_state_machine::ReadProofOptions {
+				keys: vec![sp_state_machine::KeyOptions {
+					key: b"value3".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				}],
+				only_keys_after: None,
+				only_keys_after_ignore_last_nibble: false,
+				size_limit: usize::MAX,
+			},
+		)
+		.unwrap()
+		.0;
 		let client = TestClientBuilder::new().build();
 		let runtime_api = client.runtime_api();
 		let best_hash = client.chain_info().best_hash;

@@ -22,23 +22,79 @@ use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
 
+/// Options for a single key in read proof requests (RFC-0009).
+#[derive(Debug, Clone)]
+pub struct KeyOptions {
+	/// The storage key to read.
+	pub key: Vec<u8>,
+	/// If true, only include the hash of the value in the proof, not the value itself.
+	/// Only effective for state_version=1 with values > 32 bytes.
+	pub skip_value: bool,
+	/// If true, include all descendant keys under this prefix in the proof.
+	pub include_descendants: bool,
+}
+
+/// Parameters for read proof requests on the main trie (RFC-0009).
+#[derive(Debug, Clone)]
+pub struct ReadProofParams<Hash> {
+	/// Block hash to read state from.
+	pub block: Hash,
+	/// Keys to read with their individual options.
+	pub keys: Vec<KeyOptions>,
+	/// Lower bound for returned keys (pagination). Keys <= this value are excluded.
+	pub only_keys_after: Option<Vec<u8>>,
+	/// If true, ignore the last 4 bits (nibble) of `only_keys_after`.
+	pub only_keys_after_ignore_last_nibble: bool,
+	/// Maximum response size in bytes.
+	pub size_limit: usize,
+}
+
+/// Parameters for read proof requests on a child trie (RFC-0009).
+#[derive(Debug, Clone)]
+pub struct ReadChildProofParams<Hash> {
+	/// Block hash to read state from.
+	pub block: Hash,
+	/// The child trie to read from.
+	pub child_info: ChildInfo,
+	/// Keys to read with their individual options.
+	pub keys: Vec<KeyOptions>,
+	/// Lower bound for returned keys (pagination). Keys <= this value are excluded.
+	pub only_keys_after: Option<Vec<u8>>,
+	/// If true, ignore the last 4 bits (nibble) of `only_keys_after`.
+	pub only_keys_after_ignore_last_nibble: bool,
+	/// Maximum response size in bytes.
+	pub size_limit: usize,
+}
+
 /// Interface for providing block proving utilities.
 pub trait ProofProvider<Block: BlockT> {
-	/// Reads storage value at a given block + key, returning read proof.
+	/// Reads storage values from the main trie at a given block, returning read proof.
+	///
+	/// Supports advanced features (RFC-0009):
+	/// - `skip_value`: Include only the hash of values, not the values themselves
+	/// - `include_descendants`: Include all keys under a prefix
+	/// - `only_keys_after`: Pagination support
+	/// - `size_limit`: Maximum response size
+	///
+	/// Returns the proof and the number of keys included.
 	fn read_proof(
 		&self,
-		hash: Block::Hash,
-		keys: &mut dyn Iterator<Item = &[u8]>,
-	) -> sp_blockchain::Result<StorageProof>;
+		params: ReadProofParams<Block::Hash>,
+	) -> sp_blockchain::Result<(StorageProof, u32)>;
 
-	/// Reads child storage value at a given block + storage_key + key, returning
-	/// read proof.
+	/// Reads storage values from a child trie at a given block, returning read proof.
+	///
+	/// Supports advanced features (RFC-0009):
+	/// - `skip_value`: Include only the hash of values, not the values themselves
+	/// - `include_descendants`: Include all keys under a prefix
+	/// - `only_keys_after`: Pagination support
+	/// - `size_limit`: Maximum response size
+	///
+	/// Returns the proof and the number of keys included.
 	fn read_child_proof(
 		&self,
-		hash: Block::Hash,
-		child_info: &ChildInfo,
-		keys: &mut dyn Iterator<Item = &[u8]>,
-	) -> sp_blockchain::Result<StorageProof>;
+		params: ReadChildProofParams<Block::Hash>,
+	) -> sp_blockchain::Result<(StorageProof, u32)>;
 
 	/// Execute a call to a contract on top of state in a block of given hash
 	/// AND returning execution proof.

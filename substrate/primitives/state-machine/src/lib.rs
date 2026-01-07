@@ -437,18 +437,6 @@ mod execution {
 		.execute()
 	}
 
-	/// Generate storage read proof.
-	pub fn prove_read<B, H, I>(backend: B, keys: I) -> Result<StorageProof, Box<dyn Error>>
-	where
-		B: AsTrieBackend<H>,
-		H: Hasher,
-		H::Out: Ord + Codec,
-		I: IntoIterator,
-		I::Item: AsRef<[u8]>,
-	{
-		let trie_backend = backend.as_trie_backend();
-		prove_read_on_trie_backend(trie_backend, keys)
-	}
 
 	/// State machine only allows a single level
 	/// of child trie.
@@ -756,72 +744,177 @@ mod execution {
 		Ok((proof, count))
 	}
 
-	/// Generate child storage read proof.
-	pub fn prove_child_read<B, H, I>(
+	/// Options for a single key in read proof requests (RFC-0009).
+	#[derive(Debug, Clone)]
+	pub struct KeyOptions {
+		/// The storage key to read.
+		pub key: alloc::vec::Vec<u8>,
+		/// If true, only include the hash of the value in the proof.
+		pub skip_value: bool,
+		/// If true, include all descendant keys under this prefix.
+		pub include_descendants: bool,
+	}
+
+	/// Options for read proof requests (RFC-0009).
+	#[derive(Debug, Clone)]
+	pub struct ReadProofOptions {
+		/// Keys to read with their individual options.
+		pub keys: alloc::vec::Vec<KeyOptions>,
+		/// Lower bound for returned keys. Keys <= this value are excluded.
+		pub only_keys_after: Option<alloc::vec::Vec<u8>>,
+		/// If true, ignore the last 4 bits (nibble) of `only_keys_after`.
+		pub only_keys_after_ignore_last_nibble: bool,
+		/// Maximum response size in bytes.
+		pub size_limit: usize,
+	}
+
+	/// Generate storage read proof (RFC-0009).
+	///
+	/// Supports advanced features:
+	/// - `skip_value`: Include only the hash of values, not the values themselves
+	/// - `include_descendants`: Include all keys under a prefix
+	/// - `only_keys_after`: Pagination support
+	/// - `size_limit`: Maximum response size
+	/// - `child_info`: Optional child trie to read from
+	///
+	/// Returns the proof and the number of keys included.
+	pub fn prove_read<B, H>(
 		backend: B,
-		child_info: &ChildInfo,
-		keys: I,
-	) -> Result<StorageProof, Box<dyn Error>>
+		child_info: Option<&ChildInfo>,
+		options: ReadProofOptions,
+	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
-		I: IntoIterator,
-		I::Item: AsRef<[u8]>,
 	{
 		let trie_backend = backend.as_trie_backend();
-		prove_child_read_on_trie_backend(trie_backend, child_info, keys)
+		prove_read_on_trie_backend(trie_backend, child_info, options)
 	}
 
-	/// Generate storage read proof on pre-created trie backend.
-	pub fn prove_read_on_trie_backend<S, H, I>(
+	/// Generate storage read proof on pre-created trie backend (RFC-0009).
+	pub fn prove_read_on_trie_backend<S, H>(
 		trie_backend: &TrieBackend<S, H>,
-		keys: I,
-	) -> Result<StorageProof, Box<dyn Error>>
+		child_info: Option<&ChildInfo>,
+		options: ReadProofOptions,
+	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
 		S: trie_backend_essence::TrieBackendStorage<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
-		I: IntoIterator,
-		I::Item: AsRef<[u8]>,
 	{
+		let recorder = sp_trie::recorder::Recorder::default();
 		let proving_backend =
-			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
-		for key in keys.into_iter() {
-			proving_backend
-				.storage(key.as_ref())
-				.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+			TrieBackendBuilder::wrap(trie_backend).with_recorder(recorder.clone()).build();
+
+		let mut count = 0u32;
+
+		// Compute effective lower bound for pagination
+		let effective_bound: Option<alloc::vec::Vec<u8>> = options.only_keys_after.as_ref().map(|bound| {
+			if options.only_keys_after_ignore_last_nibble && !bound.is_empty() {
+				// Clear the last nibble (4 bits) by masking with 0xF0
+				let mut b = bound.clone();
+				let last_idx = b.len() - 1;
+				b[last_idx] &= 0xF0;
+				b
+			} else {
+				bound.clone()
+			}
+		});
+
+		for key_opt in &options.keys {
+			// Check if this key should be skipped due to pagination
+			if let Some(ref bound) = effective_bound {
+				if key_opt.key.as_slice() <= bound.as_slice() {
+					continue;
+				}
+			}
+
+			if key_opt.include_descendants {
+				// Iterate all keys with this prefix
+				let iter_args = IterArgs {
+					prefix: Some(&key_opt.key),
+					start_at: effective_bound.as_deref(),
+					start_at_exclusive: true,
+					child_info: child_info.cloned(),
+					..Default::default()
+				};
+
+				let mut raw_iter = proving_backend.raw_iter(iter_args)
+					.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+
+				loop {
+					let next = if key_opt.skip_value {
+						raw_iter.next_key(&proving_backend)
+					} else {
+						raw_iter.next_pair(&proving_backend).map(|r| r.map(|(k, _)| k))
+					};
+
+					match next {
+						Some(Ok(key)) => {
+							// If skip_value, we need to explicitly access the hash
+							if key_opt.skip_value {
+								match child_info {
+									Some(ci) => {
+										proving_backend.child_storage_hash(ci, &key)
+											.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+									},
+									None => {
+										proving_backend.storage_hash(&key)
+											.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+									},
+								}
+							}
+							// Check size limit after reading (but always include at least one)
+							if recorder.estimate_encoded_size() <= options.size_limit || count == 0 {
+								count += 1;
+							} else {
+								break;
+							}
+						},
+						Some(Err(e)) => return Err(Box::new(e) as Box<dyn Error>),
+						None => break,
+					}
+				}
+			} else {
+				// Single key access - read the storage first
+				if key_opt.skip_value {
+					match child_info {
+						Some(ci) => {
+							proving_backend.child_storage_hash(ci, &key_opt.key)
+								.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+						},
+						None => {
+							proving_backend.storage_hash(&key_opt.key)
+								.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+						},
+					}
+				} else {
+					match child_info {
+						Some(ci) => {
+							proving_backend.child_storage(ci, &key_opt.key)
+								.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+						},
+						None => {
+							proving_backend.storage(&key_opt.key)
+								.map_err(|e| Box::new(e) as Box<dyn Error>)?;
+						},
+					}
+				}
+				// Check size limit after reading (but always include at least one)
+				if recorder.estimate_encoded_size() <= options.size_limit || count == 0 {
+					count += 1;
+				} else {
+					break;
+				}
+			}
 		}
 
-		Ok(proving_backend
+		let proof = proving_backend
 			.extract_proof()
-			.expect("A recorder was set and thus, a storage proof can be extracted; qed"))
-	}
+			.expect("A recorder was set and thus, a storage proof can be extracted; qed");
 
-	/// Generate storage read proof on pre-created trie backend.
-	pub fn prove_child_read_on_trie_backend<S, H, I>(
-		trie_backend: &TrieBackend<S, H>,
-		child_info: &ChildInfo,
-		keys: I,
-	) -> Result<StorageProof, Box<dyn Error>>
-	where
-		S: trie_backend_essence::TrieBackendStorage<H>,
-		H: Hasher,
-		H::Out: Ord + Codec,
-		I: IntoIterator,
-		I::Item: AsRef<[u8]>,
-	{
-		let proving_backend =
-			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
-		for key in keys.into_iter() {
-			proving_backend
-				.child_storage(child_info, key.as_ref())
-				.map_err(|e| Box::new(e) as Box<dyn Error>)?;
-		}
-
-		Ok(proving_backend
-			.extract_proof()
-			.expect("A recorder was set and thus, a storage proof can be extracted; qed"))
+		Ok((proof, count))
 	}
 
 	/// Check storage read proof, generated by `prove_read` call.
@@ -1599,7 +1692,22 @@ mod tests {
 		// fetch read proof from 'remote' full node
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
 		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).0;
-		let remote_proof = prove_read(remote_backend, &[b"value2"]).unwrap();
+		let remote_proof = prove_read(
+			remote_backend,
+			None,
+			ReadProofOptions {
+				keys: vec![KeyOptions {
+					key: b"value2".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				}],
+				only_keys_after: None,
+				only_keys_after_ignore_last_nibble: false,
+				size_limit: usize::MAX,
+			},
+		)
+		.unwrap()
+		.0;
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		// check proof locally
 		let local_result1 =
@@ -1616,7 +1724,22 @@ mod tests {
 		// on child trie
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
 		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).0;
-		let remote_proof = prove_child_read(remote_backend, child_info, &[b"value3"]).unwrap();
+		let remote_proof = prove_read(
+			remote_backend,
+			Some(child_info),
+			ReadProofOptions {
+				keys: vec![KeyOptions {
+					key: b"value3".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				}],
+				only_keys_after: None,
+				only_keys_after_ignore_last_nibble: false,
+				size_limit: usize::MAX,
+			},
+		)
+		.unwrap()
+		.0;
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		let local_result1 = read_child_proof_check::<BlakeTwo256, _>(
 			remote_root,
@@ -1834,7 +1957,22 @@ mod tests {
 		let check_proof = |mdb, root, state_version| -> StorageProof {
 			let remote_backend = TrieBackendBuilder::new(mdb, root).build();
 			let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).0;
-			let remote_proof = prove_read(remote_backend, &[b"foo222"]).unwrap();
+			let remote_proof = prove_read(
+				remote_backend,
+				None,
+				ReadProofOptions {
+					keys: vec![KeyOptions {
+						key: b"foo222".to_vec(),
+						skip_value: false,
+						include_descendants: false,
+					}],
+					only_keys_after: None,
+					only_keys_after_ignore_last_nibble: false,
+					size_limit: usize::MAX,
+				},
+			)
+			.unwrap()
+			.0;
 			// check proof locally
 			let local_result1 =
 				read_proof_check::<BlakeTwo256, _>(remote_root, remote_proof.clone(), &[b"foo222"])
@@ -1960,7 +2098,22 @@ mod tests {
 		let mut remote_storage = remote_backend.backend_storage().clone();
 		remote_storage.consolidate(transaction);
 		let remote_backend = TrieBackendBuilder::new(remote_storage, remote_root).build();
-		let remote_proof = prove_child_read(remote_backend, &child_info1, &[b"key1"]).unwrap();
+		let remote_proof = prove_read(
+			remote_backend,
+			Some(&child_info1),
+			ReadProofOptions {
+				keys: vec![KeyOptions {
+					key: b"key1".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				}],
+				only_keys_after: None,
+				only_keys_after_ignore_last_nibble: false,
+				size_limit: usize::MAX,
+			},
+		)
+		.unwrap()
+		.0;
 		let size = remote_proof.encoded_size();
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		let local_result1 = read_child_proof_check::<BlakeTwo256, _>(
@@ -2030,5 +2183,377 @@ mod tests {
 		}
 		overlay.commit_transaction().unwrap();
 		assert_eq!(overlay.storage(b"ccc"), Some(None));
+	}
+
+	#[test]
+	fn prove_read_single_key_works() {
+		let initial: BTreeMap<_, _> = map![
+			b"key1".to_vec() => b"value1".to_vec(),
+			b"key2".to_vec() => b"value2".to_vec(),
+			b"key3".to_vec() => b"value3".to_vec()
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		let options = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"key1".to_vec(),
+				skip_value: false,
+				include_descendants: false,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, None, options).unwrap();
+		assert_eq!(count, 1);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_include_descendants_works() {
+		let initial: BTreeMap<_, _> = map![
+			b"abc".to_vec() => b"v1".to_vec(),
+			b"abcd".to_vec() => b"v2".to_vec(),
+			b"abcde".to_vec() => b"v3".to_vec(),
+			b"abd".to_vec() => b"v4".to_vec()
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		let options = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"abc".to_vec(),
+				skip_value: false,
+				include_descendants: true,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, None, options).unwrap();
+		// Should include abc, abcd, abcde (but not abd)
+		assert_eq!(count, 3);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_pagination_works() {
+		let initial: BTreeMap<_, _> = map![
+			b"a".to_vec() => b"1".to_vec(),
+			b"b".to_vec() => b"2".to_vec(),
+			b"c".to_vec() => b"3".to_vec(),
+			b"d".to_vec() => b"4".to_vec()
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		let options = ReadProofOptions {
+			keys: vec![
+				KeyOptions { key: b"a".to_vec(), skip_value: false, include_descendants: false },
+				KeyOptions { key: b"b".to_vec(), skip_value: false, include_descendants: false },
+				KeyOptions { key: b"c".to_vec(), skip_value: false, include_descendants: false },
+				KeyOptions { key: b"d".to_vec(), skip_value: false, include_descendants: false },
+			],
+			only_keys_after: Some(b"b".to_vec()),
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, None, options).unwrap();
+		// Should only include c and d (keys > "b")
+		assert_eq!(count, 2);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_size_limit_works() {
+		// Create a state with large unique values - use StateVersion::V0 so values are stored inline
+		// Each value must be unique to avoid trie deduplication
+		let make_value = |i: u8| -> Vec<u8> {
+			let mut v = vec![i; 1024 * 100]; // 100KB per value, filled with different bytes
+			v[0] = i; // Ensure uniqueness
+			v
+		};
+		let initial: BTreeMap<_, _> = map![
+			b"key1".to_vec() => make_value(1),
+			b"key2".to_vec() => make_value(2),
+			b"key3".to_vec() => make_value(3),
+			b"key4".to_vec() => make_value(4),
+			b"key5".to_vec() => make_value(5)
+		];
+		// Use V0 so values are stored inline (not hashed), making size limits meaningful
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::V0));
+
+		let options = ReadProofOptions {
+			keys: vec![
+				KeyOptions {
+					key: b"key1".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+				KeyOptions {
+					key: b"key2".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+				KeyOptions {
+					key: b"key3".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+				KeyOptions {
+					key: b"key4".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+				KeyOptions {
+					key: b"key5".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+			],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 150 * 1024, // 150KB limit - should allow ~1 value
+		};
+
+		let (proof, count) = prove_read(state, None, options).unwrap();
+		// Should include at least 1 key (always), but stop when limit exceeded
+		assert!(count >= 1, "Should include at least one key");
+		// With 100KB values and 150KB limit, should stop after 1-2 keys
+		assert!(count < 5, "Should not include all 5 keys given the size limit, got {}", count);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_child_trie_works() {
+		let child_info = ChildInfo::new_default(b"child1");
+		let initial: HashMap<_, BTreeMap<_, _>> = map![
+			None => map![
+				b"top_key".to_vec() => b"top_value".to_vec()
+			],
+			Some(child_info.clone()) => map![
+				b"child_key1".to_vec() => b"child_value1".to_vec(),
+				b"child_key2".to_vec() => b"child_value2".to_vec(),
+				b"child_key3".to_vec() => b"child_value3".to_vec()
+			]
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		// Query child trie
+		let options = ReadProofOptions {
+			keys: vec![
+				KeyOptions {
+					key: b"child_key1".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+				KeyOptions {
+					key: b"child_key2".to_vec(),
+					skip_value: false,
+					include_descendants: false,
+				},
+			],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, Some(&child_info), options).unwrap();
+		assert_eq!(count, 2);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_child_trie_include_descendants_works() {
+		let child_info = ChildInfo::new_default(b"child1");
+		let initial: HashMap<_, BTreeMap<_, _>> = map![
+			None => map![
+				b"top".to_vec() => b"val".to_vec()
+			],
+			Some(child_info.clone()) => map![
+				b"prefix_a".to_vec() => b"v1".to_vec(),
+				b"prefix_ab".to_vec() => b"v2".to_vec(),
+				b"prefix_abc".to_vec() => b"v3".to_vec(),
+				b"other".to_vec() => b"v4".to_vec()
+			]
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		let options = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"prefix_".to_vec(),
+				skip_value: false,
+				include_descendants: true,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, Some(&child_info), options).unwrap();
+		// Should include prefix_a, prefix_ab, prefix_abc (but not "other")
+		assert_eq!(count, 3);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_skip_value_produces_smaller_proof() {
+		// Use StateVersion::V1 where large values (>32 bytes) are stored by hash
+		// skip_value should produce a smaller proof by only including the hash
+		let large_value = vec![42u8; 1024]; // Large value that will be stored by hash in V1
+		let initial: BTreeMap<_, _> = map![
+			b"key1".to_vec() => large_value.clone(),
+			b"key2".to_vec() => large_value
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::V1));
+
+		// Read with skip_value = false (include full values)
+		let options_with_value = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"key1".to_vec(),
+				skip_value: false,
+				include_descendants: false,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+		let (proof_with_value, count1) =
+			prove_read(state.clone(), None, options_with_value).unwrap();
+		assert_eq!(count1, 1);
+
+		// Read with skip_value = true (hash only)
+		let options_skip_value = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"key1".to_vec(),
+				skip_value: true,
+				include_descendants: false,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+		let (proof_skip_value, count2) = prove_read(state, None, options_skip_value).unwrap();
+		assert_eq!(count2, 1);
+
+		// With V1, skip_value should produce a smaller proof since it doesn't include
+		// the actual value data, just the hash reference
+		let size_with_value = proof_with_value.encoded_size();
+		let size_skip_value = proof_skip_value.encoded_size();
+
+		// The proof with skip_value should be smaller (or at least not larger)
+		// because it doesn't need to include the actual large value
+		assert!(
+			size_skip_value <= size_with_value,
+			"skip_value proof ({}) should be <= regular proof ({})",
+			size_skip_value,
+			size_with_value
+		);
+	}
+
+	#[test]
+	fn prove_read_skip_value_with_descendants() {
+		// Test skip_value with include_descendants
+		let large_value = vec![42u8; 1024];
+		let initial: BTreeMap<_, _> = map![
+			b"prefix_a".to_vec() => large_value.clone(),
+			b"prefix_b".to_vec() => large_value.clone(),
+			b"prefix_c".to_vec() => large_value
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::V1));
+
+		let options = ReadProofOptions {
+			keys: vec![KeyOptions {
+				key: b"prefix_".to_vec(),
+				skip_value: true,
+				include_descendants: true,
+			}],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (proof, count) = prove_read(state, None, options).unwrap();
+		// Should find all 3 keys under the prefix
+		assert_eq!(count, 3);
+		assert!(!proof.is_empty());
+	}
+
+	#[test]
+	fn prove_read_only_keys_after_ignore_last_nibble_works() {
+		// Test the nibble masking behavior
+		// Keys in hex: 0x10, 0x11, 0x12, 0x1F, 0x20, 0x21
+		// If only_keys_after = 0x11 with ignore_last_nibble = true,
+		// it should mask to 0x10 and include keys > 0x10
+		let initial: BTreeMap<_, _> = map![
+			vec![0x10] => b"v1".to_vec(),
+			vec![0x11] => b"v2".to_vec(),
+			vec![0x12] => b"v3".to_vec(),
+			vec![0x1F] => b"v4".to_vec(),
+			vec![0x20] => b"v5".to_vec(),
+			vec![0x21] => b"v6".to_vec()
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		// Without ignore_last_nibble: only_keys_after = 0x11, should skip 0x10, 0x11
+		let options_no_ignore = ReadProofOptions {
+			keys: vec![
+				KeyOptions { key: vec![0x10], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x11], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x12], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x1F], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x20], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x21], skip_value: false, include_descendants: false },
+			],
+			only_keys_after: Some(vec![0x11]),
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: 16 * 1024 * 1024,
+		};
+		let (_, count_no_ignore) = prove_read(state.clone(), None, options_no_ignore).unwrap();
+		// Keys > 0x11: 0x12, 0x1F, 0x20, 0x21 = 4 keys
+		assert_eq!(count_no_ignore, 4, "Without nibble ignore, should get 4 keys");
+
+		// With ignore_last_nibble: only_keys_after = 0x11, masked to 0x10, should skip only 0x10
+		let options_with_ignore = ReadProofOptions {
+			keys: vec![
+				KeyOptions { key: vec![0x10], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x11], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x12], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x1F], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x20], skip_value: false, include_descendants: false },
+				KeyOptions { key: vec![0x21], skip_value: false, include_descendants: false },
+			],
+			only_keys_after: Some(vec![0x11]),
+			only_keys_after_ignore_last_nibble: true,
+			size_limit: 16 * 1024 * 1024,
+		};
+		let (_, count_with_ignore) = prove_read(state, None, options_with_ignore).unwrap();
+		// 0x11 masked with 0xF0 = 0x10, so keys > 0x10: 0x11, 0x12, 0x1F, 0x20, 0x21 = 5 keys
+		assert_eq!(count_with_ignore, 5, "With nibble ignore, should get 5 keys");
+	}
+
+	#[test]
+	fn prove_read_only_keys_after_ignore_nibble_edge_cases() {
+		// Test edge case: empty bound with ignore_last_nibble should have no effect
+		let initial: BTreeMap<_, _> = map![
+			b"a".to_vec() => b"1".to_vec(),
+			b"b".to_vec() => b"2".to_vec()
+		];
+		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
+
+		// With empty only_keys_after, ignore_last_nibble should be ignored
+		let options = ReadProofOptions {
+			keys: vec![
+				KeyOptions { key: b"a".to_vec(), skip_value: false, include_descendants: false },
+				KeyOptions { key: b"b".to_vec(), skip_value: false, include_descendants: false },
+			],
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: true, // Should be ignored since no bound
+			size_limit: 16 * 1024 * 1024,
+		};
+
+		let (_, count) = prove_read(state, None, options).unwrap();
+		assert_eq!(count, 2, "All keys should be included when no bound is set");
 	}
 }

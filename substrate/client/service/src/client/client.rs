@@ -41,7 +41,8 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	ProofProvider, ReadChildProofParams, ReadProofParams, StaleBlock, TrieCacheContext,
+	UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -72,10 +73,9 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion,
 };
 use sp_state_machine::{
-	prove_child_read, prove_range_read_with_child_with_size, prove_read,
-	read_range_proof_check_with_child_on_proving_backend, Backend as StateBackend,
-	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
-	MAX_NESTED_TRIE_DEPTH,
+	prove_range_read_with_child_with_size, read_range_proof_check_with_child_on_proving_backend,
+	Backend as StateBackend, ChildStorageCollection, KeyValueStates, KeyValueStorageLevel,
+	StorageCollection, MAX_NESTED_TRIE_DEPTH,
 };
 use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
@@ -1200,21 +1200,48 @@ where
 {
 	fn read_proof(
 		&self,
-		hash: Block::Hash,
-		keys: &mut dyn Iterator<Item = &[u8]>,
-	) -> sp_blockchain::Result<StorageProof> {
-		self.state_at(hash)
-			.and_then(|state| prove_read(state, keys).map_err(Into::into))
+		params: ReadProofParams<Block::Hash>,
+	) -> sp_blockchain::Result<(StorageProof, u32)> {
+		let state = self.state_at(params.block)?;
+		let sm_options = sp_state_machine::ReadProofOptions {
+			keys: params
+				.keys
+				.into_iter()
+				.map(|k| sp_state_machine::KeyOptions {
+					key: k.key,
+					skip_value: k.skip_value,
+					include_descendants: k.include_descendants,
+				})
+				.collect(),
+			only_keys_after: params.only_keys_after,
+			only_keys_after_ignore_last_nibble: params.only_keys_after_ignore_last_nibble,
+			size_limit: params.size_limit,
+		};
+		sp_state_machine::prove_read::<_, HashingFor<Block>>(state, None, sm_options)
+			.map_err(|e| sp_blockchain::Error::from_state(e))
 	}
 
 	fn read_child_proof(
 		&self,
-		hash: Block::Hash,
-		child_info: &ChildInfo,
-		keys: &mut dyn Iterator<Item = &[u8]>,
-	) -> sp_blockchain::Result<StorageProof> {
-		self.state_at(hash)
-			.and_then(|state| prove_child_read(state, child_info, keys).map_err(Into::into))
+		params: ReadChildProofParams<Block::Hash>,
+	) -> sp_blockchain::Result<(StorageProof, u32)> {
+		let state = self.state_at(params.block)?;
+		let sm_options = sp_state_machine::ReadProofOptions {
+			keys: params
+				.keys
+				.into_iter()
+				.map(|k| sp_state_machine::KeyOptions {
+					key: k.key,
+					skip_value: k.skip_value,
+					include_descendants: k.include_descendants,
+				})
+				.collect(),
+			only_keys_after: params.only_keys_after,
+			only_keys_after_ignore_last_nibble: params.only_keys_after_ignore_last_nibble,
+			size_limit: params.size_limit,
+		};
+		sp_state_machine::prove_read::<_, HashingFor<Block>>(state, Some(&params.child_info), sm_options)
+			.map_err(|e| sp_blockchain::Error::from_state(e))
 	}
 
 	fn execution_proof(
@@ -1379,6 +1406,7 @@ where
 
 		Ok(state)
 	}
+
 }
 
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>

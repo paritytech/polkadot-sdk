@@ -27,7 +27,9 @@ use codec::{self, Decode, Encode};
 use futures::prelude::*;
 use log::{debug, trace};
 use prost::Message;
-use sc_client_api::{BlockBackend, ProofProvider};
+use sc_client_api::{
+	BlockBackend, KeyOptions, ProofProvider, ReadChildProofParams, ReadProofParams,
+};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{IncomingRequest, OutgoingResponse},
@@ -46,6 +48,9 @@ const LOG_TARGET: &str = "light-client-request-handler";
 /// Incoming requests bounded queue size. For now due to lack of data on light client request
 /// handling in production systems, this value is chosen to match the block request limit.
 const MAX_LIGHT_REQUEST_QUEUE: usize = 20;
+
+/// Maximum response size for V2 requests (RFC-0009): 16 MiB.
+const MAX_RESPONSE_SIZE_V2: usize = 16 * 1024 * 1024;
 
 /// Handler for incoming light client requests from a remote peer.
 pub struct LightClientRequestHandler<B, Client> {
@@ -155,6 +160,8 @@ where
 				self.on_remote_read_request(&peer, r)?,
 			Some(schema::v1::light::request::Request::RemoteReadChildRequest(r)) =>
 				self.on_remote_read_child_request(&peer, r)?,
+			Some(schema::v1::light::request::Request::RemoteReadRequestV2(r)) =>
+				self.on_remote_read_request_v2(&peer, r)?,
 			None =>
 				return Err(HandleRequestError::BadRequest("Remote request without request data.")),
 		};
@@ -212,20 +219,32 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		let response =
-			match self.client.read_proof(block, &mut request.keys.iter().map(AsRef::as_ref)) {
-				Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
-				Err(error) => {
-					trace!(
-						"remote read request from {} ({} at {:?}) failed with: {}",
-						peer,
-						fmt_keys(request.keys.first(), request.keys.last()),
-						request.block,
-						error,
-					);
-					schema::v1::light::RemoteReadResponse { proof: None }
-				},
-			};
+		let params = ReadProofParams {
+			block,
+			keys: request
+				.keys
+				.iter()
+				.map(|k| KeyOptions { key: k.clone(), skip_value: false, include_descendants: false })
+				.collect(),
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: MAX_RESPONSE_SIZE_V2,
+		};
+
+		let response = match self.client.read_proof(params) {
+			Ok((proof, _)) =>
+				schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
+			Err(error) => {
+				trace!(
+					"remote read request from {} ({} at {:?}) failed with: {}",
+					peer,
+					fmt_keys(request.keys.first(), request.keys.last()),
+					request.block,
+					error,
+				);
+				schema::v1::light::RemoteReadResponse { proof: None }
+			},
+		};
 
 		Ok(schema::v1::light::Response {
 			response: Some(schema::v1::light::response::Response::RemoteReadResponse(response)),
@@ -254,23 +273,119 @@ where
 
 		let prefixed_key = PrefixedStorageKey::new_ref(&request.storage_key);
 		let child_info = match ChildType::from_prefixed_key(prefixed_key) {
-			Some((ChildType::ParentKeyId, storage_key)) => Ok(ChildInfo::new_default(storage_key)),
-			None => Err(sp_blockchain::Error::InvalidChildStorageKey),
+			Some((ChildType::ParentKeyId, storage_key)) => ChildInfo::new_default(storage_key),
+			None => {
+				return Ok(schema::v1::light::Response {
+					response: Some(schema::v1::light::response::Response::RemoteReadResponse(
+						schema::v1::light::RemoteReadResponse { proof: None },
+					)),
+				});
+			},
 		};
-		let response = match child_info.and_then(|child_info| {
-			self.client.read_child_proof(
-				block,
-				&child_info,
-				&mut request.keys.iter().map(AsRef::as_ref),
-			)
-		}) {
-			Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
+
+		let params = ReadChildProofParams {
+			block,
+			child_info,
+			keys: request
+				.keys
+				.iter()
+				.map(|k| KeyOptions { key: k.clone(), skip_value: false, include_descendants: false })
+				.collect(),
+			only_keys_after: None,
+			only_keys_after_ignore_last_nibble: false,
+			size_limit: MAX_RESPONSE_SIZE_V2,
+		};
+
+		let response = match self.client.read_child_proof(params) {
+			Ok((proof, _)) =>
+				schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
 			Err(error) => {
 				trace!(
 					"remote read child request from {} ({} {} at {:?}) failed with: {}",
 					peer,
 					HexDisplay::from(&request.storage_key),
 					fmt_keys(request.keys.first(), request.keys.last()),
+					request.block,
+					error,
+				);
+				schema::v1::light::RemoteReadResponse { proof: None }
+			},
+		};
+
+		Ok(schema::v1::light::Response {
+			response: Some(schema::v1::light::response::Response::RemoteReadResponse(response)),
+		})
+	}
+
+	fn on_remote_read_request_v2(
+		&mut self,
+		peer: &PeerId,
+		request: &schema::v1::light::RemoteReadRequestV2,
+	) -> Result<schema::v1::light::Response, HandleRequestError> {
+		if request.keys.is_empty() {
+			debug!("Invalid remote read V2 request sent by {}: no keys.", peer);
+			return Err(HandleRequestError::BadRequest("Remote read V2 request without keys."));
+		}
+
+		trace!(
+			"Remote read V2 request from {} ({} keys at {:?}).",
+			peer,
+			request.keys.len(),
+			request.block,
+		);
+
+		let block = Decode::decode(&mut request.block.as_ref())?;
+
+		// Convert proto keys to KeyOptions
+		let keys: Vec<KeyOptions> = request
+			.keys
+			.iter()
+			.map(|k| KeyOptions {
+				key: k.key.clone(),
+				skip_value: k.skip_value.unwrap_or(false),
+				include_descendants: k.include_descendants.unwrap_or(false),
+			})
+			.collect();
+
+		let result = if let Some(ref cti) = request.child_trie_info {
+			// Child trie request - namespace must be DEFAULT (1)
+			if cti.namespace != 1 {
+				debug!("Invalid child trie namespace from {}: {}", peer, cti.namespace);
+				return Err(HandleRequestError::BadRequest("Invalid child trie namespace."));
+			}
+			let params = ReadChildProofParams {
+				block,
+				child_info: ChildInfo::new_default(&cti.hash),
+				keys,
+				only_keys_after: request.only_keys_after.clone(),
+				only_keys_after_ignore_last_nibble: request
+					.only_keys_after_ignore_last_nibble
+					.unwrap_or(false),
+				size_limit: MAX_RESPONSE_SIZE_V2,
+			};
+			self.client.read_child_proof(params)
+		} else {
+			// Main trie request
+			let params = ReadProofParams {
+				block,
+				keys,
+				only_keys_after: request.only_keys_after.clone(),
+				only_keys_after_ignore_last_nibble: request
+					.only_keys_after_ignore_last_nibble
+					.unwrap_or(false),
+				size_limit: MAX_RESPONSE_SIZE_V2,
+			};
+			self.client.read_proof(params)
+		};
+
+		let response = match result {
+			Ok((proof, _count)) =>
+				schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
+			Err(error) => {
+				trace!(
+					"remote read V2 request from {} ({} keys at {:?}) failed with: {}",
+					peer,
+					request.keys.len(),
 					request.block,
 					error,
 				);
