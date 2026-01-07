@@ -76,7 +76,7 @@ pub fn set_up_foreign_asset(
 
 	// Setup a pool on Asset Hub between native asset and newly created asset, so we can pay fees
 	// using new asset directly.
-	create_foreign_pool_with_wnd_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		foreign_asset_at_asset_hub.clone(),
 		penpal_sovereign_account.clone()

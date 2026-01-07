@@ -24,7 +24,7 @@ use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
 use emulated_integration_tests_common::{
-	accounts::ALICE, create_foreign_pool_with_native_on, create_foreign_pool_with_wnd_on,
+	accounts::ALICE, create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on,
 	create_pool_with_wnd_on, xcm_emulator::TestExt,
 };
 use frame_support::{
@@ -109,7 +109,7 @@ fn test_exchange_asset(
 	});
 
 	if create_pool {
-		create_foreign_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), alice.clone());
+		create_foreign_pool_with_parent_native_on!(AssetHubWestend, asset_location.clone(), alice.clone());
 	}
 
 	// Execute and verify swap

@@ -326,18 +326,16 @@ pub fn create_pools_on_ah() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		weth_location(),
-		true,
 		ethereum_sovereign.clone(),
 		1_000_000_000_000,
 		20_000_000_000
 	);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		ethereum(),
-		true,
 		ethereum_sovereign.clone(),
 		1_000_000_000_000,
 		20_000_000_000
@@ -349,14 +347,18 @@ pub(crate) fn set_up_eth_and_dot_pool() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubWestend, eth_location(), true, ethereum_sovereign.clone());
+	create_foreign_pool_with_parent_native_on!(
+		AssetHubWestend,
+		eth_location(),
+		ethereum_sovereign.clone()
+	);
 }
 
 pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(PenpalB, eth_location(), true, ethereum_sovereign.clone());
+	create_foreign_pool_with_parent_native_on!(PenpalB, eth_location(), ethereum_sovereign.clone());
 }
 
 pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
@@ -365,7 +367,11 @@ pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
 		AssetHubWestend::para_id(),
 	);
 	AssetHubRococo::fund_accounts(vec![(sa_of_wah_on_rah.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubRococo, eth_location(), true, sa_of_wah_on_rah.clone());
+	create_foreign_pool_with_parent_native_on!(
+		AssetHubRococo,
+		eth_location(),
+		sa_of_wah_on_rah.clone()
+	);
 }
 
 pub fn register_pal_on_bh() {

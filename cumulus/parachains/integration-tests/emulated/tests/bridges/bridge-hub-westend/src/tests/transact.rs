@@ -138,19 +138,17 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 
 	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
 	let snowbridge_sovereign = snowbridge_sovereign();
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		bridged_weth.clone(),
-		true,
 		snowbridge_sovereign,
 		1_000_000_000_000,
 		20_000_000_000
 	);
 	// We also need a pool between WND and WETH on PenpalB to support paying for fees with WETH.
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		PenpalB,
 		bridged_weth.clone(),
-		true,
 		PenpalAssetOwner::get(),
 		1_000_000_000_000,
 		20_000_000_000

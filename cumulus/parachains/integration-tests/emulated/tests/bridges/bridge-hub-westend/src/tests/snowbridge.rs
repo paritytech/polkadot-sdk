@@ -1143,10 +1143,9 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubRococo,
 		bridged_wnd_at_asset_hub_rococo.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 

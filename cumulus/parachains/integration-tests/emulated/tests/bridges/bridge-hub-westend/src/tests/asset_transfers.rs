@@ -47,10 +47,9 @@ fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
 	let wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubRococo,
 		wnd_at_asset_hub_rococo.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 
@@ -133,10 +132,9 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubRococo,
 		bridged_wnd_at_asset_hub_rococo.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 
@@ -218,10 +216,9 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	);
 	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true, wnd_reserve);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubRococo,
 		bridged_usdt_at_asset_hub_rococo.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 
@@ -460,7 +457,12 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 			)],
 		));
 	});
-	create_pool_with_native_on!(PenpalA, wnd_at_rococo_parachains.clone(), true, asset_owner);
+	create_foreign_pool_with_parent_native_on!(
+		PenpalA,
+		wnd_at_rococo_parachains.clone(),
+		true,
+		asset_owner
+	);
 
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
 		ByGenesis(ROCOCO_GENESIS_HASH),
@@ -560,10 +562,9 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 
 	// create foreign WND on AH Rococo
 	create_foreign_on_ah_rococo(wnd_at_rococo_parachains.clone(), true, wnd_reserve);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubRococo,
 		wnd_at_rococo_parachains.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 	// create foreign WND on Penpal Rococo
@@ -585,7 +586,12 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 			)],
 		));
 	});
-	create_pool_with_native_on!(PenpalA, wnd_at_rococo_parachains.clone(), true, asset_owner);
+	create_foreign_pool_with_parent_native_on!(
+		PenpalA,
+		wnd_at_rococo_parachains.clone(),
+		true,
+		asset_owner
+	);
 
 	Westend::execute_with(|| {
 		let root_origin = <Westend as Chain>::RuntimeOrigin::root();
@@ -876,10 +882,9 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 		reserves,
 		prefund_accounts,
 	);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		roc_at_westend_parachains.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);
@@ -1069,10 +1074,9 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 		reserves,
 		prefund_accounts,
 	);
-	create_pool_with_native_on!(
+	create_foreign_pool_with_parent_native_on!(
 		AssetHubWestend,
 		roc_at_westend_parachains.clone(),
-		true,
 		AssetHubRococoSender::get()
 	);
 	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);

@@ -1,3 +1,7 @@
+
+/// This function assumes that the asset is prefunded.
+///
+/// Usually, this function is only called from the other macros in this module.
 #[macro_export]
 macro_rules! create_pool_with_native_location_on {
 	( $chain:ident, $native_location:expr, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
@@ -82,10 +86,10 @@ macro_rules! create_pool_with_wnd_on {
 }
 
 #[macro_export]
-macro_rules! create_foreign_pool_with_wnd_on {
+macro_rules! create_foreign_pool_with_parent_native_on {
 	// default amounts
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
-		$crate::create_foreign_pool_with_wnd_on!(
+		$crate::create_foreign_pool_with_parent_native_on!(
 			$chain,
 			$asset_id,
 			$asset_owner,
