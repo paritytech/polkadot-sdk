@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{foreign_balance_on, imports::*};
-use emulated_integration_tests_common::PenpalALocation;
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, PenpalALocation};
 use frame_support::traits::fungible;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
@@ -517,8 +517,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 ) {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let asset_location_on_penpal = PenpalA::execute_with(|| PenpalNativeCurrency::get());
-	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
+	let native_asset_on_penpal = Location::here();
+	let penpal_native_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_owner = PenpalAssetOwner::get();
 	let system_para_native_asset_location = RelayLocation::get();
 	let sender = PenpalASender::get();
@@ -526,7 +526,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_as_seen_by_penpal = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let penpal_assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
-		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
+		(native_asset_on_penpal.clone(), penpal_native_amount_to_send).into(),
 	]
 	.into();
 	let fee_asset_index = penpal_assets
@@ -543,10 +543,17 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		fee_amount_to_send * 2,
 	);
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		system_para_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	// fund Parachain's check account and sender to be able to teleport
 	PenpalA::fund_accounts(vec![
 		(penpal_check_account.clone().into(), ASSET_HUB_WESTEND_ED * 1000),
-		(sender.clone(), asset_amount_to_send * 2),
+		(sender.clone(), penpal_native_amount_to_send * 2),
 	]);
 
 	// prefund SA of Penpal on AssetHub with enough native tokens to pay for fees
@@ -569,7 +576,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		args: TestArgs::new_para(
 			ah_as_seen_by_penpal,
 			penpal_to_ah_beneficiary_id,
-			asset_amount_to_send,
+			penpal_native_amount_to_send,
 			penpal_assets,
 			None,
 			// Some(asset_location_on_penpal),
@@ -627,13 +634,12 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	// should be non-zero
 	assert!(ah_receiver_balance_after < ah_receiver_balance_before + fee_amount_to_send);
 
-	// Sender's balance is reduced by exact amount
-	assert_eq!(
-		penpal_sender_native_balance_before - asset_amount_to_send,
-		penpal_sender_native_balance_after
+	// Sender's balance is reduced by send amount and delivery fees
+	assert!(
+		penpal_sender_native_balance_before - penpal_native_amount_to_send > penpal_sender_native_balance_after
 	);
 	// Receiver's balance is increased by exact amount
-	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + asset_amount_to_send);
+	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + penpal_native_amount_to_send);
 
 	///////////////////////////////////////////////////////////////////////
 	// Now test transferring foreign assets back from AssetHub to Penpal //
@@ -646,12 +652,12 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
 			penpal_native_as_foreign_asset_at_asset_hub.clone().try_into().unwrap(),
 			AssetHubWestendSender::get().into(),
-			asset_amount_to_send,
+			penpal_native_amount_to_send,
 		));
 	});
 
 	// Only send back half the amount.
-	let asset_amount_to_send = asset_amount_to_send / 2;
+	let asset_amount_to_send = penpal_native_amount_to_send / 2;
 	let fee_amount_to_send = fee_amount_to_send / 2;
 
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
