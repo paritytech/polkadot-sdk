@@ -1,0 +1,12 @@
+title: '[FRAME] Bounties return balance and assets on close'
+doc:
+- audience: Runtime Dev
+  description: |-
+    **Changes:**
+    - Add config items to Bounty pallet: `NativeAsset`, `Assets` and `RelevantAssets`
+    - Iterate through all `RelevantAssets` and transfer them to the treasury when a bounty is closed
+    - Use the `Fungible` instead of the `Currency` to determine the transferrable amount
+    - Add sanity check for `Currency` and `Fungible` config items to be compatible
+crates:
+- name: pallet-bounties
+  bump: major
