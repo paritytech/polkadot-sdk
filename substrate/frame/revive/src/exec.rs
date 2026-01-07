@@ -472,7 +472,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool;
 
 	/// Returns Ethereum address from the ECDSA compressed public key.
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -2340,8 +2340,10 @@ where
 		)
 	}
 
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic::from(*pk).to_eth_address()
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
+		Ok(ECDSAPublic::from(*pk)
+			.to_eth_address()
+			.or_else(|()| Err(Error::<T>::EcdsaRecoveryFailed))?)
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
