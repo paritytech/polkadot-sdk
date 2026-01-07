@@ -145,19 +145,11 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 
 	// Check recovery failure metrics
 	new_node
-		.wait_metric_with_timeout(
-			AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC,
-			|v| v == 0.0,
-			10u64,
-		)
+		.wait_metric(AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("New node has recovery failures: {}", e))?;
 	old_node
-		.wait_metric_with_timeout(
-			AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC,
-			|v| v == 0.0,
-			10u64,
-		)
+		.wait_metric(AVAILABILITY_RECOVERY_RECOVERIES_FINISHED_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("Old node has recovery failures: {}", e))?;
 
@@ -202,20 +194,20 @@ async fn chunk_fetching_network_compatibility() -> Result<(), anyhow::Error> {
 		.map_err(|e| anyhow!("Old node fetched chunks too low: {}", e))?;
 
 	new_node
-		.wait_metric_with_timeout(FETCHED_FAILED_CHUNKS_TOTAL_METRIC, |v| v == 0.0, 10u64)
+		.wait_metric(FETCHED_FAILED_CHUNKS_TOTAL_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("New node has failed chunk fetches: {}", e))?;
 	old_node
-		.wait_metric_with_timeout(FETCHED_FAILED_CHUNKS_TOTAL_METRIC, |v| v == 0.0, 10u64)
+		.wait_metric(FETCHED_FAILED_CHUNKS_TOTAL_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("Old node has failed chunk fetches: {}", e))?;
 
 	new_node
-		.wait_metric_with_timeout(FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC, |v| v == 0.0, 10u64)
+		.wait_metric(FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("New node has not-found chunk fetches: {}", e))?;
 	old_node
-		.wait_metric_with_timeout(FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC, |v| v == 0.0, 10u64)
+		.wait_metric(FETCHED_NOT_FOUND_CHUNKS_TOTAL_METRIC, |v| v == 0.0)
 		.await
 		.map_err(|e| anyhow!("Old node has not-found chunk fetches: {}", e))?;
 

@@ -103,7 +103,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
-				.cumulus_based(true)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(culumus_image.as_str())
 				.with_collator(|n| n.with_name("collator01"))

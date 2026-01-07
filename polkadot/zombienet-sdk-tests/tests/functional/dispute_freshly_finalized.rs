@@ -9,7 +9,7 @@
 
 use crate::utils::{
 	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV, NODE_ROLES_METRIC,
 };
 
 use anyhow::anyhow;
@@ -44,11 +44,11 @@ async fn dispute_freshly_finalized() -> Result<(), anyhow::Error> {
 	// Check authority status and peers
 	log::info!("Checking node roles");
 	malus
-		.wait_metric_with_timeout("node_roles", |v| v == 4.0, 30u64)
+		.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Malus node role check failed: {}", e))?;
 	honest
-		.wait_metric_with_timeout("node_roles", |v| v == 4.0, 30u64)
+		.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Honest node role check failed: {}", e))?;
 

@@ -29,7 +29,7 @@ use zombienet_sdk::{
 		dynamic::Value, ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
 
 const CORETIME_PARA_ID: u32 = 1005;
@@ -145,7 +145,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(TEST_PARA_ID)
-				.onboard_as_parachain(false)
+				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(culumus_image.as_str())
 				.with_collator(|n| {

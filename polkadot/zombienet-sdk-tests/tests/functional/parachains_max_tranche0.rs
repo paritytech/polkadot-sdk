@@ -44,7 +44,7 @@ async fn parachains_max_tranche0() -> Result<(), anyhow::Error> {
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for i in [0, 1, 3, 4, 5, 6, 7] {
+	for i in 0..NUM_VALIDATORS {
 		let validator = network.get_node(format!("some-validator-{i}"))?;
 		validator
 			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)

@@ -20,7 +20,7 @@ use serde_json::json;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
 
 const PARA_IDS: [u32; 4] = [2000, 2001, 2002, 2003];
@@ -216,8 +216,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 		builder = builder.with_parachain(|p| {
 			p.with_id(para_id)
-				.onboard_as_parachain(false)
-				.cumulus_based(true)
+				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_chain(chain_name.as_str())
 				.with_default_command("polkadot-parachain")
 				.with_default_image(col_image.as_str())
