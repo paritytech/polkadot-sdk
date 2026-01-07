@@ -13,3 +13,7 @@ crates:
 - name: pallet-revive
   bump: minor
   validate: false
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
