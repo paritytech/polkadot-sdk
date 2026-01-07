@@ -778,6 +778,13 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let relay_native_asset_location = RelayLocation::get();
 	let receiver = PenpalAReceiver::get();
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	// Init Test
 	let test_args = TestContext {
 		sender,
