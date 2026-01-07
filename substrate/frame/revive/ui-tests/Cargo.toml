@@ -36,8 +36,8 @@ polkadot-sdk = { optional = true, workspace = true, features = [
 ] }
 
 [dev-dependencies]
-trybuild = { workspace = true }
 pallet-revive = { workspace = true, features = ["trybuild"] }
+trybuild = { workspace = true }
 
 [features]
 default = ["std"]

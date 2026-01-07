@@ -17,7 +17,7 @@
 
 #[polkadot_sdk::frame_support::pallet(dev_mode)]
 pub mod pallet {
-    #![allow(dead_code, unused)]
+	#![allow(dead_code, unused)]
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
