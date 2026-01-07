@@ -13493,7 +13493,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -13558,7 +13558,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -18958,7 +18958,7 @@ dependencies = [
 
 [[package]]
 name = "revive-dev-runtime"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
