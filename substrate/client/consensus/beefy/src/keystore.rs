@@ -19,9 +19,7 @@ use codec::Decode;
 use log::warn;
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
-#[cfg(feature = "bls-experimental")]
-use sp_core::ecdsa_bls381;
-use sp_core::{ecdsa, keccak_256};
+use sp_core::{ecdsa, ecdsa_bls381, keccak_256};
 
 use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
@@ -99,7 +97,6 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				sig_ref.to_vec()
 			},
 
-			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => {
 				let public: ecdsa_bls381::Public =
 					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
@@ -145,7 +142,6 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 					))
 				}),
 
-			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => store
 				.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
 				.drain(..)
@@ -183,10 +179,8 @@ impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<
 
 #[cfg(test)]
 pub mod tests {
-	#[cfg(feature = "bls-experimental")]
-	use sp_consensus_beefy::ecdsa_bls_crypto;
 	use sp_consensus_beefy::{
-		ecdsa_crypto,
+		ecdsa_bls_crypto, ecdsa_crypto,
 		test_utils::{BeefySignerAuthority, Keyring},
 	};
 	use sp_core::Pair as PairT;
@@ -253,7 +247,6 @@ pub mod tests {
 				let pk = store.ecdsa_generate_new(key_type, optional_seed.as_deref()).ok().unwrap();
 				AuthorityId::decode(&mut pk.as_ref()).unwrap()
 			},
-			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => {
 				let pk = store
 					.ecdsa_bls381_generate_new(key_type, optional_seed.as_deref())
@@ -270,7 +263,6 @@ pub mod tests {
 		pair_verify_should_work::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn pair_verify_should_work_ecdsa_n_bls() {
 		pair_verify_should_work::<ecdsa_bls_crypto::AuthorityId>();
@@ -338,7 +330,6 @@ pub mod tests {
 		pair_works::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn ecdsa_n_bls_pair_works() {
 		pair_works::<ecdsa_bls_crypto::AuthorityId>();
@@ -379,7 +370,6 @@ pub mod tests {
 		authority_id_works::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn authority_id_works_for_ecdsa_n_bls() {
 		authority_id_works::<ecdsa_bls_crypto::AuthorityId>();
@@ -414,7 +404,6 @@ pub mod tests {
 		sign_works::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn sign_works_for_ecdsa_n_bls() {
 		sign_works::<ecdsa_bls_crypto::AuthorityId>();
@@ -449,7 +438,6 @@ pub mod tests {
 		sign_error::<ecdsa_crypto::AuthorityId>("ecdsa_sign_prehashed() failed");
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn sign_error_for_ecdsa_n_bls() {
 		sign_error::<ecdsa_bls_crypto::AuthorityId>("bls381_sign()  failed");
@@ -498,7 +486,6 @@ pub mod tests {
 		verify_works::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 
 	fn verify_works_for_ecdsa_n_bls() {
@@ -550,7 +537,6 @@ pub mod tests {
 		public_keys_works::<ecdsa_crypto::AuthorityId>();
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 
 	fn public_keys_works_for_ecdsa_n_bls() {
