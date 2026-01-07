@@ -5,14 +5,15 @@ doc:
     reserves provided instead of always assuming worst-case.
 crates:
 - name: asset-hub-rococo-runtime
-  bump: minor
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: pallet-assets
   bump: minor
+  validate: false
 - name: emulated-integration-tests-common
-  bump: minor
+  bump: patch
 - name: assets-common
-  bump: minor
+  bump: patch
 - name: asset-test-utils
-  bump: minor
+  bump: patch
