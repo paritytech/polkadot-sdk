@@ -1,0 +1,20 @@
+title: '[pallet-revive] remove code related to stable and unstable_hostfn'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of https://github.com/paritytech/polkadot-sdk/issues/8572
+
+    Removes the proc macro `unstable_hostfn` and attribute `#[stable]` because they are not used anywhere.
+crates:
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
