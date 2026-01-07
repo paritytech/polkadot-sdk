@@ -19,7 +19,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, CallFlags, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -29,20 +29,24 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		signature: [u8; 64],
-		pub_key: [u8; 32],
-		msg: [u8; 11],
+		address: &[u8; 20],
+		gas: u64,
 	);
 
-	let exit_status = match api::sr25519_verify(
-		&signature.try_into().unwrap(),
-		msg,
-		&pub_key.try_into().unwrap(),
-	) {
-		Ok(_) => 0u32,
-		Err(code) => code as u32,
-	};
+	let mut key = [0u8; 32];
+	key[0] = 1u8;
 
-	// Exit with success and take transfer return code to the output buffer.
-	api::return_value(uapi::ReturnFlags::empty(), &exit_status.to_le_bytes());
+	let mut value = [0u8; 32];
+	let value = &mut &mut value[..];
+	value[0] = 2u8;
+
+	api::set_storage(StorageFlags::empty(), &key, value);
+	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
+	assert!(value[0] == 2u8);
+
+	api::delegate_call_evm(CallFlags::empty(), address, gas, &[], None).unwrap();
+
+	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
+	assert!(value[0] == 1u8);
 }
+
