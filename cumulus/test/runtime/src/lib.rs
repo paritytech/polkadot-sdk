@@ -524,6 +524,10 @@ impl_runtime_apis! {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
 		}
+
+		fn max_claim_queue_offset() -> u8 {
+			parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
 	}
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {

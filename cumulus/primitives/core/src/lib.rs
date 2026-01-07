@@ -492,13 +492,52 @@ sp_api::decl_runtime_apis! {
 		fn parachain_id() -> ParaId;
   }
 
-	/// API to tell the node side how the relay parent should be chosen.
+	/// API to tell the node side how the relay parent should be chosen and how claim queue
+	/// offsets are determined.
 	///
-	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,
-	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
+	/// A larger relay parent offset indicates that the relay parent should not be the tip of
+	/// the relay chain, but `N` blocks behind the tip. This offset is then enforced by the
+	/// runtime.
+	///
+	/// The max claim queue offset determines how far "into the future" collators target when
+	/// selecting cores from the claim queue. This provides async backing flexibility while
+	/// preventing collators from skipping slots.
+	/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+	///
+	/// Version history:
+	/// - Version 1: Initial version with `relay_parent_offset` only
+	/// - Version 2: Added `max_claim_queue_offset` method
+	#[api_version(2)]
 	pub trait RelayParentOffsetApi {
-		/// Fetch the slot offset that is expected from the relay chain.
+		/// Fetch the relay parent offset that is expected from the relay chain.
+		///
+		/// This determines how many blocks behind the relay chain tip the relay parent should be.
 		fn relay_parent_offset() -> u32;
+
+		/// Maximum claim queue offset for async backing flexibility.
+		///
+		/// This is the maximum additional offset into the claim queue that collators should use
+		/// beyond the relay parent offset. The effective claim queue depth is:
+		/// `relay_parent_offset + max_claim_queue_offset`
+		///
+		/// Collators may use lower offsets (down to 0) for optimistic scenarios where execution
+		/// is fast or earlier slots are available (e.g., chain startup, previous author missed
+		/// their slot).
+		///
+		/// Typical values:
+		/// - Returns 1 for most cases, providing:
+		///   - Offset 0: Synchronous opportunity (backing in next relay block)
+		///   - Offset 1: Asynchronous opportunity (backing in relay block after next)
+		///
+		/// Higher values are rarely needed since V3 scheduling with scheduling_parent decouples
+		/// execution context from scheduling context.
+		///
+		/// Note: Collators calling this on runtimes with api_version < 2 will get an error
+		/// and should fall back to a default value of 1.
+		///
+		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+		#[api_version(2)]
+		fn max_claim_queue_offset() -> u8;
 	}
 
 	/// API to tell the node side whether V3 scheduling is enabled.
