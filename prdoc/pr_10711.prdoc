@@ -1,0 +1,19 @@
+title: Fix benchmarking for pallet-assets::set_reserves()
+doc:
+- audience: Runtime Dev
+  description: Parametrize pallet-assets::set_reserves() weight based on number of
+    reserves provided instead of always assuming worst-case.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-assets
+  bump: minor
+  validate: false
+- name: emulated-integration-tests-common
+  bump: patch
+- name: assets-common
+  bump: patch
+- name: asset-test-utils
+  bump: patch
