@@ -166,7 +166,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		assert_gap_sync(network.get_node(name)?).await?;
 	}
 
-	// check relaychain progress
+	// Check relaychain progress
 	for name in ["dave", "eve"] {
 		log::info!("Checking full node {name} is syncing");
 		network
@@ -179,7 +179,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 			.await?;
 	}
 
-	// check parachain progress
+	// Check parachain progress
 	for name in ["one", "two", "three", "four", "five"] {
 		log::info!("Checking full node {name} is syncing");
 		network
@@ -192,18 +192,18 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 			.await?;
 	}
 
-	// Pause some nodes (to prevent syncing from them)
+	// Pause some nodes (to prevent below added nodes syncing from them)
 	for name in ["alice", "bob", "one", "two"] {
 		log::info!("Pausing node {name}");
 		network.get_node(name)?.pause().await?;
 	}
 
-	// Add ferdie and six dynamically (without waiting)
+	// Add ferdie and six dynamically
 	log::info!("Adding ferdie and six to the network");
 	add_relaychain_node(&mut network, "ferdie", true).await?;
 	add_parachain_collator(&mut network, "six", true).await?;
 
-	// Wait for both nodes to be up in parallel
+	// Wait for both nodes to be up
 	log::info!("Waiting for ferdie and six to be up");
 	network.get_node("ferdie")?.wait_until_is_up(60u64).await?;
 	network.get_node("six")?.wait_until_is_up(60u64).await?;
