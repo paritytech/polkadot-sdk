@@ -248,7 +248,6 @@ where
 		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
 		if let Some(authority_ids) = authority_ids {
 			_ = sender.try_send_message(RewardsStatisticsCollectorMessage::ChunkUploaded(
-				payload.candidate_hash,
 				authority_ids,
 			));
 		}

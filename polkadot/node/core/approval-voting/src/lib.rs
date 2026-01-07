@@ -3175,7 +3175,7 @@ where
 		return Vec::new()
 	};
 
-	let newly_approved = {
+	{
 		let approval_entry = candidate_entry
 			.approval_entry_mut(&block_hash)
 			.expect("Approval entry just fetched; qed");

@@ -1475,8 +1475,8 @@ pub enum ProspectiveParachainsMessage {
 /// Messages sent to the Statistics Collector subsystem.
 #[derive(Debug)]
 pub enum RewardsStatisticsCollectorMessage {
-	ChunksDownloaded(SessionIndex, CandidateHash, HashMap<ValidatorIndex, u64>),
-	ChunkUploaded(CandidateHash, HashSet<AuthorityDiscoveryId>),
+	ChunksDownloaded(SessionIndex, HashMap<ValidatorIndex, u64>),
+	ChunkUploaded(HashSet<AuthorityDiscoveryId>),
 
 	// Candidate received enough approval and now is approved
 	CandidateApproved(Hash, BlockNumber, Vec<ValidatorIndex>),

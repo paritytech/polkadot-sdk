@@ -19,12 +19,12 @@ use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, SessionIndex, Val
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 };
-use std::collections::btree_map;
+use std::collections::{btree_map, BTreeMap};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailabilityChunks {
-	pub downloads_per_candidate: HashMap<CandidateHash, HashMap<AuthorityDiscoveryId, u64>>,
-	pub uploads_per_candidate: HashMap<CandidateHash, HashMap<AuthorityDiscoveryId, u64>>,
+	pub downloads_per_candidate: BTreeMap<AuthorityDiscoveryId, u64>,
+	pub uploads_per_candidate: BTreeMap<AuthorityDiscoveryId, u64>,
 }
 
 impl AvailabilityChunks {
@@ -37,43 +37,27 @@ impl AvailabilityChunks {
 
 	pub fn note_candidate_chunk_downloaded(
 		&mut self,
-		candidate_hash: CandidateHash,
 		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
-		let validator_downloads = self
+		self
 			.downloads_per_candidate
-			.entry(candidate_hash)
-			.or_default()
-			.entry(authority_id);
+			.entry(authority_id)
+			.and_modify(|current| *current = current.saturating_add(count))
+			.or_insert(count);
 
-		Self::increment_validator_counter(validator_downloads, count);
 	}
 
 	pub fn note_candidate_chunk_uploaded(
 		&mut self,
-		candidate_hash: CandidateHash,
 		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
-		let validator_uploads = self
+		self
 			.uploads_per_candidate
-			.entry(candidate_hash)
-			.or_default()
-			.entry(authority_id);
-
-		Self::increment_validator_counter(validator_uploads, count);
-	}
-
-	fn increment_validator_counter(stats: Entry<AuthorityDiscoveryId, u64>, increment_by: u64) {
-		match stats {
-			Entry::Occupied(mut validator_stats) => {
-				validator_stats.insert(validator_stats.get().saturating_add(increment_by));
-			},
-			Entry::Vacant(entry) => {
-				entry.insert(increment_by);
-			},
-		}
+			.entry(authority_id)
+			.and_modify(|current| *current = current.saturating_add(count))
+			.or_insert(count);
 	}
 }
 
@@ -83,7 +67,6 @@ impl AvailabilityChunks {
 pub fn handle_chunks_downloaded(
 	view: &mut View,
 	session_index: SessionIndex,
-	candidate_hash: CandidateHash,
 	downloads: HashMap<ValidatorIndex, u64>,
 ) {
 	let av_chunks = view
@@ -94,11 +77,11 @@ pub fn handle_chunks_downloaded(
 	for (validator_index, download_count) in downloads {
 		let authority_id = view.per_session
 			.get(&session_index)
-			.and_then(|(session_view)| session_view.authorities_ids.get(validator_index.0 as usize));
+			.and_then(|session_view| session_view.authorities_ids.get(validator_index.0 as usize));
 
 		match authority_id {
 			Some(authority_id) => {
-				av_chunks.note_candidate_chunk_downloaded(candidate_hash, authority_id.clone(), download_count);
+				av_chunks.note_candidate_chunk_downloaded(authority_id.clone(), download_count);
 			}
 			None => {
 				gum::debug!(
@@ -106,7 +89,6 @@ pub fn handle_chunks_downloaded(
 					validator_index = ?validator_index,
 					download_count = download_count,
 					session_idx = ?session_index,
-					candidate_hash = ?candidate_hash,
 					"could not find validator authority id"
 				);
 			}
@@ -115,12 +97,9 @@ pub fn handle_chunks_downloaded(
 }
 
 // handle_chunk_uploaded receive the authority ids of the peer
-// it just uploaded the candidate hash, to collect this statistic
-// it needs to find the validator index that is bounded to any of the
-// authority id, from the oldest to newest session.
+// we just uploaded chunks to
 pub fn handle_chunk_uploaded(
 	view: &mut View,
-	candidate_hash: CandidateHash,
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
 	let auth_id = match authority_ids.iter().next() {
@@ -141,14 +120,12 @@ pub fn handle_chunk_uploaded(
 		match av_chunks {
 			btree_map::Entry::Occupied(mut entry) => {
 				entry.get_mut().note_candidate_chunk_uploaded(
-					candidate_hash,
 					auth_id,
 					1,
 				);
 			},
 			btree_map::Entry::Vacant(entry) => {
 				entry.insert(AvailabilityChunks::new()).note_candidate_chunk_uploaded(
-					candidate_hash,
 					auth_id,
 					1,
 				);

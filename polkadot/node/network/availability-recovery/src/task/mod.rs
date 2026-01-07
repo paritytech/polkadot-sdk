@@ -189,7 +189,6 @@ where
 					_ = self.sender.try_send_message(
 						RewardsStatisticsCollectorMessage::ChunksDownloaded(
 							self.params.session_index,
-							self.params.candidate_hash,
 							self.state.get_download_chunks_metrics(),
 						),
 					);

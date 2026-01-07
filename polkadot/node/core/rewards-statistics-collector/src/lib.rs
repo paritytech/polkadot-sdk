@@ -177,7 +177,7 @@ where
 async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult<()> {
 	let mut view = View::new();
 	loop {
-		crate::error::log_error(
+		error::log_error(
 			run_iteration(&mut ctx, &mut view, (&metrics.0, metrics.1)).await,
 			"Encountered issue during run iteration",
 		)?;
@@ -217,6 +217,8 @@ pub(crate) async fn run_iteration<Context>(
 						.map_err(JfyiError::RuntimeApiCallError)?;
 
 					view.per_relay.insert((relay_hash, relay_number), PerRelayView::new(session_idx));
+
+					prune_old_session_views(view, session_idx);
 
 					if !view.per_session.contains_key(&session_idx) {
 						let session_info =
@@ -268,7 +270,6 @@ pub(crate) async fn run_iteration<Context>(
 
 				aggregate_finalized_approvals_stats(view, finalized_views, metrics);
 				log_session_view_general_stats(view);
-				prune_old_session_views(ctx, view, fin_block_hash).await?;
 
 				view.per_relay = after;
 				view.latest_finalized_block = (fin_block_number, fin_block_hash);
@@ -276,11 +277,10 @@ pub(crate) async fn run_iteration<Context>(
 			FromOrchestra::Communication { msg } => match msg {
 				RewardsStatisticsCollectorMessage::ChunksDownloaded(
 					session_index,
-					candidate_hash,
 					downloads,
-				) => handle_chunks_downloaded(view, session_index, candidate_hash, downloads),
-				RewardsStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) =>
-					handle_chunk_uploaded(view, candidate_hash, authority_ids),
+				) => handle_chunks_downloaded(view, session_index, downloads),
+				RewardsStatisticsCollectorMessage::ChunkUploaded(authority_ids) =>
+					handle_chunk_uploaded(view, authority_ids),
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					block_hash,
 					block_number,
@@ -338,30 +338,11 @@ fn aggregate_finalized_approvals_stats(
 // prune_old_session_views avoid the per_session mapping to grow
 // indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
 // finalized sessions.
-#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
-async fn prune_old_session_views<Context>(
-	ctx: &mut Context,
-	view: &mut View,
-	finalized_hash: Hash,
-) -> Result<()> {
-	let session_idx = request_session_index_for_child(finalized_hash, ctx.sender())
-		.await
-		.await
-		.map_err(JfyiError::OverseerCommunication)?
-		.map_err(JfyiError::RuntimeApiCallError)?;
-
-	match view.current_session {
-		Some(current_session) if current_session < session_idx => {
-			if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
-				view.per_session = view.per_session.split_off(&wipe_before);
-			}
-			view.current_session = Some(session_idx)
-		},
-		None => view.current_session = Some(session_idx),
-		_ => {},
-	};
-
-	Ok(())
+fn prune_old_session_views(view: &mut View, session_idx: SessionIndex, ) {
+	if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
+		view.per_session = view.per_session.split_off(&wipe_before);
+		view.availability_chunks = view.availability_chunks.split_off(&wipe_before);
+	}
 }
 
 fn log_session_view_general_stats(view: &View) {
@@ -382,44 +363,3 @@ fn log_session_view_general_stats(view: &View) {
 	}
 }
 
-#[derive(Debug)]
-pub(crate) enum RuntimeRequestError {
-	NotSupported,
-	ApiError,
-	CommunicationError,
-}
-
-pub(crate) async fn runtime_api_request<T>(
-	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
-	relay_parent: Hash,
-	request: RuntimeApiRequest,
-	receiver: oneshot::Receiver<std::result::Result<T, RuntimeApiSubsystemError>>,
-) -> std::result::Result<T, RuntimeRequestError> {
-	sender
-		.send_message(RuntimeApiMessage::Request(relay_parent, request).into())
-		.await;
-
-	receiver
-		.await
-		.map_err(|_| {
-			gum::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
-			RuntimeRequestError::CommunicationError
-		})
-		.and_then(|res| {
-			res.map_err(|e| {
-				use RuntimeApiSubsystemError::*;
-				match e {
-					Execution { .. } => {
-						gum::debug!(
-							target: LOG_TARGET,
-							?relay_parent,
-							err = ?e,
-							"Runtime API request internal error"
-						);
-						RuntimeRequestError::ApiError
-					},
-					NotSupported { .. } => RuntimeRequestError::NotSupported,
-				}
-			})
-		})
-}
