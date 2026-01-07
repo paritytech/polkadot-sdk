@@ -313,8 +313,8 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// Init values for Parachain
 	let destination = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let sender = PenpalASender::get();
-	let native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 10000;
-	let native_asset_location = RelayLocation::get();
+	let relay_native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 10000;
+	let relay_asset_location = RelayLocation::get();
 	let assets_owner = PenpalAssetOwner::get();
 
 	// Foreign asset used: bridged ROC
@@ -350,9 +350,9 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		native_asset_location.clone(),
+		relay_asset_location.clone(),
 		sender.clone(),
-		native_amount_to_send * 2,
+		relay_native_amount_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
@@ -370,7 +370,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// fund Parachain's SA on AssetHub with the assets held in reserve
 	AssetHubWestend::fund_accounts(vec![(
 		sov_penpal_on_ahr.clone().into(),
-		native_amount_to_send * 2,
+		relay_native_amount_to_send * 2,
 	)]);
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
@@ -381,7 +381,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 
 	// Assets to send
 	let assets: Vec<Asset> = vec![
-		(Parent, native_amount_to_send).into(),
+		(Parent, relay_native_amount_to_send).into(),
 		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
@@ -394,7 +394,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		args: TestArgs::new_para(
 			destination.clone(),
 			receiver.clone(),
-			native_amount_to_send,
+			relay_native_amount_to_send,
 			assets.into(),
 			None,
 			fee_asset_item,
@@ -403,14 +403,15 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	let mut test = ParaToSystemParaTest::new(test_args);
 
 	// Query initial balances
-	let sender_native_before = PenpalA::execute_with(|| {
+	let sender_relay_native_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(relay_asset_location.clone(), &sender)
 	});
 	let sender_rocs_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
+
 	let receiver_native_before = test.receiver.balance;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
@@ -427,15 +428,15 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	test.assert();
 
 	// Query final balances
-	let sender_native_after = PenpalA::execute_with(|| {
+	let sender_relay_native_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(relay_asset_location, &sender)
 	});
 	let sender_rocs_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
-	let receiver_native_after = test.receiver.balance;
+	let receiver_relay_native_after = test.receiver.balance;
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
@@ -444,16 +445,16 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
-	assert!(sender_native_after < sender_native_before - native_amount_to_send);
+	// Sender's balance is reduced by amount sent (no delivery fees as asset owner=root sends them)
+	assert_eq!(sender_relay_native_after, sender_relay_native_before - relay_native_amount_to_send);
 	// Sender's balance is reduced by foreign amount sent
 	assert_eq!(sender_rocs_after, sender_rocs_before - foreign_amount_to_send);
 	// Receiver's balance is increased
-	assert!(receiver_native_after > receiver_native_before);
+	assert!(receiver_relay_native_after > receiver_native_before);
 	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
-	assert!(receiver_native_after < receiver_native_before + native_amount_to_send);
+	assert!(receiver_relay_native_after < receiver_native_before + relay_native_amount_to_send);
 	// Receiver's balance is increased by foreign amount sent
 	assert_eq!(receiver_rocs_after, receiver_rocs_before + foreign_amount_to_send);
 }
