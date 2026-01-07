@@ -9,7 +9,7 @@ doc:
     Even the ones which do not use `pallet_revive`.
 crates:
 - name: revive-dev-runtime
-  bump: minor
+  bump: patch
 - name: pallet-revive
   bump: minor
   validate: false
