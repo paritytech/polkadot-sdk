@@ -1049,6 +1049,13 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 	let system_para_native_asset_location = RelayLocation::get();
 	let system_para_foreign_asset_location = PenpalLocalReservableFromAssetHub::get();
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		system_para_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	// Init Test
 	let para_test_args = TestContext {
 		sender: sender.clone(),
