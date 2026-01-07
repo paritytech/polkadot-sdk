@@ -13,9 +13,7 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-use crate::utils::{
-	env_or_default, initialize_network, APPROVALS_NO_SHOWS_TOTAL_METRIC, COL_IMAGE_ENV,
-};
+use crate::utils::APPROVALS_NO_SHOWS_TOTAL_METRIC;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {

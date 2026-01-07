@@ -328,7 +328,7 @@ async fn verify_mmr_proofs(
 
 	// Get MMR root using RPC
 	let mut root_params = RpcParams::new();
-	root_params.push(format!("{:?}", at_block_hash))?;
+	root_params.push(format!("{at_block_hash:?}"))?;
 	let root: String = rpc_client.request("mmr_root", root_params).await?;
 	log::info!("MMR root at block 21: {}", root);
 
@@ -336,7 +336,7 @@ async fn verify_mmr_proofs(
 	let mut proof_params = RpcParams::new();
 	proof_params.push(vec![1u32, 9, 20])?;
 	proof_params.push(Some(block_21))?;
-	proof_params.push(format!("{:?}", at_block_hash))?;
+	proof_params.push(format!("{at_block_hash:?}"))?;
 	let proof: LeavesProof = rpc_client.request("mmr_generateProof", proof_params).await?;
 	log::info!("Generated MMR proof at block hash: {}", proof.block_hash);
 

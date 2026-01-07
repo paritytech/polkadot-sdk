@@ -183,7 +183,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_image(malus_image.as_str())
 						.with_command("malus")
 						.with_subcommand("dispute-ancestor")
-						.with_args(vec!["--dave".into(), "-lparachain=debug".into()])
+						.with_args(vec![
+							"--dave".into(),
+							"--insecure-validator-i-know-what-i-do".into(),
+							"-lparachain=debug".into(),
+						])
 				})
 		})
 		.with_parachain(|p| {

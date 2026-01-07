@@ -148,8 +148,8 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
-	let col_image = env_or_default(COL_IMAGE_ENV, "docker.io/paritypr/colander:10656-27c42bae");
-	let malus_image = env_or_default(MALUS_IMAGE_ENV, "docker.io/paritypr/malus:10666-e5b2ef85");
+	let col_image = env_or_default(COL_IMAGE_ENV, "docker.io/paritypr/colander:latest");
+	let malus_image = env_or_default(MALUS_IMAGE_ENV, "docker.io/paritypr/malus:latest");
 
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
 		let r = r
@@ -185,7 +185,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"--fake-validation".into(),
 					"approval-invalid".into(),
 					"--bob".into(),
-					"--insecure-validator-i-know-what-i-do".into(),
 					"-lparachain=debug,MALUS=trace".into(),
 				])
 		});
