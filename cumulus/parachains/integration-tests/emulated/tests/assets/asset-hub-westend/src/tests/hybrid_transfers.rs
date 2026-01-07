@@ -194,6 +194,14 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 			)],
 		));
 	});
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		Location::parent(),
+		PenpalAssetOwner::get()
+	);
+
 	PenpalA::force_create_foreign_asset(
 		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
