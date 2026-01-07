@@ -2,12 +2,9 @@ title: Integrate asset test utilities for asset hub westend
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
-
-    Related: #10694, #10515
-    Migrates all `exchange_asset` tests from the integration test suite to unit tests under the `AssetHubWestend` runtime module using `asset-test-utils`. Creates a reusable `exchange_asset_on_asset_hub_works` helper function reducing duplication and improving maintainability.
+    The PR migrates exchange_asset tests from integration tests to unit tests in the AssetHubWestend runtime and introduces a shared helper to reduce duplication.
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
 - name: asset-test-utils
-  bump: patch
+  bump: minor
