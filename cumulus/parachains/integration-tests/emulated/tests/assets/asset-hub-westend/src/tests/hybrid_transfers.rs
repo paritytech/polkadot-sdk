@@ -17,6 +17,7 @@ use emulated_integration_tests_common::create_foreign_pool_with_native_on;
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
+use frame_support::traits::fungible;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -902,7 +903,11 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ah.clone().into(), amount_to_send * 2)]);
 
 	// Query initial balances
-	let sender_balance_before = PenpalA::execute_with(|| {
+	let sender_native_balance_before = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
+	let sender_relay_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
@@ -959,6 +964,10 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	test.assert();
 
 	// Query final balances
+	let sender_native_balance_after = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
 	let sender_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
@@ -970,8 +979,10 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 		<Westend as WestendPallet>::Balances::free_balance(receiver.clone())
 	});
 
-	// Sender's asset balance is reduced by amount sent plus delivery fees
-	assert!(sender_balance_after < sender_balance_before - amount_to_send);
+	// Paid delivery fees
+	assert!(sender_native_balance_after < sender_native_balance_before);
+	// Sender's asset balance is reduced by amount
+	assert_eq!(sender_balance_after, sender_relay_balance_before - amount_to_send);
 	// SA on AH balance is decreased by `amount_to_send`
 	assert_eq!(sov_penpal_on_ah_after, sov_penpal_on_ah_before - amount_to_send);
 	// Receiver's balance is increased
