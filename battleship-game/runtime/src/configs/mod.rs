@@ -343,6 +343,8 @@ impl pallet_collator_selection::Config for Runtime {
 parameter_types! {
 	/// Turn timeout: ~3 minutes at 4 blocks/second (24 blocks per 6 seconds)
 	pub const TurnTimeout: BlockNumber = 720;
+	/// Abandon timeout: ~4 minutes at 4 blocks/second - game is aborted and funds burned
+	pub const AbandonTimeout: BlockNumber = 960;
 }
 
 /// Configure the battleship pallet.
@@ -350,6 +352,7 @@ impl pallet_battleship::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type TurnTimeout = TurnTimeout;
+	type AbandonTimeout = AbandonTimeout;
 	type WeightInfo = pallet_battleship::weights::SubstrateWeight<Runtime>;
 }
 

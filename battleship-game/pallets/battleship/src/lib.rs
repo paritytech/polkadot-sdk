@@ -244,9 +244,13 @@ pub mod pallet {
 		/// Hold reason
 		type RuntimeHoldReason: From<HoldReason>;
 
-		/// Timeout in blocks
+		/// Timeout in blocks for individual turns
 		#[pallet::constant]
 		type TurnTimeout: Get<BlockNumberFor<Self>>;
+
+		/// Timeout in blocks after which abandoned games are aborted and funds burned
+		#[pallet::constant]
+		type AbandonTimeout: Get<BlockNumberFor<Self>>;
 
 		/// Weight info
 		type WeightInfo: WeightInfo;
@@ -296,6 +300,11 @@ pub mod pallet {
 			reason: GameEndReason,
 			prize: BalanceOf<T>,
 		},
+		/// Game abandoned due to inactivity - funds burned
+		GameAbandoned {
+			game_id: GameId,
+			burned_amount: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -330,6 +339,13 @@ pub mod pallet {
 		CannotJoinOwnGame,
 		/// Game ID counter overflow
 		GameIdOverflow,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			Self::cleanup_abandoned_games(remaining_weight)
+		}
 	}
 
 	#[pallet::call]
@@ -1016,6 +1032,105 @@ pub mod pallet {
 			}
 
 			components
+		}
+
+		/// Clean up abandoned games in on_idle
+		fn cleanup_abandoned_games(remaining_weight: Weight) -> Weight {
+			let current_block = frame_system::Pallet::<T>::block_number();
+			let abandon_timeout = T::AbandonTimeout::get();
+
+			// Base weight for the function
+			let base_weight = Weight::from_parts(10_000, 0);
+			let per_game_weight = Weight::from_parts(50_000_000, 0)
+				.saturating_add(T::DbWeight::get().reads(1))
+				.saturating_add(T::DbWeight::get().writes(4));
+
+			if remaining_weight.ref_time() < base_weight.ref_time() {
+				return Weight::zero();
+			}
+
+			let mut used_weight = base_weight;
+			let mut games_to_abort = Vec::new();
+
+			// Find abandoned games
+			for (game_id, game) in Games::<T>::iter() {
+				if used_weight.saturating_add(per_game_weight).ref_time() > remaining_weight.ref_time()
+				{
+					break;
+				}
+				used_weight = used_weight.saturating_add(T::DbWeight::get().reads(1));
+
+				let timeout_block = game.last_action_block.saturating_add(abandon_timeout);
+				if current_block >= timeout_block {
+					// Game is abandoned
+					games_to_abort.push((game_id, game));
+				}
+			}
+
+			// Abort abandoned games
+			for (game_id, game) in games_to_abort {
+				if used_weight.saturating_add(per_game_weight).ref_time() > remaining_weight.ref_time()
+				{
+					break;
+				}
+
+				if Self::abort_abandoned_game(game_id, game).is_ok() {
+					used_weight = used_weight.saturating_add(per_game_weight);
+				}
+			}
+
+			used_weight
+		}
+
+		/// Abort an abandoned game and burn the funds
+		fn abort_abandoned_game(game_id: GameId, game: Game<T>) -> DispatchResult {
+			let pot_amount = game.pot_amount;
+			let mut total_burned = BalanceOf::<T>::default();
+
+			// Release and burn player1's pot
+			T::Currency::release(
+				&HoldReason::GamePot.into(),
+				&game.player1,
+				pot_amount,
+				Precision::Exact,
+			)?;
+			// Burn by transferring to a non-existent account (or use Currency::burn if available)
+			let burned1 = T::Currency::burn_from(
+				&game.player1,
+				pot_amount,
+				Precision::BestEffort,
+				frame_support::traits::tokens::Fortitude::Force,
+			)
+			.unwrap_or_default();
+			total_burned = total_burned.saturating_add(burned1);
+
+			// Release and burn player2's pot if they joined
+			if let Some(ref p2) = game.player2 {
+				T::Currency::release(&HoldReason::GamePot.into(), p2, pot_amount, Precision::Exact)?;
+				let burned2 = T::Currency::burn_from(
+					p2,
+					pot_amount,
+					Precision::BestEffort,
+					frame_support::traits::tokens::Fortitude::Force,
+				)
+				.unwrap_or_default();
+				total_burned = total_burned.saturating_add(burned2);
+			}
+
+			// Clean up player mappings
+			PlayerGame::<T>::remove(&game.player1);
+			PlayerDataStorage::<T>::remove(game_id, &game.player1);
+			if let Some(ref p2) = game.player2 {
+				PlayerGame::<T>::remove(p2);
+				PlayerDataStorage::<T>::remove(game_id, p2);
+			}
+
+			// Remove game from storage
+			Games::<T>::remove(game_id);
+
+			Self::deposit_event(Event::GameAbandoned { game_id, burned_amount: total_burned });
+
+			Ok(())
 		}
 	}
 }
