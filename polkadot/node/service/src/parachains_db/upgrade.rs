@@ -407,7 +407,7 @@ pub(crate) fn paritydb_version_3_config(path: &Path) -> parity_db::Options {
 	options
 }
 
-fn paritydb_version_5_config(path: &Path) -> parity_db::Options {
+pub(crate) fn paritydb_version_5_config(path: &Path) -> parity_db::Options {
 	let mut options =
 		parity_db::Options::with_columns(&path, super::columns::v5::NUM_COLUMNS as u8);
 	for idx in columns::v5::ORDERED_COL {

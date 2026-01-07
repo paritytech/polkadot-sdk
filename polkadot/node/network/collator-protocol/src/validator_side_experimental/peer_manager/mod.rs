@@ -16,6 +16,7 @@
 mod backend;
 mod connected;
 mod db;
+mod persistent_db;
 
 use futures::channel::oneshot;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -28,11 +29,12 @@ use crate::{
 		},
 		error::{Error, JfyiError, Result},
 	},
+	validator_side_metrics::Metrics,
 	LOG_TARGET,
 };
 pub use backend::Backend;
 use connected::ConnectedPeers;
-pub use db::Db;
+pub use persistent_db::{PersistentDb, ReputationConfig};
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
@@ -73,6 +75,7 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
+	pub(crate) _metrics: Metrics,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -82,6 +85,7 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+		metrics: Metrics,
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -91,6 +95,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
+			_metrics: metrics,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =

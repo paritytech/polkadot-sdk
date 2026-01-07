@@ -31,8 +31,10 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
+codec.workspace = true
 
 [dev-dependencies]
+kvdb-memorydb.workspace = true
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 sc-network-types = { workspace = true, default-features = true }

@@ -140,7 +140,7 @@ pub fn open_creating_rocksdb(
 
 	let path = root.join("parachains").join("db");
 
-	let mut db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
+	let mut db_config = DatabaseConfig::with_columns(columns::v5::NUM_COLUMNS);
 
 	let _ = db_config
 		.memory_budget
@@ -161,7 +161,7 @@ pub fn open_creating_rocksdb(
 	let db = Database::open(&db_config, &path_str)?;
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(
 		db,
-		columns::v4::ORDERED_COL,
+		columns::v5::ORDERED_COL,
 	);
 
 	Ok(Arc::new(db))
@@ -181,12 +181,12 @@ pub fn open_creating_paritydb(
 	std::fs::create_dir_all(&path_str)?;
 	upgrade::try_upgrade_db(&path, DatabaseKind::ParityDB, upgrade::CURRENT_VERSION)?;
 
-	let db = parity_db::Db::open_or_create(&upgrade::paritydb_version_3_config(&path))
+	let db = parity_db::Db::open_or_create(&upgrade::paritydb_version_5_config(&path))
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, format!("{:?}", err)))?;
 
 	let db = polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter::new(
 		db,
-		columns::v4::ORDERED_COL,
+		columns::v5::ORDERED_COL,
 	);
 	Ok(Arc::new(db))
 }

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2},
@@ -75,7 +76,7 @@ pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(1000);
 pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(500);
 
 /// Reputation score type.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Decode, Encode)]
 pub struct Score(u16);
 
 impl Score {

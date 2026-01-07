@@ -35,14 +35,16 @@ use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
 	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal,
 };
+use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
-use std::{future, future::Future, pin::Pin, time::Duration};
+use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use peer_manager::{Db, PeerManager};
+use peer_manager::{PeerManager, PersistentDb};
 
 use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
+pub use peer_manager::ReputationConfig;
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -50,9 +52,11 @@ pub(crate) async fn run<Context>(
 	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	db: Arc<dyn Database>,
+	reputation_col: u32,
 ) -> FatalResult<()> {
 	gum::info!(LOG_TARGET, "Running experimental collator protocol");
-	if let Some(state) = initialize(&mut ctx, keystore, metrics).await? {
+	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_col).await? {
 		run_inner(ctx, state).await?;
 	}
 
@@ -64,7 +68,9 @@ async fn initialize<Context>(
 	ctx: &mut Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
-) -> FatalResult<Option<State<Db>>> {
+	db: Arc<dyn Database>,
+	reputation_col: u32,
+) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
 			Some(activated_leaf) => {
@@ -84,10 +90,16 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+		//let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+		let backend = PersistentDb::new(db.clone(), reputation_col, MAX_STORED_SCORES_PER_PARA);
 
-		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
-			.await
+		match PeerManager::startup(
+			backend,
+			ctx.sender(),
+			scheduled_paras.into_iter().collect(),
+			metrics.clone(),
+		)
+		.await
 		{
 			Ok(peer_manager) =>
 				return Ok(Some(State::new(peer_manager, collation_manager, metrics))),
@@ -134,7 +146,7 @@ fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output
 }
 
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResult<()> {
+async fn run_inner<Context>(mut ctx: Context, mut state: State<PersistentDb>) -> FatalResult<()> {
 	let mut timer = create_timer(None);
 	loop {
 		select! {
@@ -182,7 +194,7 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn process_msg<Context>(
 	ctx: &mut Context,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	msg: CollatorProtocolMessage,
 ) {
 	use CollatorProtocolMessage::*;
@@ -236,7 +248,7 @@ async fn process_msg<Context>(
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn handle_network_msg<Context>(
 	ctx: &mut Context,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	bridge_message: NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>,
 ) -> Result<()> {
 	use NetworkBridgeEvent::*;
@@ -285,7 +297,7 @@ async fn handle_network_msg<Context>(
 #[overseer::contextbounds(CollatorProtocol, prefix = overseer)]
 async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	origin: PeerId,
 	msg: CollationProtocols<
 		protocol_v1::CollatorProtocolMessage,

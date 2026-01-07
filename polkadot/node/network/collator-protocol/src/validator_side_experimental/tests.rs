@@ -947,11 +947,13 @@ async fn make_state<B: Backend>(
 		.await
 		.unwrap();
 
-		let peer_manager = PeerManager::startup(db, &mut sender, collation_manager.assignments())
-			.await
-			.unwrap();
+		let metrics = Metrics::default();
+		let peer_manager =
+			PeerManager::startup(db, &mut sender, collation_manager.assignments(), metrics.clone())
+				.await
+				.unwrap();
 
-		State::new(peer_manager, collation_manager, Metrics::default())
+		State::new(peer_manager, collation_manager, metrics)
 	};
 
 	let (state, ..) = futures::join!(initializer, responder);
@@ -1052,13 +1054,21 @@ impl Drop for MockDb {
 	}
 }
 
+fn test_db() -> Arc<dyn Database> {
+	let db = kvdb_memorydb::create(1);
+	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[0]);
+	Arc::new(db)
+}
+
 #[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
 // More fine grained tests are in the `ConnectedPeers` unit tests.
 async fn test_connection_flow() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
-	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+	let db = test_db();
+
+	let db = PersistentDb::new(db, 0, MAX_STORED_SCORES_PER_PARA);
 	let mut state = make_state(db, &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 
