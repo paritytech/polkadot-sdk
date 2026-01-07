@@ -19,6 +19,7 @@ use crate::{imports::*};
 
 use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_pool_with_wnd_on, test_can_estimate_and_pay_exact_fees};
 use frame_support::dispatch::RawOrigin;
+use frame_support::traits::fungible;
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
@@ -179,6 +180,18 @@ fn multi_hop_works() {
 		amount_to_send * 2,
 	);
 
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	// fund the Parachain Origin's SA on AssetHub with the native tokens held in reserve.
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah.clone(), amount_to_send * 2)]);
 
@@ -219,7 +232,7 @@ fn multi_hop_works() {
 			.unwrap();
 		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
-		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
+		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::here());
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			remote_message.clone(),
@@ -241,7 +254,7 @@ fn multi_hop_works() {
 		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
 		intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
 			weight,
-			VersionedAssetId::from(AssetId(Location::new(1, []))),
+			VersionedAssetId::from(Location::parent()),
 		)
 		.unwrap();
 
@@ -266,7 +279,7 @@ fn multi_hop_works() {
 		// We could've gotten the message from the queue without having to dry-run, but
 		// offchain applications would have to dry-run, so we do it here as well.
 		intermediate_remote_message = messages_to_query[0].clone();
-		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::here());
+		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			intermediate_remote_message.clone(),
@@ -283,7 +296,7 @@ fn multi_hop_works() {
 
 		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
 		final_execution_fees =
-			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::here()))
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
 				.unwrap();
 	});
 
@@ -299,12 +312,29 @@ fn multi_hop_works() {
 		sender.clone(),
 		amount_to_send * 2,
 	);
+
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
 
 	// Actually run the extrinsic.
 	let sender_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+	});
+	let sender_balance_before = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as  fungible::Inspect<_>>::balance(&sender)
 	});
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -322,6 +352,10 @@ fn multi_hop_works() {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
+	let sender_balance_after = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as  fungible::Inspect<_>>::balance(&sender)
+	});
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
@@ -330,10 +364,14 @@ fn multi_hop_works() {
 	// We know the exact fees on every hop.
 	assert_eq!(
 		sender_assets_after,
-		sender_assets_before - amount_to_send - delivery_fees_amount /* This is charged directly
-		                                                              * from the sender's
-		                                                              * account. */
+		sender_assets_before - amount_to_send
 	);
+	assert_eq!(
+		sender_balance_after,
+		// This is charged directly from the sender's account.
+		sender_balance_before - delivery_fees_amount
+	);
+
 	assert_eq!(
 		receiver_assets_after,
 		receiver_assets_before + amount_to_send -
