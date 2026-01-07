@@ -203,13 +203,6 @@ pub(crate) async fn run_iteration<Context>(
 					let relay_hash = activated.hash;
 					let relay_number = activated.number;
 
-					let (tx, rx) = oneshot::channel();
-					ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
-					let header = rx
-						.map_err(JfyiError::OverseerCommunication)
-						.await?
-						.map_err(JfyiError::ChainApiCallError)?;
-
 					let session_idx = request_session_index_for_child(relay_hash, ctx.sender())
 						.await
 						.await
