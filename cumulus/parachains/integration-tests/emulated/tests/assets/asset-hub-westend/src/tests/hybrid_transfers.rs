@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::create_foreign_pool_with_native_on;
-use emulated_integration_tests_common::xcm_helpers::{
-	find_mq_processed_id, find_xcm_sent_message_id,
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on,
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 };
 use frame_support::traits::fungible;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -197,11 +197,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	});
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalA,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalA, Location::parent(), PenpalAssetOwner::get());
 
 	PenpalA::force_create_foreign_asset(
 		roc_at_westend_parachains.clone(),
@@ -525,12 +521,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	);
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalB,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
-
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(

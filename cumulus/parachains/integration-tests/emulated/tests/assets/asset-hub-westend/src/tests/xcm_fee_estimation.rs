@@ -15,11 +15,13 @@
 
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
-use crate::{imports::*};
+use crate::imports::*;
 
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_pool_with_wnd_on, test_can_estimate_and_pay_exact_fees};
-use frame_support::dispatch::RawOrigin;
-use frame_support::traits::fungible;
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
+	test_can_estimate_and_pay_exact_fees,
+};
+use frame_support::{dispatch::RawOrigin, traits::fungible};
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
@@ -252,11 +254,9 @@ fn multi_hop_works() {
 
 		// First we get the execution fees.
 		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
-		intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
-			weight,
-			VersionedAssetId::from(Location::parent()),
-		)
-		.unwrap();
+		intermediate_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
+				.unwrap();
 
 		// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
 		let xcm_program = VersionedXcm::from(Xcm::<RuntimeCall>::from(
@@ -334,7 +334,7 @@ fn multi_hop_works() {
 	});
 	let sender_balance_before = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
-		<Balances as  fungible::Inspect<_>>::balance(&sender)
+		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -354,7 +354,7 @@ fn multi_hop_works() {
 	});
 	let sender_balance_after = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
-		<Balances as  fungible::Inspect<_>>::balance(&sender)
+		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -362,10 +362,7 @@ fn multi_hop_works() {
 	});
 
 	// We know the exact fees on every hop.
-	assert_eq!(
-		sender_assets_after,
-		sender_assets_before - amount_to_send
-	);
+	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
 	assert_eq!(
 		sender_balance_after,
 		// This is charged directly from the sender's account.

@@ -13,12 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_pool_with_wnd_on};
-use crate::{
-	foreign_balance_on, imports::*,
-};
-use emulated_integration_tests_common::xcm_helpers::{
-	find_mq_processed_id, find_xcm_sent_message_id,
+use crate::{foreign_balance_on, imports::*};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 };
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -903,11 +901,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	let receiver = PenpalAReceiver::get();
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalA,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalA, Location::parent(), PenpalAssetOwner::get());
 
 	// Init Test
 	let test_args = TestContext {
@@ -1324,7 +1318,8 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let receiver_assets_after =
 		foreign_balance_on!(PenpalB, relay_native_asset_location, &receiver);
 
-	// Sender's balance is reduced by amount sent plus delivery fees (delivery fees are charged in native)
+	// Sender's balance is reduced by amount sent plus delivery fees (delivery fees are charged in
+	// native)
 	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
 	// Receiver's balance is increased by `amount_to_send` minus delivery fees.
 	assert!(receiver_assets_after > receiver_assets_before);

@@ -140,43 +140,43 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 
 	if expected_asset_id != Location::here() {
 		assert_expected_events!(
-		PenpalA,
-		vec![
-			// checking account burns local asset as part of incoming teleport
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
-				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == checking_account,
-				balance: *balance == expected_asset_amount,
-			},
-			// local asset is teleported into account of receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == t.receiver.account_id,
-				amount: *amount == expected_asset_amount,
-			},
-			// relay chain native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.receiver.account_id,
-			},
-		]
-	);
+			PenpalA,
+			vec![
+				// checking account burns local asset as part of incoming teleport
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+					asset_id: *asset_id == expected_asset_id,
+					owner: *owner == checking_account,
+					balance: *balance == expected_asset_amount,
+				},
+				// local asset is teleported into account of receiver
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+					asset_id: *asset_id == expected_asset_id,
+					owner: *owner == t.receiver.account_id,
+					amount: *amount == expected_asset_amount,
+				},
+				// relay chain native asset for fee is deposited to receiver
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == system_para_native_asset_location,
+					owner: *owner == t.receiver.account_id,
+				},
+			]
+		);
 	} else {
 		assert_expected_events!(
-		PenpalA,
-		vec![
-			// local asset is teleported into account of receiver
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
-				who: *who == t.receiver.account_id,
-				amount: *amount == expected_asset_amount,
-			},
-			// relay chain native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.receiver.account_id,
-			},
-		]
-	);
+			PenpalA,
+			vec![
+				// local asset is teleported into account of receiver
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
+					who: *who == t.receiver.account_id,
+					amount: *amount == expected_asset_amount,
+				},
+				// relay chain native asset for fee is deposited to receiver
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == system_para_native_asset_location,
+					owner: *owner == t.receiver.account_id,
+				},
+			]
+		);
 	}
 }
 
@@ -671,7 +671,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	// Sender's balance is reduced by send amount (and potentially delivery fees).
 	assert!(
-		penpal_sender_native_balance_before - penpal_native_amount_to_send >= penpal_sender_native_balance_after
+		penpal_sender_native_balance_before - penpal_native_amount_to_send >=
+			penpal_sender_native_balance_after
 	);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + penpal_native_amount_to_send);

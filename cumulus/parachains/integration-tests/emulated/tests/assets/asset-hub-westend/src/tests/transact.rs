@@ -13,10 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_pool_with_wnd_on};
-use crate::{
-	assets_balance_on,
-	foreign_balance_on, imports::*,
+use crate::{assets_balance_on, foreign_balance_on, imports::*};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
 };
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};

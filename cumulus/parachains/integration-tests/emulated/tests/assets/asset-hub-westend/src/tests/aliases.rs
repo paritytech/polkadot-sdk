@@ -16,7 +16,9 @@
 //! Tests related to XCM aliasing.
 
 use crate::imports::*;
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias,
+};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
@@ -41,11 +43,7 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	);
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalB,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// On Asset Hub we don't want to support aliasing from other chains:
 	// - there is no real world demand for it, the direction is usually reversed, users already have
@@ -86,11 +84,7 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 	);
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalB,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// Aliasing different account on different chains
 	test_cross_chain_alias!(
@@ -220,11 +214,7 @@ fn authorized_cross_chain_aliases() {
 	AssetHubWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalB,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// let's authorize `origin` on Penpal to alias `target` on AssetHub
 	AssetHubWestend::execute_with(|| {

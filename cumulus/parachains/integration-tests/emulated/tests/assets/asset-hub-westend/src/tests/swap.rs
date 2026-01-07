@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::PenpalALocation;
 use crate::imports::*;
+use emulated_integration_tests_common::PenpalALocation;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
