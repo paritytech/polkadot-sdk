@@ -172,6 +172,9 @@ fn send_weth_from_ethereum_to_penpal() {
 	// Fund AssetHub sovereign account so it can pay execution fees for the asset transfer
 	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
+
 	// Fund PenPal receiver (covering ED)
 	let native_id: Location = Parent.into();
 	let receiver: AccountId = [
