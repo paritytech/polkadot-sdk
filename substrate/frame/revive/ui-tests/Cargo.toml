@@ -35,6 +35,10 @@ polkadot-sdk = { optional = true, workspace = true, features = [
 	"substrate-wasm-builder",
 ] }
 
+[dev-dependencies]
+trybuild = { workspace = true }
+pallet-revive = { workspace = true, features = ["trybuild"] }
+
 [features]
 default = ["std"]
 std = [
@@ -45,7 +49,3 @@ std = [
 	"serde_json/std",
 	"sp-debug-derive/std",
 ]
-
-[dev-dependencies]
-trybuild = { workspace = true }
-pallet-revive = { workspace = true, features = ["trybuild"] }
