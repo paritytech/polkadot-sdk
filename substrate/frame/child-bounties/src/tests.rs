@@ -136,7 +136,7 @@ impl pallet_bounties::Config for Test {
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
 	type NativeAsset = Balances;
-	type Assets = pallet_bounties::NoAssets<AccountId, Balance, AssetId>;
+	type Assets = pallet_bounties::NoAssets<AccountId, Balance>;
 	type RelevantAssets = ();
 }
 impl pallet_child_bounties::Config for Test {

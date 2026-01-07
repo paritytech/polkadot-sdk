@@ -98,7 +98,7 @@ use alloc::vec::Vec;
 use frame_support::traits::{
 	fungible::Inspect as FungibleInspect,
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-	tokens::{Fortitude, Preservation},
+	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 	Currency,
 	ExistenceRequirement::AllowDeath,
 	Get, Imbalance, OnUnbalanced, ReservableCurrency,
@@ -108,7 +108,7 @@ use frame_support::traits::{
 use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	Debug, DispatchResult, Permill,
+	Debug, DispatchResult, Permill, TokenError,
 };
 
 use frame_support::{
@@ -289,6 +289,8 @@ pub mod pallet {
 		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Mutate assets.
+		///
+		/// Consider setting this to `NoAssets` if there are no assets in the runtime.
 		type Assets: FungiblesMutate<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Assets that should returned to the treasury by `close_bounty`.
@@ -983,7 +985,7 @@ pub mod pallet {
 		/// Sanity check for Currency and Fungible adapter,
 		#[cfg(feature = "std")]
 		fn integrity_test() {
-			/*let Ok(alice) = Decode::decode(&mut TrailingZeroInput::zeroes()) else {
+			let Ok(alice) = Decode::decode(&mut TrailingZeroInput::zeroes()) else {
 				// cannot perform check...
 				return;
 			};
@@ -994,7 +996,7 @@ pub mod pallet {
 				T::NativeAsset::total_balance(&alice),
 				amount,
 				"Currency and NativeAsset config items are configured to difference sources"
-			);*/
+			);
 		}
 	}
 }
@@ -1228,19 +1230,14 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	fn bounty_removed(_bounty_id: BountyIndex) {}
 }
 
-use frame_support::traits::tokens::{DepositConsequence, Provenance, WithdrawConsequence};
-use sp_runtime::TokenError;
-
-pub struct NoAssets<AccountId, Balance, AssetId>(
-	core::marker::PhantomData<(AccountId, Balance, AssetId)>,
-);
-impl<AccountId, Balance, AssetId> frame_support::traits::fungibles::Inspect<AccountId>
-	for NoAssets<AccountId, Balance, AssetId>
+/// Fungibles Mutate implementation that does nothing.
+pub struct NoAssets<AccountId, Balance>(core::marker::PhantomData<(AccountId, Balance)>);
+impl<AccountId, Balance> frame_support::traits::fungibles::Inspect<AccountId>
+	for NoAssets<AccountId, Balance>
 where
-	AssetId: frame_support::traits::tokens::AssetId,
 	Balance: frame_support::traits::tokens::Balance,
 {
-	type AssetId = AssetId;
+	type AssetId = ();
 	type Balance = Balance;
 
 	fn total_issuance(_asset: Self::AssetId) -> Self::Balance {
@@ -1290,10 +1287,9 @@ where
 	}
 }
 
-impl<AccountId, Balance, AssetId> frame_support::traits::fungibles::Unbalanced<AccountId>
-	for NoAssets<AccountId, Balance, AssetId>
+impl<AccountId, Balance> frame_support::traits::fungibles::Unbalanced<AccountId>
+	for NoAssets<AccountId, Balance>
 where
-	AssetId: frame_support::traits::tokens::AssetId,
 	Balance: frame_support::traits::tokens::Balance,
 {
 	fn handle_dust(_dust: frame_support::traits::fungibles::Dust<AccountId, Self>) {}
@@ -1311,10 +1307,9 @@ where
 	fn reactivate(_asset: Self::AssetId, _amount: Self::Balance) {}
 }
 
-impl<AccountId, Balance, AssetId> frame_support::traits::fungibles::Mutate<AccountId>
-	for NoAssets<AccountId, Balance, AssetId>
+impl<AccountId, Balance> frame_support::traits::fungibles::Mutate<AccountId>
+	for NoAssets<AccountId, Balance>
 where
-	AssetId: frame_support::traits::tokens::AssetId,
 	Balance: frame_support::traits::tokens::Balance,
 	AccountId: Eq,
 {
