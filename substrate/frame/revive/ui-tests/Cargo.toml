@@ -23,6 +23,7 @@ polkadot-sdk = { workspace = true, features = [
 	"runtime",
 	"with-tracing",
 ] }
+
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = [
 	"alloc",
@@ -47,3 +48,4 @@ std = [
 
 [dev-dependencies]
 trybuild = { workspace = true }
+pallet-revive = { workspace = true, features = ["trybuild"] }

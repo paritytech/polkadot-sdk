@@ -469,6 +469,8 @@ impl<T: Config> Precompiles<T> for Tuple {
 	}
 }
 
+#[cfg(feature = "trybuild")]
+#[allow(private_bounds)]
 pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
 	// This references the private trait inside the crate.
 	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
