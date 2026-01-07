@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::create_foreign_pool_with_native_on;
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
@@ -145,8 +146,8 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 		1_000_000_000_000,
 		20_000_000_000
 	);
-	// We also need a pool between WND and WETH on PenpalB to support paying for fees with WETH.
-	create_foreign_pool_with_parent_native_on!(
+	// We also need a pool between PEN and WETH on PenpalB to support paying for fees with WETH.
+	create_foreign_pool_with_native_on!(
 		PenpalB,
 		bridged_weth.clone(),
 		PenpalAssetOwner::get(),
