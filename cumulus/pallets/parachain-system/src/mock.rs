@@ -100,6 +100,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingV3Enabled = ConstBool<false>;
+	type MaxClaimQueueOffset = sp_core::ConstU8<1>;
 }
 
 std::thread_local! {

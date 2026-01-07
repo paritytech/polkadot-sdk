@@ -20,9 +20,8 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use polkadot_primitives::{
-    AppVerify, CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
-};
+use polkadot_primitives::{CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader};
+use sp_runtime::traits::AppVerify;
 
 /// Payload signed by a collator for resubmission.
 ///
