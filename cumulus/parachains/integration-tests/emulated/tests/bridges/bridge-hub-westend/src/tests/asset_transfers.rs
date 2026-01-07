@@ -589,7 +589,6 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 	create_foreign_pool_with_parent_native_on!(
 		PenpalA,
 		wnd_at_rococo_parachains.clone(),
-		true,
 		asset_owner
 	);
 
