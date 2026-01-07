@@ -16,10 +16,9 @@
 //! Tests related to XCM aliasing.
 
 use crate::imports::*;
-use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
-use crate::create_foreign_pool_with_native_on;
 
 const ALLOWED: bool = true;
 const DENIED: bool = false;

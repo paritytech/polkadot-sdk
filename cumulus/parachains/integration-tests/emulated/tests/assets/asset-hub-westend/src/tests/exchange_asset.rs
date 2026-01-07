@@ -14,8 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	assets_balance_on, create_foreign_pool_with_native_on, create_foreign_pool_with_wnd_on,
-	create_pool_with_wnd_on, foreign_balance_on,
+	assets_balance_on, foreign_balance_on,
 	imports::{
 		asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
 		*,
@@ -24,7 +23,7 @@ use crate::{
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
-use emulated_integration_tests_common::{accounts::ALICE, xcm_emulator::TestExt};
+use emulated_integration_tests_common::{accounts::ALICE, create_foreign_pool_with_native_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, xcm_emulator::TestExt};
 use frame_support::{
 	assert_err_ignore_postinfo, assert_ok,
 	traits::fungible::{Inspect, Mutate},

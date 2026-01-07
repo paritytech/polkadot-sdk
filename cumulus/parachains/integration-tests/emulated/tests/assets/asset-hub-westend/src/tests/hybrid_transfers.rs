@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::create_foreign_pool_with_native_on;
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
@@ -20,7 +21,7 @@ use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dm
 
 use super::reserve_transfer::*;
 use crate::{
-	create_foreign_pool_with_native_on, imports::*,
+	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
 

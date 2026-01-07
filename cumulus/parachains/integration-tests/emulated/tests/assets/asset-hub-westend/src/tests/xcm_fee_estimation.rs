@@ -15,9 +15,9 @@
 
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
-use crate::{create_foreign_pool_with_wnd_on, create_pool_with_wnd_on, imports::*};
+use crate::{imports::*};
 
-use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_pool_with_wnd_on, test_can_estimate_and_pay_exact_fees};
 use frame_support::dispatch::RawOrigin;
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
@@ -266,7 +266,7 @@ fn multi_hop_works() {
 		// We could've gotten the message from the queue without having to dry-run, but
 		// offchain applications would have to dry-run, so we do it here as well.
 		intermediate_remote_message = messages_to_query[0].clone();
-		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
+		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::here());
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			intermediate_remote_message.clone(),
@@ -283,7 +283,7 @@ fn multi_hop_works() {
 
 		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
 		final_execution_fees =
-			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::here()))
 				.unwrap();
 	});
 
@@ -405,7 +405,7 @@ fn usdt_fee_estimation_in_usdt_works() {
 
 	// Create a liquidity pool between WND and USDT on PenpalA as well
 	// This is needed for PenpalA to perform asset conversion for fee estimation
-	create_foreign_pool_with_wnd_on!(
+	create_foreign_pool_with_native_on!(
 		PenpalA,
 		usdt_location_on_penpal.clone(),
 		PenpalAssetOwner::get(),

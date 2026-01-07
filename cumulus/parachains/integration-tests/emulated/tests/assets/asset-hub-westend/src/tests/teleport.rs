@@ -558,8 +558,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	)]);
 
 	// Init values for System Parachain
-	let penpal_native_as_foreign_asset_at_asset_hub =
-		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())]);
+	let penpal_native_as_foreign_asset_at_asset_hub = PenpalALocation::get();
 
 	let penpal_to_ah_beneficiary_id = AssetHubWestendReceiver::get();
 

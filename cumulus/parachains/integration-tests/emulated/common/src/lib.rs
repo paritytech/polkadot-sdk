@@ -16,6 +16,7 @@
 pub mod impls;
 pub mod macros;
 pub mod xcm_helpers;
+mod pools;
 
 use codec::Encode;
 use cumulus_primitives_core::relay_chain::Slot;
