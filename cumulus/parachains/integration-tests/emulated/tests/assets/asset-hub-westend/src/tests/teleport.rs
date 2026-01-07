@@ -35,27 +35,45 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let system_para_native_asset_location = RelayLocation::get();
-	// let expected_asset_id = t.args.asset_id.unwrap();
+	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
-	assert_expected_events!(
-		PenpalA,
-		vec![
-			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, .. }
-			) => {
-				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.sender.account_id,
-			},
-			// RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
-			// 	asset_id: *asset_id == expected_asset_id,
-			// 	owner: *owner == t.sender.account_id,
-			// 	balance: *balance == expected_asset_amount,
-			// },
-		]
-	);
+	if expected_asset_id != Location::here() {
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::ForeignAssets(
+					pallet_assets::Event::Burned { asset_id, owner, .. }
+				) => {
+					asset_id: *asset_id == system_para_native_asset_location,
+					owner: *owner == t.sender.account_id,
+				},
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+					asset_id: *asset_id == expected_asset_id,
+					owner: *owner == t.sender.account_id,
+					balance: *balance == expected_asset_amount,
+				},
+			]
+		);
+	} else {
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+					who: *who == t.sender.account_id,
+					amount: *amount == expected_asset_amount,
+				},
+				RuntimeEvent::ForeignAssets(
+					pallet_assets::Event::Burned { asset_id, owner, .. }
+				) => {
+					asset_id: *asset_id == system_para_native_asset_location,
+					owner: *owner == t.sender.account_id,
+				},
+			]
+		);
+	}
 }
 
 fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
@@ -112,7 +130,7 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 
 fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	// let expected_asset_id = t.args.asset_id.unwrap();
+	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
@@ -120,28 +138,46 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 
 	PenpalA::assert_xcmp_queue_success(None);
 
-	assert_expected_events!(
+	if expected_asset_id != Location::here() {
+		assert_expected_events!(
 		PenpalA,
 		vec![
 			// checking account burns local asset as part of incoming teleport
-			// RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
-			// 	asset_id: *asset_id == expected_asset_id,
-			// 	owner: *owner == checking_account,
-			// 	balance: *balance == expected_asset_amount,
-			// },
-			// // local asset is teleported into account of receiver
-			// RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-			// 	asset_id: *asset_id == expected_asset_id,
-			// 	owner: *owner == t.receiver.account_id,
-			// 	amount: *amount == expected_asset_amount,
-			// },
-			// native asset for fee is deposited to receiver
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+				asset_id: *asset_id == expected_asset_id,
+				owner: *owner == checking_account,
+				balance: *balance == expected_asset_amount,
+			},
+			// local asset is teleported into account of receiver
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+				asset_id: *asset_id == expected_asset_id,
+				owner: *owner == t.receiver.account_id,
+				amount: *amount == expected_asset_amount,
+			},
+			// relay chain native asset for fee is deposited to receiver
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 				asset_id: *asset_id == system_para_native_asset_location,
 				owner: *owner == t.receiver.account_id,
 			},
 		]
 	);
+	} else {
+		assert_expected_events!(
+		PenpalA,
+		vec![
+			// local asset is teleported into account of receiver
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
+				who: *who == t.receiver.account_id,
+				amount: *amount == expected_asset_amount,
+			},
+			// relay chain native asset for fee is deposited to receiver
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				asset_id: *asset_id == system_para_native_asset_location,
+				owner: *owner == t.receiver.account_id,
+			},
+		]
+	);
+	}
 }
 
 fn relay_to_system_para_limited_teleport_assets(t: RelayToSystemParaTest) -> DispatchResult {
@@ -578,8 +614,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			penpal_to_ah_beneficiary_id,
 			penpal_native_amount_to_send,
 			penpal_assets,
-			None,
-			// Some(asset_location_on_penpal),
+			Some(native_asset_on_penpal),
 			fee_asset_index,
 		),
 	};
@@ -682,8 +717,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			ah_to_penpal_beneficiary_id,
 			asset_amount_to_send,
 			ah_assets,
-			None,
-			// Some(asset_location_on_penpal),
+			Some(Location::here()),
 			fee_asset_index,
 		),
 	};

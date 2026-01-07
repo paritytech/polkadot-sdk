@@ -236,7 +236,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
-		args: TestArgs::new_para(
+		args: TestArgs::<Location>::new_para(
 			destination.clone(),
 			receiver.clone(),
 			native_amount_to_send,
