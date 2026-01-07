@@ -11,4 +11,5 @@ crates:
 - name: revive-dev-runtime
   bump: minor
 - name: pallet-revive
-  bump: major
+  bump: minor
+  validate: false
