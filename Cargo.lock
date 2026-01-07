@@ -13288,6 +13288,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-ui-tests"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "array-bytes 6.2.2",
+ "pallet-revive",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "serde_json",
+ "sp-debug-derive 14.0.0",
+ "trybuild",
+]
+
+[[package]]
 name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [
@@ -26235,21 +26250,6 @@ name = "ucd-trie"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
-
-[[package]]
-name = "ui-tests"
-version = "0.1.0"
-dependencies = [
- "alloy-core",
- "array-bytes 6.2.2",
- "pallet-revive",
- "parity-scale-codec",
- "polkadot-sdk",
- "scale-info",
- "serde_json",
- "sp-debug-derive 14.0.0",
- "trybuild",
-]
 
 [[package]]
 name = "uint"
