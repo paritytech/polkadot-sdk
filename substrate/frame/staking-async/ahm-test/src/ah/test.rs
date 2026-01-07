@@ -1561,6 +1561,73 @@ mod session_keys {
 	}
 
 	#[test]
+	fn set_keys_via_staking_proxy() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
+			let stash: AccountId = 1;
+			let proxy: AccountId = 99;
+			let (keys, proof) = make_session_keys_and_proof(stash);
+
+			// Fund the proxy account so it can pay for proxy deposit
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
+
+			// Set up proxy relationship: proxy can act on behalf of stash for Staking calls
+			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
+				RuntimeOrigin::signed(stash),
+				proxy,
+				ProxyType::Staking,
+				0, // no delay
+			));
+
+			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
+			let set_keys_call =
+				RuntimeCall::RcClient(rc_client::Call::set_keys { keys: keys.clone(), proof });
+
+			// THEN: The call succeeds (keys forwarded to RC via XCM)
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None, // no force_proxy_type
+				Box::new(set_keys_call),
+			));
+
+			// WHEN: Proxy calls purge_keys on behalf of stash
+			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {});
+
+			// THEN: The call succeeds
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None,
+				Box::new(purge_keys_call),
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_fails_when_fee_charging_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator but fee charging will fail (simulates insufficient balance)
+			let validator: AccountId = 1;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			MockFeeChargingFails::set(true);
+
+			// WHEN: Validator tries to set keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+
+			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			assert!(System::events().iter().all(|e| !matches!(
+				e.event,
+				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+			)));
+		});
+	}
+
+	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator with mock delivery fees configured
@@ -1637,46 +1704,24 @@ mod session_keys {
 	}
 
 	#[test]
-	fn set_keys_via_staking_proxy() {
+	fn purge_keys_fails_when_fee_charging_fails() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
-			let stash: AccountId = 1;
-			let proxy: AccountId = 99;
-			let (keys, proof) = make_session_keys_and_proof(stash);
+			// GIVEN: Any account but fee charging will fail (simulates insufficient balance)
+			let account: AccountId = 3;
+			MockFeeChargingFails::set(true);
 
-			// Fund the proxy account so it can pay for proxy deposit
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
+			// WHEN: Account tries to purge keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account)),
+				rc_client::Error::<T>::XcmSendFailed
+			);
 
-			// Set up proxy relationship: proxy can act on behalf of stash for Staking calls
-			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
-				RuntimeOrigin::signed(stash),
-				proxy,
-				ProxyType::Staking,
-				0, // no delay
-			));
-
-			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
-			let set_keys_call =
-				RuntimeCall::RcClient(rc_client::Call::set_keys { keys: keys.clone(), proof });
-
-			// THEN: The call succeeds (keys forwarded to RC via XCM)
-			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
-				RuntimeOrigin::signed(proxy),
-				stash,
-				None, // no force_proxy_type
-				Box::new(set_keys_call),
-			));
-
-			// WHEN: Proxy calls purge_keys on behalf of stash
-			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {});
-
-			// THEN: The call succeeds
-			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
-				RuntimeOrigin::signed(proxy),
-				stash,
-				None,
-				Box::new(purge_keys_call),
-			));
+			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			assert!(System::events().iter().all(|e| !matches!(
+				e.event,
+				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+			)));
 		});
 	}
 
@@ -1718,51 +1763,6 @@ mod session_keys {
 		shared::in_rc(|| {
 			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
-		});
-	}
-
-	#[test]
-	fn set_keys_fails_when_fee_charging_fails() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Validator but fee charging will fail (simulates insufficient balance)
-			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
-			MockFeeChargingFails::set(true);
-
-			// WHEN: Validator tries to set keys
-			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
-			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof),
-				rc_client::Error::<T>::XcmSendFailed
-			);
-
-			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
-			assert!(System::events().iter().all(|e| !matches!(
-				e.event,
-				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
-			)));
-		});
-	}
-
-	#[test]
-	fn purge_keys_fails_when_fee_charging_fails() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Any account but fee charging will fail (simulates insufficient balance)
-			let account: AccountId = 3;
-			MockFeeChargingFails::set(true);
-
-			// WHEN: Account tries to purge keys
-			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
-			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account)),
-				rc_client::Error::<T>::XcmSendFailed
-			);
-
-			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
-			assert!(System::events().iter().all(|e| !matches!(
-				e.event,
-				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
-			)));
 		});
 	}
 }
