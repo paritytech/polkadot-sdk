@@ -6,6 +6,7 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
+description = "UI tests for pallet-revive."
 
 [dependencies]
 alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
