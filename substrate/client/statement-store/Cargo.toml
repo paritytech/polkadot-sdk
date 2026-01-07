@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 async-channel = { workspace = true }
+itertools = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-utils = { workspace = true }

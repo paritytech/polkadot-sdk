@@ -15,10 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+
 use sp_core::Bytes;
 
 pub use crate::runtime_api::StatementSource;
-use crate::{CheckedTopicFilter, Hash, Statement, Topic};
+use crate::{Hash, Statement, Topic};
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -50,6 +52,33 @@ pub enum TopicFilter {
 	MatchAny(Vec<Bytes>),
 }
 
+/// Topic filter for statement subscriptions.
+#[derive(Clone, Debug)]
+pub enum CheckedTopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
+	MatchAll(HashSet<Topic>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
+	MatchAny(HashSet<Topic>),
+}
+
+impl CheckedTopicFilter {
+	/// Check if the statement matches the filter.
+	pub fn matches(&self, statement: &Statement) -> bool {
+		match self {
+			CheckedTopicFilter::Any => true,
+			CheckedTopicFilter::MatchAll(topics) =>
+				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
+					topics.len(),
+			CheckedTopicFilter::MatchAny(topics) =>
+				statement.topics().iter().any(|topic| topics.contains(topic)),
+		}
+	}
+}
+
 // Convert TopicFilter to CheckedTopicFilter, validating topic lengths.
 impl TryInto<CheckedTopicFilter> for TopicFilter {
 	type Error = Error;
@@ -58,26 +87,26 @@ impl TryInto<CheckedTopicFilter> for TopicFilter {
 		match self {
 			TopicFilter::Any => Ok(CheckedTopicFilter::Any),
 			TopicFilter::MatchAll(topics) => {
-				let mut parsed_topics = Vec::with_capacity(topics.len());
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));
 					}
 					let mut arr = [0u8; 32];
 					arr.copy_from_slice(&topic.0);
-					parsed_topics.push(arr);
+					parsed_topics.insert(arr);
 				}
 				Ok(CheckedTopicFilter::MatchAll(parsed_topics))
 			},
 			TopicFilter::MatchAny(topics) => {
-				let mut parsed_topics = Vec::with_capacity(topics.len());
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));
 					}
 					let mut arr = [0u8; 32];
 					arr.copy_from_slice(&topic.0);
-					parsed_topics.push(arr);
+					parsed_topics.insert(arr);
 				}
 				Ok(CheckedTopicFilter::MatchAny(parsed_topics))
 			},

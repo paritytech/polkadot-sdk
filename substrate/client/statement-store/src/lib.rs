@@ -96,7 +96,7 @@ pub const MAX_STATEMENT_SIZE: usize =
 	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
 /// Number of subscription filter worker tasks.
-const NUM_FILTER_WORKERS: usize = 4;
+const NUM_FILTER_WORKERS: usize = 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -288,15 +288,17 @@ impl Index {
 	) -> Result<()> {
 		match topic {
 			CheckedTopicFilter::Any => self.iterate_with_any(key, f),
-			CheckedTopicFilter::MatchAll(topics) => self.iterate_with_match_all(key, topics, f),
-			CheckedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
+			CheckedTopicFilter::MatchAll(topics) =>
+				self.iterate_with_match_all(key, topics.iter(), f),
+			CheckedTopicFilter::MatchAny(topics) =>
+				self.iterate_with_match_any(key, topics.iter(), f),
 		}
 	}
 
-	fn iterate_with_match_any(
+	fn iterate_with_match_any<'a>(
 		&self,
 		key: Option<DecryptionKey>,
-		match_any_topics: &[Topic],
+		match_any_topics: impl ExactSizeIterator<Item = &'a Topic>,
 		mut f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
 		if match_any_topics.len() > MAX_ANY_TOPICS {
@@ -309,7 +311,7 @@ impl Index {
 			return Ok(())
 		}
 
-		for t in match_any_topics.iter() {
+		for t in match_any_topics {
 			let set = self.by_topic.get(t);
 
 			for item in set.iter().map(|set| set.iter()).flatten() {
@@ -343,15 +345,16 @@ impl Index {
 		Ok(())
 	}
 
-	fn iterate_with_match_all(
+	fn iterate_with_match_all<'a>(
 		&self,
 		key: Option<DecryptionKey>,
-		match_all_topics: &[Topic],
+		match_all_topics: impl ExactSizeIterator<Item = &'a Topic>,
 		mut f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
 		let empty = HashSet::new();
 		let mut sets: [&HashSet<Hash>; MAX_TOPICS + 1] = [&empty; MAX_TOPICS + 1];
-		if match_all_topics.len() > MAX_TOPICS {
+		let num_topics = match_all_topics.len();
+		if num_topics > MAX_TOPICS {
 			return Ok(())
 		}
 		let key_set = self.by_dec_key.get(&key);
@@ -360,7 +363,7 @@ impl Index {
 			return Ok(())
 		}
 		sets[0] = key_set.expect("Function returns if key_set is None");
-		for (i, t) in match_all_topics.iter().enumerate() {
+		for (i, t) in match_all_topics.enumerate() {
 			let set = self.by_topic.get(t);
 			if set.map_or(0, |s| s.len()) == 0 {
 				// At least one of the match_all_topics does not exist in the index.
@@ -368,7 +371,7 @@ impl Index {
 			}
 			sets[i + 1] = set.expect("Function returns if set is None");
 		}
-		let sets = &mut sets[0..match_all_topics.len() + 1];
+		let sets = &mut sets[0..num_topics + 1];
 		// Start with the smallest topic set or the key set.
 		sets.sort_by_key(|s| s.len());
 		for item in sets[0] {
@@ -830,7 +833,7 @@ impl Store {
 	) -> Result<Vec<R>> {
 		self.collect_statements(
 			Some(dest),
-			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			&CheckedTopicFilter::MatchAll(match_all_topics.iter().cloned().collect()),
 			|statement| {
 				if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
 					let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
@@ -949,7 +952,7 @@ impl StatementStore for Store {
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			None,
-			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			&CheckedTopicFilter::MatchAll(match_all_topics.iter().cloned().collect()),
 			|statement| statement.into_data(),
 		)
 	}
@@ -960,7 +963,7 @@ impl StatementStore for Store {
 	fn posted(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			Some(dest),
-			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			&CheckedTopicFilter::MatchAll(match_all_topics.iter().cloned().collect()),
 			|statement| statement.into_data(),
 		)
 	}
@@ -976,7 +979,7 @@ impl StatementStore for Store {
 	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			None,
-			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			&CheckedTopicFilter::MatchAll(match_all_topics.iter().cloned().collect()),
 			|statement| Some(statement.encode()),
 		)
 	}
@@ -987,7 +990,7 @@ impl StatementStore for Store {
 	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			Some(dest),
-			&CheckedTopicFilter::MatchAll(match_all_topics.to_vec()),
+			&CheckedTopicFilter::MatchAll(match_all_topics.iter().cloned().collect()),
 			|statement| Some(statement.encode()),
 		)
 	}
@@ -1062,6 +1065,7 @@ impl StatementStore for Store {
 		} else {
 			None
 		};
+
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
 
 		let validation = match validation_result {
@@ -1196,15 +1200,14 @@ impl StatementStoreSubscriptionApi for Store {
 
 #[cfg(test)]
 mod tests {
-	use core::num;
 
 	use crate::Store;
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, CheckedTopicFilter, DecryptionKey, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
+		StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;

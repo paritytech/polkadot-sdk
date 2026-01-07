@@ -5,10 +5,11 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
+use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_statement_store::{Channel, Statement, Topic};
+use sp_statement_store::{Channel, Statement, SubmitResult, Topic, TopicFilter};
 use std::{cell::Cell, collections::HashMap, time::Duration};
 use tokio::time::timeout;
 use zombienet_sdk::{
@@ -24,6 +25,7 @@ const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
 const PROPAGATION_DELAY_MS: u64 = 2000;
 const TIMEOUT_MS: u64 = 3000;
+const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
 /// Single-node benchmark.
 ///
@@ -193,7 +195,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 				loop {
 					let statement_bytes: Bytes = statement.encode().into();
 					let Err(err) = rpc_client
-						.request::<()>("statement_submit", rpc_params![statement_bytes])
+						.request::<SubmitResult>("statement_submit", rpc_params![statement_bytes])
 						.await
 					else {
 						break; // Successfully submitted
@@ -314,7 +316,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
+			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
@@ -326,12 +328,15 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.with_id(2400)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
+				// TODO: we need a new custom chain spec with new statement format.
+				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lstatement-store=info,statement-gossip=info,error".into(),
+					"--max-runtime-instances=32".into(),
+					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
-					"--rpc-max-connections=50000".into(),
+					"--rpc-max-connections=500000".into(),
+					"--rpc-max-subscriptions-per-connection=500000".into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
@@ -502,7 +507,7 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		let _: () = self
+		let _: SubmitResult = self
 			.rpc_client
 			.request("statement_submit", rpc_params![statement_bytes])
 			.await?;
@@ -581,36 +586,48 @@ impl Participant {
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
 		let mut pending = self.group_members.clone();
 
-		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
-		loop {
-			let mut completed_this_round = Vec::new();
-			for &idx in &pending {
-				match timeout(
-					Duration::from_millis(TIMEOUT_MS),
-					self.statement_broadcasts_statement(vec![topic_public_key(), topic_idx(idx)]),
-				)
-				.await
-				{
-					Ok(Ok(statements)) if !statements.is_empty() => {
-						if let Some(statement) = statements.first() {
-							let data = statement.data().expect("Must contain session_key");
-							let session_key = sr25519::Public::from_raw(data[..].try_into()?);
-							self.session_keys.insert(idx, session_key);
-							completed_this_round.push(idx);
-						}
-					},
-					res => {
-						debug!(target: &self.log_target(), "No statements received for idx {:?}: {:?}", idx, res);
-					},
-				}
-			}
+		let mut subscriptions = Vec::new();
 
-			pending.retain(|x| !completed_this_round.contains(x));
-			if pending.is_empty() {
-				break;
-			}
-			trace!(target: &self.log_target(), "Session keys left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
-			self.wait_for_retry().await?;
+		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
+
+		for idx in &pending {
+			let mut subscription = self
+				.rpc_client
+				.subscribe::<Bytes>(
+					"statement_subscribeStatement",
+					rpc_params![TopicFilter::MatchAll(vec![
+						topic_public_key().to_vec().into(),
+						topic_idx(*idx).to_vec().into()
+					])],
+					"statement_unsubscribeStatement",
+				)
+				.await?;
+			subscriptions.push((*idx, subscription));
+		}
+
+		// info!("Starting to receive {} session keys", subscriptions.len());
+		let mut futures: FuturesUnordered<_> = subscriptions
+			.into_iter()
+			.map(|(idx, mut subscription)| async move {
+				let statement_bytes =
+					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+						.await
+						.map_err(|_| anyhow!("Timeout waiting for session key"))?
+						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement = Statement::decode(&mut &statement_bytes[..])
+					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
+				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
+				let session_key = sr25519::Public::from_raw(
+					data[..].try_into().map_err(|_| anyhow!("Invalid session key length"))?,
+				);
+				Ok::<_, anyhow::Error>((idx, session_key))
+			})
+			.collect();
+
+		while let Some(result) = futures.next().await {
+			let (idx, session_key) = result?;
+			self.session_keys.insert(idx, session_key);
 		}
 
 		assert_eq!(
@@ -645,45 +662,49 @@ impl Participant {
 			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
 
-		trace!(target: &self.log_target(), "Pending messages to receive: {:?}", pending.len());
-		loop {
-			let mut completed_this_round = Vec::new();
-			for &(sender_idx, sender_session_key) in &pending {
-				match timeout(
-					Duration::from_millis(TIMEOUT_MS),
-					self.statement_broadcasts_statement(vec![
-						topic_message(),
-						topic_pair(&sender_session_key, &own_session_key),
-					]),
+		let mut subscriptions = Vec::new();
+
+		for &(sender_idx, sender_session_key) in &pending {
+			let mut subscription = self
+				.rpc_client
+				.subscribe::<Bytes>(
+					"statement_subscribeStatement",
+					rpc_params![TopicFilter::MatchAll(vec![
+						topic_message().to_vec().into(),
+						topic_pair(&sender_session_key, &own_session_key).to_vec().into()
+					])],
+					"statement_unsubscribeStatement",
 				)
-				.await
-				{
-					Ok(Ok(statements)) if !statements.is_empty() => {
-						if let Some(statement) = statements.first() {
-							let data = statement.data().expect("Must contain request");
-							let req = StatementMessage::decode(&mut &data[..])?;
+				.await?;
+			subscriptions.push((sender_idx, subscription));
+		}
 
-							if let std::collections::hash_map::Entry::Vacant(e) =
-								self.received_messages.entry((sender_idx, req.message_id))
-							{
-								e.insert(false);
-								self.pending_messages.insert(sender_idx, Some(req.message_id));
-								completed_this_round.push((sender_idx, sender_session_key));
-							}
-						}
-					},
-					res => {
-						debug!(target: &self.log_target(), "No statements received for sender {:?}: {:?}", sender_idx, res);
-					},
-				}
-			}
+		let mut futures: FuturesUnordered<_> = subscriptions
+			.into_iter()
+			.map(|(sender_idx, mut subscription)| async move {
+				let statement_bytes =
+					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+						.await
+						.map_err(|_| anyhow!("Timeout waiting for message"))?
+						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement = Statement::decode(&mut &statement_bytes[..])
+					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
+				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
+				let req = StatementMessage::decode(&mut &data[..])
+					.map_err(|e| anyhow!("Failed to decode message: {}", e))?;
+				Ok::<_, anyhow::Error>((sender_idx, req.message_id))
+			})
+			.collect();
 
-			pending.retain(|x| !completed_this_round.contains(x));
-			if pending.is_empty() {
-				break;
+		while let Some(result) = futures.next().await {
+			let (sender_idx, message_id) = result?;
+			if let std::collections::hash_map::Entry::Vacant(e) =
+				self.received_messages.entry((sender_idx, message_id))
+			{
+				e.insert(false);
+				self.pending_messages.insert(sender_idx, Some(message_id));
 			}
-			trace!(target: &self.log_target(), "Messages left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
-			self.wait_for_retry().await?;
 		}
 
 		assert_eq!(
@@ -696,7 +717,6 @@ impl Participant {
 			self.group_members.len(),
 			"Not every request received"
 		);
-
 		Ok(())
 	}
 
@@ -705,20 +725,15 @@ impl Participant {
 
 		debug!(target: &self.log_target(), "Session keys exchange");
 		self.send_session_key().await?;
-		trace!(target: &self.log_target(), "Session keys sent");
-		self.wait_for_propagation().await;
-		trace!(target: &self.log_target(), "Session keys requests started");
+		trace!(target: &self.log_target(), "Session keys sent, receiving session keys");
 		self.receive_session_keys().await?;
 		trace!(target: &self.log_target(), "Session keys received");
 
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
 			self.send_messages(round).await?;
-			trace!(target: &self.log_target(), "Messages sent");
-			self.wait_for_propagation().await;
 			trace!(target: &self.log_target(), "Messages requests started");
 			self.receive_messages(round).await?;
-			trace!(target: &self.log_target(), "Messages received");
 		}
 
 		let elapsed = start_time.elapsed();

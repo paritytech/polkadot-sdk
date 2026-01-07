@@ -47,23 +47,10 @@ pub const MAX_TOPICS: usize = 4;
 /// Maximum number of topics allowed in `MatchAny` filter.
 pub const MAX_ANY_TOPICS: usize = 128;
 
-/// Topic filter for statement subscriptions.
-#[derive(Clone)]
-pub enum CheckedTopicFilter {
-	/// Matches all topics.
-	Any,
-	/// Matches only statements including all of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
-	MatchAll(Vec<Topic>),
-	/// Matches statements including any of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
-	MatchAny(Vec<Topic>),
-}
-
 #[cfg(feature = "std")]
 pub use store_api::{
-	Error, InvalidReason, RejectionReason, Result, StatementSource, StatementStore, SubmitResult,
-	TopicFilter,
+	CheckedTopicFilter, Error, InvalidReason, RejectionReason, Result, StatementSource,
+	StatementStore, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]
@@ -629,12 +616,12 @@ mod test {
 		let topic1 = [0x01; 32];
 		let topic2 = [0x02; 32];
 		let data = vec![55, 99];
-		let priority = 999;
+		let expiry = 999;
 		let channel = [0xcc; 32];
 
 		statement.set_proof(proof.clone());
 		statement.set_decryption_key(decryption_key);
-		statement.set_priority(priority);
+		statement.set_expiry(expiry);
 		statement.set_channel(channel);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
@@ -646,7 +633,7 @@ mod test {
 		let fields = vec![
 			Field::AuthenticityProof(proof.clone()),
 			Field::DecryptionKey(decryption_key),
-			Field::Expiry(priority),
+			Field::Expiry(expiry),
 			Field::Channel(channel),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -732,5 +719,35 @@ mod test {
 
 		let decrypted = statement.decrypt_private(&pair).unwrap();
 		assert_eq!(decrypted, Some(plain));
+	}
+
+	#[test]
+	fn check_matches() {
+		let mut statement = Statement::new();
+		let topic1 = [0x01; 32];
+		let topic2 = [0x02; 32];
+		let topic3 = [0x03; 32];
+
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic2);
+
+		let filter_any = crate::CheckedTopicFilter::Any;
+		assert!(filter_any.matches(&statement));
+
+		let filter_all =
+			crate::CheckedTopicFilter::MatchAll([topic1, topic2].iter().cloned().collect());
+		assert!(filter_all.matches(&statement));
+
+		let filter_all_fail =
+			crate::CheckedTopicFilter::MatchAll([topic1, topic3].iter().cloned().collect());
+		assert!(!filter_all_fail.matches(&statement));
+
+		let filter_any_match =
+			crate::CheckedTopicFilter::MatchAny([topic2, topic3].iter().cloned().collect());
+		assert!(filter_any_match.matches(&statement));
+
+		let filter_any_fail =
+			crate::CheckedTopicFilter::MatchAny([topic3].iter().cloned().collect());
+		assert!(!filter_any_fail.matches(&statement));
 	}
 }

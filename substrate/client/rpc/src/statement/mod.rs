@@ -28,6 +28,7 @@ pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
 use sp_core::Bytes;
 use sp_statement_store::{StatementSource, SubmitResult, TopicFilter};
 use std::sync::Arc;
+const LOG_TARGET: &str = "statement-store-rpc";
 
 use crate::{
 	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
@@ -75,7 +76,7 @@ impl StatementApiServer for StatementStore {
 	fn subscribe_statement(
 		&self,
 		pending: PendingSubscriptionSink,
-		ext: &Extensions,
+		_ext: &Extensions,
 		topic_filter: TopicFilter,
 	) {
 		let checked_topic_filter = match topic_filter.try_into() {
@@ -109,7 +110,7 @@ impl StatementApiServer for StatementStore {
 
 		spawn_subscription_task(&self.executor, async {
 			PendingSubscription::from(pending)
-				.pipe_from_stream(subscription_stream, BoundedVecDeque::new(2048 * 2048))
+				.pipe_from_stream(subscription_stream, BoundedVecDeque::new(128))
 				.await;
 		});
 
@@ -118,7 +119,7 @@ impl StatementApiServer for StatementStore {
 			// Channel size is chosen to be large enough to always fit existing statements.
 			if let Err(e) = subscription_sender.try_send(statement.into()) {
 				log::warn!(
-					target: "statement_store_rpc",
+					target: LOG_TARGET,
 					"Failed to send existing statement in subscription: {:?}", e
 				);
 				break;
