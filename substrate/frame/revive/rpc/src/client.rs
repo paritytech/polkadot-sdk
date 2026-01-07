@@ -261,6 +261,11 @@ impl Client {
 		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0);
 	}
 
+	/// Sets a block notifier
+	pub fn set_block_notifier(&mut self, notifier: Option<tokio::sync::broadcast::Sender<H256>>) {
+		self.block_notifier = notifier;
+	}
+
 	/// Subscribe to past blocks executing the callback for each block in `range`.
 	async fn subscribe_past_blocks<F, Fut>(
 		&self,
@@ -455,19 +460,30 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash: H256 = self
 			.rpc_client
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
 		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(hash)
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
+	}
+
+	/// Get The post dispatch weight associated with this Ethereum transaction hash.
+	pub async fn post_dispatch_weight(&self, tx_hash: &H256) -> Option<Weight> {
+		use crate::subxt_client::system::events::ExtrinsicSuccess;
+		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
+		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
+		Some(event.dispatch_info.weight.0)
 	}
 
 	pub async fn sync_state(

@@ -22,7 +22,7 @@ use crate::{
 };
 use alloy::primitives::U256;
 use frame_support::{assert_ok, traits::Currency};
-use pallet_revive::ExecConfig;
+use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 
@@ -76,8 +76,10 @@ fn precompile_transfer_works() {
 			RuntimeOrigin::signed(from),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -115,8 +117,10 @@ fn total_supply_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		)
@@ -148,8 +152,10 @@ fn balance_of_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		)
@@ -194,8 +200,10 @@ fn approval_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -217,8 +225,10 @@ fn approval_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		)
@@ -240,8 +250,10 @@ fn approval_works() {
 			RuntimeOrigin::signed(spender),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			u64::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
