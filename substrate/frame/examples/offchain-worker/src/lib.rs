@@ -137,7 +137,7 @@ pub mod pallet {
 	/// # Requirements
 	///
 	/// This pallet requires `frame_system::AuthorizeCall` to be included in the runtime's
-	/// transaction extension pipeline (configured via `frame_system::Config::Block`).
+	/// transaction extension pipeline.
 	/// The integrity test will verify this at runtime.
 	#[pallet::config]
 	pub trait Config:
@@ -195,11 +195,12 @@ pub mod pallet {
 
 			// Get the full type name of the Block's Extrinsic type
 			let extrinsic_type_name = core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
+			let extension_type_name = core::any::type_name::<frame_system::AuthorizeCall<T>>();
 
 			// Verify that AuthorizeCall is present in the extrinsic type
 			// The extrinsic should contain the AuthorizeCall extension in its structure
 			assert!(
-				extrinsic_type_name.contains("frame_system::extensions::authorize_call::AuthorizeCall"),
+				extrinsic_type_name.contains(extension_type_name),
 				"The runtime must include `frame_system::AuthorizeCall` in its transaction extension \
 				pipeline for this pallet to work correctly. The pallet uses `#[pallet::authorize]` \
 				which requires AuthorizeCall to validate authorized transactions. \
