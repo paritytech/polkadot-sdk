@@ -591,7 +591,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, ResolveTo<TreasuryAccount, Balances>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self>;
+	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<
 		Self,
