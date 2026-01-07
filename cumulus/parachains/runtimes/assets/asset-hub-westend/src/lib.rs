@@ -262,6 +262,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// q
 	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
+	Balance,
 >;
 
 impl pallet_transaction_payment::Config for Runtime {
