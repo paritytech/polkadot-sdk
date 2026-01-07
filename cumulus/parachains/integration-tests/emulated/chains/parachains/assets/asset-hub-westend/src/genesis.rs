@@ -24,7 +24,7 @@ use emulated_integration_tests_common::{
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
 	PenpalALocation, PenpalASiblingSovereignAccount,
-	// PenpalBLocation, PenpalBSiblingSovereignAccount,
+	PenpalBLocation, PenpalBSiblingSovereignAccount,
 	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
@@ -102,7 +102,7 @@ pub fn genesis() -> Storage {
 				// // PenpalA's native asset representation
 				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), false, ED),
 				// // PenpalB's native asset representation
-				// (PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), false, ED),
+				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), false, ED),
 				// Ether
 				(
 					Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
@@ -126,7 +126,7 @@ pub fn genesis() -> Storage {
 			],
 			reserves: vec![
 				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
-				// (PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
+				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
 				(
 					Location::new(
