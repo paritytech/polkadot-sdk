@@ -523,6 +523,14 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		vec![],
 	);
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		Location::parent(),
+		PenpalAssetOwner::get()
+	);
+
+
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
@@ -654,7 +662,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	});
 
 	// Sender's balance is reduced by amount sent.
-	assert!(sender_wnds_after < sender_wnds_before - wnd_to_send);
+	assert_eq!(sender_wnds_after, sender_wnds_before - wnd_to_send);
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
 	// Sovereign accounts on reserve are changed accordingly.
 	assert_eq!(
