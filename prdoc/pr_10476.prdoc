@@ -56,3 +56,4 @@ crates:
   bump: patch
 - name: pallet-revive-eth-rpc
   bump: minor
+  validate: false
