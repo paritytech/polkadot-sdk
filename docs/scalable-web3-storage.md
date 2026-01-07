@@ -168,12 +168,29 @@ permissionless (frozen, anyone funds), with decentralized governance in between.
 
 ```
 StorageAgreement (on-chain, per bucket per provider)
+├── owner: AccountId        // who can top up quota
 ├── max_bytes: u64          // quota for this provider
 ├── payment_locked: Balance // prepaid by client
-└── expires_at: BlockNumber // when agreement ends
+├── expires_at: BlockNumber // when agreement ends
+└── is_primary: bool        // primary (admin-added) or auxiliary (market-added)
 ```
 
-Each provider has their own `max_bytes` quota. This enables flexible scaling:
+Each provider has their own `max_bytes` quota. The agreement owner (initially
+the requester) can top up quota; ownership is transferable.
+
+**Dual protection model:** Provider slots are split between admin-curated
+(primary) and market-driven (auxiliary):
+
+- **Primary providers** (admin only): Count toward `min_providers`, use reserved
+  slots (`min_providers * 2`), cannot be replaced by market
+- **Auxiliary providers** (anyone): Compete on stake, can replace lower-staked
+  auxiliaries, provide permissionless redundancy
+
+This ensures neither a corrupt admin nor a well-funded attacker can fully
+capture read access. See [The Decentralization Model](#the-decentralization-model).
+
+This enables
+flexible scaling:
 
 - **Asymmetric growth**: Top up only the providers you want to keep using
 - **Cost optimization**: If a provider raises rates, keep their quota fixed and
@@ -448,7 +465,9 @@ data belongs together, who can access it, and which providers store it.
 Bucket
 ├── members: [{ account, role: Admin|Writer|Reader }, ...]
 ├── frozen_start_seq: Option<u64>      // if set, bucket is append-only
-├── min_providers: u32                 // required for checkpoint
+├── min_providers: u32                 // required for checkpoint (max: MaxProvidersPerBucket/4)
+├── min_stake_per_byte: Balance        // applies to all providers
+├── min_absolute_stake: Balance        // applies to all providers
 └── snapshot: Option<BucketSnapshot>   // canonical MMR state
     ├── mmr_root
     ├── start_seq
@@ -457,9 +476,15 @@ Bucket
 ```
 
 **Roles:**
-- **Admin**: Can modify members, manage settings, delete data (if not frozen)
+- **Admin**: Can modify members, manage settings, delete data (if not frozen).
+  Admins cannot remove other admins—only themselves and non-admins.
 - **Writer**: Can append data
 - **Reader**: Can read data (for private buckets where providers enforce access)
+
+**Decentralization recommendation:** For maximum decentralization, use a smart
+contract, multisig, or DAO as the admin account. This ensures write coordination
+is itself decentralized. Combined with the market-driven auxiliary provider
+slots, this achieves full decentralization of both writes and reads.
 
 ### Storage Agreements
 
@@ -468,10 +493,12 @@ has its own `max_bytes` quota, enabling flexible scaling:
 
 ```
 StorageAgreement
+├── owner: AccountId        // who can top up quota (transferable)
 ├── max_bytes: u64          // quota for this provider
 ├── payment_locked: Balance // prepaid by client
 ├── expires_at: BlockNumber
-└── extensions_blocked: bool
+├── extensions_blocked: bool
+└── is_primary: bool        // primary (admin) or auxiliary (market)
 ```
 
 **Per-provider quotas enable:**
@@ -1118,6 +1145,77 @@ Storing with a single provider is risky:
 
 Multiple providers seem like the obvious solution, but introduce new challenges.
 
+### The Decentralization Model
+
+A truly Web3 storage system must prevent any single party from gaining full
+control over read access. This is harder than it sounds:
+
+**The admin capture problem:**
+
+If bucket admins have exclusive control over which providers can serve data:
+1. Admin adds only providers they control
+2. Admin lets independent provider agreements expire
+3. Only admin-controlled providers remain
+4. Admin can now charge monopoly prices for reads
+
+Our challenge mechanism prevents outright *denial* of service (slashing), but
+doesn't prevent *expensive* service. We need structural protection.
+
+**The dual protection model:**
+
+We split provider slots into two categories:
+
+```
+Primary slots (admin-curated):
+├── Reserved: min_providers * 2 slots
+├── Added via: request_primary_agreement (admin only)
+├── Properties: count toward min_providers, cannot be replaced by market
+└── Purpose: admin maintains curated, quality-controlled providers
+
+Auxiliary slots (market-driven):
+├── Available: remaining 50%+ of MaxProvidersPerBucket
+├── Added via: request_agreement (anyone)
+├── Properties: compete on stake, can replace lower-staked auxiliaries
+└── Purpose: permissionless redundancy, protection against admin capture
+```
+
+**Why this works:**
+
+- **Admin corrupt?** Market slots ensure independent providers can always serve.
+  Anyone can add high-stake providers that admin cannot remove.
+
+- **Market corrupt (well-funded attacker)?** Admin slots ensure curated providers
+  remain. Attacker cannot replace admin's primary providers regardless of stake.
+
+- **Both corrupt?** Protocol can't help—but this requires corrupting both the
+  admin (or DAO) AND outbidding all honest market participants. Maximum cost
+  to attacker.
+
+**Stake requirements apply symmetrically:**
+
+Buckets set `min_stake_per_byte` and `min_absolute_stake`. These requirements
+apply equally to admin-added and market-added providers. The admin cannot set
+requirements they don't meet themselves—ensuring everyone has real skin in the game.
+
+**Auxiliary provider replacement rules:**
+
+When auxiliary slots are full, a new provider can replace the lowest-priority
+existing auxiliary:
+
+1. Non-snapshotted providers replaced first (lowest stake first within tier)
+2. Snapshotted providers replaced last (lowest stake first within tier)
+3. New provider must have higher stake than replaced provider
+4. Replaced agreement continues until natural expiry, just loses slot protection
+
+Snapshot protection incentivizes providers to participate in checkpoints—being
+in the snapshot makes you harder to replace.
+
+**Parameter locking on freeze:**
+
+When a bucket is frozen (append-only), `min_providers`, `min_stake_per_byte`,
+and `min_absolute_stake` are locked. This prevents admin from later weakening
+guarantees on frozen (public-interest) buckets.
+
 ### The Freeloading Problem
 
 When multiple providers store the same bucket, each provider might reason:
@@ -1232,6 +1330,77 @@ A client storing a nation-state-targeted dataset will do extensive due diligence
 A client storing casual backups accepts more risk for lower cost. The protocol
 provides the tools (stake visibility, challenge mechanism, read restrictions);
 the client decides how to use them.
+
+### Client-Side Monitoring and Quality Control
+
+The chain enforces objective criteria (stake requirements, challenges, slashing).
+Subjective quality (latency, reliability, geographic diversity) is the client's
+responsibility to monitor and act on.
+
+**On-chain provider statistics:**
+
+The chain tracks verifiable metrics per provider:
+
+| Metric | Signal |
+|--------|--------|
+| `agreements_total` | Volume/experience |
+| `agreements_extended` | Client satisfaction (positive) |
+| `agreements_not_extended` | Neutral to negative |
+| `agreements_burned` | Strong negative (clients punished provider) |
+| `challenges_received` | May indicate disputes |
+| `challenges_failed` | Critical failure (provider was slashed) |
+
+Clients can compute ratios like `extended / total` to evaluate quality. A
+provider with high extension rate is likely reliable; one with burns or failed
+challenges should be avoided.
+
+**Client-side latency monitoring:**
+
+Providers self-report location via `multiaddr`, but physics is the ultimate
+arbiter. Clients should:
+
+1. **Measure, don't trust.** Ping providers and measure actual RTT.
+2. **Sample randomly.** Request random chunks periodically to detect freeloading.
+   Repeated requests may hit cache; unique requests reveal true storage.
+3. **Compare to baseline.** An "EU provider" with 100ms+ RTT from EU clients is
+   either lying about location or proxying from elsewhere.
+4. **Track over time.** Consistent low latency = reliable. High variance =
+   suspicious (might be fetching from elsewhere).
+
+**The latency detection insight:**
+
+A provider claiming to be in Europe but actually fetching from US cannot hide
+the physics. Transatlantic round-trip adds ~80ms minimum. Clients can detect
+this by measuring RTT on random chunk requests. If all "EU providers" show high
+latency from EU clients, they're all proxying—switch to providers with genuinely
+local storage.
+
+This gives geographic verification without on-chain enforcement: clients measure
+actual performance and naturally prefer fast (honest, local) providers.
+
+**Risk dashboards:**
+
+Client software should provide visibility into bucket health:
+
+- **Agreements approaching expiry:** Which providers need renewal?
+- **Low provider count:** Is redundancy below desired threshold?
+- **Providers not meeting criteria:** Have stake ratios dropped? New providers
+  available with better metrics?
+- **One-click remediation:** "Add provider" button for buckets you depend on
+
+For frozen (public-interest) buckets, anyone viewing the data can see its health
+and contribute providers if needed—true permissionless persistence.
+
+**Provider improvement over time:**
+
+By tracking latency and preferring low-latency providers:
+1. Client starts with a provider set meeting stake requirements
+2. Client measures actual performance per provider
+3. Each period, client may replace slow providers with faster alternatives
+4. Provider set naturally improves over time
+
+This creates market pressure: providers who actually store data locally and
+serve quickly retain clients; those who freeload or proxy get replaced.
 
 ---
 
@@ -1921,6 +2090,14 @@ is unlikely to occur because rational providers simply store the data.
 
 **Note:** This only works against non-colluding providers. Colluding providers
 would ignore the isolation signal and serve each other anyway.
+
+Incentives line up: Technically a provider could ignore the disabling to profit from potentially paid read requests, but:
+1. This is not how payments work: Payments work upfront, a provider legitimately does not serve requests for disabled data - so no reputation loss either.
+2. Honest providers have an interest too to catch cheaters, so they have an incentive to collaborate.
+3. It is cheaper to collaborate, as again we would obviously make cooperation the default in provided node software.
+4. Dishonest providers don't need to cooperate - they don't have the data any way.
+
+Bribes could exist, actual collusion is not prevented either of course.
 
 **This works for hot buckets too:**
 

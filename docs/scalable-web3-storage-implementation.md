@@ -119,6 +119,27 @@ pub struct ProviderInfo<T: Config> {
     pub committed_bytes: u64,
     /// Provider settings
     pub settings: ProviderSettings<T>,
+    /// Provider statistics - clients use these to evaluate quality
+    pub stats: ProviderStats,
+}
+
+/// On-chain statistics for evaluating provider quality.
+/// These are objective, verifiable metrics that help clients make informed decisions.
+pub struct ProviderStats {
+    /// Total agreements ever created with this provider
+    pub agreements_total: u32,
+    /// Agreements where client chose to extend (signal of satisfaction)
+    pub agreements_extended: u32,
+    /// Agreements that expired without extension (neutral/negative signal)
+    pub agreements_not_extended: u32,
+    /// Agreements where client burned payment (strong negative signal)
+    pub agreements_burned: u32,
+    /// Total bytes ever committed across all agreements (historical volume)
+    pub total_bytes_committed: u64,
+    /// Number of challenges received
+    pub challenges_received: u32,
+    /// Number of challenges where provider was slashed (critical failure)
+    pub challenges_failed: u32,
 }
 
 pub struct ProviderSettings<T: Config> {
@@ -168,11 +189,21 @@ pub enum Role {
 pub struct Bucket<T: Config> {
     /// Members who can interact with this bucket
     pub members: BoundedVec<Member<T>, T::MaxMembers>,
-    /// If Some, bucket is append-only from this start_seq
-    /// Checkpoints with start_seq < frozen_start_seq are rejected
+    /// If Some, bucket is append-only from this start_seq.
+    /// Checkpoints with start_seq < frozen_start_seq are rejected.
+    /// When set, also locks min_providers, min_stake_per_byte, and min_absolute_stake.
     pub frozen_start_seq: Option<u64>,
-    /// Minimum provider acknowledgments required for checkpoint
+    /// Minimum provider acknowledgments required for checkpoint.
+    /// Constrained: 1 <= min_providers <= T::MaxProvidersPerBucket / 4.
+    /// This reserves min_providers * 2 slots for admin (primary providers),
+    /// leaving at least 50% of slots for market (auxiliary providers).
     pub min_providers: u32,
+    /// Minimum stake-per-committed-byte ratio required for any provider.
+    /// Applies equally to admin-added and market-added providers.
+    pub min_stake_per_byte: BalanceOf<T>,
+    /// Minimum absolute stake required for any provider.
+    /// Applies equally to admin-added and market-added providers.
+    pub min_absolute_stake: BalanceOf<T>,
     /// Current canonical state
     pub snapshot: Option<BucketSnapshot>,
 }
@@ -204,6 +235,8 @@ pub type StorageAgreements<T: Config> = StorageDoubleMap<
 >;
 
 pub struct StorageAgreement<T: Config> {
+    /// Who owns this agreement (can top up quota, transfer ownership)
+    pub owner: T::AccountId,
     /// Maximum bytes (quota) — provider accepts uploads up to this
     pub max_bytes: u64,
     /// Payment locked by client
@@ -212,6 +245,18 @@ pub struct StorageAgreement<T: Config> {
     pub expires_at: BlockNumberFor<T>,
     /// Whether provider has blocked extensions for this specific agreement
     pub extensions_blocked: bool,
+    /// Whether this is a primary (admin-added) or auxiliary (market-added) provider.
+    /// Primary providers:
+    /// - Added via request_primary_agreement (admin only)
+    /// - Count toward min_providers for checkpoints
+    /// - Use reserved slots (min_providers * 2 slots reserved for admin)
+    /// - Cannot be replaced by market
+    /// Auxiliary providers:
+    /// - Added via request_agreement (anyone)
+    /// - Do NOT count toward min_providers
+    /// - Can be replaced by higher-staked auxiliary providers
+    /// - Replacement priority: non-snapshotted first, then snapshotted, lowest stake first
+    pub is_primary: bool,
 }
 
 /// Pending agreement requests (client → provider, awaiting acceptance)
@@ -367,6 +412,12 @@ pub enum Event<T: Config> {
         new_expires_at: BlockNumberFor<T>,
         payment: BalanceOf<T>,
     },
+    AgreementOwnershipTransferred {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        old_owner: T::AccountId,
+        new_owner: T::AccountId,
+    },
     AgreementEnded {
         bucket_id: BucketId,
         provider: T::AccountId,
@@ -492,6 +543,15 @@ impl<T: Config> Pallet<T> {
     /// Requires snapshot with min_providers acknowledgments
     pub fn freeze_bucket(origin: OriginFor<T>, bucket_id: BucketId) -> DispatchResult;
 
+    /// Add or update a member's role (admin only).
+    /// 
+    /// Admins cannot demote other admins - they can only:
+    /// - Add new members (any role)
+    /// - Update non-admin members' roles
+    /// - Demote themselves (remove own admin status)
+    /// 
+    /// This prevents a single compromised admin from seizing control.
+    #[pallet::weight(...)]
     pub fn set_member(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -499,7 +559,18 @@ impl<T: Config> Pallet<T> {
         role: Role,
     ) -> DispatchResult;
 
-    /// Remove member from bucket (admin only)
+    /// Remove member from bucket (admin only).
+    /// 
+    /// Admins cannot remove other admins - they can only:
+    /// - Remove non-admin members
+    /// - Remove themselves
+    /// 
+    /// This prevents a single compromised admin from seizing control.
+    /// 
+    /// Note: This is a very primitive handling of multiple admin accounts, in
+    /// practice you should be very careful with adding such accounts and should
+    /// lean towards using a single one controlled by a DAO (contract, chain,
+    /// ..).
     #[pallet::weight(...)]
     pub fn remove_member(
         origin: OriginFor<T>,
@@ -513,7 +584,20 @@ impl<T: Config> Pallet<T> {
     // Storage agreements (per bucket, per provider)
     // ─────────────────────────────────────────────────────────────
 
-    /// Request a storage agreement (client locks payment, waits for provider to accept)
+    /// Request an auxiliary storage agreement (anyone can request).
+    /// 
+    /// Creates an auxiliary (market-added) provider agreement:
+    /// - Does NOT count toward min_providers for checkpoints
+    /// - Can be replaced by higher-staked auxiliary provider
+    /// - Replacement priority: non-snapshotted first, then snapshotted, lowest stake first
+    /// 
+    /// The requester becomes the agreement owner (can top up, transfer ownership).
+    /// 
+    /// Provider must meet bucket's min_stake_per_byte and min_absolute_stake requirements.
+    /// If auxiliary slots are full, the new provider must have higher stake than the
+    /// lowest-priority existing auxiliary provider (which gets replaced).
+    /// 
+    /// Replaced agreements continue until natural expiry but lose slot protection.
     #[pallet::weight(...)]
     pub fn request_agreement(
         origin: OriginFor<T>,
@@ -538,7 +622,7 @@ impl<T: Config> Pallet<T> {
         bucket_id: BucketId,
     ) -> DispatchResult;
 
-    /// Withdraw a pending agreement request (client only, before provider accepts)
+    /// Withdraw a pending agreement request (original requester only, before provider accepts)
     #[pallet::weight(...)]
     pub fn withdraw_agreement_request(
         origin: OriginFor<T>,
@@ -546,24 +630,29 @@ impl<T: Config> Pallet<T> {
         provider: T::AccountId,
     ) -> DispatchResult;
 
-    /// Top up payment for an existing agreement (anyone can pay).
-    /// Adds funds to the agreement, does not change duration.
+    /// Top up quota for an existing agreement (owner or bucket admin only).
+    /// Increases max_bytes, does not change duration.
+    /// Actual payment = provider.price_per_byte * additional_bytes * remaining_duration.
+    /// Fails if calculated payment > max_payment.
     #[pallet::weight(...)]
     pub fn top_up_agreement(
         origin: OriginFor<T>,
         bucket_id: BucketId,
         provider: T::AccountId,
-        payment: BalanceOf<T>,
+        additional_bytes: u64,
+        max_payment: BalanceOf<T>,
     ) -> DispatchResult;
 
-    /// Extend agreement with new terms (immediate, no provider approval needed).
+    /// Extend agreement duration (immediate, no provider approval needed).
     /// 1. Settles current period: releases payment to provider for elapsed time
-    /// 2. Locks new payment
-    /// 3. Updates end date to now + duration
+    /// 2. Calculates and locks new payment for extension
+    /// 3. Updates end date to now + additional_duration
     /// 
-    /// Fails if:
+    /// Actual payment = provider.price_per_byte * current_max_bytes * additional_duration.
+    /// Fails if calculated payment > max_payment.
+    /// 
+    /// Also fails if:
     /// - Duration below provider's min_duration or above max_duration
-    /// - Payment insufficient for duration + bytes
     /// - Provider has globally paused extensions (settings.accepting_extensions == false)
     /// - Provider has blocked extensions for this specific bucket (agreement.extensions_blocked == true)
     #[pallet::weight(...)]
@@ -571,13 +660,23 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         bucket_id: BucketId,
         provider: T::AccountId,
-        payment: BalanceOf<T>,
-        duration: BlockNumberFor<T>,
+        additional_duration: BlockNumberFor<T>,
+        max_payment: BalanceOf<T>,
     ) -> DispatchResult;
 
-    /// End agreement: final settlement with pay/burn decision (bucket admin only).
+    /// Transfer agreement ownership (current owner only).
+    /// The new owner can top up quota and transfer ownership further.
+    #[pallet::weight(...)]
+    pub fn transfer_agreement_ownership(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        new_owner: T::AccountId,
+    ) -> DispatchResult;
+
+    /// End agreement: final settlement with pay/burn decision (bucket admin or agreement owner).
     /// Must be called within T::SettlementTimeout after expiry.
-    /// If client doesn't act, provider can call claim_expired_agreement.
+    /// If neither admin nor owner acts, provider can call claim_expired_agreement.
     #[pallet::weight(...)]
     pub fn end_agreement(
         origin: OriginFor<T>,
@@ -595,12 +694,33 @@ impl<T: Config> Pallet<T> {
         bucket_id: BucketId,
     ) -> DispatchResult;
 
+    /// Request a primary storage agreement (admin only).
+    /// 
+    /// Creates a primary (admin-added) provider agreement:
+    /// - Counts toward min_providers for checkpoints
+    /// - Uses reserved admin slots (min_providers * 2 slots reserved)
+    /// - Cannot be replaced by market
+    /// 
+    /// Provider must meet bucket's min_stake_per_byte and min_absolute_stake requirements.
+    /// Fails if admin has used all reserved slots (min_providers * 2).
+    #[pallet::weight(...)]
+    pub fn request_primary_agreement(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        max_bytes: u64,
+        payment: BalanceOf<T>,
+        duration: BlockNumberFor<T>,
+    ) -> DispatchResult;
+
     // ─────────────────────────────────────────────────────────────
     // Checkpoints
     // ─────────────────────────────────────────────────────────────
 
-    /// Submit checkpoint with provider signatures.
-    /// Requires at least min_providers signatures.
+    /// Submit a new checkpoint with provider signatures (writers/admin only).
+    /// 
+    /// Creates a new canonical state (new mmr_root, start_seq, leaf_count).
+    /// Requires at least min_providers signatures from primary providers (is_primary == true).
     /// For frozen buckets: start_seq must equal frozen_start_seq (only leaf_count can increase).
     pub fn checkpoint(
         origin: OriginFor<T>,
@@ -608,6 +728,21 @@ impl<T: Config> Pallet<T> {
         mmr_root: H256,
         start_seq: u64,
         leaf_count: u64,
+        signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
+    ) -> DispatchResult;
+
+    /// Extend an existing checkpoint's provider bitfield (anyone can call).
+    /// 
+    /// Adds additional provider signatures to the current snapshot without changing
+    /// the mmr_root, start_seq, or leaf_count. This is permissionless because:
+    /// - It only adds accountability (more providers are now challengeable)
+    /// - It cannot change the canonical state
+    /// - Signatures are verified on-chain
+    /// 
+    /// Providers added this way become liable for the snapshot state.
+    pub fn extend_checkpoint(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
         signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
     ) -> DispatchResult;
 
