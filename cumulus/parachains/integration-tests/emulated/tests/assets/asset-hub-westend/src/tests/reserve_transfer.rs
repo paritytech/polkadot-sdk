@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::{create_foreign_pool_with_wnd_on, create_pool_with_wnd_on};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_foreign_pool_with_wnd_on, create_pool_with_wnd_on};
 use crate::{
 	foreign_balance_on, imports::*,
 };
@@ -1437,7 +1437,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	);
 	create_pool_with_wnd_on!(AssetHubWestend, usdt, AssetHubWestendSender::get());
 	// We also need a pool between WND and USDT on PenpalB.
-	create_foreign_pool_with_wnd_on!(
+	create_foreign_pool_with_native_on!(
 		PenpalB,
 		PenpalUsdtFromAssetHub::get(),
 		PenpalAssetOwner::get()
