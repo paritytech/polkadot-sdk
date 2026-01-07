@@ -189,12 +189,15 @@ fn authorized_cross_chain_aliases() {
 	let origin: AccountId = [100; 32].into();
 	let bad_origin: AccountId = [150; 32].into();
 	let target: AccountId = [200; 32].into();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get());
 	PenpalB::mint_foreign_asset(pal_admin.clone(), Location::parent(), origin.clone(), fees * 10);
 	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
 	BridgeHubWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// let's authorize `origin` on Penpal to alias `target` on BridgeHub
 	BridgeHubWestend::execute_with(|| {
