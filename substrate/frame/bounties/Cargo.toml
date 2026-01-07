@@ -28,8 +28,8 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -50,6 +50,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -57,6 +58,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
