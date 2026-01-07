@@ -11,10 +11,10 @@
 //! - Disputes conclude with the candidate being marked as valid (not invalid)
 
 use crate::utils::{
-	env_or_default, initialize_network, BLOCK_HEIGHT_METRIC, COL_IMAGE_ENV, DISPUTES_TOTAL_METRIC,
+	env_or_default, initialize_network, COL_IMAGE_ENV, DISPUTES_TOTAL_METRIC,
 	DISPUTE_CONCLUDED_INVALID_METRIC, DISPUTE_CONCLUDED_VALID_METRIC, DISPUTE_VOTES_VALID_METRIC,
 	INTEGRATION_IMAGE_ENV, IS_MAJOR_SYNCING_METRIC, MALUS_IMAGE_ENV, NODE_ROLES_METRIC,
-	PEERS_COUNT_METRIC,
+	PEERS_COUNT_METRIC, SUBSTRATE_BLOCK_HEIGHT_METRIC,
 };
 
 use anyhow::anyhow;
@@ -64,14 +64,14 @@ async fn dispute_valid_block_test() -> Result<(), anyhow::Error> {
 	// Check block height reaches at least 2.
 	log::info!("Waiting for block height to reach at least 2");
 	alice
-		.wait_metric_with_timeout(BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 15u64)
+		.wait_metric_with_timeout(SUBSTRATE_BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 15u64)
 		.await
 		.map_err(|e| anyhow!("Alice block height too low: {}", e))?;
-	bob.wait_metric_with_timeout(BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 30u64)
+	bob.wait_metric_with_timeout(SUBSTRATE_BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Bob block height too low: {}", e))?;
 	charlie
-		.wait_metric_with_timeout(BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 30u64)
+		.wait_metric_with_timeout(SUBSTRATE_BLOCK_HEIGHT_METRIC, |v| v >= 2.0, 30u64)
 		.await
 		.map_err(|e| anyhow!("Charlie block height too low: {}", e))?;
 

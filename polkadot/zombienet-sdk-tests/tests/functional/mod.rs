@@ -6,6 +6,7 @@ mod approved_peer_mixed_validators;
 mod async_backing_6_seconds_rate;
 mod beefy_and_mmr;
 mod chunk_fetching_network_compatibility;
+mod coretime_collation_fetching_fairness;
 mod coretime_shared_core;
 mod dispute_freshly_finalized;
 mod dispute_old_finalized;

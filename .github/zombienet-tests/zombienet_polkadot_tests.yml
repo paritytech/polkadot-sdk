@@ -73,12 +73,9 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
-  test-definition: "0019-coretime-collation-fetching-fairness.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::coretime_collation_fetching_fairness::coretime_collation_fetching_fairness_test"
   runner-type: "default"
-  use-zombienet-sdk: false
-  additional-setup: |
-    cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
+  use-zombienet-sdk: true
 
 # Smoke tests using traditional zombienet
 - job-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
