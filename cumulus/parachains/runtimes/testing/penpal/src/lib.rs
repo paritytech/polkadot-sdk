@@ -443,7 +443,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self>;
+	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
