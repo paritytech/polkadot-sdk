@@ -634,9 +634,9 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	// should be non-zero
 	assert!(ah_receiver_balance_after < ah_receiver_balance_before + fee_amount_to_send);
 
-	// Sender's balance is reduced by send amount and delivery fees
-	assert!(
-		penpal_sender_native_balance_before - penpal_native_amount_to_send > penpal_sender_native_balance_after
+	// Sender's balance is reduced by send amount (delivery fees are paid in relay tokens).
+	assert_eq!(
+		penpal_sender_native_balance_before - penpal_native_amount_to_send, penpal_sender_native_balance_after
 	);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + penpal_native_amount_to_send);
