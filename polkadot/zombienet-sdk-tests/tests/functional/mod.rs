@@ -22,3 +22,4 @@ mod validator_disabling;
 // https://github.com/paritytech/zombienet-sdk/pull/484
 // mod parachains_pvf;
 // mod parachains_disputes;
+// mod parachains_garbage_candidate;

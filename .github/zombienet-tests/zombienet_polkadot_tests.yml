@@ -17,11 +17,12 @@
   runner-type: "default"
   use-zombienet-sdk: true
 
-- job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
-  test-definition: "0004-parachains-garbage-candidate.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
-  runner-type: "default"
-  use-zombienet-sdk: false
+# Disabled until:
+# https://github.com/paritytech/zombienet-sdk/pull/484
+# - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
+#   test-filteer: "functional::parachains_garbage_candidate::parachains_garbage_candidate_test"
+#   runner-type: "default"
+#   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
   test-filter: "functional::parachains_max_tranche0::parachains_max_tranche0"
