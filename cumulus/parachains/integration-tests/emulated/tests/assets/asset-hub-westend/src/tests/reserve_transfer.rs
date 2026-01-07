@@ -1271,6 +1271,19 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 		amount_to_send * 2,
 	);
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(
+		PenpalA,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		relay_native_asset_location.clone(),
+		PenpalAssetOwner::get()
+	);
+
 	// fund the Parachain Origin's SA on Relay Chain with the native tokens held in reserve
 	Westend::fund_accounts(vec![(sov_of_sender_on_relay.into(), amount_to_send * 2)]);
 
@@ -1304,8 +1317,8 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let receiver_assets_after =
 		foreign_balance_on!(PenpalB, relay_native_asset_location, &receiver);
 
-	// Sender's balance is reduced by amount sent plus delivery fees.
-	assert!(sender_assets_after < sender_assets_before - amount_to_send);
+	// Sender's balance is reduced by amount sent plus delivery fees (delivery fees are charged in native)
+	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
 	// Receiver's balance is increased by `amount_to_send` minus delivery fees.
 	assert!(receiver_assets_after > receiver_assets_before);
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
