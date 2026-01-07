@@ -35,10 +35,7 @@ use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
 use codec::Encode;
-use emulated_integration_tests_common::{
-	snowbridge::{SEPOLIA_ID, WETH},
-	PENPAL_B_ID, RESERVABLE_ASSET_ID,
-};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, snowbridge::{SEPOLIA_ID, WETH}, PENPAL_B_ID, RESERVABLE_ASSET_ID};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use frame_support::traits::fungible::Mutate as _;
@@ -714,6 +711,9 @@ fn send_token_from_ethereum_to_penpal() {
 	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
 	// Fund PenPal receiver (covering ED)
 	PenpalB::fund_accounts(vec![(PenpalBReceiver::get(), INITIAL_FUND)]);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
