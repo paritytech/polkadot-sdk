@@ -14,31 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{PerSessionView, View, LOG_TARGET};
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, SessionIndex, ValidatorIndex};
+use crate::{View, LOG_TARGET};
+use polkadot_primitives::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex};
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 };
-use std::collections::{btree_map, BTreeMap};
+use std::collections::{BTreeMap};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailabilityChunks {
-	pub downloads_per_candidate: BTreeMap<AuthorityDiscoveryId, u64>,
-	pub uploads_per_candidate: BTreeMap<AuthorityDiscoveryId, u64>,
+	pub downloads: BTreeMap<AuthorityDiscoveryId, u64>,
+	pub uploads: BTreeMap<AuthorityDiscoveryId, u64>,
 }
 
 impl AvailabilityChunks {
 	pub fn new() -> Self {
 		Self {
-			downloads_per_candidate: Default::default(),
-			uploads_per_candidate: Default::default(),
+			downloads: Default::default(),
+			uploads: Default::default(),
 		}
 	}
 
 	pub fn new_with_upload(auth_id: AuthorityDiscoveryId, count: u64) -> Self {
 		Self {
-			downloads_per_candidate: Default::default(),
-			uploads_per_candidate: vec![(auth_id, count)].into_iter().collect()
+			downloads: Default::default(),
+			uploads: vec![(auth_id, count)].into_iter().collect()
 		}
 	}
 
@@ -48,7 +48,7 @@ impl AvailabilityChunks {
 		count: u64,
 	) {
 		self
-			.downloads_per_candidate
+			.downloads
 			.entry(authority_id)
 			.and_modify(|current| *current = current.saturating_add(count))
 			.or_insert(count);
@@ -61,7 +61,7 @@ impl AvailabilityChunks {
 		count: u64,
 	) {
 		self
-			.uploads_per_candidate
+			.uploads
 			.entry(authority_id)
 			.and_modify(|current| *current = current.saturating_add(count))
 			.or_insert(count);
@@ -109,24 +109,19 @@ pub fn handle_chunk_uploaded(
 	view: &mut View,
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
-	let auth_id = match authority_ids.iter().next() {
-		Some(authority_id) => authority_id.clone(),
-		None => {
-			gum::debug!(
-				target: LOG_TARGET,
-				"unexpected empty authority ids while handling chunk uploaded"
-			);
-
-			return;
-		},
-	};
-
 	// aggregate the statistic on the most up-to-date session
-	if let Some(highest_session) = view.per_session.keys().max() {
-		let av_chunks = view
-			.availability_chunks
-			.entry(*highest_session)
-			.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
-			.or_insert(AvailabilityChunks::new_with_upload(auth_id, 1));
+	if let Some((session_index, session_info)) = view.per_session.last_key_value() {
+		let validator_authority_id = session_info
+			.authorities_ids
+			.iter()
+			.find(|auth| authority_ids.contains(auth));
+
+		if let Some(auth_id) = validator_authority_id {
+			let av_chunks = view
+				.availability_chunks
+				.entry(*session_index)
+				.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
+				.or_insert(AvailabilityChunks::new_with_upload(auth_id.clone(), 1));
+		}
 	}
 }

@@ -23,10 +23,7 @@
 
 use crate::error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result};
 use futures::{channel::oneshot, prelude::*};
-use polkadot_node_primitives::{
-	approval::{time::Tick, v1::DelayTranche},
-	SessionWindowSize, DISPUTE_WINDOW,
-};
+use polkadot_node_primitives::{approval::{time::Tick, v1::DelayTranche}, new_session_window_size, SessionWindowSize, DISPUTE_WINDOW};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError as RuntimeApiSubsystemError,
 	messages::{
@@ -62,7 +59,9 @@ use polkadot_node_subsystem_util::{
 	request_candidate_events, request_session_index_for_child, request_session_info,
 };
 
-const MAX_SESSIONS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
+const MAX_SESSION_VIEWS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
+const MAX_AVAILABILITIES_TO_KEEP: SessionWindowSize = new_session_window_size!(3);
+
 const LOG_TARGET: &str = "parachain::rewards-statistics-collector";
 
 #[derive(Default)]
@@ -211,7 +210,12 @@ pub(crate) async fn run_iteration<Context>(
 
 					view.per_relay.insert((relay_hash, relay_number), PerRelayView::new(session_idx));
 
-					prune_old_session_views(view, session_idx);
+					prune_based_on_session_windows(
+						view,
+						session_idx,
+						MAX_SESSION_VIEWS_TO_KEEP,
+						MAX_AVAILABILITIES_TO_KEEP,
+					);
 
 					if !view.per_session.contains_key(&session_idx) {
 						let session_info =
@@ -328,12 +332,19 @@ fn aggregate_finalized_approvals_stats(
 	}
 }
 
-// prune_old_session_views avoid the per_session mapping to grow
-// indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
-// finalized sessions.
-fn prune_old_session_views(view: &mut View, session_idx: SessionIndex, ) {
-	if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
+// prune_based_on_session_windows prunes the per_session and the availability_chunks
+// mappings based on a session windows avoiding them to grow indefinitely
+fn prune_based_on_session_windows(
+	view: &mut View,
+	session_idx: SessionIndex,
+	max_session_view_to_keep: SessionWindowSize,
+	max_availabilities_to_keep: SessionWindowSize,
+) {
+	if let Some(wipe_before) = session_idx.checked_sub(max_session_view_to_keep.get()) {
 		view.per_session = view.per_session.split_off(&wipe_before);
+	}
+
+	if let Some(wipe_before) = session_idx.checked_sub(max_availabilities_to_keep.get()) {
 		view.availability_chunks = view.availability_chunks.split_off(&wipe_before);
 	}
 }

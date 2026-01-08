@@ -407,8 +407,8 @@ fn note_chunks_downloaded() {
 	assert_eq!(view.availability_chunks.len(), 1);
 	let ac = view.availability_chunks.get(&session_idx).unwrap();
 
-	assert_eq!(ac.downloads_per_candidate.len(), 1);
-	let amt_per_validator = ac.downloads_per_candidate.get(&candidate_hash).unwrap();
+	assert_eq!(ac.downloads.len(), 1);
+	let amt_per_validator = ac.downloads.get(&candidate_hash).unwrap();
 
 	let expected = vec![(ValidatorIndex(0), 15u64), (ValidatorIndex(1), 2)];
 
