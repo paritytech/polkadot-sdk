@@ -606,9 +606,19 @@ where
 		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
 		.transpose()?;
 
+	// Create dedicated RPC runtime with limited blocking threads.
+	// This isolates RPC blocking operations from the rest of the node.
+	let rpc_runtime = sc_rpc_server::create_rpc_runtime(config.rpc.max_connections)
+		.map_err(|e| Error::Application(Box::new(e)))?;
+
+	// Create spawn handle for RPC tasks
+	let rpc_spawn_handle: Arc<dyn sp_core::traits::SpawnNamed> =
+		Arc::new(sc_rpc_server::RpcSpawnHandle::new(rpc_runtime.handle().clone()));
+
+	// Factory that creates RPC module
 	let gen_rpc_module = || {
 		gen_rpc_module(GenRpcModuleParams {
-			spawn_handle: task_manager.spawn_handle(),
+			spawn_handle: rpc_spawn_handle.clone(),
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			keystore: keystore.clone(),
@@ -625,11 +635,15 @@ where
 		})
 	};
 
+	// Generate the RPC module for the server
+	let rpc_api = gen_rpc_module()?;
+
 	let rpc_server_handle = start_rpc_servers(
 		&config.rpc,
 		config.prometheus_registry(),
 		&config.tokio_handle,
-		gen_rpc_module,
+		rpc_api,
+		rpc_runtime,
 		rpc_id_provider,
 	)?;
 
@@ -643,6 +657,7 @@ where
 		})
 		.collect();
 
+	// In-memory RPC uses the same dedicated RPC runtime
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;
 		module.extensions_mut().insert(DenyUnsafe::No);
@@ -757,8 +772,8 @@ where
 
 /// Parameters for [`gen_rpc_module`].
 pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
-	/// The handle to spawn tasks.
-	pub spawn_handle: SpawnTaskHandle,
+	/// The handle to spawn tasks on the RPC runtime.
+	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
 	pub client: Arc<TCl>,
 	/// The transaction pool.
@@ -837,7 +852,7 @@ where
 	};
 
 	let mut rpc_api = RpcModule::new(());
-	let task_executor = Arc::new(spawn_handle);
+	let task_executor = spawn_handle;
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
