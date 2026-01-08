@@ -63,7 +63,7 @@ use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, FilterDecision, Proof,
+	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason, Proof,
 	RejectionReason, Result, Statement, SubmitResult, Topic,
 };
 use std::{
@@ -860,27 +860,26 @@ impl StatementStore for Store {
 		let mut result = Vec::new();
 		let mut processed = 0;
 		for hash in hashes {
+			processed += 1;
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
-				processed += 1;
 				continue
 			};
-			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
-				processed += 1;
-				continue
-			};
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else { continue };
 			match filter(hash, &encoded, &statement) {
-				FilterDecision::Skip => {
-					processed += 1;
-				},
+				FilterDecision::Skip => {},
 				FilterDecision::Take => {
-					processed += 1;
 					result.push((*hash, statement));
 				},
-				FilterDecision::Abort => break,
+				FilterDecision::Abort => {
+					// We did not process it :)
+					processed -= 1;
+					break
+				},
 			}
 		}
+
 		Ok((result, processed))
 	}
 
