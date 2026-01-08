@@ -241,7 +241,7 @@ type AssetsFrom<T> = AssetPrefixFrom<T, T>;
 // This asset can be added to AH as Asset and reserved transfer between Penpal and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
-pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+pub const PEN2_TELEPORTABLE_GENERAL_INDEX: u32 = 2;
 
 pub const ASSET_HUB_ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
@@ -258,8 +258,6 @@ parameter_types! {
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
 		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_ID)]);
-	pub AssetsPalletLocation: Location =
-		Location::new(0, [PalletInstance(ASSET_HUB_ASSETS_PALLET_ID)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub LocalReservableFromAssetHub: Location = Location::new(
 		1,
@@ -275,8 +273,8 @@ parameter_types! {
 		[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID})],
 	);
 
-	/// A PEN2 test asset.
-	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(42)]);
+	/// A PEN42 test asset.
+	pub LocalPen2ForeignAsset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios
@@ -311,6 +309,7 @@ pub type TrustedReserves = (
 
 pub type TrustedTeleporters = (
 	AssetFromChain<PenpalNativeCurrency, SystemAssetHubLocation>,
+	AssetFromChain<LocalPen2ForeignAsset, SystemAssetHubLocation>,
 	// This is used in the `IsTeleporter` configuration, meaning it accepts
 	// native tokens teleported from Asset Hub.
 	xcm_builder::Case<AssetHubTrustedTeleporter>,
@@ -328,9 +327,6 @@ pub type TrustedAliasers = (
 );
 
 pub type WaivedLocations = Equals<RootLocation>;
-/// `AssetId`/`Balance` converter for `TrustBackedAssets`.
-pub type TrustBackedAssetsConvertedConcreteId =
-	assets_common::TrustBackedAssetsConvertedConcreteId<AssetsPalletLocation, Balance>;
 
 /// Asset converter for pool assets.
 /// Used to convert assets in pools to the asset required for fee payment.

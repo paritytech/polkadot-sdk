@@ -19,13 +19,7 @@ use sp_core::storage::Storage;
 use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
-use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators,
-	snowbridge::{ETHER_MIN_BALANCE, WETH},
-	xcm_emulator::ConvertLocation,
-	PenpalALocation, PenpalASiblingSovereignAccount, PenpalBLocation,
-	PenpalBSiblingSovereignAccount, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
-};
+use emulated_integration_tests_common::{accounts, build_genesis_storage, collators, snowbridge::{ETHER_MIN_BALANCE, WETH}, xcm_emulator::ConvertLocation, PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount, PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID};
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::{
@@ -102,6 +96,19 @@ pub fn genesis() -> Storage {
 				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), true, ED),
 				// // PenpalB's native asset representation
 				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), true, ED),
+				(
+					PenpalAPen2TeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBPen2TeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
 				// Ether
 				(
 					EthereumLocation::get(),
@@ -128,6 +135,14 @@ pub fn genesis() -> Storage {
 			reserves: vec![
 				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
 				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
+				(
+					PenpalAPen2TeleportableAssetLocation::get(),
+					vec![(PenpalALocation::get(), true).into()],
+				),
+				(
+					PenpalBPen2TeleportableAssetLocation::get(),
+					vec![(PenpalBLocation::get(), true).into()],
+				),
 				(EthereumLocation::get(), vec![(AssetHubWestendLocation::get(), false).into()]),
 				(
 					Location::new(

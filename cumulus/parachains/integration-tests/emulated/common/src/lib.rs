@@ -57,7 +57,7 @@ pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 // (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // ForeignAsset registered on AH and teleported between Penpal and AH
-pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+pub const PEN2_TELEPORTABLE_ASSET_ID: u32 = 2;
 
 // USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
 pub const USDT_ID: u32 = 1984;
@@ -67,6 +67,7 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
+pub const PENPAL_FOREIGN_ASSETS_PALLET_ID: u8 = 51;
 
 pub struct AuraDigestProvider {}
 
@@ -84,6 +85,20 @@ parameter_types! {
 		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
 	pub PenpalBLocation: xcm::v5::Location
 		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
+	pub PenpalAPen2TeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_A_ID),
+				xcm::v5::Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalBPen2TeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_B_ID),
+				xcm::v5::Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
 	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }
