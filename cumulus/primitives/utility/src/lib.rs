@@ -243,7 +243,7 @@ impl<
 		let minimum_balance = Fungibles::minimum_balance(fungibles_asset_id.clone());
 
 		// Calculate asset_balance
-		// This read should have already be cached in buy_weight
+		// This read should have already been cached in buy_weight
 		let refund_credit = FeeCharger::charge_weight_in_fungibles(fungibles_asset_id, weight)
 			.ok()
 			.map(|refund_balance| {
