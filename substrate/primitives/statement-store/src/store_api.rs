@@ -103,7 +103,7 @@ pub enum SubmitResult {
 /// Result type for `Error`
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Decision returned by the filter used in [`StatementStore::statement_by_hashes`].
+/// Decision returned by the filter used in [`StatementStore::statements_by_hashes`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterDecision {
 	/// Skip this statement, continue to next.
