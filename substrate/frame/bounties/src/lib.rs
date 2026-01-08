@@ -96,7 +96,6 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	fungible::Inspect as FungibleInspect,
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
 	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 	Currency,
@@ -104,8 +103,6 @@ use frame_support::traits::{
 	Get, Imbalance, OnUnbalanced, ReservableCurrency,
 };
 
-#[cfg(feature = "std")]
-use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
 	Debug, DispatchResult, Permill, TokenError,
@@ -213,6 +210,49 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
+pub trait TransferAllAssets<AccountId> {
+	/// Transfer the native asset and all fungible assets from one account to another.
+	///
+	/// This will possibly dust and reap the origin account.
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult;
+}
+
+impl<AccountId> TransferAllAssets<AccountId> for () {
+	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
+	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
+);
+impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
+	for TransferAllFungibles<AccountId, Fungibles, RelevantAssets>
+where
+	Fungibles: FungiblesMutate<AccountId>,
+	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
+	AccountId: Eq,
+{
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult {
+		for id in RelevantAssets::get() {
+			let balance = Fungibles::reducible_balance(
+				id.clone(),
+				from,
+				Preservation::Expendable,
+				Fortitude::Force,
+			);
+			if balance.is_zero() {
+				continue;
+			}
+
+			let res = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
+			// This can only fail if the treasury account does not exist, hence ignored.
+			debug_assert!(res.is_ok());
+		}
+		Ok(())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -285,7 +325,7 @@ pub mod pallet {
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 
-		/// Native asset. Must be the same as `Currency`.
+		/*// Native asset. Must be the same as `Currency`.
 		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Mutate assets.
@@ -295,7 +335,9 @@ pub mod pallet {
 
 		/// Assets that should returned to the treasury by `close_bounty`.
 		#[pallet::constant]
-		type RelevantAssets: Get<Vec<<Self::Assets as FungiblesInspect<Self::AccountId>>::AssetId>>;
+		type RelevantAssets: Get<Vec<<Self::Assets as FungiblesInspect<Self::AccountId>>::AssetId>>;*/
+
+		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -817,41 +859,10 @@ pub mod pallet {
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
 
-					// Transfer out all relevant assets
-					for id in T::RelevantAssets::get() {
-						let balance = T::Assets::reducible_balance(
-							id.clone(),
-							&bounty_account,
-							Preservation::Expendable,
-							Fortitude::Force,
-						);
-						if balance.is_zero() {
-							continue;
-						}
-
-						let res = T::Assets::transfer(
-							id,
-							&bounty_account,
-							&Self::account_id(),
-							balance,
-							Preservation::Expendable,
-						);
-						// This can only fail if the treasury account does not exist, hence ignored.
-						debug_assert!(res.is_ok());
-					}
-
-					let balance = T::NativeAsset::reducible_balance(
-						&bounty_account,
-						Preservation::Expendable,
-						Fortitude::Force,
-					);
-					let res = T::Currency::transfer(
+					T::TransferAllAssets::force_transfer_all_assets(
 						&bounty_account,
 						&Self::account_id(),
-						balance,
-						AllowDeath,
-					);
-					debug_assert!(res.is_ok());
+					)?;
 
 					*maybe_bounty = None;
 					T::ChildBountyManager::bounty_removed(bounty_id);
@@ -980,23 +991,6 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
-		}
-
-		/// Sanity check for Currency and Fungible adapter,
-		#[cfg(feature = "std")]
-		fn integrity_test() {
-			let Ok(alice) = Decode::decode(&mut TrailingZeroInput::zeroes()) else {
-				// cannot perform check...
-				return;
-			};
-			let amount = T::Currency::minimum_balance();
-
-			let _ = T::Currency::deposit_creating(&alice, amount);
-			assert_eq!(
-				T::NativeAsset::total_balance(&alice),
-				amount,
-				"Currency and NativeAsset config items are configured to difference sources"
-			);
 		}
 	}
 }

@@ -22,13 +22,15 @@
 use crate as pallet_bounties;
 use crate::pallet::*;
 
-use crate::{Bounty, BountyStatus};
+use crate::{Bounty, BountyStatus, TransferAllFungibles};
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
+		fungible,
+		fungible::{NativeFromLeft, NativeOrWithId},
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
@@ -68,10 +70,11 @@ parameter_types! {
 }
 
 type Balance = u64;
+type AccountId = u128;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type AccountId = u128; // u64 is not enough to hold bytes used to generate bounty account
+	type AccountId = AccountId; // u64 is not enough to hold bytes used to generate bounty account
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -150,6 +153,9 @@ impl pallet_assets::Config for Test {
 	type ApprovalDeposit = ConstU64<1>;
 }
 
+pub type NativeAndAssets =
+	fungible::UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
@@ -157,7 +163,8 @@ parameter_types! {
 	pub const CuratorDepositMin: Balance = 3;
 	pub static BountyUpdatePeriod: u64 = 20;
 	pub static DataDepositPerByte: u64 = 1;
-	pub static RelevantAssets: Vec<u32> = vec![1, 2];
+	// Native asset should be last, or ED will remain.
+	pub static RelevantAssets: Vec<NativeOrWithId<u32>> = vec![NativeOrWithId::WithId(1), NativeOrWithId::WithId(2), NativeOrWithId::Native];
 }
 
 impl Config for Test {
@@ -174,9 +181,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
-	type NativeAsset = Balances;
-	type Assets = Assets;
-	type RelevantAssets = RelevantAssets;
+	type TransferAllAssets = TransferAllFungibles<AccountId, NativeAndAssets, RelevantAssets>;
 }
 
 impl Config<Instance1> for Test {
@@ -193,9 +198,7 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
-	type NativeAsset = Balances;
-	type Assets = Assets;
-	type RelevantAssets = RelevantAssets;
+	type TransferAllAssets = ();
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;

@@ -590,9 +590,7 @@ impl pallet_bounties::Config for Runtime {
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = weights::pallet_bounties::WeightInfo<Runtime>;
 	type OnSlash = Treasury;
-	type NativeAsset = Balances;
-	type Assets = pallet_bounties::NoAssets<AccountId, Balance>;
-	type RelevantAssets = ();
+	type TransferAllAssets = ();
 }
 
 parameter_types! {
