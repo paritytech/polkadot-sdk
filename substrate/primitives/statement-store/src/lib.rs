@@ -24,7 +24,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use scale_info::TypeInfo;
+use scale_info::{build::Fields, Path, Type, TypeInfo};
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
 use sp_core::Pair;
@@ -95,9 +95,7 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 }
 
 /// Statement proof.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum Proof {
 	/// Sr25519 Signature.
 	Sr25519 {
@@ -146,7 +144,7 @@ impl Proof {
 
 /// Statement attributes. Each statement is a list of 0 or more fields. Fields may only appear once
 /// and in the order declared here.
-#[derive(Encode, Decode, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Field {
 	/// Statement proof.
@@ -178,7 +176,7 @@ impl Field {
 }
 
 /// Statement structure.
-#[derive(DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq, Default)]
+#[derive(DecodeWithMemTracking, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
 	/// Proof used for authorizing the statement.
 	proof: Option<Proof>,
@@ -217,6 +215,20 @@ pub struct Statement {
 	topics: [Topic; MAX_TOPICS],
 	/// Statement data.
 	data: Option<Vec<u8>>,
+}
+
+/// Note: The `TypeInfo` implementation reflects the actual encoding format (`Vec<Field>`)
+/// rather than the struct fields, since `Statement` has custom `Encode`/`Decode` implementations.
+impl TypeInfo for Statement {
+	type Identity = Self;
+
+	fn type_info() -> Type {
+		// Statement encodes as Vec<Field>, so we report the same type info
+		Type::builder()
+			.path(Path::new("Statement", module_path!()))
+			.docs(&["Statement structure"])
+			.composite(Fields::unnamed().field(|f| f.ty::<Vec<Field>>()))
+	}
 }
 
 impl Decode for Statement {
@@ -604,6 +616,7 @@ impl Statement {
 mod test {
 	use crate::{hash_encoded, Field, Proof, SignatureVerificationResult, Statement};
 	use codec::{Decode, Encode};
+	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
 
 	#[test]
@@ -749,5 +762,23 @@ mod test {
 		let filter_any_fail =
 			crate::CheckedTopicFilter::MatchAny([topic3].iter().cloned().collect());
 		assert!(!filter_any_fail.matches(&statement));
+	}
+
+	fn statement_type_info_matches_encoding() {
+		// Statement has custom Encode/Decode that encodes as Vec<Field>.
+		// Verify that TypeInfo reflects this by containing a reference to Vec<Field>.
+		let statement_type = Statement::type_info();
+		let vec_field_meta = MetaType::new::<Vec<Field>>();
+
+		// The Statement type should be a composite with one unnamed field of type Vec<Field>
+		match statement_type.type_def {
+			scale_info::TypeDef::Composite(composite) => {
+				assert_eq!(composite.fields.len(), 1, "Statement should have exactly one field");
+				let field = &composite.fields[0];
+				assert!(field.name.is_none(), "Field should be unnamed (newtype pattern)");
+				assert_eq!(field.ty, vec_field_meta, "Statement's inner type should be Vec<Field>");
+			},
+			_ => panic!("Statement TypeInfo should be a Composite"),
+		}
 	}
 }

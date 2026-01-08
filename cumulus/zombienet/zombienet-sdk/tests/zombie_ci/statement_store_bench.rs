@@ -305,7 +305,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Spawns a network using a custom chain spec (people-rococo-spec.json) which validates any signed
+/// Spawns a network using a custom chain spec (people-westend-spec.json) which validates any signed
 /// statement in the statement-store without additional verification.
 async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(collators.len() >= 2);
