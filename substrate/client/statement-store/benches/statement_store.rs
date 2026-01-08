@@ -47,10 +47,108 @@ struct RuntimeApi {
 	_inner: TestClient,
 }
 
+type TestBackend = sc_client_api::in_mem::Backend<Block>;
+
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
 	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
 		RuntimeApi { _inner: self.clone() }.into()
+	}
+}
+
+impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
+	fn storage(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+		Ok(None)
+	}
+
+	fn storage_hash(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<Hash>> {
+		unimplemented!()
+	}
+
+	fn storage_keys(
+		&self,
+		_hash: Hash,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn storage_pairs(
+		&self,
+		_hash: Hash,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::PairsIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn child_storage(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+		unimplemented!()
+	}
+
+	fn child_storage_keys(
+		&self,
+		_hash: Hash,
+		_child_info: sc_client_api::ChildInfo,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn child_storage_hash(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<Hash>> {
+		unimplemented!()
+	}
+
+	fn closest_merkle_value(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+		unimplemented!()
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+		unimplemented!()
 	}
 }
 
@@ -148,7 +246,14 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let store = Store::new::<Block, TestClient, TestBackend>(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+	)
+	.unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
 		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
