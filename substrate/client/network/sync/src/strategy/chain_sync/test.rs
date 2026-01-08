@@ -1273,10 +1273,7 @@ fn sync_verification_failed_with_gap_filled() {
 				best_queued_number: 64 as u64,
 				target: 84 as u64,
 				blocks: BlockCollection::new(),
-				total_header_bytes: 0,
-				total_body_bytes: 0,
-				total_justification_bytes: 0,
-				total_block_bytes: 0,
+				stats: GapSyncStats::new(),
 			});
 		} else if loop_index == 1 {
 			if sync.gap_sync.is_none() {
@@ -1321,10 +1318,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
-			total_header_bytes: 0,
-			total_body_bytes: 0,
-			total_justification_bytes: 0,
-			total_block_bytes: 0,
+			stats: GapSyncStats::new(),
 		});
 
 		// Announce the block as unknown.
@@ -1347,10 +1341,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
-			total_header_bytes: 0,
-			total_body_bytes: 0,
-			total_justification_bytes: 0,
-			total_block_bytes: 0,
+			stats: GapSyncStats::new(),
 		});
 
 		// Announce the block as known.
@@ -1403,10 +1394,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 			best_queued_number: 5,
 			target: 10,
 			blocks: BlockCollection::new(),
-			total_header_bytes: 0,
-			total_body_bytes: 0,
-			total_justification_bytes: 0,
-			total_block_bytes: 0,
+			stats: GapSyncStats::new(),
 		});
 
 		sync.add_peer(peer_id, blocks[9].hash(), 10);

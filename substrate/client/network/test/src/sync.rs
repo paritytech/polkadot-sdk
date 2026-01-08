@@ -1217,7 +1217,7 @@ async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
 	let gap_start = net.peer(0).push_blocks(1, false);
 	let blocks = net.peer(0).push_blocks(61, false);
 	let gap_end = net.peer(0).push_blocks(1, false);
-	let target = net.peer(0).push_blocks(1, false);
+	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
 
@@ -1232,13 +1232,18 @@ async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		let peer = net.peer(3);
-		if gap_start
+
+		// Gap blocks should only have headers (not bodies) due to pruning
+		let gap_blocks_dont_have_bodies = gap_start
 			.iter()
 			.chain(blocks.iter())
 			.chain(gap_end.iter())
-			.chain(target.iter())
-			.all(|b| peer.has_block(*b))
-		{
+			.all(|b| peer.has_block(*b) && !peer.has_body(*b));
+
+		// Target block should have body (downloaded during warp sync)
+		let target_has_body = peer.has_body(target);
+
+		if gap_blocks_dont_have_bodies && target_has_body {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
