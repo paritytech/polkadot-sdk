@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot CLI
+//! Shim crate to enable `jemalloc-allocator` feature for Polkadot crates.
+//!
+//! Because [there doesn't exist any easier way right now](https://github.com/rust-lang/cargo/issues/1197), we
+//! need an entire crate to handle `jemalloc` enabling/disabling. This way we can enable it by
+//! default on Linux, but have it optional on all other OSes.
 
-#![warn(missing_docs)]
-
-use color_eyre::eyre;
-
-fn main() -> eyre::Result<()> {
-	color_eyre::install()?;
-	polkadot_cli::run()?;
-	Ok(())
-}
+/// Sets the global allocator to `jemalloc` when the feature is enabled.
+#[cfg(feature = "jemalloc-allocator")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
