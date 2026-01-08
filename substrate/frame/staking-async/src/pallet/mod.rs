@@ -462,8 +462,9 @@ pub mod pallet {
 	///
 	/// - When set to `true` (default), nominators are slashed along with validators and must wait
 	///   the full [`Config::BondingDuration`] before withdrawing unbonded funds.
-	/// - When set to `false`, nominators are not slashed, and can unbond in just 1 era (see
-	///   [`StakingInterface::nominator_bonding_duration`]).
+	/// - When set to `false`, nominators are not slashed, and can unbond in
+	///   [`Config::NominatorFastUnbondDuration`] eras instead of the full
+	///   [`Config::BondingDuration`] (see [`StakingInterface::nominator_bonding_duration`]).
 	#[pallet::storage]
 	pub type AreNominatorsSlashable<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
 
