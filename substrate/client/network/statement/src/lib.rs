@@ -402,6 +402,9 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
+			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
 		}
 	}
 
