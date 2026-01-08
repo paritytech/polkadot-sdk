@@ -249,6 +249,7 @@ impl<
 
 		// Calculate asset_balance
 		// This read should have already been cached in buy_weight
+		// Map `weight` to actual asset amount given fungibles id.
 		let refund_credit = FeeCharger::charge_weight_in_fungibles(fungibles_asset_id, weight)
 			.ok()
 			.map(|refund_balance| {
