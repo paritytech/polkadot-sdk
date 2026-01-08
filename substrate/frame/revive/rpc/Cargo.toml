@@ -62,10 +62,10 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-pallet-revive-fixtures = { default-features = true, path = "../fixtures" }
+pallet-revive-fixtures = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
-revive-dev-node = { path = "../dev-node/node" }
-sp-io = { default-features = true, path = "../../../primitives/io" }
+revive-dev-node = { workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }
