@@ -59,6 +59,7 @@ mod test_helpers {
 /// to UMP eventually and when we do, the pallet which implements the queuing will be responsible
 /// for the `SendXcm` implementation.
 pub struct ParentAsUmp<T, W, P>(PhantomData<(T, W, P)>);
+
 impl<T, W, P> SendXcm for ParentAsUmp<T, W, P>
 where
 	T: UpwardMessageSender,
@@ -213,7 +214,11 @@ impl<
 		let required = used.id.into_asset(required_amount.into());
 
 		// Subtract required from payment
-		let Some(imbalance) = payment.fungible.remove(&required.id) else {
+		let Some(imbalance) = payment
+			.try_take(required.into())
+			.ok()
+			.and_then(|taken| taken.fungible.into_iter().next().map(|(_, v)| v))
+		else {
 			return Err((payment, XcmError::TooExpensive))
 		};
 		// "manually" build the concrete credit and move the imbalance there.
@@ -637,6 +642,7 @@ mod test_xcm_router {
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
+
 	impl OkFixedXcmHashWithAssertingRequiredInputsSender {
 		const FIXED_XCM_HASH: [u8; 32] = [9; 32];
 
@@ -648,6 +654,7 @@ mod test_xcm_router {
 			Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
 		}
 	}
+
 	impl SendXcm for OkFixedXcmHashWithAssertingRequiredInputsSender {
 		type Ticket = ();
 
@@ -667,6 +674,7 @@ mod test_xcm_router {
 
 	/// Impl [`UpwardMessageSender`] that return `Ok` for `can_send_upward_message`.
 	struct CanSendUpwardMessageSender;
+
 	impl UpwardMessageSender for CanSendUpwardMessageSender {
 		fn send_upward_message(_: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 			Err(MessageSendError::Other)
@@ -700,7 +708,7 @@ mod test_xcm_router {
 			OkFixedXcmHashWithAssertingRequiredInputsSender::expected_delivery_result(),
 			send_xcm::<(ParentAsUmp<(), (), ()>, OkFixedXcmHashWithAssertingRequiredInputsSender)>(
 				dest.into(),
-				message
+				message,
 			)
 		);
 	}
@@ -716,7 +724,7 @@ mod test_xcm_router {
 		let mut msg_wrapper = Some(message.clone());
 		assert!(<ParentAsUmp<CanSendUpwardMessageSender, (), ()> as SendXcm>::validate(
 			&mut dest_wrapper,
-			&mut msg_wrapper
+			&mut msg_wrapper,
 		)
 		.is_ok());
 
@@ -757,6 +765,7 @@ mod test_xcm_router {
 		);
 	}
 }
+
 #[cfg(test)]
 mod test_trader {
 	use super::{test_helpers::asset_to_holding, *};
@@ -901,6 +910,152 @@ mod test_trader {
 		// lets do second call (error)
 		let (_, error) = trader.buy_weight(weight_to_buy, payment2, &ctx).unwrap_err();
 		assert_eq!(error, XcmError::NotWithdrawable);
+	}
+
+	#[test]
+	fn take_first_asset_trader_returns_unused_amount() {
+		// Regression test for fix: buy_weight should only take the required amount,
+		// not the entire balance from payment
+		const REQUIRED_AMOUNT: u128 = 100;
+		const TOTAL_AMOUNT: u128 = 500; // More than required
+
+		// prepare prerequisites to instantiate `TakeFirstAssetTrader`
+		type TestAccountId = u32;
+		type TestAssetId = Location;
+		type TestBalance = u128;
+
+		struct TestAssets;
+		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
+			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
+				match a {
+					Asset { fun: Fungible(amount), id: AssetId(_id) } =>
+						Ok((Location::new(0, [GeneralIndex(1)]), *amount)),
+					_ => Err(Error::AssetNotHandled),
+				}
+			}
+		}
+		impl fungibles::Inspect<TestAccountId> for TestAssets {
+			type AssetId = TestAssetId;
+			type Balance = TestBalance;
+
+			fn total_issuance(_: Self::AssetId) -> Self::Balance {
+				0
+			}
+
+			fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+				0
+			}
+
+			fn balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
+				0
+			}
+
+			fn total_balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
+				0
+			}
+
+			fn reducible_balance(
+				_: Self::AssetId,
+				_: &TestAccountId,
+				_: Preservation,
+				_: Fortitude,
+			) -> Self::Balance {
+				0
+			}
+
+			fn can_deposit(
+				_: Self::AssetId,
+				_: &TestAccountId,
+				_: Self::Balance,
+				_: Provenance,
+			) -> DepositConsequence {
+				DepositConsequence::Success
+			}
+
+			fn can_withdraw(
+				_: Self::AssetId,
+				_: &TestAccountId,
+				_: Self::Balance,
+			) -> WithdrawConsequence<Self::Balance> {
+				WithdrawConsequence::Success
+			}
+
+			fn asset_exists(_: Self::AssetId) -> bool {
+				true
+			}
+		}
+		impl fungibles::Mutate<TestAccountId> for TestAssets {}
+		impl fungibles::Balanced<TestAccountId> for TestAssets {
+			type OnDropCredit = fungibles::DecreaseIssuance<TestAccountId, Self>;
+			type OnDropDebt = fungibles::IncreaseIssuance<TestAccountId, Self>;
+		}
+		impl fungibles::Unbalanced<TestAccountId> for TestAssets {
+			fn handle_dust(_: fungibles::Dust<TestAccountId, Self>) {}
+			fn write_balance(
+				_: Self::AssetId,
+				_: &TestAccountId,
+				_: Self::Balance,
+			) -> Result<Option<Self::Balance>, DispatchError> {
+				Ok(None)
+			}
+
+			fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
+		}
+
+		struct FeeChargerAssetsHandleRefund;
+		impl ChargeWeightInFungibles<TestAccountId, TestAssets> for FeeChargerAssetsHandleRefund {
+			fn charge_weight_in_fungibles(
+				_: <TestAssets as fungibles::Inspect<TestAccountId>>::AssetId,
+				_: Weight,
+			) -> Result<<TestAssets as fungibles::Inspect<TestAccountId>>::Balance, XcmError> {
+				Ok(REQUIRED_AMOUNT)
+			}
+		}
+		impl TakeRevenue for FeeChargerAssetsHandleRefund {
+			fn take_revenue(_: AssetsInHolding) {}
+		}
+
+		struct HandleFees;
+		impl OnUnbalancedT<fungibles::Credit<TestAccountId, TestAssets>> for HandleFees {
+			fn on_unbalanced(_: fungibles::Credit<TestAccountId, TestAssets>) {}
+		}
+
+		// create new instance
+		type Trader = TakeFirstAssetTrader<
+			TestAccountId,
+			FeeChargerAssetsHandleRefund,
+			TestAssets,
+			TestAssets,
+			HandleFees,
+		>;
+		let mut trader = <Trader as WeightTrader>::new();
+		let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+		// prepare test data - payment with MORE than required
+		let asset: Asset = (Here, TOTAL_AMOUNT).into();
+		let payment = asset_to_holding(asset.clone());
+		let weight_to_buy = Weight::from_parts(1_000, 1_000);
+
+		// call buy_weight - should succeed and return the excess
+		let result = trader.buy_weight(weight_to_buy, payment, &ctx);
+		assert_ok!(&result);
+
+		let unused_payment = result.unwrap();
+
+		// verify that the unused payment contains the excess amount
+		let expected_excess = TOTAL_AMOUNT - REQUIRED_AMOUNT;
+		let unused_assets: Vec<Asset> = unused_payment.fungible_assets_iter().collect();
+
+		// should have exactly one asset remaining
+		assert_eq!(unused_assets.len(), 1);
+
+		// verify it's the correct amount (excess)
+		match &unused_assets[0] {
+			Asset { fun: Fungible(amount), .. } => {
+				assert_eq!(*amount, expected_excess, "Expected excess amount to be returned");
+			},
+			_ => panic!("Expected fungible asset"),
+		}
 	}
 }
 
