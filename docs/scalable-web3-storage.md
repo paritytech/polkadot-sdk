@@ -536,38 +536,47 @@ for important data.
 ```
 1. BUCKET CREATION (on-chain)
    ────────────────────────────────────────────────────────
-   • Client creates bucket, becomes Admin
-   • Sets min_providers (minimum acknowledgments for checkpoint)
+   • Admin creates bucket
+   • Sets min_providers (minimum primary provider signatures for checkpoint)
    • Optionally adds members with roles
 
-2. AGREEMENT SETUP (on-chain)
+2. PRIMARY AGREEMENT SETUP (on-chain, required)
    ────────────────────────────────────────────────────────
-   • Client calls request_agreement(bucket, provider, max_bytes, payment, duration)
-   • Payment locked from client
+   • Admin calls request_primary_agreement(bucket, provider, max_bytes, duration, max_payment)
+   • Payment locked from admin
    • Provider calls accept_agreement or reject_agreement
-   • On acceptance: StorageAgreement created, provider starts tracking bucket
+   • On acceptance: StorageAgreement created with Primary role
+   • Provider added to bucket.primary_providers
+   • Repeat until at least min_providers primary agreements exist
 
 3. UPLOAD AND COMMIT (off-chain)
    ────────────────────────────────────────────────────────
-   • Client uploads chunks to provider
+   • Client uploads chunks to primary providers
    • Client requests commit → provider signs MMR commitment
    • Data is stored, commitment is provable off-chain
 
 4. CHECKPOINT (on-chain, optional)
    ────────────────────────────────────────────────────────
-   • Client submits provider signatures to chain
+   • Client submits primary provider signatures to chain
    • Requires min_providers acknowledgments
    • Establishes canonical state, enables challenge_checkpoint
 
 5. ACTIVE PERIOD (off-chain)
    ────────────────────────────────────────────────────────
-   • Provider stores data, serves reads
+   • Providers store data, serve reads
    • Client can verify randomly, challenge if needed
-   • Client can extend_agreement or top_up_agreement
+   • Admin can extend_agreement or top_up_agreement
 
-6. SETTLEMENT (on-chain)
+6. REPLICA AGREEMENTS (on-chain, optional, permissionless)
    ────────────────────────────────────────────────────────
-   • After expires_at: client calls end_agreement with pay/burn decision
+   • Anyone calls request_agreement(bucket, provider, replica_params)
+   • Replicas sync autonomously from primaries or other replicas
+   • Replicas confirm sync on-chain → receive per-sync payment
+   • Adds redundancy without admin involvement
+
+7. SETTLEMENT (on-chain)
+   ────────────────────────────────────────────────────────
+   • After expires_at: owner calls end_agreement with pay/burn decision
    • Or: provider calls claim_expired_agreement after settlement timeout
 ```
 
@@ -1399,6 +1408,24 @@ local storage.
 This gives geographic verification without on-chain enforcement: clients measure
 actual performance and naturally prefer fast (honest, local) providers.
 
+**Verifying cross-region replication:**
+
+Providers cannot fake their location - IP routing and physics prevent it. Use
+this to verify actual geographic redundancy:
+
+1. **Select providers in distinct regions** (EU, US-East, US-West, Asia, etc.)
+2. **Know expected latency per region** from your location (e.g., EU client
+   expects ~20ms to EU, ~90ms to US-East, ~250ms to Asia)
+3. **Measure actual latency** to each provider via random chunk requests
+4. **Compare within regions** - if one EU provider has 100ms latency when others
+   have 20ms, they're likely freeloading (fetching from a different region)
+5. **Prune high-latency providers** - don't extend their agreements. This
+   improves performance and removes likely freeloaders.
+
+As long as you retain at least one provider per region with expected latency,
+you have verified geographic redundancy. Freeloaders reveal themselves through
+unexpectedly high latency and get pruned naturally.
+
 **Risk dashboards:**
 
 Client software should provide visibility into bucket health:
@@ -1917,13 +1944,16 @@ register get priority; providers track payment history. This establishes:
 - Quality-of-service differentiation for reads
 - Foundation for competitive provider market
 
-**Phase 4: Third-Party Providers and Payments**
+**Phase 4: Third-Party Providers and Replicas**
 
 Open the system to third-party providers competing on price and quality.
-Payment tracking enables sustainable economics. This establishes:
-- Economic sustainability
-- Provider competition
+Add permissionless replica agreements - anyone can add redundancy to any bucket
+without admin approval. This establishes:
+- True decentralization (permissionless participation)
+- Replica providers syncing autonomously, paid per-sync
+- Provider competition on price and quality
 - Market-driven pricing
+- Redundancy beyond admin-controlled primaries
 
 **Why this works:**
 
@@ -2118,7 +2148,7 @@ Incentives line up: Technically a provider could ignore the disabling to profit 
 3. It is cheaper to collaborate, as again we would obviously make cooperation the default in provided node software.
 4. Dishonest providers don't need to cooperate - they don't have the data any way.
 
-Bribes could exist, actual collusion is not prevented either of course.
+Bribes could exist, actual collusion is not prevented either of course and we introduced replica nodes, which kind of break this scheme.
 
 **This works for hot buckets too:**
 
