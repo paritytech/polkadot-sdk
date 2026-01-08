@@ -9,6 +9,8 @@ doc:
     - Validators are still allowed to call `set_keys` and `purge_keys` via relay-chain pallet-session's extrinsics. This option will be deprecated in the future.
     - No key deposit is required on AssetHub.
     - XCM delivery fees are charged from user's liquid balance before sending messages.
+    - Workflow change: unlike the current flow for new validators on RC (bond -> set_keys -> validate), users on Asset Hub MUST call bond and validate BEFORE
+      calling set_keys. Attempting to set keys before declaring intent to validate will fail with NotValidator.
 crates:
 - name: asset-hub-westend-runtime
   bump: major

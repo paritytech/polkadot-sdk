@@ -1049,6 +1049,11 @@ pub mod pallet {
 		///
 		/// This, combined with the enforcement of a high minimum validator bond, makes it
 		/// reasonable not to require a deposit.
+		///
+		/// NOTE: unlike the current flow for new validators on RC (bond -> set_keys -> validate),
+		/// users on Asset Hub MUST call bond and validate BEFORE calling set_keys. Attempting to
+		/// set keys before declaring intent to validate will fail with NotValidator.
+
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
