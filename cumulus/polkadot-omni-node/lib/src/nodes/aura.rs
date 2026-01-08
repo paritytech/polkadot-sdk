@@ -68,7 +68,7 @@ use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::Environment;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
@@ -77,6 +77,7 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
@@ -596,8 +597,28 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let client_clone = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					let has_tx_storage_api = client_clone
+						.runtime_api()
+						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.unwrap_or(false);
+					if has_tx_storage_api {
+						let storage_proof =
+							sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+								client_clone.runtime_api().retention_period(parent)?,
+							)?;
+						Ok(vec![storage_proof])
+					} else {
+						Ok(vec![])
+					}
+				}
+			},
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -623,7 +644,6 @@ where
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
 		// code.
-
 		Self::launch_slot_based_collator(params);
 
 		Ok(())
@@ -721,10 +741,30 @@ where
 			client.clone(),
 		);
 
+		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |parent, ()| {
+					let client_clone = client_clone.clone();
+					async move {
+						let has_tx_storage_api = client_clone
+							.runtime_api()
+							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.unwrap_or(false);
+						if has_tx_storage_api {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+									client_clone.runtime_api().retention_period(parent)?,
+								)?;
+							Ok(vec![storage_proof])
+						} else {
+							Ok(vec![])
+						}
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
