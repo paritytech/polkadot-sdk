@@ -1369,7 +1369,7 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = Treasury;
-	type TransferAllAssets = pallet_bounties::TransferAllFungibles<AccountId, NativeAndAssets, ()>;
+	type TransferAllAssets = ();
 }
 
 parameter_types! {

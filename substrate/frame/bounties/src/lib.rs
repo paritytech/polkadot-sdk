@@ -210,10 +210,11 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
+/// Transfer all assets that an account holds.
 pub trait TransferAllAssets<AccountId> {
-	/// Transfer the native asset and all fungible assets from one account to another.
+	/// Transfer all assets from one account to another.
 	///
-	/// This will possibly dust and reap the origin account.
+	/// This will possibly dust and reap the origin account and endow the receiver.
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult;
 }
 
@@ -223,7 +224,7 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 	}
 }
 
-/// Transfer all fungible assets and the native asset from one account to another.
+/// Transfer all `RelevantAssets` of the `Fungibles` from one account to another.
 pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
 	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
 );
