@@ -149,11 +149,12 @@ async fn verify_fairness(client: &OnlineClient<PolkadotConfig>) -> Result<(), an
 		// Check for NewSession event.
 		for event in events.iter() {
 			let event = event?;
-			if event.pallet_name() == "Session" && event.variant_name() == "NewSession" {
-				if !new_session_started {
-					log::info!("New session started. Measuring CandidateIncluded events.");
-					new_session_started = true;
-				}
+			if event.pallet_name() == "Session" &&
+				event.variant_name() == "NewSession" &&
+				!new_session_started
+			{
+				log::info!("New session started. Measuring CandidateIncluded events.");
+				new_session_started = true;
 			}
 		}
 
@@ -169,23 +170,18 @@ async fn verify_fairness(client: &OnlineClient<PolkadotConfig>) -> Result<(), an
 			if event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateIncluded"
 			{
 				// Decode the event to get the para_id.
-				if let Ok(details) = event.field_bytes() {
-					if !details.is_empty() && details[0].len() >= 4 {
-						let para_id = u32::from_le_bytes([
-							details[0][0],
-							details[0][1],
-							details[0][2],
-							details[0][3],
-						]);
-						if para_id == PARA_2000 || para_id == PARA_2001 {
-							*blocks_per_para.entry(para_id).or_insert(0) += 1;
-							log::info!(
-								"CandidateIncluded for {}: block_offset={} block_hash={:?}",
-								para_id,
-								block_count,
-								block.hash()
-							);
-						}
+				let details = event.field_bytes();
+				if details.len() >= 4 {
+					let para_id =
+						u32::from_le_bytes([details[0], details[1], details[2], details[3]]);
+					if para_id == PARA_2000 || para_id == PARA_2001 {
+						*blocks_per_para.entry(para_id).or_insert(0) += 1;
+						log::info!(
+							"CandidateIncluded for {}: block_offset={} block_hash={:?}",
+							para_id,
+							block_count,
+							block.hash()
+						);
 					}
 				}
 			}
