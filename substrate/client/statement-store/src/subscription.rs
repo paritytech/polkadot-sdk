@@ -1049,4 +1049,69 @@ mod tests {
 		let decoded3: Statement = Statement::decode(&mut &received3.0[..]).unwrap();
 		assert_eq!(decoded3, statement2);
 	}
+
+	#[test]
+	fn test_statement_without_topics_matches_only_any_filter() {
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let (tx_match_all, rx_match_all) = async_channel::bounded::<Bytes>(10);
+		let (tx_match_any, rx_match_any) = async_channel::bounded::<Bytes>(10);
+		let (tx_any, rx_any) = async_channel::bounded::<Bytes>(10);
+
+		let topic1 = [8u8; 32];
+		let topic2 = [9u8; 32];
+
+		// Subscribe with MatchAll filter.
+		let sub_match_all = SubscriptionInfo {
+			topic_filter: CheckedTopicFilter::MatchAll(
+				vec![topic1, topic2].iter().cloned().collect(),
+			),
+			seq_id: SeqID::from(1),
+			tx: tx_match_all,
+		};
+		subscriptions.subscribe(sub_match_all);
+
+		// Subscribe with MatchAny filter.
+		let sub_match_any = SubscriptionInfo {
+			topic_filter: CheckedTopicFilter::MatchAny(
+				vec![topic1, topic2].iter().cloned().collect(),
+			),
+			seq_id: SeqID::from(2),
+			tx: tx_match_any,
+		};
+		subscriptions.subscribe(sub_match_any);
+
+		// Subscribe with Any filter.
+		let sub_any = SubscriptionInfo {
+			topic_filter: CheckedTopicFilter::Any,
+			seq_id: SeqID::from(3),
+			tx: tx_any,
+		};
+		subscriptions.subscribe(sub_any);
+
+		// Create a statement without any topics set.
+		let statement = signed_statement(1);
+		assert!(statement.topics().is_empty(), "Statement should have no topics");
+
+		// Notify all matching filters.
+		subscriptions.notify_matching_filters(&statement);
+
+		// Any should receive (matches all statements regardless of topics).
+		let received = rx_any.try_recv().expect("Any filter should receive statement");
+		let decoded_statement: Statement =
+			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
+		assert_eq!(decoded_statement, statement);
+
+		// MatchAll should NOT receive (statement has no topics, filter requires topic1 AND topic2).
+		assert!(
+			rx_match_all.try_recv().is_err(),
+			"MatchAll should not receive statement without topics"
+		);
+
+		// MatchAny should NOT receive (statement has no topics, filter requires topic1 OR topic2).
+		assert!(
+			rx_match_any.try_recv().is_err(),
+			"MatchAny should not receive statement without topics"
+		);
+	}
 }
