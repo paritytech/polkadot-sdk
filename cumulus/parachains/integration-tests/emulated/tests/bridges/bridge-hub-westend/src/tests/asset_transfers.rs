@@ -371,8 +371,8 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 	let wnds_in_reserve_on_ahw_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let sender_wnds_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_at_westend_parachains.clone(), &sender)
 	});
 	let receiver_wnds_before =
 		foreign_balance_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), &receiver);
@@ -418,8 +418,8 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 	});
 
 	let sender_wnds_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_at_westend_parachains, &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_at_westend_parachains, &sender)
 	});
 	let receiver_wnds_after = foreign_balance_on_ah_rococo(wnd_at_asset_hub_rococo, &receiver);
 	let wnds_in_reserve_on_ahw_after =
@@ -476,11 +476,11 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 	let wnds_in_reserve_on_ahw_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let sender_wnds_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_at_westend_parachains.clone(), &sender)
 	});
 	let receiver_wnds_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(wnd_at_rococo_parachains.clone(), &receiver)
 	});
 
@@ -522,7 +522,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 			AssetHubRococo,
 			vec![
 				// issue WNDs on AHR
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
 				// message processed successfully
 				RuntimeEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
@@ -535,11 +535,11 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 	});
 
 	let sender_wnds_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_at_westend_parachains, &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_at_westend_parachains, &sender)
 	});
 	let receiver_wnds_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(wnd_at_rococo_parachains, &receiver)
 	});
 	let wnds_in_reserve_on_ahw_after =
@@ -619,7 +619,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let sender_wnds_before = <Westend as Chain>::account_data_of(sender.clone()).free;
 	let receiver_wnds_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(wnd_at_rococo_parachains.clone(), &receiver)
 	});
 
@@ -718,7 +718,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 
 	let sender_wnds_after = <Westend as Chain>::account_data_of(sender.clone()).free;
 	let receiver_wnds_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(wnd_at_rococo_parachains, &receiver)
 	});
 	let wnds_in_reserve_on_ahw_after =
@@ -783,8 +783,8 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 	// balances before
 	let sender_rocs_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
 	});
 	let receiver_rocs_before = <AssetHubRococo as Chain>::account_data_of(receiver.clone()).free;
 
@@ -854,8 +854,8 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	});
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
 	});
 	let receiver_rocs_after = <AssetHubRococo as Chain>::account_data_of(receiver).free;
 
@@ -932,11 +932,11 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 	// balances before
 	let sender_rocs_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
 	});
 	let receiver_rocs_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(roc_at_rococo_parachains.clone(), &receiver)
 	});
 
@@ -1047,11 +1047,11 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	});
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
 	});
 	let receiver_rocs_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(roc_at_rococo_parachains.clone(), &receiver)
 	});
 
@@ -1127,8 +1127,8 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 	// balances before
 	let sender_rocs_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
 	});
 	let receiver_rocs_before = <Rococo as Chain>::account_data_of(receiver.clone()).free;
 
@@ -1249,8 +1249,8 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
 	});
 	let receiver_rocs_after = <Rococo as Chain>::account_data_of(receiver.clone()).free;
 
@@ -1460,8 +1460,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 
 	// account balances before
 	let sender_wnds_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(
 			wnd_at_westend_parachains.clone().into(),
 			&PenpalBSender::get(),
 		)
@@ -1532,8 +1532,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(
 			wnd_at_westend_parachains.into(),
 			&PenpalBSender::get(),
 		)

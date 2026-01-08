@@ -113,7 +113,7 @@ pub use sp_runtime::BuildStorage;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
-	ForeignAssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
+	AssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
 };
 
 /// The address format for describing accounts.
@@ -458,16 +458,19 @@ parameter_types! {
 	pub const MetadataDepositPerByte: Balance = 0;
 }
 
-/// Another pallet assets instance to store foreign assets from bridgehub.
-pub type ForeignAssetsInstance = pallet_assets::Instance2;
-impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
+/// Pallet Assets instance to store local and foreign assets, where:
+/// 
+/// * Local assets are identified by `assets_common::matching::LocalLocationPattern`.
+/// * Foreign assets are the rest
+pub type AssetsInstance = pallet_assets::Instance2;
+impl pallet_assets::Config<AssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = ForeignAssetsAssetId;
-	type AssetIdParameter = ForeignAssetsAssetId;
+	type AssetId = AssetsAssetId;
+	type AssetIdParameter = AssetsAssetId;
 	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
-	// This is to allow any other remote location to create foreign assets. Used in tests, not
+	// This is to allow any other location to create assets. Used in tests, not
 	// recommended on real chains.
 	type CreateOrigin =
 		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
@@ -527,10 +530,10 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for [`ForeignAssets`] and `Balances`.
+/// Union fungibles implementation for [`Assets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
-	ForeignAssets,
+	Assets,
 	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
 	xcm::latest::Location,
 	AccountId,
@@ -830,7 +833,7 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 
 		// The main stage.
-		ForeignAssets: pallet_assets::<Instance2> = 51,
+		Assets: pallet_assets::<Instance2> = 51,
 		PoolAssets: pallet_assets::<Instance3> = 52,
 		AssetConversion: pallet_asset_conversion = 53,
 

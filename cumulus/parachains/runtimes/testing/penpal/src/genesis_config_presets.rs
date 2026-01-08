@@ -29,7 +29,7 @@
 //! Penpal Parachain Runtime genesis config presets
 
 use crate::{
-	xcm_config::{EthFromEthereum, LocalPen2ForeignAsset, RelayLocation, UsdtFromAssetHub},
+	xcm_config::{EthFromEthereum, LocalPen2Asset, RelayLocation, UsdtFromAssetHub},
 	*,
 };
 use alloc::{vec, vec::Vec};
@@ -74,10 +74,10 @@ fn penpal_parachain_genesis(
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(sudo.clone()) },
-		foreign_assets: ForeignAssetsConfig {
+		assets: AssetsConfig {
 			assets: vec![
 				(RelayLocation::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
-				(LocalPen2ForeignAsset::get(), sudo.clone(), false, EXISTENTIAL_DEPOSIT),
+				(LocalPen2Asset::get(), sudo.clone(), false, EXISTENTIAL_DEPOSIT),
 				(UsdtFromAssetHub::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
 				(EthFromEthereum::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
 			],
@@ -89,7 +89,7 @@ fn penpal_parachain_genesis(
 					12
 				),
 				(
-					LocalPen2ForeignAsset::get(),
+					LocalPen2Asset::get(),
 					"pen-2".as_bytes().to_vec(),
 					"PEN2".as_bytes().to_vec(),
 					12
@@ -109,7 +109,7 @@ fn penpal_parachain_genesis(
 			],
 			accounts: vec![
 				(RelayLocation::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
-				(LocalPen2ForeignAsset::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
+				(LocalPen2Asset::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
 				(UsdtFromAssetHub::get(), sudo.clone(), 100_000,),
 				// Todo: proper ED
 				(EthFromEthereum::get(), sudo, EXISTENTIAL_DEPOSIT * 4096,),

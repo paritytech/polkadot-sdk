@@ -36,7 +36,7 @@
 //! soon.
 use super::{
 	AccountId, AllPalletsWithSystem, Authorship, Balance, Balances, CollatorSelection,
-	ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	Assets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
@@ -112,8 +112,8 @@ pub type FungibleTransactor = FungibleAdapter<
 /// Means for transacting assets besides the native currency on this chain.
 pub type LocalAssetsTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
-	ForeignAssets,
-	// Only allow locations that are local
+	Assets,
+	// Only allow locations that are local.
 	LocalAssetsConvertedConcreteId,
 	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
@@ -121,13 +121,13 @@ pub type LocalAssetsTransactor = FungiblesAdapter<
 	AccountId,
 	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
 	// that this asset is known.
-	LocalMint<NonZeroIssuance<AccountId, ForeignAssets>>,
+	LocalMint<NonZeroIssuance<AccountId, Assets>>,
 	// The account to use for tracking teleports.
 	CheckingAccount,
 >;
 
 // Using the latest `Location`, we don't need to worry about migrations for Penpal.
-pub type ForeignAssetsAssetId = Location;
+pub type AssetsAssetId = Location;
 pub type ForeignAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcreteId<
 	Location,
 	Balance,
@@ -160,7 +160,7 @@ pub type LocalAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcreteI
 /// Means for transacting foreign assets from different global consensus.
 pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
-	ForeignAssets,
+	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ForeignAssetsConvertedConcreteId,
 	// Convert an XCM Location into a local account id:
@@ -294,7 +294,7 @@ parameter_types! {
 	);
 
 	/// A PEN42 test asset.
-	pub LocalPen2ForeignAsset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
+	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios
@@ -302,7 +302,7 @@ parameter_types! {
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
-	pub storage LocalTeleportableToAssetHub: Location = LocalPen2ForeignAsset::get();
+	pub storage LocalTeleportableToAssetHub: Location = LocalPen2Asset::get();
 
 	pub const NativeAssetId: AssetId = AssetId(Location::here());
 	pub const NativeAssetFilter: AssetFilter = Wild(AllOf { fun: WildFungible, id: NativeAssetId::get() });
@@ -359,8 +359,7 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	(
 		LocalAssetsConvertedConcreteId,
 		ForeignAssetsConvertedConcreteId,
-		// `ForeignAssetsConvertedConcreteId` doesn't include the local tokens, so we handle it
-		// explicitly here.
+		// The above doesn't include the local tokens, so we handle it explicitly here.
 		MatchedConvertedConcreteId<
 			Location,
 			Balance,
@@ -396,7 +395,7 @@ impl xcm_executor::Config for XcmConfig {
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
-			(LocalAssetsConvertedConcreteId, ForeignAssetsConvertedConcreteId,),
+			(LocalAssetsConvertedConcreteId, ForeignAssetsConvertedConcreteId),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
 			AccountId,
 		>,

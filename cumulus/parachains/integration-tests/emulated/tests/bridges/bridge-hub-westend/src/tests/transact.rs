@@ -160,7 +160,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 
 	// Query initial balances
 	let receiver_assets_before = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
 		<Assets as Inspect<_>>::balance(bridged_weth.clone(), &receiver)
 	});
 
@@ -202,7 +202,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 
 	// Query final balances
 	let receiver_assets_after = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
 		<Assets as Inspect<_>>::balance(bridged_weth, &receiver)
 	});
 	// Receiver's balance is increased
@@ -235,7 +235,7 @@ fn penpal_b_assertions(
 	assert_expected_events!(
 		PenpalB,
 		vec![
-			RuntimeEvent::ForeignAssets(
+			RuntimeEvent::Assets(
 				pallet_assets::Event::Created { asset_id, creator, owner }
 			) => {
 				asset_id: *asset_id == expected_asset,

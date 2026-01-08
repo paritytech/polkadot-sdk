@@ -63,6 +63,7 @@ mod imports {
 			self,
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalPen2Asset as PenpalLocalPen2ForeignAsset,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,

@@ -87,10 +87,35 @@ macro_rules! create_pool_with_wnd_on {
 
 #[macro_export]
 macro_rules! create_foreign_pool_with_parent_native_on {
-	// default amounts
+	// default amounts, and pallet name
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_foreign_pool_with_parent_native_on!(
 			$chain,
+			ForeignAssets,
+			$asset_id,
+			$asset_owner,
+			1_000_000_000_000,
+			2_000_000_000_000
+		);
+	};
+
+	// default amounts, custom pallet name
+	( $chain:ident, $foreign_pallet_assets:ident, $asset_id:expr, $asset_owner:expr ) => {
+		$crate::create_foreign_pool_with_parent_native_on!(
+			$chain,
+			$foreign_pallet_assets,
+			$asset_id,
+			$asset_owner,
+			1_000_000_000_000,
+			2_000_000_000_000
+		);
+	};
+
+	// custom amounts, default pallet name
+	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
+		$crate::create_foreign_pool_with_parent_native_on!(
+			$chain,
+			ForeignAssets,
 			$asset_id,
 			$asset_owner,
 			1_000_000_000_000,
@@ -99,13 +124,13 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 	};
 
 	// custom amounts
-	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
+	( $chain:ident, $foreign_pallet_assets:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
 
-				assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
+				assert_ok!(<$chain as [<$chain Pallet>]>::$foreign_pallet_assets::mint(
 						signed_owner.clone(),
 						$asset_id.clone().into(),
 						owner.clone().into(),
@@ -121,10 +146,11 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 
 #[macro_export]
 macro_rules! create_foreign_pool_with_native_on {
-	// default amounts
+	// default amounts, and pallet name
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_foreign_pool_with_native_on!(
 			$chain,
+			Assets,
 			$asset_id,
 			$asset_owner,
 			1_000_000_000_000,
@@ -132,14 +158,38 @@ macro_rules! create_foreign_pool_with_native_on {
 		);
 	};
 
-	// custom amounts
+	// default amounts, and pallet name
+	( $chain:ident, $foreign_pallet_asset:ident, $asset_id:expr, $asset_owner:expr ) => {
+		$crate::create_foreign_pool_with_native_on!(
+			$chain,
+			$foreign_pallet_asset,
+			$asset_id,
+			$asset_owner,
+			1_000_000_000_000,
+			2_000_000_000_000
+		);
+	};
+
+	// custom amounts, default pallet name
 	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
+		$crate::create_foreign_pool_with_native_on!(
+			$chain,
+			Assets,
+			$asset_id,
+			$asset_owner,
+			$wnd_amount,
+			$asset_amount
+		);
+	};
+
+	// custom amounts
+	( $chain:ident, $foreign_asset_pallet:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
 
-				assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
+				assert_ok!(<$chain as [<$chain Pallet>]>::$foreign_asset_pallet::mint(
 						signed_owner.clone(),
 						$asset_id.clone().into(),
 						owner.clone().into(),
