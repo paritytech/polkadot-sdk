@@ -625,7 +625,7 @@ fn deploy_and_call_other_contract() {
 					.encode()
 			)
 			.build());
-		
+
 		assert_eq!(
 			System::events(),
 			vec![
