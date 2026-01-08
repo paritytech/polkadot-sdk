@@ -184,6 +184,15 @@ where
 			return VoteImportResult::Invalid;
 		}
 
+		let Some(vote_weight) = self.voting_weights.get(&vote.id).copied() else {
+			debug!(
+				target: LOG_TARGET,
+				"🥩 invalid validator.id (missing vote weight), ignoring vote {:?}",
+				vote
+			);
+			return VoteImportResult::Invalid;
+		};
+
 		if let Some(previous_vote) = self.previous_votes.get(&vote_key) {
 			// is the same public key voting for a different payload?
 			if previous_vote.commitment.payload != vote.commitment.payload {
@@ -202,7 +211,6 @@ where
 		}
 
 		// add valid vote
-		let vote_weight = self.voting_weights.get(&vote.id).copied().unwrap_or(1);
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
 		if round.add_vote((vote.id, vote.signature), vote_weight) &&
 			round.is_done(threshold(self.validator_set.len()))
@@ -718,5 +726,34 @@ mod tests {
 
 		// vote on _another_ commitment/payload -> expected equivocation proof
 		assert_eq!(rounds.add_vote(alice_vote2), expected_result);
+	}
+
+	#[test]
+	fn add_vote_with_missing_weight_is_invalid() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			Default::default(),
+		)
+		.unwrap();
+		let validator_set_id = validators.id();
+
+		let session_start = 1u64.into();
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+
+		// Force a state where the validator exists in the set, but has no vote weight entry.
+		rounds.voting_weights.remove(&Keyring::Alice.public());
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
+		let block_number = 1;
+		let commitment = Commitment { block_number, payload, validator_set_id };
+		let vote = VoteMessage {
+			id: Keyring::Alice.public(),
+			commitment,
+			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+		};
+
+		assert_eq!(rounds.add_vote(vote), VoteImportResult::Invalid);
 	}
 }
