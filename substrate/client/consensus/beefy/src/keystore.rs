@@ -190,7 +190,7 @@ pub mod tests {
 		test_utils::{BeefySignerAuthority, Keyring},
 	};
 	use sp_core::Pair as PairT;
-	use sp_keystore::{testing::MemoryKeystore, Keystore};
+	use sp_keystore::testing::MemoryKeystore;
 
 	use super::*;
 	use crate::error::Error;

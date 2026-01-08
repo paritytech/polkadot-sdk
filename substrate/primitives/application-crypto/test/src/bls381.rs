@@ -40,7 +40,7 @@ fn bls381_works_in_runtime() {
 	let test_client = TestClientBuilder::new().build();
 
 	let mut runtime_api = test_client.runtime_api();
-	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
+	runtime_api.register_extension(KeystoreExt::from(keystore.clone()));
 
 	let (proof_of_possession, public) = runtime_api
 		.test_bls381_crypto(test_client.chain_info().genesis_hash)
