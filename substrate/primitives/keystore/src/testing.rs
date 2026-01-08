@@ -374,9 +374,22 @@ impl Keystore for MemoryKeystore {
 		public: &ecdsa_bls381::Public,
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
+		self.ecdsa_bls381_sign_with_hasher::<KeccakHasher>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_sign_with_hasher<H: sp_core::Hasher>(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls381::Signature>, Error>
+	where
+		H::Out: Into<[u8; 32]>,
+	{
 		let sig = self
 			.pair::<ecdsa_bls381::Pair>(key_type, public)
-			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+			.map(|pair| pair.sign_with_hasher::<H>(msg));
 		Ok(sig)
 	}
 

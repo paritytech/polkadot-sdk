@@ -19,12 +19,13 @@ use codec::Decode;
 use log::warn;
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
 use sp_core::ecdsa_bls381;
-use sp_core::{ecdsa, keccak_256};
 
 use sp_keystore::KeystorePtr;
-use std::marker::PhantomData;
+use sp_runtime::traits::Hash;
+use std::{convert::TryInto, marker::PhantomData};
 
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId};
 
@@ -82,11 +83,15 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead
-		// of blake2. As such we need to deal with producing the signatures case-by-case
+		// Use SignatureHasher to ensure consistency with verify() which also uses SignatureHasher.
+		// This allows the hashing algorithm to be configurable per AuthorityId type.
 		let signature_byte_array: Vec<u8> = match <AuthorityId as AppCrypto>::CRYPTO_ID {
 			ecdsa::CRYPTO_ID => {
-				let msg_hash = keccak_256(message);
+				let hash_output =
+					<<AuthorityId as AuthorityIdBound>::SignatureHasher as Hash>::hash(message);
+				let msg_hash: [u8; 32] = hash_output.as_ref().try_into().map_err(|_| {
+					error::Error::Signature("hash output must be 32 bytes".to_string())
+				})?;
 				let public: ecdsa::Public = ecdsa::Public::try_from(public.as_slice()).unwrap();
 
 				let sig = store
@@ -104,22 +109,32 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				let public: ecdsa_bls381::Public =
 					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
 				let sig = store
-					.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
+					.ecdsa_bls381_sign_with_hasher::<<AuthorityId as AuthorityIdBound>::SignatureHasher>(
+						BEEFY_KEY_TYPE,
+						&public,
+						&message,
+					)
 					.map_err(|e| error::Error::Keystore(e.to_string()))?
 					.ok_or_else(|| error::Error::Signature("bls381_sign()  failed".to_string()))?;
 				let sig_ref: &[u8] = sig.as_ref();
 				sig_ref.to_vec()
 			},
 
-			_ => store
-				.sign_with(
-					<AuthorityId as AppCrypto>::ID,
-					<AuthorityId as AppCrypto>::CRYPTO_ID,
-					public.as_slice(),
-					&message,
-				)
-				.map_err(|e| error::Error::Keystore(e.to_string()))?
-				.ok_or_else(|| error::Error::Signature("signature failed".to_string()))?,
+			_ => {
+				// For other crypto types, sign_with() uses default hashers which might not match
+				// SignatureHasher. Custom keystore implementations can override sign_with() to use
+				// SignatureHasher when id == BEEFY_KEY_TYPE, but the default implementation uses
+				// scheme-specific default hashers.
+				store
+					.sign_with(
+						<AuthorityId as AppCrypto>::ID,
+						<AuthorityId as AppCrypto>::CRYPTO_ID,
+						public.as_slice(),
+						&message,
+					)
+					.map_err(|e| error::Error::Keystore(e.to_string()))?
+					.ok_or_else(|| error::Error::Signature("signature failed".to_string()))?
+			},
 		};
 
 		//check that `sig` has the expected result type
