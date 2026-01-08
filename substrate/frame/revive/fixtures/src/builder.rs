@@ -195,7 +195,8 @@ pub fn create_cargo_toml<'a>(
 
 /// Invoke cargo build to compile contracts to RISC-V ELF.
 pub fn invoke_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags = ["-Dwarnings"].join("\x1f");
+    let encoded_rustflags =
+        ["-Dwarnings", "-Zunstable-options", "-Cpanic=immediate-abort"].join("\x1f");
 
 	let mut args = polkavm_linker::TargetJsonArgs::default();
 	args.is_64_bit = true;
@@ -212,7 +213,6 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 			"build",
 			"--release",
 			"-Zbuild-std=core",
-			"-Zbuild-std-features=panic_immediate_abort",
 		])
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
