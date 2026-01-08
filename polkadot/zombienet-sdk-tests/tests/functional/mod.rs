@@ -15,6 +15,7 @@ mod parachains_max_tranche0;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;
+mod systematic_chunk_recovery;
 mod validator_disabling;
 
 // Disable following tests temporarily

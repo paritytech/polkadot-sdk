@@ -1,11 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context, Result};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
 use zombienet_sdk::{
 	subxt::{
-		dynamic::Value, ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig,
+		dynamic::Value, ext::scale_value::value, tx, tx::DynamicPayload, OnlineClient,
+		PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
 	LocalFileSystem, Network, NetworkConfig,
@@ -207,5 +208,51 @@ pub async fn register_paras<S: zombienet_sdk::subxt::tx::signer::Signer<Polkadot
 	.map_err(|e| anyhow!("Failed to register paras {:?}: {}", para_ids, e))?;
 
 	log::info!("Parachains {:?} registered successfully", para_ids);
+	Ok(())
+}
+
+/// Enable a node feature by calling sudo(configuration.setNodeFeature(index, true))
+///
+/// # Arguments
+/// * `network` - The zombienet network
+/// * `node_name` - Name of the node to submit the transaction from
+/// * `index` - Feature index to enable
+///
+/// # Returns
+/// * `Ok(())` on success, waits for transaction finalization
+pub async fn enable_node_feature(
+	network: &Network<LocalFileSystem>,
+	node_name: &str,
+	index: u32,
+) -> Result<()> {
+	let node = network.get_node(node_name)?;
+	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
+
+	// Build the sudo call: sudo(Configuration::set_node_feature(index as u8, true))
+	let sudo_call = tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Configuration(set_node_feature { index: (index as u8), value: true })
+		}],
+	);
+
+	log::info!("Submitting sudo set_node_feature({}, true) via {}", index, node_name);
+
+	// Sign and submit with Alice
+	let alice = dev::alice();
+	let progress = client
+		.tx()
+		.sign_and_submit_then_watch_default(&sudo_call, &alice)
+		.await
+		.context("Failed to submit sudo transaction")?;
+
+	let finalized = progress
+		.wait_for_finalized_success()
+		.await
+		.context("Transaction failed or not finalized")?;
+
+	log::info!("Transaction finalized, extrinsic hash: {:?}", finalized.extrinsic_hash());
+
 	Ok(())
 }
