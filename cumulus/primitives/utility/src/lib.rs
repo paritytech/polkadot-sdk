@@ -144,7 +144,7 @@ pub struct TakeFirstAssetTrader<
 > {
 	/// Accumulated fee paid for XCM execution.
 	outstanding_credit: Option<fungibles::Credit<AccountId, Fungibles>>,
-	/// The amount of weight bought minus the weigh already refunded
+	/// The amount of weight bought minus the weight already refunded
 	weight_outstanding: Weight,
 	_phantom_data: PhantomData<(AccountId, FeeCharger, Matcher, Fungibles, OnUnbalanced)>,
 }
