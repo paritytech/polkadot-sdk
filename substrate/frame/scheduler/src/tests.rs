@@ -1639,7 +1639,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 1;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(42), // BN unused
+			Scheduler::on_initialize(42), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
@@ -1653,7 +1653,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 2;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(123), // BN unused
+			Scheduler::on_initialize(123), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1670,7 +1670,7 @@ fn on_initialize_weight_is_correct() {
 		let now = 3;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(555), // BN unused
+			Scheduler::on_initialize(555), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
@@ -1686,12 +1686,20 @@ fn on_initialize_weight_is_correct() {
 		// Will contain none
 		let now = 4;
 		<Test as Config>::BlockNumberProvider::set_block_number(now);
-		let actual_weight = Scheduler::on_initialize(444); // BN unused
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
 		);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		frame_system::Pallet::<Test>::register_extra_weight_unchecked(
+			BlockWeights::get().max_block,
+			frame_support::dispatch::DispatchClass::Mandatory,
+		);
+
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
+		assert!(actual_weight.is_zero());
 	});
 }
 
