@@ -221,15 +221,6 @@ impl GapSyncStats {
 		Self::default()
 	}
 
-	/// Construct `GapSyncStats` from block data
-	fn from_block<B: BlockT>(block: &BlockData<B>) -> Self {
-		let block_bytes = block.encoded_size();
-		let header_bytes = block.header.as_ref().map(|h| h.encoded_size()).unwrap_or(0);
-		let body_bytes = block.body.as_ref().map(|b| b.encoded_size()).unwrap_or(0);
-
-		Self { header_bytes, body_bytes, justification_bytes: 0, block_bytes }
-	}
-
 	fn bytes_to_mb(bytes: usize) -> f64 {
 		bytes as f64 / (1024.0 * 1024.0)
 	}
@@ -1264,18 +1255,32 @@ where
 								.ready_blocks(gap_sync.best_queued_number + One::one())
 								.into_iter()
 								.map(|block_data| {
-									let mut gap_sync_stats =
-										GapSyncStats::from_block::<B>(&block_data.block);
+									let block_bytes = block_data.block.encoded_size();
 									let justifications =
 										block_data.block.justifications.or_else(|| {
 											legacy_justification_mapping(
 												block_data.block.justification,
 											)
 										});
-									gap_sync_stats.justification_bytes = justifications
-										.as_ref()
-										.map(|j| j.encoded_size())
-										.unwrap_or(0);
+									let gap_sync_stats = GapSyncStats {
+										block_bytes,
+										header_bytes: block_data
+											.block
+											.header
+											.as_ref()
+											.map(|h| h.encoded_size())
+											.unwrap_or(0),
+										body_bytes: block_data
+											.block
+											.body
+											.as_ref()
+											.map(|b| b.encoded_size())
+											.unwrap_or(0),
+										justification_bytes: justifications
+											.as_ref()
+											.map(|j| j.encoded_size())
+											.unwrap_or(0),
+									};
 
 									trace!(
 										target: LOG_TARGET,
