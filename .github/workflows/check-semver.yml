@@ -20,7 +20,7 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 90
     needs: [preflight]
     container:
