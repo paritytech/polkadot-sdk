@@ -146,6 +146,13 @@ pub struct OverheadParams {
 	/// a para-id and patch the state accordingly.
 	#[arg(long)]
 	pub para_id: Option<u32>,
+
+	/// Path to a JSON file containing a patch to apply to the genesis state.
+	///
+	/// This allows modifying the genesis state after it's built but before benchmarking.
+	/// Useful for creating specific testing scenarios like many accounts for benchmarking.
+	#[arg(long)]
+	pub genesis_patch: Option<PathBuf>,
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -396,6 +403,18 @@ impl OverheadCmd {
 		let (state_handler, para_id) =
 			self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
 
+		let user_genesis_patcher = if let Some(ref patch_path) = self.params.genesis_patch {
+			let patch_content = fs::read_to_string(patch_path)
+				.map_err(|e| format!("Failed to read genesis patch file: {}", e))?;
+
+			let patch_value: serde_json::Value = serde_json::from_str(&patch_content)
+				.map_err(|e| format!("Failed to parse genesis patch JSON: {}", e))?;
+
+			Some(patch_value)
+		} else {
+			None
+		};
+
 		let executor = WasmExecutor::<(ParachainHostFunctions, ExtraHF)>::builder()
 			.with_allow_missing_host_functions(true)
 			.build();
@@ -413,9 +432,23 @@ impl OverheadCmd {
 		// If we are dealing  with a parachain, make sure that the para id in genesis will
 		// match what we expect.
 		let genesis_patcher = match chain_type {
-			Parachain(para_id) =>
-				Some(Box::new(move |value| patch_genesis(value, Some(para_id))) as Box<_>),
-			_ => None,
+			Parachain(para_id) => Some(Box::new(move |value| {
+				let mut patched_value = patch_genesis(value, Some(para_id));
+
+				if let Some(user_patch) = &user_genesis_patcher {
+					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch.clone());
+				}
+
+				patched_value
+			}) as Box<_>),
+			_ => user_genesis_patcher.map(|user_patch| {
+				Box::new(move |value| {
+					let mut patched_value = value;
+					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch.clone());
+
+					patched_value
+				}) as Box<_>
+			}),
 		};
 
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(

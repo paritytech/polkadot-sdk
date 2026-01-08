@@ -286,12 +286,13 @@ pub struct PalletCmd {
 	/// solo-chains) can disable proof recording to get more accurate results.
 	#[arg(long)]
 	disable_proof_recording: bool,
-    /// Path to a JSON file containing a patch to apply to the genesis state.
-    ///
-    /// This allows modifying the genesis state after it's built but before benchmarking.
-    /// Useful for creating specific testing scenarios like many accounts for benchmarking.
-    #[arg(long)]
-    pub genesis_patch: Option<PathBuf>,
+
+	/// Path to a JSON file containing a patch to apply to the genesis state.
+	///
+	/// This allows modifying the genesis state after it's built but before benchmarking.
+	/// Useful for creating specific testing scenarios like many accounts for benchmarking.
+	#[arg(long)]
+	pub genesis_patch: Option<PathBuf>,
 }
 
 /// How the genesis state for benchmarking should be built.
