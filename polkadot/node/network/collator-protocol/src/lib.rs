@@ -21,11 +21,6 @@
 #![deny(unused_crate_dependencies)]
 #![recursion_limit = "256"]
 
-#[cfg(test)]
-use sc_network_types as _;
-#[cfg(test)]
-use tokio as _;
-
 use std::{
 	collections::HashSet,
 	time::{Duration, Instant},
