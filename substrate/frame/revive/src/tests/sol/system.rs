@@ -23,6 +23,7 @@ use crate::{
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, ExecConfig, TransactionLimits, TransactionMeter, U256,
 };
+
 use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
 use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
