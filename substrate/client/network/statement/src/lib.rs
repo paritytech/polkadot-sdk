@@ -29,7 +29,7 @@
 use crate::config::*;
 
 use codec::{Decode, Encode};
-use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
+use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
@@ -48,9 +48,11 @@ use sc_network::{
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
-use sp_statement_store::{Hash, Statement, StatementSource, StatementStore, SubmitResult};
+use sp_statement_store::{
+	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
+};
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -85,6 +87,8 @@ mod rep {
 const LOG_TARGET: &str = "statement-gossip";
 /// Maximim time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Interval for sending statement batches during initial sync to new peers.
+const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -248,6 +252,9 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
+			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
 		};
 
 		Ok(handler)
@@ -284,6 +291,12 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	/// Timeout for sending next statement batch during initial sync.
+	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	/// Pending initial syncs per peer.
+	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
+	/// Queue for round-robin processing of initial syncs.
+	initial_sync_peer_queue: VecDeque<PeerId>,
 }
 
 /// Peer information
@@ -292,6 +305,61 @@ struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
 	role: ObservedRole,
+}
+
+/// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
+struct PendingInitialSync {
+	hashes: Vec<Hash>,
+}
+
+/// Result of finding a sendable chunk of statements.
+enum ChunkResult {
+	/// Found a chunk that fits. Contains the end index (exclusive).
+	Send(usize),
+	/// First statement is oversized, skip it.
+	SkipOversized,
+}
+
+/// Result of sending a chunk of statements.
+enum SendChunkResult {
+	/// Successfully sent a chunk of N statements.
+	Sent(usize),
+	/// First statement was oversized and skipped.
+	Skipped,
+	/// Nothing to send.
+	Empty,
+	/// Send failed.
+	Failed,
+}
+
+/// Find the largest chunk of statements starting from the beginning that fits
+/// within MAX_STATEMENT_NOTIFICATION_SIZE.
+fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
+	if statements.is_empty() {
+		return ChunkResult::Send(0);
+	}
+
+	let mut current_end = statements.len();
+	loop {
+		let chunk = &statements[..current_end];
+		let encoded_size = chunk.encoded_size();
+
+		if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+			return ChunkResult::Send(current_end);
+		}
+
+		let split_factor = (encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
+		let new_chunk_size = current_end / split_factor;
+
+		if new_chunk_size == 0 {
+			if current_end == 1 {
+				return ChunkResult::SkipOversized;
+			}
+			current_end = 1;
+		} else {
+			current_end = new_chunk_size;
+		}
+	}
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -303,7 +371,7 @@ where
 	/// interrupted.
 	pub async fn run(mut self) {
 		loop {
-			futures::select! {
+			futures::select_biased! {
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
@@ -335,7 +403,48 @@ where
 						return
 					}
 				}
+				_ = &mut self.initial_sync_timeout => {
+					self.process_initial_sync_burst().await;
+					self.initial_sync_timeout =
+						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
+				},
 			}
+		}
+	}
+
+	/// Send a single chunk of statements to a peer.
+	async fn send_statement_chunk(
+		&mut self,
+		peer: &PeerId,
+		statements: &[&Statement],
+	) -> SendChunkResult {
+		match find_sendable_chunk(statements) {
+			ChunkResult::Send(0) => SendChunkResult::Empty,
+			ChunkResult::Send(chunk_end) => {
+				let chunk = &statements[..chunk_end];
+				if let Err(e) = timeout(
+					SEND_TIMEOUT,
+					self.notification_service.send_async_notification(peer, chunk.encode()),
+				)
+				.await
+				{
+					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+					return SendChunkResult::Failed;
+				}
+				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.propagated_statements.inc_by(chunk.len() as u64);
+					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
+				});
+				SendChunkResult::Sent(chunk_end)
+			},
+			ChunkResult::SkipOversized => {
+				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+				self.metrics.as_ref().map(|metrics| {
+					metrics.skipped_oversized_statements.inc();
+				});
+				SendChunkResult::Skipped
+			},
 		}
 	}
 
@@ -391,15 +500,20 @@ where
 				);
 				debug_assert!(_was_in.is_none());
 
-				if !self.sync.is_major_syncing() {
-					if let Ok(statements) = self.statement_store.statements() {
-						self.send_statements_to_peer(&peer, &statements).await;
+				if !self.sync.is_major_syncing() && !role.is_light() {
+					if let Ok(hashes) = self.statement_store.statement_hashes() {
+						if !hashes.is_empty() {
+							self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
+							self.initial_sync_peer_queue.push_back(peer);
+						}
 					}
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				let _peer = self.peers.remove(&peer);
 				debug_assert!(_peer.is_some());
+				self.pending_initial_syncs.remove(&peer);
+				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				// Accept statements only when node is not major syncing
@@ -540,10 +654,10 @@ where
 			return
 		}
 
-		let to_send = statements
+		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
-			.collect::<Vec<_>>();
+			.collect();
 
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
@@ -553,56 +667,14 @@ where
 
 		let mut offset = 0;
 		while offset < to_send.len() {
-			// Try to send as many statements as possible in one notification
-			let mut current_end = to_send.len();
-			log::trace!(target: LOG_TARGET, "Looking for better chunk size");
-
-			loop {
-				let chunk = &to_send[offset..current_end];
-				let encoded_size = chunk.encoded_size();
-				log::trace!(target: LOG_TARGET, "Chunk: {} statements, {} KB", chunk.len(), encoded_size / 1024);
-
-				// If chunk fits, send it
-				if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-					if let Err(e) = timeout(
-						SEND_TIMEOUT,
-						self.notification_service.send_async_notification(who, chunk.encode()),
-					)
-					.await
-					{
-						log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected, skipping further batches: {:?}", who, e);
-						offset = to_send.len();
-						break;
-					}
-					offset = current_end;
-					log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
-					self.metrics.as_ref().map(|metrics| {
-						metrics.propagated_statements.inc_by(chunk.len() as u64);
-						metrics.propagated_statements_chunks.observe(chunk.len() as f64);
-					});
-					break;
-				}
-
-				// Size exceeded - split the chunk
-				let split_factor = (encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-				let mut new_chunk_size = (current_end - offset) / split_factor;
-
-				// Single statement is too large
-				if new_chunk_size == 0 {
-					if chunk.len() == 1 {
-						log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
-						self.metrics.as_ref().map(|metrics| {
-							metrics.skipped_oversized_statements.inc();
-						});
-						offset = current_end;
-						break;
-					}
-					// Don't skip more than one statement at once
-					new_chunk_size = 1;
-				}
-
-				// Reduce chunk size and try again
-				current_end = offset + new_chunk_size;
+			match self.send_statement_chunk(who, &to_send[offset..]).await {
+				SendChunkResult::Sent(chunk_end) => {
+					offset += chunk_end;
+				},
+				SendChunkResult::Skipped => {
+					offset += 1;
+				},
+				SendChunkResult::Empty | SendChunkResult::Failed => return,
 			}
 		}
 	}
@@ -629,6 +701,78 @@ where
 			self.do_propagate_statements(&statements).await;
 		}
 	}
+
+	/// Process one batch of initial sync for the next peer in the queue (round-robin).
+	async fn process_initial_sync_burst(&mut self) {
+		if self.sync.is_major_syncing() {
+			return;
+		}
+
+		let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
+			return;
+		};
+
+		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
+			return;
+		};
+
+		if entry.get().hashes.is_empty() {
+			entry.remove();
+			return;
+		}
+
+		// Fetch statements up to MAX_STATEMENT_NOTIFICATION_SIZE
+		let mut accumulated_size = 0;
+		let (statements, processed) = match self.statement_store.statements_by_hashes(
+			&entry.get().hashes,
+			&mut |_hash, encoded, _stmt| {
+				if accumulated_size > 0 &&
+					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
+				{
+					return FilterDecision::Abort
+				}
+				accumulated_size += encoded.len();
+				FilterDecision::Take
+			},
+		) {
+			Ok(r) => r,
+			Err(e) => {
+				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
+				entry.remove();
+				return;
+			},
+		};
+
+		// Drain processed hashes and check if more remain
+		entry.get_mut().hashes.drain(..processed);
+		let has_more = !entry.get().hashes.is_empty();
+		drop(entry);
+
+		// Send statements (already sized to fit in one message)
+		let to_send: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
+		match self.send_statement_chunk(&peer_id, &to_send).await {
+			SendChunkResult::Failed => {
+				self.pending_initial_syncs.remove(&peer_id);
+				return;
+			},
+			SendChunkResult::Sent(_) => {
+				// Mark statements as known
+				if let Some(peer) = self.peers.get_mut(&peer_id) {
+					for (hash, _) in &statements {
+						peer.known_statements.insert(*hash);
+					}
+				}
+			},
+			SendChunkResult::Empty | SendChunkResult::Skipped => {},
+		}
+
+		// Re-queue if more hashes remain
+		if has_more {
+			self.initial_sync_peer_queue.push_back(peer_id);
+		} else {
+			self.pending_initial_syncs.remove(&peer_id);
+		}
+	}
 }
 
 #[cfg(test)]
@@ -640,15 +784,23 @@ mod tests {
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
+		peer_roles: Arc<Mutex<HashMap<PeerId, ObservedRole>>>,
 	}
 
 	impl TestNetwork {
 		fn new() -> Self {
-			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				reported_peers: Arc::new(Mutex::new(Vec::new())),
+				peer_roles: Arc::new(Mutex::new(HashMap::new())),
+			}
 		}
 
 		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
 			self.reported_peers.lock().unwrap().clone()
+		}
+
+		fn set_peer_role(&self, peer: PeerId, role: ObservedRole) {
+			self.peer_roles.lock().unwrap().insert(peer, role);
 		}
 	}
 
@@ -725,8 +877,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			unimplemented!()
+		fn peer_role(&self, peer: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			self.peer_roles.lock().unwrap().get(&peer).copied()
 		}
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
@@ -871,6 +1023,45 @@ mod tests {
 			self.statements.lock().unwrap().contains_key(hash)
 		}
 
+		fn statement_hashes(&self) -> sp_statement_store::Result<Vec<sp_statement_store::Hash>> {
+			Ok(self.statements.lock().unwrap().keys().cloned().collect())
+		}
+
+		fn statements_by_hashes(
+			&self,
+			hashes: &[sp_statement_store::Hash],
+			filter: &mut dyn FnMut(
+				&sp_statement_store::Hash,
+				&[u8],
+				&sp_statement_store::Statement,
+			) -> FilterDecision,
+		) -> sp_statement_store::Result<(
+			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+			usize,
+		)> {
+			let statements = self.statements.lock().unwrap();
+			let mut result = Vec::new();
+			let mut processed = 0;
+			for hash in hashes {
+				let Some(stmt) = statements.get(hash) else {
+					processed += 1;
+					continue
+				};
+				let encoded = stmt.encode();
+				match filter(hash, &encoded, stmt) {
+					FilterDecision::Skip => {
+						processed += 1;
+					},
+					FilterDecision::Take => {
+						processed += 1;
+						result.push((*hash, stmt.clone()));
+					},
+					FilterDecision::Abort => break,
+				}
+			}
+			Ok((result, processed))
+		}
+
 		fn broadcasts(
 			&self,
 			_match_all_topics: &[sp_statement_store::Topic],
@@ -972,12 +1163,15 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
 
-	#[test]
-	fn test_skips_processing_statements_that_already_in_store() {
+	#[tokio::test]
+	async fn test_skips_processing_statements_that_already_in_store() {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver) =
 			build_handler();
 
@@ -1002,8 +1196,8 @@ mod tests {
 		assert!(no_more.is_err(), "Expected only one statement to be queued");
 	}
 
-	#[test]
-	fn test_reports_for_duplicate_statements() {
+	#[tokio::test]
+	async fn test_reports_for_duplicate_statements() {
 		let (mut handler, statement_store, network, _notification_service, queue_receiver) =
 			build_handler();
 
@@ -1144,5 +1338,244 @@ mod tests {
 		let mut expected_hashes = vec![hash1, hash2, hash3];
 		expected_hashes.sort();
 		assert_eq!(sent_hashes, expected_hashes, "Only small statements should be sent");
+	}
+
+	fn build_handler_no_peers() -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+	) {
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+
+		let handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service.clone()),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync: TestSync {},
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store.clone()),
+			queue_sender,
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+		};
+		(handler, statement_store, network, notification_service)
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_single_peer() {
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		// Create 20MB of statements (200 statements x 100KB each)
+		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
+		let num_statements = 200;
+		let statement_size = 100 * 1024; // 100KB per statement
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; statement_size];
+			// Use multiple bytes for uniqueness since we have >255 statements
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			statement.set_plain_data(data);
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Setup peer and simulate connection
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Verify peer was added and initial sync was queued
+		assert!(handler.peers.contains_key(&peer_id));
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
+
+		// Process bursts until all statements are sent
+		let mut burst_count = 0;
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+			burst_count += 1;
+			// Safety limit
+			assert!(burst_count <= 300, "Too many bursts, possible infinite loop");
+		}
+
+		// Verify multiple bursts were needed
+		// With 200 statements x 100KB each and ~1MB per batch, we expect many bursts
+		assert!(
+			burst_count >= 10,
+			"Expected multiple bursts for 200 statements of 100KB each, got {}",
+			burst_count
+		);
+
+		// Verify all statements were sent
+		let sent = notification_service.get_sent_notifications();
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(peer, notification)| {
+				assert_eq!(*peer, peer_id);
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+		expected_hashes.sort();
+
+		assert_eq!(
+			sent_hashes.len(),
+			expected_hashes.len(),
+			"Expected {} statements to be sent, got {}",
+			expected_hashes.len(),
+			sent_hashes.len()
+		);
+		assert_eq!(sent_hashes, expected_hashes, "All statements should be sent");
+
+		// Verify cleanup
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_multiple_peers_round_robin() {
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		// Create 20MB of statements (200 statements x 100KB each)
+		let num_statements = 200;
+		let statement_size = 100 * 1024; // 100KB per statement
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; statement_size];
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			statement.set_plain_data(data);
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Setup 3 peers and simulate connections
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+		network.set_peer_role(peer1, ObservedRole::Full);
+		network.set_peer_role(peer2, ObservedRole::Full);
+		network.set_peer_role(peer3, ObservedRole::Full);
+
+		// Connect peers
+		for peer in [peer1, peer2, peer3] {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+					peer,
+					direction: sc_network::service::traits::Direction::Inbound,
+					handshake: vec![],
+					negotiated_fallback: None,
+				})
+				.await;
+		}
+
+		// Verify all peers were added and initial syncs were queued
+		assert_eq!(handler.peers.len(), 3);
+		assert_eq!(handler.pending_initial_syncs.len(), 3);
+		assert_eq!(handler.initial_sync_peer_queue.len(), 3);
+
+		// Track which peer was processed on each burst for round-robin verification
+		let mut peer_burst_order = Vec::new();
+		let mut burst_count = 0;
+
+		while !handler.pending_initial_syncs.is_empty() {
+			// Record which peer will be processed next
+			if let Some(&next_peer) = handler.initial_sync_peer_queue.front() {
+				peer_burst_order.push(next_peer);
+			}
+			handler.process_initial_sync_burst().await;
+			burst_count += 1;
+			// Safety limit
+			assert!(burst_count <= 500, "Too many bursts, possible infinite loop");
+		}
+
+		// Verify multiple bursts were needed
+		// With 3 peers and many bursts per peer, we expect many bursts total
+		assert!(
+			burst_count >= 30,
+			"Expected many bursts for 3 peers with 200 statements each, got {}",
+			burst_count
+		);
+
+		// Verify round-robin pattern in first 9 bursts (3 peers x 3 rounds)
+		assert!(peer_burst_order.len() >= 9, "Expected at least 9 bursts");
+		// First round
+		assert_eq!(peer_burst_order[0], peer1, "First burst should be peer1");
+		assert_eq!(peer_burst_order[1], peer2, "Second burst should be peer2");
+		assert_eq!(peer_burst_order[2], peer3, "Third burst should be peer3");
+		// Second round
+		assert_eq!(peer_burst_order[3], peer1, "Fourth burst should be peer1");
+		assert_eq!(peer_burst_order[4], peer2, "Fifth burst should be peer2");
+		assert_eq!(peer_burst_order[5], peer3, "Sixth burst should be peer3");
+
+		// Verify all peers received all statements
+		let sent = notification_service.get_sent_notifications();
+		let mut peer1_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer1)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		let mut peer2_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer2)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		let mut peer3_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer3)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+
+		peer1_hashes.sort();
+		peer2_hashes.sort();
+		peer3_hashes.sort();
+		expected_hashes.sort();
+
+		assert_eq!(peer1_hashes, expected_hashes, "Peer1 should receive all statements");
+		assert_eq!(peer2_hashes, expected_hashes, "Peer2 should receive all statements");
+		assert_eq!(peer3_hashes, expected_hashes, "Peer3 should receive all statements");
+
+		// Verify cleanup
+		assert!(handler.pending_initial_syncs.is_empty());
+		assert!(handler.initial_sync_peer_queue.is_empty());
 	}
 }

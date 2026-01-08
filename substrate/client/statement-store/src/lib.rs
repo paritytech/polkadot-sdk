@@ -63,8 +63,8 @@ use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, Proof, RejectionReason,
-	Result, Statement, SubmitResult, Topic,
+	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, FilterDecision, Proof,
+	RejectionReason, Result, Statement, SubmitResult, Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -846,6 +846,42 @@ impl StatementStore for Store {
 
 	fn has_statement(&self, hash: &Hash) -> bool {
 		self.index.read().entries.contains_key(hash)
+	}
+
+	fn statement_hashes(&self) -> Result<Vec<Hash>> {
+		Ok(self.index.read().entries.keys().cloned().collect())
+	}
+
+	fn statements_by_hashes(
+		&self,
+		hashes: &[Hash],
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<(Vec<(Hash, Statement)>, usize)> {
+		let mut result = Vec::new();
+		let mut processed = 0;
+		for hash in hashes {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				processed += 1;
+				continue
+			};
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+				processed += 1;
+				continue
+			};
+			match filter(hash, &encoded, &statement) {
+				FilterDecision::Skip => {
+					processed += 1;
+				},
+				FilterDecision::Take => {
+					processed += 1;
+					result.push((*hash, statement));
+				},
+				FilterDecision::Abort => break,
+			}
+		}
+		Ok((result, processed))
 	}
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
