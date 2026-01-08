@@ -70,6 +70,12 @@ pub struct ERC20Transactor<
 	)>,
 );
 
+/// A minimal imbalance tracking type that holds an ERC20 token amount.
+///
+/// This type implements the necessary imbalance accounting traits but does not perform
+/// runtime-level balance enforcement. It's used to track ERC20 token amounts within XCM
+/// asset holdings, where the actual balance constraints are enforced by the ERC20 smart
+/// contract itself rather than the runtime.
 pub struct NoopCredit(u128);
 impl UnsafeConstructorDestructor<u128> for NoopCredit {
 	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
