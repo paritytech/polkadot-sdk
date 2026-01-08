@@ -100,6 +100,14 @@ providers serve data directly because being challenged costs them money even if
 they're honest. The expensive on-chain path exists to make the cheap off-chain
 path incentive-compatible.
 
+**Design assumption:** Storage guarantees are only meaningful when someone has
+an active interest in the data. A rational client who paid for storage will
+periodically verify their data exists—by reading it or spot-checking random
+chunks. If no one ever reads or checks, the data has no practical value worth
+guaranteeing. For archival use cases where data must persist without active
+verification (store once, never check again), we recommend purpose-built systems
+like Filecoin's cold storage tier with continuous cryptographic proofs.
+
 The result: storage that scales with provider capacity, not chain throughput.
 Writes are instant (when no consensus is needed, even with consensus <1 due to
 fast blocks and reliability work). Reads are fast (direct from provider).
@@ -172,19 +180,19 @@ StorageAgreement (on-chain, per bucket per provider)
 ├── max_bytes: u64          // quota for this provider
 ├── payment_locked: Balance // prepaid by client
 ├── expires_at: BlockNumber // when agreement ends
-└── is_primary: bool        // primary (admin-added) or auxiliary (market-added)
+└── role: Primary | Replica  // primary (admin-controlled) or replica (permissionless)
 ```
 
 Each provider has their own `max_bytes` quota. The agreement owner (initially
 the requester) can top up quota; ownership is transferable.
 
-**Dual protection model:** Provider slots are split between admin-curated
-(primary) and market-driven (auxiliary):
+**Dual provider model:** Provider slots are split between admin-controlled
+(primary) and permissionless (replica):
 
-- **Primary providers** (admin only): Count toward `min_providers`, use reserved
-  slots (`min_providers * 2`), cannot be replaced by market
-- **Auxiliary providers** (anyone): Compete on stake, can replace lower-staked
-  auxiliaries, provide permissionless redundancy
+- **Primary providers** (admin only): Receive writes directly, count toward
+  `min_providers` for checkpoints, limited to ~5 per bucket
+- **Replica providers** (anyone): Sync data autonomously from primaries or other
+  replicas, unlimited count, paid per-sync from deposit
 
 This ensures neither a corrupt admin nor a well-funded attacker can fully
 capture read access. See [The Decentralization Model](#the-decentralization-model).
@@ -269,15 +277,19 @@ serving as registry and enforcement layer—not the hot path.
 │  │  ├── members: [Admin, Writers, Readers]                       │  │
 │  │  ├── min_providers: 2                                         │  │
 │  │  ├── snapshot: { mmr_root, start_seq, leaf_count }            │  │
+│  │  ├── primary_providers: [A, B]  (admin-controlled)            │  │
 │  │  └── storage agreements:                                      │  │
-│  │       ├── Provider A: { max_bytes, payment, expires_at }      │  │
-│  │       └── Provider B: { max_bytes, payment, expires_at }      │  │
+│  │       ├── Provider A: { Primary, max_bytes, payment, ... }    │  │
+│  │       ├── Provider B: { Primary, max_bytes, payment, ... }    │  │
+│  │       ├── Provider C: { Replica, sync_balance, last_sync, ... }│  │
+│  │       └── Provider D: { Replica, sync_balance, last_sync, ... }│  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │    Chain touched for:                                               │
 │    • Bucket creation and membership (once)                          │
 │    • Storage agreement setup (per provider)                         │
 │    • Checkpoints (infrequent, batched)                              │
+│    • Replica sync confirmations (periodic)                          │
 │    • Dispute resolution (rare, game-theoretic deterrent)            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -287,15 +299,20 @@ serving as registry and enforcement layer—not the hot path.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          OFF-CHAIN                                  │
 │                                                                     │
-│   ┌─────────────┐    writes/reads    ┌─────────────┐                │
-│   │   Client    │ ─────────────────> │  Provider   │                │
-│   │             │ <───────────────── │  (has agree-│                │
-│   └─────────────┘                    │  ment for   │                │
-│          │                           │  bucket)    │                │
-│          │ discovery                 └─────────────┘                │
-│          │                                  ▲                       │
-│          │    bucket → agreements → provider endpoints              │
-│          └──────────────────────────────────┘                       │
+│   ┌─────────────┐    writes     ┌─────────────┐                     │
+│   │   Client    │ ────────────> │  Primary    │                     │
+│   │             │               │  Provider   │                     │
+│   └─────────────┘               └─────────────┘                     │
+│          │                             │                            │
+│          │ reads                       │ sync                       │
+│          ▼                             ▼                            │
+│   ┌─────────────┐               ┌─────────────┐                     │
+│   │  Primary or │               │   Replica   │ (syncs from         │
+│   │  Replica    │               │   Provider  │  primaries/replicas)│
+│   └─────────────┘               └─────────────┘                     │
+│          ▲                                                          │
+│          │ discovery: bucket → agreements → provider endpoints      │
+│          └──────────────────────────────────────────────────────────│
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                     ▲
@@ -465,9 +482,7 @@ data belongs together, who can access it, and which providers store it.
 Bucket
 ├── members: [{ account, role: Admin|Writer|Reader }, ...]
 ├── frozen_start_seq: Option<u64>      // if set, bucket is append-only
-├── min_providers: u32                 // required for checkpoint (max: MaxProvidersPerBucket/4)
-├── min_stake_per_byte: Balance        // applies to all providers
-├── min_absolute_stake: Balance        // applies to all providers
+├── min_providers: u32                 // required for checkpoint
 └── snapshot: Option<BucketSnapshot>   // canonical MMR state
     ├── mmr_root
     ├── start_seq
@@ -483,8 +498,8 @@ Bucket
 
 **Decentralization recommendation:** For maximum decentralization, use a smart
 contract, multisig, or DAO as the admin account. This ensures write coordination
-is itself decentralized. Combined with the market-driven auxiliary provider
-slots, this achieves full decentralization of both writes and reads.
+is itself decentralized. Combined with permissionless replica providers,
+this achieves full decentralization of both writes and reads.
 
 ### Storage Agreements
 
@@ -498,7 +513,7 @@ StorageAgreement
 ├── payment_locked: Balance // prepaid by client
 ├── expires_at: BlockNumber
 ├── extensions_blocked: bool
-└── is_primary: bool        // primary (admin) or auxiliary (market)
+└── role: Primary | Replica { sync_deposit, last_synced_root, ... }
 ```
 
 **Per-provider quotas enable:**
@@ -1161,60 +1176,66 @@ If bucket admins have exclusive control over which providers can serve data:
 Our challenge mechanism prevents outright *denial* of service (slashing), but
 doesn't prevent *expensive* service. We need structural protection.
 
-**The dual protection model:**
+**The dual provider model:**
 
-We split provider slots into two categories:
+We split providers into two categories with fundamentally different properties:
 
 ```
-Primary slots (admin-curated):
-├── Reserved: min_providers * 2 slots
+Primary providers (admin-controlled):
 ├── Added via: request_primary_agreement (admin only)
-├── Properties: count toward min_providers, cannot be replaced by market
-└── Purpose: admin maintains curated, quality-controlled providers
+├── Limit: ~5 per bucket (T::MaxPrimaryProviders)
+├── Receive: writes directly from clients
+├── Count toward: min_providers for checkpoints
+├── Early termination: admin can end early (pay/burn full amount)
+└── Purpose: admin maintains curated, quality-controlled write targets
 
-Auxiliary slots (market-driven):
-├── Available: remaining 50%+ of MaxProvidersPerBucket
+Replica providers (permissionless):
 ├── Added via: request_agreement (anyone)
-├── Properties: compete on stake, can replace lower-staked auxiliaries
+├── Limit: unlimited
+├── Sync: autonomously from primaries or other replicas
+├── Payment: storage fee + per-sync payment from deposit
+├── Early termination: not allowed (runs to expiry)
 └── Purpose: permissionless redundancy, protection against admin capture
 ```
 
 **Why this works:**
 
-- **Admin corrupt?** Market slots ensure independent providers can always serve.
-  Anyone can add high-stake providers that admin cannot remove.
+- **Admin corrupt?** Replicas ensure independent providers can always serve.
+  Anyone can add replica providers that admin cannot remove or early-terminate.
 
-- **Market corrupt (well-funded attacker)?** Admin slots ensure curated providers
-  remain. Attacker cannot replace admin's primary providers regardless of stake.
+- **Replicas don't need admin cooperation:** They sync autonomously from any
+  provider that has the data. Even if admin tries to block them, they can sync
+  from other replicas.
 
-- **Both corrupt?** Protocol can't help—but this requires corrupting both the
-  admin (or DAO) AND outbidding all honest market participants. Maximum cost
-  to attacker.
+- **Both corrupt?** Protocol can't help—but this requires corrupting the admin
+  (or DAO) AND ensuring no honest replica providers exist. Maximum cost to attacker.
 
-**Stake requirements apply symmetrically:**
+**The key insight: writes need coordination, reads don't.**
 
-Buckets set `min_stake_per_byte` and `min_absolute_stake`. These requirements
-apply equally to admin-added and market-added providers. The admin cannot set
-requirements they don't meet themselves—ensuring everyone has real skin in the game.
+We accept that admins control writes—someone must coordinate appends to the MMR.
+But reads are permissionless: any provider with the data can serve it. Replicas
+provide this permissionless read redundancy.
 
-**Auxiliary provider replacement rules:**
+**Replica sync mechanism:**
 
-When auxiliary slots are full, a new provider can replace the lowest-priority
-existing auxiliary:
+Replicas sync autonomously using a top-down Merkle traversal:
+1. Fetch current MMR root from any provider
+2. Check which nodes they already have
+3. Fetch missing nodes, verifying hashes along the way
+4. Confirm sync on-chain → receive per-sync payment
 
-1. Non-snapshotted providers replaced first (lowest stake first within tier)
-2. Snapshotted providers replaced last (lowest stake first within tier)
-3. New provider must have higher stake than replaced provider
-4. Replaced agreement continues until natural expiry, just loses slot protection
+The chain tracks historical roots using prime-based bucketing (roots updated
+every 3, 7, 11, 23, 47, 113 blocks). This gives replicas a ~1 minute window
+to sync without racing against new checkpoints.
 
-Snapshot protection incentivizes providers to participate in checkpoints—being
-in the snapshot makes you harder to replace.
+**Extension and price changes:**
 
-**Parameter locking on freeze:**
+Provider price changes take effect on agreement extension:
+- If price stayed same or decreased: anyone can extend (permissionless persistence)
+- If price increased: only agreement owner can extend (no surprise cost increases)
 
-When a bucket is frozen (append-only), `min_providers`, `min_stake_per_byte`,
-and `min_absolute_stake` are locked. This prevents admin from later weakening
-guarantees on frozen (public-interest) buckets.
+This enables frozen buckets to be extended by anyone who cares about the data,
+as long as providers don't raise prices.
 
 ### The Freeloading Problem
 

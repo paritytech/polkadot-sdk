@@ -56,11 +56,17 @@ Users who create conflicts without checkpointing waste their quota—providers m
 ### Provider Lifecycle in Bucket
 
 **Adding a provider:**
-1. Client calls `request_agreement` with the provider
-2. Provider calls `accept_agreement` → `StorageAgreement` created
+1. Admin calls `request_primary_agreement` with the provider
+2. Provider calls `accept_agreement` → `StorageAgreement` created, added to `bucket.primary_providers`
 3. Client uploads data to provider
 4. Client requests commit, provider signs → client has provider signature
-5. Client calls `checkpoint` with provider signature → provider added to `snapshot.providers` bitfield
+5. Client calls `checkpoint` with provider signature → provider added to `snapshot.primary_signers` bitfield
+
+**Adding a replica provider (optional, permissionless):**
+1. Anyone calls `request_agreement` with the provider and sync_balance
+2. Provider calls `accept_agreement` → `StorageAgreement` created with `ProviderRole::Replica`
+3. Replica syncs data autonomously from primaries or other replicas
+4. Replica calls `confirm_replica_sync` on-chain → receives per-sync payment, becomes challengeable
 
 **Binding contract:**
 
@@ -80,22 +86,50 @@ When `expires_at` is reached:
 
 **Snapshot liability**: Providers remain liable for snapshots they signed until those snapshots are superseded by a new checkpoint that doesn't include them, or until the bucket's canonical depth grows past the data they signed for.
 
-### Multi-Provider Coordination
+### Multi-Provider Coordination (Primary Providers)
 
-Providers don't sync with each other. Clients are responsible for uploading to each provider they want to store their data.
+Primary providers don't sync with each other. Clients are responsible for uploading to each primary provider they want to store their data.
 
 **Flow**:
-1. Client uploads data to Provider A, B, C (separately)
+1. Client uploads data to Primary A, B, C (separately)
 2. Client triggers commit on each provider, collects signatures
 3. Client checkpoints on-chain with collected signatures
-4. Providers not in the snapshot should sync (client re-uploads)
+4. Primaries not in the snapshot should sync (client re-uploads)
 5. After checkpoint, providers can prune non-canonical roots
 
 **Liability**: A provider is only liable for MMR states they acknowledged (signed). Challenges against the canonical checkpoint only work for providers listed in the snapshot's provider bitfield.
 
+**Replica providers** sync autonomously from primaries or other replicas. They confirm sync on-chain and are liable for the roots they've confirmed.
+
 ---
 
 ## On-Chain: Pallet Interface
+
+### Pallet Config
+
+```rust
+#[pallet::config]
+pub trait Config: frame_system::Config {
+    /// Maximum length of provider multiaddr
+    type MaxMultiaddrLength: Get<u32>;
+    /// Maximum members per bucket
+    type MaxMembers: Get<u32>;
+    /// Maximum primary providers per bucket (e.g., 5)
+    type MaxPrimaryProviders: Get<u32>;
+    /// Minimum stake required to register as a provider.
+    /// Governance-controlled to bound total provider count and provide sybil resistance.
+    #[pallet::constant]
+    type MinProviderStake: Get<BalanceOf<Self>>;
+    /// Maximum chunk size for challenge responses (e.g., 256 KiB)
+    type MaxChunkSize: Get<u32>;
+    /// Timeout for challenge response (e.g., ~48 hours in blocks)
+    #[pallet::constant]
+    type ChallengeTimeout: Get<BlockNumberFor<Self>>;
+    /// Settlement window after agreement expiry for owner to call end_agreement
+    #[pallet::constant]
+    type SettlementTimeout: Get<BlockNumberFor<Self>>;
+}
+```
 
 ### Storage Items
 
@@ -120,12 +154,14 @@ pub struct ProviderInfo<T: Config> {
     /// Provider settings
     pub settings: ProviderSettings<T>,
     /// Provider statistics - clients use these to evaluate quality
-    pub stats: ProviderStats,
+    pub stats: ProviderStats<T>,
 }
 
 /// On-chain statistics for evaluating provider quality.
 /// These are objective, verifiable metrics that help clients make informed decisions.
-pub struct ProviderStats {
+pub struct ProviderStats<T: Config> {
+    /// Block when provider registered (track provider age)
+    pub registered_at: BlockNumberFor<T>,
     /// Total agreements ever created with this provider
     pub agreements_total: u32,
     /// Agreements where client chose to extend (signal of satisfaction)
@@ -147,10 +183,14 @@ pub struct ProviderSettings<T: Config> {
     pub min_duration: BlockNumberFor<T>,
     /// Maximum agreement duration provider will accept
     pub max_duration: BlockNumberFor<T>,
-    /// Price per byte per block
+    /// Price per byte per block for storage
     pub price_per_byte: BalanceOf<T>,
-    /// Whether accepting new agreements
-    pub accepting_new_agreements: bool,
+    /// Whether accepting new primary agreements
+    pub accepting_primary: bool,
+    /// Price per successful sync confirmation, or None if not accepting replicas.
+    /// Replicas are paid this amount each time they confirm sync to a new snapshot.
+    /// Covers: sync work, bandwidth costs to fetch from primaries, profit margin.
+    pub replica_sync_price: Option<BalanceOf<T>>,
     /// Whether accepting extensions on existing agreements
     pub accepting_extensions: bool,
 }
@@ -190,25 +230,51 @@ pub struct Bucket<T: Config> {
     /// Members who can interact with this bucket
     pub members: BoundedVec<Member<T>, T::MaxMembers>,
     /// If Some, bucket is append-only from this start_seq.
-    /// Checkpoints with start_seq < frozen_start_seq are rejected.
-    /// When set, also locks min_providers, min_stake_per_byte, and min_absolute_stake.
+    /// Checkpoints with start_seq < frozen_start_seq are rejected (prevents deletions).
     pub frozen_start_seq: Option<u64>,
-    /// Minimum provider acknowledgments required for checkpoint.
-    /// Constrained: 1 <= min_providers <= T::MaxProvidersPerBucket / 4.
-    /// This reserves min_providers * 2 slots for admin (primary providers),
-    /// leaving at least 50% of slots for market (auxiliary providers).
+    /// Minimum primary provider signatures required for checkpoint.
     pub min_providers: u32,
-    /// Minimum stake-per-committed-byte ratio required for any provider.
-    /// Applies equally to admin-added and market-added providers.
-    pub min_stake_per_byte: BalanceOf<T>,
-    /// Minimum absolute stake required for any provider.
-    /// Applies equally to admin-added and market-added providers.
-    pub min_absolute_stake: BalanceOf<T>,
+    /// Primary provider account IDs (limited to T::MaxPrimaryProviders, e.g., 5).
+    /// These are admin-controlled providers that:
+    /// - Receive data directly from writers
+    /// - Count toward min_providers for checkpoints
+    /// - Can be early-terminated by admin (with pay/burn)
+    /// Stored inline for efficient checkpoint reads (one storage access).
+    pub primary_providers: BoundedVec<T::AccountId, T::MaxPrimaryProviders>,
     /// Current canonical state
-    pub snapshot: Option<BucketSnapshot>,
+    pub snapshot: Option<BucketSnapshot<T>>,
+    /// Historical MMR roots for replica sync validation.
+    /// 
+    /// **Why we need this:**
+    /// Replicas sync autonomously and may lag behind the current snapshot. When a
+    /// replica confirms sync, we need to verify they actually synced to a valid
+    /// historical state (not a fabricated root). But storing every historical root
+    /// would be unbounded. Prime-based bucketing gives us O(1) storage with
+    /// logarithmic time coverage - a replica that's 100 blocks behind can still
+    /// prove sync to a valid root, while ancient roots naturally age out.
+    /// 
+    /// **How it works:**
+    /// Uses prime-based bucketing for logarithmic time coverage:
+    /// Position 0: updated every 3 blocks (prime = 3)
+    /// Position 1: updated every 7 blocks (prime = 7)
+    /// Position 2: updated every 11 blocks (prime = 11)
+    /// Position 3: updated every 23 blocks (prime = 23)
+    /// Position 4: updated every 47 blocks (prime = 47)
+    /// Position 5: updated every 113 blocks (prime = 113)
+    /// 
+    /// Each entry stores (quotient, mmr_root) where quotient = block_number / prime.
+    /// On each checkpoint, if current_block / prime != stored quotient, the entry
+    /// is updated with (new_quotient, current_snapshot_root). This means each
+    /// position remembers the root from the last time its prime boundary was crossed.
+    /// 
+    /// Primes ensure positions don't align, maximizing coverage. A slow replica
+    /// can match against older positions; `position_matched` in events tracks this.
+    pub historical_roots: [(u32, H256); 6],
+    /// Total snapshots created for this bucket (for statistics)
+    pub total_snapshots: u32,
 }
 
-pub struct BucketSnapshot {
+pub struct BucketSnapshot<T: Config> {
     /// Canonical MMR root
     pub mmr_root: H256,
     /// Start sequence number
@@ -217,8 +283,12 @@ pub struct BucketSnapshot {
     pub leaf_count: u64,
     /// Block at which checkpointed
     pub checkpoint_block: BlockNumberFor<T>,
-    /// Which providers acknowledged this root (bitfield)
-    pub providers: BoundedBitField<T::MaxProvidersPerBucket>,
+    /// Bitfield indicating which primary providers signed this snapshot.
+    /// Bit i is set if primary_providers[i] signed.
+    /// Using bitfield because primary_providers is stored in Bucket and limited
+    /// to T::MaxPrimaryProviders (e.g., 5), so indices are stable within a checkpoint.
+    /// When primary_providers changes, the bitfield is adjusted accordingly.
+    pub primary_signers: BitVec<u8, bitvec::order::Lsb0>,
 }
 // Canonical range is [start_seq, start_seq + leaf_count)
 // Destructive writes (new MMR that allows pruning old) must set start_seq >= old_start_seq + old_leaf_count
@@ -239,24 +309,46 @@ pub struct StorageAgreement<T: Config> {
     pub owner: T::AccountId,
     /// Maximum bytes (quota) — provider accepts uploads up to this
     pub max_bytes: u64,
-    /// Payment locked by client
+    /// Payment locked for storage (bytes * time)
     pub payment_locked: BalanceOf<T>,
+    /// Price per byte locked at creation/last extension.
+    /// Used to determine if extension requires owner approval (price increases).
+    pub price_per_byte: BalanceOf<T>,
     /// Agreement expiration
     pub expires_at: BlockNumberFor<T>,
     /// Whether provider has blocked extensions for this specific agreement
     pub extensions_blocked: bool,
-    /// Whether this is a primary (admin-added) or auxiliary (market-added) provider.
-    /// Primary providers:
-    /// - Added via request_primary_agreement (admin only)
+    /// Provider role for this bucket.
+    pub role: ProviderRole<T>,
+    /// Block when agreement became active (for statistics)
+    pub started_at: BlockNumberFor<T>,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum ProviderRole<T: Config> {
+    /// Receives data directly from writers.
+    /// - Admin-controlled (stored in bucket.primary_providers)
     /// - Count toward min_providers for checkpoints
-    /// - Use reserved slots (min_providers * 2 slots reserved for admin)
-    /// - Cannot be replaced by market
-    /// Auxiliary providers:
-    /// - Added via request_agreement (anyone)
-    /// - Do NOT count toward min_providers
-    /// - Can be replaced by higher-staked auxiliary providers
-    /// - Replacement priority: non-snapshotted first, then snapshotted, lowest stake first
-    pub is_primary: bool,
+    /// - Can be early-terminated by admin
+    Primary,
+    /// Syncs data from other providers autonomously.
+    /// - Permissionless (anyone can add)
+    /// - Does NOT count toward min_providers
+    /// - Cannot be early-terminated (runs to expiry)
+    /// - Receives per-sync payment from sync_balance
+    Replica {
+        /// Balance for per-sync payments (drawn down on each sync confirmation)
+        sync_balance: BalanceOf<T>,
+        /// Price per sync locked at creation/last extension
+        sync_price: BalanceOf<T>,
+        /// Minimum blocks between sync confirmations for this agreement.
+        /// Set at agreement creation based on expected bucket activity.
+        /// 0 means no time-based limit (only "new root" check applies).
+        min_sync_interval: BlockNumberFor<T>,
+        /// Last confirmed sync: (mmr_root, block_number).
+        /// None if replica hasn't confirmed sync yet.
+        last_sync: Option<(H256, BlockNumberFor<T>)>,
+    },
 }
 
 /// Pending agreement requests (client → provider, awaiting acceptance)
@@ -282,29 +374,53 @@ pub struct AgreementRequest<T: Config> {
     pub duration: BlockNumberFor<T>,
     /// Block at which request expires if not accepted/rejected
     pub expires_at: BlockNumberFor<T>,
+    /// Replica-specific parameters, None for primary agreements.
+    /// Presence distinguishes the agreement type at request time.
+    pub replica_params: Option<ReplicaRequestParams<T>>,
 }
 
-/// Pending challenges indexed by deadline block
+/// Parameters specific to replica agreement requests.
+pub struct ReplicaRequestParams<T: Config> {
+    /// Initial sync balance to fund per-sync payments
+    pub sync_balance: BalanceOf<T>,
+    /// Minimum blocks between sync confirmations.
+    /// 0 means no time-based limit (only "new root" check applies).
+    pub min_sync_interval: BlockNumberFor<T>,
+}
+
+/// Pending challenges indexed by deadline block.
+/// Challenges per block are bounded by weight limits (creating challenges consumes weight).
 #[pallet::storage]
 pub type Challenges<T: Config> = StorageMap<
     _,
     Blake2_128Concat,
     BlockNumberFor<T>,
-    BoundedVec<Challenge<T>, T::MaxChallengesPerBlock>,
+    Vec<Challenge<T>>,
 >;
 
-pub struct ChallengeId {
+/// Challenge identifier combining deadline and index.
+/// Challenges are stored by deadline block for efficient expiry processing.
+pub struct ChallengeId<T: Config> {
+    /// Block by which provider must respond
     pub deadline: BlockNumberFor<T>,
+    /// Index within the deadline's challenge list
     pub index: u16,
 }
 
 pub struct Challenge<T: Config> {
+    /// Bucket containing the challenged data
     pub bucket_id: BucketId,
+    /// Provider being challenged
     pub provider: T::AccountId,
+    /// Account that issued the challenge
     pub challenger: T::AccountId,
+    /// MMR root the provider committed to
     pub mmr_root: H256,
+    /// Start sequence of the commitment (needed to compute challenged_seq = start_seq + leaf_index)
     pub start_seq: u64,
+    /// Leaf index within the MMR (relative to start_seq)
     pub leaf_index: u64,
+    /// Chunk index within the leaf's data
     pub chunk_index: u64,
 }
 ```
@@ -372,6 +488,45 @@ pub enum Event<T: Config> {
         bucket_id: BucketId,
         provider: T::AccountId,
     },
+    PrimaryProviderRemoved {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        reason: RemovalReason,
+    },
+    PrimaryAgreementEndedEarly {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_to_provider: BalanceOf<T>,
+        burned: BalanceOf<T>,
+    },
+    SlashedProviderRemoved {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        payment_returned_to_owner: BalanceOf<T>,
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Replica events
+    // ─────────────────────────────────────────────────────────────
+
+    /// Emitted when a replica confirms sync to a snapshot.
+    /// position_matched indicates sync latency:
+    /// - 0 = current snapshot (excellent)
+    /// - 1-6 = historical positions [base3, base7, base11, base23, base47, base113]
+    /// Higher positions indicate the replica is syncing to older snapshots.
+    ReplicaSynced {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        mmr_root: H256,
+        position_matched: u8,
+        sync_payment: BalanceOf<T>,
+    },
+    ReplicaSyncBalanceToppedUp {
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        amount: BalanceOf<T>,
+        new_total: BalanceOf<T>,
+    },
 
     // ─────────────────────────────────────────────────────────────
     // Agreement events
@@ -382,7 +537,7 @@ pub enum Event<T: Config> {
         provider: T::AccountId,
         requester: T::AccountId,
         max_bytes: u64,
-        payment: BalanceOf<T>,
+        payment_locked: BalanceOf<T>,
         duration: BlockNumberFor<T>,
     },
     AgreementAccepted {
@@ -436,7 +591,7 @@ pub enum Event<T: Config> {
     
     /// A challenge was issued against a provider
     ChallengeCreated {
-        challenge_id: ChallengeId,
+        challenge_id: ChallengeId<T>,
         bucket_id: BucketId,
         provider: T::AccountId,
         challenger: T::AccountId,
@@ -444,7 +599,7 @@ pub enum Event<T: Config> {
     },
     /// Provider responded successfully to a challenge
     ChallengeDefended {
-        challenge_id: ChallengeId,
+        challenge_id: ChallengeId<T>,
         provider: T::AccountId,
         response_time_blocks: BlockNumberFor<T>,
         challenger_cost: BalanceOf<T>,
@@ -452,7 +607,7 @@ pub enum Event<T: Config> {
     },
     /// Provider failed to respond or provided invalid proof - slashed
     ChallengeSlashed {
-        challenge_id: ChallengeId,
+        challenge_id: ChallengeId<T>,
         provider: T::AccountId,
         slashed_amount: BalanceOf<T>,
         challenger_reward: BalanceOf<T>,
@@ -486,13 +641,28 @@ impl<T: Config> Pallet<T> {
     // Provider management
     // ─────────────────────────────────────────────────────────────
 
+    /// Register as a storage provider.
+    /// 
+    /// Creates a new provider entry with the given multiaddr and initial stake.
+    /// Stake must be at least `T::MinProviderStake`.
+    /// 
+    /// Parameters:
+    /// - `multiaddr`: Network address where clients can connect to this provider
+    /// - `stake`: Initial stake to lock (must meet minimum, provides sybil resistance)
+    #[pallet::weight(...)]
     pub fn register_provider(
         origin: OriginFor<T>,
         multiaddr: BoundedVec<u8, T::MaxMultiaddrLength>,
         stake: BalanceOf<T>,
     ) -> DispatchResult;
 
-    /// Add stake (stake can only increase; to withdraw, use deregister_provider)
+    /// Add stake to an existing provider registration.
+    /// 
+    /// Stake can only increase; to withdraw stake, use `deregister_provider`.
+    /// Higher stake improves stake/bytes ratio, allowing more agreements.
+    /// 
+    /// Parameters:
+    /// - `amount`: Additional stake to lock
     #[pallet::weight(...)]
     pub fn add_stake(
         origin: OriginFor<T>,
@@ -505,11 +675,17 @@ impl<T: Config> Pallet<T> {
     #[pallet::weight(...)]
     pub fn deregister_provider(origin: OriginFor<T>) -> DispatchResult;
 
-    /// Update provider settings (min duration, pricing, whether accepting new agreements)
+    /// Update provider settings.
+    /// 
+    /// Allows provider to change pricing, duration limits, and availability.
+    /// Changes apply to new agreements only; existing agreements retain their terms.
+    /// 
+    /// Parameters:
+    /// - `settings`: New provider settings (pricing, duration limits, accepting flags)
     #[pallet::weight(...)]
     pub fn update_provider_settings(
         origin: OriginFor<T>,
-        settings: ProviderSettings,
+        settings: ProviderSettings<T>,
     ) -> DispatchResult;
 
     /// Block or unblock extensions for a specific bucket (provider only).
@@ -529,10 +705,25 @@ impl<T: Config> Pallet<T> {
     // Bucket management
     // ─────────────────────────────────────────────────────────────
 
-    /// Create bucket (caller becomes admin)
+    /// Create a new bucket.
+    /// 
+    /// The caller becomes the bucket admin. The bucket starts empty with no
+    /// providers or data.
+    /// 
+    /// Parameters:
+    /// - `min_providers`: Minimum primary provider signatures required for checkpoints
+    #[pallet::weight(...)]
     pub fn create_bucket(origin: OriginFor<T>, min_providers: u32) -> DispatchResult;
 
-    /// Set minimum providers for checkpoint (admin only)
+    /// Set minimum providers required for checkpoint (admin only).
+    /// 
+    /// Controls redundancy: checkpoints require at least this many primary provider
+    /// signatures to be accepted. Cannot exceed current primary provider count.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket to modify
+    /// - `min_providers`: New minimum provider count for checkpoints
+    #[pallet::weight(...)]
     pub fn set_min_providers(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -584,45 +775,75 @@ impl<T: Config> Pallet<T> {
     // Storage agreements (per bucket, per provider)
     // ─────────────────────────────────────────────────────────────
 
-    /// Request an auxiliary storage agreement (anyone can request).
+    /// Request a replica storage agreement (anyone can request).
     /// 
-    /// Creates an auxiliary (market-added) provider agreement:
+    /// Creates a replica provider agreement:
     /// - Does NOT count toward min_providers for checkpoints
-    /// - Can be replaced by higher-staked auxiliary provider
-    /// - Replacement priority: non-snapshotted first, then snapshotted, lowest stake first
+    /// - Syncs data autonomously from primaries or other replicas
+    /// - Cannot be early-terminated (runs to expiry)
+    /// - Unlimited number of replicas per bucket
     /// 
     /// The requester becomes the agreement owner (can top up, transfer ownership).
     /// 
-    /// Provider must meet bucket's min_stake_per_byte and min_absolute_stake requirements.
-    /// If auxiliary slots are full, the new provider must have higher stake than the
-    /// lowest-priority existing auxiliary provider (which gets replaced).
-    /// 
-    /// Replaced agreements continue until natural expiry but lose slot protection.
+    /// Parameters:
+    /// - `bucket_id`: The bucket to add a replica for
+    /// - `provider`: The provider to request an agreement with
+    /// - `max_bytes`: Maximum storage quota for this agreement
+    /// - `duration`: How long the agreement should last
+    /// - `max_payment`: Upper bound on storage payment. Actual payment is calculated
+    ///   as `provider.price_per_byte * max_bytes * duration`. Fails if this exceeds
+    ///   `max_payment` (protects against price changes between query and submission).
+    /// - `replica_params`: Replica-specific parameters:
+    ///   - `sync_balance`: Transferred from requester to fund per-sync payments at
+    ///     the provider's `replica_sync_price`. When exhausted, replica stops
+    ///     receiving sync payments but remains bound until expiry. Can top up via
+    ///     `top_up_replica_sync_balance`.
+    ///   - `min_sync_interval`: Minimum blocks between sync confirmations. Set based
+    ///     on expected bucket activity. 0 for no time-based limit.
     #[pallet::weight(...)]
     pub fn request_agreement(
         origin: OriginFor<T>,
         bucket_id: BucketId,
         provider: T::AccountId,
         max_bytes: u64,
-        payment: BalanceOf<T>,
         duration: BlockNumberFor<T>,
+        max_payment: BalanceOf<T>,
+        replica_params: ReplicaRequestParams<T>,
     ) -> DispatchResult;
 
-    /// Accept a pending agreement request (provider only)
+    /// Accept a pending agreement request (provider only).
+    /// 
+    /// Creates the storage agreement and adds the provider to the bucket.
+    /// For primary agreements: provider is added to `bucket.primary_providers`.
+    /// For replica agreements: provider can start syncing immediately.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket with the pending request
     #[pallet::weight(...)]
     pub fn accept_agreement(
         origin: OriginFor<T>,
         bucket_id: BucketId,
     ) -> DispatchResult;
 
-    /// Reject a pending agreement request (provider only, refunds client)
+    /// Reject a pending agreement request (provider only).
+    /// 
+    /// Refunds the locked payment to the original requester.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket with the pending request to reject
     #[pallet::weight(...)]
     pub fn reject_agreement(
         origin: OriginFor<T>,
         bucket_id: BucketId,
     ) -> DispatchResult;
 
-    /// Withdraw a pending agreement request (original requester only, before provider accepts)
+    /// Withdraw a pending agreement request before provider accepts.
+    /// 
+    /// Only the original requester can withdraw. Refunds the locked payment.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket with the pending request
+    /// - `provider`: The provider the request was made to
     #[pallet::weight(...)]
     pub fn withdraw_agreement_request(
         origin: OriginFor<T>,
@@ -630,7 +851,7 @@ impl<T: Config> Pallet<T> {
         provider: T::AccountId,
     ) -> DispatchResult;
 
-    /// Top up quota for an existing agreement (owner or bucket admin only).
+    /// Top up quota for an existing agreement (owner only).
     /// Increases max_bytes, does not change duration.
     /// Actual payment = provider.price_per_byte * additional_bytes * remaining_duration.
     /// Fails if calculated payment > max_payment.
@@ -645,10 +866,18 @@ impl<T: Config> Pallet<T> {
 
     /// Extend agreement duration (immediate, no provider approval needed).
     /// 1. Settles current period: releases payment to provider for elapsed time
-    /// 2. Calculates and locks new payment for extension
+    /// 2. Calculates and locks new payment for extension at current provider prices
     /// 3. Updates end date to now + additional_duration
+    /// 4. Updates agreement.price_per_byte (and sync_price for replicas) to current prices
+    /// 
+    /// **Price change rules:**
+    /// - If provider's current price <= agreement's locked price: anyone can extend
+    /// - If provider's current price > agreement's locked price: only owner can extend
+    /// This enables permissionless persistence for frozen buckets while protecting
+    /// owners from unwanted price increases.
     /// 
     /// Actual payment = provider.price_per_byte * current_max_bytes * additional_duration.
+    /// For replicas: also requires topping up sync_balance proportionally.
     /// Fails if calculated payment > max_payment.
     /// 
     /// Also fails if:
@@ -665,7 +894,14 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult;
 
     /// Transfer agreement ownership (current owner only).
+    /// 
     /// The new owner can top up quota and transfer ownership further.
+    /// Useful for selling agreement slots or transferring to a DAO.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket containing the agreement
+    /// - `provider`: The provider of the agreement to transfer
+    /// - `new_owner`: Account that will become the new agreement owner
     #[pallet::weight(...)]
     pub fn transfer_agreement_ownership(
         origin: OriginFor<T>,
@@ -674,9 +910,28 @@ impl<T: Config> Pallet<T> {
         new_owner: T::AccountId,
     ) -> DispatchResult;
 
-    /// End agreement: final settlement with pay/burn decision (bucket admin or agreement owner).
-    /// Must be called within T::SettlementTimeout after expiry.
-    /// If neither admin nor owner acts, provider can call claim_expired_agreement.
+    /// End agreement with pay/burn decision.
+    /// 
+    /// **After expiry:** Owner can call within T::SettlementTimeout to settle.
+    /// If owner doesn't act, provider can call claim_expired_agreement.
+    /// 
+    /// **Before expiry (early termination):** Only admin can call, only for primary
+    /// providers. The full remaining payment is subject to the action (not pro-rated).
+    /// 
+    /// **Why early termination for primaries?**
+    /// Admin needs ability to remove hostile or misbehaving primary providers.
+    /// Without this, a malicious primary could hold the bucket hostage until expiry.
+    /// Primary providers are admin-controlled for write coordination; admin must
+    /// maintain control over who can accept writes.
+    /// 
+    /// **Replicas cannot be early-terminated:** There's no use case, and allowing
+    /// it would violate the principle of least surprise. A business checking on a
+    /// bucket sees "5 providers with agreements until May" and concludes all is
+    /// well - they shouldn't find the bucket dead the next day because someone
+    /// terminated agreements early. If unhappy with a provider, simply don't extend.
+    /// 
+    /// Note: For primary agreements, admin is the owner (created via request_primary_agreement).
+    /// Admin has no special privileges over replica agreements.
     #[pallet::weight(...)]
     pub fn end_agreement(
         origin: OriginFor<T>,
@@ -698,19 +953,48 @@ impl<T: Config> Pallet<T> {
     /// 
     /// Creates a primary (admin-added) provider agreement:
     /// - Counts toward min_providers for checkpoints
-    /// - Uses reserved admin slots (min_providers * 2 slots reserved)
-    /// - Cannot be replaced by market
+    /// - Stored in bucket.primary_providers (limited to T::MaxPrimaryProviders)
+    /// - Can be early-terminated by admin
     /// 
-    /// Provider must meet bucket's min_stake_per_byte and min_absolute_stake requirements.
-    /// Fails if admin has used all reserved slots (min_providers * 2).
+    /// Fails if bucket has reached T::MaxPrimaryProviders limit.
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket to add a primary provider for
+    /// - `provider`: The provider to request an agreement with
+    /// - `max_bytes`: Maximum storage quota for this agreement
+    /// - `duration`: How long the agreement should last
+    /// - `max_payment`: Upper bound on storage payment. Actual payment is calculated
+    ///   as `provider.price_per_byte * max_bytes * duration`. Fails if this exceeds
+    ///   `max_payment` (protects against price changes between query and submission).
     #[pallet::weight(...)]
     pub fn request_primary_agreement(
         origin: OriginFor<T>,
         bucket_id: BucketId,
         provider: T::AccountId,
         max_bytes: u64,
-        payment: BalanceOf<T>,
         duration: BlockNumberFor<T>,
+        max_payment: BalanceOf<T>,
+    ) -> DispatchResult;
+
+    /// Remove a slashed provider from a bucket (anyone can call).
+    /// 
+    /// After a provider is slashed (failed a challenge), they should be removed
+    /// from the bucket's provider lists. This is permissionless because:
+    /// - Slashing is already a clear on-chain signal of failure
+    /// - Keeping slashed providers in lists is misleading
+    /// - No payment/burn decision needed (the slash already handled consequences)
+    /// 
+    /// Removes the agreement entirely. For primary providers, also removes from
+    /// bucket.primary_providers and adjusts the snapshot bitfield if they were in it.
+    /// 
+    /// The agreement's remaining payment is handled as follows:
+    /// - If slashed while agreement was active: remaining payment returned to owner
+    ///   (provider already punished via stake slash, client shouldn't also lose payment)
+    #[pallet::weight(...)]
+    pub fn remove_slashed(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        provider: T::AccountId,
     ) -> DispatchResult;
 
     // ─────────────────────────────────────────────────────────────
@@ -720,7 +1004,7 @@ impl<T: Config> Pallet<T> {
     /// Submit a new checkpoint with provider signatures (writers/admin only).
     /// 
     /// Creates a new canonical state (new mmr_root, start_seq, leaf_count).
-    /// Requires at least min_providers signatures from primary providers (is_primary == true).
+    /// Requires at least min_providers signatures from providers in bucket.primary_providers.
     /// For frozen buckets: start_seq must equal frozen_start_seq (only leaf_count can increase).
     pub fn checkpoint(
         origin: OriginFor<T>,
@@ -728,7 +1012,7 @@ impl<T: Config> Pallet<T> {
         mmr_root: H256,
         start_seq: u64,
         leaf_count: u64,
-        signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
+        signatures: BoundedVec<(T::AccountId, Signature), T::MaxPrimaryProviders>,
     ) -> DispatchResult;
 
     /// Extend an existing checkpoint's provider bitfield (anyone can call).
@@ -743,16 +1027,44 @@ impl<T: Config> Pallet<T> {
     pub fn extend_checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
-        signatures: BoundedVec<(T::AccountId, Signature), T::MaxProvidersPerBucket>,
+        signatures: BoundedVec<(T::AccountId, Signature), T::MaxPrimaryProviders>,
     ) -> DispatchResult;
 
     // ─────────────────────────────────────────────────────────────
     // Challenges
     // ─────────────────────────────────────────────────────────────
+    //
+    // Three challenge modes exist for different scenarios:
+    //
+    // **challenge_checkpoint** - Best for cold/stable buckets:
+    // - Infrequent writes mean snapshot stays stable
+    // - No race conditions between challenge and new checkpoints
+    // - Guarantees min_providers are always challengeable via on-chain state
+    // - No need for challenger to store signatures locally
+    //
+    // **challenge_offchain** - Best for hot/active buckets:
+    // - Frequent writes cause snapshot races (new checkpoint may not include
+    //   the provider you want to challenge)
+    // - Writers have fresh signatures from their commits
+    // - Writers are the natural challengers (they're active participants)
+    // - Signatures are recoverable from block history if needed
+    //
+    // **challenge_replica** - For replica providers:
+    // - Uses the replica's on-chain sync confirmation (last_synced_root)
+    // - No signature needed - chain already has their commitment
+    // - Replicas are liable for roots they've confirmed synced to
+    //
+    // For hot buckets, challenge_checkpoint may fail due to race conditions,
+    // but this is acceptable: active writers have signatures and can use
+    // challenge_offchain. The snapshot primarily protects cold/archival data
+    // where nobody has recent signatures or doesn't bother to dig them up.
 
-    /// Challenge on-chain checkpoint (no signatures needed)
-    /// Provider must be in snapshot's provider bitfield
-    /// NOTE: Requires bucket to have a snapshot. Fails if snapshot is None.
+    /// Challenge on-chain checkpoint (no signatures needed).
+    /// Provider must be in current snapshot's provider list.
+    /// 
+    /// NOTE: May race with new checkpoints in hot buckets. If the provider is
+    /// no longer in the snapshot when the transaction executes, this fails.
+    /// For hot buckets, prefer challenge_offchain with the signature you have.
     pub fn challenge_checkpoint(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -761,8 +1073,11 @@ impl<T: Config> Pallet<T> {
         chunk_index: u64,
     ) -> DispatchResult;
 
-    /// Challenge off-chain commitment (requires provider signature)
-    /// Works regardless of whether bucket has an on-chain snapshot.
+    /// Challenge off-chain commitment (requires provider signature).
+    /// Works regardless of current snapshot state - the signature proves
+    /// the provider committed to this data.
+    /// 
+    /// Preferred for hot buckets where snapshots change frequently.
     pub fn challenge_offchain(
         origin: OriginFor<T>,
         bucket_id: BucketId,
@@ -774,14 +1089,108 @@ impl<T: Config> Pallet<T> {
         provider_signature: Signature,
     ) -> DispatchResult;
 
+    /// Challenge a replica based on their on-chain sync confirmation.
+    /// Uses the replica's last_synced_root stored in their agreement.
+    /// No signature needed - the chain already has their commitment.
+    pub fn challenge_replica(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        leaf_index: u64,
+        chunk_index: u64,
+    ) -> DispatchResult;
+
+    // ─────────────────────────────────────────────────────────────
+    // Replica sync
+    // ─────────────────────────────────────────────────────────────
+
+    /// Replica confirms sync to one or more MMR roots.
+    /// 
+    /// **Why this exists:**
+    /// Replicas sync autonomously and need to prove they actually have the data.
+    /// By signing which roots they've synced to, replicas become challengeable for
+    /// that data. The chain validates against current snapshot and historical_roots
+    /// to ensure the replica isn't claiming a fabricated root.
+    /// 
+    /// **Why historical roots (prime-bucketed)?**
+    /// Replicas may lag behind the current snapshot. Rather than requiring exact
+    /// sync to current state (which races with new checkpoints), we accept sync
+    /// confirmations against recent historical roots. Prime-based bucketing (see
+    /// `Bucket.historical_roots`) provides O(1) storage with logarithmic time
+    /// coverage, allowing replicas to confirm sync even when slightly behind.
+    /// 
+    /// **Matching logic:**
+    /// The chain checks positions in order: current snapshot first, then historical
+    /// positions 0-5. The first position where the replica's claimed root matches
+    /// the on-chain root is used. This means replicas are credited for the most
+    /// recent state they've synced to, even if they also have older roots.
+    /// 
+    /// **Rate limiting:**
+    /// Two checks prevent excessive sync confirmations:
+    /// 1. The matched root must differ from `last_sync.0` (must be new state)
+    /// 2. `current_block >= last_sync.1 + min_sync_interval` (per-agreement)
+    /// 
+    /// The first check ensures payment only for actual sync work. The second
+    /// prevents hot buckets (writes every block) from causing excessive on-chain
+    /// sync confirmations. `min_sync_interval` is set per-agreement at creation,
+    /// based on expected bucket activity. Set to 0 for no time-based limit.
+    /// 
+    /// Replicas are already paid for storage via `payment_locked` (like primaries),
+    /// which covers storage costs (slashing risk is negligible if they do their
+    /// job properly). The `sync_price` separately
+    /// compensates for sync work: bandwidth costs, incentivizing other providers
+    /// to serve data (they may refuse or deprioritize), verification compute, and
+    /// tx costs. Sync-specific risks (e.g., uncooperative providers causing sync
+    /// failures) should be negligible if the replica syncs regularly.
+    /// 
+    /// On success (both checks pass):
+    /// - Updates replica's `last_sync` to `(matched_root, current_block)`
+    /// - Pays sync_price from replica's sync_balance
+    /// - Emits ReplicaSynced event with position_matched for performance tracking
+    ///   (position 0 = current snapshot, 1-6 = historical positions, higher = more lag)
+    /// 
+    /// Parameters:
+    /// - `bucket_id`: The bucket the replica is syncing
+    /// - `roots`: Array of optional MMR roots [current, pos0, pos1, pos2, pos3, pos4, pos5].
+    ///   Replica sets Some(root) for positions they have, None for positions they don't.
+    /// - `signature`: Provider signature over the roots array
+    #[pallet::weight(...)]
+    pub fn confirm_replica_sync(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        /// Array of optional MMR roots: [current, pos0, pos1, pos2, pos3, pos4, pos5]
+        /// Provider signs this to attest which roots they have.
+        roots: [Option<H256>; 7],
+        signature: Signature,
+    ) -> DispatchResult;
+
+    /// Top up a replica's sync balance (agreement owner or anyone).
+    /// 
+    /// Adds funds to the replica's sync_balance for future sync payments.
+    /// This is permissionless because it only benefits the replica (more funds
+    /// to pay for syncs) and the bucket (more redundancy).
+    #[pallet::weight(...)]
+    pub fn top_up_replica_sync_balance(
+        origin: OriginFor<T>,
+        bucket_id: BucketId,
+        provider: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult;
+
     /// Provider responds to challenge with proof.
+    /// 
     /// Must provide the challenged chunk with Merkle proofs, or prove the data
-    /// was legitimately deleted (newer commitment with higher start_seq).
+    /// was legitimately deleted (newer commitment with higher start_seq), or
+    /// show the challenged state has been superseded by canonical.
+    /// 
+    /// Parameters:
+    /// - `challenge_id`: The challenge to respond to (deadline + index)
+    /// - `response`: Proof, Deleted, or Superseded response
     #[pallet::weight(...)]
     pub fn respond_to_challenge(
         origin: OriginFor<T>,
-        challenge_id: ChallengeId,
-        response: ChallengeResponse,
+        challenge_id: ChallengeId<T>,
+        response: ChallengeResponse<T>,
     ) -> DispatchResult;
 }
 
@@ -792,7 +1201,16 @@ pub enum EndAction {
     Burn { burn_percent: u8 },
 }
 
-pub enum ChallengeResponse {
+pub enum RemovalReason {
+    /// Provider was slashed for failing a challenge
+    Slashed,
+    /// Admin terminated agreement early
+    AdminTerminated,
+    /// Agreement expired naturally
+    Expired,
+}
+
+pub enum ChallengeResponse<T: Config> {
     /// Provide the chunk with proofs
     Proof {
         chunk_data: BoundedVec<u8, T::MaxChunkSize>,
@@ -800,13 +1218,14 @@ pub enum ChallengeResponse {
         chunk_proof: MerkleProof,
     },
     /// Data was deleted - show newer commitment without this seq.
-    /// Client signature proves the client agreed to the new MMR (which excludes the challenged data).
+    /// Admin signature proves the admin authorized the deletion (new MMR excludes the challenged data).
+    /// Only admins can delete data (by increasing start_seq), so the signature must be from an admin.
     /// Provider signature not needed - they're submitting this response.
     Deleted {
         new_mmr_root: H256,
         new_start_seq: u64,
-        client: AccountId,
-        client_signature: Signature,
+        admin: T::AccountId,
+        admin_signature: Signature,
     },
     /// Challenged state has been superseded by a larger canonical checkpoint.
     /// Valid when: canonical.start_seq <= challenged_seq < canonical.start_seq + canonical.leaf_count
@@ -930,19 +1349,13 @@ GET /info
 
 Response:
 {
-  "provider_id": "5GrwvaEF...",
-  "multiaddr": "/ip4/...",
-  "settings": {
-    "min_duration": 100800,
-    "max_duration": 2592000,
-    "price_per_byte": "1000",
-    "accepting_new_agreements": true,
-    "accepting_extensions": true
-  }
+  "status": "healthy",
+  "version": "0.1.0"
 }
 
-Note: Stake and committed_bytes are intentionally omitted — providers could lie.
-Clients should query the chain via runtime API for trustworthy stake information.
+Note: Provider settings (prices, durations, accepting flags) are intentionally
+omitted — the chain is the source of truth. Clients should query the chain via
+runtime API for authoritative provider information.
 
 Download Node
 ─────────────
@@ -994,15 +1407,15 @@ Response:
 Response (404 Not Found):
 { "error": "data_root_not_found" }
 
-Delete Data
-───────────
+Delete Data (admin only)
+────────────────────────
 POST /delete
 
 Request:
 {
   "bucket_id": "0x1234...",
   "new_start_seq": 10,
-  "client_signature": "0x..."  // signs {bucket_id, new_start_seq}
+  "admin_signature": "0x..."  // signs {bucket_id, new_start_seq}
 }
 
 Response (200 OK):
@@ -1016,8 +1429,12 @@ Response (200 OK):
 Response (400 Bad Request):
 { "error": "invalid_signature" }
 
-Note: This triggers deletion of data before new_start_seq. Provider returns
-new commitment covering remaining data. Client signature authorizes the deletion.
+Response (403 Forbidden):
+{ "error": "not_admin" }
+
+Note: Only bucket admins can delete data. This triggers deletion of data before
+new_start_seq. Provider returns new commitment covering remaining data. Admin
+signature authorizes the deletion and serves as proof if challenged later.
 
 List Buckets
 ────────────
@@ -1038,6 +1455,125 @@ GET /health
 Response (200 OK):
 { "status": "healthy", "version": "0.1.0" }
 ```
+
+### Replica Sync API
+
+Replicas sync data autonomously from primaries or other replicas using a
+top-down Merkle traversal. This section describes the sync protocol.
+
+**Sync flow overview:**
+
+1. Replica queries the **chain** for current bucket state (MMR root from checkpoint)
+2. Replica fetches MMR structure (peaks) from any provider, verifying against chain root
+3. Replica performs top-down traversal, checking which nodes it already has
+4. Replica fetches missing nodes from providers, verifying hashes along the way
+5. Once fully synced, replica confirms on-chain to receive per-sync payment
+
+**Why chain-first?**
+
+The chain checkpoint is the source of truth. Fetching the root from a provider
+would require trusting that provider. By getting the root from the chain first,
+the replica can verify all fetched data against a trusted commitment.
+
+```
+Get MMR Peaks (given trusted root from chain)
+─────────────────────────────────────────────
+GET /mmr_peaks?bucket_id=0x...
+
+Response:
+{
+  "bucket_id": "0x1234...",
+  "mmr_root": "0xfed...",
+  "peaks": ["0xpeak1...", "0xpeak2...", ...]
+}
+
+Note: Replica already knows the trusted mmr_root from the chain. It fetches
+peaks from a provider and verifies: hash(peaks) == trusted_root. If verification
+fails, try another provider. Once verified, use peaks to start top-down traversal.
+
+Get MMR Subtree
+───────────────
+GET /mmr_subtree?bucket_id=0x...&peak_index=0&depth=2
+
+Request: Fetch nodes in an MMR subtree starting from a peak.
+- peak_index: which peak to start from (0 = leftmost)
+- depth: how many levels to fetch (0 = just the peak, 1 = peak + children, etc.)
+
+Response:
+{
+  "nodes": [
+    { "position": 0, "hash": "0xabc...", "children": [1, 2] },
+    { "position": 1, "hash": "0xdef...", "children": [3, 4] },
+    { "position": 2, "hash": "0x123...", "children": [5, 6] },
+    ...
+  ]
+}
+
+Note: Replica can batch requests by depth level. Check which hashes match
+locally stored nodes, then fetch children of missing nodes.
+
+Note: To check which nodes exist on a provider, use the existing POST /exists
+endpoint from the Sync Protocol section above.
+
+Fetch Nodes (batched, for sync)
+───────────────────────────────
+POST /fetch_nodes
+
+Request:
+{
+  "bucket_id": "0x1234...",
+  "hashes": ["0xdef...", "0x456...", ...]
+}
+
+Response:
+{
+  "nodes": [
+    { "hash": "0xdef...", "data": "<base64>", "children": ["0xchild1...", "0xchild2..."] },
+    { "hash": "0x456...", "data": "<base64>", "children": null }  // leaf chunk
+  ]
+}
+
+Note: Bulk fetch of nodes by hash. More efficient than individual GET /node
+requests when syncing many nodes.
+```
+
+**Top-down sync algorithm:**
+
+```
+1. Query chain for bucket's current snapshot (mmr_root, start_seq, leaf_count)
+   Also note historical_roots for fallback positions
+2. Fetch mmr_peaks from any provider
+3. Verify: hash(peaks) == trusted mmr_root from chain
+   If mismatch, try another provider
+4. Compare verified peaks with locally stored peaks
+5. For each differing peak:
+   a. Fetch subtree level by level (breadth-first)
+   b. At each level, check which nodes exist locally
+   c. Fetch missing nodes from any available provider
+   d. Verify fetched nodes: hash(data) == expected_hash
+   e. Continue to children of newly fetched nodes
+6. Once all nodes fetched and verified:
+   a. Build signature over roots array matching on-chain historical_roots
+   b. Submit confirm_replica_sync on-chain
+   c. Receive per-sync payment from sync_balance
+```
+
+**Why top-down?**
+
+- Enables early termination: if a node hash matches, skip entire subtree
+- Natural deduplication: unchanged subtrees are detected at first node
+- Verifiable: each node's hash is verified before fetching children
+- Resumable: sync state is just "which nodes are missing"
+
+**Historical roots for sync confirmation:**
+
+When confirming sync on-chain, replicas provide roots for multiple positions:
+- Position 0: current snapshot root
+- Positions 1-6: historical roots at prime intervals (3, 7, 11, 23, 47, 113 blocks)
+
+This gives replicas a ~1 minute window to sync without racing against new
+checkpoints. If a new checkpoint arrives while syncing, the replica can still
+confirm using an older historical root they successfully synced to.
 
 ---
 
@@ -1125,9 +1661,9 @@ pub struct MmrProof {
     └─ Client recovers data via the on-chain proof
 
 3b. Provider responds with deletion proof
-    └─ Shows newer client-signed commitment with start_seq > challenged seq
+    └─ Shows newer admin-signed commitment with start_seq > challenged seq
     └─ Challenge rejected
-    └─ Client loses deposit (invalid challenge)
+    └─ Challenger loses deposit (invalid challenge)
 
 3c. Provider fails to respond / invalid proof
     └─ Provider's contract stake fully slashed
@@ -1163,17 +1699,17 @@ fn verify_challenge_response(
             Ok(())
         }
         
-        ChallengeResponse::Deleted { new_start_seq, .. } => {
+        ChallengeResponse::Deleted { new_start_seq, admin, admin_signature, .. } => {
             // Note: We don't check frozen_start_seq here. Freeze protects canonical
             // checkpoints (enforced at checkpoint time), but off-chain deletions can
-            // race with freeze. If client signed a deletion, provider has valid defense
+            // race with freeze. If admin signed a deletion, provider has valid defense
             // regardless of freeze state. Off-chain is "messy but functional."
             
             // Challenged seq must be before new start
             let challenged_seq = challenge.start_seq + challenge.leaf_index;
             ensure!(challenged_seq < *new_start_seq, Error::InvalidDeletionProof);
             
-            // Verify client signature on new commitment
+            // Verify admin signature on new commitment and that signer is bucket admin
             // ...
             
             Ok(())
@@ -1190,14 +1726,14 @@ fn verify_challenge_response(
             // In all cases, canonical has "moved past" the challenged state. The provider
             // signed something that is no longer relevant - canonical supersedes it.
             //
-            // Note: We don't require client signature here (unlike Deleted defense).
+            // Note: We don't require admin signature here (unlike Deleted defense).
             // Superseded is for when canonical evolved independently - possibly by a
-            // different client/provider. The provider shouldn't be slashed for state
+            // different admin/provider. The provider shouldn't be slashed for state
             // that was superseded by canonical they weren't involved in.
             //
             // Deleted vs Superseded:
-            // - Deleted: requires client signature, works without canonical snapshot
-            // - Superseded: requires canonical snapshot, works without client signature
+            // - Deleted: requires admin signature, works without canonical snapshot
+            // - Superseded: requires canonical snapshot, works without admin signature
             // For challenged_seq < snapshot.start_seq, BOTH defenses are valid.
             // Provider can use whichever they have evidence for.
             //
