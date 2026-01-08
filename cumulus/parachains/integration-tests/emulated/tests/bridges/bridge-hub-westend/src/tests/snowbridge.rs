@@ -38,7 +38,6 @@ use codec::Encode;
 use emulated_integration_tests_common::{create_foreign_pool_with_native_on, snowbridge::{SEPOLIA_ID, WETH}, PENPAL_B_ID, RESERVABLE_ASSET_ID};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
-use frame_support::traits::fungible::Mutate as _;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
 	penpal_emulated_chain::PARA_ID_B, westend_emulated_chain::westend_runtime::Dmp,
@@ -53,6 +52,7 @@ use sp_core::{H160, H256};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
+use crate::imports::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2ForeignAsset;
 
 const INITIAL_FUND: u128 = 6_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
@@ -1619,7 +1619,8 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal = Location::here();
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| LocalPen2ForeignAsset::get());
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())
@@ -1665,7 +1666,8 @@ fn transfer_penpal_teleport_enabled_asset() {
 	// Fund on Penpal
 	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			LocalPen2ForeignAsset::get(),
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
@@ -1732,7 +1734,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Balances(pallet_balances::Event::Burned{ .. }) => {},]
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{ .. }) => {},]
 		);
 	});
 
@@ -1839,7 +1841,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Balances(pallet_balances::Event::Issued{..}) => {},]
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued{..}) => {},]
 		);
 	})
 }

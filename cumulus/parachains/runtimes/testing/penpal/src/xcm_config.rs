@@ -52,25 +52,13 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{xcm_config::ConcreteAssetFromSystem, TREASURY_PALLET_ID};
+use parachains_common::impls::NonZeroIssuance;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, Identity, TryConvertInto};
 use testnet_parachains_constants::westend::currency::deposit;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
-use xcm_builder::{
-	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
-	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
-	ExternalConsensusLocationsConverterFor, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, MatchedConvertedConcreteId,
-	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
-};
+use xcm_builder::{AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, MatchedConvertedConcreteId, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents};
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
@@ -121,6 +109,23 @@ pub type FungibleTransactor = FungibleAdapter<
 	(),
 >;
 
+/// Means for transacting assets besides the native currency on this chain.
+pub type LocalAssetsTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	ForeignAssets,
+	// Only allow locations that are local
+	LocalAssetsConvertedConcreteId,
+	// Convert an XCM Location into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
+	// that this asset is known.
+	LocalMint<NonZeroIssuance<AccountId, ForeignAssets>>,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 // Using the latest `Location`, we don't need to worry about migrations for Penpal.
 pub type ForeignAssetsAssetId = Location;
 pub type ForeignAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcreteId<
@@ -133,6 +138,21 @@ pub type ForeignAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcret
 		// assert!([Parachain(100)].into().starts_with(&Here));
 		StartsWith<assets_common::matching::LocalLocationPattern>,
 	)>,
+	Identity,
+	TryConvertInto,
+>;
+
+pub type LocalAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcreteId<
+	Location,
+	Balance,
+	// Only allow patterns with local
+	(
+		// Here we rely on fact that something like this works:
+		// assert!(Location::new(1,
+		// [Parachain(100)]).starts_with(&Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&Here));
+		StartsWith<assets_common::matching::LocalLocationPattern>,
+	),
 	Identity,
 	TryConvertInto,
 >;
@@ -154,7 +174,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor);
+pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, LocalAssetsTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -282,6 +302,7 @@ parameter_types! {
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
+	pub storage LocalTeleportableToAssetHub: Location = LocalPen2ForeignAsset::get();
 
 	pub const NativeAssetId: AssetId = AssetId(Location::here());
 	pub const NativeAssetFilter: AssetFilter = Wild(AllOf { fun: WildFungible, id: NativeAssetId::get() });
@@ -309,7 +330,7 @@ pub type TrustedReserves = (
 
 pub type TrustedTeleporters = (
 	AssetFromChain<PenpalNativeCurrency, SystemAssetHubLocation>,
-	AssetFromChain<LocalPen2ForeignAsset, SystemAssetHubLocation>,
+	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,
 	// This is used in the `IsTeleporter` configuration, meaning it accepts
 	// native tokens teleported from Asset Hub.
 	xcm_builder::Case<AssetHubTrustedTeleporter>,
@@ -336,8 +357,9 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
+		LocalAssetsConvertedConcreteId,
 		ForeignAssetsConvertedConcreteId,
-		// `ForeignAssetsConvertedConcreteId` doesn't include the native token, so we handle it
+		// `ForeignAssetsConvertedConcreteId` doesn't include the local tokens, so we handle it
 		// explicitly here.
 		MatchedConvertedConcreteId<
 			Location,
@@ -374,7 +396,7 @@ impl xcm_executor::Config for XcmConfig {
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
-			(ForeignAssetsConvertedConcreteId,),
+			(LocalAssetsConvertedConcreteId, ForeignAssetsConvertedConcreteId,),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
 			AccountId,
 		>,
