@@ -3946,7 +3946,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			match <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, context)
 			{
 				Ok(minted) => {
-					// Any fungible imbalances are now effectively duplicated because they were not
+					// SAFETY: Any fungible imbalances are now effectively duplicated because they were not
 					// resolved when the asset was trapped (so total issuance tracks trapped
 					// assets too), and now a duplicate asset was just minted.
 					// To balance the system and keep total issuance constant, we drop and resolve
