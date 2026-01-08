@@ -50,15 +50,6 @@ async fn activate_leaf(
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::ChainApi(
-			ChainApiMessage::BlockHeader(relay_hash, tx)
-		) if relay_hash == activated_leaf_hash => {
-			tx.send(Ok(Some(leaf_header))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
 		) if parent == activated_leaf_hash => {
@@ -80,13 +71,12 @@ async fn activate_leaf(
 
 async fn finalize_block(
 	virtual_overseer: &mut VirtualOverseer,
-	finalized: (Hash, BlockNumber, SessionIndex),
+	finalized: (Hash, BlockNumber),
 	latest_finalized_block_number: BlockNumber,
 	finalized_hashes: Vec<Hash>,
 ) {
 	let fin_block_hash = finalized.0;
 	let fin_block_number = finalized.1;
-	let fin_block_session_idx = finalized.2;
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)))
@@ -100,15 +90,6 @@ async fn finalize_block(
 			 ChainApiMessage::Ancestors { hash, k, response_channel }
 		) if hash == fin_block_hash && k == expected_amt_request_blocks  => {
 			response_channel.send(Ok(finalized_hashes)).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-		) if parent == fin_block_hash => {
-			tx.send(Ok(fin_block_session_idx)).unwrap();
 		}
 	);
 }
@@ -383,7 +364,6 @@ fn note_chunks_downloaded() {
 			.send(FromOrchestra::Communication {
 				msg: RewardsStatisticsCollectorMessage::ChunksDownloaded(
 					session_idx,
-					candidate_hash.clone(),
 					HashMap::from_iter(chunk_downloads.clone().into_iter()),
 				),
 			})
@@ -395,7 +375,6 @@ fn note_chunks_downloaded() {
 			.send(FromOrchestra::Communication {
 				msg: RewardsStatisticsCollectorMessage::ChunksDownloaded(
 					session_idx,
-					candidate_hash.clone(),
 					HashMap::from_iter(second_round_of_downloads.into_iter()),
 				),
 			})
@@ -407,14 +386,13 @@ fn note_chunks_downloaded() {
 	assert_eq!(view.availability_chunks.len(), 1);
 	let ac = view.availability_chunks.get(&session_idx).unwrap();
 
-	assert_eq!(ac.downloads.len(), 1);
-	let amt_per_validator = ac.downloads.get(&candidate_hash).unwrap();
+	assert_eq!(ac.downloads.len(), 2);
 
 	let expected = vec![(ValidatorIndex(0), 15u64), (ValidatorIndex(1), 2)];
 
 	for (vidx, expected_count) in expected {
 		let auth_id = authorities.get(vidx.0 as usize).unwrap();
-		let count = amt_per_validator.get(&auth_id).unwrap();
+		let count = ac.downloads.get(&auth_id).unwrap();
 		assert_eq!(*count, expected_count);
 	}
 }
@@ -484,7 +462,6 @@ fn note_chunks_uploaded_to_active_validator() {
 		virtual_overseer
 			.send(FromOrchestra::Communication {
 				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(
-					candidate_hash.clone(),
 					HashSet::from_iter(vec![validator_idx_auth_id]),
 				),
 			})
@@ -508,8 +485,7 @@ fn note_chunks_uploaded_to_active_validator() {
 	assert_eq!(view.availability_chunks.len(), 1);
 
 	let mut expected_av_chunks = AvailabilityChunks::new();
-	expected_av_chunks.note_candidate_chunk_uploaded(
-		candidate_hash, validator_idx_auth_id.clone(), 1);
+	expected_av_chunks.note_candidate_chunk_uploaded(validator_idx_auth_id.clone(), 1);
 
 	assert_eq!(view.availability_chunks.get(&session_index).unwrap(), &expected_av_chunks);
 }
@@ -642,7 +618,7 @@ fn prune_unfinalized_forks() {
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		finalize_block(
 			&mut virtual_overseer,
-			(hash_c.clone(), number_c, session_zero),
+			(hash_c.clone(), number_c),
 			0 as BlockNumber,
 			// send the parent hash and the genesis hash (all zeroes)
 			vec![hash_a, Default::default()],
@@ -750,7 +726,7 @@ fn prune_unfinalized_forks() {
 		// finalizing relay block E
 		finalize_block(
 			&mut virtual_overseer,
-			(hash_e.clone(), number_e, session_one),
+			(hash_e.clone(), number_e),
 			number_c,
 			vec![hash_d, hash_c],
 		).await;
