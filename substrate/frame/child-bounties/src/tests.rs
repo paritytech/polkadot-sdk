@@ -135,9 +135,7 @@ impl pallet_bounties::Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
-	type NativeAsset = Balances;
-	type Assets = pallet_bounties::NoAssets<AccountId, Balance>;
-	type RelevantAssets = ();
+	type TransferAllAssets = ();
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

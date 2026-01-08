@@ -97,7 +97,7 @@ use alloc::vec::Vec;
 
 use frame_support::traits::{
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
+	tokens::{Fortitude, Preservation},
 	Currency,
 	ExistenceRequirement::AllowDeath,
 	Get, Imbalance, OnUnbalanced, ReservableCurrency,
@@ -105,7 +105,7 @@ use frame_support::traits::{
 
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	Debug, DispatchResult, Permill, TokenError,
+	Debug, DispatchResult, Permill,
 };
 
 use frame_support::{
@@ -333,6 +333,10 @@ pub mod pallet {
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 
+		/// Means to transfer all assets from one account to another.
+		///
+		/// This is only used for bounty closure to ensure that all assets are returned to the
+		/// treasury.
 		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
 	}
 
@@ -1218,89 +1222,4 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	}
 
 	fn bounty_removed(_bounty_id: BountyIndex) {}
-}
-
-/// Fungibles Mutate implementation that does nothing.
-pub struct NoAssets<AccountId, Balance>(core::marker::PhantomData<(AccountId, Balance)>);
-impl<AccountId, Balance> frame_support::traits::fungibles::Inspect<AccountId>
-	for NoAssets<AccountId, Balance>
-where
-	Balance: frame_support::traits::tokens::Balance,
-{
-	type AssetId = ();
-	type Balance = Balance;
-
-	fn total_issuance(_asset: Self::AssetId) -> Self::Balance {
-		Default::default()
-	}
-
-	fn minimum_balance(_asset: Self::AssetId) -> Self::Balance {
-		Default::default()
-	}
-
-	fn total_balance(_asset: Self::AssetId, _who: &AccountId) -> Self::Balance {
-		Default::default()
-	}
-
-	fn balance(_asset: Self::AssetId, _who: &AccountId) -> Self::Balance {
-		Default::default()
-	}
-
-	fn reducible_balance(
-		_asset: Self::AssetId,
-		_who: &AccountId,
-		_preservation: Preservation,
-		_force: Fortitude,
-	) -> Self::Balance {
-		Default::default()
-	}
-
-	fn can_deposit(
-		_asset: Self::AssetId,
-		_who: &AccountId,
-		_amount: Self::Balance,
-		_provenance: Provenance,
-	) -> DepositConsequence {
-		DepositConsequence::UnknownAsset
-	}
-
-	fn can_withdraw(
-		_asset: Self::AssetId,
-		_who: &AccountId,
-		_amount: Self::Balance,
-	) -> WithdrawConsequence<Self::Balance> {
-		WithdrawConsequence::UnknownAsset
-	}
-
-	fn asset_exists(_asset: Self::AssetId) -> bool {
-		false
-	}
-}
-
-impl<AccountId, Balance> frame_support::traits::fungibles::Unbalanced<AccountId>
-	for NoAssets<AccountId, Balance>
-where
-	Balance: frame_support::traits::tokens::Balance,
-{
-	fn handle_dust(_dust: frame_support::traits::fungibles::Dust<AccountId, Self>) {}
-
-	fn write_balance(
-		_asset: Self::AssetId,
-		_who: &AccountId,
-		_amount: Self::Balance,
-	) -> Result<Option<Self::Balance>, DispatchError> {
-		Err(DispatchError::from(TokenError::Unsupported))
-	}
-
-	fn set_total_issuance(_asset: Self::AssetId, _amount: Self::Balance) {}
-	fn deactivate(_asset: Self::AssetId, _amount: Self::Balance) {}
-	fn reactivate(_asset: Self::AssetId, _amount: Self::Balance) {}
-}
-
-impl<AccountId, Balance> frame_support::traits::fungibles::Mutate<AccountId>
-	for NoAssets<AccountId, Balance>
-where
-	Balance: frame_support::traits::tokens::Balance,
-	AccountId: Eq,
-{
 }
