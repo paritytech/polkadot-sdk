@@ -3898,7 +3898,7 @@ impl<T: Config> DropAssets for Pallet<T> {
 			return Weight::zero()
 		}
 		let assets: Vec<Asset> = holding.assets_iter().collect();
-		// "forget" about any fungible imbalances so that they are not dropped/resolved here. The
+		// SAFETY: "forget" about any fungible imbalances so that they are not dropped/resolved here. The
 		// mirrored asset claiming operation will "recover" the imbalances by minting back into
 		// holding, effectively duplicating the imbalance and only then dropping the duplicate.
 		// As a result, total issuance doesn't change.
