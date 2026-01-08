@@ -67,15 +67,15 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_default_command("substrate")
 				.with_default_image(integration_image.as_str())
 				.with_chain_spec_path(chain_spec.as_str())
-				.with_node(|node| {
-					node.with_validator("alice").with_db_snapshot(db_snapshot.as_str())
+				.with_validator(|node| {
+					node.with_name("alice").with_db_snapshot(db_snapshot.as_str())
 				})
-				.with_node(|node| node.with_validator("bob").with_db_snapshot(db_snapshot.as_str()))
-				.with_node(|node| {
-					node.with_fullnode("charlie").with_db_snapshot(db_snapshot.as_str())
+				.with_validator(|node| node.with_name("bob").with_db_snapshot(db_snapshot.as_str()))
+				.with_fullnode(|node| {
+					node.with_name("charlie").with_db_snapshot(db_snapshot.as_str())
 				})
-				.with_node(|node| {
-					node.with_fullnode("dave")
+				.with_fullnode(|node| {
+					node.with_name("dave")
 						.with_args(vec!["--sync=warp".into(), "-ldb::blockchain".into()])
 				})
 		})
