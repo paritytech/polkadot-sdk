@@ -605,7 +605,6 @@ impl Participant {
 			subscriptions.push((*idx, subscription));
 		}
 
-		// info!("Starting to receive {} session keys", subscriptions.len());
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {

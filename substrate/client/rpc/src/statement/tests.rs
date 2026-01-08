@@ -2,11 +2,26 @@ use super::*;
 use crate::testing::test_executor;
 use codec::Encode;
 use futures::FutureExt;
-use jsonrpsee::Subscription;
+use jsonrpsee::{RpcModule, Subscription};
 use sc_statement_store::Store;
 use sp_core::traits::SpawnNamed;
 use sp_statement_store::Statement;
 use std::sync::Arc;
+
+async fn subscribe_to_topics(
+	api_rpc: &RpcModule<StatementStore>,
+	topic_filters: Vec<TopicFilter>,
+) -> Vec<Subscription> {
+	let mut subscriptions = Vec::with_capacity(topic_filters.len());
+	for filter in topic_filters {
+		let subscription = api_rpc
+			.subscribe_unbounded("statement_subscribeStatement", (filter,))
+			.await
+			.expect("Failed to subscribe");
+		subscriptions.push(subscription);
+	}
+	subscriptions
+}
 
 fn generate_statements() -> Vec<Statement> {
 	let topic = [0u8; 32];
@@ -56,26 +71,18 @@ async fn subscribe_works() {
 	let submitted = generate_statements();
 	let first_topic: Bytes = submitted[0].topic(0).expect("Should have topic").to_vec().into();
 
-	let topic_filter = TopicFilter::MatchAll(vec![first_topic.clone()]);
+	let match_all_filter = TopicFilter::MatchAll(vec![first_topic.clone()]);
 	let submitted_clone = submitted.clone();
-	let subscription = api_rpc
-		.subscribe("statement_subscribeStatement", (topic_filter.clone(),), 100000)
-		.await
-		.expect("Failed to subscribe");
-
-	let subscription_any = api_rpc
-		.subscribe_unbounded("statement_subscribeStatement", (TopicFilter::Any,))
-		.await
-		.expect("Failed to subscribe");
-
-	let match_any_topic = TopicFilter::MatchAny(vec![
+	let match_any_filter = TopicFilter::MatchAny(vec![
 		submitted[0].topic(1).expect("Should have topic").to_vec().into(),
 		submitted[1].topic(1).expect("Should have topic").to_vec().into(),
 	]);
-	let subscription_match_any = api_rpc
-		.subscribe_unbounded("statement_subscribeStatement", (match_any_topic.clone(),))
-		.await
-		.expect("Failed to subscribe");
+
+	let subscriptions = subscribe_to_topics(
+		&api_rpc,
+		vec![match_all_filter.clone(), TopicFilter::Any, match_any_filter.clone()],
+	)
+	.await;
 
 	executor.spawn(
 		"test",
@@ -92,29 +99,18 @@ async fn subscribe_works() {
 		.boxed(),
 	);
 
-	check_submitted(submitted.clone(), subscription).await;
-	check_submitted(submitted.clone(), subscription_any).await;
-	check_submitted(submitted.clone(), subscription_match_any).await;
+	for subscription in subscriptions.into_iter() {
+		check_submitted(submitted.clone(), subscription).await;
+	}
 
-	// Check submitting after initial statements gets all statements through as well.
-	let subscription = api_rpc
-		.subscribe("statement_subscribeStatement", (topic_filter,), 100000)
-		.await
-		.expect("Failed to subscribe");
+	// Check subscribing after initial statements gets all statements through as well.
+	let subscriptions =
+		subscribe_to_topics(&api_rpc, vec![match_all_filter, TopicFilter::Any, match_any_filter])
+			.await;
 
-	let subscription_any = api_rpc
-		.subscribe_unbounded("statement_subscribeStatement", (TopicFilter::Any,))
-		.await
-		.expect("Failed to subscribe");
-
-	let subscription_match_any = api_rpc
-		.subscribe_unbounded("statement_subscribeStatement", (match_any_topic,))
-		.await
-		.expect("Failed to subscribe");
-
-	check_submitted(submitted.clone(), subscription).await;
-	check_submitted(submitted.clone(), subscription_any).await;
-	check_submitted(submitted.clone(), subscription_match_any).await;
+	for subscription in subscriptions.into_iter() {
+		check_submitted(submitted.clone(), subscription).await;
+	}
 
 	let mut match_any_with_random = api_rpc
 		.subscribe_unbounded(

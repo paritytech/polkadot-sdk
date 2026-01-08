@@ -1065,9 +1065,7 @@ impl StatementStore for Store {
 		} else {
 			None
 		};
-
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
-
 		let validation = match validation_result {
 			Ok(validation) => validation,
 			Err(InvalidStatement::BadProof) => {
@@ -1192,7 +1190,7 @@ impl StatementStoreSubscriptionApi for Store {
 				&mut existing_statements,
 				|statement| Some(statement.encode()),
 			)?;
-			self.subscription_manager.subscribe(topic_filter, existing_statements.len())
+			self.subscription_manager.subscribe(topic_filter)
 		};
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}
@@ -1206,8 +1204,8 @@ mod tests {
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, SignatureVerificationResult,
+		Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1816,6 +1814,38 @@ mod tests {
 
 		// exactly one element, equal to the expected plaintext
 		assert_eq!(retrieved, vec![plaintext_good]);
+	}
+
+	#[test]
+	fn already_expired_statement_is_rejected() {
+		let (mut store, _temp) = test_store();
+
+		// Set current time to 1000 seconds
+		store.set_time(1000);
+
+		// Create a statement that has already expired (expiration at 500 seconds, before current
+		// time)
+		let mut expired_statement = statement(1, 1, None, 100);
+		// set_expiry_from_parts: first arg is expiration timestamp in seconds, second is priority
+		expired_statement.set_expiry_from_parts(500, 1);
+
+		// Submit should fail with AlreadyExpired
+		assert_eq!(
+			store.submit(expired_statement, StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::AlreadyExpired)
+		);
+
+		// Verify the statement was not added
+		assert_eq!(store.statements().unwrap().len(), 0);
+
+		// Now create a statement that is not expired (expiration at 2000 seconds, after current
+		// time)
+		let mut valid_statement = statement(1, 1, None, 100);
+		valid_statement.set_expiry_from_parts(2000, 1);
+
+		// Submit should succeed
+		assert_eq!(store.submit(valid_statement, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.statements().unwrap().len(), 1);
 	}
 
 	#[test]

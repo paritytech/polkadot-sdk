@@ -57,14 +57,18 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)>;
 }
 
+/// Messages sent to matcher tasks.
 #[derive(Clone, Debug)]
 pub enum MatcherMessage {
+	/// A new statement has been submitted.
 	NewStatement(Statement),
+	/// A new subscription has been created.
 	Subscribe(SubscriptionInfo),
+	/// Unsubscribe the subscription with the given ID.
 	Unsubscribe(SeqID),
 }
 
-// Manages subscriptions to statement topics and notifies subscribers when new statements arrive.
+// Handle to manage all subscriptions.
 pub struct SubscriptionsHandle {
 	// Sequence generator for subscription IDs, atomic for thread safety.
 	// Subscription creation is expensive enough that we don't worry about overflow here.
@@ -125,18 +129,19 @@ impl SubscriptionsHandle {
 		}
 	}
 
+	// Generate the next unique subscription ID.
 	fn next_id(&self) -> SeqID {
 		let id = self.id_sequence.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 		SeqID::from(id)
 	}
 
+	/// Subscribe to statements matching the topic filter.
 	pub(crate) fn subscribe(
 		&self,
 		topic_filter: CheckedTopicFilter,
-		num_existing_statements: usize,
 	) -> (async_channel::Sender<Bytes>, SubscriptionStatementsStream) {
 		let next_id = self.next_id();
-		let (tx, rx) = async_channel::bounded(std::cmp::max(128, num_existing_statements));
+		let (tx, rx) = async_channel::bounded(128);
 		let subscription_info =
 			SubscriptionInfo { topic_filter: topic_filter.clone(), seq_id: next_id, tx };
 
@@ -626,12 +631,9 @@ mod tests {
 			let streams = (0..5)
 				.into_iter()
 				.map(|_| {
-					subscriptions_handle.subscribe(
-						CheckedTopicFilter::MatchAll(
-							vec![topic1, topic2].iter().cloned().collect(),
-						),
-						20,
-					)
+					subscriptions_handle.subscribe(CheckedTopicFilter::MatchAll(
+						vec![topic1, topic2].iter().cloned().collect(),
+					))
 				})
 				.collect::<Vec<_>>();
 
@@ -659,10 +661,9 @@ mod tests {
 		let topic1 = [8u8; 32];
 		let topic2 = [9u8; 32];
 
-		let (tx, mut stream) = subscriptions_handle.subscribe(
-			CheckedTopicFilter::MatchAll(vec![topic1, topic2].iter().cloned().collect()),
-			20,
-		);
+		let (tx, mut stream) = subscriptions_handle.subscribe(CheckedTopicFilter::MatchAll(
+			vec![topic1, topic2].iter().cloned().collect(),
+		));
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, Topic::from(topic1));
@@ -941,10 +942,9 @@ mod tests {
 		let topic1 = [8u8; 32];
 		let topic2 = [9u8; 32];
 
-		let (_tx, mut stream) = subscriptions_handle.subscribe(
-			CheckedTopicFilter::MatchAny(vec![topic1, topic2].iter().cloned().collect()),
-			20,
-		);
+		let (_tx, mut stream) = subscriptions_handle.subscribe(CheckedTopicFilter::MatchAny(
+			vec![topic1, topic2].iter().cloned().collect(),
+		));
 
 		// Statement matching only topic1.
 		let mut statement1 = signed_statement(1);
@@ -972,7 +972,7 @@ mod tests {
 		let subscriptions_handle =
 			SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 2);
 
-		let (_tx, mut stream) = subscriptions_handle.subscribe(CheckedTopicFilter::Any, 20);
+		let (_tx, mut stream) = subscriptions_handle.subscribe(CheckedTopicFilter::Any);
 
 		// Send statements with various topics.
 		let statement1 = signed_statement(1);
@@ -1002,17 +1002,16 @@ mod tests {
 		let topic2 = [9u8; 32];
 
 		// Subscriber 1: MatchAll on topic1 and topic2.
-		let (_tx1, mut stream1) = subscriptions_handle.subscribe(
-			CheckedTopicFilter::MatchAll(vec![topic1, topic2].iter().cloned().collect()),
-			20,
-		);
+		let (_tx1, mut stream1) = subscriptions_handle.subscribe(CheckedTopicFilter::MatchAll(
+			vec![topic1, topic2].iter().cloned().collect(),
+		));
 
 		// Subscriber 2: MatchAny on topic1.
 		let (_tx2, mut stream2) = subscriptions_handle
-			.subscribe(CheckedTopicFilter::MatchAny(vec![topic1].iter().cloned().collect()), 20);
+			.subscribe(CheckedTopicFilter::MatchAny(vec![topic1].iter().cloned().collect()));
 
 		// Subscriber 3: Any.
-		let (_tx3, mut stream3) = subscriptions_handle.subscribe(CheckedTopicFilter::Any, 20);
+		let (_tx3, mut stream3) = subscriptions_handle.subscribe(CheckedTopicFilter::Any);
 
 		// Statement matching only topic1.
 		let mut statement1 = signed_statement(1);

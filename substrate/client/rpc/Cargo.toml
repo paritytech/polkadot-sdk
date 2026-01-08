@@ -48,7 +48,6 @@ assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-network = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
-sc-statement-store = { workspace = true }
 sc-keystore = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }

@@ -19,6 +19,7 @@
 //! Substrate statement store API.
 
 use codec::Decode;
+use futures::FutureExt;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	Extensions, PendingSubscriptionSink,
@@ -115,15 +116,21 @@ impl StatementApiServer for StatementStore {
 		});
 
 		// Send existing statements before returning, to make sure we did not miss any statements.
-		for statement in existing_statements {
-			// Channel size is chosen to be large enough to always fit existing statements.
-			if let Err(e) = subscription_sender.try_send(statement.into()) {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to send existing statement in subscription: {:?}", e
-				);
-				break;
+		self.executor.spawn(
+			"statement-store-rpc-send",
+			Some("rpc"),
+			async move {
+				for statement in existing_statements {
+					if let Err(e) = subscription_sender.send(statement.into()).await {
+						log::warn!(
+							target: LOG_TARGET,
+							"Failed to send existing statement in subscription: {:?}", e
+						);
+						break;
+					}
+				}
 			}
-		}
+			.boxed(),
+		)
 	}
 }
