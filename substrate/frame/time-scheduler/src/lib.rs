@@ -104,7 +104,9 @@ use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, SaturatedConversion, Saturating, Zero},
+	traits::{
+		BadOrigin, BlockNumberProvider, Dispatchable, One, SaturatedConversion, Saturating, Zero,
+	},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
 
@@ -462,11 +464,7 @@ pub mod pallet {
 		/// Canceled some time-based task.
 		TimeCanceled { when: u64, index: u32 },
 		/// Dispatched some time-based task.
-		TimeDispatched {
-			task: (u64, u32),
-			id: Option<TaskName>,
-			result: DispatchResult,
-		},
+		TimeDispatched { task: (u64, u32), id: Option<TaskName>, result: DispatchResult },
 		/// The call for the provided hash was not found so the time-based task has been aborted.
 		TimeCallUnavailable { task: (u64, u32), id: Option<TaskName> },
 		/// The given time-based task was unable to be renewed since the agenda is full.
@@ -1749,7 +1747,10 @@ impl<T: Config> Pallet<T> {
 		let max_items = T::MaxTimeScheduledPerMinute::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
-		while count_down > 0 && minute <= now_minute && weight.can_consume(service_agenda_base_weight) {
+		while count_down > 0
+			&& minute <= now_minute
+			&& weight.can_consume(service_agenda_base_weight)
+		{
 			if !Self::service_time_agenda(weight, is_first, now_ms, minute, u32::MAX) {
 				incomplete_since = incomplete_since.min(minute);
 			}
@@ -1805,7 +1806,8 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break;
 			}
-			let result = Self::service_time_task(weight, now_ms, minute, agenda_index, is_first, task);
+			let result =
+				Self::service_time_task(weight, now_ms, minute, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
