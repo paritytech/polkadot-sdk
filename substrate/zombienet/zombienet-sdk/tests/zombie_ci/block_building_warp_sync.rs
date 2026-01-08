@@ -68,19 +68,14 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_default_image(integration_image.as_str())
 				.with_chain_spec_path(chain_spec.as_str())
 				.with_node(|node| {
-					node.with_name("alice").validator(true).with_db_snapshot(db_snapshot.as_str())
+					node.with_validator("alice").with_db_snapshot(db_snapshot.as_str())
+				})
+				.with_node(|node| node.with_validator("bob").with_db_snapshot(db_snapshot.as_str()))
+				.with_node(|node| {
+					node.with_fullnode("charlie").with_db_snapshot(db_snapshot.as_str())
 				})
 				.with_node(|node| {
-					node.with_name("bob").validator(true).with_db_snapshot(db_snapshot.as_str())
-				})
-				.with_node(|node| {
-					node.with_name("charlie")
-						.validator(false)
-						.with_db_snapshot(db_snapshot.as_str())
-				})
-				.with_node(|node| {
-					node.with_name("dave")
-						.validator(false)
+					node.with_fullnode("dave")
 						.with_args(vec!["--sync=warp".into(), "-ldb::blockchain".into()])
 				})
 		})

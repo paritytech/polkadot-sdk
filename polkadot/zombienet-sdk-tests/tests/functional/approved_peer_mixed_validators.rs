@@ -44,13 +44,14 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
-			let r = (1..7)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))));
+			let r = (1..7).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			});
 
 			(7..10).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("old-validator-{i}"))
 						.with_image(
 							std::env::var("OLD_POLKADOT_IMAGE")

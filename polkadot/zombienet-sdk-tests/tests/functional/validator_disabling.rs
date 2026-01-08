@@ -39,7 +39,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 					}
 				}))
 				// Adding malicious validator.
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("malus-validator")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -58,7 +58,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				});
 			// Also honest validators.
 			let r = (0..3).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("honest-validator-{i}"))
 						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
 						.invulnerable(false)
