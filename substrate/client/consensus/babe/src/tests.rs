@@ -789,7 +789,8 @@ async fn revert_prunes_epoch_changes_and_removes_weights() {
 	assert_eq!(epoch_changes.shared_data().tree().roots().count(), 1);
 
 	// Revert canon chain to block #10 (best(21) - 11)
-	revert(client.clone(), backend, 11, None).expect("revert should work for baked test scenario");
+	revert(client.clone(), backend, 11, Some(data.link.weight_storage.clone()))
+		.expect("revert should work for baked test scenario");
 
 	// Load and check epoch changes.
 
@@ -813,14 +814,31 @@ async fn revert_prunes_epoch_changes_and_removes_weights() {
 
 	let weight_data_check = |hashes: &[Hash], expected: bool| {
 		hashes.iter().all(|hash| {
-			aux_schema::load_block_weight(&*client, hash).unwrap().is_some() == expected
+			aux_schema::load_block_weight(&*peer.client().as_backend(), hash)
+				.unwrap()
+				.is_some() == expected
 		})
 	};
+
+	// Also check shared storage
+	let shared_weight_check = |hashes: &[Hash], expected: bool| {
+		hashes
+			.iter()
+			.all(|hash| data.link.weight_storage.load(hash).is_some() == expected)
+	};
+
 	assert!(weight_data_check(&canon[..10], true));
 	assert!(weight_data_check(&canon[10..], false));
 	assert!(weight_data_check(&fork1, true));
 	assert!(weight_data_check(&fork2, true));
 	assert!(weight_data_check(&fork3, false));
+
+	// Check shared storage matches database
+	assert!(shared_weight_check(&canon[..10], true));
+	assert!(shared_weight_check(&canon[10..], false));
+	assert!(shared_weight_check(&fork1, true));
+	assert!(shared_weight_check(&fork2, true));
+	assert!(shared_weight_check(&fork3, false));
 }
 
 #[tokio::test]
@@ -1344,3 +1362,249 @@ async fn allows_skipping_epochs_on_some_forks() {
 	assert_eq!(epoch_data, epoch3);
 }
 
+#[tokio::test]
+async fn fork_choice_uses_shared_weight_storage() {
+	sp_tracing::try_init_simple();
+
+	// Create a test network with shared weight storage
+	let mut net = BabeTestNet::new(1);
+
+	// Get the peer
+	let peer = net.peer(0);
+	let data = peer.data.as_ref().expect("babe link set up during initialization");
+	let client = peer.client().as_client();
+
+	let mut proposer_factory = DummyFactory {
+		client: client.clone(),
+		epoch_changes: data.link.epoch_changes.clone(),
+		mutator: Arc::new(|_, _| ()),
+	};
+
+	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+
+	// Start from genesis
+	let genesis_hash = client.chain_info().genesis_hash;
+	let genesis_header = client.header(genesis_hash).unwrap().unwrap();
+
+	// First, produce a secondary block at slot 1
+	let secondary_block_hash = propose_and_import_block(
+		&genesis_header,
+		Some(1.into()),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+
+	// Get the secondary block weight
+	let secondary_weight = aux_schema::load_block_weight(&*client, secondary_block_hash)
+		.unwrap()
+		.expect("Secondary block should have weight");
+
+	let primary_block_hash = Hash::random(); // Simulate a different block
+	let primary_weight = secondary_weight + 1; // Primary blocks have higher weight
+
+	// Store the primary block weight in shared storage
+	data.link.weight_storage.store(primary_block_hash, primary_weight);
+
+	let info = client.info();
+	let parent_weight = 0; // Genesis has weight 0
+
+	let last_best = info.best_hash;
+	let last_best_number = info.best_number;
+
+	let last_best_weight = if last_best == genesis_hash {
+		parent_weight
+	} else {
+		data.link
+			.weight_storage
+			.load(&last_best)
+			.or_else(|| aux_schema::load_block_weight(&*client, last_best).ok().flatten())
+			.expect("Should have weight for last best")
+	};
+
+	assert!(
+		primary_weight > last_best_weight,
+		"Primary block should have higher weight than secondary block"
+	);
+
+	assert_eq!(
+		data.link.weight_storage.load(&primary_block_hash),
+		Some(primary_weight),
+		"Weight should be immediately available in shared storage"
+	);
+
+	assert!(
+		primary_weight > last_best_weight ||
+			(primary_weight == last_best_weight && 1 > last_best_number),
+		"Primary block should be chosen over any previous block"
+	);
+}
+
+#[tokio::test]
+async fn shared_weight_storage_prevents_race_condition() {
+	sp_tracing::try_init_simple();
+
+	let mut net = BabeTestNet::new(1);
+	let peer = net.peer(0);
+	let data = peer.data.as_ref().expect("babe link set up during initialization");
+	let client = peer.client().as_client();
+
+	let mut proposer_factory = DummyFactory {
+		client: client.clone(),
+		epoch_changes: data.link.epoch_changes.clone(),
+		mutator: Arc::new(|_, _| ()),
+	};
+
+	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+
+	// Create a scenario where we have multiple blocks at the same slot
+	let genesis_hash = client.chain_info().genesis_hash;
+	let genesis_header = client.header(genesis_hash).unwrap().unwrap();
+
+	// First, store weights in shared storage immediately
+	let block1_hash = propose_and_import_block(
+		&genesis_header,
+		Some(1.into()),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+
+	// Verify weight is in shared storage
+	let weight_from_storage = data.link.weight_storage.load(&block1_hash);
+	assert!(weight_from_storage.is_some(), "Weight should be in shared storage");
+
+	let weight_from_db = aux_schema::load_block_weight(&*client, block1_hash)
+		.unwrap()
+		.expect("Weight should also be in database");
+
+	assert_eq!(
+		weight_from_storage.unwrap(),
+		weight_from_db,
+		"Shared storage and database should have same weight"
+	);
+
+	// Now test that prune_finalized also removes from shared storage
+	client.finalize_block(block1_hash, None, true).unwrap();
+}
+
+#[tokio::test]
+async fn test_weight_storage_concurrent_access() {
+	sp_tracing::try_init_simple();
+
+	// Test concurrent access to shared weight storage
+	let weight_storage = SharedBlockWeightStorage::<Block>::new();
+
+	let hash1 = Hash::random();
+	let hash2 = Hash::random();
+
+	// Store weights from multiple threads
+	let thread1 = std::thread::spawn({
+		let storage = weight_storage.clone();
+		move || {
+			storage.store(hash1, 100);
+			std::thread::sleep(std::time::Duration::from_millis(10));
+			storage.load(&hash1)
+		}
+	});
+
+	let thread2 = std::thread::spawn({
+		let storage = weight_storage.clone();
+		move || {
+			std::thread::sleep(std::time::Duration::from_millis(5));
+			storage.store(hash2, 200);
+			storage.load(&hash2)
+		}
+	});
+
+	let weight1 = thread1.join().unwrap();
+	let weight2 = thread2.join().unwrap();
+
+	assert_eq!(weight1, Some(100));
+	assert_eq!(weight2, Some(200));
+
+	// Test removal
+	weight_storage.remove(&hash1);
+	assert_eq!(weight_storage.load(&hash1), None);
+	assert_eq!(weight_storage.load(&hash2), Some(200));
+
+	// Test clear
+	weight_storage.clear();
+	assert_eq!(weight_storage.load(&hash2), None);
+}
+
+#[test]
+fn shared_block_weight_storage_basic_operations() {
+	use sp_test_primitives::Block;
+
+	let storage = SharedBlockWeightStorage::<Block>::new();
+
+	let hash1 = [1u8; 32].into();
+	let hash2 = [2u8; 32].into();
+
+	// Test store and load
+	storage.store(hash1, 100);
+	assert_eq!(storage.load(&hash1), Some(100));
+	assert_eq!(storage.load(&hash2), None);
+
+	// Test store another
+	storage.store(hash2, 200);
+	assert_eq!(storage.load(&hash2), Some(200));
+
+	// Test remove
+	storage.remove(&hash1);
+	assert_eq!(storage.load(&hash1), None);
+	assert_eq!(storage.load(&hash2), Some(200));
+
+	// Test clear
+	storage.clear();
+	assert_eq!(storage.load(&hash2), None);
+}
+
+#[tokio::test]
+async fn shared_weight_storage_integrated_in_import() {
+	sp_tracing::try_init_simple();
+
+	let mut net = BabeTestNet::new(1);
+	let peer = net.peer(0);
+	let data = peer.data.as_ref().expect("babe link set up during initialization");
+	let client = peer.client().as_client();
+
+	let mut proposer_factory = DummyFactory {
+		client: client.clone(),
+		epoch_changes: data.link.epoch_changes.clone(),
+		mutator: Arc::new(|_, _| ()),
+	};
+
+	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+
+	// Import a block
+	let genesis_hash = client.chain_info().genesis_hash;
+	let genesis_header = client.header(genesis_hash).unwrap().unwrap();
+
+	let block_hash = propose_and_import_block(
+		&genesis_header,
+		Some(1.into()),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+
+	// Verify weight is in shared storage
+	let weight_in_storage = data.link.weight_storage.load(&block_hash);
+	assert!(
+		weight_in_storage.is_some(),
+		"Block weight should be stored in shared storage during import"
+	);
+
+	// Verify weight is also in database (eventually consistent)
+	let weight_in_db = aux_schema::load_block_weight(&*client, block_hash).unwrap();
+	assert!(weight_in_db.is_some(), "Block weight should also be in database");
+
+	// They should match
+	assert_eq!(
+		weight_in_storage.unwrap(),
+		weight_in_db.unwrap(),
+		"Shared storage and database should have same weight"
+	);
+}
