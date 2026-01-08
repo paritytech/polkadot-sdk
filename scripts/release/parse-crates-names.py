@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 """
 Script to parse changed_crates file and extract crate names with versions.
 Extracts lines with 'name = "..."' and '+to = "..."' patterns and writes
