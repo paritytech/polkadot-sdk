@@ -163,8 +163,8 @@ parameter_types! {
 	pub const CuratorDepositMin: Balance = 3;
 	pub static BountyUpdatePeriod: u64 = 20;
 	pub static DataDepositPerByte: u64 = 1;
-	// Native asset should be last, or ED will remain.
-	pub static RelevantAssets: Vec<NativeOrWithId<u32>> = vec![NativeOrWithId::WithId(1), NativeOrWithId::WithId(2), NativeOrWithId::Native];
+	// Native asset *not* last in the list to test our withdraw logic:
+	pub static RelevantAssets: Vec<NativeOrWithId<u32>> = vec![NativeOrWithId::WithId(1), NativeOrWithId::Native, NativeOrWithId::WithId(2)];
 }
 
 impl Config for Test {

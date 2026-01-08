@@ -223,6 +223,7 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 	}
 }
 
+/// Transfer all fungible assets and the native asset from one account to another.
 pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
 	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
 );
@@ -234,7 +235,12 @@ where
 	AccountId: Eq,
 {
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult {
-		for id in RelevantAssets::get() {
+		// We iterate through all assets twice in case that the Native asset was not last in the
+		// list and ED remained because of an insufficient asset at the end of the list.
+		let assets_twice =
+			RelevantAssets::get().into_iter().chain(RelevantAssets::get().into_iter());
+
+		for id in assets_twice {
 			let balance = Fungibles::reducible_balance(
 				id.clone(),
 				from,
@@ -245,9 +251,10 @@ where
 				continue;
 			}
 
-			let res = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
-			// This can only fail if the treasury account does not exist, hence ignored.
-			debug_assert!(res.is_ok());
+			// Ignore errors since this can only fail if the receiver does not exist on the
+			// first iteration. The ED of the native asset should be transferred in the second
+			// iteration at last and the successive transfers succeed.
+			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
 		}
 		Ok(())
 	}
@@ -324,18 +331,6 @@ pub mod pallet {
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
-
-		/*// Native asset. Must be the same as `Currency`.
-		type NativeAsset: FungibleInspect<Self::AccountId, Balance = BalanceOf<Self, I>>;
-
-		/// Mutate assets.
-		///
-		/// Consider setting this to `NoAssets` if there are no assets in the runtime.
-		type Assets: FungiblesMutate<Self::AccountId, Balance = BalanceOf<Self, I>>;
-
-		/// Assets that should returned to the treasury by `close_bounty`.
-		#[pallet::constant]
-		type RelevantAssets: Get<Vec<<Self::Assets as FungiblesInspect<Self::AccountId>>::AssetId>>;*/
 
 		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
 	}
