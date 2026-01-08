@@ -25,7 +25,7 @@ use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{
 		fungible::Mutate,
-		fungibles::{InspectEnumerable, Mutate as FungiblesMutate},
+		fungibles::{Inspect, InspectEnumerable, Mutate as FungiblesMutate},
 		Currency, Get, OnFinalize, OnInitialize, OriginTrait,
 	},
 	weights::Weight,
@@ -2036,7 +2036,7 @@ pub fn exchange_asset_on_asset_hub_works<
 			let foreign_balance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
 			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
 			let foreign_issuance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::total_issuance(asset_location.clone());
-			let native_issuance_before = pallet_balances::Pallet::total_issuance();
+			let native_issuance_before = pallet_balances::Pallet::<Runtime>::total_issuance();
 
 			let want_amount_min = if create_pool && expected_error.is_none() {
 				let native_v5 = xcm::v5::Location::try_from(native_asset_location.clone())
@@ -2069,7 +2069,7 @@ pub fn exchange_asset_on_asset_hub_works<
 				Weight::MAX
 			);
 
-			let foreign_balance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.into(), &account);
+			let foreign_balance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
 			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
 
 			if let Some(xcm::v5::InstructionError { index, error }) = expected_error {
@@ -2099,8 +2099,8 @@ pub fn exchange_asset_on_asset_hub_works<
 					"Expected WND balance to decrease by {give_amount} units, got {native_balance_after} from {native_balance_before}"
 				);
 			}
-			let foreign_issuance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::total_issuance(asset_location);
-			let native_issuance_after = pallet_balances::Pallet::total_issuance();
+			let foreign_issuance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::total_issuance(asset_location.into());
+			let native_issuance_after = pallet_balances::Pallet::<Runtime>::total_issuance();
 			assert_eq!(
 				foreign_issuance_before, foreign_issuance_after,
 				"Unexpected foreign total issuance change"

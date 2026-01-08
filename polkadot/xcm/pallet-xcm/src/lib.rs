@@ -3898,10 +3898,10 @@ impl<T: Config> DropAssets for Pallet<T> {
 			return Weight::zero()
 		}
 		let assets: Vec<Asset> = holding.assets_iter().collect();
-		// SAFETY: "forget" about any fungible imbalances so that they are not dropped/resolved here. The
-		// mirrored asset claiming operation will "recover" the imbalances by minting back into
-		// holding, effectively duplicating the imbalance and only then dropping the duplicate.
-		// As a result, total issuance doesn't change.
+		// SAFETY: "forget" about any fungible imbalances so that they are not dropped/resolved
+		// here. The mirrored asset claiming operation will "recover" the imbalances by minting
+		// back into holding, effectively duplicating the imbalance and only then dropping the
+		// duplicate. As a result, total issuance doesn't change.
 		holding.fungible.into_iter().for_each(|(_, mut accounting)| {
 			accounting.forget_imbalance();
 		});
@@ -3946,9 +3946,9 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			match <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, context)
 			{
 				Ok(minted) => {
-					// SAFETY: Any fungible imbalances are now effectively duplicated because they were not
-					// resolved when the asset was trapped (so total issuance tracks trapped
-					// assets too), and now a duplicate asset was just minted.
+					// SAFETY: Any fungible imbalances are now effectively duplicated because they
+					// were not resolved when the asset was trapped (so total issuance tracks
+					// trapped assets too), and now a duplicate asset was just minted.
 					// To balance the system and keep total issuance constant, we drop and resolve
 					// one of the duplicates. As a result, total issuance doesn't change.
 					minted.fungible.iter().for_each(|(_, imbalance)| {
