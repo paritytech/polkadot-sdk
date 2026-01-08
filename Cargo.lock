@@ -6875,7 +6875,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "41.0.0"
+version = "41.0.1"
 dependencies = [
  "Inflector",
  "aquamarine",
@@ -6906,7 +6906,7 @@ dependencies = [
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io 41.0.1",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
  "sp-staking",
  "sp-state-machine 0.46.0",
@@ -6942,7 +6942,7 @@ dependencies = [
  "scale-info",
  "sp-crypto-hashing 0.1.0",
  "sp-io 41.0.1",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
  "syn 2.0.98",
 ]
@@ -6986,7 +6986,7 @@ dependencies = [
  "sp-arithmetic 27.0.0",
  "sp-core 37.0.0",
  "sp-io 41.0.1",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
  "sp-version 40.0.0",
@@ -12342,7 +12342,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-view-functions"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "frame-metadata 23.0.1",
  "frame-support",
@@ -12353,7 +12353,7 @@ dependencies = [
  "scale-info",
  "sp-core 37.0.0",
  "sp-io 41.0.1",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
 ]
 
@@ -12866,7 +12866,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
 ]
 
 [[package]]
@@ -16437,7 +16437,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.43.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-mixnet",
  "sp-mmr-primitives",
  "sp-npos-elections",
@@ -20636,7 +20636,7 @@ dependencies = [
 
 [[package]]
 name = "sc-tracing"
-version = "40.0.1"
+version = "40.0.2"
 dependencies = [
  "chrono",
  "console",
@@ -22581,7 +22581,7 @@ dependencies = [
  "sp-api-proc-macro 23.0.0",
  "sp-core 37.0.0",
  "sp-externalities 0.30.0",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
  "sp-runtime-interface 30.0.0",
  "sp-state-machine 0.46.0",
@@ -22634,7 +22634,7 @@ dependencies = [
  "sp-api 37.0.0",
  "sp-consensus",
  "sp-core 37.0.0",
- "sp-metadata-ir 0.11.0",
+ "sp-metadata-ir 0.11.1",
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
  "sp-tracing 17.1.0",
@@ -23411,7 +23411,7 @@ dependencies = [
 
 [[package]]
 name = "sp-metadata-ir"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "frame-metadata 23.0.1",
  "parity-scale-codec",
@@ -25073,7 +25073,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "27.0.0"
+version = "27.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "build-helper",
