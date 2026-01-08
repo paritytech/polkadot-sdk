@@ -54,7 +54,7 @@ use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
-const INITIAL_FUND: u128 = 5_000_000_000_000;
+const INITIAL_FUND: u128 = 6_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
@@ -1433,22 +1433,6 @@ fn transfer_penpal_native_asset() {
 	);
 
 	let token_id = TokenIdOf::convert_location(&pal_after_reanchored).unwrap();
-
-	let asset_owner = PenpalAssetOwner::get();
-
-	AssetHubWestend::force_create_foreign_asset(
-		pal_at_asset_hub.clone(),
-		asset_owner.clone().into(),
-		true,
-		1,
-		vec![],
-	);
-	// Set "pal" as teleportable between Penpal and AH, using the asset owner account
-	AssetHubWestend::set_foreign_asset_reserves(
-		pal_at_asset_hub.clone(),
-		asset_owner.into(),
-		vec![(pal_at_asset_hub.clone(), true).into()],
-	);
 
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
