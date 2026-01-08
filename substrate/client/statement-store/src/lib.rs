@@ -49,6 +49,7 @@
 
 mod metrics;
 
+use futures::FutureExt;
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
@@ -72,6 +73,7 @@ use sp_statement_store::{
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::Arc,
+	time::Instant,
 };
 
 pub use subscription::StatementStoreSubscriptionApi;
@@ -95,10 +97,21 @@ pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 pub const MAX_STATEMENT_SIZE: usize =
 	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
+/// Maximum number of statements to expire in a single iteration.
+const MAX_EXPIRY_STATEMENTS_PER_ITERATION: usize = 1_000;
+/// Maximum number of accounts to check for expiry in a single iteration.
+const MAX_EXPIRY_ACCOUNTS_PER_ITERATION: usize = 10_000;
+/// Maximum time in milliseconds to spend checking for expiry in a single iteration.
+const MAX_EXPIRY_TIME_MS_PER_ITERATION: u128 = 100;
+
 /// Number of subscription filter worker tasks.
 const NUM_FILTER_WORKERS: usize = 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
+
+// Period between checking for expired statements. Different from maintenance period to avoid
+// keeping the lock for too long for maintenance tasks.
+const CHECK_EXPIRATION_PERIOD: std::time::Duration = std::time::Duration::from_secs(33);
 
 mod col {
 	pub const META: u8 = 0;
@@ -176,6 +189,7 @@ struct Index {
 	entries: HashMap<Hash, (AccountId, Priority, usize)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
+	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
 	options: Options,
 	total_size: usize,
 }
@@ -596,10 +610,13 @@ impl Store {
 			"statement-store-maintenance",
 			Some("statement-store"),
 			Box::pin(async move {
-				let mut interval = tokio::time::interval(MAINTENANCE_PERIOD);
+				let mut maintenance_interval = tokio::time::interval(MAINTENANCE_PERIOD);
+				let mut check_expiration_interval = tokio::time::interval(CHECK_EXPIRATION_PERIOD);
 				loop {
-					interval.tick().await;
-					worker_store.maintain();
+					futures::select! {
+						_ = maintenance_interval.tick().fuse() => {worker_store.maintain();}
+						_ = check_expiration_interval.tick().fuse() => {worker_store.check_expiration();}
+					}
 				}
 			}),
 		);
@@ -776,6 +793,78 @@ impl Store {
 		let index = self.index.read();
 		self.collect_statements_locked(key, topic_filter, &index, &mut result, f)?;
 		Ok(result)
+	}
+
+	// Checks for expired statements and marks them as expired in the index.
+	//
+	// This function performs incremental expiration checking to avoid blocking the store
+	// for too long. It processes accounts in batches and stops when any of these limits
+	// are reached:
+	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire
+	// - `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked
+	// - `MAX_EXPIRY_TIME_MS_PER_ITERATION` milliseconds elapsed
+	//
+	// The function maintains a list of accounts to check (`accounts_to_check_for_expiry_stmts`).
+	// When this list is empty, it repopulates it with all current accounts and returns early,
+	// deferring the actual expiration check to the next call. This ensures the expiration
+	// process eventually covers all accounts across multiple invocations.
+	//
+	// Statements are considered expired when their priority (which encodes the expiration
+	// timestamp in the upper 32 bits) is less than the current timestamp.
+	fn check_expiration(&self) {
+		let current_time = self.timestamp();
+
+		let (needs_expiry, num_accounts_checked) = {
+			let index = self.index.read();
+			if index.accounts_to_check_for_expiry_stmts.is_empty() {
+				let existing_accounts = index.accounts.keys().cloned().collect::<Vec<_>>();
+				drop(index);
+				let mut index = self.index.write();
+				index.accounts_to_check_for_expiry_stmts = existing_accounts;
+				return
+			}
+
+			let mut needs_expiry = Vec::new();
+			let mut num_accounts_checked = 0;
+			let start = Instant::now();
+
+			for accounts in index.accounts_to_check_for_expiry_stmts.iter().rev() {
+				num_accounts_checked += 1;
+				if let Some(account_rec) = index.accounts.get(accounts) {
+					needs_expiry.extend(
+						account_rec
+							.by_priority
+							.range(
+								PriorityKey { hash: Hash::default(), priority: Priority(0) }..
+									PriorityKey {
+										hash: Hash::default(),
+										priority: Priority(current_time << 32),
+									},
+							)
+							.map(|key| key.0.hash),
+					);
+				}
+
+				if needs_expiry.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
+					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
+					start.elapsed().as_millis() >= MAX_EXPIRY_TIME_MS_PER_ITERATION
+				{
+					break
+				}
+			}
+
+			(needs_expiry, num_accounts_checked)
+		};
+
+		let mut index = self.index.write();
+		for hash in needs_expiry {
+			index.make_expired(&hash, current_time);
+		}
+		let new_len = index
+			.accounts_to_check_for_expiry_stmts
+			.len()
+			.saturating_sub(num_accounts_checked);
+		index.accounts_to_check_for_expiry_stmts.truncate(new_len);
 	}
 
 	/// Perform periodic store maintenance
@@ -1957,5 +2046,384 @@ mod tests {
 		// --- Reuse: Account A can submit again after purge.
 		let s_new = statement(4, 40, None, 10);
 		assert_eq!(store.submit(s_new, StatementSource::Network), SubmitResult::New);
+	}
+
+	#[test]
+	fn check_expiration_repopulates_account_list_when_empty() {
+		let (mut store, _temp) = test_store();
+		store.set_time(1000);
+
+		// Create statements for multiple accounts
+		// Note: The statement() helper uses set_expiry_from_parts(u32::MAX, priority)
+		// which creates a very large expiry value that won't trigger expiration
+		let s1 = statement(1, 1, None, 100);
+		let s2 = statement(2, 1, None, 100);
+		let s3 = statement(3, 1, None, 100);
+
+		for s in [&s1, &s2, &s3] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// Initially, accounts_to_check_for_expiry_stmts is empty
+		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
+
+		// First call to check_expiration should populate the list
+		store.check_expiration();
+
+		// Now accounts_to_check_for_expiry_stmts should contain all 3 accounts
+		let accounts = store.index.read().accounts_to_check_for_expiry_stmts.clone();
+		assert_eq!(accounts.len(), 3, "Should have 3 accounts to check");
+		assert!(accounts.contains(&account(1)));
+		assert!(accounts.contains(&account(2)));
+		assert!(accounts.contains(&account(3)));
+
+		// No statements should have been expired since they're all valid
+		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().entries.len(), 3);
+	}
+
+	#[test]
+	fn check_expiration_expires_statements_past_current_time() {
+		let (mut store, _temp) = test_store();
+
+		// The check_expiration function compares Priority(current_time << 32) against
+		// Priority(expiry) where expiry is the full 64-bit value with timestamp in high 32 bits.
+		// Statements with expiration timestamp < current_time will be expired.
+
+		store.set_time(100);
+
+		// Create a statement that will expire at timestamp 500
+		let mut expired_stmt = statement(1, 1, None, 100);
+		expired_stmt.set_expiry_from_parts(500, 1);
+		let expired_hash = expired_stmt.hash();
+		store.submit(expired_stmt, StatementSource::Network);
+
+		// Create a statement that won't expire (far future expiry)
+		let valid_stmt = statement(2, 1, None, 100); // Uses u32::MAX as timestamp
+		let valid_hash = valid_stmt.hash();
+		store.submit(valid_stmt, StatementSource::Network);
+
+		// Verify both statements are in the store
+		assert_eq!(store.index.read().entries.len(), 2);
+
+		// First check_expiration populates the account list
+		store.check_expiration();
+		assert!(!store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
+
+		// Advance time past the expiry of the first statement
+		store.set_time(1000);
+
+		// Second check_expiration should find and expire the statement
+		store.check_expiration();
+
+		// Check the expired statement is now in the expired list
+		let index = store.index.read();
+		assert!(index.expired.contains_key(&expired_hash), "Expired statement should be marked");
+		assert!(
+			!index.entries.contains_key(&expired_hash),
+			"Expired statement should be removed from entries"
+		);
+
+		// The valid statement should still be in entries
+		assert!(
+			index.entries.contains_key(&valid_hash),
+			"Valid statement should still be in entries"
+		);
+		assert!(!index.expired.contains_key(&valid_hash), "Valid statement should not be expired");
+	}
+
+	#[test]
+	fn check_expiration_removes_checked_accounts_from_list_when_expiring() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Create statements with expiry at timestamp 200
+		let mut stmt1 = statement(1, 1, None, 100);
+		stmt1.set_expiry_from_parts(200, 1);
+		store.submit(stmt1, StatementSource::Network);
+
+		let mut stmt2 = statement(2, 1, None, 100);
+		stmt2.set_expiry_from_parts(200, 1);
+		store.submit(stmt2, StatementSource::Network);
+
+		let mut stmt3 = statement(3, 1, None, 100);
+		stmt3.set_expiry_from_parts(200, 1);
+		store.submit(stmt3, StatementSource::Network);
+
+		// First call populates the list
+		store.check_expiration();
+		assert_eq!(
+			store.index.read().accounts_to_check_for_expiry_stmts.len(),
+			3,
+			"Should have 3 accounts to check"
+		);
+
+		// Advance time past expiry
+		store.set_time(300);
+
+		// Second call should check accounts, expire statements, and remove checked accounts
+		store.check_expiration();
+
+		// The list should now be empty (all accounts checked and removed)
+		assert!(
+			store.index.read().accounts_to_check_for_expiry_stmts.is_empty(),
+			"All accounts should have been checked and removed after expiration"
+		);
+
+		// All statements should have been expired
+		assert_eq!(store.index.read().expired.len(), 3);
+		assert_eq!(store.index.read().entries.len(), 0);
+	}
+
+	#[test]
+	fn check_expiration_truncates_list_even_when_nothing_expires() {
+		let (mut store, _temp) = test_store();
+		store.set_time(1000);
+
+		// Create statements for multiple accounts with far future expiry (using statement helper)
+		// The statement() helper uses set_expiry_from_parts(u32::MAX, priority) which creates
+		// a very large expiry value that won't trigger expiration
+		for acc_id in 1..=5u64 {
+			let stmt = statement(acc_id, 1, None, 100);
+			store.submit(stmt, StatementSource::Network);
+		}
+
+		// First call populates the list
+		store.check_expiration();
+		assert_eq!(store.index.read().accounts_to_check_for_expiry_stmts.len(), 5);
+
+		// Second call checks accounts and truncates the list (even though nothing expires)
+		store.check_expiration();
+
+		// The list should now be empty - accounts are removed after being checked
+		assert!(
+			store.index.read().accounts_to_check_for_expiry_stmts.is_empty(),
+			"List should be empty after all accounts have been checked"
+		);
+
+		// No statements should have been expired
+		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().entries.len(), 5);
+	}
+
+	#[test]
+	fn check_expiration_handles_multiple_statements_per_account() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Create multiple statements for the same account with different expiry timestamps
+		// Account 42 has limit of 42 statements
+		let mut stmt1 = statement(42, 1, Some(1), 100);
+		stmt1.set_expiry_from_parts(200, 1); // Expires at timestamp 200
+		let hash1 = stmt1.hash();
+		store.submit(stmt1, StatementSource::Network);
+
+		let mut stmt2 = statement(42, 2, Some(2), 100);
+		stmt2.set_expiry_from_parts(300, 2); // Expires at timestamp 300
+		let hash2 = stmt2.hash();
+		store.submit(stmt2, StatementSource::Network);
+
+		let mut stmt3 = statement(42, 3, Some(3), 100);
+		stmt3.set_expiry_from_parts(500, 3); // Expires at timestamp 500
+		let hash3 = stmt3.hash();
+		store.submit(stmt3, StatementSource::Network);
+
+		// Verify all statements are in the store
+		assert_eq!(store.index.read().entries.len(), 3);
+
+		// First check_expiration populates the account list
+		store.check_expiration();
+
+		// Advance time to 250 (stmt1 should expire since 250 > 200)
+		store.set_time(250);
+		store.check_expiration();
+
+		{
+			let index = store.index.read();
+			assert!(index.expired.contains_key(&hash1), "stmt1 should be expired");
+			assert!(!index.expired.contains_key(&hash2), "stmt2 should not be expired yet");
+			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			assert_eq!(index.entries.len(), 2);
+		}
+
+		// Repopulate the account list for next check
+		store.check_expiration();
+
+		// Advance time to 400 (stmt2 should also expire since 400 > 300)
+		store.set_time(400);
+		store.check_expiration();
+
+		{
+			let index = store.index.read();
+			assert!(index.expired.contains_key(&hash1));
+			assert!(index.expired.contains_key(&hash2), "stmt2 should be expired");
+			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			assert_eq!(index.entries.len(), 1);
+		}
+
+		// Repopulate and check again at time 600 (stmt3 should expire since 600 > 500)
+		store.check_expiration();
+		store.set_time(600);
+		store.check_expiration();
+
+		{
+			let index = store.index.read();
+			assert!(index.expired.contains_key(&hash1));
+			assert!(index.expired.contains_key(&hash2));
+			assert!(index.expired.contains_key(&hash3), "stmt3 should be expired");
+			assert_eq!(index.entries.len(), 0);
+		}
+	}
+
+	#[test]
+	fn check_expiration_does_nothing_when_no_expired_statements() {
+		let (mut store, _temp) = test_store();
+		store.set_time(1000);
+
+		// Create statement with expiry far in the future
+		// The statement() helper uses set_expiry_from_parts(u32::MAX, priority)
+		let stmt = statement(1, 1, None, 100);
+		let hash = stmt.hash();
+		store.submit(stmt, StatementSource::Network);
+
+		// Populate the account list
+		store.check_expiration();
+
+		// Check expiration - nothing should happen
+		store.check_expiration();
+
+		// Statement should still be there
+		let index = store.index.read();
+		assert!(index.entries.contains_key(&hash));
+		assert!(!index.expired.contains_key(&hash));
+		assert_eq!(index.entries.len(), 1);
+		assert_eq!(index.expired.len(), 0);
+	}
+
+	#[test]
+	fn check_expiration_correctly_updates_account_data() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Create a statement with expiry at timestamp 200
+		let mut stmt = statement(1, 1, Some(1), 100);
+		stmt.set_expiry_from_parts(200, 1);
+		let hash = stmt.hash();
+		store.submit(stmt, StatementSource::Network);
+
+		// Verify account exists before expiration
+		{
+			let index = store.index.read();
+			assert!(index.accounts.contains_key(&account(1)));
+			assert_eq!(index.total_size, 100);
+		}
+
+		// Populate and then expire
+		store.check_expiration();
+		store.set_time(300);
+		store.check_expiration();
+
+		// Verify account is removed after its only statement expires
+		{
+			let index = store.index.read();
+			assert!(
+				!index.accounts.contains_key(&account(1)),
+				"Account should be removed when all its statements expire"
+			);
+			assert_eq!(index.total_size, 0, "Total size should be zero");
+			assert!(index.expired.contains_key(&hash));
+		}
+	}
+
+	#[test]
+	fn check_expiration_clears_topic_and_key_indexes() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Create a statement with topic and decryption key
+		let mut stmt = statement(1, 1, Some(1), 100);
+		stmt.set_expiry_from_parts(200, 1);
+		stmt.set_topic(0, topic(42));
+		stmt.set_decryption_key(dec_key(7));
+		let hash = stmt.hash();
+		store.submit(stmt, StatementSource::Network);
+
+		// Verify indexes are populated
+		{
+			let index = store.index.read();
+			assert!(index.by_topic.get(&topic(42)).map_or(false, |s| s.contains(&hash)));
+			assert!(index.by_dec_key.get(&Some(dec_key(7))).map_or(false, |s| s.contains(&hash)));
+		}
+
+		// Populate and then expire
+		store.check_expiration();
+		store.set_time(300);
+		store.check_expiration();
+
+		// Verify indexes are cleared
+		{
+			let index = store.index.read();
+			// Topic set should be empty or removed
+			assert!(
+				index.by_topic.get(&topic(42)).map_or(true, |s| s.is_empty()),
+				"Topic index should be cleared"
+			);
+			// Key set should be empty or removed
+			assert!(
+				index.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
+				"Decryption key index should be cleared"
+			);
+			assert!(index.expired.contains_key(&hash));
+		}
+	}
+
+	#[test]
+	fn check_expiration_handles_empty_store() {
+		let (mut store, _temp) = test_store();
+		store.set_time(1000);
+
+		// With no statements, check_expiration should not panic
+		store.check_expiration();
+
+		// Second call should also work (empty repopulation)
+		store.check_expiration();
+
+		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
+		assert_eq!(store.index.read().entries.len(), 0);
+		assert_eq!(store.index.read().expired.len(), 0);
+	}
+
+	#[test]
+	fn check_expiration_expires_properly_formatted_statements() {
+		// With the fix (Priority(current_time << 32)), check_expiration properly
+		// compares timestamps and can expire statements submitted through normal flow.
+
+		let (mut store, _temp) = test_store();
+		store.set_time(1000);
+
+		// Create a statement with expiration timestamp just 1 second in the future
+		let mut stmt = statement(1, 1, None, 100);
+		stmt.set_expiry_from_parts(1001, 1); // Expires at timestamp 1001
+		let hash = stmt.hash();
+		store.submit(stmt, StatementSource::Network);
+
+		assert_eq!(store.index.read().entries.len(), 1);
+
+		// Populate the accounts list
+		store.check_expiration();
+
+		// Advance time past the expiration timestamp
+		store.set_time(2000);
+		store.check_expiration();
+
+		// Statement SHOULD be expired because check_expiration now compares
+		// Priority(2000 << 32) against Priority(1001 << 32 | 1), and
+		// (2000 << 32) > (1001 << 32 | 1)
+		let index = store.index.read();
+		assert!(
+			!index.entries.contains_key(&hash),
+			"Statement should be removed from entries after expiration"
+		);
+		assert!(index.expired.contains_key(&hash), "Statement should be in expired list");
 	}
 }
