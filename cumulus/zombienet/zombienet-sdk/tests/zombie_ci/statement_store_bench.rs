@@ -24,7 +24,6 @@ const MESSAGE_COUNT: usize = 1;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
 const PROPAGATION_DELAY_MS: u64 = 2000;
-const TIMEOUT_MS: u64 = 3000;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
 /// Single-node benchmark.
@@ -52,12 +51,11 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
-	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, rpc_client.clone()));
+		participants.push(Participant::new(i as u32, node.rpc().await?));
 	}
 
 	let handles: Vec<_> = participants
@@ -103,15 +101,14 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	let mut rpc_clients = Vec::new();
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
-		let rpc_client = node.rpc().await?;
-		rpc_clients.push(rpc_client);
+		rpc_clients.push(node);
 	}
 	info!("Created RPC clients for {} collator nodes", rpc_clients.len());
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
 		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
+		participants.push(Participant::new(i as u32, rpc_clients[client_idx].rpc().await?));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -160,7 +157,6 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
-	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let total_tasks = 64 * 1024;
@@ -176,7 +172,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 		total_tasks, statements_per_task, payload_size, submit_capacity, propogation_capacity);
 
 	for _ in 0..total_tasks {
-		let rpc_client = rpc_client.clone();
+		let rpc_client = node.rpc().await?;
 		tokio::spawn(async move {
 			let (keyring, _) = sr25519::Pair::generate();
 			let public = keyring.public().0;
@@ -335,8 +331,12 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"--max-runtime-instances=32".into(),
 					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
-					"--rpc-max-connections=500000".into(),
-					"--rpc-max-subscriptions-per-connection=500000".into(),
+					format!(
+						"--rpc-max-connections={}",
+						PARTICIPANT_SIZE / collators.len() as u32 + 1000
+					)
+					.as_str()
+					.into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
