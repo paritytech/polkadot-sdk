@@ -29,25 +29,25 @@ libc = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 rustc-hash = { workspace = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-tracing-proc-macro.workspace = true
+sc-client-api.workspace = true
 sc-tracing-proc-macro.default-features = true
+sc-tracing-proc-macro.workspace = true
 serde = { workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-blockchain.workspace = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-rpc.workspace = true
+sp-core.workspace = true
 sp-rpc.default-features = true
-sp-runtime.workspace = true
+sp-rpc.workspace = true
 sp-runtime.default-features = true
-sp-tracing.workspace = true
+sp-runtime.workspace = true
 sp-tracing.default-features = true
-sp-trie.workspace = true
+sp-tracing.workspace = true
 sp-trie.default-features = true
+sp-trie.workspace = true
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true }
