@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765372284768,
+  "lastUpdate": 1767980403499,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b8ccdb45d7e1e8e5058c357f1f7054fd7b781a74",
-          "message": "[Staking] Cleanups and some improvements (#8701)\n\n## Changes\n- Introduced a new `min_bond` value, which is the minimum of\n`MinValidatorBond` and `MinNominatorBond`, with a fallback to\n`ExistentialDeposit`. Since ED on AH is much lower than on RC, this\nensures we enforce some min bonds for staking to cover storage costs for\nstaking ledger and related data.\n- Added an upper bound on era duration, protecting against anomalous\nconditions that could otherwise lead to excessive inflation.\n- Some refactors to gracefully handle unexpected validator activation in\nRC.\n\n\n## TODO\n- [ ] Set `MaxEraDuration` in WAH.\n- [ ] Port [full\nunbond](https://github.com/paritytech/polkadot-sdk/pull/3811) (will do\nin a separate PR)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-10T07:59:43Z",
-          "tree_id": "fff45c98ce2b7470fa229f3eddc74809a28e751b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8ccdb45d7e1e8e5058c357f1f7054fd7b781a74"
-        },
-        "date": 1749545970535,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95799999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04479983982599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03402889342199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.035176590849999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
+          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
+          "timestamp": "2026-01-09T16:32:49Z",
+          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
+        },
+        "date": 1767980379213,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.07799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038036952128000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06587219502599985,
             "unit": "seconds"
           }
         ]
