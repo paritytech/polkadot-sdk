@@ -18,10 +18,7 @@
 use codec::Decode;
 use log::warn;
 
-use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
-use sp_core::ecdsa;
-#[cfg(feature = "bls-experimental")]
-use sp_core::ecdsa_bls381;
+use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, RuntimeAppPublic};
 
 use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
@@ -107,34 +104,13 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn public_keys(&self) -> Result<Vec<AuthorityId>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let pk = match <AuthorityId as AppCrypto>::CRYPTO_ID {
-			ecdsa::CRYPTO_ID => store
-				.ecdsa_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
-
-			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls381::CRYPTO_ID => store
-				.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
-
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into())),
-		};
-
-		pk
+		<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::get_all_from_store(store)
+			.drain(..)
+			.map(|pk| AuthorityId::try_from(pk.as_ref()))
+			.collect::<Result<Vec<_>, _>>()
+			.or_else(|_| {
+				Err(error::Error::Keystore("unable to convert public key into authority id".into()))
+			})
 	}
 
 	/// Use the `public` key to verify that `sig` is a valid signature for `message`.
@@ -157,13 +133,16 @@ impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<
 
 #[cfg(test)]
 pub mod tests {
+	use sp_application_crypto::AppCrypto;
 	#[cfg(feature = "bls-experimental")]
 	use sp_consensus_beefy::ecdsa_bls_crypto;
 	use sp_consensus_beefy::{
 		ecdsa_crypto,
 		test_utils::{BeefySignerAuthority, Keyring},
 	};
-	use sp_core::Pair as PairT;
+	#[cfg(feature = "bls-experimental")]
+	use sp_core::ecdsa_bls381;
+	use sp_core::{ecdsa, Pair as PairT};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 	use super::*;
