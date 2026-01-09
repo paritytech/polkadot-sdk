@@ -4,23 +4,16 @@ doc:
   description: |-
     This PR adds a new collator protocol (validator side) subsystem.
 
-    This new collator protocol is still in development, it is not yet sufficiently tested, it has known issues,
-    and it shouldn't be used in production.
-
-    It is guarded by a by a CLI flag (experimental-collator-protocol).
-
 crates:
 - name: cumulus-relay-chain-inprocess-interface
   bump: patch
 - name: polkadot-cli
   bump: major
 - name: polkadot-collator-protocol
-  bump: patch
+  bump: major
 - name: polkadot-service
   bump: major
 - name: polkadot-node-subsystem-types
   bump: minor
-- name: polkadot-sdk
-  bump: patch
-- name: polkadot
+- name: polkadot-node-core-prospective-parachains
   bump: patch
