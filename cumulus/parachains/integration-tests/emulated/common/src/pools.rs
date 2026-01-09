@@ -78,15 +78,15 @@ macro_rules! create_pool_with_relay_native_on {
 				));
 			});
 
-			let wnd_location: Location = Parent.into();
-			$crate::create_pool_with_native_location_on!($chain, wnd_location, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
+			let parent_location: Location = Parent.into();
+			$crate::create_pool_with_native_location_on!($chain, parent_location, $asset_id, $asset_owner, $wnd_amount, $asset_amount);
 		}
 	};
 }
 
 #[macro_export]
 macro_rules! create_foreign_pool_with_parent_native_on {
-	// default amounts, and pallet name
+	// default amounts and pallet name
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_foreign_pool_with_parent_native_on!(
 			$chain,
@@ -122,7 +122,7 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 		);
 	};
 
-	// custom amounts
+	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_pallet_assets:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
@@ -145,7 +145,7 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 
 #[macro_export]
 macro_rules! create_foreign_pool_with_native_on {
-	// default amounts, and pallet name
+	// default amounts and pallet name
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_foreign_pool_with_native_on!(
 			$chain,
@@ -157,7 +157,7 @@ macro_rules! create_foreign_pool_with_native_on {
 		);
 	};
 
-	// default amounts, and pallet name
+	// default amounts, custom pallet name
 	( $chain:ident, $foreign_pallet_asset:ident, $asset_id:expr, $asset_owner:expr ) => {
 		$crate::create_foreign_pool_with_native_on!(
 			$chain,
@@ -181,7 +181,7 @@ macro_rules! create_foreign_pool_with_native_on {
 		);
 	};
 
-	// custom amounts
+	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_asset_pallet:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
