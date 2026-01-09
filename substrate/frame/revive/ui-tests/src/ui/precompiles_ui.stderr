@@ -9,4 +9,3 @@ note: erroneous constant encountered
     |
     |     let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-§
