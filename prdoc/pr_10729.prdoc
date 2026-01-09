@@ -9,3 +9,7 @@ doc:
 crates:
 - name: pallet-bounties
   bump: major
+- name: rococo-runtime
+  bump: patch
+- name: pallet-child-bounties
+  bump: patch
