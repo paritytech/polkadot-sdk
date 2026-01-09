@@ -271,7 +271,7 @@ where
 ///
 /// # Usage:
 ///
-/// Usage with multiple version for general transaction.
+/// Usage with multiple versions for general transaction.
 /// ```
 /// use sp_runtime::{
 ///     generic::UncheckedExtrinsic,
