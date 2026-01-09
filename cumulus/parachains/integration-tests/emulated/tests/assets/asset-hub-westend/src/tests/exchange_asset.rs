@@ -23,10 +23,7 @@ use crate::{
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
-use emulated_integration_tests_common::{
-	accounts::ALICE, create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on,
-	create_pool_with_wnd_on, xcm_emulator::TestExt,
-};
+use emulated_integration_tests_common::{accounts::ALICE, create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on, create_pool_with_wnd_on, xcm_emulator::TestExt, PenpalBLocation, PenpalBSiblingSovereignAccount};
 use frame_support::{
 	assert_err_ignore_postinfo, assert_ok,
 	traits::fungible::{Inspect, Mutate},
@@ -89,22 +86,14 @@ fn test_exchange_asset(
 	let native_asset_location = WestendLocation::get();
 	let native_asset_id = AssetId(native_asset_location.clone());
 	let origin = RuntimeOrigin::signed(alice.clone());
-	let asset_location = Location::new(1, [Parachain(2001)]);
+	let asset_location = PenpalBLocation::get();
 	let asset_id = AssetId(asset_location.clone());
 
 	// Setup initial state
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<Balances as Mutate<_>>::mint_into(
-			&alice,
+			&PenpalBSiblingSovereignAccount::get(),
 			ExistentialDeposit::get() + (1_000 * UNITS)
-		));
-
-		assert_ok!(ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			asset_location.clone().into(),
-			alice.clone().into(),
-			true,
-			1
 		));
 	});
 
@@ -112,7 +101,7 @@ fn test_exchange_asset(
 		create_foreign_pool_with_parent_native_on!(
 			AssetHubWestend,
 			asset_location.clone(),
-			alice.clone()
+			PenpalBSiblingSovereignAccount::get()
 		);
 	}
 
