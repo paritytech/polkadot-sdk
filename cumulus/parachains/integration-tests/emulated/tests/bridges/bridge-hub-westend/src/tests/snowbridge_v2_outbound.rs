@@ -20,7 +20,7 @@ use crate::{
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
-use emulated_integration_tests_common::{impls::Decode, PenpalBLocation};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, impls::Decode, PenpalBLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
@@ -28,6 +28,7 @@ use snowbridge_pallet_outbound_queue_v2::Error;
 use snowbridge_pallet_system_v2::LostTips;
 use sp_core::H256;
 use xcm::v5::AssetTransferFilter;
+use crate::imports::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
@@ -713,11 +714,15 @@ fn register_token_from_penpal() {
 			},
 		],
 	);
-	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalNativeCurrency::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| LocalPen2Asset::get());
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
+
 	PenpalB::execute_with(|| {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
