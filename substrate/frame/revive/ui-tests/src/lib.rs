@@ -20,6 +20,9 @@ pub mod runtime;
 
 #[test]
 fn precompile_ui() {
+	// NB: Tests like this compare compiler output to a reference output. This is compiler dependent.
+	// If your local compiler version is different from the one used to generate the reference output,
+	// the test may fail even if the code is correct.
 	let t = trybuild::TestCases::new();
 	let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ui/precompiles_ui.rs");
 	t.compile_fail(path.to_str().unwrap());
