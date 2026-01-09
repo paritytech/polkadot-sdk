@@ -1194,36 +1194,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asset-hub-rococo-integration-tests"
-version = "1.0.0"
-dependencies = [
- "assert_matches",
- "asset-test-utils",
- "cumulus-pallet-parachain-system",
- "emulated-integration-tests-common",
- "frame-support",
- "frame-system",
- "pallet-asset-conversion",
- "pallet-asset-rewards",
- "pallet-assets",
- "pallet-balances",
- "pallet-message-queue",
- "pallet-treasury",
- "pallet-utility",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-runtime-common",
- "rococo-runtime-constants",
- "rococo-system-emulated-network",
- "sp-core 28.0.0",
- "sp-runtime",
- "staging-xcm",
- "staging-xcm-executor",
- "xcm-runtime-apis",
-]
-
-[[package]]
 name = "asset-hub-rococo-runtime"
 version = "0.11.0"
 dependencies = [
@@ -1409,6 +1379,7 @@ dependencies = [
  "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
+ "pallet-multi-asset-bounties",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -2590,7 +2561,6 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-inbound-queue-primitives",
@@ -3762,104 +3732,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "coretime-rococo-emulated-chain"
-version = "0.1.0"
-dependencies = [
- "coretime-rococo-runtime",
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "sp-core 28.0.0",
- "testnet-parachains-constants",
-]
-
-[[package]]
-name = "coretime-rococo-integration-tests"
-version = "0.0.0"
-dependencies = [
- "cumulus-pallet-parachain-system",
- "emulated-integration-tests-common",
- "frame-support",
- "pallet-broker",
- "pallet-message-queue",
- "polkadot-runtime-parachains",
- "rococo-runtime-constants",
- "rococo-system-emulated-network",
- "sp-runtime",
- "staging-xcm",
-]
-
-[[package]]
-name = "coretime-rococo-runtime"
-version = "0.1.0"
-dependencies = [
- "cumulus-pallet-aura-ext",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-session-benchmarking",
- "cumulus-pallet-weight-reclaim",
- "cumulus-pallet-xcm",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "cumulus-primitives-utility",
- "frame-benchmarking",
- "frame-executive",
- "frame-metadata-hash-extension",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "pallet-aura",
- "pallet-authorship",
- "pallet-balances",
- "pallet-broker",
- "pallet-collator-selection",
- "pallet-message-queue",
- "pallet-multisig",
- "pallet-proxy",
- "pallet-session",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parachains-common",
- "parachains-runtimes-test-utils",
- "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-runtime-common",
- "rococo-runtime-constants",
- "scale-info",
- "serde",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-storage 19.0.0",
- "sp-transaction-pool",
- "sp-version",
- "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "substrate-wasm-builder",
- "testnet-parachains-constants",
- "tracing",
- "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -5131,6 +5003,9 @@ dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
+ "proptest",
+ "sp-consensus-babe",
+ "sp-core 28.0.0",
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
@@ -6790,7 +6665,7 @@ dependencies = [
  "sp-version",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "thousands",
@@ -6830,7 +6705,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e56c0e51972d7b26ff76966c4d0f2307030df9daa5ce0885149ece1ab7ca5ad"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -6922,9 +6797,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "23.0.0"
+version = "23.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8c26fcb0454397c522c05fdad5380c4e622f8a875638af33bff5a320d1fc965"
+checksum = "9ba5be0edbdb824843a0f9c6f0906ecfc66c5316218d74457003218b24909ed0"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6939,7 +6814,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-system",
  "log",
@@ -7018,7 +6893,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -7107,7 +6982,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -10026,9 +9901,9 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcda6c1f442def15b5e73228ebf669e36f4f7d9d154a0b0190d43a29c4cbeadf"
+checksum = "d903b21d57fae0e8d184c6ea0107fb5303fcab7cd2acaf5d2d9beb2807194b4a"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10323,7 +10198,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -12008,6 +11883,7 @@ dependencies = [
 name = "pallet-collator-selection"
 version = "9.0.0"
 dependencies = [
+ "cumulus-pallet-session-benchmarking",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -12551,7 +12427,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-system",
  "log",
@@ -13056,6 +12932,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-offences",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
@@ -13368,7 +13245,7 @@ dependencies = [
  "sp-weights",
  "sqlx",
  "substrate-prometheus-endpoint",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -14422,8 +14299,10 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-multi-asset-bounties",
  "pallet-treasury",
  "pallet-xcm",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-common",
@@ -14436,6 +14315,15 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "parachains-common-types"
+version = "0.1.0"
+dependencies = [
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -14750,103 +14638,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "people-rococo-emulated-chain"
-version = "0.1.0"
-dependencies = [
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "people-rococo-runtime",
- "sp-core 28.0.0",
- "testnet-parachains-constants",
-]
-
-[[package]]
-name = "people-rococo-integration-tests"
-version = "0.1.0"
-dependencies = [
- "asset-test-utils",
- "emulated-integration-tests-common",
- "frame-support",
- "pallet-balances",
- "parachains-common",
- "rococo-system-emulated-network",
- "sp-runtime",
- "staging-xcm",
- "staging-xcm-executor",
-]
-
-[[package]]
-name = "people-rococo-runtime"
-version = "0.1.0"
-dependencies = [
- "cumulus-pallet-aura-ext",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-session-benchmarking",
- "cumulus-pallet-weight-reclaim",
- "cumulus-pallet-xcm",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "cumulus-primitives-utility",
- "enumflags2",
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "pallet-aura",
- "pallet-authorship",
- "pallet-balances",
- "pallet-collator-selection",
- "pallet-identity",
- "pallet-message-queue",
- "pallet-migrations",
- "pallet-multisig",
- "pallet-proxy",
- "pallet-session",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parachains-common",
- "parachains-runtimes-test-utils",
- "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-runtime-common",
- "rococo-runtime-constants",
- "scale-info",
- "serde",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-storage 19.0.0",
- "sp-transaction-pool",
- "sp-version",
- "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "substrate-wasm-builder",
- "testnet-parachains-constants",
- "tracing",
- "xcm-runtime-apis",
-]
-
-[[package]]
 name = "people-westend-emulated-chain"
 version = "0.1.0"
 dependencies = [
@@ -15152,6 +14943,7 @@ dependencies = [
  "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives",
+ "polkadot-jemalloc-shim",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-common",
  "polkadot-node-core-pvf-execute-worker",
@@ -15160,7 +14952,6 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-rpc-client",
  "tempfile",
- "tikv-jemallocator",
  "tokio",
 ]
 
@@ -15429,6 +15220,17 @@ dependencies = [
  "sp-keystore",
  "sp-tracing 16.0.0",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-jemalloc-shim"
+version = "1.0.0"
+dependencies = [
+ "polkadot-cli",
+ "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-prepare-worker",
+ "polkadot-overseer",
+ "tikv-jemallocator",
 ]
 
 [[package]]
@@ -16094,6 +15896,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
 ]
@@ -16132,7 +15935,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parachains-common",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
@@ -16178,6 +15981,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
+ "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
  "staging-chain-spec-builder",
@@ -16224,7 +16028,6 @@ dependencies = [
  "bridge-hub-westend-runtime",
  "collectives-westend-runtime",
  "color-eyre",
- "coretime-rococo-runtime",
  "coretime-westend-runtime",
  "cumulus-client-consensus-aura",
  "cumulus-primitives-core",
@@ -16233,10 +16036,9 @@ dependencies = [
  "log",
  "parachains-common",
  "penpal-runtime",
- "people-rococo-runtime",
  "people-westend-runtime",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
- "rococo-parachain-runtime",
  "sc-chain-spec",
  "sc-cli",
  "sc-service",
@@ -16429,6 +16231,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-mmr",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -16666,6 +16469,7 @@ dependencies = [
  "pallet-xcm-bridge-hub-router",
  "pallet-xcm-precompiles",
  "parachains-common",
+ "parachains-common-types",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
@@ -16694,8 +16498,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
- "polkadot-node-core-pvf-execute-worker",
- "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
@@ -17415,7 +17217,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "substrate-build-script-utils",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -19063,58 +18865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rococo-parachain-runtime"
-version = "0.6.0"
-dependencies = [
- "cumulus-pallet-aura-ext",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-weight-reclaim",
- "cumulus-pallet-xcm",
- "cumulus-pallet-xcmp-queue",
- "cumulus-ping",
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "cumulus-primitives-utility",
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "pallet-assets",
- "pallet-aura",
- "pallet-balances",
- "pallet-message-queue",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-runtime-common",
- "scale-info",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-transaction-pool",
- "sp-version",
- "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "substrate-wasm-builder",
-]
-
-[[package]]
 name = "rococo-runtime"
 version = "7.0.0"
 dependencies = [
@@ -19227,19 +18977,6 @@ dependencies = [
  "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",
-]
-
-[[package]]
-name = "rococo-system-emulated-network"
-version = "0.0.0"
-dependencies = [
- "asset-hub-rococo-emulated-chain",
- "bridge-hub-rococo-emulated-chain",
- "coretime-rococo-emulated-chain",
- "emulated-integration-tests-common",
- "penpal-emulated-chain",
- "people-rococo-emulated-chain",
- "rococo-emulated-chain",
 ]
 
 [[package]]
@@ -20561,17 +20298,26 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
+ "criterion",
  "futures",
  "log",
  "parity-scale-codec",
+ "sc-keystore",
  "sc-network",
  "sc-network-common",
  "sc-network-sync",
  "sc-network-types",
+ "sc-statement-store",
+ "sp-api",
+ "sp-blockchain",
  "sp-consensus",
+ "sp-core 28.0.0",
+ "sp-keyring",
  "sp-runtime",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "tempfile",
  "tokio",
 ]
 
@@ -20602,7 +20348,6 @@ dependencies = [
  "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-runtime",
  "sp-test-primitives",
@@ -20887,7 +20632,7 @@ dependencies = [
  "sp-state-machine",
  "sp-version",
  "sp-wasm-interface 20.0.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "thiserror 1.0.65",
 ]
 
@@ -21163,6 +20908,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -21191,6 +20937,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
+ "strum 0.26.3",
  "thiserror 1.0.65",
 ]
 
@@ -22319,6 +22066,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-beacon-primitives",
@@ -23336,6 +23084,7 @@ dependencies = [
 name = "sp-debug-derive"
 version = "14.0.0"
 dependencies = [
+ "proc-macro-warning",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -23452,7 +23201,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -23559,11 +23308,13 @@ dependencies = [
  "sp-arithmetic",
  "sp-core 28.0.0",
  "sp-io",
+ "sp-keystore",
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-weights",
+ "strum 0.26.3",
  "substrate-test-runtime-client",
  "tracing",
  "tuplex",
@@ -23843,6 +23594,7 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
+ "sp-api",
  "sp-core 28.0.0",
  "sp-inherents",
  "sp-runtime",
@@ -24755,6 +24507,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
+ "sp-statement-store",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-trie",
@@ -24846,7 +24599,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -24873,7 +24626,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",
@@ -24938,14 +24691,14 @@ dependencies = [
 
 [[package]]
 name = "subxt"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74791ddeaaa6de42e7cc8a715c83eb73303f513f90af701fd07eb2caad92ed84"
+checksum = "f8c6dc0f90e23c521465b8f7e026af04a48cc6f00c51d88a8d313d33096149de"
 dependencies = [
  "async-trait",
  "derive-where",
  "either",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "futures",
  "hex",
  "jsonrpsee",
@@ -24961,7 +24714,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subxt-core 0.43.0",
  "subxt-lightclient 0.43.0",
- "subxt-macro 0.43.0",
+ "subxt-macro 0.43.1",
  "subxt-metadata 0.43.0",
  "subxt-rpcs 0.43.0",
  "thiserror 2.0.12",
@@ -25047,7 +24800,7 @@ dependencies = [
  "blake2 0.10.6",
  "derive-where",
  "frame-decode 0.8.3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "hashbrown 0.14.5",
  "hex",
  "impl-serde",
@@ -25119,9 +24872,9 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69516e8ff0e9340a0f21b8398da7f997571af4734ee81deada5150a2668c8443"
+checksum = "c269228a2e5de4c0c61ed872b701967ee761df0f167d5b91ecec1185bca65793"
 dependencies = [
  "darling 0.20.10",
  "parity-scale-codec",
@@ -25156,7 +24909,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c134068711c0c46906abc0e6e4911204420331530738e18ca903a5469364d9f"
 dependencies = [
  "frame-decode 0.8.3",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "hashbrown 0.14.5",
  "parity-scale-codec",
  "scale-info",
@@ -25196,7 +24949,7 @@ checksum = "25de7727144780d780a6a7d78bbfd28414b8adbab68b05e87329c367d7705be4"
 dependencies = [
  "derive-where",
  "finito",
- "frame-metadata 23.0.0",
+ "frame-metadata 23.0.1",
  "futures",
  "hex",
  "impl-serde",
@@ -26344,9 +26097,9 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.0"
+version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
+checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
 dependencies = [
  "criterion",
  "hash-db",
@@ -26360,9 +26113,9 @@ dependencies = [
 
 [[package]]
 name = "trie-db"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c0670ab45a6b7002c7df369fee950a27cf29ae0474343fd3a15aa15f691e7a6"
+checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
 dependencies = [
  "hash-db",
  "log",
@@ -28698,7 +28451,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sp-core 36.1.0",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
@@ -28761,7 +28514,7 @@ dependencies = [
  "async-trait",
  "futures",
  "lazy_static",
- "subxt 0.43.0",
+ "subxt 0.43.1",
  "subxt-signer 0.43.0",
  "tokio",
  "zombienet-configuration",
