@@ -9898,9 +9898,9 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcda6c1f442def15b5e73228ebf669e36f4f7d9d154a0b0190d43a29c4cbeadf"
+checksum = "d903b21d57fae0e8d184c6ea0107fb5303fcab7cd2acaf5d2d9beb2807194b4a"
 dependencies = [
  "async-trait",
  "bs58",
@@ -11880,6 +11880,7 @@ dependencies = [
 name = "pallet-collator-selection"
 version = "9.0.0"
 dependencies = [
+ "cumulus-pallet-session-benchmarking",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -12928,6 +12929,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-offences",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
@@ -14936,6 +14938,7 @@ dependencies = [
  "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives",
+ "polkadot-jemalloc-shim",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-common",
  "polkadot-node-core-pvf-execute-worker",
@@ -14944,7 +14947,6 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-rpc-client",
  "tempfile",
- "tikv-jemallocator",
  "tokio",
 ]
 
@@ -15213,6 +15215,17 @@ dependencies = [
  "sp-keystore",
  "sp-tracing 16.0.0",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-jemalloc-shim"
+version = "1.0.0"
+dependencies = [
+ "polkadot-cli",
+ "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-prepare-worker",
+ "polkadot-overseer",
+ "tikv-jemallocator",
 ]
 
 [[package]]
@@ -15878,6 +15891,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
 ]
@@ -15962,6 +15976,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
+ "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
  "staging-chain-spec-builder",
@@ -16017,6 +16032,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "people-westend-runtime",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "sc-chain-spec",
  "sc-cli",
@@ -16210,6 +16226,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-mmr",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -16476,8 +16493,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
- "polkadot-node-core-pvf-execute-worker",
- "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
@@ -20278,17 +20293,26 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
+ "criterion",
  "futures",
  "log",
  "parity-scale-codec",
+ "sc-keystore",
  "sc-network",
  "sc-network-common",
  "sc-network-sync",
  "sc-network-types",
+ "sc-statement-store",
+ "sp-api",
+ "sp-blockchain",
  "sp-consensus",
+ "sp-core 28.0.0",
+ "sp-keyring",
  "sp-runtime",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "tempfile",
  "tokio",
 ]
 
@@ -23279,6 +23303,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core 28.0.0",
  "sp-io",
+ "sp-keystore",
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
@@ -23564,6 +23589,7 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
+ "sp-api",
  "sp-core 28.0.0",
  "sp-inherents",
  "sp-runtime",
@@ -24476,6 +24502,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
+ "sp-statement-store",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-trie",
