@@ -18,14 +18,15 @@
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, Commitment, DoubleVotingProof, ForkVotingProof,
+	FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::{BlockNumber, Hash, Header as HeaderT};
+use sp_runtime::traits::{BlockNumber, Header as HeaderT};
 
 use codec::Encode;
+use sp_crypto_hashing::keccak_256;
 use std::{collections::HashMap, marker::PhantomData, sync::LazyLock};
 use strum::IntoEnumIterator;
 
@@ -47,30 +48,22 @@ pub enum Keyring<AuthorityId> {
 /// Trait representing BEEFY specific generation and signing behavior of authority id
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
-pub trait BeefySignerAuthority<MsgHash: Hash>: AppPair {
+pub trait BeefySignerAuthority: AppPair {
 	/// Generate and return signature for `message` using custom hashing `MsgHash`
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
 }
 
-impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair
-where
-	MsgHash: Hash,
-	<MsgHash as Hash>::Output: Into<[u8; 32]>,
-{
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
-		let hashed_message = <MsgHash as Hash>::hash(message).into();
+impl BeefySignerAuthority for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair {
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		let hashed_message = keccak_256(message);
 		self.as_inner_ref().sign_prehashed(&hashed_message).into()
 	}
 }
 
 #[cfg(feature = "bls-experimental")]
-impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
-where
-	MsgHash: Hash,
-	<MsgHash as Hash>::Output: Into<[u8; 32]>,
-{
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
-		self.as_inner_ref().sign_with_hasher::<MsgHash>(&message).into()
+impl BeefySignerAuthority for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair {
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign(&message).into()
 	}
 }
 
@@ -78,14 +71,14 @@ where
 impl<AuthorityId> Keyring<AuthorityId>
 where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {
 	/// Sign `msg`.
 	pub fn sign(&self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
 		let key_pair: <AuthorityId as AppCrypto>::Pair = self.pair();
-		key_pair.sign_with_hasher(&msg).into()
+		BeefySignerAuthority::sign(&key_pair, msg).into()
 	}
 
 	/// Return key pair.

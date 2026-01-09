@@ -84,7 +84,7 @@ pub trait ChainWithBeefy: Chain {
 	/// A way to identify a BEEFY validator.
 	///
 	/// Corresponds to the `BeefyId` field of the `pallet-beefy` configuration.
-	type AuthorityId: BeefyAuthorityId<Self::CommitmentHasher> + Parameter;
+	type AuthorityId: BeefyAuthorityId + Parameter;
 
 	/// A way to convert validator id to its raw representation in the BEEFY merkle tree.
 	///

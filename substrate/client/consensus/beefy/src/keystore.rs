@@ -23,7 +23,7 @@ use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, RuntimeAppPublic
 use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
 
-use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId};
 
 use crate::{error, LOG_TARGET};
 
@@ -79,14 +79,11 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let raw_signature =
-			BeefyAuthorityId::<BeefySignatureHasher>::try_sign(public, store, message)
-				.map_err(|e| error::Error::Keystore(e.to_string()))?
-				.ok_or_else(|| {
-					error::Error::Signature(
-						"BeefyAuthorityId::try_sign() returned None".to_string(),
-					)
-				})?;
+		let raw_signature = BeefyAuthorityId::try_sign(public, store, message)
+			.map_err(|e| error::Error::Keystore(e.to_string()))?
+			.ok_or_else(|| {
+				error::Error::Signature("BeefyAuthorityId::try_sign() returned None".to_string())
+			})?;
 		let signature =
 			<AuthorityId as RuntimeAppPublic>::Signature::decode(&mut raw_signature.as_slice())
 				.map_err(|_| {
@@ -104,7 +101,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn public_keys(&self) -> Result<Vec<AuthorityId>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::get_all_from_store(store)
+		<AuthorityId as BeefyAuthorityId>::get_all_from_store(store)
 			.drain(..)
 			.map(|pk| AuthorityId::try_from(pk.as_ref()))
 			.collect::<Result<Vec<_>, _>>()
@@ -121,7 +118,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 		sig: &<AuthorityId as RuntimeAppPublic>::Signature,
 		message: &[u8],
 	) -> bool {
-		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
+		BeefyAuthorityId::verify(public, sig, message)
 	}
 }
 
@@ -158,19 +155,19 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let msg = b"I am Alice!";
 		let sig = Keyring::<AuthorityId>::Alice.sign(b"I am Alice!");
 
-		assert!(<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(<AuthorityId as BeefyAuthorityId>::verify(
 			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
 		));
 
 		// different public key -> fail
-		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(!<AuthorityId as BeefyAuthorityId>::verify(
 			&Keyring::Bob.public(),
 			&sig,
 			&msg.as_slice(),
@@ -179,7 +176,7 @@ pub mod tests {
 		let msg = b"I am not Alice!";
 
 		// different msg -> fail
-		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(!<AuthorityId as BeefyAuthorityId>::verify(
 			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
@@ -195,7 +192,7 @@ pub mod tests {
 	where
 		AuthorityId:
 			AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 		<AuthorityId as RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 	{
@@ -235,7 +232,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Alice", None)
 			.expect("Pair failed")
@@ -303,7 +300,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let store = keystore();
 
@@ -344,7 +341,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let store = keystore();
 
@@ -380,7 +377,7 @@ pub mod tests {
 	) where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let store = keystore();
 
@@ -426,7 +423,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		let store = keystore();
 
@@ -465,7 +462,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	{
 		const TEST_TYPE: sp_application_crypto::KeyTypeId =
 			sp_application_crypto::KeyTypeId(*b"test");
