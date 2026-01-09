@@ -18,16 +18,6 @@ on:
         required: false
   workflow_dispatch:
     inputs:
-      build_run_id:
-        type: string
-        description: "Build run ID from the build workflow (optional, auto-detects if not provided)."
-        default: ""
-        required: false
-      ref_slug:
-        type: string
-        description: "Source ref slug from the build workflow (optional)."
-        default: ""
-        required: false
       test_pattern:
         type: string
         description: "Run tests which names match this pattern (also flaky)"

@@ -92,17 +92,9 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 		.await
 		.map_err(|e| anyhow!("BEEFY best block did not reach 21: {}", e))?;
 
-	// Verify BEEFY finalized heads across all validators
-	log::info!("Checking BEEFY finalized heads across all validators");
-	verify_beefy_finalized_heads(
-		&network,
-		&VALIDATOR_NAMES
-			.iter()
-			.copied()
-			.chain(std::iter::once(UNSTABLE))
-			.collect::<Vec<_>>(),
-	)
-	.await?;
+	// Verify BEEFY finalized heads across all active validators (excluding paused unstable)
+	log::info!("Checking BEEFY finalized heads across active validators");
+	verify_beefy_finalized_heads(&network, &VALIDATOR_NAMES).await?;
 
 	// Verify MMR leaves count
 	log::info!("Checking MMR leaves count");
@@ -309,26 +301,61 @@ async fn verify_mmr_proofs(
 	validator_names: &[&str],
 ) -> Result<(), anyhow::Error> {
 	let node = network.get_node(node_name)?;
-	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
 	let rpc_client = node.rpc().await?;
 
-	// Get block hash at height 21 by subscribing to finalized blocks
+	// Get current finalized block to check if chain has progressed past block 21
 	let block_21 = 21u32;
-	let mut blocks_sub = client.blocks().subscribe_finalized().await?;
-	let at_block_hash = loop {
-		if let Some(block) = blocks_sub.next().await {
-			let block = block?;
-			if block.number() >= block_21 {
-				break block.hash();
-			}
+
+	// Wait for chain to reach at least block 21
+	log::info!("Waiting for chain to reach block {} for MMR proof generation", block_21);
+	let mut attempts = 0;
+	let max_attempts = 5;
+	let latest_height = loop {
+		let latest_finalized_hash: String =
+			rpc_client.request("chain_getFinalizedHead", RpcParams::new()).await?;
+
+		let mut header_params = RpcParams::new();
+		header_params.push(latest_finalized_hash.clone())?;
+		let header: serde_json::Value =
+			rpc_client.request("chain_getHeader", header_params).await?;
+		let latest_height_str = header["number"]
+			.as_str()
+			.ok_or_else(|| anyhow!("Failed to get block number from header"))?;
+		let latest_height = u32::from_str_radix(latest_height_str.trim_start_matches("0x"), 16)?;
+
+		if latest_height >= block_21 {
+			log::info!("Chain reached block {}, proceeding with MMR proof", latest_height);
+			break latest_height;
 		}
+
+		attempts += 1;
+		if attempts >= max_attempts {
+			return Err(anyhow!(
+				"Timeout waiting for chain to reach block {}, currently at block {}",
+				block_21,
+				latest_height
+			));
+		}
+
+		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	};
 
-	log::info!("Testing MMR at block 21: {:?}", at_block_hash);
+	log::info!("Latest finalized block: {}, target block: {}", latest_height, block_21);
+
+	// Get block hash at height 21 directly via RPC (works for historical blocks)
+	let mut hash_params = RpcParams::new();
+	hash_params.push(block_21)?;
+	let at_block_hash: String = rpc_client.request("chain_getBlockHash", hash_params).await?;
+
+	if at_block_hash == "0x0000000000000000000000000000000000000000000000000000000000000000" {
+		return Err(anyhow!("Block {} not found - chain only at block {}", block_21, latest_height));
+	}
+
+	log::info!("Testing MMR at block 21: {}", at_block_hash);
 
 	// Get MMR root using RPC
 	let mut root_params = RpcParams::new();
-	root_params.push(format!("{at_block_hash:?}"))?;
+	root_params.push(at_block_hash.clone())?;
 	let root: String = rpc_client.request("mmr_root", root_params).await?;
 	log::info!("MMR root at block 21: {}", root);
 
@@ -336,7 +363,7 @@ async fn verify_mmr_proofs(
 	let mut proof_params = RpcParams::new();
 	proof_params.push(vec![1u32, 9, 20])?;
 	proof_params.push(Some(block_21))?;
-	proof_params.push(format!("{at_block_hash:?}"))?;
+	proof_params.push(at_block_hash.clone())?;
 	let proof: LeavesProof = rpc_client.request("mmr_generateProof", proof_params).await?;
 	log::info!("Generated MMR proof at block hash: {}", proof.block_hash);
 
