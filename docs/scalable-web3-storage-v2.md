@@ -11,7 +11,7 @@
 
 ## Executive Summary
 
-**The core insight:** Storage isn't free—someone pays, so someone naturally cares. That paying stakeholder verifies their own data as a byproduct of use. Stronger guarantees and decentralization emerge naturally from data importance: when data matters enough, more providers add replicas, each with significant stake at risk. A bucket replicated by major providers across multiple jurisdictions is practically guaranteed by the economic stakes each provider would lose. And you never need to trust: you can always verify yourself or add your own replica.
+**The core insight:** Storage isn't free—someone pays, so someone naturally cares. That paying stakeholder verifies their own data as a byproduct of use. Stronger guarantees and decentralization emerge naturally from data importance: when data matters enough, more users/businesses add replicas, each with significant stake at risk. A bucket replicated by major providers across multiple jurisdictions is practically guaranteed by the economic stakes each provider would lose. And you never need to trust: you can always verify yourself or add your own replica.
 
 **What we're building:** A bucket-based storage system where providers lock stake and clients can challenge. The chain exists as a credible threat, not as the hot path. Normal operations (reads, writes, storage) happen directly between clients and providers. The chain is only touched for setup, checkpoints, and disputes.
 
@@ -93,8 +93,9 @@ Traditional approach: An indifferent chain continuously verifies all storage, re
 Our approach: Interested clients verify their own storage, as a byproduct of using it.
 
 The math is compelling. Suppose a client spot-checks 3 random chunks weekly. If a provider deletes 10% of their data:
-- After 3 months: 88% detection probability
-- After 6 months: 99.8% detection probability
+- Probability of missing deletion per week: 0.9³ = 72.9%
+- After 3 months (13 weeks): 98% detection probability
+- After 6 months (26 weeks): 99.97% detection probability
 
 And that's just explicit spot-checking. Every normal read is also implicit verification. A backup app that restores files is verifying storage. A website visitor loading an image is verifying storage. The "verifier's dilemma" (verification is too expensive) disappears when verification is free bandwidth.
 
@@ -104,21 +105,22 @@ And that's just explicit spot-checking. Every normal read is also implicit verif
 
 Correct. Humans are unreliable. Software isn't.
 
-The client software—the backup app, the file browser, the media player—performs verification automatically. When you open your backup app, it spot-checks a few chunks in the background. When you browse a folder, the client silently verifies the directory structure. When you play a video, every chunk delivered is a verification.
+The client software—the backup app, the file browser, the media player—performs verification automatically. When you open your backup app, it spot-checks a few random chunks in the background. When you browse a folder, the client fetches the directory listing chunks—verifying they exist and match their hashes. When you play a video, every chunk delivered is verified against its hash.
 
 This happens without user action, without user awareness, without user discipline. The lazy human doesn't need to remember to verify. The software does it continuously, invisibly, as part of normal operation.
 
 ### Objective Reliability Emerges from Subjective Checks
 
-How does a new client evaluate a provider they've never used?
+All this subjective verification aggregates into objective reliability. There are two trust questions:
 
-From the aggregate behavior of many self-interested clients:
-- **Provider stake**: How much does the provider have to lose? Higher stake = more skin in game.
-- **Track record**: How many agreements completed? Extended vs. not extended? Payment burned (client unhappy)?
-- **Challenge history**: How many challenges received? How many failed? Failed challenges are catastrophic—full stake slashed.
-- **Replica diversity**: How many independent parties are storing replicas? What are their stakes and track records?
+**Trusting a provider (for your own bucket)**: Providers have on-chain track records—agreements completed, extensions, burns, challenges received and failed. A provider with 100 successful agreements, 80% extension rate, and zero failed challenges is probably reliable—not because they claim to be, but because 100 paying clients verified them over time. (See [Client Strategies](#client-strategies) for practical selection criteria.)
 
-No single client needs to trust these metrics. They emerge from many clients acting in their own interest. A provider with 100 successful agreements, 80% extension rate, and zero failed challenges is probably reliable—not because they claim to be, but because 100 paying clients verified them over time.
+**Trusting a bucket (someone else's data)**: How do you trust that a bucket you don't control will remain available? Look at who else cares:
+- **Replica diversity**: How many independent providers are storing replicas? What are their stakes?
+- **Stakeholder diversity**: Who funded these replicas? Major institutions? Community members? 
+- **Data importance**: If this bucket has replicas from providers across multiple jurisdictions with significant stake, many parties have skin in the game.
+
+The more independent stakeholders with economic interest in a bucket's availability, the stronger the guarantee—even if you never verify yourself.
 
 ### The Last Resort: Challenge It Yourself
 
@@ -199,7 +201,8 @@ In normal operation, clients and providers interact directly:
 The chain is touched only for:
 - **Bucket creation**: Once
 - **Agreement setup**: Per provider
-- **Checkpoints**: Infrequent, batched
+- **Checkpoints**: Infrequent, batched (primaries)
+- **Sync confirmations**: Replicas confirm they've synced to a checkpoint
 - **Disputes**: Rare, expensive, avoided by rational actors
 
 This inversion is key to scalability. Traditional approaches put everything on-chain (or prove everything to the chain). We put almost nothing on-chain—but the threat of on-chain resolution keeps everyone honest.
@@ -323,33 +326,41 @@ Clients should evaluate providers on:
 
 **Stake level**: Higher stake = more to lose = stronger incentive alignment. Match stake to data importance.
 
-| Data importance | Recommended stake tier |
+| Data importance | Example stake tier |
 |-----------------|------------------------|
 | Ephemeral (cache) | Any registered provider |
-| Standard (backups) | 10-20 μDOT/GB |
-| Critical (compliance) | 50-100 μDOT/GB |
+| Standard (backups) | Higher stake preferred |
+| Critical (compliance) | Highest available stake |
+
+*Note: Specific stake thresholds will emerge from market dynamics and can be refined based on production data.*
 
 **Track record**: Check on-chain stats:
-- Total agreements vs. agreements extended (extension = client satisfaction)
+- Total agreements vs. agreements extended (extension = client satisfactionV2 - better structure
+
+First draft)
 - Agreements burned (burn = client dissatisfaction)
 - Challenges received vs. failed (failed = catastrophic failure)
 - Provider age (longer = more track record)
 
 **Stake homogeneity**: Don't mix high-stake and low-stake providers for the same bucket. A 1000 DOT provider alongside a 10 DOT provider means the 10 DOT provider can safely freeload—they risk little while relying on the 1000 DOT provider.
 
-### Verifying Geographic Redundancy
+### Latency-Based Selection and Geographic Redundancy
 
-Providers claim locations via multiaddr, but physics doesn't lie.
+By tracking latency over time and shifting toward lower-latency providers, clients naturally sieve out freeloaders and slow providers. This happens automatically as part of normal usage.
 
-**Latency reveals location**: EU to US adds ~80ms minimum (speed of light in fiber). A "EU provider" responding in 100ms from EU clients is probably in the US.
+**Why this works**: Physics doesn't lie. Cross-region latency is unavoidable—EU to US adds ~60-80ms round-trip minimum. A provider fetching from another region to serve you will always be slower than one serving from local storage. Over time, latency tracking reveals:
+- Freeloaders proxying from other providers
+- Slow or overloaded providers
+- Providers not actually in their claimed region
 
-**Cross-region verification**:
+**Geographic redundancy emerges**: If a client sees consistently low latency from certain providers in a regionand high latency from others, the low-latency providers are genuinely serving from Europe. By selecting providers with consistently good latency from different regions, you achieve verified geographic distribution—not by trusting claims, but by measuring physics.
+
+**Cross-region verification in practice**:
 1. Select providers in distinct regions (EU, US-East, Asia)
 2. Know expected latency per region from your location
 3. Measure actual latency via random chunk reads
-4. Compare within regions—if one EU provider shows 100ms when others show 20ms, they're likely freeloading
-
-**The guarantee**: As long as you have one provider per region with expected latency, you have verified geographic redundancy. Freeloaders reveal themselves through unexpectedly high latency.
+4. Compare within regions—if one EU provider shows 100ms when others show 20ms, they're suspect
+5. Over time, shift toward consistently fast providers per region
 
 ### Automated Verification
 
@@ -433,11 +444,26 @@ MmrLeaf
 
 ### Client-Controlled Layout
 
-The protocol layer is opaque—just content-addressed chunks. Clients control how to organize their data:
+The protocol provides what is essentially a disk: content-addressed chunks of fixed size. Clients control layout completely.
 
-**Filesystem layout**: Directory as JSON chunk, files as chunk trees
-**Database layout**: B-trees in chunks, pages as leaves
-**Backup layout**: Extent trees, content-defined chunking
+Any filesystem technique works:
+- Reserved chunks for metadata/directories (e.g., first chunk = root directory)
+- Files referenced by byte offset + length
+- Inodes, extent trees, FAT—whatever the application needs
+- Encryption of all content including directory structure
+
+**Example layout:**
+
+```
+Chunk 0-2: [encrypted directory structure]
+Chunk 3-10: [encrypted file: photo1.jpg]
+Chunk 11-15: [encrypted file: document.pdf]
+...
+```
+
+The client reserves the first chunks for directory structure. With large chunk sizes (e.g., 256KB), multiple directory levels fit in a single chunk. The client fetches chunk 0, decrypts directory entries, learns where files live (by byte offset + length), and fetches. The provider sees only "client requested chunks 0, 3-10"—no semantic meaning.
+
+**Alternative: one file per leaf.** A chat channel might store each media file as its own MMR leaf—the leaf's `data_root` is simply the Merkle root of that file's chunks. No filesystem structure needed; the chat protocol tracks which leaf corresponds to which message.
 
 **Privacy by design**: Providers see only encrypted bytes. They learn nothing about file structure, metadata, or content. The application layer—entirely client-controlled—imposes meaning on the chunks.
 
@@ -533,7 +559,7 @@ Compliance:
 | Sector size | 32GB fixed | Flexible (any size) |
 | Best for | Cold archival | Hot interactive |
 
-**Trade-off**: Filecoin provides stronger cryptographic guarantees for data no one is actively using. We optimize for data someone cares about and verifies.
+**Trade-off**: Filecoin provides stronger cryptographic guarantees and objective guarantees even for data no one is actively using. We optimize for data someone cares about and verifies.
 
 ### vs. IPFS
 
@@ -605,19 +631,7 @@ Open to third-party providers. Add permissionless replica agreements.
 
 ### Isolation Mode
 
-Admins can instruct providers to temporarily refuse serving non-members, then challenge a specific provider. If that provider was freeloading (fetching from others), they can't respond. Detects freeloading without on-chain enforcement.
-
-### Cross-Bucket Deduplication
-
-Providers could offer discounts for data already stored in other buckets. Content addressing enables this transparently—same chunks, same hashes, stored once.
-
-### Provider Federations
-
-Groups of providers could offer coordinated redundancy—"store with our federation, guaranteed N replicas across M jurisdictions." Higher-level abstractions on top of the base protocol.
-
-### Hardware Attestation
-
-Future integration with trusted hardware could provide stronger guarantees without continuous proofs—attest that specific data is on specific hardware.
+Admins can instruct providers to temporarily refuse serving non-members, then challenge a specific provider. If that provider was freeloading (fetching from others), they can't respond. Detects freeloading without on-chain enforcement. Note: This was explained in more detail in the previous version of this doc, but became harder with the introduction of replicas - which should not be controllable by the admin. Incentives still align as honest providers have an interest to help catching free-loaders. Latency measurements and high stake should get us very far though.
 
 ---
 
@@ -631,4 +645,39 @@ We've designed a storage system for the common case: data that someone cares abo
 
 **The result:** Storage that scales with provider capacity, not chain throughput. Writes are instant. Reads are fast. Guarantees are economic, not cryptographic—and for active data with interested clients, that's enough.
 
-For data no one ever checks, no one ever reads, no one ever wants—use Filecoin. For everything else, this.
+For data no one ever checks, no one ever reads, no one ever wants or fire & forget use cases or needed stronger objective guarantees, even for unpopular data—use Filecoin.
+
+---
+
+## References
+
+### Filecoin
+
+1. **Sealing and Sector Sizes**: Filecoin uses 32GB and 64GB sectors. Sealing typically takes 1.5-3 hours with GPU acceleration.
+   - [Storage Proving | Filecoin Docs](https://docs.filecoin.io/storage-providers/filecoin-economics/storage-proving)
+
+2. **WindowPoSt (24-hour proof cycle)**: Every sector is proven once per 24-hour proving period, divided into 48 deadlines of 30 minutes each.
+   - [PoSt | Filecoin Spec](https://spec.filecoin.io/algorithms/pos/post/)
+   - [What's Window PoST? | Trapdoor Tech](https://trapdoortech.medium.com/filecoin-whats-window-post-7361bfbad755)
+
+3. **Proof of Data Possession (PDP)**: Launched May 2025, enabling hot storage verification without sealing.
+   - [Introducing PDP: Verifiable Hot Storage on Filecoin](https://filecoin.io/blog/posts/introducing-proof-of-data-possession-pdp-verifiable-hot-storage-on-filecoin/)
+
+### IPFS
+
+4. **DHT Lookup Latency**: Median retrieval times of 2.7-4.4 seconds; P90/P95 can extend to 10+ seconds.
+   - [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://arxiv.org/pdf/2208.05877)
+   - [IPFS KPIs | ProbeLab](https://www.probelab.io/ipfs/kpi/)
+   - [Consensys IPFS Lookup Measurement](https://github.com/Consensys/ipfs-lookup-measurement)
+
+### Network Latency
+
+5. **Transatlantic Latency**: Round-trip times between EU and US hubs typically range 60-80ms, with theoretical minimum ~55ms based on speed of light in fiber.
+   - Physical constraint: ~5,500km distance, light travels at ~200,000 km/s in fiber
+
+### Detection Probability
+
+6. **Spot-check Math**: For as little as 3 random checks per week with 10% data deletion:
+   - P(miss per week) = 0.9³ = 0.729
+   - P(detect in 13 weeks) = 1 - 0.729¹³ ≈ 0.98
+   - P(detect in 26 weeks) = 1 - 0.729²⁶ ≈ 0.9997
