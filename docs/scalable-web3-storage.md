@@ -148,10 +148,10 @@ The point: you're never dependent on trusting others' verification. You can alwa
 │  │  ├── snapshot: { mmr_root, start_seq, leaf_count }            │  │
 │  │  ├── primary_providers: [A, B]  (admin-controlled)            │  │
 │  │  └── storage agreements:                                      │  │
-│  │       ├── Provider A: { Primary, max_bytes, payment, ... }    │  │
-│  │       ├── Provider B: { Primary, max_bytes, payment, ... }    │  │
-│  │       ├── Provider C: { Replica, sync_balance, last_sync, ... }│  │
-│  │       └── Provider D: { Replica, sync_balance, last_sync, ... }│  │
+│  │      ├── Provider A: { Primary, max_bytes, payment, ... }     │  │
+│  │      ├── Provider B: { Primary, max_bytes, payment, ... }     │  │
+│  │      ├── Provider C: { Replica, sync_balance, last_sync, ... }│  │
+│  │      └── Provider D: { Replica, sync_balance, last_sync, ... }│  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │    Chain touched for:                                               │
@@ -407,6 +407,8 @@ Example scheme: Providers serve paying clients the best they can (maybe even ran
 On viral content, where even the original visit can't be served well, because of load, the client software can suggest to the user to pay for faster access - because of huge demand. (Cents)
 
 **The key distinction:** This is *payment history*, not stake amount. A client with 1 DOT staked who has paid 100 DOT over time gets better service than a client with 100 DOT staked who has never paid. Stake is about identity; payment history is about priority.
+
+Distinction to proof of personhood: Proof-of-DOT is a weaker sybil resistance for network-level operations where fast sieving matters—quickly filter requests without investing resources. Proof of personhood protects scarce resources (votes, airdrops, free transactions); Proof-of-DOT protects cheap resources (read requests, connection slots). One person can have multiple identities if they pay—that's fine. In practice they complement each other: proven persons could get DOT for Proof-of-DOT registration for free.
 
 ### Why Providers Serve Data
 
