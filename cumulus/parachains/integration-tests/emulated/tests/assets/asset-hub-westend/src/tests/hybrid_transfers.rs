@@ -13,9 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on,
-	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+use emulated_integration_tests_common::xcm_helpers::{
+	find_mq_processed_id, find_xcm_sent_message_id,
 };
 use frame_support::traits::fungible;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;

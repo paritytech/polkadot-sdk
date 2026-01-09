@@ -14,8 +14,6 @@
 // limitations under the License.
 
 use crate::{assets_balance_on, foreign_balance_on, imports::*};
-use emulated_integration_tests_common::PenpalAPen2TeleportableAssetLocation;
-use westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -553,7 +551,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 ) {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let asset_location_on_penpal = PenpalA::execute_with(|| LocalPen2Asset::get());
+	let asset_location_on_penpal = PenpalA::execute_with(|| PenpalLocalPen2Asset::get());
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_owner = PenpalAssetOwner::get();
 	let system_para_native_asset_location = RelayLocation::get();

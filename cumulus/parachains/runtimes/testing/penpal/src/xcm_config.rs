@@ -307,7 +307,7 @@ parameter_types! {
 		[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID})],
 	);
 
-	/// A PEN42 test asset.
+	/// A PEN2 test asset.
 	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.

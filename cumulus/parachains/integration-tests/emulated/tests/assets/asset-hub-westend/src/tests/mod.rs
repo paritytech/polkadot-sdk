@@ -17,7 +17,7 @@ mod aliases;
 mod claim_assets;
 mod exchange_asset;
 mod fellowship_treasury;
-// mod foreign_assets;
+mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
 mod reward_pool;
@@ -50,6 +50,18 @@ macro_rules! assets_balance_on {
 			<$chain>::execute_with(|| {
 				type Assets = <$chain as [<$chain Pallet>]>::Assets;
 				<Assets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! assets_exists_on {
+	( $chain:ident, $id:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::asset_exists($id)
 			})
 		}
 	};

@@ -42,6 +42,7 @@ use polkadot_runtime_parachains::configuration::HostConfiguration;
 use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use sp_runtime::traits::Convert;
+use xcm::v5::{Junction, Location};
 use xcm_emulator::{RelayBlockNumber, AURA_ENGINE_ID};
 
 pub const XCM_V2: u32 = 2;
@@ -81,26 +82,31 @@ impl Convert<(BlockNumber, RelayBlockNumber), Digest> for AuraDigestProvider {
 }
 
 parameter_types! {
-	pub PenpalALocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
-	pub PenpalBLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
-	pub PenpalAPen2TeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_A_ID),
-				xcm::v5::Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalALocation: Location = Location::new(1, [Junction::Parachain(PENPAL_A_ID)]);
+	pub PenpalBLocation: Location = Location::new(1, [Junction::Parachain(PENPAL_B_ID)]);
+	pub PenpalAPen2TeleportableAssetLocation: Location
+		= Location::new(1, [
+				Junction::Parachain(PENPAL_A_ID),
+				Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalBPen2TeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_B_ID),
-				xcm::v5::Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalBPen2TeleportableAssetLocation: Location
+		= Location::new(1, [
+				Junction::Parachain(PENPAL_B_ID),
+				Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
 	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
+}
+
+pub fn local_penpal_asset(id: u32) -> Location {
+	Location::new(
+		0,
+		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(id.into())],
+	)
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {
