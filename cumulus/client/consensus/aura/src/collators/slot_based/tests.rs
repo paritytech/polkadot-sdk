@@ -20,6 +20,7 @@ use super::{
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 };
 use async_trait::async_trait;
+use codec::Encode;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem};
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
@@ -28,6 +29,11 @@ use polkadot_primitives::{
 	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
 	Header as RelayHeader, Id as ParaId,
 };
+use rstest::rstest;
+use sc_consensus_babe::{
+	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
+};
+use sp_core::sr25519;
 use sp_runtime::{generic::BlockId, testing::Header as TestHeader, traits::Header};
 use sp_version::RuntimeVersion;
 use std::{
@@ -45,7 +51,7 @@ async fn offset_test_zero_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
 	assert_eq!(data.relay_parent().hash(), best_hash);
 	assert!(data.into_inherent_descendant_list().is_empty());
@@ -61,7 +67,7 @@ async fn offset_test_two_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
 	assert_eq!(*data.relay_parent().number(), 98);
 	let descendant_list = data.into_inherent_descendant_list();
@@ -80,7 +86,7 @@ async fn offset_test_five_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
 	assert_eq!(*data.relay_parent().number(), 95);
 	let descendant_list = data.into_inherent_descendant_list();
@@ -102,6 +108,33 @@ async fn offset_test_too_long() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101).await;
 	assert!(result.is_err());
+}
+
+#[derive(PartialEq)]
+enum HasEpochChange {
+	Yes,
+	No,
+}
+
+#[rstest]
+#[case::in_best(
+	&[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes],
+)]
+#[case::in_first_ancestor(
+	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No],
+)]
+#[case::in_second_ancestor(
+	&[HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
+)]
+#[tokio::test]
+async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasEpochChange]) {
+	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -591,6 +624,50 @@ impl RelayChainInterface for TestRelayClient {
 	async fn candidate_events(&self, _: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		unimplemented!("Not needed for test")
 	}
+}
+
+/// Build a consecutive set of relay headers whose digest entries optionally carry a BABE
+/// epoch-change marker, returning the underlying map and the hash of the last header.
+fn build_headers_with_epoch_flags(
+	flags: &[HasEpochChange],
+) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+	let mut headers = HashMap::new();
+	let mut parent_hash = RelayHash::default();
+	let mut last_hash = RelayHash::default();
+
+	for (index, has_epoch_change) in flags.iter().enumerate() {
+		let digest = if *has_epoch_change == HasEpochChange::Yes {
+			babe_epoch_change_digest()
+		} else {
+			Default::default()
+		};
+
+		let header = RelayHeader {
+			parent_hash,
+			number: (index as u32 + 1),
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest,
+		};
+
+		let hash = header.hash();
+		headers.insert(hash, header);
+		parent_hash = hash;
+		last_hash = hash;
+	}
+
+	(headers, last_hash)
+}
+
+/// Create a digest containing a single BABE `NextEpochData` item for use in tests.
+fn babe_epoch_change_digest() -> sp_runtime::generic::Digest {
+	let mut digest = sp_runtime::generic::Digest::default();
+	let authority_id = AuthorityId::from(sr25519::Public::from_raw([1u8; 32]));
+	let next_epoch =
+		NextEpochDescriptor { authorities: vec![(authority_id, 1u64)], randomness: [0u8; 32] };
+	let log = BabeConsensusLog::NextEpochData(next_epoch);
+	digest.push(sp_runtime::generic::DigestItem::Consensus(BABE_ENGINE_ID, log.encode()));
+	digest
 }
 
 fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {

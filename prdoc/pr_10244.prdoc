@@ -1,0 +1,7 @@
+title: '[pallet-revive] add tracing for selfdestruct'
+doc:
+- audience: Runtime Dev
+  description: Add tracing for selfdestruct
+crates:
+- name: pallet-revive
+  bump: patch

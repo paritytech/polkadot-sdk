@@ -20,6 +20,7 @@
 use super::*;
 use alloc::vec;
 use frame_support::{defensive, traits::Get, BoundedVec};
+use sp_runtime::traits::ConstU32;
 
 #[must_use]
 pub(super) enum DeadConsequence {
@@ -903,6 +904,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&details.owner,
 				details.deposit.saturating_add(metadata.deposit),
 			);
+			Reserves::<T, I>::remove(&id);
 			Self::deposit_event(Event::Destroyed { asset_id: id });
 
 			Ok(())
@@ -1099,16 +1101,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Does not check validity of asset id, caller should check it.
 	pub fn unchecked_update_reserves(
 		id: T::AssetId,
-		reserves: Vec<T::ReserveData>,
+		reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 	) -> Result<(), Error<T, I>> {
 		if reserves.is_empty() {
 			Reserves::<T, I>::remove(&id);
 			Self::deposit_event(Event::ReservesRemoved { asset_id: id });
 		} else {
-			let bounded_reserves =
-				reserves.clone().try_into().map_err(|_| Error::<T, I>::TooManyReserves)?;
-			Reserves::<T, I>::set(&id, bounded_reserves);
-			Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves });
+			let reserves_vec = reserves.clone().into_inner();
+			Reserves::<T, I>::set(&id, reserves);
+			Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves: reserves_vec });
 		}
 		Ok(())
 	}

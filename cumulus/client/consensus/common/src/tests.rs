@@ -17,6 +17,7 @@
 
 use crate::*;
 
+use crate::parachain_consensus::run_parachain_consensus;
 use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
@@ -404,8 +405,8 @@ fn build_and_import_block(mut client: Arc<Client>, import_as_best: bool) -> Bloc
 	)
 }
 
-#[test]
-fn follow_new_best_works() {
+#[tokio::test]
+async fn follow_new_best_works() {
 	sp_tracing::try_init_simple();
 
 	let client = Arc::new(TestClientBuilder::default().build());
@@ -414,8 +415,15 @@ fn follow_new_best_works() {
 	let relay_chain = Relaychain::new();
 	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
-	let consensus =
-		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}), None);
+	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
+	let consensus = run_parachain_consensus(
+		100.into(),
+		client.clone(),
+		relay_chain,
+		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
+		None,
+	);
 
 	let work = async move {
 		new_best_heads_sender.unbounded_send(block.header().clone()).unwrap();
@@ -427,19 +435,17 @@ fn follow_new_best_works() {
 		}
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = work.fuse() => {},
+	}
 }
 
-#[test]
-fn follow_new_best_with_dummy_recovery_works() {
+#[tokio::test]
+async fn follow_new_best_with_dummy_recovery_works() {
 	sp_tracing::try_init_simple();
 
 	let client = Arc::new(TestClientBuilder::default().build());
@@ -449,11 +455,13 @@ fn follow_new_best_with_dummy_recovery_works() {
 
 	let (recovery_chan_tx, mut recovery_chan_rx) = futures::channel::mpsc::channel(3);
 
+	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
 		100.into(),
 		client.clone(),
 		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
 		Some(recovery_chan_tx),
 	);
 
@@ -493,33 +501,38 @@ fn follow_new_best_with_dummy_recovery_works() {
 		}
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = dummy_block_recovery.fuse() => {},
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = dummy_block_recovery.fuse() => {},
+		_ = work.fuse() => {},
+	}
 }
 
-#[test]
-fn follow_finalized_works() {
+#[tokio::test]
+async fn follow_finalized_works() {
 	sp_tracing::try_init_simple();
 
 	let client = Arc::new(TestClientBuilder::default().build());
 
 	let block = build_and_import_block(client.clone(), false);
 	let relay_chain = Relaychain::new();
-	let finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
+	let _finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
 
-	let consensus =
-		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}), None);
+	let (mock_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
+	let consensus = run_parachain_consensus(
+		100.into(),
+		client.clone(),
+		relay_chain,
+		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
+		None,
+	);
 
 	let work = async move {
-		finalized_sender.unbounded_send(block.header().clone()).unwrap();
+		mock_finalized_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
@@ -528,19 +541,17 @@ fn follow_finalized_works() {
 		}
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = work.fuse() => {},
+	}
 }
 
-#[test]
-fn follow_finalized_does_not_stop_on_unknown_block() {
+#[tokio::test]
+async fn follow_finalized_does_not_stop_on_unknown_block() {
 	sp_tracing::try_init_simple();
 
 	let client = Arc::new(TestClientBuilder::default().build());
@@ -554,19 +565,26 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 	};
 
 	let relay_chain = Relaychain::new();
-	let finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
+	let _finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
 
-	let consensus =
-		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}), None);
+	let (mock_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
+	let consensus = run_parachain_consensus(
+		100.into(),
+		client.clone(),
+		relay_chain,
+		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
+		None,
+	);
 
 	let work = async move {
 		for _ in 0..3usize {
-			finalized_sender.unbounded_send(unknown_block.header().clone()).unwrap();
+			mock_finalized_sender.unbounded_send(unknown_block.header().clone()).unwrap();
 
 			Delay::new(Duration::from_millis(100)).await;
 		}
 
-		finalized_sender.unbounded_send(block.header().clone()).unwrap();
+		mock_finalized_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
@@ -575,22 +593,20 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 		}
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = work.fuse() => {},
+	}
 }
 
 // It can happen that we first import a relay chain block, while not yet having the parachain
 // block imported that would be set to the best block. We need to make sure to import this
 // block as new best block in the moment it is imported.
-#[test]
-fn follow_new_best_sets_best_after_it_is_imported() {
+#[tokio::test]
+async fn follow_new_best_sets_best_after_it_is_imported() {
 	sp_tracing::try_init_simple();
 
 	let client = Arc::new(TestClientBuilder::default().build());
@@ -606,8 +622,15 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 	let relay_chain = Relaychain::new();
 	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
-	let consensus =
-		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}), None);
+	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
+	let consensus = run_parachain_consensus(
+		100.into(),
+		client.clone(),
+		relay_chain,
+		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
+		None,
+	);
 
 	let work = async move {
 		new_best_heads_sender.unbounded_send(block.header().clone()).unwrap();
@@ -645,15 +668,13 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 		}
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = work.fuse() => {},
+	}
 }
 
 /// When we import a new best relay chain block, we extract the best parachain block from it and set
@@ -663,8 +684,8 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 /// could import block 100 as best and then import a relay chain block that says that block 99 is
 /// the best parachain block. This should not happen, we should never set the best block to a lower
 /// block number.
-#[test]
-fn do_not_set_best_block_to_older_block() {
+#[tokio::test]
+async fn do_not_set_best_block_to_older_block() {
 	const NUM_BLOCKS: usize = 4;
 
 	sp_tracing::try_init_simple();
@@ -682,8 +703,15 @@ fn do_not_set_best_block_to_older_block() {
 	let relay_chain = Relaychain::new();
 	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
-	let consensus =
-		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}), None);
+	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
+	let consensus = run_parachain_consensus(
+		100.into(),
+		client.clone(),
+		relay_chain,
+		Arc::new(|_, _| {}),
+		Box::new(finalized_receiver),
+		None,
+	);
 
 	let work = async move {
 		new_best_heads_sender
@@ -693,15 +721,13 @@ fn do_not_set_best_block_to_older_block() {
 		Delay::new(Duration::from_millis(300)).await;
 	};
 
-	block_on(async move {
-		futures::pin_mut!(consensus);
-		futures::pin_mut!(work);
+	futures::pin_mut!(consensus);
+	futures::pin_mut!(work);
 
-		select! {
-			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
-			_ = work.fuse() => {},
-		}
-	});
+	select! {
+		r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+		_ = work.fuse() => {},
+	}
 
 	// Build and import a new best block.
 	build_and_import_block(client, true);
