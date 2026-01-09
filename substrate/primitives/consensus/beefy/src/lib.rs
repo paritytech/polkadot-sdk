@@ -142,9 +142,8 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::KEY_TYPE;
 	use sp_application_crypto::{app_crypto, bls381};
-	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, Pair as _};
 
 	app_crypto!(bls381, KEY_TYPE);
 
@@ -153,23 +152,6 @@ pub mod bls_crypto {
 
 	/// Signature for a BEEFY authority using BLS as its crypto.
 	pub type AuthoritySignature = Signature;
-
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
-	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
-	{
-		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			// `w3f-bls` library uses IETF hashing standard and as such does not expose
-			// a choice of hash-to-field function.
-			// We are directly calling into the library to avoid introducing new host call.
-			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
-
-			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
-		}
-	}
-	impl AuthorityIdBound for AuthorityId {
-		type BoundedSignature = Signature;
-	}
 }
 
 /// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
@@ -609,22 +591,6 @@ mod tests {
 			&blake2_256_signature,
 			msg,
 		));
-	}
-
-	#[test]
-	#[cfg(feature = "bls-experimental")]
-	fn bls_beefy_verify_works() {
-		let msg = &b"test-message"[..];
-		let (pair, _) = bls_crypto::Pair::generate();
-
-		let signature: bls_crypto::Signature = pair.as_inner_ref().sign(&msg).into();
-
-		// Verification works if same hashing function is used when signing and verifying.
-		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
-
-		// Other public key doesn't work
-		let (other_pair, _) = bls_crypto::Pair::generate();
-		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
 
 	#[test]
