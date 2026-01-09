@@ -13,15 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{imports::*, tests::bridged_roc_at_ah_westend};
-use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, snowbridge::{SEPOLIA_ID, WETH}, PenpalBLocation};
-use frame_support::traits::fungibles::Mutate;
-use hex_literal::hex;
-use frame_support::traits::fungible::Mutate as _;
-use rococo_westend_system_emulated_network::penpal_emulated_chain::{
-	penpal_runtime::xcm_config::{CheckingAccount},
+use crate::{
+	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset, *},
+	tests::bridged_roc_at_ah_westend,
 };
+use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on,
+	snowbridge::{SEPOLIA_ID, WETH},
+	PenpalBLocation,
+};
+use frame_support::traits::{fungible::Mutate as _, fungibles::Mutate};
+use hex_literal::hex;
+use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::CheckingAccount;
 use snowbridge_core::AssetMetadata;
 use sp_core::H160;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -188,7 +192,21 @@ pub fn fund_on_penpal() {
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
-		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(
+		assert_ok!(<PenpalB as PenpalBPallet>::Balances::mint_into(&sudo_account, INITIAL_FUND,));
+	});
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+			LocalPen2Asset::get(),
+			&PenpalBReceiver::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+			LocalPen2Asset::get(),
+			&PenpalBSender::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+			LocalPen2Asset::get(),
 			&sudo_account,
 			INITIAL_FUND,
 		));
@@ -344,7 +362,12 @@ pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_foreign_pool_with_native_on!(PenpalB, Assets, eth_location(), ethereum_sovereign.clone());
+	create_foreign_pool_with_native_on!(
+		PenpalB,
+		Assets,
+		eth_location(),
+		ethereum_sovereign.clone()
+	);
 }
 
 pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
