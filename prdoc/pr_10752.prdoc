@@ -1,0 +1,16 @@
+title: '  Gap Sync: Skip Body Requests for Non-Archive Nodes'
+doc:
+- audience: Node Operator
+  description: |-
+    ### Summary
+    This PR optimizes gap sync bandwidth usage by skipping body requests for non-archive nodes. Bodies are unnecessary during gap sync when the node doesn't maintain full block history, while archive nodes continue to request bodies to preserve complete history.
+    It reduces bandwidth consumption and database size significantly for typical validator/full nodes.
+
+    Additionally added some gap sync statistics for observability:
+    - Introduced `GapSyncStats` to track bandwidth usage: header bytes, body bytes, justification bytes
+    - Logged on gap sync completion to provide visibility into bandwidth savings
+crates:
+- name: sc-network-sync
+  bump: patch
+- name: sc-service
+  bump: patch
