@@ -29,7 +29,10 @@
 //! Penpal Parachain Runtime genesis config presets
 
 use crate::{
-	xcm_config::{EthFromEthereum, LocalPen2Asset, RelayLocation, UsdtFromAssetHub},
+	xcm_config::{
+		EthFromEthereum, LocalPen2Asset, RelayLocation, UsdtFromAssetHub, ETHER_MIN_BALANCE,
+		USDT_ED,
+	},
 	*,
 };
 use alloc::{vec, vec::Vec};
@@ -110,9 +113,8 @@ fn penpal_parachain_genesis(
 			accounts: vec![
 				(RelayLocation::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
 				(LocalPen2Asset::get(), sudo.clone(), EXISTENTIAL_DEPOSIT * 4096,),
-				(UsdtFromAssetHub::get(), sudo.clone(), 100_000,),
-				// Todo: proper ED
-				(EthFromEthereum::get(), sudo, EXISTENTIAL_DEPOSIT * 4096,),
+				(UsdtFromAssetHub::get(), sudo.clone(), USDT_ED,),
+				(EthFromEthereum::get(), sudo, ETHER_MIN_BALANCE,),
 			]
 		}
 	})

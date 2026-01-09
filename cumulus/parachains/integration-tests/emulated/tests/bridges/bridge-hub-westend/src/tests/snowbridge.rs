@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::CheckingAccount, *},
+	imports::*,
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_roc_at_ah_westend,
@@ -1654,7 +1654,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	});
 
 	// Fund on Penpal
-	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(PenpalCheckingAccount::get(), INITIAL_FUND)]);
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
 			PenpalLocalPen2Asset::get(),

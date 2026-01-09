@@ -65,12 +65,11 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
 	ExternalConsensusLocationsConverterFor, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint,
-	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -286,6 +285,9 @@ pub const PENPAL_ASSETS_PALLET_ID: u8 = 51;
 pub const USDT_ASSET_ID: u128 = 1984;
 
 pub const SEPOLIA_ID: u64 = 11155111;
+// The minimum balance for assets pre-registered in emulated tests.
+pub const ETHER_MIN_BALANCE: u128 = 1000;
+pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
@@ -371,10 +373,7 @@ pub type WaivedLocations = Equals<RootLocation>;
 pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
-	(
-		LocalAssetsConvertedConcreteId,
-		ForeignAssetsConvertedConcreteId,
-	),
+	(LocalAssetsConvertedConcreteId, ForeignAssetsConvertedConcreteId),
 	AccountId,
 >;
 
