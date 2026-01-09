@@ -47,7 +47,9 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
+use substrate_rpc_client::{
+	rpc_params, ws_client, BatchRequestBuilder, ChainApi, ClientT, StateApi, WsClient,
+};
 use tokio_retry::{strategy::FixedInterval, Retry};
 
 type Result<T, E = &'static str> = std::result::Result<T, E>;
@@ -156,36 +158,52 @@ pub struct OfflineConfig {
 /// Description of the transport protocol (for online execution).
 #[derive(Debug, Clone)]
 pub enum Transport {
-	/// Use the `URI` to open a new WebSocket connection.
+	/// Use the `URI` to open a new connection.
+	///
+	/// It may be either a WebSocket or an HTTP URI.
 	Uri(String),
 	/// Use HTTP connection.
 	RemoteClient(HttpClient),
+	/// Use WebSocket connection.
+	RemoteWsClient(WsClient),
 }
 
 impl Transport {
-	fn as_client(&self) -> Option<&HttpClient> {
+	fn as_client(&self) -> Option<&dyn ClientT> {
 		match self {
-			Self::RemoteClient(client) => Some(client),
+			Self::RemoteClient(client) => Some(client as &dyn ClientT),
+			Self::RemoteWsClient(client) => Some(client as &dyn ClientT),
 			_ => None,
 		}
 	}
 
-	// Build an HttpClient from a URI.
+	// Build an RPC client from a URI.
 	async fn init(&mut self) -> Result<()> {
 		if let Self::Uri(uri) = self {
 			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
 
-			let http_client = HttpClient::builder()
-				.max_request_size(u32::MAX)
-				.max_response_size(u32::MAX)
-				.request_timeout(std::time::Duration::from_secs(60 * 5))
-				.build(uri)
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "error: {e:?}");
-					"failed to build http client"
-				})?;
+			if uri.starts_with("http://") || uri.starts_with("https://") {
+				let http_client = HttpClient::builder()
+					.max_request_size(u32::MAX)
+					.max_response_size(u32::MAX)
+					.request_timeout(std::time::Duration::from_secs(60 * 5))
+					.build(uri)
+					.map_err(|e| {
+						error!(target: LOG_TARGET, "error: {e:?}");
+						"failed to build http client"
+					})?;
 
-			*self = Self::RemoteClient(http_client)
+				*self = Self::RemoteClient(http_client)
+			} else if uri.starts_with("ws://") || uri.starts_with("wss://") {
+				let ws = ws_client(uri).await.map_err(|e| {
+					error!(target: LOG_TARGET, "error: {e}");
+					"failed to build ws client"
+				})?;
+				*self = Self::RemoteWsClient(ws)
+			} else {
+				error!(target: LOG_TARGET, "unsupported uri scheme: {uri:?}");
+				return Err("unsupported uri scheme (expected http(s) or ws(s))")
+			}
 		}
 
 		Ok(())
@@ -228,11 +246,11 @@ pub struct OnlineConfig<H> {
 }
 
 impl<H: Clone> OnlineConfig<H> {
-	/// Return rpc (http) client reference.
-	fn rpc_client(&self) -> &HttpClient {
+	/// Return rpc client reference.
+	fn rpc_client(&self) -> &dyn ClientT {
 		self.transport
 			.as_client()
-			.expect("http client must have been initialized by now; qed.")
+			.expect("rpc client must have been initialized by now; qed.")
 	}
 
 	fn at_expected(&self) -> H {
