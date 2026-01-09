@@ -26,6 +26,7 @@ use frame_support::assert_noop;
 use snowbridge_core::AssetMetadata;
 use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
+use crate::imports::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset;
 
 #[test]
 fn register_penpal_a_asset_from_penpal_b_will_fail() {
@@ -46,7 +47,8 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			},
 		],
 	);
-	let asset_location_on_penpal = Location::here();
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| LocalPen2Asset::get());
 	let penpal_a_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
