@@ -66,11 +66,11 @@ use xcm_builder::{
 	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
 	ExternalConsensusLocationsConverterFor, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint,
-	MatchedConvertedConcreteId, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
+	UsingComponents, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
