@@ -267,7 +267,7 @@ impl PalletCmd {
 				.map_err(|e| format!("Failed to parse genesis patch JSON: {}", e))?;
 
 			Some(Box::new(move |mut value| {
-				sc_chain_spec::json_patch::merge(&mut value, patch_value.clone());
+				sc_chain_spec::json_patch::merge(&mut value, patch_value);
 				value
 			}) as Box<dyn FnOnce(Value) -> Value + 'static>)
 		} else {
