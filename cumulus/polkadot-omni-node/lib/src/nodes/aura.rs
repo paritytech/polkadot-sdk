@@ -435,11 +435,17 @@ where
 			let relay_parent_offset =
 				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
 
+			// Standard relay chain slot duration for all relay chain networks.
+			const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
+			let relay_blocks_per_para_block =
+				(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+
 			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 				current_para_block: current_block_number,
 				para_id,
 				current_para_block_head,
-				relay_blocks_per_para_block: 1,
+				relay_blocks_per_para_block,
 				relay_parent_offset,
 				para_blocks_per_relay_epoch: 10,
 				upgrade_go_ahead: should_send_go_ahead.then(|| {
