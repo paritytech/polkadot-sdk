@@ -416,7 +416,7 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop, TestArgs<Location>>) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
@@ -498,7 +498,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 }
 
 pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
-	mut t: Test<PenpalA, PenpalB, Hop>,
+	mut t: Test<PenpalA, PenpalB, Hop, TestArgs<Location>>,
 ) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 

@@ -122,8 +122,8 @@ mod imports {
 	pub(crate) type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 	pub(crate) type SystemParaToParaTest = Test<AssetHubWestend, PenpalA, (), TestArgs<Location>>;
 	pub(crate) type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend, (), TestArgs<Location>>;
-	pub(crate) type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
-	pub(crate) type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
+	pub(crate) type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend, TestArgs<Location>>;
+	pub(crate) type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend, TestArgs<Location>>;
 	pub(crate) type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
 	pub(crate) type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }

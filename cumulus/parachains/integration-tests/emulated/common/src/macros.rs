@@ -839,26 +839,26 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			test.set_call(call);
 			test.assert();
 
-			// let sender_assets_after = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-			// 	type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
-			// 	<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
-			// });
-			// let receiver_assets_after = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-			// 	type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
-			// 	<Assets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
-			// });
-			//
-			// // We know the exact fees on every hop.
-			// assert_eq!(sender_assets_after, sender_assets_before - $amount);
-			// assert_eq!(
-			// 	receiver_assets_after,
-			// 	receiver_assets_before + $amount -
-			// 		local_execution_fees -
-			// 		local_delivery_fees -
-			// 		intermediate_execution_fees -
-			// 		intermediate_delivery_fees -
-			// 		final_execution_fees
-			// );
+			let sender_assets_after = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
+				type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
+			});
+			let receiver_assets_after = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
+				type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
+			});
+
+			// We know the exact fees on every hop.
+			assert_eq!(sender_assets_after, sender_assets_before - $amount);
+			assert_eq!(
+				receiver_assets_after,
+				receiver_assets_before + $amount -
+					local_execution_fees -
+					local_delivery_fees -
+					intermediate_execution_fees -
+					intermediate_delivery_fees -
+					final_execution_fees
+			);
 		}
 	};
 }

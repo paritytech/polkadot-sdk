@@ -563,7 +563,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = ConstU32<0>; // Makes account balance tracking in tests a bit easier
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
