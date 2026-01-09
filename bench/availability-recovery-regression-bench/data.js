@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765372184440,
+  "lastUpdate": 1767980302939,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "37951b676608dce36c7997f2950f7d3a9a21118b",
-          "message": "Add XCM Precompile to `pallet-xcm` (#8693)\n\nThis PR adds the XCM precompile (with `xcmSend`, `xcmExecute` and\n`weightMessage` functionalities) to `pallet-xcm`.\n\nThis follows the discussion we had on the now closed\n[PR](https://github.com/paritytech/polkadot-sdk/pull/8471/), which\nattempted to add the precompile to `pallet-revive`, but that approach\nwould have introduced unwanted cyclic dependencies. That's why we\ndecided to migrate the precompile to `pallet-xcm`, avoiding adding\nunnecessary dependencies to `pallet-revive`.\n\nThis PR should also encapsulate unit tests in `precompiles.rs` as well\nas integration tests under\n`cumulus/parachains/integration-tests/emulated/tests`.\n\nSee tracking parent\n[issue](https://github.com/paritytech/polkadot-sdk/issues/6718)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Siphamandla Mjoli <brianm445@yahoo.com>\nCo-authored-by: Siphamandla Mjoli <siphamandla@parity.io>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-06-11T12:57:58Z",
-          "tree_id": "413c3d93f10ff655360c35656d034658631b6523",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/37951b676608dce36c7997f2950f7d3a9a21118b"
-        },
-        "date": 1749650252148,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19891047923333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.262051077233332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19871638223333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
+          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
+          "timestamp": "2026-01-09T16:32:49Z",
+          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
+        },
+        "date": 1767980276728,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.622855398566667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12571784560000002,
             "unit": "seconds"
           }
         ]
