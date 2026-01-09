@@ -10759,7 +10759,6 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-keystore",
  "sp-runtime",
- "sp-statement-store",
  "substrate-frame-rpc-system",
  "substrate-state-trie-migration-rpc",
 ]

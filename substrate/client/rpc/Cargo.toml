@@ -45,16 +45,16 @@ tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+async-channel = { workspace = true }
+futures-timer = { workspace = true }
 pretty_assertions = { workspace = true }
+sc-keystore = { workspace = true }
 sc-network = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
-sc-keystore = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
-async-channel = { workspace = true }
-futures-timer = { workspace = true }
 
 [features]
 test-helpers = []

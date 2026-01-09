@@ -356,9 +356,12 @@ pub fn new_partial(
 						beefy_best_block_stream: beefy_rpc_links
 							.from_voter_best_beefy_stream
 							.clone(),
+						subscription_executor: subscription_executor.clone(),
+					},
+					statement_store: node_rpc::StatementStoreDeps {
+						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},
-					statement_store: rpc_statement_store.clone(),
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),
 				};
