@@ -118,8 +118,8 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 			ForeignAssets,
 			$asset_id,
 			$asset_owner,
-			1_000_000_000_000,
-			2_000_000_000_000
+			$wnd_amount,
+			$asset_amount
 		);
 	};
 
