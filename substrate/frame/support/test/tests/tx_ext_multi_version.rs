@@ -212,7 +212,7 @@ fn dispatch_of_valid_extrinsic_succeeds() {
 fn dispatch_of_invalid_extrinsic_fails() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
-		// Create an unchecked extrinsic with token=7
+		// Create an unchecked extrinsic with token=0
 		// and set `AccountId=1` to simulate an authorized origin.
 		let xt = UncheckedExtrinsic::from_parts(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2] }),
