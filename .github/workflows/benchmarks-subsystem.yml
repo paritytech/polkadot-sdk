@@ -66,7 +66,8 @@ jobs:
         id: run-benchmarks
         run: |
           forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "error"
-          ls -lsa ./charts
+          # fails if file not found
+          ls -lsa ./charts | grep json
 
       - name: Upload artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
