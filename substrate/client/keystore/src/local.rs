@@ -429,23 +429,11 @@ impl Keystore for LocalKeystore {
 			public: &ecdsa_bls381::Public,
 			msg: &[u8],
 		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
-			self.ecdsa_bls381_sign_with_hasher::<KeccakHasher>(key_type, public, msg)
-		}
-
-		fn ecdsa_bls381_sign_with_hasher<H: sp_core::Hasher>(
-			&self,
-			key_type: KeyTypeId,
-			public: &ecdsa_bls381::Public,
-			msg: &[u8],
-		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError>
-		where
-			H::Out: Into<[u8; 32]>,
-		{
 			let sig = self
 				.0
 				.read()
 				.key_pair_by_type::<ecdsa_bls381::Pair>(public, key_type)?
-				.map(|pair| pair.sign_with_hasher::<H>(msg));
+				.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
 			Ok(sig)
 		}
 	}

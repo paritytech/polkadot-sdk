@@ -106,16 +106,20 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 
 			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => {
+				let hash_output =
+					<<AuthorityId as AuthorityIdBound>::SignatureHasher as Hash>::hash(message);
+				let msg_hash: [u8; 32] = hash_output.as_ref().try_into().map_err(|_| {
+					error::Error::Signature("hash output must be 32 bytes".to_string())
+				})?;
 				let public: ecdsa_bls381::Public =
 					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
+
 				let sig = store
-					.ecdsa_bls381_sign_with_hasher::<<AuthorityId as AuthorityIdBound>::SignatureHasher>(
-						BEEFY_KEY_TYPE,
-						&public,
-						&message,
-					)
+					.ecdsa_bls381_sign(BEEFY_KEY_TYPE, &public, &msg_hash)
 					.map_err(|e| error::Error::Keystore(e.to_string()))?
-					.ok_or_else(|| error::Error::Signature("bls381_sign()  failed".to_string()))?;
+					.ok_or_else(|| {
+						error::Error::Signature("ecdsa_bls381_sign() failed".to_string())
+					})?;
 				let sig_ref: &[u8] = sig.as_ref();
 				sig_ref.to_vec()
 			},
