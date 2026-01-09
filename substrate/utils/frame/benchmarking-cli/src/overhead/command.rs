@@ -444,7 +444,7 @@ impl OverheadCmd {
 			_ => user_genesis_patcher.map(|user_patch| {
 				Box::new(move |value| {
 					let mut patched_value = value;
-					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch.clone());
+					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch);
 
 					patched_value
 				}) as Box<_>
