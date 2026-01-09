@@ -9,4 +9,4 @@ doc:
 
 crates:
 - name: frame-benchmarking-cli
-  bump: minor
+  bump: major
