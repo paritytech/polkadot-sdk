@@ -4,7 +4,7 @@ use polkadot_sdk::pallet_revive::precompiles::AddressMatcher;
 use core::num::NonZeroU16;
 use alloy_core::sol;
 
-use ui_tests::runtime::Runtime;
+use pallet_revive_ui_tests::runtime::Runtime;
 use core::marker::PhantomData;
 
 sol! {
