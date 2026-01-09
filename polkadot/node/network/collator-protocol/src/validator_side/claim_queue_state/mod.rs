@@ -32,9 +32,9 @@ pub(crate) use per_leaf::PerLeafClaimQueueState;
 enum ClaimState {
 	/// Unclaimed
 	Free,
-	/// The candidate is pending fetching or validation. The candidate hash is optional because for
-	/// the non-experimental version of the collator protocol, we don't care about specific
-	/// candidate hashes, but only about their number.
+	/// The candidate is pending fetching or validation. The candidate hash is optional because
+	/// collator protocol v1 doesn't care about specific candidate hashes, but only about their
+	/// number.
 	Pending(Option<CandidateHash>),
 	/// The candidate is seconded.
 	Seconded(CandidateHash),

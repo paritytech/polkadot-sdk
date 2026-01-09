@@ -113,8 +113,8 @@ impl ClaimQueueState {
 	/// - The `future_blocks` will contain all the claims in the window of the `target_relay_parent`
 	/// - All other claims are dropped
 	pub(super) fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
+		// don't fork from the last block!
 		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
-			// don't fork from the last block!
 			return None
 		}
 
