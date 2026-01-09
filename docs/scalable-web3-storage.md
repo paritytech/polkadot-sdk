@@ -25,12 +25,13 @@
 2. [Our Approach: Pragmatic Verification](#our-approach-pragmatic-verification)
 3. [Architecture Overview](#architecture-overview)
 4. [Economic Model](#economic-model)
-5. [Client Strategies](#client-strategies)
-6. [Data Model](#data-model)
-7. [Use Cases](#use-cases)
-8. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
-9. [Rollout](#rollout)
-10. [Future Directions](#future-directions)
+5. [Proof-of-DOT and Read Incentives](#proof-of-dot-and-read-incentives)
+6. [Client Strategies](#client-strategies)
+7. [Data Model](#data-model)
+8. [Use Cases](#use-cases)
+9. [Comparison with Existing Solutions](#comparison-with-existing-solutions)
+10. [Rollout](#rollout)
+11. [Future Directions](#future-directions)
 
 ---
 
@@ -135,6 +136,64 @@ The point: you're never dependent on trusting others' verification. You can alwa
 ---
 
 ## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           ON-CHAIN                                  │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                         BUCKET                                │  │
+│  │  ├── members: [Admin, Writers, Readers]                       │  │
+│  │  ├── min_providers: 2                                         │  │
+│  │  ├── snapshot: { mmr_root, start_seq, leaf_count }            │  │
+│  │  ├── primary_providers: [A, B]  (admin-controlled)            │  │
+│  │  └── storage agreements:                                      │  │
+│  │       ├── Provider A: { Primary, max_bytes, payment, ... }    │  │
+│  │       ├── Provider B: { Primary, max_bytes, payment, ... }    │  │
+│  │       ├── Provider C: { Replica, sync_balance, last_sync, ... }│  │
+│  │       └── Provider D: { Replica, sync_balance, last_sync, ... }│  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│    Chain touched for:                                               │
+│    • Bucket creation and membership (once)                          │
+│    • Storage agreement setup (per provider)                         │
+│    • Checkpoints (infrequent, batched)                              │
+│    • Replica sync confirmations (periodic)                          │
+│    • Dispute resolution (rare, game-theoretic deterrent)            │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ▲
+                                    │ rare
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                          OFF-CHAIN                                  │
+│                                                                     │
+│   ┌─────────────┐    writes     ┌─────────────┐                     │
+│   │   Client    │ ────────────> │  Primary    │                     │
+│   │             │               │  Provider   │                     │
+│   └─────────────┘               └─────────────┘                     │
+│          │                             │                            │
+│          │ reads                       │ sync                       │
+│          ▼                             ▼                            │
+│   ┌─────────────┐               ┌─────────────┐                     │
+│   │  Primary or │               │   Replica   │ (syncs from         │
+│   │  Replica    │               │   Provider  │  primaries/replicas)│
+│   └─────────────┘               └─────────────┘                     │
+│          ▲                                                          │
+│          │ discovery: bucket → agreements → provider endpoints      │
+│          └──────────────────────────────────────────────────────────│
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ▲
+                                    │ foundation
+┌─────────────────────────────────────────────────────────────────────┐
+│                      PROOF-OF-DOT                                   │
+│                                                                     │
+│   Sybil resistance, identity, read priority                         │
+│   See: Proof-of-DOT Infrastructure Strategy                         │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ### Buckets: Stable Identity in a Fluid Provider Market
 
@@ -315,6 +374,59 @@ What stops a provider from storing nothing and fetching from other providers whe
 **Detection**: Freeloading adds latency. A provider fetching from elsewhere shows network delay; a provider reading from local disk shows disk latency. Clients measuring random read latency can detect and avoid freeloaders.
 
 **Isolation mode** (future): Admin temporarily blocks providers B and C from serving, then challenges A. If A can't respond without fetching from B/C, A is caught.
+
+---
+
+## Proof-of-DOT and Read Incentives
+
+Storage guarantees that data *exists*. But what makes providers *serve* it?
+
+### Identity and Sybil Resistance
+
+Before anything else, we need identity. Without it, reputation is meaningless, spam is free, and accountability is impossible.
+
+Proof-of-DOT (detailed in the [Proof-of-DOT Infrastructure Strategy](https://docs.google.com/document/d/1fNv75FCEBFkFoG__s_Xu10UZd0QsGIE9AKnrouzz-U8/)) provides this foundation:
+
+**For clients:**
+- Lock DOT against a PeerID
+- Providers can lookup PeerIDs on connection establishment
+- Enables reputation: providers remember past interactions
+- Prevents spam: creating identities costs money
+
+**For providers:**
+- Same Proof-of-DOT mechanism (sybil resistance, identity)
+- Separately: providers lock collateral for storage agreements
+- Collateral stake-per-byte ratio signals commitment level
+
+### Payment Priority
+
+Providers track cumulative payments received from each client. Clients who have paid more get priority in serving queues.
+
+Example scheme: Providers serve paying clients the best they can (maybe even rank them, if resources get low). Non-paying new clients get also served well, but if they keep coming back, demanding service for free - priority degrades, incentivizing payments. Clients will thus spread the load amoung providers, but will eventually pay to maintain a good service for a resource they use regularly.
+
+On viral content, where even the original visit can't be served well, because of load, the client software can suggest to the user to pay for faster access - because of huge demand. (Cents)
+
+**The key distinction:** This is *payment history*, not stake amount. A client with 1 DOT staked who has paid 100 DOT over time gets better service than a client with 100 DOT staked who has never paid. Stake is about identity; payment history is about priority.
+
+### Why Providers Serve Data
+
+Competition drives quality. The feedback loop is natural:
+
+- Client feels mistreated? Switch providers or stop paying.
+- Provider wants revenue? Treat paying clients well.
+
+Clients connect to multiple providers, experience service quality directly, and vote with their feet. No complex monitoring required—just "did this work well for me?"
+
+### Challenge as Price Ceiling
+
+The challenge mechanism creates a ceiling that protects clients even against monopolistic providers.
+
+If a provider demands more than the challenge cost to serve data, the rational client simply challenges on-chain and recovers the data via the proof. The provider:
+- Gets no payment
+- Pays challenge costs
+- Loses reputation
+
+So rational providers price *below* the challenge threshold. Most of the time, competition drives prices well below this ceiling anyway—it only matters for the edge case of a single provider attempting ransom - which should be avoided to begin with.
 
 ---
 
