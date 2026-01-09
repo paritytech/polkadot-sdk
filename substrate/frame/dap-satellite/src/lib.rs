@@ -128,25 +128,37 @@ pub mod pallet {
 		/// Create the satellite account with a provider reference and fund it with ED.
 		///
 		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains).
+		/// (for existing chains). Safe to call multiple times - will early exit if account
+		/// already exists with sufficient balance.
 		pub fn create_satellite_account() {
 			let satellite = Self::satellite_account();
+			let ed = T::Currency::minimum_balance();
+
+			if frame_system::Pallet::<T>::providers(&satellite) > 0 &&
+				T::Currency::balance(&satellite) >= ed
+			{
+				log::debug!(
+					target: LOG_TARGET,
+					"DAP satellite account already initialized: {satellite:?}"
+				);
+				return;
+			}
+
 			// Ensure the account exists by incrementing its provider count.
 			frame_system::Pallet::<T>::inc_providers(&satellite);
 
 			// Fund the account with ED so it can receive deposits of any amount.
 			// Without this, deposits smaller than ED would fail.
-			let ed = T::Currency::minimum_balance();
 			log::info!(
 				target: LOG_TARGET,
 				"Attempting to mint ED ({ed:?}) into DAP satellite: {satellite:?}"
 			);
 
 			match T::Currency::mint_into(&satellite, ed) {
-				Ok(actual) => {
+				Ok(_) => {
 					log::info!(
 						target: LOG_TARGET,
-						"💸 Successfully minted {actual:?} into DAP satellite"
+						"🛰️ Created DAP satellite account: {satellite:?}"
 					);
 				},
 				Err(e) => {
@@ -156,12 +168,6 @@ pub mod pallet {
 					);
 				},
 			}
-
-			let balance = T::Currency::balance(&satellite);
-			log::info!(
-				target: LOG_TARGET,
-				"🛰️ Created DAP satellite account: {satellite:?}, balance: {balance:?}"
-			);
 		}
 	}
 
@@ -189,16 +195,20 @@ pub mod migrations {
 	/// Version 1 migration.
 	pub mod v1 {
 		use super::*;
-		use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-		/// Inner migration that creates the satellite account.
-		pub struct InitSatelliteAccountInner<T>(core::marker::PhantomData<T>);
+		mod inner {
+			use super::*;
+			use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-		impl<T: Config> UncheckedOnRuntimeUpgrade for InitSatelliteAccountInner<T> {
-			fn on_runtime_upgrade() -> Weight {
-				Pallet::<T>::create_satellite_account();
-				// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-				T::DbWeight::get().reads_writes(3, 3)
+			/// Inner migration that creates the satellite account.
+			pub struct InitSatelliteAccountInner<T>(core::marker::PhantomData<T>);
+
+			impl<T: Config> UncheckedOnRuntimeUpgrade for InitSatelliteAccountInner<T> {
+				fn on_runtime_upgrade() -> Weight {
+					Pallet::<T>::create_satellite_account();
+					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
+					T::DbWeight::get().reads_writes(3, 3)
+				}
 			}
 		}
 
@@ -206,7 +216,7 @@ pub mod migrations {
 		pub type InitSatelliteAccount<T> = frame_support::migrations::VersionedMigration<
 			0,
 			1,
-			InitSatelliteAccountInner<T>,
+			inner::InitSatelliteAccountInner<T>,
 			Pallet<T>,
 			<T as frame_system::Config>::DbWeight,
 		>;
