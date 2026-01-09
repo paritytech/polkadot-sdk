@@ -105,7 +105,7 @@ parameter_types! {
 pub fn local_penpal_asset(id: u32) -> Location {
 	Location::new(
 		0,
-		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(id.into())],
+		[Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID), Junction::GeneralIndex(id.into())],
 	)
 }
 
