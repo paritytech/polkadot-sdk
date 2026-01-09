@@ -55,7 +55,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
@@ -259,7 +259,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(INSUFFICIENT_REMOTE_FEE_AMOUNT) };
@@ -335,7 +335,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };

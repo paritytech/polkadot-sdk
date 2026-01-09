@@ -20,7 +20,7 @@ use crate::{
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, impls::Decode, PenpalBLocation};
+use emulated_integration_tests_common::{impls::Decode, PenpalBLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
@@ -720,14 +720,11 @@ fn register_token_from_penpal() {
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 
-	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
-
 	PenpalB::execute_with(|| {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
