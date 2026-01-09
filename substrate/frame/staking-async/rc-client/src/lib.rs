@@ -1050,6 +1050,11 @@ pub mod pallet {
 		/// This, combined with the enforcement of a high minimum validator bond, makes it
 		/// reasonable not to require a deposit.
 		///
+		/// **Fees:**
+		/// The stash account must have sufficient balance to pay XCM delivery fees.
+		/// When called via a staking proxy, the proxy pays the transaction weight fee,
+		/// while the stash (delegating account) pays the XCM delivery fee.
+		///
 		/// NOTE: unlike the current flow for new validators on RC (bond -> set_keys -> validate),
 		/// users on Asset Hub MUST call bond and validate BEFORE calling set_keys. Attempting to
 		/// set keys before declaring intent to validate will fail with NotValidator.
@@ -1096,8 +1101,13 @@ pub mod pallet {
 		/// `pallet-session::purge_keys` which allows anyone to call it.
 		///
 		/// The Relay Chain will reject the call with `NoKeys` error if the account has no
-		/// keys set, so there's no risk of state pollution. The only "attack" vector would
-		/// be paying transaction fees to send XCM messages that do nothing.
+		/// keys set.
+		///
+		/// **Fees:**
+		/// The caller must have sufficient balance to pay XCM delivery fees.
+		/// When called via a staking proxy, the proxy pays the transaction weight fee,
+		/// while the delegating account pays the XCM delivery fee.
+		///
 		/// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		/// (storage item) to track accounts that have called set_keys. We will also need to perform
 		/// a migration to populate the state for all validators that have set keys via RC.

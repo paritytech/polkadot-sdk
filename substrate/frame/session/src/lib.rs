@@ -387,11 +387,11 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
-/// Interface to the session pallet for cross-chain session management.
+/// Interface to the session pallet for session management.
 ///
 /// This trait provides a complete interface for managing sessions from external contexts,
-/// such as cross-chain communication from AssetHub to the Relay Chain. It combines session
-/// key management with validator operations and historical session data pruning.
+/// such as other pallets or runtime components. It combines session key management with
+/// validator operations and historical session data pruning.
 ///
 /// Implemented by `Pallet<T>` when `T: Config + historical::Config`.
 pub trait SessionInterface {
@@ -417,15 +417,11 @@ pub trait SessionInterface {
 
 	/// Set session keys for an account.
 	///
-	/// This is called when AssetHub forwards a session key registration via XCM.
-	///
 	/// This method does not validate ownership proof. Callers must verify that the keys belong to
 	/// the account before calling this method.
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
 
 	/// Purge session keys for an account.
-	///
-	/// This is called when AssetHub forwards a session key purge request via XCM.
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
 
 	/// Weight for setting session keys.

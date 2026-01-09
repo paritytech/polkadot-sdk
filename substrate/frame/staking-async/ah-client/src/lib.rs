@@ -436,8 +436,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Could not process incoming message because incoming messages are blocked.
 		Blocked,
-		/// The session keys could not be decoded.
-		InvalidKeys,
 	}
 
 	#[pallet::event]
@@ -654,9 +652,7 @@ pub mod pallet {
 					},
 				};
 
-			T::SessionInterface::set_keys(&stash, session_keys)?;
-
-			Ok(())
+			T::SessionInterface::set_keys(&stash, session_keys)
 		}
 
 		/// Purge session keys for a validator, forwarded from AssetHub.
@@ -669,9 +665,7 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
 
-			T::SessionInterface::purge_keys(&stash)?;
-
-			Ok(())
+			T::SessionInterface::purge_keys(&stash)
 		}
 	}
 

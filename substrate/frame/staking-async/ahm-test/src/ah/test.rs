@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ah::mock::{MockDeliveryFees, *};
+use crate::ah::mock::*;
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::assert_ok;
@@ -1417,11 +1417,12 @@ mod session_keys {
 	#[test]
 	fn set_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator with mock delivery fees configured
+			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let mock_fee_amount: u128 = 1_000_000;
-			MockDeliveryFees::set(Some(mock_fee_amount));
+			let fee_amount: u128 = 50;
+			XcmDeliveryFee::set(fee_amount);
+			let balance_before = Balances::free_balance(validator);
 
 			// WHEN: Validator sets session keys
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
@@ -1433,12 +1434,15 @@ mod session_keys {
 			// THEN: DeliveryFeesPaid event is emitted with the fees
 			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
 				id: xcm::latest::AssetId(xcm::latest::Location::here()),
-				fun: xcm::latest::Fungibility::Fungible(mock_fee_amount),
+				fun: xcm::latest::Fungibility::Fungible(fee_amount),
 			});
 			System::assert_has_event(
 				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
 					.into(),
 			);
+
+			// AND: Validator's balance is reduced by the fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - fee_amount);
 		});
 	}
 
@@ -1605,12 +1609,15 @@ mod session_keys {
 	}
 
 	#[test]
-	fn set_keys_fails_when_fee_charging_fails() {
+	fn set_keys_fails_with_insufficient_balance() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Validator but fee charging will fail (simulates insufficient balance)
+			// GIVEN: Validator with insufficient balance to pay delivery fees
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			MockFeeChargingFails::set(true);
+
+			// Set delivery fee higher than validator's free balance
+			let validator_balance = Balances::free_balance(validator);
+			XcmDeliveryFee::set(validator_balance + 1);
 
 			// WHEN: Validator tries to set keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
@@ -1624,16 +1631,20 @@ mod session_keys {
 				e.event,
 				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
 			)));
+
+			// AND: Balance unchanged (fees were not charged)
+			assert_eq!(Balances::free_balance(validator), validator_balance);
 		});
 	}
 
 	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 3 is a validator with mock delivery fees configured
+			// GIVEN: Account 3 is a validator with delivery fees configured
 			let validator: AccountId = 3;
-			let mock_fee_amount: u128 = 500_000;
-			MockDeliveryFees::set(Some(mock_fee_amount));
+			let fee_amount: u128 = 50;
+			XcmDeliveryFee::set(fee_amount);
+			let balance_before = Balances::free_balance(validator);
 
 			// WHEN: Validator purges session keys
 			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
@@ -1641,12 +1652,15 @@ mod session_keys {
 			// THEN: DeliveryFeesPaid event is emitted with the fees
 			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
 				id: xcm::latest::AssetId(xcm::latest::Location::here()),
-				fun: xcm::latest::Fungibility::Fungible(mock_fee_amount),
+				fun: xcm::latest::Fungibility::Fungible(fee_amount),
 			});
 			System::assert_has_event(
 				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
 					.into(),
 			);
+
+			// AND: Validator's balance is reduced by the fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - fee_amount);
 		});
 	}
 
@@ -1704,11 +1718,14 @@ mod session_keys {
 	}
 
 	#[test]
-	fn purge_keys_fails_when_fee_charging_fails() {
+	fn purge_keys_fails_with_insufficient_balance() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Any account but fee charging will fail (simulates insufficient balance)
+			// GIVEN: Account with insufficient balance to pay delivery fees
 			let account: AccountId = 3;
-			MockFeeChargingFails::set(true);
+
+			// Set delivery fee higher than account's free balance
+			let account_balance = Balances::free_balance(account);
+			XcmDeliveryFee::set(account_balance + 1);
 
 			// WHEN: Account tries to purge keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
@@ -1722,6 +1739,9 @@ mod session_keys {
 				e.event,
 				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
 			)));
+
+			// AND: Balance unchanged (fees were not charged)
+			assert_eq!(Balances::free_balance(account), account_balance);
 		});
 	}
 

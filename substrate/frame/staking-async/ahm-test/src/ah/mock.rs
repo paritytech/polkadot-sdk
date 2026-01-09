@@ -27,7 +27,9 @@ use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
 use pallet_staking_async_rc_client::{OutgoingValidatorSet, SessionReport, ValidatorSetReport};
 use sp_staking::SessionIndex;
-use xcm::latest::Assets;
+use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
+use xcm_builder::{FungibleAdapter, IsConcrete};
+use xcm_executor::traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset};
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -491,23 +493,74 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub static NextRelayDeliveryFails: bool = false;
-	/// Mock XCM delivery fees to return from set_keys/purge_keys.
-	/// If None, returns empty Assets. If Some(amount), returns that amount of native token.
-	pub static MockDeliveryFees: Option<u128> = None;
-	/// When true, simulates fee charging failure (e.g., insufficient balance).
-	pub static MockFeeChargingFails: bool = false;
+	/// XCM delivery fees charged for set_keys/purge_keys.
+	/// This is the amount that will be withdrawn from the user's balance.
+	pub static XcmDeliveryFee: u128 = 10;
 }
 
-/// Helper to create mock delivery fees as Assets.
-fn mock_delivery_fees() -> Assets {
-	MockDeliveryFees::get()
-		.map(|amount| {
-			Assets::from(xcm::latest::Asset {
-				id: xcm::latest::AssetId(xcm::latest::Location::here()),
-				fun: xcm::latest::Fungibility::Fungible(amount),
-			})
-		})
-		.unwrap_or_default()
+/// Converts an AccountId to an XCM Location.
+pub struct AccountIdToLocation;
+impl AccountIdToLocation {
+	pub fn convert(account: AccountId) -> Location {
+		Junction::AccountIndex64 { network: None, index: account }.into()
+	}
+}
+
+/// Converts an XCM Location back to an AccountId.
+pub struct LocationToAccountId;
+impl ConvertLocation<AccountId> for LocationToAccountId {
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(0, [Junction::AccountIndex64 { index, .. }]) => Some(*index),
+			_ => None,
+		}
+	}
+}
+
+parameter_types! {
+	/// The native asset location (here).
+	pub Here: Location = Location::here();
+}
+
+/// Asset transactor that uses pallet_balances for the native asset.
+pub type LocalAssetTransactor =
+	FungibleAdapter<Balances, IsConcrete<Here>, LocationToAccountId, AccountId, ()>;
+
+/// Fee manager that never waives fees and burns them.
+pub struct BurnFees;
+impl FeeManager for BurnFees {
+	fn is_waived(_origin: Option<&Location>, _reason: FeeReason) -> bool {
+		false
+	}
+	fn handle_fee(_fee: Assets, _context: Option<&XcmContext>, _reason: FeeReason) {
+		// Fees are burned (withdrawn but not deposited anywhere)
+	}
+}
+
+/// Mock XCM executor that performs real fee charging using pallet_balances.
+pub struct MockXcmExecutor;
+
+impl MockXcmExecutor {
+	/// Charge fees from the given origin location.
+	pub fn charge_fees(origin: Location, fees: Assets) -> XcmResult {
+		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
+			for asset in fees.inner() {
+				LocalAssetTransactor::withdraw_asset(asset, &origin, None)?;
+			}
+			BurnFees::handle_fee(fees, None, FeeReason::ChargeFees);
+		}
+		Ok(())
+	}
+}
+
+/// Helper to create delivery fees as Assets.
+fn delivery_fees() -> Assets {
+	let amount = XcmDeliveryFee::get();
+	if amount == 0 {
+		Assets::default()
+	} else {
+		Assets::from(Asset { id: AssetId(Location::here()), fun: Fungibility::Fungible(amount) })
+	}
 }
 
 pub struct DeliverToRelay;
@@ -549,13 +602,16 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<Assets, ()> {
 		Self::ensure_delivery_guard()?;
-		// Simulate fee charging failure (e.g., insufficient balance)
-		if MockFeeChargingFails::take() {
-			return Err(());
-		}
+
+		// Charge XCM delivery fees
+		let fees = delivery_fees();
+		let payer_location = AccountIdToLocation::convert(stash);
+		MockXcmExecutor::charge_fees(payer_location, fees.clone()).map_err(|e| {
+			log::debug!(target: LOG_TARGET, "Failed to charge XCM fees for set_keys: {:?}", e);
+		})?;
+
 		if LocalQueue::get().is_some() {
-			// Return mock fees if configured
-			return Ok(mock_delivery_fees());
+			return Ok(fees);
 		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
@@ -566,19 +622,21 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 			)
 			.unwrap();
 		});
-		// Return mock fees if configured
-		Ok(mock_delivery_fees())
+		Ok(fees)
 	}
 
 	fn purge_keys(stash: Self::AccountId) -> Result<Assets, ()> {
 		Self::ensure_delivery_guard()?;
-		// Simulate fee charging failure (e.g., insufficient balance)
-		if MockFeeChargingFails::take() {
-			return Err(());
-		}
+
+		// Charge real XCM delivery fees
+		let fees = delivery_fees();
+		let payer_location = AccountIdToLocation::convert(stash);
+		MockXcmExecutor::charge_fees(payer_location, fees.clone()).map_err(|e| {
+			log::debug!(target: LOG_TARGET, "Failed to charge XCM fees for purge_keys: {:?}", e);
+		})?;
+
 		if LocalQueue::get().is_some() {
-			// Return mock fees if configured
-			return Ok(mock_delivery_fees());
+			return Ok(fees);
 		}
 		shared::in_rc(|| {
 			let origin = crate::rc::RuntimeOrigin::root();
@@ -587,8 +645,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 			)
 			.unwrap();
 		});
-		// Return mock fees if configured
-		Ok(mock_delivery_fees())
+		Ok(fees)
 	}
 }
 
