@@ -1,0 +1,10 @@
+title: '[WIP][pallet-revive] added trybuild test for precompile compile-time checks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/polkadot-sdk/issues/8364
+
+    This PR adds compile-time tests using try_build to validate invariants enforced on registered precompiles. The tests ensure collision detection and related compile-time checks are correctly triggered and remain enforced.
+crates:
+- name: pallet-revive
+  bump: patch
