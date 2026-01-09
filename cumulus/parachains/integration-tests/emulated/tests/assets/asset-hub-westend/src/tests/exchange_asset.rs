@@ -14,9 +14,11 @@
 // limitations under the License.
 
 use crate::{assets_balance_on, imports::*};
-use emulated_integration_tests_common::xcm_emulator::TestExt;
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on,
+	create_pool_with_wnd_on, xcm_emulator::TestExt,
+};
 use std::convert::Into;
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on, create_pool_with_wnd_on};
 use xcm::latest::{Location, Xcm};
 
 #[test]

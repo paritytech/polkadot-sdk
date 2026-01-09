@@ -1,4 +1,3 @@
-
 /// This function assumes that the asset is prefunded.
 ///
 /// Usually, this function is only called from the other macros in this module.

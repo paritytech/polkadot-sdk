@@ -19,7 +19,14 @@ use sp_core::storage::Storage;
 use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
-use emulated_integration_tests_common::{accounts, build_genesis_storage, collators, snowbridge::{ETHER_MIN_BALANCE, WETH}, xcm_emulator::ConvertLocation, PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount, PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID};
+use emulated_integration_tests_common::{
+	accounts, build_genesis_storage, collators,
+	snowbridge::{ETHER_MIN_BALANCE, WETH},
+	xcm_emulator::ConvertLocation,
+	PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount,
+	PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
+};
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::{

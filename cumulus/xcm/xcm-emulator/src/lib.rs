@@ -1557,7 +1557,7 @@ pub struct TestAccount<R: Chain> {
 
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
-pub struct TestArgs<AssetId=u32> {
+pub struct TestArgs<AssetId = u32> {
 	pub dest: Location,
 	pub beneficiary: Location,
 	pub amount: Balance,

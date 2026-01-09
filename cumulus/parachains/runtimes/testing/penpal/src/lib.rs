@@ -459,7 +459,7 @@ parameter_types! {
 }
 
 /// Pallet Assets instance to store local and foreign assets, where:
-/// 
+///
 /// * Local assets are identified by `assets_common::matching::LocalLocationPattern`.
 /// * Foreign assets are the rest
 pub type AssetsInstance = pallet_assets::Instance2;
