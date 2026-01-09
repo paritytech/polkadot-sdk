@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	assets_balance_on, assets_exists_on, foreign_balance_on, imports::*,
+	assets_balance_on, asset_exists_on, foreign_balance_on, imports::*,
 	tests::send::penpal_register_foreign_asset_on_asset_hub,
 };
 
@@ -43,7 +43,7 @@ pub fn set_up_foreign_asset(
 		vec![(sender.clone(), to_fund)],
 	);
 
-	assets_exists_on!(PenpalA, asset_location_on_penpal.clone());
+	asset_exists_on!(PenpalA, asset_location_on_penpal.clone());
 
 	// Setup a pool on Penpal between native asset and newly created asset, so we can pay fees using
 	// new asset directly.

@@ -56,7 +56,7 @@ macro_rules! assets_balance_on {
 }
 
 #[macro_export]
-macro_rules! assets_exists_on {
+macro_rules! asset_exists_on {
 	( $chain:ident, $id:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
