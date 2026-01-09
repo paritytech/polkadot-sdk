@@ -123,7 +123,8 @@ pub type FungibleTransactor = FungibleAdapter<
 	(),
 >;
 
-/// Means for transacting assets besides the native currency on this chain.
+/// Means for transacting assets besides the native currency on this chain that start with a local
+/// location pattern.
 pub type LocalAssetsTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
 	Assets,
@@ -373,14 +374,6 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	(
 		LocalAssetsConvertedConcreteId,
 		ForeignAssetsConvertedConcreteId,
-		// The above doesn't include the local tokens, so we handle it explicitly here.
-		MatchedConvertedConcreteId<
-			Location,
-			Balance,
-			Equals<PenpalNativeCurrency>,
-			WithLatestLocationConverter<Location>,
-			TryConvertInto,
-		>,
 	),
 	AccountId,
 >;

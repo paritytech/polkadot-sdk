@@ -50,7 +50,7 @@ mod imports {
 			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
 		xcm_simulator::helpers::TopicIdTracker,
-		PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalBLocation,
+		PenpalALocation, PenpalAPen2TeleportableAssetLocation,
 		PenpalBPen2TeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID,
 		XCM_V3,
 	};
