@@ -15,7 +15,7 @@
 
 use crate::{imports::*, tests::bridged_roc_at_ah_westend};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
-use emulated_integration_tests_common::{snowbridge::{SEPOLIA_ID, WETH}, PenpalBLocation};
+use emulated_integration_tests_common::{create_foreign_pool_with_native_on, snowbridge::{SEPOLIA_ID, WETH}, PenpalBLocation};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use frame_support::traits::fungible::Mutate as _;
@@ -353,7 +353,7 @@ pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_foreign_pool_with_parent_native_on!(PenpalB, Assets, eth_location(), ethereum_sovereign.clone());
+	create_foreign_pool_with_native_on!(PenpalB, Assets, eth_location(), ethereum_sovereign.clone());
 }
 
 pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
