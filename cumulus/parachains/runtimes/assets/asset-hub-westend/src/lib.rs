@@ -147,7 +147,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_020_004,
+	spec_version: 1_021_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -262,6 +262,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// q
 	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
+	Balance,
 >;
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -1202,7 +1203,6 @@ impl pallet_revive::Config for Runtime {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = ConstBool<false>;
 	type AllowEVMBytecode = ConstBool<true>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
@@ -1839,8 +1839,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -2227,9 +2227,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
-
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -2475,7 +2479,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					assert_ok!(ForeignAssets::set_reserves(
 						RuntimeOrigin::signed(account),
 						roc_id.clone().into(),
-						vec![reserves.clone()],
+						vec![reserves.clone()].try_into().unwrap(),
 					));
 					(reserves.reserve, roc)
 				});
