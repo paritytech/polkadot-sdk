@@ -189,6 +189,9 @@ impl StatementHandlerPrototype {
 		(Self { protocol_name: protocol_name.into(), notification_service }, config)
 	}
 
+	/// Default number of statement validation workers.
+	pub const DEFAULT_NUM_VALIDATION_WORKERS: usize = 4;
+
 	/// Turns the prototype into the actual handler.
 	///
 	/// Important: the statements handler is initially disabled and doesn't gossip statements.
@@ -203,12 +206,12 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		num_validation_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
-
-		const NUM_VALIDATION_WORKERS: usize = 4;
-		for _ in 0..NUM_VALIDATION_WORKERS {
+		log::info!(target: LOG_TARGET, "Spawning {} statement validation workers", num_validation_workers);
+		for _ in 0..num_validation_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
 			executor(

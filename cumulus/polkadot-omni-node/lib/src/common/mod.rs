@@ -130,6 +130,9 @@ pub struct NodeExtraArgs {
 	/// If true then the statement store will be enabled.
 	pub enable_statement_store: bool,
 
+	/// Number of statement validation workers to spawn.
+	pub statement_validation_workers: usize,
+
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 }

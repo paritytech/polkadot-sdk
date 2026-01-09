@@ -55,7 +55,7 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, node.rpc().await?));
+		participants.push(Participant::new(i as u32, node.rpc().await?, node.rpc().await?));
 	}
 
 	let handles: Vec<_> = participants
@@ -93,7 +93,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let collator_names = ["alice", "bob"];
 	let network = spawn_network(&collator_names).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
@@ -107,8 +107,13 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].rpc().await?));
+		// let client_idx = i % collator_names.len();
+
+		participants.push(Participant::new(
+			i as u32,
+			rpc_clients[0].rpc().await?,
+			rpc_clients[1].rpc().await?,
+		));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -329,14 +334,11 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.with_default_args(vec![
 					"--force-authoring".into(),
 					"--max-runtime-instances=32".into(),
+					"--rpc-rate-limit=70000000".into(),
+					"--statement-validation-workers=1".into(),
 					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
-					format!(
-						"--rpc-max-connections={}",
-						PARTICIPANT_SIZE / collators.len() as u32 + 1000
-					)
-					.as_str()
-					.into(),
+					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
@@ -371,6 +373,7 @@ struct StatementMessage {
 #[derive(Debug, Clone)]
 struct ParticipantStats {
 	total_time: Duration,
+	session_keys: Duration,
 	sent_count: u32,
 	received_count: u32,
 	retry_count: u32,
@@ -384,6 +387,9 @@ struct AggregatedStats {
 	min_time: Duration,
 	max_time: Duration,
 	avg_time: Duration,
+	min_session_keys: Duration,
+	max_session_keys: Duration,
+	avg_session_keys: Duration,
 	min_retries: u32,
 	max_retries: u32,
 	avg_retries: u32,
@@ -401,6 +407,15 @@ impl ParticipantStats {
 			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() / participants as f64,
 		);
 
+		let min_session_keys =
+			all_stats.iter().map(|s| s.session_keys).min().unwrap_or(Duration::ZERO);
+		let max_session_keys =
+			all_stats.iter().map(|s| s.session_keys).max().unwrap_or(Duration::ZERO);
+		let avg_session_keys = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.session_keys.as_secs_f64()).sum::<f64>() /
+				participants as f64,
+		);
+
 		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
 		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
 		let avg_retries = all_stats.iter().map(|s| s.retry_count).sum::<u32>() / participants;
@@ -412,6 +427,9 @@ impl ParticipantStats {
 			min_time,
 			max_time,
 			avg_time,
+			min_session_keys,
+			max_session_keys,
+			avg_session_keys,
 			min_retries,
 			max_retries,
 			avg_retries,
@@ -434,6 +452,14 @@ impl AggregatedStats {
 			self.avg_time.as_secs(),
 			self.max_time.as_secs(),
 		);
+
+		info!(
+			" {:<8} {:>8}  {:>8}  {:>8}",
+			"time, s",
+			self.min_session_keys.as_secs(),
+			self.avg_session_keys.as_secs(),
+			self.max_session_keys.as_secs(),
+		);
 		info!(
 			" {:<8} {:>8}  {:>8}  {:>8}",
 			"retries", self.min_retries, self.avg_retries, self.max_retries
@@ -453,7 +479,8 @@ struct Participant {
 	received_count: u32,
 	pending_messages: HashMap<u32, Option<u32>>,
 	retry_count: u32,
-	rpc_client: RpcClient,
+	rpc_client_send: RpcClient,
+	rpc_client_receive: RpcClient,
 }
 
 impl Participant {
@@ -461,7 +488,7 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_client: RpcClient) -> Self {
+	fn new(idx: u32, rpc_client_send: RpcClient, rpc_client_receive: RpcClient) -> Self {
 		debug!(target: &format!("participant_{idx}"), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -482,7 +509,8 @@ impl Participant {
 			sent_count: 0,
 			received_count: 0,
 			retry_count: 0,
-			rpc_client,
+			rpc_client_send,
+			rpc_client_receive,
 		}
 	}
 
@@ -507,10 +535,15 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		let _: SubmitResult = self
-			.rpc_client
-			.request("statement_submit", rpc_params![statement_bytes])
-			.await?;
+		let res = self
+			.rpc_client_send
+			.request::<SubmitResult>("statement_submit", rpc_params![statement_bytes])
+			.await;
+
+		if res.is_err() {
+			info!(target: &self.log_target(), "Failed to submit statement, will retry: {:?}", res.as_ref().err());
+		}
+		let _ = res?;
 
 		self.sent_count += 1;
 		trace!(target: &self.log_target(), "Submitted statement (counter: {})", self.sent_count);
@@ -523,7 +556,7 @@ impl Participant {
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
 		let statements: Vec<Bytes> = self
-			.rpc_client
+			.rpc_client_receive
 			.request("statement_broadcastsStatement", rpc_params![topics])
 			.await?;
 
@@ -592,7 +625,7 @@ impl Participant {
 
 		for idx in &pending {
 			let mut subscription = self
-				.rpc_client
+				.rpc_client_receive
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(vec![
@@ -665,7 +698,7 @@ impl Participant {
 
 		for &(sender_idx, sender_session_key) in &pending {
 			let mut subscription = self
-				.rpc_client
+				.rpc_client_receive
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(vec![
@@ -727,6 +760,7 @@ impl Participant {
 		trace!(target: &self.log_target(), "Session keys sent, receiving session keys");
 		self.receive_session_keys().await?;
 		trace!(target: &self.log_target(), "Session keys received");
+		let session_keys_time = start_time.elapsed();
 
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
@@ -742,6 +776,7 @@ impl Participant {
 			sent_count: self.sent_count,
 			received_count: self.received_count,
 			retry_count: self.retry_count,
+			session_keys: session_keys_time,
 		})
 	}
 }

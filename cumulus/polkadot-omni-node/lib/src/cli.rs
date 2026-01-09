@@ -223,6 +223,13 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
+	/// Number of statement validation workers to spawn for processing incoming statements.
+	///
+	/// Each worker runs concurrently and processes statements from the validation queue.
+	/// This option only has an effect when `--enable-statement-store` is also enabled.
+	#[arg(long, default_value_t = sc_network_statement::StatementHandlerPrototype::DEFAULT_NUM_VALIDATION_WORKERS)]
+	pub statement_validation_workers: usize,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -268,6 +275,7 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
+			statement_validation_workers: self.statement_validation_workers,
 			storage_monitor: self.storage_monitor.clone(),
 		}
 	}
