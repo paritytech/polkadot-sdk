@@ -43,6 +43,12 @@ on:
         required: true
         type: string
 
+      distribution:
+        description: Distribution where to publish rpm package (release, staging)
+        default: release
+        required: true
+        type: string
+
 jobs:
 
   check-synchronization:
@@ -80,9 +86,8 @@ jobs:
     needs: [promote-rc-to-final]
     uses: ./.github/workflows/release-41_publish-rpm-package.yml
     with:
-      tag: ${{ inputs.release_tag }}
-      distribution: ${{ inputs.distribution }}
       tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+      distribution: ${{ inputs.distribution }}
     secrets: inherit
 
   # ==============================================
