@@ -791,6 +791,34 @@ mod tests {
 			"--genesis-builder-preset",
 			"preset",
 		])?;
+
+		// Test genesis-patch with runtime
+		cli_succeed(&[
+			"test",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder-preset",
+			"preset",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+
 		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec"]);
 		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-genesis"]);
 		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-runtime"]);
@@ -800,6 +828,37 @@ mod tests {
 		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec"])?;
 		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec-genesis"])?;
 		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec-runtime"])?;
+
+		// Test genesis-patch with chain spec
+		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-patch", "path/to/patch.json"])?;
+		cli_succeed(&[
+			"test",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-genesis",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
+
 		cli_fail(&["test", "--chain", "path/to/spec", "--genesis-builder", "none"]);
 		cli_fail(&["test", "--chain", "path/to/spec", "--genesis-builder", "runtime"]);
 		cli_fail(&[

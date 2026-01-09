@@ -1191,6 +1191,17 @@ mod tests {
 			"--genesis-builder-preset",
 			"preset",
 		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
+		])?;
 		cli_fail(&[
 			"test",
 			"--extrinsic",
