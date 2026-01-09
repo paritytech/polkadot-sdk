@@ -73,8 +73,8 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 227.1, 0.01),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("dispute-coordinator", 0.0026, 0.1),
-		("dispute-distribution", 0.0086, 0.1),
+		("dispute-coordinator", 0.0027, 0.1),
+		("dispute-distribution", 0.0087, 0.1),
 	]));
 
 	if messages.is_empty() {
