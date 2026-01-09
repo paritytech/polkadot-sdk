@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
-use emulated_integration_tests_common::create_foreign_pool_with_native_on;
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
 

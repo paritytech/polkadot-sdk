@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset, *},
+	imports::*,
 	tests::{
 		snowbridge_common::*,
 		snowbridge_v2_outbound::{EthereumSystemFrontend, EthereumSystemFrontendCall},
@@ -46,7 +46,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			},
 		],
 	);
-	let asset_location_on_penpal = PenpalB::execute_with(|| LocalPen2Asset::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalLocalPen2Asset::get());
 	let penpal_a_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)

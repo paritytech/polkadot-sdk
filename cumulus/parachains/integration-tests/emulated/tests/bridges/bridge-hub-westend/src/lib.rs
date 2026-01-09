@@ -33,15 +33,15 @@ mod imports {
 	// Cumulus
 	pub(crate) use emulated_integration_tests_common::{
 		accounts::ALICE,
-		create_foreign_pool_with_parent_native_on,
-		impls::Inspect,
+		create_foreign_pool_with_native_on, create_foreign_pool_with_parent_native_on,
+		impls::{Decode, Inspect},
 		test_dry_run_transfer_across_pk_bridge, test_parachain_is_trusted_teleporter,
 		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
 		xcm_helpers::xcm_transact_paid_execution,
-		ASSETS_PALLET_ID, USDT_ID,
+		PenpalBLocation, ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub(crate) use parachains_common::AccountId;
 	pub(crate) use rococo_westend_system_emulated_network::{
@@ -62,7 +62,9 @@ mod imports {
 		penpal_emulated_chain::{
 			self,
 			penpal_runtime::xcm_config::{
+				CheckingAccount as PenpalCheckingAccount,
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalPen2Asset as PenpalLocalPen2Asset, PenpalNativeCurrency,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,

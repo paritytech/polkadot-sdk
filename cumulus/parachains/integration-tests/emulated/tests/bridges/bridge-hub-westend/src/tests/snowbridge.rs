@@ -13,10 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	imports::{
-		penpal_emulated_chain::penpal_runtime::xcm_config::{CheckingAccount, LocalPen2Asset},
-		*,
-	},
+	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::CheckingAccount, *},
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_roc_at_ah_westend,
@@ -34,7 +31,6 @@ use bridge_hub_westend_runtime::{
 };
 use codec::Encode;
 use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on,
 	snowbridge::{SEPOLIA_ID, WETH},
 	PENPAL_B_ID, RESERVABLE_ASSET_ID,
 };
@@ -1618,7 +1614,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal = PenpalB::execute_with(|| LocalPen2Asset::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalLocalPen2Asset::get());
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())
@@ -1661,7 +1657,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			LocalPen2Asset::get(),
+			PenpalLocalPen2Asset::get(),
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));

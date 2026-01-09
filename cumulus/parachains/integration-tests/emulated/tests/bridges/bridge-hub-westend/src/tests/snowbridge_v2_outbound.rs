@@ -14,16 +14,12 @@
 // limitations under the License.
 
 use crate::{
-	imports::{
-		penpal_emulated_chain::penpal_runtime::xcm_config::{LocalPen2Asset, PenpalNativeCurrency},
-		*,
-	},
+	imports::*,
 	tests::{snowbridge_common::*, usdt_at_ah_westend},
 };
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
-use emulated_integration_tests_common::{impls::Decode, PenpalBLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
@@ -716,7 +712,7 @@ fn register_token_from_penpal() {
 			},
 		],
 	);
-	let asset_location_on_penpal = PenpalB::execute_with(|| LocalPen2Asset::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalLocalPen2Asset::get());
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 			.appended_with(asset_location_on_penpal)

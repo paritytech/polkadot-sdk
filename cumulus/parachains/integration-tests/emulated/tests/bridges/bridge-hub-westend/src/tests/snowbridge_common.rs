@@ -13,19 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset, *},
-	tests::bridged_roc_at_ah_westend,
-};
+use crate::{imports::*, tests::bridged_roc_at_ah_westend};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
-use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on,
-	snowbridge::{SEPOLIA_ID, WETH},
-	PenpalBLocation,
-};
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use frame_support::traits::{fungible::Mutate as _, fungibles::Mutate};
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::CheckingAccount;
 use snowbridge_core::AssetMetadata;
 use sp_core::H160;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -163,7 +155,7 @@ pub fn fund_on_penpal() {
 	PenpalB::fund_accounts(vec![
 		(PenpalBReceiver::get(), INITIAL_FUND),
 		(PenpalBSender::get(), INITIAL_FUND),
-		(CheckingAccount::get(), INITIAL_FUND),
+		(PenpalCheckingAccount::get(), INITIAL_FUND),
 		(sudo_account.clone(), INITIAL_FUND),
 	]);
 	PenpalB::execute_with(|| {
@@ -196,17 +188,17 @@ pub fn fund_on_penpal() {
 	});
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			LocalPen2Asset::get(),
+			PenpalLocalPen2Asset::get(),
 			&PenpalBReceiver::get(),
 			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			LocalPen2Asset::get(),
+			PenpalLocalPen2Asset::get(),
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			LocalPen2Asset::get(),
+			PenpalLocalPen2Asset::get(),
 			&sudo_account,
 			INITIAL_FUND,
 		));
