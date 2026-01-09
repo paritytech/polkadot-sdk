@@ -65,7 +65,7 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = Invali
 /// Bare extrinsics and signed extrinsics are extended with the transaction extension version 0,
 /// specified by the generic parameter `ExtensionV0`.
 ///
-/// General extrinsics support multiple transaction extension version, specified by both
+/// General extrinsics support multiple transaction extension versions, specified by both
 /// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
 /// invalid version, making `ExtensionV0` the only supported version. If you want to support more
 /// versions, you need to specify the `ExtensionOtherVersions` parameter.
