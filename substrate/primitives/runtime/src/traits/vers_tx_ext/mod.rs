@@ -43,6 +43,9 @@ pub use variant::ExtensionVariant;
 ///
 /// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
 /// rely only on it without bounding the whole trait [`VersTxExtLine`].
+///
+/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line) weight
+/// (Weight)).
 pub trait VersTxExtLineWeight<Call: Dispatchable> {
 	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
 	/// call.
@@ -53,6 +56,9 @@ pub trait VersTxExtLineWeight<Call: Dispatchable> {
 ///
 /// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
 /// rely only on it without bounding the whole trait [`VersTxExtLine`].
+///
+/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line)
+/// version (Version)).
 pub trait VersTxExtLineVersion {
 	/// Return the version for the given versioned transaction extension pipeline.
 	fn version(&self) -> u8;
@@ -61,6 +67,8 @@ pub trait VersTxExtLineVersion {
 /// A versioned transaction extension pipeline.
 ///
 /// This defines multiple version of a transaction extensions pipeline.
+///
+/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line)).
 pub trait VersTxExtLine<Call: Dispatchable>:
 	Encode
 	+ DecodeWithVersion

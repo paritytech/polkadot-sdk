@@ -38,6 +38,8 @@ use sp_runtime::{
 	DispatchResult,
 };
 
+// This transaction extension is valid iff `token != 0`, when valid the resulting origin is
+// `frame_system::Origin::Signed(100)`.
 #[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 pub struct SimpleExt<const N: u32> {
 	pub token: u8,
@@ -184,8 +186,8 @@ fn test_metadata() {
 fn dispatch_of_valid_extrinsic_succeeds() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
-		// Create an unchecked extrinsic with token=7
-		// and set `AccountId=1` to simulate an authorized origin.
+		// Create an unchecked extrinsic with transaction extension: token=7,
+		// This is valid and will result in a signed origin with account id `100`.
 		let xt = UncheckedExtrinsic::from_parts(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2] }),
 			Preamble::General(ExtensionVariant::Other(OtherVersions::A(Ext4::new(SimpleExtV4 {
@@ -212,8 +214,8 @@ fn dispatch_of_valid_extrinsic_succeeds() {
 fn dispatch_of_invalid_extrinsic_fails() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
-		// Create an unchecked extrinsic with token=0
-		// and set `AccountId=1` to simulate an authorized origin.
+		// Create an unchecked extrinsic with transaction extension: token=0,
+		// This is invalid as `SimpleExt` validation fails for token=0,
 		let xt = UncheckedExtrinsic::from_parts(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2] }),
 			Preamble::General(ExtensionVariant::Other(OtherVersions::A(Ext4::new(SimpleExtV4 {
@@ -230,7 +232,7 @@ fn dispatch_of_invalid_extrinsic_fails() {
 
 		checked
 			.validate::<Runtime>(TransactionSource::External, &info, len)
-			.expect_err("invalid");
+			.expect_err("invalid, `SimpleExt` is invalid if token == 0");
 
 		checked.apply::<Runtime>(&info, len).expect_err("invalid");
 	});
