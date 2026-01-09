@@ -823,7 +823,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	// ah
 	register_assets_on_ah();
 	create_pools_on_ah();
-	register_pal_on_ah();
+	mint_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
 	// penpal
@@ -835,7 +835,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };

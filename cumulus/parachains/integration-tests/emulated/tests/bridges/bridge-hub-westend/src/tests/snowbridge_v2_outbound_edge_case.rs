@@ -235,7 +235,7 @@ pub const INSUFFICIENT_REMOTE_FEE_AMOUNT: u128 = 1_000_000_000;
 #[test]
 fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 	create_pools_on_ah();
-	register_pal_on_ah();
+	mint_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
 	// penpal

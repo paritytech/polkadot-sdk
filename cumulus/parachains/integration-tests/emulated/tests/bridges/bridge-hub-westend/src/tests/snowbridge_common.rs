@@ -21,7 +21,6 @@ use hex_literal::hex;
 use frame_support::traits::fungible::Mutate as _;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 	penpal_runtime::xcm_config::{CheckingAccount},
-	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
 use sp_core::H160;
@@ -35,6 +34,7 @@ pub const AGENT_ADDRESS: [u8; 20] = hex!("90A987B944Cb1dCcE5564e5FDeCD7a54D3de27
 pub const TOKEN_AMOUNT: u128 = 10_000_000_000_000;
 pub const REMOTE_FEE_AMOUNT_IN_ETHER: u128 = 600_000_000_000;
 pub const LOCAL_FEE_AMOUNT_IN_DOT: u128 = 800_000_000_000;
+pub const LOCAL_FEE_AMOUNT_IN_PAL: u128 = 800_000_000_000;
 
 pub const EXECUTION_WEIGHT: u64 = 8_000_000_000;
 
@@ -121,19 +121,10 @@ pub fn register_foreign_asset(token_location: Location) {
 	);
 }
 
-pub fn register_pal_on_ah() {
+pub fn mint_pal_on_ah() {
 	// Create PAL(i.e. native asset for penpal) on AH.
 	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 		let penpal_asset_id = Location::new(1, Parachain(PenpalB::para_id().into()));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			penpal_asset_id.clone(),
-			PenpalAssetOwner::get().into(),
-			false,
-			1_000_000,
-		));
 
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
 			penpal_asset_id.clone(),
