@@ -19,32 +19,34 @@
 
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use log::*;
-use std::{ops::Deref, sync::Arc};
+use std::{future::Future, ops::Deref, sync::Arc, time::Duration};
 
 use crate::{Result, LOG_TARGET};
 
-/// A versioned WebSocket client returned by `ConnectionManager::get()`.
-///
-/// Always contains a usable client. The version is used to detect if the client
-/// has been recreated by another worker.
-pub(crate) struct VersionedClient {
-	pub(crate) ws_client: Arc<WsClient>,
-	pub(crate) version: u64,
-}
+/// Default timeout for RPC requests.
+pub const RPC_TIMEOUT: Duration = Duration::from_secs(60);
 
-impl Deref for VersionedClient {
-	type Target = WsClient;
-	fn deref(&self) -> &Self::Target {
-		&self.ws_client
-	}
+/// Execute an RPC call with timeout. Returns `Err` if the timeout is hit.
+pub(crate) async fn with_timeout<T, F: Future<Output = T>>(
+	future: F,
+	timeout: Duration,
+) -> std::result::Result<T, ()> {
+	tokio::time::timeout(timeout, future).await.map_err(|_| ())
 }
 
 /// A WebSocket client with version tracking for reconnection.
 #[derive(Debug, Clone)]
-pub struct Client {
-	pub(crate) inner: Arc<WsClient>,
+pub(crate) struct Client {
+	pub(crate) ws_client: Arc<WsClient>,
 	pub(crate) version: u64,
 	uri: String,
+}
+
+impl Deref for Client {
+	type Target = WsClient;
+	fn deref(&self) -> &Self::Target {
+		&self.ws_client
+	}
 }
 
 impl Client {
@@ -63,33 +65,46 @@ impl Client {
 
 	/// Create a new Client from a URI.
 	///
-	/// Returns `None` if the initial connection fails.
+	/// Returns `None` if the initial connection fails or times out.
 	pub async fn new(uri: impl Into<String>) -> Option<Self> {
 		let uri = uri.into();
-		match Self::create_ws_client(&uri).await {
-			Ok(ws_client) => Some(Self { inner: Arc::new(ws_client), version: 0, uri }),
-			Err(e) => {
+		let result = with_timeout(Self::create_ws_client(&uri), RPC_TIMEOUT).await;
+
+		match result {
+			Ok(Ok(ws_client)) => Some(Self { ws_client: Arc::new(ws_client), version: 0, uri }),
+			Ok(Err(e)) => {
 				warn!(target: LOG_TARGET, "Connection to {uri} failed: {e}. Ignoring this URI.");
+				None
+			},
+			Err(()) => {
+				warn!(target: LOG_TARGET, "Connection to {uri} timed out. Ignoring this URI.");
 				None
 			},
 		}
 	}
 
 	/// Recreate the WebSocket client using the stored URI if the version matches.
-	pub(crate) async fn recreate(
-		&mut self,
-		expected_version: u64,
-	) -> std::result::Result<(), String> {
+	pub(crate) async fn recreate(&mut self, expected_version: u64) {
 		// Only recreate if version matches (prevents redundant reconnections)
 		if self.version > expected_version {
-			return Ok(());
+			return;
 		}
 
-		warn!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
-		let ws_client = Self::create_ws_client(&self.uri).await?;
-		self.inner = Arc::new(ws_client);
-		self.version = expected_version + 1;
-		Ok(())
+		debug!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
+		let result = with_timeout(Self::create_ws_client(&self.uri), RPC_TIMEOUT).await;
+
+		match result {
+			Ok(Ok(ws_client)) => {
+				self.ws_client = Arc::new(ws_client);
+				self.version = expected_version + 1;
+			},
+			Ok(Err(e)) => {
+				debug!(target: LOG_TARGET, "Failed to recreate client for `{}`: {e}", self.uri);
+			},
+			Err(()) => {
+				debug!(target: LOG_TARGET, "Timeout recreating client for `{}`", self.uri);
+			},
+		}
 	}
 }
 
@@ -114,22 +129,16 @@ impl ConnectionManager {
 
 	/// Get a usable client for a specific worker.
 	/// Distributes workers across available clients.
-	pub(crate) async fn get(&self, worker_index: usize) -> VersionedClient {
+	pub(crate) async fn get(&self, worker_index: usize) -> Client {
 		let client_index = worker_index % self.clients.len();
 		let client = self.clients[client_index].lock().await;
-		VersionedClient { ws_client: client.inner.clone(), version: client.version }
+		client.clone()
 	}
 
 	/// Called when a request fails. Triggers client recreation if version matches.
-	/// Returns the new client (which may be the same if another worker already recreated it).
-	pub(crate) async fn recreate_client(
-		&self,
-		worker_index: usize,
-		failed: &VersionedClient,
-	) -> VersionedClient {
+	pub(crate) async fn recreate_client(&self, worker_index: usize, failed: Client) {
 		let client_index = worker_index % self.clients.len();
 		let mut client = self.clients[client_index].lock().await;
-		let _ = client.recreate(failed.version).await;
-		VersionedClient { ws_client: client.inner.clone(), version: client.version }
+		client.recreate(failed.version).await;
 	}
 }
