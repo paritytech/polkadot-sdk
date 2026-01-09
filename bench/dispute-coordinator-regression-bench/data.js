@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765372317403,
+  "lastUpdate": 1767980436672,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -20383,6 +20383,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026159544800000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
+          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
+          "timestamp": "2026-01-09T16:32:49Z",
+          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
+        },
+        "date": 1767980412329,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027012118,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009243346409999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006626363549999998,
             "unit": "seconds"
           }
         ]
