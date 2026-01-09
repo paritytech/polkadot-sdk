@@ -159,6 +159,7 @@ members = [
 	"polkadot/core-primitives",
 	"polkadot/erasure-coding",
 	"polkadot/erasure-coding/fuzzer",
+	"polkadot/jemalloc-shim",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
@@ -1116,6 +1117,7 @@ polkadot-core-primitives = { path = "polkadot/core-primitives", default-features
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false }
+polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
