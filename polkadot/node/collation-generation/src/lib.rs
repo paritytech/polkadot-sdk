@@ -16,18 +16,71 @@
 
 //! The collation generation subsystem is the interface between polkadot and the collators.
 //!
-//! # Protocol
+//! # Overview
 //!
 //! On every `ActiveLeavesUpdate`:
 //!
-//! * If there is no collation generation config, ignore.
-//! * Otherwise, for each `activated` head in the update:
-//!   * Determine if the para is scheduled on any core by fetching the `availability_cores` Runtime
-//!     API.
-//!   * Use the Runtime API subsystem to fetch the full validation data.
-//!   * Invoke the `collator`, and use its outputs to produce a
-//!     [`polkadot_primitives::CandidateReceiptV2`], signed with the configuration's `key`.
-//!   * Dispatch a [`CollatorProtocolMessage::DistributeCollation`]`(receipt, pov)`.
+//! # Two Modes of Operation
+//!
+//! The subsystem supports two distinct interfaces for receiving collations:
+//!
+//! ## 1. `CollatorFn` callback (legacy/simple interface)
+//!
+//! Configured via [`CollationGenerationMessage::Initialize`] with a [`CollatorFn`] callback.
+//! The subsystem invokes this callback on each new relay chain head to request collations.
+//!
+//! - **Trigger**: `ActiveLeavesUpdate` signal with new relay parent
+//! - **Flow**: Subsystem calls `CollatorFn(relay_parent, validation_data)` → receives `Collation`
+//! - **Limitations**: Does not support V3 candidate descriptors because the interface has no way to
+//!   specify a `scheduling_parent`. The `scheduling_parent` is always set to `None`, resulting in
+//!   V2 descriptors where `relay_parent == scheduling_parent`.
+//! - **Used by**: Test collators (adder, undying)
+//!
+//! ## 2. `SubmitCollation` message (full-featured interface)
+//!
+//! Collations are submitted directly via [`CollationGenerationMessage::SubmitCollation`].
+//! The collator is responsible for building the collation and deciding when to submit.
+//!
+//! - **Trigger**: Explicit `SubmitCollation` message from the collator
+//! - **Flow**: Collator builds collation externally → sends `SubmitCollationParams` → subsystem
+//!   constructs receipt
+//! - **V3 support**: Can specify `scheduling_parent` in [`SubmitCollationParams`] to create V3
+//!   candidate descriptors. This enables low-latency collation where the scheduling context (which
+//!   relay block determined core assignment) differs from the relay parent (the block the parablock
+//!   actually builds on).
+//! - **Used by**: Production collators (cumulus slot-based, lookahead)
+//!
+//! # Candidate Descriptor Versions
+//!
+//! The subsystem creates different descriptor versions based on input:
+//!
+//! - **V2**: `scheduling_parent` is `None`. The descriptor's `scheduling_parent` field is zeroed,
+//!   and scheduling context implicitly equals relay parent.
+//! - **V3**: `scheduling_parent` is `Some(hash)`. The descriptor includes an explicit
+//!   `scheduling_parent` field. Requires `CandidateReceiptV3` node feature to be enabled.
+//!
+//! # Protocol Details
+//!
+//! On `ActiveLeavesUpdate` (only relevant for `CollatorFn` mode):
+//!
+//! 1. If no collation config or no `CollatorFn`, ignore.
+//! 2. For each activated head:
+//!    - Fetch claim queue to determine core assignments
+//!    - Fetch validation data and code hash
+//!    - Invoke `CollatorFn` for each assigned core
+//!    - Construct candidate receipt and distribute via
+//!      [`CollatorProtocolMessage::DistributeCollation`]
+//!
+//! On `SubmitCollation`:
+//!
+//! 1. Validate the subsystem is initialized
+//! 2. Fetch validation data, claim queue, session info
+//! 3. Construct candidate receipt (V2 or V3 based on `scheduling_parent`)
+//! 4. Distribute via [`CollatorProtocolMessage::DistributeCollation`]
+//!
+//! [`CollatorFn`]: polkadot_node_primitives::CollatorFn
+//! [`SubmitCollationParams`]: polkadot_node_primitives::SubmitCollationParams
+//! [`CommittedCandidateReceiptV2`]: polkadot_primitives::CommittedCandidateReceiptV2
 
 #![deny(missing_docs)]
 
@@ -181,6 +234,7 @@ impl CollationGenerationSubsystem {
 			validation_code_hash,
 			result_sender,
 			core_index,
+			scheduling_parent,
 		} = params;
 
 		let mut validation_data = match request_persisted_validation_data(
@@ -236,6 +290,7 @@ impl CollationGenerationSubsystem {
 			&mut self.metrics,
 			&transpose_claim_queue(claim_queue),
 			v3_enabled,
+			scheduling_parent,
 		)
 		.await?;
 
@@ -435,6 +490,8 @@ impl CollationGenerationSubsystem {
 
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
+					// Note: CollatorFn-based collators don't support V3 scheduling,
+					// so we pass None for scheduling_parent here.
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
@@ -451,6 +508,7 @@ impl CollationGenerationSubsystem {
 						&metrics,
 						&transposed_claim_queue,
 						v3_enabled,
+						None, // scheduling_parent - not supported by CollatorFn interface
 					)
 					.await
 					{
@@ -537,6 +595,7 @@ async fn construct_and_distribute_receipt(
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
 	v3_enabled: bool,
+	scheduling_parent: Option<Hash>,
 ) -> Result<()> {
 	let PreparedCollation {
 		collation,
@@ -584,8 +643,9 @@ async fn construct_and_distribute_receipt(
 	};
 
 	let receipt = {
-		let ccr = CommittedCandidateReceiptV2 {
-			descriptor: CandidateDescriptorV2::new(
+		let descriptor = if let Some(sched_parent) = scheduling_parent {
+			// V3 descriptor with explicit scheduling_parent
+			CandidateDescriptorV2::new_v3(
 				para_id,
 				relay_parent,
 				core_index,
@@ -595,9 +655,24 @@ async fn construct_and_distribute_receipt(
 				erasure_root,
 				commitments.head_data.hash(),
 				validation_code_hash,
-			),
-			commitments: commitments.clone(),
+				sched_parent,
+			)
+		} else {
+			// V2 descriptor (scheduling_parent = zero)
+			CandidateDescriptorV2::new(
+				para_id,
+				relay_parent,
+				core_index,
+				session_index,
+				persisted_validation_data_hash,
+				pov_hash,
+				erasure_root,
+				commitments.head_data.hash(),
+				validation_code_hash,
+			)
 		};
+
+		let ccr = CommittedCandidateReceiptV2 { descriptor, commitments: commitments.clone() };
 
 		ccr.parse_ump_signals(&transposed_claim_queue, v3_enabled)
 			.map_err(Error::CandidateReceiptCheck)?;

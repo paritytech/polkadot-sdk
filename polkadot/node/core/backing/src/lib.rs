@@ -103,11 +103,12 @@ use polkadot_node_subsystem_util::{
 	request_node_features, request_session_executor_params, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{self, ClaimQueueSnapshot},
-	Validator,
+	Error as UtilError, Validator,
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
 	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidatorId,
@@ -207,14 +208,12 @@ where
 	}
 }
 
-struct PerRelayParentState {
-	/// The hash of the relay parent on top of which this job is doing it's work.
+struct PerSchedulingParentState {
+	/// The hash of the scheduling parent on top of which this job is doing it's work.
 	parent: Hash,
 	/// The node features.
 	node_features: NodeFeatures,
-	/// The executor parameters.
-	executor_params: Arc<ExecutorParams>,
-	/// The `CoreIndex` assigned to the local validator at this relay parent.
+	/// The `CoreIndex` assigned to the local validator at this scheduling parent.
 	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
 	backed: HashSet<CandidateHash>,
@@ -235,8 +234,11 @@ struct PerRelayParentState {
 	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
 	/// availability cores.
 	claim_queue: ClaimQueueSnapshot,
-	/// The validator index -> group mapping at this relay parent.
+	/// The validator index -> group mapping at this scheduling parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
+	/// Session index for this scheduling parent. Used as fallback for V1 candidates
+	/// where session_index is not in the descriptor. For V1, scheduling_parent == relay_parent.
+	session_index: SessionIndex,
 	/// The associated group rotation information.
 	group_rotation_info: GroupRotationInfo,
 }
@@ -429,13 +431,13 @@ impl PerSessionCache {
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	implicit_view: ImplicitView,
-	/// State tracked for all relay-parents backing work is ongoing for. This includes
+	/// State tracked for all scheduling-parents backing work is ongoing for. This includes
 	/// all active leaves.
-	per_relay_parent: HashMap<Hash, PerRelayParentState>,
+	per_scheduling_parent: HashMap<Hash, PerSchedulingParentState>,
 	/// State tracked for all candidates relevant to the implicit view.
 	///
-	/// This is guaranteed to have an entry for each candidate with a relay parent in the implicit
-	/// or explicit view for which a `Seconded` statement has been successfully imported.
+	/// This is guaranteed to have an entry for each candidate with a scheduling parent in the
+	/// implicit or explicit view for which a `Seconded` statement has been successfully imported.
 	per_candidate: HashMap<CandidateHash, PerCandidateState>,
 	/// A local cache for storing per-session data. This cache helps to
 	/// reduce repeated calls to the runtime and avoid redundant computations.
@@ -454,7 +456,7 @@ impl State {
 	) -> Self {
 		State {
 			implicit_view: ImplicitView::default(),
-			per_relay_parent: HashMap::default(),
+			per_scheduling_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
 			per_session_cache: PerSessionCache::default(),
 			background_validation_tx,
@@ -973,20 +975,20 @@ async fn handle_active_leaves_update<Context>(
 		state.implicit_view.deactivate_leaf(deactivated);
 	}
 
-	// clean up `per_relay_parent` according to ancestry
+	// clean up `per_scheduling_parent` according to ancestry
 	// of leaves. we do this so we can clean up candidates right after
 	// as a result.
 	{
 		let remaining: HashSet<_> = state.implicit_view.all_allowed_relay_parents().collect();
 
-		state.per_relay_parent.retain(|r, _| remaining.contains(&r));
+		state.per_scheduling_parent.retain(|r, _| remaining.contains(&r));
 	}
 
 	// clean up `per_candidate` according to which relay-parents
 	// are known.
 	state
 		.per_candidate
-		.retain(|_, pc| state.per_relay_parent.contains_key(&pc.relay_parent));
+		.retain(|_, pc| state.per_scheduling_parent.contains_key(&pc.relay_parent));
 
 	// Get relay parents which might be fresh but might be known already
 	// that are explicit or implicit from the new active leaf.
@@ -1022,15 +1024,15 @@ async fn handle_active_leaves_update<Context>(
 		},
 	};
 
-	// add entries in `per_relay_parent`. for all new relay-parents.
+	// add entries in `per_scheduling_parent`. for all new relay-parents.
 	for maybe_new in fresh_relay_parents {
-		if state.per_relay_parent.contains_key(&maybe_new) {
+		if state.per_scheduling_parent.contains_key(&maybe_new) {
 			continue
 		}
 
-		// construct a `PerRelayParent` from the runtime API
+		// construct a `PerSchedulingParent` from the runtime API
 		// and insert it.
-		let per = construct_per_relay_parent_state(
+		let per = construct_per_scheduling_parent_state(
 			ctx,
 			maybe_new,
 			&state.keystore,
@@ -1039,7 +1041,7 @@ async fn handle_active_leaves_update<Context>(
 		.await?;
 
 		if let Some(per) = per {
-			state.per_relay_parent.insert(maybe_new, per);
+			state.per_scheduling_parent.insert(maybe_new, per);
 		}
 	}
 
@@ -1064,33 +1066,30 @@ macro_rules! try_runtime_api {
 }
 
 fn core_index_from_statement(
-	validator_to_group: &IndexedVec<ValidatorIndex, Option<GroupIndex>>,
-	group_rotation_info: &GroupRotationInfo,
-	n_cores: u32,
-	claim_queue: &ClaimQueueSnapshot,
+	sp_state: &PerSchedulingParentState,
 	statement: &SignedFullStatementWithPVD,
 ) -> Option<CoreIndex> {
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
 
 	gum::trace!(
-		target:LOG_TARGET,
-		?group_rotation_info,
+		target: LOG_TARGET,
+		group_rotation_info = ?sp_state.group_rotation_info,
 		?statement,
-		?validator_to_group,
-		n_cores,
+		validator_to_group = ?sp_state.validator_to_group,
+		n_cores = sp_state.n_cores,
 		?candidate_hash,
 		"Extracting core index from statement"
 	);
 
 	let statement_validator_index = statement.validator_index();
-	let Some(Some(group_index)) = validator_to_group.get(statement_validator_index) else {
+	let Some(Some(group_index)) = sp_state.validator_to_group.get(statement_validator_index) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?group_rotation_info,
+			group_rotation_info = ?sp_state.group_rotation_info,
 			?statement,
-			?validator_to_group,
-			n_cores,
+			validator_to_group = ?sp_state.validator_to_group,
+			n_cores = sp_state.n_cores,
 			?candidate_hash,
 			"Invalid validator index: {:?}",
 			statement_validator_index
@@ -1099,42 +1098,43 @@ fn core_index_from_statement(
 	};
 
 	// First check if the statement para id matches the core assignment.
-	let core_index = group_rotation_info.core_for_group(*group_index, n_cores as _);
+	let core_index =
+		sp_state.group_rotation_info.core_for_group(*group_index, sp_state.n_cores as _);
 
-	if core_index.0 > n_cores {
-		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
+	if core_index.0 > sp_state.n_cores {
+		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores = sp_state.n_cores, "Invalid CoreIndex");
 		return None
 	}
 
 	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
 		let candidate_para_id = candidate.descriptor.para_id();
-		let mut assigned_paras = claim_queue.iter_claims_for_core(&core_index);
+		let mut assigned_paras = sp_state.claim_queue.iter_claims_for_core(&core_index);
 
 		if !assigned_paras.any(|id| id == &candidate_para_id) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?core_index,
-				assigned_paras = ?claim_queue.iter_claims_for_core(&core_index).collect::<Vec<_>>(),
+				assigned_paras = ?sp_state.claim_queue.iter_claims_for_core(&core_index).collect::<Vec<_>>(),
 				?candidate_para_id,
 				"Invalid CoreIndex, core is not assigned to this para_id"
 			);
 			return None
 		}
-		return Some(core_index)
+		Some(core_index)
 	} else {
-		return Some(core_index)
+		Some(core_index)
 	}
 }
 
 /// Load the data necessary to do backing work on top of a relay-parent.
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
-async fn construct_per_relay_parent_state<Context>(
+async fn construct_per_scheduling_parent_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	keystore: &KeystorePtr,
 	per_session_cache: &mut PerSessionCache,
-) -> Result<Option<PerRelayParentState>, Error> {
+) -> Result<Option<PerSchedulingParentState>, Error> {
 	let parent = relay_parent;
 
 	let (session_index, groups, claim_queue, disabled_validators) = futures::try_join!(
@@ -1152,10 +1152,6 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let node_features = per_session_cache.node_features(session_index, parent, ctx.sender()).await;
 	let node_features = try_runtime_api!(node_features);
-
-	let executor_params =
-		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
-	let executor_params = try_runtime_api!(executor_params);
 
 	gum::debug!(target: LOG_TARGET, ?parent, "New state");
 
@@ -1216,10 +1212,9 @@ async fn construct_per_relay_parent_state<Context>(
 	let table_context =
 		TableContext { validator, groups, validators: validators.to_vec(), disabled_validators };
 
-	Ok(Some(PerRelayParentState {
+	Ok(Some(PerSchedulingParentState {
 		parent,
 		node_features,
-		executor_params,
 		assigned_core,
 		backed: HashSet::new(),
 		table: Table::new(),
@@ -1231,6 +1226,7 @@ async fn construct_per_relay_parent_state<Context>(
 		n_cores: validator_groups.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group,
+		session_index,
 		group_rotation_info,
 	}))
 }
@@ -1332,7 +1328,7 @@ async fn handle_can_second_request<Context>(
 	tx: oneshot::Sender<bool>,
 ) {
 	let relay_parent = request.candidate_relay_parent;
-	let response = if state.per_relay_parent.get(&relay_parent).is_some() {
+	let response = if state.per_scheduling_parent.get(&relay_parent).is_some() {
 		let hypothetical_candidate = HypotheticalCandidate::Incomplete {
 			candidate_hash: request.candidate_hash,
 			candidate_para: request.candidate_para_id,
@@ -1363,10 +1359,10 @@ async fn handle_validated_candidate_command<Context>(
 	command: ValidatedCandidateCommand,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
-	match state.per_relay_parent.get_mut(&relay_parent) {
-		Some(rp_state) => {
+	match state.per_scheduling_parent.get_mut(&relay_parent) {
+		Some(sp_state) => {
 			let candidate_hash = command.candidate_hash();
-			rp_state.awaiting_validation.remove(&candidate_hash);
+			sp_state.awaiting_validation.remove(&candidate_hash);
 
 			match command {
 				ValidatedCandidateCommand::Second(res) => match res {
@@ -1377,7 +1373,7 @@ async fn handle_validated_candidate_command<Context>(
 							persisted_validation_data,
 						} = outputs;
 
-						if rp_state.issued_statements.contains(&candidate_hash) {
+						if sp_state.issued_statements.contains(&candidate_hash) {
 							return Ok(())
 						}
 
@@ -1412,7 +1408,7 @@ async fn handle_validated_candidate_command<Context>(
 						// the table.
 						let res = sign_import_and_distribute_statement(
 							ctx,
-							rp_state,
+							sp_state,
 							&mut state.per_candidate,
 							statement,
 							state.keystore.clone(),
@@ -1451,11 +1447,11 @@ async fn handle_validated_candidate_command<Context>(
 								Some(p) => p.seconded_locally = true,
 							}
 
-							rp_state.issued_statements.insert(candidate_hash);
+							sp_state.issued_statements.insert(candidate_hash);
 
 							metrics.on_candidate_seconded();
 							ctx.send_message(CollatorProtocolMessage::Seconded(
-								rp_state.parent,
+								sp_state.parent,
 								StatementWithPVD::drop_pvd_from_signed(stmt),
 							))
 							.await;
@@ -1463,7 +1459,7 @@ async fn handle_validated_candidate_command<Context>(
 					},
 					Err(candidate) => {
 						ctx.send_message(CollatorProtocolMessage::Invalid(
-							rp_state.parent,
+							sp_state.parent,
 							candidate,
 						))
 						.await;
@@ -1471,15 +1467,15 @@ async fn handle_validated_candidate_command<Context>(
 				},
 				ValidatedCandidateCommand::Attest(res) => {
 					// We are done - avoid new validation spawns:
-					rp_state.fallbacks.remove(&candidate_hash);
+					sp_state.fallbacks.remove(&candidate_hash);
 					// sanity check.
-					if !rp_state.issued_statements.contains(&candidate_hash) {
+					if !sp_state.issued_statements.contains(&candidate_hash) {
 						if res.is_ok() {
 							let statement = StatementWithPVD::Valid(candidate_hash);
 
 							sign_import_and_distribute_statement(
 								ctx,
-								rp_state,
+								sp_state,
 								&mut state.per_candidate,
 								statement,
 								state.keystore.clone(),
@@ -1487,11 +1483,11 @@ async fn handle_validated_candidate_command<Context>(
 							)
 							.await?;
 						}
-						rp_state.issued_statements.insert(candidate_hash);
+						sp_state.issued_statements.insert(candidate_hash);
 					}
 				},
 				ValidatedCandidateCommand::AttestNoPoV(candidate_hash) => {
-					if let Some(attesting) = rp_state.fallbacks.get_mut(&candidate_hash) {
+					if let Some(attesting) = sp_state.fallbacks.get_mut(&candidate_hash) {
 						if let Some(index) = attesting.backing.pop() {
 							attesting.from_validator = index;
 							let attesting = attesting.clone();
@@ -1500,18 +1496,40 @@ async fn handle_validated_candidate_command<Context>(
 							// validated it before, the relay-parent is still around,
 							// and candidates are pruned on the basis of relay-parents.
 							//
-							// If it's not, then no point in validating it anyway.
+							// If it is not, then no point in validating it anyway.
 							if let Some(pvd) = state
 								.per_candidate
 								.get(&candidate_hash)
 								.map(|pc| pc.persisted_validation_data.clone())
 							{
+								// Determine session for executor_params lookup.
+								// For V2/V3, session_index is in the descriptor.
+								// For V1, scheduling_parent == relay_parent, so
+								// sp_state.session_index is the relay_parent's session.
+								let v3_enabled = FeatureIndex::CandidateReceiptV3
+									.is_set(&sp_state.node_features);
+								let session = attesting
+									.candidate
+									.descriptor()
+									.session_index(v3_enabled)
+									.unwrap_or(sp_state.session_index);
+								let executor_params = state
+									.per_session_cache
+									.executor_params(
+										session,
+										attesting.candidate.descriptor().relay_parent(),
+										ctx.sender(),
+									)
+									.await
+									.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
+
 								kick_off_validation_work(
 									ctx,
-									rp_state,
+									sp_state,
 									pvd,
 									&state.background_validation_tx,
 									attesting,
+									executor_params,
 								)
 								.await?;
 							}
@@ -1536,7 +1554,7 @@ async fn handle_validated_candidate_command<Context>(
 }
 
 fn sign_statement(
-	rp_state: &PerRelayParentState,
+	rp_state: &PerSchedulingParentState,
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
 	metrics: &Metrics,
@@ -1562,7 +1580,7 @@ fn sign_statement(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn import_statement<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	sp_state: &mut PerSchedulingParentState,
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
 	statement: &SignedFullStatementWithPVD,
 ) -> Result<Option<TableSummary>, Error> {
@@ -1629,16 +1647,9 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	let core = core_index_from_statement(
-		&rp_state.validator_to_group,
-		&rp_state.group_rotation_info,
-		rp_state.n_cores,
-		&rp_state.claim_queue,
-		statement,
-	)
-	.ok_or(Error::CoreIndexUnavailable)?;
+	let core = core_index_from_statement(sp_state, statement).ok_or(Error::CoreIndexUnavailable)?;
 
-	Ok(rp_state.table.import_statement(&rp_state.table_context, core, stmt))
+	Ok(sp_state.table.import_statement(&sp_state.table_context, core, stmt))
 }
 
 /// Handles a summary received from [`import_statement`] and dispatches `Backed` notifications and
@@ -1646,7 +1657,7 @@ async fn import_statement<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn post_import_statement_actions<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	rp_state: &mut PerSchedulingParentState,
 	summary: Option<&TableSummary>,
 ) {
 	if let Some(attested) = summary.as_ref().and_then(|s| {
@@ -1718,7 +1729,7 @@ fn issue_new_misbehaviors<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn sign_import_and_distribute_statement<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	rp_state: &mut PerSchedulingParentState,
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
@@ -1743,7 +1754,7 @@ async fn sign_import_and_distribute_statement<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn background_validate_and_make_available<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	rp_state: &mut PerSchedulingParentState,
 	params: BackgroundValidationParams<
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Send + 'static + Sync,
@@ -1784,13 +1795,14 @@ async fn background_validate_and_make_available<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn kick_off_validation_work<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	sp_state: &mut PerSchedulingParentState,
 	persisted_validation_data: PersistedValidationData,
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
+	executor_params: Arc<ExecutorParams>,
 ) -> Result<(), Error> {
 	// Do nothing if the local validator is disabled or not a validator at all
-	match rp_state.table_context.local_validator_is_disabled() {
+	match sp_state.table_context.local_validator_is_disabled() {
 		Some(true) => {
 			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
 			return Ok(())
@@ -1803,7 +1815,7 @@ async fn kick_off_validation_work<Context>(
 	}
 
 	let candidate_hash = attesting.candidate.hash();
-	if rp_state.issued_statements.contains(&candidate_hash) {
+	if sp_state.issued_statements.contains(&candidate_hash) {
 		return Ok(())
 	}
 
@@ -1821,19 +1833,20 @@ async fn kick_off_validation_work<Context>(
 		pov_hash: attesting.pov_hash,
 	};
 
+	let relay_parent = attesting.candidate.descriptor().relay_parent();
 	background_validate_and_make_available(
 		ctx,
-		rp_state,
+		sp_state,
 		BackgroundValidationParams {
 			sender: bg_sender,
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
-			relay_parent: rp_state.parent,
-			node_features: rp_state.node_features.clone(),
-			executor_params: Arc::clone(&rp_state.executor_params),
+			relay_parent,
+			node_features: sp_state.node_features.clone(),
+			executor_params,
 			persisted_validation_data,
 			pov,
-			n_validators: rp_state.table_context.validators.len(),
+			n_validators: sp_state.table_context.validators.len(),
 			make_command: ValidatedCandidateCommand::Attest,
 		},
 	)
@@ -1848,7 +1861,7 @@ async fn maybe_validate_and_import<Context>(
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 ) -> Result<(), Error> {
-	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
+	let sp_state = match state.per_scheduling_parent.get_mut(&relay_parent) {
 		Some(r) => r,
 		None => {
 			gum::trace!(
@@ -1862,7 +1875,7 @@ async fn maybe_validate_and_import<Context>(
 	};
 
 	// Don't import statement if the sender is disabled
-	if rp_state.table_context.validator_is_disabled(&statement.validator_index()) {
+	if sp_state.table_context.validator_is_disabled(&statement.validator_index()) {
 		gum::debug!(
 			target: LOG_TARGET,
 			sender_validator_idx = ?statement.validator_index(),
@@ -1871,7 +1884,7 @@ async fn maybe_validate_and_import<Context>(
 		return Ok(())
 	}
 
-	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
+	let res = import_statement(ctx, sp_state, &mut state.per_candidate, &statement).await;
 
 	// if we get an Error::RejectedByProspectiveParachains,
 	// we will do nothing.
@@ -1886,7 +1899,7 @@ async fn maybe_validate_and_import<Context>(
 	}
 
 	let summary = res?;
-	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
+	post_import_statement_actions(ctx, sp_state, summary.as_ref()).await;
 
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the
@@ -1895,14 +1908,14 @@ async fn maybe_validate_and_import<Context>(
 
 		let candidate_hash = summary.candidate;
 
-		if Some(summary.group_id) != rp_state.assigned_core {
+		if Some(summary.group_id) != sp_state.assigned_core {
 			return Ok(())
 		}
 
 		let attesting = match statement.payload() {
 			StatementWithPVD::Seconded(receipt, _) => {
 				let attesting = AttestingData {
-					candidate: rp_state
+					candidate: sp_state
 						.table
 						.get_candidate(&candidate_hash)
 						.ok_or(Error::CandidateNotFound)?
@@ -1911,17 +1924,17 @@ async fn maybe_validate_and_import<Context>(
 					from_validator: statement.validator_index(),
 					backing: Vec::new(),
 				};
-				rp_state.fallbacks.insert(summary.candidate, attesting.clone());
+				sp_state.fallbacks.insert(summary.candidate, attesting.clone());
 				attesting
 			},
 			StatementWithPVD::Valid(candidate_hash) => {
-				if let Some(attesting) = rp_state.fallbacks.get_mut(candidate_hash) {
-					let our_index = rp_state.table_context.validator.as_ref().map(|v| v.index());
+				if let Some(attesting) = sp_state.fallbacks.get_mut(candidate_hash) {
+					let our_index = sp_state.table_context.validator.as_ref().map(|v| v.index());
 					if our_index == Some(statement.validator_index()) {
 						return Ok(())
 					}
 
-					if rp_state.awaiting_validation.contains(candidate_hash) {
+					if sp_state.awaiting_validation.contains(candidate_hash) {
 						// Job already running:
 						attesting.backing.push(statement.validator_index());
 						return Ok(())
@@ -1936,6 +1949,14 @@ async fn maybe_validate_and_import<Context>(
 			},
 		};
 
+		// Skip validation if local validator is disabled or not a validator.
+		// Check this before fetching executor_params to avoid unnecessary runtime calls.
+		match sp_state.table_context.local_validator_is_disabled() {
+			Some(true) => return Ok(()),
+			None => return Ok(()),
+			Some(false) => {},
+		}
+
 		// After `import_statement` succeeds, the candidate entry is guaranteed
 		// to exist.
 		if let Some(pvd) = state
@@ -1943,12 +1964,33 @@ async fn maybe_validate_and_import<Context>(
 			.get(&candidate_hash)
 			.map(|pc| pc.persisted_validation_data.clone())
 		{
+			// Determine session for executor_params lookup.
+			// For V2/V3, session_index is in the descriptor.
+			// For V1, scheduling_parent == relay_parent, so rp_state.session_index
+			// is the relay_parent's session.
+			let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
+			let session = attesting
+				.candidate
+				.descriptor()
+				.session_index(v3_enabled)
+				.unwrap_or(sp_state.session_index);
+			let executor_params = state
+				.per_session_cache
+				.executor_params(
+					session,
+					attesting.candidate.descriptor().relay_parent(),
+					ctx.sender(),
+				)
+				.await
+				.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
+
 			kick_off_validation_work(
 				ctx,
-				rp_state,
+				sp_state,
 				pvd,
 				&state.background_validation_tx,
 				attesting,
+				executor_params,
 			)
 			.await?;
 		}
@@ -1960,11 +2002,12 @@ async fn maybe_validate_and_import<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn validate_and_second<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerRelayParentState,
+	rp_state: &mut PerSchedulingParentState,
 	persisted_validation_data: PersistedValidationData,
 	candidate: &CandidateReceipt,
 	pov: Arc<PoV>,
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
+	executor_params: Arc<ExecutorParams>,
 ) -> Result<(), Error> {
 	let candidate_hash = candidate.hash();
 
@@ -1985,7 +2028,7 @@ async fn validate_and_second<Context>(
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
 			node_features: rp_state.node_features.clone(),
-			executor_params: Arc::clone(&rp_state.executor_params),
+			executor_params,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -2021,34 +2064,59 @@ async fn handle_second_message<Context>(
 		return Ok(())
 	}
 
-	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
+	// First, determine v3_enabled by checking any available relay parent state
+	// (we need this to extract scheduling_parent correctly)
+	// Note: We use the relay parent for node feature detection, while later we use the scheduling
+	// parent. This is fine because:
+	//
+	// - We assume the node feature gets enabled and not disabled again.
+	// - The scheduling parent is never older than the relay parent.
+	//
+	// Thus if the feature was enabled at the relay parent, it will also be enabled at the
+	// scheduling parent. If it was not, it does not matter because then we have scheduling_parent
+	// == relay_parent.
+	let v3_enabled = state
+		.per_scheduling_parent
+		.get(&relay_parent)
+		.map(|rp_state| FeatureIndex::CandidateReceiptV3.is_set(&rp_state.node_features))
+		.unwrap_or(false);
+
+	// The signing context should use scheduling_parent (for V1/V2, this equals relay_parent)
+	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+
+	// Look up the PerSchedulingParentState using scheduling_parent - this is where we'll sign
+	let sp_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => {
 			gum::trace!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
-				"We were asked to second a candidate outside of our view."
+				"Candidate has scheduling_parent outside of our view."
 			);
-
 			return Ok(())
 		},
 		Some(r) => r,
 	};
 
+	// Get the scheduling info (assigned_core and claim_queue) from the scheduling_parent state
+	let assigned_core = sp_state.assigned_core;
+	let claim_queue = &sp_state.claim_queue;
+
 	// Just return if the local validator is disabled. If we are here the local node should be a
 	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
-	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
+	if sp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
 		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
 		return Ok(())
 	}
 
-	let assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.0.get(&core));
+	// For V3, use scheduling info from scheduling_parent (claim queue determines assignments)
+	let assigned_paras = assigned_core.and_then(|core| claim_queue.0.get(&core));
 
 	// Sanity check that candidate is from our assignment.
 	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id())) {
 		gum::debug!(
 			target: LOG_TARGET,
-			our_assignment_core = ?rp_state.assigned_core,
+			our_assignment_core = ?assigned_core,
 			our_assignment_paras = ?assigned_paras,
 			collation = ?candidate.descriptor().para_id(),
 			"Subsystem asked to second for para outside of our assignment",
@@ -2058,7 +2126,7 @@ async fn handle_second_message<Context>(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		our_assignment_core = ?rp_state.assigned_core,
+		our_assignment_core = ?assigned_core,
 		our_assignment_paras = ?assigned_paras,
 		collation = ?candidate.descriptor().para_id(),
 		"Current assignments vs collation",
@@ -2071,16 +2139,32 @@ async fn handle_second_message<Context>(
 	// conflicting with other seconded candidates. Not doing that check here
 	// gives other subsystems the ability to get us to execute arbitrary candidates,
 	// but no more.
-	if !rp_state.issued_statements.contains(&candidate_hash) {
+	if !sp_state.issued_statements.contains(&candidate_hash) {
 		let pov = Arc::new(pov);
+
+		// Determine session for executor_params lookup.
+		// For V2/V3, session_index is in the descriptor.
+		// For V1, scheduling_parent == relay_parent, so rp_state.session_index
+		// is the relay_parent's session.
+		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
+		let session = candidate
+			.descriptor()
+			.session_index(v3_enabled)
+			.unwrap_or(sp_state.session_index);
+		let executor_params = state
+			.per_session_cache
+			.executor_params(session, candidate.descriptor().relay_parent(), ctx.sender())
+			.await
+			.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
 
 		validate_and_second(
 			ctx,
-			rp_state,
+			sp_state,
 			persisted_validation_data,
 			&candidate,
 			pov,
 			&state.background_validation_tx,
+			executor_params,
 		)
 		.await?;
 	}
@@ -2118,7 +2202,7 @@ fn handle_get_backable_candidates_message(
 
 	for (para_id, para_candidates) in requested_candidates {
 		for (candidate_hash, relay_parent) in para_candidates.iter() {
-			let rp_state = match state.per_relay_parent.get(&relay_parent) {
+			let rp_state = match state.per_scheduling_parent.get(&relay_parent) {
 				Some(rp_state) => rp_state,
 				None => {
 					gum::debug!(

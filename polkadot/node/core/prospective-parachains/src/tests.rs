@@ -29,7 +29,7 @@ use polkadot_primitives::{
 		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
 	},
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
-	Header, MutateDescriptorV2, PersistedValidationData, ValidationCodeHash,
+	Header, MutateDescriptorV2, NodeFeatures, PersistedValidationData, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
@@ -263,6 +263,15 @@ async fn handle_leaf_activation(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
 		) if parent == *hash => {
 			tx.send(Ok(1)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(session_index, tx))
+		) if parent == *hash && session_index == 1 => {
+			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 		}
 	);
 
@@ -2725,6 +2734,15 @@ fn uses_ancestry_only_within_session() {
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
 			) if parent == hash => {
 				tx.send(Ok(session)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(session_index, tx))
+			) if parent == hash && session_index == session => {
+				tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 			}
 		);
 
