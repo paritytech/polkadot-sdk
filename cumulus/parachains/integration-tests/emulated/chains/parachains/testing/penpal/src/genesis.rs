@@ -75,7 +75,7 @@ pub fn genesis(para_id: u32) -> Storage {
 			assets: vec![
 				// Relay Native asset representation
 				(RelayLocation::get(), PenpalAssetOwner::get(), true, ED),
-				// Local Pen42 representation
+				// Local Pen2 representation
 				(LocalPen2Asset::get(), PenpalAssetOwner::get(), false, ED),
 				// Sufficient AssetHub asset representation
 				(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
