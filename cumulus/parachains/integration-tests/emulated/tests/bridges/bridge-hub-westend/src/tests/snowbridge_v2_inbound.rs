@@ -34,7 +34,7 @@ use emulated_integration_tests_common::{
 	RESERVABLE_ASSET_ID,
 };
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::penpal_emulated_chain::{PARA_ID_B};
+use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{reward::MessageId, AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},

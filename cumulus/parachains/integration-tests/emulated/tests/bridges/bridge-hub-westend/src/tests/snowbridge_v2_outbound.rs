@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use crate::{
-	imports::{penpal_emulated_chain::penpal_runtime::xcm_config::PenpalNativeCurrency, *},
+	imports::{
+		penpal_emulated_chain::penpal_runtime::xcm_config::{LocalPen2Asset, PenpalNativeCurrency},
+		*,
+	},
 	tests::{snowbridge_common::*, usdt_at_ah_westend},
 };
 use bridge_hub_westend_runtime::{
@@ -28,7 +31,6 @@ use snowbridge_pallet_outbound_queue_v2::Error;
 use snowbridge_pallet_system_v2::LostTips;
 use sp_core::H256;
 use xcm::v5::AssetTransferFilter;
-use crate::imports::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
@@ -844,10 +846,8 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 
 		let ena = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT / 2) };
 
-		let transfer_asset_reanchor_on_ah = Asset {
-			id: AssetId(PenpalBLocation::get()),
-			fun: Fungible(TOKEN_AMOUNT),
-		};
+		let transfer_asset_reanchor_on_ah =
+			Asset { id: AssetId(PenpalBLocation::get()), fun: Fungible(TOKEN_AMOUNT) };
 
 		let assets = vec![
 			local_fee_asset_on_penpal.clone(),

@@ -14,9 +14,7 @@
 // limitations under the License.
 use crate::{
 	imports::{
-		penpal_emulated_chain::penpal_runtime::xcm_config::{
-			CheckingAccount,
-		},
+		penpal_emulated_chain::penpal_runtime::xcm_config::{CheckingAccount, LocalPen2Asset},
 		*,
 	},
 	tests::{
@@ -35,7 +33,11 @@ use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
 use codec::Encode;
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, snowbridge::{SEPOLIA_ID, WETH}, PENPAL_B_ID, RESERVABLE_ASSET_ID};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on,
+	snowbridge::{SEPOLIA_ID, WETH},
+	PENPAL_B_ID, RESERVABLE_ASSET_ID,
+};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
@@ -52,7 +54,6 @@ use sp_core::{H160, H256};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
-use crate::imports::penpal_emulated_chain::penpal_runtime::xcm_config::LocalPen2Asset;
 
 const INITIAL_FUND: u128 = 6_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
@@ -748,9 +749,7 @@ fn send_token_from_ethereum_to_penpal() {
 			1000,
 		));
 
-		assert!(<PenpalB as PenpalBPallet>::Assets::asset_exists(
-			weth_asset_location.clone()
-		));
+		assert!(<PenpalB as PenpalBPallet>::Assets::asset_exists(weth_asset_location.clone()));
 	});
 
 	BridgeHubWestend::execute_with(|| {
@@ -1619,8 +1618,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal =
-		PenpalB::execute_with(|| LocalPen2Asset::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| LocalPen2Asset::get());
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())
@@ -1642,11 +1640,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	// We need to create a pool to pay execution fees in WND
-	create_foreign_pool_with_native_on!(
-		PenpalB,
-		Location::parent(),
-		PenpalAssetOwner::get()
-	);
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// Register token
 	BridgeHubWestend::execute_with(|| {

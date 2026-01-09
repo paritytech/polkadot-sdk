@@ -14,7 +14,13 @@
 // limitations under the License.
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::Dmp, xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id}, xcm_simulator::helpers::TopicIdTracker, PenpalBLocation};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on,
+	macros::Dmp,
+	xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_simulator::helpers::TopicIdTracker,
+	PenpalBLocation,
+};
 use frame_support::traits::fungible;
 use xcm::latest::AssetTransferFilter;
 
@@ -1445,7 +1451,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	PenpalB::fund_accounts(vec![
 		(sender.clone(), pens_to_send * 2),
 		// fund Penpal's check account to be able to teleport
-		(penpal_check_account.clone().into(), pens_to_send * 2)
+		(penpal_check_account.clone().into(), pens_to_send * 2),
 	]);
 
 	// ---------- Set up Asset Hub Rococo ----------
@@ -1533,16 +1539,13 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {
 		type Assets = <PenpalB as PenpalBPallet>::Assets;
-		<Assets as Inspect<_>>::balance(
-			wnd_at_westend_parachains.into(),
-			&PenpalBSender::get(),
-		)
+		<Assets as Inspect<_>>::balance(wnd_at_westend_parachains.into(), &PenpalBSender::get())
 	});
 
 	let sender_pens_after = PenpalB::execute_with(|| {
-			type Balances = <PenpalB as PenpalBPallet>::Balances;
-			<Balances as fungible::Inspect<_>>::balance(&PenpalBSender::get())
-		});
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&PenpalBSender::get())
+	});
 	let wnds_in_reserve_on_ahw_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let pens_in_reserve_on_ahw_after = AssetHubWestend::execute_with(|| {
