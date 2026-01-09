@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	assets_balance_on, asset_exists_on, foreign_balance_on, imports::*,
+	asset_exists_on, assets_balance_on, foreign_balance_on, imports::*,
 	tests::send::penpal_register_foreign_asset_on_asset_hub,
 };
 
