@@ -50,7 +50,7 @@ use alloc::vec::Vec;
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
-use sp_application_crypto::{AppPublic, RuntimeAppPublic};
+use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppPublic, RuntimeAppPublic};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{Hash, Header as HeaderT, Keccak256, NumberFor},
@@ -65,6 +65,15 @@ pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_type
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
 pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
+	/// Sign a message using the private key associated to the current public key.
+	///
+	/// We can't access the private key directly, so we need to receive the store that contains it.
+	fn try_sign(
+		&self,
+		store: sp_keystore::KeystorePtr,
+		msg: &[u8],
+	) -> Result<Option<Vec<u8>>, sp_keystore::Error>;
+
 	/// Verify a signature.
 	///
 	/// Return `true` if signature over `msg` is valid for this id.
@@ -97,9 +106,11 @@ pub trait AuthorityIdBound:
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{
+		AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, BEEFY_KEY_TYPE, KEY_TYPE,
+	};
 	use sp_application_crypto::{app_crypto, ecdsa};
-	use sp_core::crypto::Wraps;
+	use sp_core::{crypto::Wraps, ByteArray};
 
 	app_crypto!(ecdsa, KEY_TYPE);
 
@@ -113,6 +124,22 @@ pub mod ecdsa_crypto {
 	where
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
+		fn try_sign(
+			&self,
+			store: sp_keystore::KeystorePtr,
+			msg: &[u8],
+		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+			let msg_hash = <MsgHash as Hash>::hash(msg).into();
+			let public = ecdsa::Public::try_from(self.as_slice()).unwrap();
+
+			let maybe_sig = store.ecdsa_sign_prehashed(BEEFY_KEY_TYPE, &public, &msg_hash)?;
+			let Some(sig) = maybe_sig else {
+				return Ok(None);
+			};
+			let sig_ref: &[u8] = sig.as_ref();
+			Ok(Some(sig_ref.to_vec()))
+		}
+
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			let msg_hash = <MsgHash as Hash>::hash(msg).into();
 			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
@@ -166,9 +193,11 @@ pub mod bls_crypto {
 /// functionality.
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{
+		AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, BEEFY_KEY_TYPE, KEY_TYPE,
+	};
 	use sp_application_crypto::{app_crypto, ecdsa_bls381};
-	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair};
+	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair, ByteArray};
 
 	app_crypto!(ecdsa_bls381, KEY_TYPE);
 
@@ -183,6 +212,22 @@ pub mod ecdsa_bls_crypto {
 		H: Hash,
 		H::Output: Into<[u8; 32]>,
 	{
+		fn try_sign(
+			&self,
+			store: sp_keystore::KeystorePtr,
+			msg: &[u8],
+		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+			let public = ecdsa_bls381::Public::try_from(self.as_slice()).unwrap();
+
+			let maybe_sig =
+				store.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &msg)?;
+			let Some(sig) = maybe_sig else {
+				return Ok(None);
+			};
+			let sig_ref: &[u8] = sig.as_ref();
+			Ok(Some(sig_ref.to_vec()))
+		}
+
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`

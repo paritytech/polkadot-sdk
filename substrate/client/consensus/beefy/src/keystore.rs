@@ -19,9 +19,9 @@ use codec::Decode;
 use log::warn;
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
 use sp_core::ecdsa_bls381;
-use sp_core::{ecdsa, keccak_256};
 
 use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
@@ -82,48 +82,22 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead
-		// of blake2. As such we need to deal with producing the signatures case-by-case
-		let signature_byte_array: Vec<u8> = match <AuthorityId as AppCrypto>::CRYPTO_ID {
-			ecdsa::CRYPTO_ID => {
-				let msg_hash = keccak_256(message);
-				let public: ecdsa::Public = ecdsa::Public::try_from(public.as_slice()).unwrap();
-
-				let sig = store
-					.ecdsa_sign_prehashed(BEEFY_KEY_TYPE, &public, &msg_hash)
-					.map_err(|e| error::Error::Keystore(e.to_string()))?
-					.ok_or_else(|| {
-						error::Error::Signature("ecdsa_sign_prehashed() failed".to_string())
-					})?;
-				let sig_ref: &[u8] = sig.as_ref();
-				sig_ref.to_vec()
-			},
-
-			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls381::CRYPTO_ID => {
-				let public: ecdsa_bls381::Public =
-					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
-				let sig = store
-					.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
-					.map_err(|e| error::Error::Keystore(e.to_string()))?
-					.ok_or_else(|| error::Error::Signature("bls381_sign()  failed".to_string()))?;
-				let sig_ref: &[u8] = sig.as_ref();
-				sig_ref.to_vec()
-			},
-
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into()))?,
-		};
-
-		//check that `sig` has the expected result type
-		let signature = <AuthorityId as RuntimeAppPublic>::Signature::decode(
-			&mut signature_byte_array.as_slice(),
-		)
-		.map_err(|_| {
-			error::Error::Signature(format!(
-				"invalid signature {:?} for key {:?}",
-				signature_byte_array, public
-			))
-		})?;
+		let raw_signature =
+			BeefyAuthorityId::<BeefySignatureHasher>::try_sign(public, store, message)
+				.map_err(|e| error::Error::Keystore(e.to_string()))?
+				.ok_or_else(|| {
+					error::Error::Signature(
+						"BeefyAuthorityId::try_sign() returned None".to_string(),
+					)
+				})?;
+		let signature =
+			<AuthorityId as RuntimeAppPublic>::Signature::decode(&mut raw_signature.as_slice())
+				.map_err(|_| {
+					error::Error::Signature(format!(
+						"invalid signature {:?} for key {:?}",
+						raw_signature, public
+					))
+				})?;
 
 		Ok(signature)
 	}
@@ -446,13 +420,13 @@ pub mod tests {
 
 	#[test]
 	fn sign_error_for_ecdsa() {
-		sign_error::<ecdsa_crypto::AuthorityId>("ecdsa_sign_prehashed() failed");
+		sign_error::<ecdsa_crypto::AuthorityId>("BeefyAuthorityId::try_sign() returned None");
 	}
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn sign_error_for_ecdsa_n_bls() {
-		sign_error::<ecdsa_bls_crypto::AuthorityId>("bls381_sign()  failed");
+		sign_error::<ecdsa_bls_crypto::AuthorityId>("BeefyAuthorityId::try_sign() returned None");
 	}
 
 	#[test]
