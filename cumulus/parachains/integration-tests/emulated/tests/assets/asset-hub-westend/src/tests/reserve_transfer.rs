@@ -15,7 +15,6 @@
 
 use crate::{assets_balance_on, imports::*};
 use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 };
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
@@ -1316,8 +1315,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 		assets_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
 	let receiver_assets_after = assets_balance_on!(PenpalB, relay_native_asset_location, &receiver);
 
-	// Sender's balance is reduced by amount sent plus delivery fees (delivery fees are charged in
-	// native)
+	// Sender's balance is reduced by amount sent (delivery fees are charged in native).
 	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
 	// Receiver's balance is increased by `amount_to_send` minus delivery fees.
 	assert!(receiver_assets_after > receiver_assets_before);
@@ -1462,7 +1460,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		0,
 		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(usdt_id.into())],
 	);
-	create_pool_with_wnd_on!(AssetHubWestend, usdt, AssetHubWestendSender::get());
+	create_pool_with_relay_native_on!(AssetHubWestend, usdt, AssetHubWestendSender::get());
 	// We also need a pool between WND and USDT on PenpalB.
 	create_foreign_pool_with_native_on!(
 		PenpalB,

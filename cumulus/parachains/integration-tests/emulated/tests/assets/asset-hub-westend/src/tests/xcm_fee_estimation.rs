@@ -18,7 +18,7 @@
 use crate::imports::*;
 
 use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
+	create_foreign_pool_with_native_on, create_pool_with_relay_native_on,
 	test_can_estimate_and_pay_exact_fees,
 };
 use frame_support::{dispatch::RawOrigin, traits::fungible};
@@ -430,7 +430,7 @@ fn usdt_fee_estimation_in_usdt_works() {
 
 	// Create a liquidity pool between WND (relay token) and USDT on AssetHub
 	// This is needed for the asset conversion in fee estimation
-	create_pool_with_wnd_on!(
+	create_pool_with_relay_native_on!(
 		AssetHubWestend,
 		usdt_location_on_ah.clone(),
 		AssetHubWestendSender::get(),

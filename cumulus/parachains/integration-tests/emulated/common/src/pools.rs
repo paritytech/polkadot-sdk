@@ -47,10 +47,10 @@ macro_rules! create_pool_with_native_location_on {
 }
 
 #[macro_export]
-macro_rules! create_pool_with_wnd_on {
+macro_rules! create_pool_with_relay_native_on {
 	// default amounts
 	( $chain:ident, $asset_id:expr, $asset_owner:expr ) => {
-		$crate::create_pool_with_wnd_on!(
+		$crate::create_pool_with_relay_native_on!(
 			$chain,
 			$asset_id,
 			$asset_owner,

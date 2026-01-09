@@ -13,9 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::PenpalALocation;
 use crate::{
-	assets_balance_on, create_pool_with_wnd_on, foreign_balance_on, imports::*,
+	assets_balance_on, create_pool_with_native_on, foreign_balance_on, imports::*,
 	tests::send::penpal_register_foreign_asset_on_asset_hub,
 };
 
@@ -62,7 +61,7 @@ pub fn set_up_foreign_asset(
 
 	// Setup a pool on Penpal between native asset and newly created asset, so we can pay fees using
 	// new asset directly.
-	create_pool_with_wnd_on!(PenpalA, asset_location_on_penpal.clone(), false, asset_owner.clone());
+	create_pool_with_native_on!(PenpalA, asset_location_on_penpal.clone(), false, asset_owner.clone());
 
 	// Register asset on Asset Hub using XCM
 	let penpal_sovereign_account = AssetHubWestend::sovereign_account_id_of(

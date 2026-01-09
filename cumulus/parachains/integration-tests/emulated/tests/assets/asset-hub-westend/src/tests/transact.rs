@@ -15,7 +15,7 @@
 
 use crate::{assets_balance_on, imports::*};
 use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on, create_pool_with_wnd_on,
+	create_foreign_pool_with_native_on, create_pool_with_relay_native_on,
 };
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
@@ -116,7 +116,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 
 	// We create a pool between WND and USDT in AssetHub.
 	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
-	create_pool_with_wnd_on!(
+	create_pool_with_relay_native_on!(
 		AssetHubWestend,
 		usdt,
 		AssetHubWestendSender::get(),
@@ -255,7 +255,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
 
 	// We create a pool between WND and USDT in AssetHub so we can do the exchange
-	create_pool_with_wnd_on!(
+	create_pool_with_relay_native_on!(
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
 		AssetHubWestendSender::get(),
@@ -478,7 +478,7 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
 
 	// We create a pool between WND and USDT in AssetHub so we can do the exchange
-	create_pool_with_wnd_on!(
+	create_pool_with_relay_native_on!(
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
 		AssetHubWestendSender::get(),
