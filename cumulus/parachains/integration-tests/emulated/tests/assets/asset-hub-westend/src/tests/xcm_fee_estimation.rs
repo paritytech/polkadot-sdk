@@ -16,11 +16,6 @@
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
 use crate::imports::*;
-
-use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on, create_pool_with_relay_native_on,
-	test_can_estimate_and_pay_exact_fees,
-};
 use frame_support::{dispatch::RawOrigin, traits::fungible};
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,

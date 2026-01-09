@@ -14,9 +14,6 @@
 // limitations under the License.
 
 use crate::{assets_balance_on, imports::*};
-use emulated_integration_tests_common::{
-	create_foreign_pool_with_native_on, create_pool_with_relay_native_on,
-};
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;

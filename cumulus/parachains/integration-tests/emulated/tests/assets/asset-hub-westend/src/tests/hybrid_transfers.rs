@@ -703,7 +703,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 	// Init values for Parachain
 	let relay_native_asset_location = RelayLocation::get();
 	let receiver = PenpalAReceiver::get();
-	
+
 	// Create pool with WND to be able to pay execution in WND
 	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
 

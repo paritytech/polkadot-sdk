@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use emulated_integration_tests_common::PenpalALocation;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {

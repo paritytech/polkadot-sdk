@@ -37,9 +37,10 @@ mod imports {
 	pub(crate) use asset_test_utils::xcm_helpers;
 	pub(crate) use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
-		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
-		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		create_foreign_pool_with_native_on, create_pool_with_relay_native_on,
+		test_can_estimate_and_pay_exact_fees, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
+		test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
@@ -49,8 +50,7 @@ mod imports {
 			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
 		xcm_simulator::helpers::TopicIdTracker,
-		PenpalALocation, PenpalBLocation,
-		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
+		PenpalALocation, PenpalBLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub(crate) use parachains_common::{AccountId, Balance};
 	pub(crate) use westend_system_emulated_network::{
