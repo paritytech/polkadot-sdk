@@ -45,8 +45,8 @@ fn keccak_256_works(fixture_type: FixtureType) {
 			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
-		let pre = b"revive";
-		let expected = keccak_256(pre);
+		let pre = [42u8; 64];
+		let expected = keccak_256(&pre);
 
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::keccak256FuncCall { data: Bytes::from(pre) }.abi_encode())
