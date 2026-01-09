@@ -158,16 +158,20 @@ pub mod migrations {
 	/// Version 1 migration.
 	pub mod v1 {
 		use super::*;
-		use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-		/// Inner migration that creates the buffer account.
-		pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
+		mod inner {
+			use super::*;
+			use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-		impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
-			fn on_runtime_upgrade() -> Weight {
-				Pallet::<T>::create_buffer_account();
-				// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-				T::DbWeight::get().reads_writes(3, 3)
+			/// Inner migration that creates the buffer account.
+			pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
+
+			impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
+				fn on_runtime_upgrade() -> Weight {
+					Pallet::<T>::create_buffer_account();
+					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
+					T::DbWeight::get().reads_writes(3, 3)
+				}
 			}
 		}
 
@@ -175,7 +179,7 @@ pub mod migrations {
 		pub type InitBufferAccount<T> = frame_support::migrations::VersionedMigration<
 			0,
 			1,
-			InitBufferAccountInner<T>,
+			inner::InitBufferAccountInner<T>,
 			Pallet<T>,
 			<T as frame_system::Config>::DbWeight,
 		>;
