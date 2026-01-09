@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765372218067,
+  "lastUpdate": 1767980336619,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0157f244d0560d439b73a5aedbfe6bed56376a26",
-          "message": "[Release|CI/CD] Exclude test runtimes from the runtimes build (#8820)",
-          "timestamp": "2025-06-11T10:29:21Z",
-          "tree_id": "23d2e8d96dba309117b9ecd6b553ac0ff718f58c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0157f244d0560d439b73a5aedbfe6bed56376a26"
-        },
-        "date": 1749641167555,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15680044938000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02258797842,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008916345273333418,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012968475000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022643219853333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
+          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
+          "timestamp": "2026-01-09T16:32:49Z",
+          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
+        },
+        "date": 1767980311870,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02315309007999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14435596546666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009749920546666655,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006801199153333334,
             "unit": "seconds"
           }
         ]
