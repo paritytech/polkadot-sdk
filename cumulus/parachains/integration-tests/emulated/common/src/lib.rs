@@ -68,7 +68,7 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
-pub const PENPAL_FOREIGN_ASSETS_PALLET_ID: u8 = 51;
+pub const PENPAL_ASSETS_PALLET_ID: u8 = 51;
 
 pub struct AuraDigestProvider {}
 
@@ -87,14 +87,14 @@ parameter_types! {
 	pub PenpalAPen2TeleportableAssetLocation: Location
 		= Location::new(1, [
 				Junction::Parachain(PENPAL_A_ID),
-				Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID),
 				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
 	pub PenpalBPen2TeleportableAssetLocation: Location
 		= Location::new(1, [
 				Junction::Parachain(PENPAL_B_ID),
-				Junction::PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID),
+				Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID),
 				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);

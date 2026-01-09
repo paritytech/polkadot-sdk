@@ -802,7 +802,8 @@ macro_rules! impl_assets_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	// By default we assume that they
+	// By default we assume that the pallet_assets instance handling foreign assets is called
+	// `ForeignAssets`, there are exceptions like on `Penpal`, where it is simply called `Assets`.
 	($chain:ident, $asset_id_type:ty, $reserve_data_type:ty) => {
 		$crate::impl_foreign_assets_helpers_for_parachain!(
 			$chain,

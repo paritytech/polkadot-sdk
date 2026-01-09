@@ -280,7 +280,7 @@ pub const PEN2_TELEPORTABLE_GENERAL_INDEX: u32 = 2;
 pub const ASSET_HUB_ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
 
-pub const PENPAL_FOREIGN_ASSETS_PALLET_ID: u8 = 51;
+pub const PENPAL_ASSETS_PALLET_ID: u8 = 51;
 
 pub const USDT_ASSET_ID: u128 = 1984;
 
@@ -308,7 +308,7 @@ parameter_types! {
 	);
 
 	/// A PEN2 test asset.
-	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_FOREIGN_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
+	pub LocalPen2Asset: Location = Location::new(0, [PalletInstance(PENPAL_ASSETS_PALLET_ID), GeneralIndex(PEN2_TELEPORTABLE_GENERAL_INDEX.into())]);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios
