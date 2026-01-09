@@ -19,7 +19,7 @@ doc:
     * The rest should only be renamings.
 crates:
 - name: penpal-runtime
-  bump: minor
+  bump: major
 - name: frame-support
   bump: minor
 - name: parachains-common
