@@ -219,7 +219,7 @@ impl<T: Config> ListScenario<T> {
 
 const USER_SEED: u32 = 999666;
 
-#[benchmarks(where T: pallet_dap::Config)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 	use alloc::format;

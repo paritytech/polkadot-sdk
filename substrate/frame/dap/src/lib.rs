@@ -94,25 +94,34 @@ pub mod pallet {
 		/// Create the buffer account with a provider reference and fund it with ED.
 		///
 		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains).
+		/// (for existing chains). Safe to call multiple times - will early exit if account
+		/// already exists with sufficient balance.
 		pub fn create_buffer_account() {
 			let buffer = Self::buffer_account();
+			let ed = T::Currency::minimum_balance();
+
+			if frame_system::Pallet::<T>::providers(&buffer) > 0 &&
+				T::Currency::balance(&buffer) >= ed
+			{
+				log::debug!(
+					target: LOG_TARGET,
+					"DAP buffer account already initialized: {buffer:?}"
+				);
+				return;
+			}
+
 			// Ensure the account exists by incrementing its provider count.
 			frame_system::Pallet::<T>::inc_providers(&buffer);
-
-			// Fund the account with ED so it can receive deposits of any amount.
-			// Without this, deposits smaller than ED would fail.
-			let ed = T::Currency::minimum_balance();
 			log::info!(
 				target: LOG_TARGET,
 				"Attempting to mint ED ({ed:?}) into DAP buffer: {buffer:?}"
 			);
 
 			match T::Currency::mint_into(&buffer, ed) {
-				Ok(actual) => {
+				Ok(_) => {
 					log::info!(
 						target: LOG_TARGET,
-						"💸 Successfully minted {actual:?} into DAP buffer"
+						"🏦 Created DAP buffer account: {buffer:?}"
 					);
 				},
 				Err(e) => {
@@ -122,12 +131,6 @@ pub mod pallet {
 					);
 				},
 			}
-
-			let balance = T::Currency::balance(&buffer);
-			log::info!(
-				target: LOG_TARGET,
-				"🏦 Created DAP buffer account: {buffer:?}, balance: {balance:?}"
-			);
 		}
 	}
 

@@ -38,7 +38,7 @@ fn check_migration_v0_1() {
 		assert!(!System::account_exists(&buffer));
 
 		// When: run the versioned migration
-		let _ = migrations::v1::InitBufferAccount::<Test>::on_runtime_upgrade();
+		migrations::v1::InitBufferAccount::<Test>::on_runtime_upgrade();
 
 		// Then: version updated to 1, buffer account created
 		assert_eq!(DapPallet::on_chain_storage_version(), StorageVersion::new(1));
