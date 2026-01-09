@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test that FRAME support multiple version for transaction extension.
+//! Test that FRAME support multiple versions for transaction extensions.
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt::Debug;
