@@ -1,4 +1,4 @@
-error[E0080]: evaluation panicked: Precompiles with duplicate matcher detected
+error[E0080]: evaluation of `<(PrecompileA<pallet_revive_ui_tests::runtime::Runtime>, PrecompileB<pallet_revive_ui_tests::runtime::Runtime>) as polkadot_sdk::pallet_revive::precompiles::Precompiles<pallet_revive_ui_tests::runtime::Runtime>>::CHECK_COLLISION` failed
  --> $WORKSPACE/substrate/frame/revive/src/precompiles.rs
   |
   |             panic!("Precompiles with duplicate matcher detected")
@@ -9,3 +9,4 @@ note: erroneous constant encountered
     |
     |     let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+§
