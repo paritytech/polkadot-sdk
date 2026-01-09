@@ -819,12 +819,12 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 
 			// Actually run the extrinsic.
 			let sender_assets_before = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
+				type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
 			});
 			let receiver_assets_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &beneficiary_id)
+				type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &beneficiary_id)
 			});
 
 			test.set_assertion::<$sender_para>(sender_assertions);
@@ -840,12 +840,12 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			test.assert();
 
 			// let sender_assets_after = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-			// 	type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
-			// 	<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
+			// 	type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
+			// 	<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
 			// });
 			// let receiver_assets_after = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-			// 	type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
-			// 	<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
+			// 	type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
+			// 	<Assets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
 			// });
 			//
 			// // We know the exact fees on every hop.

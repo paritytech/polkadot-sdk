@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{foreign_balance_on, imports::*};
+use crate::{assets_balance_on, foreign_balance_on, imports::*};
 use emulated_integration_tests_common::{create_foreign_pool_with_native_on, PenpalALocation};
 use frame_support::traits::fungible;
 
@@ -44,13 +44,13 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 		assert_expected_events!(
 			PenpalA,
 			vec![
-				RuntimeEvent::ForeignAssets(
+				RuntimeEvent::Assets(
 					pallet_assets::Event::Burned { asset_id, owner, .. }
 				) => {
 					asset_id: *asset_id == system_para_native_asset_location,
 					owner: *owner == t.sender.account_id,
 				},
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
 					asset_id: *asset_id == expected_asset_id,
 					owner: *owner == t.sender.account_id,
 					balance: *balance == expected_asset_amount,
@@ -65,7 +65,7 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 					who: *who == t.sender.account_id,
 					amount: *amount == expected_asset_amount,
 				},
-				RuntimeEvent::ForeignAssets(
+				RuntimeEvent::Assets(
 					pallet_assets::Event::Burned { asset_id, owner, .. }
 				) => {
 					asset_id: *asset_id == system_para_native_asset_location,
@@ -143,19 +143,19 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 			PenpalA,
 			vec![
 				// checking account burns local asset as part of incoming teleport
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
 					asset_id: *asset_id == expected_asset_id,
 					owner: *owner == checking_account,
 					balance: *balance == expected_asset_amount,
 				},
 				// local asset is teleported into account of receiver
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
 					asset_id: *asset_id == expected_asset_id,
 					owner: *owner == t.receiver.account_id,
 					amount: *amount == expected_asset_amount,
 				},
 				// relay chain native asset for fee is deposited to receiver
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == system_para_native_asset_location,
 					owner: *owner == t.receiver.account_id,
 				},
@@ -171,7 +171,7 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 					amount: *amount == expected_asset_amount,
 				},
 				// relay chain native asset for fee is deposited to receiver
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == system_para_native_asset_location,
 					owner: *owner == t.receiver.account_id,
 				},
@@ -619,7 +619,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		),
 	};
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
-	let penpal_sender_foreign_balance_before = foreign_balance_on!(
+	let penpal_sender_foreign_balance_before = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalASender::get()
@@ -642,7 +642,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	penpal_to_ah.set_dispatchable::<PenpalA>(para_to_ah_dispatchable);
 	penpal_to_ah.assert();
 
-	let penpal_sender_balance_after = foreign_balance_on!(
+	let penpal_sender_balance_after = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalASender::get()
@@ -725,7 +725,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let mut ah_to_penpal = SystemParaToParaTest::new(ah_to_penpal_test_args);
 
 	let ah_sender_balance_before = ah_to_penpal.sender.balance;
-	let penpal_receiver_foreign_assets_before = foreign_balance_on!(
+	let penpal_receiver_foreign_assets_before = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalAReceiver::get()
@@ -748,7 +748,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_after =
-		foreign_balance_on!(PenpalA, system_para_native_asset_location, &PenpalAReceiver::get());
+		assets_balance_on!(PenpalA, system_para_native_asset_location, &PenpalAReceiver::get());
 
 	let ah_sender_assets_after = foreign_balance_on!(
 		AssetHubWestend,

@@ -85,7 +85,7 @@ fn sender_assertions(test: ParaToParaThroughAHTest) {
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			RuntimeEvent::ForeignAssets(
+			RuntimeEvent::Assets(
 				pallet_assets::Event::Burned { asset_id, owner, balance }
 			) => {
 				asset_id: *asset_id == Location::new(1, []),
@@ -119,7 +119,7 @@ fn receiver_assertions(test: ParaToParaThroughAHTest) {
 	assert_expected_events!(
 		PenpalB,
 		vec![
-			RuntimeEvent::ForeignAssets(
+			RuntimeEvent::Assets(
 				pallet_assets::Event::Issued { asset_id, owner, .. }
 			) => {
 				asset_id: *asset_id == Location::new(1, []),
@@ -329,16 +329,16 @@ fn multi_hop_works() {
 
 	// Actually run the extrinsic.
 	let sender_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
 	let sender_balance_before = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
 	let receiver_assets_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
 	});
 
 	test.set_assertion::<PenpalA>(sender_assertions);
@@ -349,16 +349,16 @@ fn multi_hop_works() {
 	test.assert();
 
 	let sender_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
 	let sender_balance_after = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
 	let receiver_assets_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
 	});
 
 	// We know the exact fees on every hop.
