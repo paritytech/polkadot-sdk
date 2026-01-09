@@ -35,10 +35,9 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
-  test-definition: "0013-systematic-chunk-recovery.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::systematic_chunk_recovery::systematic_chunk_recovery"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility"
   test-definition: "0014-chunk-fetching-network-compatibility.zndsl"
