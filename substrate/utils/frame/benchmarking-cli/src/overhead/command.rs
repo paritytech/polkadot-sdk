@@ -436,7 +436,7 @@ impl OverheadCmd {
 				let mut patched_value = patch_genesis(value, Some(para_id));
 
 				if let Some(user_patch) = &user_genesis_patcher {
-					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch.clone());
+					sc_chain_spec::json_patch::merge(&mut patched_value, user_patch);
 				}
 
 				patched_value
