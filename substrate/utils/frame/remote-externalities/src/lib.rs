@@ -48,7 +48,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use substrate_rpc_client::{
-	rpc_params, ws_client, BatchRequestBuilder, ChainApi, ClientT, StateApi, WsClient,
+	rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi,
 };
 use tokio_retry::{strategy::FixedInterval, Retry};
 
@@ -169,10 +169,16 @@ pub enum Transport {
 }
 
 impl Transport {
-	fn as_client(&self) -> Option<&dyn ClientT> {
+	fn as_client(&self) -> Option<&HttpClient> {
 		match self {
-			Self::RemoteClient(client) => Some(client as &dyn ClientT),
-			Self::RemoteWsClient(client) => Some(client as &dyn ClientT),
+			Self::RemoteClient(client) => Some(client),
+			_ => None,
+		}
+	}
+
+	fn as_ws_client(&self) -> Option<&WsClient> {
+		match self {
+			Self::RemoteWsClient(client) => Some(client),
 			_ => None,
 		}
 	}
@@ -199,6 +205,7 @@ impl Transport {
 					error!(target: LOG_TARGET, "error: {e}");
 					"failed to build ws client"
 				})?;
+
 				*self = Self::RemoteWsClient(ws)
 			} else {
 				error!(target: LOG_TARGET, "unsupported uri scheme: {uri:?}");
@@ -246,11 +253,18 @@ pub struct OnlineConfig<H> {
 }
 
 impl<H: Clone> OnlineConfig<H> {
-	/// Return rpc client reference.
-	fn rpc_client(&self) -> &dyn ClientT {
+	/// Return rpc (http) client reference.
+	fn rpc_client(&self) -> &HttpClient {
 		self.transport
 			.as_client()
-			.expect("rpc client must have been initialized by now; qed.")
+			.expect("http client must have been initialized by now; qed.")
+	}
+
+	/// Return ws client reference.
+	fn ws_client(&self) -> &WsClient {
+		self.transport
+			.as_ws_client()
+			.expect("ws client must have been initialized by now; qed.")
 	}
 
 	fn at_expected(&self) -> H {
