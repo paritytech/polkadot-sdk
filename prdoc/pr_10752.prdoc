@@ -11,6 +11,6 @@ doc:
     - Logged on gap sync completion to provide visibility into bandwidth savings
 crates:
 - name: sc-network-sync
-  bump: patch
+  bump: major
 - name: sc-service
-  bump: patch
+  bump: major
