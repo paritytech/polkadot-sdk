@@ -31,12 +31,7 @@ pub fn set_up_foreign_asset(
 	let asset_owner = PenpalAssetOwner::get();
 
 	// Give the sender enough native
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
-		PenpalALocation::get(),
-		sender.clone(),
-		asset_amount_to_send,
-	);
+	PenpalA::fund_accounts(vec![(sender.clone(), asset_amount_to_send)]);
 
 	// Create the asset on Penpal
 	let to_fund = asset_amount_to_send * 2;
