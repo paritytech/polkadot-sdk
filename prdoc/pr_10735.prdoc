@@ -1,6 +1,6 @@
 title: Genesis Patch Support for Frame Omni-Bencher
 doc:
-- audience: Runtime Developer
+- audience: runtime_dev
   description: |-
     This update adds a --genesis-patch CLI option to frame-omni-bencher,
     allowing users to apply custom JSON patches to genesis state during
