@@ -1107,12 +1107,12 @@ pub mod pallet {
 		/// The caller must have sufficient balance to pay XCM delivery fees.
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
 		/// while the delegating account pays the XCM delivery fee.
-		///
-		/// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
-		/// (storage item) to track accounts that have called set_keys. We will also need to perform
-		/// a migration to populate the state for all validators that have set keys via RC.
-		///
-		/// Note: No deposit is currently held/released, same reason as per set_keys.
+		//
+		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
+		// (storage item) to track accounts that have called set_keys. We will also need to perform
+		// a migration to populate the state for all validators that have set keys via RC.
+		//
+		// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
