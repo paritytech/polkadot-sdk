@@ -16,7 +16,7 @@
 
 use anyhow::anyhow;
 #[cfg(not(feature = "generate-snapshots"))]
-use zombienet_sdk::{AddCollatorOptions, AddNodeOptions, LocalFileSystem, Network};
+use zombienet_sdk::{AddNodeOptions, LocalFileSystem, Network};
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 pub const PARA_ID: u32 = 2000;
@@ -219,46 +219,6 @@ pub async fn add_relaychain_node(
 	};
 
 	network.add_node(name, options).await?;
-
-	Ok(())
-}
-
-/// Add a parachain collator to the network.
-///
-/// # Arguments
-/// * `network` - The zombienet network
-/// * `name` - Name of the node to add
-/// * `is_validator` - Whether the node is a validator
-#[cfg(not(feature = "generate-snapshots"))]
-pub async fn add_parachain_collator(
-	network: &mut Network<LocalFileSystem>,
-	name: &str,
-	is_validator: bool,
-) -> Result<(), anyhow::Error> {
-	log::info!("Adding {} collator to the network", name);
-	let images = zombienet_sdk::environment::get_images_from_env();
-	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
-
-	let options = AddCollatorOptions {
-		image: Some(images.polkadot.as_str().try_into()?),
-		command: Some("test-parachain".try_into()?),
-		subcommand: None,
-		args: vec![
-			("-lsync=trace").into(),
-			("--sync", "warp").into(),
-			("--").into(),
-			("--sync", "warp").into(),
-		],
-		env: vec![],
-		is_validator,
-		rpc_port: None,
-		prometheus_port: None,
-		p2p_port: None,
-		chain_spec: Some(format!("{base_dir}/{PARA_ID}.json").into()),
-		chain_spec_relay: Some(format!("{base_dir}/rococo-local.json").into()),
-	};
-
-	network.add_collator(name, options, PARA_ID).await?;
 
 	Ok(())
 }

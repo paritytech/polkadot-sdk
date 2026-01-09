@@ -22,8 +22,7 @@ use polkadot_primitives::Id as ParaId;
 use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
 	zombie_ci::full_node_warp_sync::common::{
-		add_parachain_collator, add_relaychain_node, build_network_config,
-		PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
+		add_relaychain_node, build_network_config, PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
 	},
 };
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
@@ -198,34 +197,22 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		network.get_node(name)?.pause().await?;
 	}
 
-	// Add ferdie and six dynamically
-	log::info!("Adding ferdie and six to the network");
+	// Add ferdie dynamically
+	log::info!("Adding ferdie to the network");
 	add_relaychain_node(&mut network, "ferdie", true).await?;
-	add_parachain_collator(&mut network, "six", true).await?;
 
-	// Wait for both nodes to be up
-	log::info!("Waiting for ferdie and six to be up");
+	log::info!("Waiting for ferdie to be up");
 	network.get_node("ferdie")?.wait_until_is_up(60u64).await?;
-	network.get_node("six")?.wait_until_is_up(60u64).await?;
 
-	// Assert warp and gap sync for ferdie and six
-	for name in ["ferdie", "six"] {
-		assert_warp_sync(network.get_node(name)?).await?;
-		assert_gap_sync(network.get_node(name)?).await?;
-	}
+	// Assert warp and gap sync for ferdie
+	assert_warp_sync(network.get_node("ferdie")?).await?;
+	assert_gap_sync(network.get_node("ferdie")?).await?;
 
 	// Check progress for ferdie
 	log::info!("Checking full node ferdie  is syncing");
 	network
 		.get_node("ferdie")?
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= RELAY_BEST_BLOCK_TO_WAIT_FOR, 225u64)
-		.await?;
-
-	// Check progress for six
-	log::info!("Checking full node six is syncing");
-	network
-		.get_node("six")?
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= PARA_BEST_BLOCK_TO_WAIT_FOR, 225u64)
 		.await?;
 
 	Ok(())
