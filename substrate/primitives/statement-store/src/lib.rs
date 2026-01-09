@@ -764,6 +764,7 @@ mod test {
 		assert!(!filter_any_fail.matches(&statement));
 	}
 
+	#[test]
 	fn statement_type_info_matches_encoding() {
 		// Statement has custom Encode/Decode that encodes as Vec<Field>.
 		// Verify that TypeInfo reflects this by containing a reference to Vec<Field>.

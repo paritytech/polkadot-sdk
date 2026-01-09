@@ -328,7 +328,7 @@ impl Index {
 		for t in match_any_topics {
 			let set = self.by_topic.get(t);
 
-			for item in set.iter().map(|set| set.iter()).flatten() {
+			for item in set.iter().flat_map(|set| set.iter()) {
 				if key_set.map_or(false, |s| s.contains(item)) {
 					log::trace!(
 						target: LOG_TARGET,
