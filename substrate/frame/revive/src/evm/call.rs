@@ -21,6 +21,7 @@ use crate::{
 	evm::{
 		fees::{compute_max_integer_quotient, InfoT},
 		runtime::SetWeightLimit,
+		TYPE_LEGACY,
 	},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
@@ -69,6 +70,27 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
+		// We would like to allow for transactions without a chain id to be executed through pallet
+		// revive. These are called unprotected transactions and they are transactions that predate
+		// EIP-155 which do not include a Chain ID. These transactions are still useful today in
+		// certain patterns in Ethereum such as "Nick's Method" for contract deployment which
+		// allows a contract to be deployed on all chains with the same address. This is only
+		// allowed for legacy transactions and isn't allowed for any other transaction type.
+		// * Here's a relevant EIP: https://eips.ethereum.org/EIPS/eip-2470
+		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
+		match (self.chain_id, self.r#type.as_ref()) {
+			(None, Some(super::Byte(TYPE_LEGACY))) => {},
+			(Some(chain_id), ..) =>
+				if chain_id != <T as Config>::ChainId::get().into() {
+					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+					return Err(InvalidTransaction::Call);
+				},
+			(None, ..) => {
+				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let Some(gas) = self.gas else {
 			log::debug!(target: LOG_TARGET, "No gas provided");
 			return Err(InvalidTransaction::Call);
@@ -81,13 +103,6 @@ impl GenericTransaction {
 			log::debug!(target: LOG_TARGET, "No gas_price provided.");
 			return Err(InvalidTransaction::Payment);
 		};
-
-		let chain_id = self.chain_id.unwrap_or_default();
-
-		if chain_id != <T as Config>::ChainId::get().into() {
-			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
-			return Err(InvalidTransaction::Call);
-		}
 
 		if effective_gas_price < base_fee {
 			log::debug!(
@@ -104,9 +119,10 @@ impl GenericTransaction {
 				// For dry runs, we need to ensure that the RLP encoding length is at least the
 				// length of the encoding of the actual transaction submitted later
 				let mut maximized_tx = self.clone();
-				maximized_tx.gas = Some(U256::MAX);
-				maximized_tx.gas_price = Some(U256::MAX);
-				maximized_tx.max_priority_fee_per_gas = Some(U256::MAX);
+				let maximized_base_fee = base_fee.saturating_mul(256.into());
+				maximized_tx.gas = Some(u64::MAX.into());
+				maximized_tx.gas_price = Some(maximized_base_fee);
+				maximized_tx.max_priority_fee_per_gas = Some(maximized_base_fee);
 
 				let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Invalid transaction type.");

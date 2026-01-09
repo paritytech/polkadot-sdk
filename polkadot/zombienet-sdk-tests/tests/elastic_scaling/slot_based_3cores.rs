@@ -92,12 +92,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign two extra cores to each parachain.
-	let (r1, r2) = tokio::join!(
-		assign_cores(&relay_client, 2100, vec![0, 1]),
-		assign_cores(&relay_client, 2200, vec![2, 3])
-	);
-	r1?;
-	r2?;
+	// We need to execute both call one after another to ensure that the internal logic fetches the
+	// correct nonce.
+	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).

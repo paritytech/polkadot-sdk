@@ -462,7 +462,7 @@ pub async fn assert_para_is_registered(
 /// To assign these extra `2` cores, the call would look like this:
 ///
 /// ```ignore
-/// assign_core(&relay_client, PARA_ID, vec![0, 1])
+/// assign_cores(&relay_client, PARA_ID, vec![0, 1])
 /// ```
 ///
 /// The cores `2` and `3` are assigned to the parachains by Zombienet.
