@@ -139,6 +139,9 @@ impl Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkConfig for Runtime {}
+
+#[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	crate::tests::ExtBuilder::default()
 		.base_weight(Weight::from_parts(100, 0))
