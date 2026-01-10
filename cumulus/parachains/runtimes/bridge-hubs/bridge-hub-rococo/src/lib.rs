@@ -1101,6 +1101,8 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use xcm::latest::prelude::*;
 			use xcm_config::TokenLocation;
 			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
