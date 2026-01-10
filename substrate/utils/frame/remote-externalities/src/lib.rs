@@ -160,12 +160,10 @@ pub struct OfflineConfig {
 pub enum Transport {
 	/// Use the `URI` to open a new connection.
 	///
-	/// It may be either a WebSocket or an HTTP URI.
+	/// It must an HTTP URI; using a WS URI will fail.
 	Uri(String),
 	/// Use HTTP connection.
 	RemoteClient(HttpClient),
-	/// Use WebSocket connection.
-	RemoteWsClient(WsClient),
 }
 
 impl Transport {
@@ -176,14 +174,22 @@ impl Transport {
 		}
 	}
 
-	fn as_ws_client(&self) -> Option<&WsClient> {
-		match self {
-			Self::RemoteWsClient(client) => Some(client),
-			_ => None,
-		}
-	}
-
-	// Build an RPC client from a URI.
+	/// Initialize an RPC HTTP client from a URI.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the URI is not a valid HTTP URI. In particular, WebSocket URIs are rejected.
+	///
+	/// # Examples
+	///
+	/// ```no_run
+	/// # use frame_remote_externalities::Transport;
+	/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+	/// let mut transport = Transport::Uri("https://try-runtime.polkadot.io:443".to_string());
+	/// transport.init().await.unwrap();
+	/// assert!(matches!(transport, Transport::RemoteClient(_)));
+	/// # });
+	/// ```
 	async fn init(&mut self) -> Result<()> {
 		if let Self::Uri(uri) = self {
 			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
@@ -200,16 +206,10 @@ impl Transport {
 					})?;
 
 				*self = Self::RemoteClient(http_client)
-			} else if uri.starts_with("ws://") || uri.starts_with("wss://") {
-				let ws = ws_client(uri).await.map_err(|e| {
-					error!(target: LOG_TARGET, "error: {e}");
-					"failed to build ws client"
-				})?;
-
-				*self = Self::RemoteWsClient(ws)
 			} else {
+				// WS URIs will take this path i.e. calling this function with one will fail.
 				error!(target: LOG_TARGET, "unsupported uri scheme: {uri:?}");
-				return Err("unsupported uri scheme (expected http(s) or ws(s))")
+				return Err("unsupported uri scheme (expected http(s))")
 			}
 		}
 
@@ -258,13 +258,6 @@ impl<H: Clone> OnlineConfig<H> {
 		self.transport
 			.as_client()
 			.expect("http client must have been initialized by now; qed.")
-	}
-
-	/// Return ws client reference.
-	fn ws_client(&self) -> &WsClient {
-		self.transport
-			.as_ws_client()
-			.expect("ws client must have been initialized by now; qed.")
 	}
 
 	fn at_expected(&self) -> H {
