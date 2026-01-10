@@ -32,6 +32,7 @@ tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-fe
 tokio-retry = { workspace = true }
 
 [dev-dependencies]
+jsonrpsee = { workspace = true, features = ["server"] }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]

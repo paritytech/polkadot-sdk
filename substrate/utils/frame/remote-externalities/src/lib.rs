@@ -1642,14 +1642,28 @@ mod remote_tests {
 		assert_eq!(paged, para);
 	}
 
+	/// Start a local WS server in a random port.
+	///
+	/// Used to test WS client building for remote externality transport initialization.
+	async fn start_local_ws_server() -> (String, jsonrpsee::server::ServerHandle) {
+		let server = jsonrpsee::server::ServerBuilder::default()
+			.build("127.0.0.1:0")
+			.await
+			.expect("local ws server should start");
+
+		let addr = server.local_addr().expect("local ws server should have a local addr");
+		let handle = server.start(jsonrpsee::RpcModule::new(()));
+
+		println!("local ws server started at {addr}");
+		(format!("ws://{addr}"), handle)
+	}
+
 	#[tokio::test]
 	async fn can_init_transport() {
 		init_logger();
-		let mut transport = Transport::Uri("ws://try-runtime.polkadot.io:443".to_string());
-		transport.init().await.unwrap();
-		assert!(matches!(transport, Transport::RemoteClient(_)));
+		let (uri, _server) = start_local_ws_server().await;
 
-		transport = Transport::Uri("wss://try-runtime.polkadot.io:443".to_string());
+		let mut transport = Transport::Uri(uri);
 		transport.init().await.unwrap();
 		assert!(matches!(transport, Transport::RemoteClient(_)));
 	}
