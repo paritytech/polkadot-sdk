@@ -25,6 +25,6 @@ crates:
 - name: parachains-common
   bump: minor
 - name: emulated-integration-tests-common
-  bump: minor
+  bump: major
 - name: xcm-emulator
   bump: minor
