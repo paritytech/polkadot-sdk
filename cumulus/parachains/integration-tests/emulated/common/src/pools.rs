@@ -1,10 +1,29 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+pub use paste;
+
+pub use pallet_asset_conversion;
+
 /// This function assumes that the asset is prefunded.
 ///
 /// Usually, this function is only called from the other macros in this module.
 #[macro_export]
 macro_rules! create_pool_with_native_location_on {
 	( $chain:ident, $native_location:expr, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
+		$crate::pools::paste::paste! {
 			<$chain>::execute_with(|| {
 				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
 				let owner = $asset_owner;
@@ -20,7 +39,7 @@ macro_rules! create_pool_with_native_location_on {
 				assert_expected_events!(
 					$chain,
 					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+						RuntimeEvent::AssetConversion($crate::pools::pallet_asset_conversion::Event::PoolCreated { .. }) => {},
 					]
 				);
 
@@ -38,7 +57,7 @@ macro_rules! create_pool_with_native_location_on {
 				assert_expected_events!(
 					$chain,
 					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
+						RuntimeEvent::AssetConversion($crate::pools::pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
 					]
 				);
 			});
@@ -61,7 +80,7 @@ macro_rules! create_pool_with_relay_native_on {
 
 	// custom amounts
 	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
+		$crate::pools::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
@@ -124,7 +143,7 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 
 	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_pallet_assets:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
+		$crate::pools::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
@@ -183,7 +202,7 @@ macro_rules! create_foreign_pool_with_native_on {
 
 	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_asset_pallet:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
+		$crate::pools::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
