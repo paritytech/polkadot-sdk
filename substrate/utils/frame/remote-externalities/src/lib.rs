@@ -1645,4 +1645,23 @@ mod remote_tests {
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
 		assert_eq!(paged, para);
 	}
+
+	#[tokio::test]
+	async fn can_init_transport() {
+		init_logger();
+		let mut transport = Transport::Uri("https://try-runtime.polkadot.io:443".to_string());
+		transport.init().await.unwrap();
+		assert!(matches!(transport, Transport::RemoteClient(_)));
+	}
+
+	#[tokio::test]
+	async fn cannot_init_transport_with_invalid_uri() {
+		init_logger();
+		let mut transport = Transport::Uri("ws://try-runtime.polkadot.io:443".to_string());
+		assert!(transport.init().await.is_err());
+
+		let mut transport = Transport::Uri("garbage".to_string());
+		assert!(transport.init().await.is_err());
+		
+	}
 }
