@@ -37,7 +37,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
-	make_valid_candidate_descriptor_v2, CandidateDescriptor,
+	make_valid_candidate_descriptor_v2, make_valid_candidate_descriptor_v3, CandidateDescriptor,
 };
 use rstest::rstest;
 use sp_core::{sr25519::Public, testing::TaskExecutor};
@@ -438,10 +438,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_validation_context: ValidationContext,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
@@ -647,6 +644,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -671,6 +669,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -695,6 +694,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -728,6 +728,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -757,7 +758,7 @@ fn invalid_session_or_ump_signals() {
 
 	perform_basic_checks(&descriptor, validation_data.max_pov_size, &pov, &validation_code.hash())
 		.unwrap();
-	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V1);
+	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V1);
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	for exec_kind in
@@ -774,6 +775,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -798,6 +800,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -848,6 +851,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -875,6 +879,7 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -887,6 +892,183 @@ fn invalid_session_or_ump_signals() {
 			assert_eq!(outputs.hrmp_watermark, 0);
 			assert_eq!(used_validation_data, validation_data);
 		});
+	}
+}
+
+#[test]
+/// Tests V3 candidate descriptor validation:
+/// - V3 descriptor with UMP signals and v3_enabled=true is valid
+/// - V3 descriptor without UMP signals and v3_enabled=true is invalid (NoUMPSignalWithV3Descriptor)
+/// - V3 descriptor with v3_enabled=false is invalid (UnknownVersion)
+fn v3_descriptor_validation() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	// Create a V3 descriptor with scheduling_parent different from relay_parent
+	let relay_parent = dummy_hash();
+	let scheduling_parent = Hash::repeat_byte(0x42);
+	let descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		relay_parent,
+		CoreIndex(0),
+		1, // session_index matching expected
+		validation_data.hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+		scheduling_parent,
+	);
+
+	// Verify it's detected as V3 when v3_enabled=true
+	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
+	// When v3_enabled=false, V3 descriptors (with non-zero scheduling_parent) are detected as V1
+	assert_eq!(descriptor.version(false), CandidateDescriptorVersion::V1);
+
+	// Validation result WITH UMP signals (required for V3)
+	let mut validation_result_with_signals = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	validation_result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
+	validation_result_with_signals
+		.upward_messages
+		.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+	let commitments_with_signals = CandidateCommitments {
+		head_data: validation_result_with_signals.head_data.clone(),
+		upward_messages: validation_result_with_signals.upward_messages.clone(),
+		horizontal_messages: validation_result_with_signals.horizontal_messages.clone(),
+		new_validation_code: validation_result_with_signals.new_validation_code.clone(),
+		processed_downward_messages: validation_result_with_signals.processed_downward_messages,
+		hrmp_watermark: validation_result_with_signals.hrmp_watermark,
+	};
+
+	// Validation result WITHOUT UMP signals
+	let validation_result_no_signals = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+
+	let commitments_no_signals = CandidateCommitments {
+		head_data: validation_result_no_signals.head_data.clone(),
+		upward_messages: validation_result_no_signals.upward_messages.clone(),
+		horizontal_messages: validation_result_no_signals.horizontal_messages.clone(),
+		new_validation_code: validation_result_no_signals.new_validation_code.clone(),
+		processed_downward_messages: validation_result_no_signals.processed_downward_messages,
+		hrmp_watermark: validation_result_no_signals.hrmp_watermark,
+	};
+
+	// Setup claim queue with para assigned to core 0
+	let mut cq = BTreeMap::new();
+	let _ = cq.insert(CoreIndex(0), vec![ParaId::from(1_u32)].into());
+
+	// Test 1: V3 descriptor + UMP signals + v3_enabled=true => Valid
+	{
+		let candidate_receipt = CandidateReceipt {
+			descriptor: descriptor.clone(),
+			commitments_hash: commitments_with_signals.hash(),
+		};
+
+		let result = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(
+				validation_result_with_signals.clone()
+			)),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt,
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			PvfExecKind::Backing(dummy_hash()),
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
+			VALIDATION_CODE_BOMB_LIMIT,
+		))
+		.unwrap();
+
+		assert_matches!(result, ValidationResult::Valid(_, _));
+	}
+
+	// Test 2: V3 descriptor + NO UMP signals + v3_enabled=true => Invalid
+	// (NoUMPSignalWithV3Descriptor)
+	{
+		let candidate_receipt = CandidateReceipt {
+			descriptor: descriptor.clone(),
+			commitments_hash: commitments_no_signals.hash(),
+		};
+
+		let result = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(
+				validation_result_no_signals.clone()
+			)),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt,
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			PvfExecKind::Backing(dummy_hash()),
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			true, // v3_enabled
+			VALIDATION_CODE_BOMB_LIMIT,
+		))
+		.unwrap();
+
+		assert_matches!(
+			result,
+			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+				CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor
+			))
+		);
+	}
+
+	// Test 3: V3 descriptor + v3_enabled=false => Invalid (UMPSignalWithV1Descriptor)
+	// When v3_enabled=false, a V3 descriptor (with non-zero scheduling_parent) is detected as V1
+	{
+		let candidate_receipt = CandidateReceipt {
+			descriptor: descriptor.clone(),
+			commitments_hash: commitments_with_signals.hash(),
+		};
+
+		let result = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(
+				validation_result_with_signals.clone()
+			)),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt,
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			PvfExecKind::Backing(dummy_hash()),
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			false, // v3_enabled=false: V3 descriptor detected as V1
+			VALIDATION_CODE_BOMB_LIMIT,
+		))
+		.unwrap();
+
+		// V3 detected as V1 when v3_enabled=false, rejected because V1 forbids UMP signals
+		assert_matches!(
+			result,
+			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+				CommittedCandidateReceiptError::UMPSignalWithV1Descriptor
+			))
+		);
 	}
 }
 
@@ -932,6 +1114,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1017,6 +1200,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1061,6 +1245,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1179,6 +1364,7 @@ fn candidate_validation_retry_on_error_helper(
 		exec_kind,
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 }
@@ -1225,6 +1411,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
@@ -1275,6 +1462,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1328,6 +1516,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1390,6 +1579,7 @@ fn compressed_code_works() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
+		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
@@ -1411,10 +1601,7 @@ impl ValidationBackend for MockPreCheckBackend {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_validation_context: ValidationContext,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
@@ -1570,10 +1757,7 @@ impl ValidationBackend for MockHeadsUp {
 	async fn validate_candidate(
 		&mut self,
 		_pvf: PvfPrepData,
-		_timeout: Duration,
-		_pvd: Arc<PersistedValidationData>,
-		_pov: Arc<PoV>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_validation_context: ValidationContext,
 		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()

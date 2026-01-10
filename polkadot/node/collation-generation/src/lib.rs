@@ -54,10 +54,11 @@
 //!
 //! The subsystem creates different descriptor versions based on input:
 //!
-//! - **V2**: `scheduling_parent` is `None`. The descriptor's `scheduling_parent` field is zeroed,
-//!   and scheduling context implicitly equals relay parent.
-//! - **V3**: `scheduling_parent` is `Some(hash)`. The descriptor includes an explicit
-//!   `scheduling_parent` field. Requires `CandidateReceiptV3` node feature to be enabled.
+//! - **V2**: `scheduling_parent` is `None`. The descriptor has `version=0` and `scheduling_parent`
+//!   field is zeroed. Scheduling context implicitly equals relay parent.
+//! - **V3**: `scheduling_parent` is `Some(hash)`. The descriptor has `version=1` and includes an
+//!   explicit `scheduling_parent` field. V3 candidates require UMP signals to be present. Requires
+//!   `CandidateReceiptV3` node feature to be enabled.
 //!
 //! # Protocol Details
 //!

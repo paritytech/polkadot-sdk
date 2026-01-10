@@ -27,6 +27,7 @@ use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
+use polkadot_node_core_pvf_common::execute::ValidationContext;
 use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
@@ -48,6 +49,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
+	node_features::FeatureIndex,
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateCommitments,
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
@@ -928,12 +930,22 @@ async fn validate_candidate_exhaustive(
 	}
 
 	let persisted_validation_data = Arc::new(persisted_validation_data);
+
+	// Create the validation context shared by both backing and approval/dispute paths
+	let validation_context = ValidationContext {
+		candidate_receipt: candidate_receipt.clone(),
+		pvd: persisted_validation_data.clone(),
+		pov: pov.clone(),
+		executor_params: executor_params.clone(),
+		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
+		v3_enabled,
+	};
+
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -942,27 +954,14 @@ async fn validate_candidate_exhaustive(
 				validation_code_bomb_limit,
 			);
 
-			validation_backend
-				.validate_candidate(
-					pvf,
-					exec_timeout,
-					persisted_validation_data.clone(),
-					pov,
-					exec_kind.into(),
-					exec_kind,
-				)
-				.await
+			validation_backend.validate_candidate(pvf, validation_context, exec_kind).await
 		},
 		PvfExecKind::Approval | PvfExecKind::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					persisted_validation_data.clone(),
-					pov,
-					executor_params,
+					validation_context,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					exec_kind.into(),
 					exec_kind,
 					validation_code_bomb_limit,
 				)
@@ -1111,37 +1110,25 @@ trait ValidationBackend {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
 	/// been transient.
 	///
-	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
-	/// that `approval` context has priority over `backing` context.
-	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
 	async fn validate_candidate_with_retry(
 		&mut self,
 		code: Vec<u8>,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		executor_params: ExecutorParams,
+		validation_context: ValidationContext,
 		retry_delay: Duration,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
 		exec_kind: PvfExecKind,
 		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
+		let exec_timeout = validation_context.exec_timeout;
+		let executor_params = validation_context.executor_params.clone();
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
@@ -1155,16 +1142,8 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		// Use `Priority::Critical` as finality trumps parachain liveliness.
 		let mut validation_result = self
-			.validate_candidate(
-				pvf.clone(),
-				exec_timeout,
-				pvd.clone(),
-				pov.clone(),
-				prepare_priority,
-				exec_kind,
-			)
+			.validate_candidate(pvf.clone(), validation_context.clone(), exec_kind)
 			.await;
 		if validation_result.is_ok() {
 			return validation_result
@@ -1243,16 +1222,12 @@ trait ValidationBackend {
 					validation_result
 				);
 
-				validation_result = self
-					.validate_candidate(
-						pvf.clone(),
-						new_timeout,
-						pvd.clone(),
-						pov.clone(),
-						prepare_priority,
-						exec_kind,
-					)
-					.await;
+				// Update the validation context with the new timeout
+				let mut retry_context = validation_context.clone();
+				retry_context.exec_timeout = new_timeout;
+
+				validation_result =
+					self.validate_candidate(pvf.clone(), retry_context, exec_kind).await;
 			}
 		}
 
@@ -1276,18 +1251,12 @@ impl ValidationBackend for ValidationHost {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
-			.await
+		if let Err(err) =
+			self.execute_pvf(pvf, validation_context, exec_kind.into(), exec_kind, tx).await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
