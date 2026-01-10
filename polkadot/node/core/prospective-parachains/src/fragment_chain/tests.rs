@@ -327,7 +327,7 @@ fn candidate_storage_methods() {
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
 
 	storage
-		.add_pending_availability_candidate(candidate_hash, candidate.clone(), pvd)
+		.add_pending_availability_candidate(candidate_hash, candidate.clone(), pvd, false)
 		.unwrap();
 	assert!(storage.contains(&candidate_hash));
 
@@ -1503,8 +1503,14 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 		.into_iter()
 		.map(|(_pvd, candidate)| candidate.hash())
 		.collect::<Vec<_>>();
-	let hashes =
-		|range: Range<usize>| range.map(|i| (candidates[i], relay_parent)).collect::<Vec<_>>();
+	let hashes = |range: Range<usize>| {
+		range
+			.map(|i| BackableCandidateRef {
+				candidate_hash: candidates[i],
+				scheduling_parent: relay_parent,
+			})
+			.collect::<Vec<_>>()
+	};
 
 	let relay_parent_info = RelayChainBlockInfo {
 		number: relay_parent_number,
@@ -1559,7 +1565,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 				chain.find_backable_chain(Ancestors::new(), count),
 				(0..6)
 					.take(count as usize)
-					.map(|i| (candidates[i], relay_parent))
+					.map(|i| BackableCandidateRef { candidate_hash: candidates[i], scheduling_parent: relay_parent })
 					.collect::<Vec<_>>()
 			);
 		}
@@ -1828,7 +1834,7 @@ fn test_v3_scheduling_parent_validation() {
 		// Should fail - scheduling_parent is not in scope
 		assert_matches!(
 			chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_entry),
-			Err(Error::RelayParentNotInScope(hash, _)) if hash == out_of_scope_parent
+			Err(Error::SchedulingParentNotInScope(hash, _)) if hash == out_of_scope_parent
 		);
 	}
 

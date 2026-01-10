@@ -35,10 +35,10 @@ use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
-		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
-		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
-		RuntimeApiRequest,
+		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
+		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
+		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
+		RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -160,13 +160,13 @@ async fn run_iteration<Context>(
 					handle_introduce_seconded_candidate(view, request, tx, metrics).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
 					handle_candidate_backed(view, para, candidate_hash, metrics).await,
-				ProspectiveParachainsMessage::GetBackableCandidates(
-					relay_parent,
-					para,
+				ProspectiveParachainsMessage::GetBackableCandidates {
+					leaf,
+					para_id,
 					count,
 					ancestors,
-					tx,
-				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
+					sender,
+				} => answer_get_backable_candidates(&view, leaf, para_id, count, ancestors, sender),
 				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
 					answer_hypothetical_membership_request(&view, request, tx, metrics),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
@@ -279,6 +279,8 @@ async fn handle_active_leaves_update<Context>(
 			},
 		};
 
+		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
+
 		let mut fragment_chains = HashMap::new();
 		for (para, claims_by_depth) in transposed_claim_queue.iter() {
 			// Find constraints and pending availability candidates.
@@ -313,6 +315,7 @@ async fn handle_active_leaves_update<Context>(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
+					v3_enabled,
 				);
 
 				match res {
@@ -726,29 +729,29 @@ async fn handle_candidate_backed(
 
 fn answer_get_backable_candidates(
 	view: &View,
-	relay_parent: Hash,
+	leaf: Hash,
 	para: ParaId,
 	count: u32,
 	ancestors: Ancestors,
-	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<Vec<BackableCandidateRef>>,
 ) {
-	if !view.active_leaves.contains(&relay_parent) {
+	if !view.active_leaves.contains(&leaf) {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
-			"Requested backable candidate for inactive relay-parent."
+			"Requested backable candidate for inactive leaf."
 		);
 
 		let _ = tx.send(vec![]);
 		return
 	}
-	let Some(data) = view.per_relay_parent.get(&relay_parent) else {
+	let Some(data) = view.per_relay_parent.get(&leaf) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
-			"Requested backable candidate for inexistent relay-parent."
+			"Requested backable candidate for inexistent leaf."
 		);
 
 		let _ = tx.send(vec![]);
@@ -758,7 +761,7 @@ fn answer_get_backable_candidates(
 	let Some(chain) = data.fragment_chains.get(&para) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
 			"Requested backable candidate for inactive para."
 		);
@@ -769,7 +772,7 @@ fn answer_get_backable_candidates(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?leaf,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
 		chain.best_chain_vec()
@@ -777,7 +780,7 @@ fn answer_get_backable_candidates(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?leaf,
 		para_id = ?para,
 		"Potential candidate storage for para: {:?}",
 		chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
@@ -790,13 +793,13 @@ fn answer_get_backable_candidates(
 			target: LOG_TARGET,
 			?ancestors,
 			para_id = ?para,
-			%relay_parent,
+			%leaf,
 			"Could not find any backable candidate",
 		);
 	} else {
 		gum::trace!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			?backable_candidates,
 			?ancestors,
 			"Found backable candidates",

@@ -90,9 +90,7 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(
-	stream: &mut UnixStream,
-) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
+fn recv_request(stream: &mut UnixStream) -> io::Result<ExecuteRequest> {
 	let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
@@ -101,7 +99,7 @@ fn recv_request(
 		)
 	})?;
 
-	Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
+	Ok(request)
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -156,15 +154,19 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (pvd, pov, execution_timeout, artifact_checksum) = recv_request(&mut stream)
-					.map_err(|e| {
-						map_and_send_err!(
-							e,
-							InternalValidationError::HostCommunication,
-							&mut stream,
-							worker_info
-						)
-					})?;
+				let request = recv_request(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
+
+				let pvd = request.pvd;
+				let pov = request.pov;
+				let execution_timeout = request.execution_timeout;
+				let artifact_checksum = request.artifact_checksum;
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -244,7 +246,33 @@ pub fn worker_entrypoint(
 					relay_parent_number: pvd.relay_parent_number,
 					relay_parent_storage_root: pvd.relay_parent_storage_root,
 				};
-				let params = Arc::new(params.encode());
+				let mut encoded_params = params.encode();
+
+				// Append V3+ extension based on descriptor version
+				use polkadot_parachain_primitives::primitives::{
+					TrailingOption, ValidationParamsExtension,
+				};
+				use polkadot_primitives::CandidateDescriptorVersion;
+
+				let extension: TrailingOption<ValidationParamsExtension> =
+					match request.descriptor_version {
+						CandidateDescriptorVersion::V3 => {
+							// V3 candidate - append extension with both parent hashes
+							TrailingOption(Some(ValidationParamsExtension::V3 {
+								relay_parent: request.relay_parent,
+								scheduling_parent: request.scheduling_parent,
+							}))
+						},
+						CandidateDescriptorVersion::V1 |
+						CandidateDescriptorVersion::V2 |
+						CandidateDescriptorVersion::Unknown => {
+							// V1/V2/Unknown - no extension appended
+							TrailingOption(None)
+						},
+					};
+				encoded_params.extend(extension.encode());
+
+				let params = Arc::new(encoded_params);
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {

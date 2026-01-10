@@ -78,12 +78,13 @@ where
 		match msg {
 			FromOrchestra::Communication {
 				msg:
-					CandidateBackingMessage::Second(
-						relay_parent,
-						ref candidate,
-						ref validation_data,
-						ref _pov,
-					),
+				CandidateBackingMessage::Second {
+					scheduling_parent: relay_parent,
+					candidate: ref candidate,
+					pvd: ref validation_data,
+					pov: ref _pov,
+					,
+				},
 			} => {
 				gum::debug!(
 					target: MALUS,
@@ -228,12 +229,13 @@ where
 					let malicious_candidate_hash = malicious_candidate.hash();
 
 					let message = FromOrchestra::Communication {
-						msg: CandidateBackingMessage::Second(
-							relay_parent,
-							malicious_candidate,
-							validation_data,
-							pov,
-						),
+						msg: CandidateBackingMessage::Second {
+							scheduling_parent: relay_parent,
+							candidate: malicious_candidate,
+							pvd: validation_data,
+							pov: pov,
+							,
+						},
 					};
 
 					gum::info!(

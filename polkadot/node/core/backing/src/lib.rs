@@ -86,12 +86,12 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
-		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
-		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
-		StoreAvailableDataError,
+		AvailabilityDistributionMessage, AvailabilityStoreMessage, BackableCandidateRef,
+		CanSecondRequest, CandidateBackingMessage, CandidateValidationMessage,
+		CollatorProtocolMessage, HypotheticalCandidate, HypotheticalMembershipRequest,
+		IntroduceSecondedCandidateRequest, ProspectiveParachainsMessage, ProvisionableData,
+		ProvisionerMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
+		StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemError,
@@ -941,14 +941,14 @@ async fn handle_communication<Context>(
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	match message {
-		CandidateBackingMessage::Second(_relay_parent, candidate, pvd, pov) => {
+		CandidateBackingMessage::Second { scheduling_parent: _, candidate, pvd, pov } => {
 			handle_second_message(ctx, state, candidate, pvd, pov, metrics).await?;
 		},
-		CandidateBackingMessage::Statement(relay_parent, statement) => {
-			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
+		CandidateBackingMessage::Statement { scheduling_parent, statement } => {
+			handle_statement_message(ctx, state, scheduling_parent, statement, metrics).await?;
 		},
-		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =>
-			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
+		CandidateBackingMessage::GetBackableCandidates { candidates, sender } =>
+			handle_get_backable_candidates_message(state, candidates, sender, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
 	}
@@ -1327,7 +1327,7 @@ async fn handle_can_second_request<Context>(
 	request: CanSecondRequest,
 	tx: oneshot::Sender<bool>,
 ) {
-	let relay_parent = request.candidate_relay_parent;
+	let relay_parent = request.candidate_scheduling_parent;
 	let response = if state.per_scheduling_parent.get(&relay_parent).is_some() {
 		let hypothetical_candidate = HypotheticalCandidate::Incomplete {
 			candidate_hash: request.candidate_hash,
@@ -2192,7 +2192,7 @@ async fn handle_statement_message<Context>(
 
 fn handle_get_backable_candidates_message(
 	state: &State,
-	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+	requested_candidates: HashMap<ParaId, Vec<BackableCandidateRef>>,
 	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
@@ -2201,27 +2201,30 @@ fn handle_get_backable_candidates_message(
 	let mut backed = HashMap::with_capacity(requested_candidates.len());
 
 	for (para_id, para_candidates) in requested_candidates {
-		for (candidate_hash, relay_parent) in para_candidates.iter() {
-			let rp_state = match state.per_scheduling_parent.get(&relay_parent) {
+		for candidate_ref in para_candidates.iter() {
+			let candidate_hash = candidate_ref.candidate_hash;
+			let scheduling_parent = candidate_ref.scheduling_parent;
+
+			let sp_state = match state.per_scheduling_parent.get(&scheduling_parent) {
 				Some(rp_state) => rp_state,
 				None => {
 					gum::debug!(
 						target: LOG_TARGET,
-						?relay_parent,
+						?scheduling_parent,
 						?candidate_hash,
-						"Requested candidate's relay parent is out of view",
+						"Requested candidate's scheduling parent is out of view",
 					);
 					break
 				},
 			};
-			let maybe_backed_candidate = rp_state
+			let maybe_backed_candidate = sp_state
 				.table
 				.attested_candidate(
-					candidate_hash,
-					&rp_state.table_context,
-					rp_state.minimum_backing_votes,
+					&candidate_hash,
+					&sp_state.table_context,
+					sp_state.minimum_backing_votes,
 				)
-				.and_then(|attested| table_attested_to_backed(attested, &rp_state.table_context));
+				.and_then(|attested| table_attested_to_backed(attested, &sp_state.table_context));
 
 			if let Some(backed_candidate) = maybe_backed_candidate {
 				backed
