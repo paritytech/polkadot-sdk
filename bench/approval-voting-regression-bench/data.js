@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767980370118,
+  "lastUpdate": 1768003350224,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0157f244d0560d439b73a5aedbfe6bed56376a26",
-          "message": "[Release|CI/CD] Exclude test runtimes from the runtimes build (#8820)",
-          "timestamp": "2025-06-11T10:29:21Z",
-          "tree_id": "23d2e8d96dba309117b9ecd6b553ac0ff718f58c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0157f244d0560d439b73a5aedbfe6bed56376a26"
-        },
-        "date": 1749641193693,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63632.92999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020466789999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.3935320444299992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001949793,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3481596866499985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.327345716772269,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001949793,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.80885411164999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00599994876,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44670175732000184,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9037242064499913,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.34969578212,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020466789999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3610406859200013,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7065400591999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "manuel.mauro@protonmail.com",
+            "name": "Manuel Mauro",
+            "username": "manuelmauro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4b934d0a252f86568d92ac3baa56584bbd14e782",
+          "message": "Improve `charge_transaction_payment benchmark` ergonomics (#10444)\n\n# Description\n\nRuntimes that distribute transaction fees to block authors (like\nMoonbeam) fail on the `charge_transaction_payment` benchmark because no\nauthor is set when the benchmark runs. The fee distribution logic panics\nwhen trying to credit a non-existent author.\n\nThis PR introduces a `benchmarking::Config` trait with a\n`setup_benchmark_environment()` hook that runtimes can implement to set\nup required state before the benchmark executes.\n\nAdditionally, `amount_to_endow` is now calculated using `compute_fee()`\nto determine the actual fee (with a 10x buffer), ensuring it is at least\nthe existential deposit.\n\n## Integration\n\nRuntimes that need to set up state before running the\n`charge_transaction_payment` benchmark should implement\n`pallet_transaction_payment::benchmarking::Config`:\n\n```diff\n+ impl pallet_transaction_payment::benchmarking::Config for Runtime {\n+     fn setup_benchmark_environment() {\n+         // Set up any required state, e.g., block author for fee distribution\n+         let author: AccountId = frame_benchmarking::whitelisted_caller();\n+         pallet_author_inherent::Author::<Runtime>::put(author);\n+     }\n+ }\n```\n\nAnd update the benchmark list to use the wrapper type:\n\n```diff\n- [pallet_transaction_payment, TransactionPayment]\n+ [pallet_transaction_payment, TransactionPaymentBenchmark::<Runtime>]\n```\n\nRuntimes that don't need custom setup can use the default implementation\n(no-op).\n\n## Review Notes\n\n- A new `benchmarking::Config` trait extends `crate::Config` with a\n`setup_benchmark_environment()` method (default no-op)\n- A wrapper `Pallet<T>` struct is introduced in the benchmarking module\nto use this extended trait\n- The benchmark calls `T::setup_benchmark_environment()` at the start\n- `amount_to_endow` is calculated as\n`compute_fee(...).saturating_mul(10).max(existential_deposit)` to ensure\nthe account can exist and has sufficient funds\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-01-09T22:46:27Z",
+          "tree_id": "4b721d0fd834fac05e2082cd3a28dd6aab66f568",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b934d0a252f86568d92ac3baa56584bbd14e782"
+        },
+        "date": 1768003328661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63625.9,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.845067228603073,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000026662570000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005321293880000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6567946854399986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.360757420690011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000025088710000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000026662570000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6866531835600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.621813616089999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.834209900210032,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000025088710000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7082108588400002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7946588417100242,
             "unit": "seconds"
           }
         ]
