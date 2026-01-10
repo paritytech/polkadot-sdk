@@ -46,6 +46,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::imbalance::ResolveAssetTo, ConstU32, Contains,
 		ContainsPair, Equals, Everything, EverythingBut, Get, LinearStoragePrice, Nothing,
+		PalletInfoAccess,
 	},
 	weights::Weight,
 };
@@ -90,6 +91,9 @@ parameter_types! {
 	].into();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
+	pub AssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
+	pub AssetsPalletLocation: Location =
+		PalletInstance(AssetsPalletIndex::get()).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

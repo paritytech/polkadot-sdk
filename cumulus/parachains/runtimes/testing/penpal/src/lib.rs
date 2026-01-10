@@ -572,7 +572,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
 		xcm_config::PenpalNativeCurrency,
 		parachain_info::Pallet<Runtime>,
-		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm_config::AssetsPalletIndex,
 		xcm::latest::Location,
 	>;
 }
@@ -723,14 +723,16 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub struct AssetTxHelper;
+pub struct AssetTxConversionHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
-	fn create_asset_id_parameter(_id: u32) -> (u32, u32) {
+impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, Location, Location>
+	for AssetTxConversionHelper
+{
+	fn create_asset_id_parameter(_id: u32) -> (Location, Location) {
 		unimplemented!("Penpal uses default weights");
 	}
-	fn setup_balances_and_pool(_asset_id: u32, _account: AccountId) {
+	fn setup_balances_and_pool(_asset_id: Location, _account: AccountId) {
 		unimplemented!("Penpal uses default weights");
 	}
 }
@@ -747,7 +749,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type WeightInfo = ();
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AssetConversionTxHelper;
+	type BenchmarkHelper = AssetTxConversionHelper;
 }
 
 parameter_types! {
