@@ -897,7 +897,6 @@ impl<T: Config> Pallet<T> {
 
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
-				// Clean up step count for completed migration
 				cursor.goto_next_migration(System::<T>::block_number());
 				Some(ControlFlow::Continue(cursor))
 			},
