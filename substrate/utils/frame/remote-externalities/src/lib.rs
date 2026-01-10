@@ -24,7 +24,10 @@ mod logging;
 
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
+use jsonrpsee::{
+	core::params::ArrayParams,
+	ws_client::{WsClient, WsClientBuilder},
+};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -162,55 +165,40 @@ pub enum Transport {
 	///
 	/// It must an HTTP URI; using a WS URI will fail.
 	Uri(String),
-	/// Use HTTP connection.
-	RemoteClient(HttpClient),
+	/// Use WS connection.
+	RemoteClient(Arc<WsClient>),
 }
 
 impl Transport {
-	fn as_client(&self) -> Option<&HttpClient> {
+	fn as_client(&self) -> Option<&WsClient> {
 		match self {
 			Self::RemoteClient(client) => Some(client),
 			_ => None,
 		}
 	}
 
-	/// Initialize an RPC HTTP client from a URI.
+/// /// Build a [`Self::RemoteClient`] from a WS URI.
 	///
 	/// # Errors
 	///
-	/// Returns an error if the URI is not a valid HTTP URI. In particular, WebSocket URIs are rejected.
-	///
-	/// # Examples
-	///
-	/// ```no_run
-	/// # use frame_remote_externalities::Transport;
-	/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
-	/// let mut transport = Transport::Uri("https://try-runtime.polkadot.io:443".to_string());
-	/// transport.init().await.unwrap();
-	/// assert!(matches!(transport, Transport::RemoteClient(_)));
-	/// # });
-	/// ```
+	/// Returns an error if the URI is not a valid WS URI.
+	/// In particular, HTTP URIs are not allowed.
 	async fn init(&mut self) -> Result<()> {
 		if let Self::Uri(uri) = self {
 			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
 
-			if uri.starts_with("http://") || uri.starts_with("https://") {
-				let http_client = HttpClient::builder()
-					.max_request_size(u32::MAX)
-					.max_response_size(u32::MAX)
-					.request_timeout(std::time::Duration::from_secs(60 * 5))
-					.build(uri)
-					.map_err(|e| {
-						error!(target: LOG_TARGET, "error: {e:?}");
-						"failed to build http client"
-					})?;
+			let ws_client = WsClientBuilder::default()
+				.max_request_size(u32::MAX)
+				.max_response_size(u32::MAX)
+				.request_timeout(std::time::Duration::from_secs(60 * 5))
+				.build(uri)
+				.await
+				.map_err(|e| {
+					error!(target: LOG_TARGET, "error: {e:?}");
+					"failed to build ws client"
+				})?;
 
-				*self = Self::RemoteClient(http_client)
-			} else {
-				// WS URIs will take this path i.e. calling this function with one will fail.
-				error!(target: LOG_TARGET, "unsupported uri scheme: {uri:?}");
-				return Err("unsupported uri scheme (expected http(s))")
-			}
+			*self = Self::RemoteClient(Arc::new(ws_client))
 		}
 
 		Ok(())
@@ -223,9 +211,9 @@ impl From<String> for Transport {
 	}
 }
 
-impl From<HttpClient> for Transport {
-	fn from(client: HttpClient) -> Self {
-		Transport::RemoteClient(client)
+impl From<WsClient> for Transport {
+	fn from(client: WsClient) -> Self {
+		Transport::RemoteClient(Arc::new(client))
 	}
 }
 
@@ -253,11 +241,11 @@ pub struct OnlineConfig<H> {
 }
 
 impl<H: Clone> OnlineConfig<H> {
-	/// Return rpc (http) client reference.
-	fn rpc_client(&self) -> &HttpClient {
+	/// Return rpc (ws) client reference.
+	fn rpc_client(&self) -> &WsClient {
 		self.transport
 			.as_client()
-			.expect("http client must have been initialized by now; qed.")
+			.expect("ws client must have been initialized by now; qed.")
 	}
 
 	fn at_expected(&self) -> H {
@@ -363,7 +351,7 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 4;
+	const PARALLEL_REQUESTS: usize = 8;
 	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
 	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
 	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
@@ -458,7 +446,8 @@ where
 		let builder = Arc::new(self.clone());
 		let mut handles = vec![];
 
-		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
+		for (worker_index, (start_key, end_key)) in start_keys.into_iter().zip(end_keys).enumerate()
+		{
 			let permit = parallel
 				.clone()
 				.acquire_owned()
@@ -472,7 +461,13 @@ where
 
 			let handle = tokio::spawn(async move {
 				let res = builder
-					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
+					.rpc_get_keys_in_range(
+						&prefix,
+						block,
+						start_key.as_ref(),
+						end_key.as_ref(),
+						worker_index,
+					)
 					.await;
 				drop(permit);
 				res
@@ -504,6 +499,7 @@ where
 		block: B::Hash,
 		start_key: Option<&StorageKey>,
 		end_key: Option<&StorageKey>,
+		worker_index: usize,
 	) -> Result<Vec<StorageKey>> {
 		let mut last_key: Option<&StorageKey> = start_key;
 		let mut keys: Vec<StorageKey> = vec![];
@@ -537,7 +533,7 @@ where
 
 			debug!(
 				target: LOG_TARGET,
-				"new total = {}, full page received: {}",
+				"new total = {}, full page received: {}, worker = {worker_index}",
 				keys.len(),
 				HexDisplay::from(last_key.expect("full page received, cannot be None"))
 			);
@@ -591,7 +587,7 @@ where
 	/// }
 	/// ```
 	async fn get_storage_data_dynamic_batch_size(
-		client: &HttpClient,
+		client: &WsClient,
 		payloads: Vec<(String, ArrayParams)>,
 		bar: &ProgressBar,
 	) -> Result<Vec<Option<StorageData>>, String> {
@@ -792,7 +788,7 @@ where
 
 	/// Get the values corresponding to `child_keys` at the given `prefixed_top_key`.
 	pub(crate) async fn rpc_child_get_storage_paged(
-		client: &HttpClient,
+		client: &WsClient,
 		prefixed_top_key: &StorageKey,
 		child_keys: Vec<StorageKey>,
 		at: B::Hash,
@@ -839,7 +835,7 @@ where
 	}
 
 	pub(crate) async fn rpc_child_get_keys(
-		client: &HttpClient,
+		client: &WsClient,
 		prefixed_top_key: &StorageKey,
 		child_prefix: StorageKey,
 		at: B::Hash,
@@ -1636,12 +1632,12 @@ mod remote_tests {
 		let at = builder.as_online().at.unwrap();
 
 		let prefix = StorageKey(vec![13]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 4).await.unwrap();
 		assert_eq!(paged, para);
 
 		let prefix = StorageKey(vec![]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
 		assert_eq!(paged, para);
 	}
@@ -1649,7 +1645,11 @@ mod remote_tests {
 	#[tokio::test]
 	async fn can_init_transport() {
 		init_logger();
-		let mut transport = Transport::Uri("https://try-runtime.polkadot.io:443".to_string());
+		let mut transport = Transport::Uri("ws://try-runtime.polkadot.io:443".to_string());
+		transport.init().await.unwrap();
+		assert!(matches!(transport, Transport::RemoteClient(_)));
+
+		transport = Transport::Uri("wss://try-runtime.polkadot.io:443".to_string());
 		transport.init().await.unwrap();
 		assert!(matches!(transport, Transport::RemoteClient(_)));
 	}
@@ -1657,10 +1657,16 @@ mod remote_tests {
 	#[tokio::test]
 	async fn cannot_init_transport_with_invalid_uri() {
 		init_logger();
-		let mut transport = Transport::Uri("ws://try-runtime.polkadot.io:443".to_string());
+		let mut transport = Transport::Uri("http://try-runtime.polkadot.io:443".to_string());
 		assert!(transport.init().await.is_err());
 
-		let mut transport = Transport::Uri("garbage".to_string());
+		transport = Transport::Uri("https://try-runtime.polkadot.io:443".to_string());
+		assert!(transport.init().await.is_err());
+
+		transport = Transport::Uri("wsss://try-runtime.polkadot.io:443".to_string());
+		assert!(transport.init().await.is_err());
+
+		transport = Transport::Uri("garbage".to_string());
 		assert!(transport.init().await.is_err());
 		
 	}
