@@ -28,8 +28,7 @@ use sp_core::H256;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub mod runtime_a {
-	use frame_support::{assert_ok, derive_impl, migrations::MultiStepMigrator, weights::Weight};
-	use sp_arithmetic::fixed_point::FixedU64;
+	use frame_support::{derive_impl, migrations::MultiStepMigrator, weights::Weight};
 
 	type Block = frame_system::mocking::MockBlock<RuntimeA>;
 
@@ -114,26 +113,13 @@ pub mod runtime_a {
 		System::reset_events();
 	}
 
-	/// Set Glutton pallet limits using dispatchable calls.
-	/// `1.0` corresponds to `100%`.
-	pub fn set_glutton_limits(compute: f64, storage: f64, block_length: f64) {
-		assert_ok!(Glutton::set_compute(RuntimeOrigin::root(), FixedU64::from_float(compute)));
-		assert_ok!(Glutton::set_storage(RuntimeOrigin::root(), FixedU64::from_float(storage)));
-		assert_ok!(Glutton::set_block_length(
-			RuntimeOrigin::root(),
-			FixedU64::from_float(block_length)
-		));
-	}
-
-	/// Check if Glutton storage values are set (non-zero).
+	/// Check if Glutton has any storage set.
 	pub fn glutton_storage_exists() -> bool {
-		let compute_key = frame_support::storage::storage_prefix(b"Glutton", b"Compute").to_vec();
-		let storage_key = frame_support::storage::storage_prefix(b"Glutton", b"Storage").to_vec();
-		let length_key = frame_support::storage::storage_prefix(b"Glutton", b"Length").to_vec();
+		use frame_support::traits::PalletInfoAccess;
 
-		sp_io::storage::get(&compute_key).is_some() ||
-			sp_io::storage::get(&storage_key).is_some() ||
-			sp_io::storage::get(&length_key).is_some()
+		let storage_key = sp_core::twox_128(Glutton::name().as_bytes()).to_vec();
+
+		sp_io::storage::next_key(&storage_key).is_some()
 	}
 }
 

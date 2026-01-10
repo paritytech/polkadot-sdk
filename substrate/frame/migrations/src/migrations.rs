@@ -16,6 +16,7 @@
 //! Generic multi block migrations not specific to any pallet.
 
 use crate::{weights::WeightInfo, Config};
+use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
@@ -25,7 +26,7 @@ use frame_support::{
 };
 use sp_core::{twox_128, Get};
 use sp_io::{storage::clear_prefix, KillStorageResult};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{traits::Saturating, SaturatedConversion};
 
 /// Remove all of a pallet's state and re-initializes it to the current in-code storage version.
 ///
@@ -190,8 +191,11 @@ where
 ///
 /// # Notes
 ///
-/// - The migration processes keys in batches based on available weight, preventing block overload.
-/// - Progress is tracked using a boolean cursor: `false` means in progress, `true` means complete.
+/// - The migration processes keys one at a time based on available weight, preventing block
+///   overload and maintaining tight control over proof sizes.
+/// - **Accurate proof size tracking**: Before deleting each key, the migration reads the value size
+///   and calculates the actual proof size (key length + value length). This ensures we don't exceed
+///   weight limits even with large values.
 /// - When `Storage` returns `None`, all storage for the pallet is cleared (similar to
 ///   [`ResetPallet`] but without updating the storage version).
 pub struct ClearStorage<T, Pallet, Storage>(PhantomData<(T, Pallet, Storage)>);
@@ -201,13 +205,22 @@ where
 	Pallet: Get<&'static str>,
 	Storage: Get<Option<&'static str>>,
 {
-	fn storage_prefix() -> alloc::vec::Vec<u8> {
+	fn storage_prefix() -> Vec<u8> {
 		match Storage::get() {
 			Some(storage) =>
 				frame_support::storage::storage_prefix(Pallet::get().as_bytes(), storage.as_bytes())
 					.to_vec(),
 			None => twox_128(Pallet::get().as_bytes()).to_vec(),
 		}
+	}
+
+	/// Get the next key that starts with the storage prefix.
+	///
+	/// Returns `None` if there are no keys with the prefix.
+	fn next_key() -> Option<Vec<u8>> {
+		let prefix = Self::storage_prefix();
+		// Get the next key after the prefix if it starts with the prefix
+		sp_io::storage::next_key(&prefix).filter(|key| key.starts_with(&prefix))
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -228,7 +241,7 @@ where
 	Pallet: Get<&'static str>,
 	Storage: Get<Option<&'static str>>,
 {
-	type Cursor = bool;
+	type Cursor = ();
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
@@ -236,38 +249,88 @@ where
 	}
 
 	fn step(
-		cursor: Option<Self::Cursor>,
+		_cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// The migration is done
-		if cursor.unwrap_or(false) {
-			return Ok(None);
-		}
+		use frame_support::weights::Weight;
 
-		let base_weight = T::WeightInfo::reset_pallet_migration(0);
-		let weight_per_key = T::WeightInfo::reset_pallet_migration(1).saturating_sub(base_weight);
-		let key_budget = meter
-			.remaining()
-			.saturating_sub(base_weight)
-			.checked_div_per_component(&weight_per_key)
-			.unwrap_or_default()
-			.saturated_into();
+		// Get the benchmark weight for estimation
+		let estimated_weight_per_key = T::WeightInfo::reset_pallet_migration(1);
 
-		if key_budget == 0 {
+		// Ensure there is enough weight to delete at least one key (using the benchmark weight)
+		if !meter.can_consume(estimated_weight_per_key) {
 			return Err(SteppedMigrationError::InsufficientWeight {
-				required: T::WeightInfo::reset_pallet_migration(1),
+				required: estimated_weight_per_key,
 			});
 		}
 
-		let storage_prefix = Self::storage_prefix();
-		let (keys_removed, is_done) = match clear_prefix(&storage_prefix, Some(key_budget)) {
-			KillStorageResult::AllRemoved(value) => (value, true),
-			KillStorageResult::SomeRemaining(value) => (value, false),
-		};
+		let mut keys_removed: u32 = 0;
+		// Track the weight required if the key couldn't be processed due to insufficient weight
+		let mut insufficient_weight: Option<Weight> = None;
 
-		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
+		// Delete keys one by one while there is weight budget
+		while meter.can_consume(estimated_weight_per_key) {
+			match Self::next_key() {
+				Some(key) => {
+					// Get the value size without loading the entire value
+					let value_len = sp_io::storage::read(&key, &mut [], 0).unwrap_or(0) as u64;
 
-		Ok(Some(is_done))
+					// Calculate actual proof size: key length + value length
+					let actual_proof_size = (key.len() as u64).saturating_add(value_len);
+					let actual_weight =
+						Weight::from_parts(estimated_weight_per_key.ref_time(), actual_proof_size);
+
+					// Check if there is enough weight budget for this key actual weight
+					if !meter.can_consume(actual_weight) {
+						log::debug!(
+							"ClearStorage<{}, {:?}>: Key with proof_size {} exceeds remaining \
+							 weight, pausing after {} keys.",
+							Pallet::get(),
+							Storage::get(),
+							actual_proof_size,
+							keys_removed
+						);
+						insufficient_weight = Some(actual_weight);
+						break;
+					}
+
+					// Delete the key
+					sp_io::storage::clear(&key);
+
+					// Consume weight with actual proof size
+					meter.consume(actual_weight);
+
+					keys_removed.saturating_inc();
+				},
+				None => {
+					// No more keys with this prefix - migration complete
+					log::info!(
+						"ClearStorage<{}, {:?}>: Migration complete, removed {} keys in this step.",
+						Pallet::get(),
+						Storage::get(),
+						keys_removed
+					);
+					return Ok(None);
+				},
+			}
+		}
+
+		// Couldn't process any key, return an error with the required weight
+		if keys_removed == 0 {
+			if let Some(required) = insufficient_weight {
+				return Err(SteppedMigrationError::InsufficientWeight { required });
+			}
+		}
+
+		log::debug!(
+			"ClearStorage<{}, {:?}>: Removed {} keys in this step, continuing...",
+			Pallet::get(),
+			Storage::get(),
+			keys_removed
+		);
+
+		// Migration still in progress
+		Ok(Some(()))
 	}
 
 	#[cfg(feature = "try-runtime")]

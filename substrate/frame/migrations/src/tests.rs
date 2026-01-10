@@ -17,7 +17,9 @@
 
 #![cfg(test)]
 
-use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
+use frame_support::{
+	assert_ok, migrations::SteppedMigration, pallet_prelude::Weight, traits::OnRuntimeUpgrade,
+};
 
 use crate::{
 	mock::{Test as T, *},
@@ -31,10 +33,9 @@ use crate::{
 #[test]
 fn clear_storage_migrations_work() {
 	use crate::mock::runtime_a::{
-		glutton_storage_exists, set_glutton_limits, ClearAllGluttonStorage,
-		ClearSystemAccountStorage, Migrations as RuntimeAMigrations, System as RuntimeASystem,
+		glutton_storage_exists, ClearAllGluttonStorage, ClearSystemAccountStorage, Glutton,
+		Migrations as RuntimeAMigrations, System as RuntimeASystem,
 	};
-	use frame_support::migrations::SteppedMigration;
 	use Event::*;
 
 	sp_io::TestExternalities::default().execute_with(|| {
@@ -46,8 +47,13 @@ fn clear_storage_migrations_work() {
 		assert!(RuntimeASystem::account(1).providers == 1);
 		assert!(RuntimeASystem::account(2).providers == 1);
 
-		// Set Glutton pallet storage using dispatchable calls (will be cleared with None)
-		set_glutton_limits(0.5, 0.3, 0.2);
+		// Initialize the Glutton pallet (Inserts some dummy storage, will be cleared by
+		// ClearAllGluttonStorage)
+		assert_ok!(Glutton::initialize_pallet(
+			crate::mock::runtime_a::RuntimeOrigin::root(),
+			10_000,
+			None
+		));
 
 		// Verify Glutton storage was set
 		assert!(glutton_storage_exists());
@@ -74,21 +80,21 @@ fn clear_storage_migrations_work() {
 		// Check events - both migrations should complete
 		crate::mock::runtime_a::assert_events(vec![
 			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeStarted { migrations: 2 }),
-			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
+			crate::mock::runtime_a::RuntimeEvent::Migrations(Event::MigrationCompleted {
 				index: 0,
 				took: 1,
-			}),
-			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
-				index: 0,
-				took: 2,
 			}),
 			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
 				index: 1,
 				took: 0,
 			}),
-			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
 				index: 1,
 				took: 1,
+			}),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
+				index: 1,
+				took: 2,
 			}),
 			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeCompleted),
 		]);
