@@ -17,7 +17,9 @@
 
 use crate::imports::*;
 use coretime_westend_emulated_chain::coretime_westend_runtime::xcm_config::XcmConfig;
-use emulated_integration_tests_common::{create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias,
+};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
