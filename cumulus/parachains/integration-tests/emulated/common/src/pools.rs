@@ -80,7 +80,7 @@ macro_rules! create_pool_with_relay_native_on {
 
 	// custom amounts
 	( $chain:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		$crate::pools::impls::paste::paste! {
+		$crate::pools::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
@@ -143,7 +143,7 @@ macro_rules! create_foreign_pool_with_parent_native_on {
 
 	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_pallet_assets:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		$crate::pools::impls::paste::paste! {
+		$crate::pools::paste::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
@@ -202,7 +202,7 @@ macro_rules! create_foreign_pool_with_native_on {
 
 	// custom amounts, custom pallet name
 	( $chain:ident, $foreign_asset_pallet:ident, $asset_id:expr, $asset_owner:expr, $wnd_amount:expr, $asset_amount:expr ) => {
-		$crate::pools::paste::paste! {
+		$crate::pools::paste! {
 			<$chain>::execute_with(|| {
 				let owner = $asset_owner;
 				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
