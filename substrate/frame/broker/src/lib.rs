@@ -494,6 +494,12 @@ pub mod pallet {
 		/// This should never happen, given that enable_auto_renew checks for this before enabling
 		/// auto-renewal.
 		AutoRenewalLimitReached,
+
+		/// The base/minimum price has been reset by administrative action.
+		BasePriceReset {
+			/// The new base/minimum price.
+			new_base_price: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -1010,6 +1016,22 @@ pub mod pallet {
 		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_lease(task)
+		}
+
+		/// Reset the base/minimum price for coretime sales.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `new_base_price`: The new base/minimum price to set.
+		#[pallet::call_index(25)] // Note: Use appropriate index (25 seems available)
+		#[pallet::weight(T::WeightInfo::configure())] // Use configure weight as similar complexity
+		pub fn reset_base_price(
+			origin: OriginFor<T>,
+			new_base_price: BalanceOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+
+			Self::do_reset_base_price(new_base_price)?;
+			Ok(())
 		}
 
 		/// Remove an assignment from the Workplan.

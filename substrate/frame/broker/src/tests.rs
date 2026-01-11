@@ -2636,3 +2636,50 @@ fn force_reserve_works() {
 		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
 	});
 }
+
+#[test]
+fn reset_base_price_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Verify initial price
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 100);
+
+		// Reset base price
+		assert_noop!(Broker::reset_base_price(RuntimeOrigin::signed(2), 50), BadOrigin);
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 50));
+
+		// Verify price was updated
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 50);
+
+		// Verify event was emitted
+		System::assert_last_event(Event::<Test>::BasePriceReset { new_base_price: 50 }.into());
+
+		// Test that purchase uses new price
+		advance_to(3); // Move into leadin period
+		assert_ok!(Broker::do_purchase(1, 100));
+	});
+}
+
+#[test]
+fn reset_base_price_updates_sellout_price() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Make a purchase to set sellout price
+		assert_ok!(Broker::do_purchase(1, 100));
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.sellout_price, Some(100));
+
+		// Reset to higher price
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 150));
+
+		// Sellout price should be updated
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.sellout_price, Some(150));
+	});
+}

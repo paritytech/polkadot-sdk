@@ -1319,6 +1319,25 @@ mod benches {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn reset_base_price() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		let new_base_price = 50_000u32.into();
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, new_base_price);
+
+		let sale = SaleInfo::<T>::get().unwrap();
+		assert_eq!(sale.end_price, new_base_price);
+		assert_last_event::<T>(Event::BasePriceReset { new_base_price }.into());
+
+		Ok(())
+	}
+
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
