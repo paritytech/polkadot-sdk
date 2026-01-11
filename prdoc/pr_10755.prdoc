@@ -1,0 +1,10 @@
+title: Fix polkadot-omni-node dev mode slot mismatch panic
+doc:
+- audience: Node Dev
+  description: |
+    Fixes a panic when running polkadot-omni-node in dev mode with parachains
+    that have slot durations different from the relay chain (e.g., 12s vs 6s).
+    The mock relay chain data now correctly accounts for the slot duration ratio.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
