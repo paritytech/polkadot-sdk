@@ -1022,8 +1022,8 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `new_base_price`: The new base/minimum price to set.
-		#[pallet::call_index(25)] // Note: Use appropriate index (25 seems available)
-		#[pallet::weight(T::WeightInfo::reset_base_price())] // Use configure weight as similar complexity
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::reset_base_price())]
 		pub fn reset_base_price(
 			origin: OriginFor<T>,
 			new_base_price: BalanceOf<T>,
