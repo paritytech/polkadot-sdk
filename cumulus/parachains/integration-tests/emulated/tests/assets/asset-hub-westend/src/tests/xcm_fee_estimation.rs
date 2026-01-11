@@ -335,6 +335,10 @@ fn multi_hop_works() {
 		type Assets = <PenpalB as PenpalBPallet>::Assets;
 		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
 	});
+	let receiver_balance_before = PenpalB::execute_with(|| {
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
+	});
 
 	test.set_assertion::<PenpalA>(sender_assertions);
 	test.set_assertion::<AssetHubWestend>(hop_assertions);
@@ -355,6 +359,10 @@ fn multi_hop_works() {
 		type Assets = <PenpalB as PenpalBPallet>::Assets;
 		<Assets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
 	});
+	let receiver_balance_after = PenpalB::execute_with(|| {
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
+	});
 
 	// We know the exact fees on every hop.
 	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
@@ -364,6 +372,8 @@ fn multi_hop_works() {
 		sender_balance_before - delivery_fees_amount
 	);
 
+	// Receiver native balance is unchanged; received funds in relay asset, and paid in relay asset.
+	assert_eq!(receiver_balance_after, receiver_balance_before);
 	assert_eq!(
 		receiver_assets_after,
 		receiver_assets_before + amount_to_send -
