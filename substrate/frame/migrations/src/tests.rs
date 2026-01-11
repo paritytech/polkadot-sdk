@@ -22,12 +22,7 @@ use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
-	Cursor,
-	Event,
-	FailedMigrationHandling,
-	MbmIsOngoing,
-	MbmProgress,
-	MigrationCursor,
+	Cursor, Event, FailedMigrationHandling, MbmIsOngoing, MbmProgress, MigrationCursor,
 };
 
 #[docify::export]
