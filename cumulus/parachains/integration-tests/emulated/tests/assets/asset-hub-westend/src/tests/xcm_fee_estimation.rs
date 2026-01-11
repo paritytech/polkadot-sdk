@@ -17,7 +17,6 @@
 
 use crate::imports::*;
 use frame_support::{dispatch::RawOrigin, traits::fungible};
-use sp_tracing::tracing::log;
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
@@ -285,22 +284,6 @@ fn multi_hop_works() {
 		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 	});
 
-	// Get the final execution fees in the destination.
-	let mut final_execution_fees = 0;
-	<PenpalB as TestExt>::execute_with(|| {
-		type Runtime = <PenpalB as Chain>::Runtime;
-
-		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
-		final_execution_fees =
-			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
-				.unwrap();
-		log::debug!("Final Execution weight: {:?}", weight);
-	});
-
-	log::debug!("Intermediate Execution Fees: {:?}", intermediate_execution_fees);
-	log::debug!("Intermediate Delivery Fees Fees: {:?}", intermediate_delivery_fees_amount);
-	log::debug!("Final Execution Fees: {:?}", final_execution_fees);
-
 	// Dry-running is done.
 	PenpalA::reset_ext();
 	AssetHubWestend::reset_ext();
@@ -325,6 +308,21 @@ fn multi_hop_works() {
 		relay_native_asset_location.clone(),
 		PenpalAssetOwner::get()
 	);
+
+	// Get the final execution fees at the destination.
+	//
+	// Note: We need to do this after resetting the externalities to get an accurate value here.
+	// This is because the dry-run on westend does affect the liquidity pool distribution on PenpalB
+	// which affects the assets amount we have to pay.
+	let mut final_execution_fees = 0;
+	<PenpalB as TestExt>::execute_with(|| {
+		type Runtime = <PenpalB as Chain>::Runtime;
+
+		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
+		final_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
+				.unwrap();
+	});
 
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
 
