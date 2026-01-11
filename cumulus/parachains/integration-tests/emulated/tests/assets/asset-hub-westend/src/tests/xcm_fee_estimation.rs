@@ -17,6 +17,7 @@
 
 use crate::imports::*;
 use frame_support::{dispatch::RawOrigin, traits::fungible};
+use sp_tracing::tracing::log;
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
@@ -293,7 +294,12 @@ fn multi_hop_works() {
 		final_execution_fees =
 			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
 				.unwrap();
+		log::debug!("Final Execution weight: {:?}", weight);
 	});
+
+	log::debug!("Intermediate Execution Fees: {:?}", intermediate_execution_fees);
+	log::debug!("Intermediate Delivery Fees Fees: {:?}", intermediate_delivery_fees_amount);
+	log::debug!("Final Execution Fees: {:?}", final_execution_fees);
 
 	// Dry-running is done.
 	PenpalA::reset_ext();
