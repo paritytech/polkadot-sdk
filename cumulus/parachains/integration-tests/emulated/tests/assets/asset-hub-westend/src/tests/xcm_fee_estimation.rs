@@ -287,7 +287,7 @@ fn multi_hop_works() {
 	// Get the final execution fees in the destination.
 	let mut final_execution_fees = 0;
 	<PenpalB as TestExt>::execute_with(|| {
-		type Runtime = <PenpalA as Chain>::Runtime;
+		type Runtime = <PenpalB as Chain>::Runtime;
 
 		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
 		final_execution_fees =
