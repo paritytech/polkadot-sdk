@@ -128,7 +128,7 @@ pub type FungibleTransactor = FungibleAdapter<
 
 /// Means for transacting assets besides the native currency on this chain that start with a local
 /// location pattern.
-pub type LocalAssetsTransactor = FungiblesAdapter<
+pub type LocalFungiblesTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
 	Assets,
 	// Only allow locations that are local.
@@ -192,7 +192,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, LocalAssetsTransactor);
+pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, LocalFungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
