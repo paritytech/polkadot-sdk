@@ -728,7 +728,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
-				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::here());
+				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 				let delivery_fees =
 					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
 						destination_to_query.clone(),
@@ -837,8 +837,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			test.set_assertion::<$asset_hub>(hop_assertions);
 			test.set_assertion::<$receiver_para>(receiver_assertions);
 			let call = get_call(
-				// Fixme: the local execution fee is around a factor 15 too low.
-				($crate::macros::Parent, local_execution_fees),
+				($crate::macros::Parent, local_execution_fees + local_delivery_fees),
 				($crate::macros::Parent, intermediate_execution_fees + intermediate_delivery_fees),
 				($crate::macros::Parent, final_execution_fees),
 			);
