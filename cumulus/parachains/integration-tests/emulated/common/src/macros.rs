@@ -703,7 +703,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 				let call = get_call(
-					($crate::macros::Here, 100_000_000_000u128),
+					($crate::macros::Parent, 100_000_000_000u128),
 					($crate::macros::Parent, 100_000_000_000u128),
 					($crate::macros::Parent, 100_000_000_000u128),
 				);
@@ -786,19 +786,6 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				intermediate_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
 			});
 
-			// Get the final execution fees in the destination.
-			let mut final_execution_fees = 0;
-			<$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-				type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
-
-				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
-					intermediate_remote_message.clone()).unwrap();
-				final_execution_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
-						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
-						.unwrap();
-			});
-
 			// Dry-running is done.
 			<$sender_para as $crate::macros::TestExt>::reset_ext();
 			<$asset_hub as $crate::macros::TestExt>::reset_ext();
@@ -811,11 +798,30 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				sender.clone(),
 				$amount * 2,
 			);
+			$sender_para::fund_accounts(vec![(sender.clone(), $amount * 2)]);
+
 			// Create pools to pay with `$asset_id`
 			create_foreign_pool_with_native_on!($sender_para, Location::from($asset_id), asset_owner.clone());
 			create_foreign_pool_with_native_on!($receiver_para, Location::from($asset_id), asset_owner.clone());
 
 			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah, $amount * 2)]);
+
+			// Get the final execution fees at the destination.
+			//
+			// Note: We need to do this after resetting the externalities to get an accurate value here.
+			// This is because the dry-run on asset hub does affect the liquidity pool distribution on PenpalB
+			// which affects the assets amount we have to pay.
+			let mut final_execution_fees = 0;
+			<$receiver_para as $crate::macros::TestExt>::execute_with(|| {
+				type Runtime = <$receiver_para as $crate::macros::Chain>::Runtime;
+
+				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
+					intermediate_remote_message.clone()).expect("`query_xcm_weight` returned none");
+				final_execution_fees =
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
+						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
+						.expect("`query_weight_to_asset_fee` returned none");
+			});
 
 			// Actually run the extrinsic.
 			let sender_assets_before = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
@@ -831,7 +837,8 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			test.set_assertion::<$asset_hub>(hop_assertions);
 			test.set_assertion::<$receiver_para>(receiver_assertions);
 			let call = get_call(
-				($crate::macros::Here, (local_execution_fees + local_delivery_fees)),
+				// Fixme: the local execution fee is around a factor 15 too low.
+				($crate::macros::Parent, local_execution_fees),
 				($crate::macros::Parent, intermediate_execution_fees + intermediate_delivery_fees),
 				($crate::macros::Parent, final_execution_fees),
 			);

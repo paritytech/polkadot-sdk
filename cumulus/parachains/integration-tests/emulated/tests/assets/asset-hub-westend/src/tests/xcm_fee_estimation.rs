@@ -312,7 +312,7 @@ fn multi_hop_works() {
 	// Get the final execution fees at the destination.
 	//
 	// Note: We need to do this after resetting the externalities to get an accurate value here.
-	// This is because the dry-run on westend does affect the liquidity pool distribution on PenpalB
+	// This is because the dry-run on Asset Hub does affect the liquidity pool distribution on PenpalB
 	// which affects the assets amount we have to pay.
 	let mut final_execution_fees = 0;
 	<PenpalB as TestExt>::execute_with(|| {
