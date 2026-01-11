@@ -620,7 +620,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_reset_base_price(new_base_price: BalanceOf<T>) -> DispatchResult {
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		// Update the end price (which is the base/minimum price after leadin)
+		// Update the end price
 		sale.end_price = new_base_price;
 
 		// If we have a sellout price that's lower than the new base price, adjust it too
