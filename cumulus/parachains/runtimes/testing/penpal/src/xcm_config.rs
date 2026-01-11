@@ -192,7 +192,8 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, LocalFungiblesTransactor);
+pub type AssetTransactors =
+	(FungibleTransactor, ForeignFungiblesTransactor, LocalFungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can

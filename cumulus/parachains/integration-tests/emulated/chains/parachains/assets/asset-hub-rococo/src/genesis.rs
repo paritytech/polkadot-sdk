@@ -119,8 +119,7 @@ pub fn genesis() -> Storage {
 				// Ether
 				(
 					EthereumLocation::get(),
-					// To emulate double bridging, where WAH is the owner of assets from  Ethereum
-					// on RAH.
+					// Emulate double bridging; WAH is the owner of assets from Ethereum on RAH.
 					AssetHubWestendSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
