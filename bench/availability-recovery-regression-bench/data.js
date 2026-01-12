@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768230269313,
+  "lastUpdate": 1768233122354,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e40bb358fa7ae62d3752c9735e286ff7bab0ea1",
-          "message": "dispute-coordinator: increase lru_observed_blocks_capacity (#8831)\n\nUnder increase load with finality lagging behind there is a risk for\nblocks to arrive late or out of sequence in that case we will end up\nscrapping from the received block un till last finalized block and then\nprocess all the dispute in-between.\n\nThis couple with other inefficiencies like\nhttps://github.com/paritytech/polkadot-sdk/issues/8823 will increase\nunnecessarily the load on dispute-coordinator.\n\nDecided to make this super large to err on the cautious side, the Hash\nsize is only 32 bytes, so this will make the LRU grow up to 65k, which I\ndon't think is a significant increase.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T14:31:41Z",
-          "tree_id": "4acf7f01505f2f71ef40ce2b7150b32b09b9d603",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e40bb358fa7ae62d3752c9735e286ff7bab0ea1"
-        },
-        "date": 1749742646393,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.418210119866668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20266565186666674,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12613107493333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
+          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-12T14:46:18Z",
+          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
+        },
+        "date": 1768233100210,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.203745366933331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12657721196666666,
             "unit": "seconds"
           }
         ]
