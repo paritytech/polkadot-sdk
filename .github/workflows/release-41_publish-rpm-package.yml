@@ -34,6 +34,6 @@ jobs:
       tag: ${{ inputs.tag }}
       distribution: ${{ inputs.distribution }}
       package_type: 'rpm'
-      aws_repo_base_path: ${{ inputs.distribution == 'release' && 's3://releases-package-repos' || 's3://staging-packages-repos' }}
+      aws_repo_base_path: ${{ inputs.distribution == 'release' && 's3://releases-package-repos' || 's3://staging-package-repos' }}
       cloudfront_distribution_id: "E36FKEYWDXAZYJ"
     secrets: inherit
