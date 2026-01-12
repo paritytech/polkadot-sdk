@@ -75,7 +75,7 @@ const LOG_TARGET: &str = "remote-ext";
 pub struct RemoteExternalities<B: BlockT> {
 	/// The inner externalities.
 	pub inner_ext: TestExternalities<HashingFor<B>>,
-	/// The block header which we created this externality env.
+	/// The block header which we created this externalities env.
 	pub header: B::Header,
 }
 
@@ -172,8 +172,7 @@ where
 		let conn_manager = self.conn_manager()?;
 		for i in 0..conn_manager.num_clients() {
 			let client = conn_manager.get(i).await;
-			let result =
-				with_timeout(client.storage(key.clone(), maybe_at), RPC_TIMEOUT).await;
+			let result = with_timeout(client.storage(key.clone(), maybe_at), RPC_TIMEOUT).await;
 
 			match result {
 				Ok(Ok(data)) => return Ok(data),

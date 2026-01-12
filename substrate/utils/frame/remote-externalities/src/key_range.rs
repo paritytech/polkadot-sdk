@@ -374,11 +374,7 @@ mod tests {
 		let range = KeyRange::continuation(start.clone(), Some(end.clone()), prefix);
 
 		// RPC returns keys including the start_key (which was already fetched)
-		let keys = vec![
-			start.clone(),
-			key(&[0xAB, 0x12, 0x35]),
-			key(&[0xAB, 0x12, 0x40]),
-		];
+		let keys = vec![start.clone(), key(&[0xAB, 0x12, 0x35]), key(&[0xAB, 0x12, 0x40])];
 
 		let (filtered, is_full_batch) = range.filter_keys(keys);
 
@@ -408,10 +404,7 @@ mod tests {
 		// After filtering, the page is empty
 		assert!(filtered.is_empty(), "start_key should be filtered out");
 		// CRITICAL: is_full_batch must be false to prevent infinite subdivision
-		assert!(
-			!is_full_batch,
-			"is_full_batch should be false when filtered result is empty"
-		);
+		assert!(!is_full_batch, "is_full_batch should be false when filtered result is empty");
 	}
 
 	#[test]
@@ -433,10 +426,7 @@ mod tests {
 
 		assert_eq!(filtered.len(), 2);
 		assert!(!filtered.contains(&end), "keys at end should be excluded");
-		assert!(
-			!filtered.contains(&key(&[0xAB, 0x25])),
-			"keys beyond end should be excluded"
-		);
+		assert!(!filtered.contains(&key(&[0xAB, 0x25])), "keys beyond end should be excluded");
 	}
 
 	#[test]
