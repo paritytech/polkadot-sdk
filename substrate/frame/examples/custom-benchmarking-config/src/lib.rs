@@ -37,16 +37,16 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub type SetValue<T> = StorageValue<_, u32>;
+	pub type Counter<T> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(100)]
-		pub fn set_value(origin: OriginFor<T>, value: u32) -> DispatchResult {
-			ensure_signed(origin)?;
+		pub fn increment(origin: OriginFor<T>) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
 
-			SetValue::<T>::put(value);
+			Counter::<T>::mutate(|c| *c += 1);
 
 			Ok(())
 		}
@@ -86,12 +86,11 @@ mod tests {
 	}
 
 	#[test]
-	fn set_value_works() {
+	fn increment_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(SetValue::<Test>::get(), None);
-			let val = 45;
-			assert_ok!(MyPallet::set_value(RuntimeOrigin::signed(1), val));
-			assert_eq!(SetValue::<Test>::get(), Some(45));
+			assert_eq!(Counter::<Test>::get(), 0);
+			assert_ok!(MyPallet::increment(RuntimeOrigin::signed(1)));
+			assert_eq!(Counter::<Test>::get(), 1);
 		});
 	}
 }
