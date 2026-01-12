@@ -551,11 +551,10 @@ where
 				debug_assert!(_was_in.is_none());
 
 				if !self.sync.is_major_syncing() && !role.is_light() {
-					if let Ok(hashes) = self.statement_store.statement_hashes() {
-						if !hashes.is_empty() {
-							self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
-							self.initial_sync_peer_queue.push_back(peer);
-						}
+					let hashes = self.statement_store.statement_hashes();
+					if !hashes.is_empty() {
+						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
+						self.initial_sync_peer_queue.push_back(peer);
 					}
 				}
 			},
@@ -777,18 +776,25 @@ where
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
+				let stmt_size = encoded.len();
+
+				if stmt_size > MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+					return FilterDecision::Skip
+				}
+
 				if accumulated_size > 0 &&
-					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
+					accumulated_size + stmt_size > MAX_STATEMENT_NOTIFICATION_SIZE as usize
 				{
 					return FilterDecision::Abort
 				}
-				accumulated_size += encoded.len();
+
+				accumulated_size += stmt_size;
 				FilterDecision::Take
 			},
 		) {
 			Ok(r) => r,
 			Err(e) => {
-				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
+				log::error!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
 				entry.remove();
 				return;
 			},
@@ -806,7 +812,8 @@ where
 				self.pending_initial_syncs.remove(&peer_id);
 				return;
 			},
-			SendChunkResult::Sent(_) => {
+			SendChunkResult::Sent(sent) => {
+				debug_assert_eq!(to_send.len(), sent);
 				// Mark statements as known
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
 					for (hash, _) in &statements {
@@ -1074,8 +1081,8 @@ mod tests {
 			self.statements.lock().unwrap().contains_key(hash)
 		}
 
-		fn statement_hashes(&self) -> sp_statement_store::Result<Vec<sp_statement_store::Hash>> {
-			Ok(self.statements.lock().unwrap().keys().cloned().collect())
+		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
+			self.statements.lock().unwrap().keys().cloned().collect()
 		}
 
 		fn statements_by_hashes(

@@ -1,0 +1,16 @@
+title: 'Statement-store: Follow-up improvements from PR #10718 review'
+doc:
+- audience: Node Dev
+  description: |
+    This follow-up PR addresses review comments from PR #10718:
+    - Removed unnecessary Result wrapper from statement_hashes() - method is infallible
+    - Added FilterDecision::Skip handling for oversized statements
+    - Improved error logging from debug! to error! for failures with no retry mechanism
+    - Added debug assertion to validate sent count matches prepared count
+crates:
+- name: sc-network-statement
+  bump: patch
+- name: sc-statement-store
+  bump: patch
+- name: sp-statement-store
+  bump: patch
