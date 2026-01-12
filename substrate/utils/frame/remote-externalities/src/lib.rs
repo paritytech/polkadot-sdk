@@ -35,7 +35,6 @@ use config::Snapshot;
 use config::DEFAULT_HTTP_ENDPOINT;
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::core::params::ArrayParams;
-use key_range::{initialize_work_queue, subdivide_remaining_range};
 use log::*;
 use parallel::{run_workers, ProcessResult};
 use serde::de::DeserializeOwned;
@@ -61,6 +60,8 @@ use std::{
 	time::Duration,
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
+
+use crate::key_range::{initialize_work_queue, subdivide_remaining_range};
 
 type Result<T, E = &'static str> = std::result::Result<T, E>;
 
