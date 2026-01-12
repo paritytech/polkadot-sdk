@@ -56,7 +56,7 @@ pub fn create_rpc_runtime(max_connections: u32) -> std::io::Result<tokio::runtim
 	tokio::runtime::Builder::new_multi_thread()
 		.thread_name("rpc")
 		.enable_all()
-		.max_blocking_threads(max_connections as usize)
+		.max_blocking_threads((max_connections as usize).max(1))
 		.on_thread_start(|| {
 			sc_utils::metrics::TOKIO_THREADS_ALIVE.inc();
 			sc_utils::metrics::TOKIO_THREADS_TOTAL.inc();
