@@ -45,6 +45,8 @@ construct_runtime! {
 		MultiBlockVerifier: multi_block::verifier,
 		MultiBlockSigned: multi_block::signed,
 		MultiBlockUnsigned: multi_block::unsigned,
+
+		Dap: pallet_dap,
 	}
 }
 
@@ -447,7 +449,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
-	type Slash = ();
+	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;
@@ -474,6 +476,15 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {
