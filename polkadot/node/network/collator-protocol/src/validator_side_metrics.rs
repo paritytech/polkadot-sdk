@@ -65,6 +65,25 @@ impl Metrics {
 			.as_ref()
 			.map(|metrics| metrics.request_unblocked_collations.start_timer())
 	}
+
+	/// Provide a timer for `db_process_bumps_duration` which observes on drop.
+	pub fn time_db_process_bumps(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.db_process_bumps_duration.start_timer())
+	}
+
+	/// Provides a timer for db_connection_decision_duration` which observes on drop.
+	pub fn time_db_connection_decision(
+		&self,
+	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.db_connection_decision_duration.start_timer())
+	}
+
+	/// Provides a timer for `db_slash_duration` which observes on drop
+	pub fn time_db_slash(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.db_slash_duration.start_timer())
+	}
 }
 
 #[derive(Clone)]
@@ -76,6 +95,9 @@ struct MetricsInner {
 	collation_request_duration: prometheus::Histogram,
 	// TODO: Not available for the new implementation. Remove with the old implementation.
 	request_unblocked_collations: prometheus::Histogram,
+	db_process_bumps_duration: prometheus::Histogram,
+	db_connection_decision_duration: prometheus::Histogram,
+	db_slash_duration: prometheus::Histogram,
 }
 
 impl metrics::Metrics for Metrics {
@@ -135,6 +157,34 @@ impl metrics::Metrics for Metrics {
 					)
 				)?,
 				registry,
+			)?,
+			db_process_bumps_duration: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collator_protocol_validator_db_process_bumps_duration",
+					"Time spent updating reputation on block finalization"
+					).buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0]),
+				)?,
+				registry
+			)?,
+			db_connection_decision_duration: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collator_protocol_validator_connection_duration", 
+						"Time spent when deciding if a collator can connect."
+					)
+					.buckets(vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1]),
+				)?,
+				registry
+			)?,
+			db_slash_duration: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collator_protocol_validator_slashing_time",
+						"Time spent on slashing."
+					).buckets(vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),
+				)?,
+				registry
 			)?,
 		};
 

@@ -75,7 +75,7 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
-	pub(crate) _metrics: Metrics,
+	pub(crate) metrics: Metrics,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -95,7 +95,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
-			_metrics: metrics,
+			metrics,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -141,6 +141,7 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
+		let _timer = self.metrics.time_db_process_bumps();
 		let updates = self
 			.db
 			.process_bumps(
@@ -321,6 +322,7 @@ impl<B: Backend> PeerManager<B> {
 			"Slashing peer's reputation",
 		);
 
+		let _timer = self.metrics.time_db_slash();
 		self.db.slash(peer_id, para_id, value).await;
 		self.connected.update_reputation(ReputationUpdate {
 			peer_id: *peer_id,
@@ -342,6 +344,7 @@ impl<B: Backend> PeerManager<B> {
 		peer_id: PeerId,
 		peer_info: PeerInfo,
 	) -> TryAcceptOutcome {
+		let _timer = self.metrics.time_db_connection_decision();
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
 			// Go straight to the DB. We only store in-memory the reputations of connected peers.
