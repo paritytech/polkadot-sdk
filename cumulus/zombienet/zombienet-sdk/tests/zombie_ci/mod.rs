@@ -1,6 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+mod authorities_change;
 mod bootnodes;
 mod elastic_scaling;
 mod full_node_catching_up;

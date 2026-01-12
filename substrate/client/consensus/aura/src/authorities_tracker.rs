@@ -125,7 +125,6 @@ where
 		cache.import(hash, number, authorities, &is_descendent_of).map_err(|e| {
 			format!("Could not import authorities for block {hash:?} at number {number}: {e}")
 		})?;
-		log::info!("Imported authorities for block {hash} (#{number})");
 		Ok(())
 	}
 }
@@ -180,6 +179,7 @@ where
 				number,
 				authorities_change,
 			)?;
+			log::info!("Imported new authorities from block header {hash} (#{number})");
 		}
 		Ok(())
 	}
