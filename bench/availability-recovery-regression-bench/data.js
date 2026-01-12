@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768233122354,
+  "lastUpdate": 1768245780354,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cadf3ac73893e3d9e1e08ac9f914822375c97a14",
-          "message": "increase session index cache (#8832)\n\nA 10 session index cache is not enough when you run under intense\npressure and finality is lagg since you will end requesting the session\nindex for blocks older than that. So let's make this cache larger to\nachieve its purpose even under intense load when it actually matters\nmore to be faster.\n\nThe session_index_cache keeps a Hash and a u32, so that's about 36 bytes\nper entry, with this increase it can grow up to 65k which is not that\nbig in my book.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T15:14:26Z",
-          "tree_id": "d493466580217c13a7ecddb3780d30470202c766",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cadf3ac73893e3d9e1e08ac9f914822375c97a14"
-        },
-        "date": 1749746396534,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20081019326666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.268603238966667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12657721196666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0130e98195941a7ce009547b797dcd007003424a",
+          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-12T18:16:26Z",
+          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
+        },
+        "date": 1768245756131,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.264086640600002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.11563926563333334,
             "unit": "seconds"
           }
         ]
