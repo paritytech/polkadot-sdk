@@ -1,0 +1,14 @@
+title: 'Snowbridge: Describe the token location with the length field included to avoid collisions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    For GeneralKey, two different XCM junctions that differ only in length can produce the same description bytes, and therefore the same TokenId.
+crates:
+- name: snowbridge-core
+  bump: patch
+  validate: false
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
+  validate: false
+
+
