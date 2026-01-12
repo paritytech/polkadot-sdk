@@ -21,7 +21,6 @@
 //! `CompatibleDigestItem` trait to appear in public interfaces.
 
 use crate::{ConsensusLog, AURA_ENGINE_ID};
-use alloc::vec::Vec;
 use codec::{Codec, Encode};
 use sp_consensus_slots::Slot;
 use sp_runtime::generic::DigestItem;

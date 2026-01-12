@@ -114,7 +114,7 @@ pub mod pallet {
 		/// Changes the authority set to a specific authority.
 		#[pallet::weight(0)]
 		pub fn change_authorities(_: OriginFor<T>) -> DispatchResult {
-			let mut key = Sr25519Keyring::Ferdie.pair().public().encode();
+			let key = Sr25519Keyring::Ferdie.pair().public().encode();
 			pallet_aura::Pallet::<T>::change_authorities(BoundedVec::truncate_from(vec![
 				T::AuthorityId::decode(&mut &key[..]).unwrap(),
 			]));

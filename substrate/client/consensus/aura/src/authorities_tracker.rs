@@ -18,15 +18,21 @@
 
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
-use std::{fmt::Debug, sync::Arc};
+use std::{
+	fmt::Debug,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+};
 
 use codec::Codec;
 use fork_tree::ForkTree;
 use parking_lot::RwLock;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi, ConsensusLog, AURA_ENGINE_ID};
-use sp_core::{bytes::from_hex, Pair};
+use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi, ConsensusLog};
+use sp_core::Pair;
 use sp_runtime::{
 	traits::{Block, Header, NumberFor},
 	DigestItem,
@@ -41,6 +47,11 @@ const LOG_TARGET: &str = "aura::authorities_tracker";
 pub struct AuthoritiesTracker<P: Pair, B: Block, C> {
 	authorities: RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
 	client: Arc<C>,
+	/// Flag indicating whether to lazy import authorities from runtime API
+	/// on first fetch attempt. This is for chains that were started before the AURA API was
+	/// available, which is required for authorities tracker initialization.
+	should_lazy_import_from_runtime: AtomicBool,
+	compatibility_mode: CompatibilityMode<NumberFor<B>>,
 }
 
 impl<P: Pair, B: Block, C> AuthoritiesTracker<P, B, C>
@@ -68,6 +79,20 @@ where
 					.map_err(|e| format!("Could not get header for {hash:?}: {e}"))?
 					.ok_or_else(|| format!("Header for {hash:?} not found"))?;
 				let number = *header.number();
+				// If there is no AURA API available yet, delay initialization until the first
+				// fetch.
+				let has_aura_api = client
+					.runtime_api()
+					.has_api::<dyn AuraApi<B, P::Public>>(hash)
+					.unwrap_or(false);
+				if !has_aura_api {
+					return Ok(Self {
+						authorities: RwLock::new(authorities_cache),
+						client,
+						should_lazy_import_from_runtime: AtomicBool::new(true),
+						compatibility_mode: compatibility_mode.clone(),
+					});
+				}
 				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*client, None);
 				let existing_node =
 					authorities_cache
@@ -103,14 +128,24 @@ where
 				}
 			}
 		}
-		Ok(Self { authorities: RwLock::new(authorities_cache), client })
+		Ok(Self {
+			authorities: RwLock::new(authorities_cache),
+			client,
+			should_lazy_import_from_runtime: AtomicBool::new(false),
+			compatibility_mode: compatibility_mode.clone(),
+		})
 	}
 
 	/// Create a new empty [`AuthoritiesTracker`]. Usually you should _not_ use this method,
 	/// as it will not have any initial authorities imported. Use [`AuthoritiesTracker::new`]
 	/// instead.
 	pub(crate) fn new_empty(client: Arc<C>) -> Self {
-		Self { authorities: RwLock::new(ForkTree::new()), client }
+		Self {
+			authorities: RwLock::new(ForkTree::new()),
+			client,
+			should_lazy_import_from_runtime: AtomicBool::new(false),
+			compatibility_mode: CompatibilityMode::None,
+		}
 	}
 
 	fn import_authorities(
@@ -140,9 +175,38 @@ where
 {
 	/// Fetch authorities from the tracker, if available. If not available, return an error.
 	pub fn fetch(&self, header: &B::Header) -> Result<Vec<AuthorityId<P>>, String> {
+		if self.should_lazy_import_from_runtime.load(Ordering::SeqCst) {
+			self.should_lazy_import_from_runtime.store(false, Ordering::SeqCst);
+			log::info!(
+				"Lazily importing authorities from runtime for block {} (#{})",
+				header.hash(),
+				header.number()
+			);
+			let hash = *header.parent_hash();
+			let number = *header.number() - 1u32.into();
+			let authorities = fetch_authorities_from_runtime(
+				&*self.client,
+				hash,
+				number,
+				&self.compatibility_mode,
+			)
+			.map_err(|e| format!("Could not fetch authorities: {e:?}"))?;
+			self.authorities
+				.write()
+				.import(hash, number, authorities, &|_, _| {
+					Ok::<_, fork_tree::Error<sp_blockchain::Error>>(true)
+				})
+				.map_err(|e| {
+					format!(
+						"Could not import authorities for block {hash:?} at number {number}: {e}"
+					)
+				})?;
+		}
+
 		let hash = header.hash();
 		let number = *header.number();
 		let parent_hash = *header.parent_hash();
+
 		let is_descendent_of =
 			sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
 		let authorities_cache = self.authorities.read();
@@ -190,7 +254,7 @@ where
 		let number = *post_header.number();
 
 		let authorities =
-			fetch_authorities_from_runtime(&*self.client, hash, number, &CompatibilityMode::None)
+			fetch_authorities_from_runtime(&*self.client, hash, number, &self.compatibility_mode)
 				.map_err(|e| format!("Could not fetch authorities: {e:?}"))?;
 
 		self.authorities
@@ -201,6 +265,10 @@ where
 			.map_err(|e| {
 				format!("Could not import authorities for block {hash:?} at number {number}: {e}")
 			})?;
+		log::info!("Imported new authorities from runtime for block header {hash} (#{number})");
+
+		// If a runtime import has already happened, the lazy initialization can be skipped.
+		self.should_lazy_import_from_runtime.store(false, Ordering::SeqCst);
 
 		Ok(())
 	}
@@ -236,6 +304,6 @@ where
 	})?;
 	match consensus_log {
 		ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
-		ConsensusLog::OnDisabled(idx) => panic!("got OnDisabled"),
+		ConsensusLog::OnDisabled(_) => None,
 	}
 }
