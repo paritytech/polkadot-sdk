@@ -11454,6 +11454,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -11500,6 +11501,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "staging-xcm",
 ]
 
 [[package]]

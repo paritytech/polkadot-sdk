@@ -19,6 +19,7 @@ ethereum-standards = { workspace = true }
 frame-support = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-revive = { workspace = true }
+xcm = { workspace = true }
 
 [dev-dependencies]
 codec = { workspace = true }

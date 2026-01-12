@@ -499,6 +499,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
+	#[pallet::storage]
+	pub type ForeignLocationOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type ForeignIdOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub fn foreign_location_for(id: u32) -> Option<T::AssetId> {
+			ForeignLocationOf::<T, I>::get(id)
+		}
+		pub fn foreign_id_for(loc: &T::AssetId) -> Option<u32> {
+			ForeignIdOf::<T, I>::get(loc)
+		}
+	}
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
