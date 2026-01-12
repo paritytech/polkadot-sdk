@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768230302229,
+  "lastUpdate": 1768233149796,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "153776336+robertvaneerdewijk@users.noreply.github.com",
-            "name": "robertvaneerdewijk",
-            "username": "robertvaneerdewijk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "806888d614f186f2876a670f6ec69cbf9bc027d8",
-          "message": "renamed wasm module in pallet-revive to vm (#8794)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8341\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T11:35:20Z",
-          "tree_id": "fb4eeeac7a462a4a5de8479336e429ac4403a57c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/806888d614f186f2876a670f6ec69cbf9bc027d8"
-        },
-        "date": 1749732923394,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022442992833333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012830871046666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15631188742666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008884715186666763,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14396991493999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
+          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-12T14:46:18Z",
+          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
+        },
+        "date": 1768233128440,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007001715146666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14580905006666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02316785242,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01002322033333332,
             "unit": "seconds"
           }
         ]
