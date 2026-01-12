@@ -497,27 +497,6 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn statement_broadcasts_statement(
-		&mut self,
-		topics: Vec<Topic>,
-	) -> Result<Vec<Statement>, anyhow::Error> {
-		let statements: Vec<Bytes> = self
-			.rpc_client
-			.request("statement_broadcastsStatement", rpc_params![topics])
-			.await?;
-
-		let mut decoded_statements = Vec::new();
-		for statement_bytes in &statements {
-			let statement = Statement::decode(&mut &statement_bytes[..])?;
-			decoded_statements.push(statement);
-		}
-
-		self.received_count += decoded_statements.len() as u32;
-		trace!(target: &self.log_target(), "Received {} statements (counter: {})", decoded_statements.len(), self.received_count);
-
-		Ok(decoded_statements)
-	}
-
 	fn create_session_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_channel(channel_public_key());
