@@ -1,4 +1,4 @@
-title: '[WIP][pallet-revive] added trybuild test for precompile compile-time checks'
+title: '[pallet-revive] added trybuild test for precompile compile-time checks'
 doc:
 - audience: Runtime Dev
   description: |-
