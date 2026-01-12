@@ -12338,6 +12338,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-custom-benchmarking-config"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-example-frame-crate"
 version = "0.0.1"
 dependencies = [
