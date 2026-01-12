@@ -746,8 +746,8 @@ fn serialize_syscall_op<S>(idx: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
-	use crate::vm::pvm::env::all_syscalls;
-	let Some(syscall_name_bytes) = all_syscalls().get(*idx as usize) else {
+	use crate::vm::pvm::env::list_syscalls;
+	let Some(syscall_name_bytes) = list_syscalls().get(*idx as usize) else {
 		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")))
 	};
 	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
