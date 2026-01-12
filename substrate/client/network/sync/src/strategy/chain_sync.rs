@@ -273,6 +273,28 @@ pub enum ChainSyncMode {
 	},
 }
 
+impl ChainSyncMode {
+	/// Returns the base block attributes required for this sync mode.
+	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
+		let attrs  = match self {
+			ChainSyncMode::Full =>
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
+			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
+			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
+				BlockAttributes::HEADER |
+					BlockAttributes::JUSTIFICATION |
+					BlockAttributes::INDEXED_BODY,
+		};
+		// Skip body requests for gap sync only if not in archive mode.
+		// Archive nodes need bodies to maintain complete block history.
+		match (is_gap, is_archive) {
+			(true, false) => attrs & !BlockAttributes::BODY,
+			(_, _) => attrs,
+		}
+	}
+}
+
 /// All the data we have about a Peer that we are trying to sync with
 #[derive(Debug, Clone)]
 pub(crate) struct PeerSync<B: BlockT> {
@@ -1629,19 +1651,6 @@ where
 		}
 	}
 
-	fn required_block_attributes(&self) -> BlockAttributes {
-		match self.mode {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
-		}
-	}
-
 	fn skip_execution(&self) -> bool {
 		match self.mode {
 			ChainSyncMode::Full => false,
@@ -1929,7 +1938,8 @@ where
 			return Vec::new();
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
-		let attrs = self.required_block_attributes();
+		let mode = self.mode;
+		let is_archive = self.blocks_pruning.is_archive();
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized =
@@ -1940,7 +1950,6 @@ where
 		let allowed_requests = self.allowed_requests.clone();
 		let max_parallel = if is_major_syncing { 1 } else { self.max_parallel_downloads };
 		let max_blocks_per_request = self.max_blocks_per_request;
-		let blocks_pruning = &self.blocks_pruning;
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
 		let metrics = self.metrics.as_ref();
@@ -1984,7 +1993,7 @@ where
 					&id,
 					peer,
 					blocks,
-					attrs,
+					mode.required_block_attributes(false, is_archive),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -2005,7 +2014,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					attrs,
+					mode.required_block_attributes(false, is_archive),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
@@ -2020,18 +2029,11 @@ where
 					peer.state = PeerSyncState::DownloadingStale(hash);
 					Some((id, req))
 				} else if let Some((range, req)) = gap_sync.as_mut().and_then(|sync| {
-					// Skip body requests for gap sync only if not in archive mode.
-					// Archive nodes need bodies to maintain complete block history.
-					let attrs = if blocks_pruning.is_archive() {
-						attrs
-					} else {
-						attrs & !BlockAttributes::BODY
-					};
 					peer_gap_block_request(
 						&id,
 						peer,
 						&mut sync.blocks,
-						attrs,
+						mode.required_block_attributes(true, is_archive),
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
