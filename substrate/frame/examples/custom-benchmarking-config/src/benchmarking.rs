@@ -26,3 +26,8 @@
 // Only enable this module for benchmarking.
 #![cfg(feature = "runtime-benchmarks")]
 
+use crate::pallet::Config;
+
+trait BenchmarkHelper: Config {
+	fn set_counter(value: u32);
+}

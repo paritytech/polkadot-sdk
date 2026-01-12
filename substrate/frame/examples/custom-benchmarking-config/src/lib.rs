@@ -25,6 +25,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -37,17 +39,25 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub type Counter<T> = StorageValue<_, u32, ValueQuery>;
+	pub type NextId<T> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	pub type Registered<T> = StorageMap<_, Blake2_128Concat, u32, (), OptionQuery>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// ID already registered.
+		AlreadyRegistered,
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(100)]
-		pub fn increment(origin: OriginFor<T>) -> DispatchResult {
+		pub fn register(origin: OriginFor<T>, id: u32) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
-
-			Counter::<T>::mutate(|c| *c += 1);
-
+			ensure!(!Registered::<T>::contains_key(id), Error::<T>::AlreadyRegistered);
+			Registered::<T>::insert(id, ());
 			Ok(())
 		}
 	}
@@ -86,11 +96,13 @@ mod tests {
 	}
 
 	#[test]
-	fn increment_works() {
+	fn new_registration_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(Counter::<Test>::get(), 0);
-			assert_ok!(MyPallet::increment(RuntimeOrigin::signed(1)));
-			assert_eq!(Counter::<Test>::get(), 1);
+			assert_eq!(NextId::<Test>::get(), 0);
+			NextId::<Test>::put(10);
+			let id = NextId::<Test>::get();
+			assert_ok!(MyPallet::register(RuntimeOrigin::signed(1), id));
+			assert_eq!(Registered::<Test>::contains_key(id), true);
 		});
 	}
 }
