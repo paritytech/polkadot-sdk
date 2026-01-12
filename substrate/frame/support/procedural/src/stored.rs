@@ -65,7 +65,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let _args: StoredArgs = syn::parse2(attr)?;
 	let mut input: syn::DeriveInput = syn::parse2(item)?;
 
-	// Reject unions immediately 
+	// Reject unions immediately
 	if let syn::Data::Union(_) = &input.data {
 		return Err(Error::new(
 			input.span(),
@@ -139,12 +139,12 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
 	let derive_where_attr: syn::Attribute = if !field_types.is_empty() {
 		syn::parse_quote! {
-			#[derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
+			#[derive_where::derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
 		}
 	} else {
 		// For unit structs/enums, no field types to bound
 		syn::parse_quote! {
-			#[derive_where(Clone, Eq, PartialEq, Debug)]
+			#[derive_where::derive_where(Clone, Eq, PartialEq, Debug)]
 		}
 	};
 	input.attrs.insert(0, derive_where_attr);

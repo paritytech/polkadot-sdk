@@ -17,7 +17,7 @@
 
 //! Tests for the `#[stored]` macro.
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::stored;
 use scale_info::TypeInfo;
@@ -41,11 +41,12 @@ pub struct AccountData<T: Config> {
 	pub free: T::Balance,
 	pub reserved: T::Balance,
 	pub frozen: T::Balance,
+	pub phantom: core::marker::PhantomData<T>,
 }
 
 #[stored]
 pub enum Status<T: Config> {
-	Active { account: T::AccountId },
+	Active { account: T::AccountId, phantom: core::marker::PhantomData<T> },
 	Inactive,
 	Pending(T::Balance),
 }

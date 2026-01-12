@@ -46,6 +46,7 @@ scale-info = { features = ["derive"], workspace = true, default-features = true 
 sp-io = { workspace = true, default-features = true }
 sp-metadata-ir = { workspace = true, default-features = true }
 sp-runtime = { features = ["serde"], workspace = true, default-features = true }
+derive-where = { workspace = true }
 
 [features]
 default = ["std"]

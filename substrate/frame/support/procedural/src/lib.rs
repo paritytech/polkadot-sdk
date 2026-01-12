@@ -438,12 +438,23 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 
 /// Attribute macro for simplifying storage type definitions with consistent field-based bounding.
 ///
+/// Derives the implementation of `Encode`, `Decode`, `DecodeWithMemTracking`, `MaxEncodedLen`,
+/// `Clone`, `PartialEq`, `Eq`, `Debug` and `TypeInfo.
+///
 /// Automatically extracts field types and applies derives with bounds on those fields, ensuring
 /// consistent behavior across all traits. Supports both structs and enums.
 ///
+/// For type infos, skip the info for all type parameters.
+///
+/// Directly recursive types are not supported.
+///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # trait Config {
+/// # type Foo;
+/// # type Foo2;
+/// # }
 /// #[frame_support::stored]
 /// pub struct Foo<T: Config> {
 ///     f: T::Foo,
