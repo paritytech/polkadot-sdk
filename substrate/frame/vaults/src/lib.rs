@@ -173,6 +173,31 @@ pub use pallet::*;
 pub use sp_pusd::{AuctionsHandler, CollateralManager, PaymentBreakdown, PurchaseParams};
 use xcm::v5::Location;
 
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::FixedU128;
+
+/// Helper trait for benchmarking setup.
+///
+/// Provides methods to set up the runtime state required for benchmarks,
+/// such as funding accounts, creating assets, manipulating time, and setting prices.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<AccountId, AssetId, Balance> {
+	/// Fund an account with native currency (DOT).
+	fn fund_account(account: &AccountId, amount: Balance);
+
+	/// Create the stablecoin asset if it doesn't exist.
+	fn create_stablecoin_asset(asset_id: AssetId);
+
+	/// Mint stablecoin to an account.
+	fn mint_stablecoin_to(asset_id: AssetId, account: &AccountId, amount: Balance);
+
+	/// Advance the timestamp by the given number of milliseconds.
+	fn advance_time(millis: u64);
+
+	/// Set the oracle price for DOT/pUSD.
+	fn set_price(price: FixedU128);
+}
+
 /// TODO: Update/import this trait from the Oracle as soon as it is implemented.
 /// Trait for providing timestamped asset prices via oracle.
 ///
@@ -309,6 +334,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type InsuranceFund: Get<Self::AccountId>;
 
+		/// Treasury account to receive DOT from surplus auctions.
+		#[pallet::constant]
+		type Treasury: Get<Self::AccountId>;
+
 		/// Minimum collateral deposit required to create a vault.
 		#[pallet::constant]
 		type MinimumDeposit: Get<BalanceOf<Self>>;
@@ -360,6 +389,14 @@ pub mod pallet {
 
 		/// A type representing the weights required by the dispatchables of this pallet.
 		type WeightInfo: crate::weights::WeightInfo;
+
+		/// Helper type for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: crate::BenchmarkHelper<
+			Self::AccountId,
+			Self::AssetId,
+			BalanceOf<Self>,
+		>;
 	}
 
 	/// The in-code storage version.
@@ -1567,16 +1604,10 @@ pub mod pallet {
 		}
 
 		fn execute_purchase(params: PurchaseParams<T::AccountId, BalanceOf<T>>) -> DispatchResult {
-			let PurchaseParams {
-				vault_owner,
-				buyer,
-				recipient,
-				keeper,
-				collateral_amount,
-				payment,
-			} = params;
+			let PurchaseParams { vault_owner, buyer, recipient, collateral_amount, payment } =
+				params;
 
-			// 1. Burn principal pUSD from buyer
+			// 1. Burn principal + interest pUSD from buyer
 			if !payment.burn.is_zero() {
 				T::Asset::burn_from(
 					T::StablecoinAssetId::get(),
@@ -1588,7 +1619,8 @@ pub mod pallet {
 				)?;
 			}
 
-			// 2. Transfer interest/penalty to Insurance Fund
+			// 2. Transfer penalty to Insurance Fund (includes keeper's share temporarily)
+			// Keeper will be paid from IF at auction completion.
 			if !payment.insurance_fund.is_zero() {
 				T::Asset::transfer(
 					T::StablecoinAssetId::get(),
@@ -1599,18 +1631,7 @@ pub mod pallet {
 				)?;
 			}
 
-			// 3. Transfer keeper incentive from buyer to keeper
-			if !payment.keeper.is_zero() {
-				T::Asset::transfer(
-					T::StablecoinAssetId::get(),
-					&buyer,
-					&keeper,
-					payment.keeper,
-					Preservation::Expendable,
-				)?;
-			}
-
-			// 4. Release collateral from Seized hold and transfer to recipient
+			// 3.Release collateral from Seized hold and transfer to recipient
 			if vault_owner != recipient {
 				// Atomic: release from hold and transfer to recipient in one operation
 				T::Currency::transfer_on_hold(
@@ -1619,7 +1640,7 @@ pub mod pallet {
 					&recipient,
 					collateral_amount,
 					Precision::Exact,
-					Restriction::Free, // Recipient receives as free balance
+					Restriction::Free,
 					Fortitude::Polite,
 				)?;
 			} else {
@@ -1633,10 +1654,7 @@ pub mod pallet {
 			}
 
 			// Reduce CurrentLiquidationAmount as debt is collected
-			let total_collected = payment
-				.burn
-				.saturating_add(payment.insurance_fund)
-				.saturating_add(payment.keeper);
+			let total_collected = payment.burn.saturating_add(payment.insurance_fund);
 			CurrentLiquidationAmount::<T>::mutate(|current| {
 				*current = current.saturating_sub(total_collected);
 			});
@@ -1646,17 +1664,31 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Complete an auction: return excess collateral, record any shortfall.
+		/// Complete an auction: pay keeper, return excess collateral, record any shortfall.
 		///
 		/// This function handles the end-of-auction operations:
+		/// - Pays keeper incentive from Insurance Fund
 		/// - Returns remaining collateral to vault owner (if any)
 		/// - Records shortfall as bad debt (if any)
-		/// - Marks the vault as InLiquidation for cleanup
+		/// - Removes the vault from storage
 		fn complete_auction(
 			vault_owner: &T::AccountId,
 			remaining_collateral: BalanceOf<T>,
 			shortfall: BalanceOf<T>,
+			keeper: &T::AccountId,
+			keeper_incentive: BalanceOf<T>,
 		) -> DispatchResult {
+			// Pay keeper incentive from Insurance Fund (funded by penalty collected during takes)
+			if !keeper_incentive.is_zero() {
+				T::Asset::transfer(
+					T::StablecoinAssetId::get(),
+					&T::InsuranceFund::get(),
+					keeper,
+					keeper_incentive,
+					Preservation::Expendable,
+				)?;
+			}
+
 			// Return excess collateral to vault owner
 			if !remaining_collateral.is_zero() {
 				// Release from Seized hold - collateral goes back to vault owner
@@ -1697,6 +1729,56 @@ pub mod pallet {
 
 			Vaults::<T>::remove(vault_owner);
 			Self::deposit_event(Event::VaultClosed { owner: vault_owner.clone() });
+
+			Ok(())
+		}
+
+		/// Get the Insurance Fund's pUSD balance.
+		///
+		/// Used by auctions pallet to check if surplus auctions can be started.
+		fn get_insurance_fund_balance() -> BalanceOf<T> {
+			T::Asset::balance(T::StablecoinAssetId::get(), &T::InsuranceFund::get())
+		}
+
+		/// Get the total pUSD supply.
+		///
+		/// Used with `get_insurance_fund_balance()` to calculate whether the
+		/// Insurance Fund exceeds the surplus auction threshold.
+		fn get_total_pusd_supply() -> BalanceOf<T> {
+			T::Asset::total_issuance(T::StablecoinAssetId::get())
+		}
+
+		/// Execute a surplus auction purchase: buyer sends DOT, receives pUSD from IF.
+		///
+		/// Called during `take()` for surplus auctions. This function:
+		/// 1. Transfers `pusd_amount` pUSD from the Insurance Fund to the recipient
+		/// 2. Transfers `dot_amount` DOT from the buyer to the Treasury
+		fn execute_surplus_purchase(
+			buyer: &T::AccountId,
+			recipient: &T::AccountId,
+			pusd_amount: BalanceOf<T>,
+			dot_amount: BalanceOf<T>,
+		) -> DispatchResult {
+			// 1. Transfer pUSD from Insurance Fund to recipient
+			if !pusd_amount.is_zero() {
+				T::Asset::transfer(
+					T::StablecoinAssetId::get(),
+					&T::InsuranceFund::get(),
+					recipient,
+					pusd_amount,
+					Preservation::Expendable,
+				)?;
+			}
+
+			// 2. Transfer DOT from buyer to Treasury
+			if !dot_amount.is_zero() {
+				T::Currency::transfer(
+					buyer,
+					&T::Treasury::get(),
+					dot_amount,
+					Preservation::Preserve,
+				)?;
+			}
 
 			Ok(())
 		}
@@ -1791,29 +1873,19 @@ pub mod pallet {
 			Self::calculate_collateralization_ratio(held_collateral, total_debt)
 		}
 
-		/// Close a vault: verify no debt, settle interest, release collateral, emit events.
+		/// Close a vault: verify no debt, release collateral, emit events.
 		///
-		/// - Accrued interest transferred to [`Config::InsuranceFund`]
+		/// Requires both `principal` and `accrued_interest` to be zero.
+		/// Users must call `repay()` to settle all debt before closing.
+		///
 		/// - All collateral released to vault's owner
-		/// - Events emitted ([`Event::InterestUpdated`], [`Event::CollateralWithdrawn`],
-		///   [`Event::VaultClosed`])
+		/// - Events emitted ([`Event::CollateralWithdrawn`], [`Event::VaultClosed`])
 		fn do_close_vault(vault: &Vault<T>, who: &T::AccountId) -> DispatchResult {
-			ensure!(vault.principal.is_zero(), Error::<T>::VaultHasDebt);
-
-			// Settle accrued interest to InsuranceFund
-			if !vault.accrued_interest.is_zero() {
-				T::Asset::transfer(
-					T::StablecoinAssetId::get(),
-					who,
-					&T::InsuranceFund::get(),
-					vault.accrued_interest,
-					Preservation::Expendable,
-				)?;
-				Self::deposit_event(Event::InterestUpdated {
-					owner: who.clone(),
-					amount: vault.accrued_interest,
-				});
-			}
+			// Debt must be fully repaid (both principal and accrued interest)
+			ensure!(
+				vault.principal.is_zero() && vault.accrued_interest.is_zero(),
+				Error::<T>::VaultHasDebt
+			);
 
 			// Release all collateral
 			let released = T::Currency::release_all(

@@ -34,6 +34,7 @@ pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
 pub const CHARLIE: u64 = 3;
 pub const INSURANCE_FUND: u64 = 100;
+pub const TREASURY: u64 = 101;
 
 pub const STABLECOIN_ASSET_ID: u32 = 1; // pUSD
 
@@ -208,6 +209,7 @@ const PUSD_UNIT: u128 = 1_000_000;
 parameter_types! {
 	pub const StablecoinAssetId: u32 = STABLECOIN_ASSET_ID;
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
+	pub const TreasuryAccount: u64 = TREASURY;
 	pub const MinimumDeposit: u128 = 100 * DOT_UNIT;
 	/// Minimum mint: 5 pUSD (6 decimals)
 	pub const MinimumMint: u128 = 5 * PUSD_UNIT;
@@ -245,6 +247,37 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureVaultsManagerMock {
 	}
 }
 
+/// Benchmark helper for mock tests.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MockBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper<u64, u32, u128> for MockBenchmarkHelper {
+	fn fund_account(account: &u64, amount: u128) {
+		use frame_support::traits::fungible::Mutate;
+		let _ = <Balances as Mutate<u64>>::set_balance(account, amount);
+	}
+
+	fn create_stablecoin_asset(_asset_id: u32) {
+		// Asset is created in genesis for tests, nothing to do
+	}
+
+	fn mint_stablecoin_to(asset_id: u32, account: &u64, amount: u128) {
+		use frame_support::traits::fungibles::Mutate;
+		let _ = <Assets as Mutate<u64>>::mint_into(asset_id, account, amount);
+	}
+
+	fn set_price(price: FixedU128) {
+		set_mock_price(Some(price));
+	}
+
+	fn advance_time(millis: u64) {
+		advance_timestamp(millis);
+		let current_time = MockTimestamp::get();
+		set_mock_price_timestamp(current_time);
+	}
+}
+
 impl crate::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
@@ -262,6 +295,9 @@ impl crate::Config for Test {
 	type CollateralLocation = CollateralLocation;
 	type AuctionsHandler = MockAuctions;
 	type ManagerOrigin = EnsureVaultsManagerMock;
+	type Treasury = TreasuryAccount;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = MockBenchmarkHelper;
 }
 
 /// Build genesis storage with default configuration

@@ -21,14 +21,12 @@ use super::*;
 use crate::Pallet as Vaults;
 use frame_benchmarking::v2::*;
 use frame_support::{
-	traits::{
-		fungible::Mutate as FungibleMutate, fungibles::Mutate as FungiblesMutate, Get, Hooks,
-	},
+	traits::{Get, Hooks},
 	weights::Weight,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
-use sp_runtime::{FixedU128, Permill, Saturating};
+use sp_runtime::{FixedU128, Permill, SaturatedConversion, Saturating};
 
 /// Minimum deposit amount for vault creation (must be >= T::MinimumDeposit)
 fn minimum_deposit<T: Config>() -> BalanceOf<T> {
@@ -53,8 +51,7 @@ fn safe_mint_amount<T: Config>() -> BalanceOf<T> {
 
 /// Fund an account with native currency (DOT)
 fn fund_account<T: Config>(account: &T::AccountId, amount: BalanceOf<T>) {
-	// Use set_balance to fund the account directly
-	let _ = T::Currency::set_balance(account, amount);
+	T::BenchmarkHelper::fund_account(account, amount);
 }
 
 /// Ensure the InsuranceFund account can receive funds
@@ -63,6 +60,23 @@ fn ensure_insurance_fund<T: Config>() {
 	if !frame_system::Pallet::<T>::account_exists(&insurance_fund) {
 		frame_system::Pallet::<T>::inc_providers(&insurance_fund);
 	}
+	fund_account::<T>(&insurance_fund, T::MinimumDeposit::get());
+}
+
+/// Ensure the stablecoin asset exists
+fn ensure_stablecoin_asset<T: Config>() {
+	T::BenchmarkHelper::create_stablecoin_asset(T::StablecoinAssetId::get());
+}
+
+/// Set up the system for minting by ensuring MaximumIssuance is set high enough
+fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
+	use frame_support::traits::fungibles::Inspect;
+	let current_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
+	let required = current_issuance.saturating_add(amount).saturating_mul(2u32.into());
+	let current_max = crate::MaximumIssuance::<T>::get();
+	if current_max < required {
+		crate::MaximumIssuance::<T>::put(required);
+	}
 }
 
 /// Mint pUSD to an account (for repay scenarios)
@@ -70,8 +84,8 @@ fn mint_pusd_to<T: Config>(
 	account: &T::AccountId,
 	amount: BalanceOf<T>,
 ) -> Result<(), BenchmarkError> {
-	T::Asset::mint_into(T::StablecoinAssetId::get(), account, amount)
-		.map_err(|_| BenchmarkError::Stop("Failed to mint pUSD"))?;
+	ensure_stablecoin_asset::<T>();
+	T::BenchmarkHelper::mint_stablecoin_to(T::StablecoinAssetId::get(), account, amount);
 	Ok(())
 }
 
@@ -91,10 +105,19 @@ fn create_vault_with_debt<T: Config>(owner: &T::AccountId) -> Result<BalanceOf<T
 	let deposit = large_deposit::<T>();
 	let mint_amount = safe_mint_amount::<T>();
 
+	ensure_stablecoin_asset::<T>();
+	ensure_can_mint::<T>(mint_amount);
+
 	create_vault_for::<T>(owner, deposit)?;
 
-	Vaults::<T>::mint(RawOrigin::Signed(owner.clone()).into(), mint_amount)
-		.map_err(|_| BenchmarkError::Stop("Failed to mint in vault"))?;
+	Vaults::<T>::mint(RawOrigin::Signed(owner.clone()).into(), mint_amount).map_err(|e| {
+		log::error!(
+			target: "runtime::vaults::benchmark",
+			"Failed to mint in vault: {:?}",
+			e
+		);
+		BenchmarkError::Stop("Failed to mint in vault")
+	})?;
 
 	Ok(mint_amount)
 }
@@ -104,21 +127,9 @@ fn create_vault_with_debt<T: Config>(owner: &T::AccountId) -> Result<BalanceOf<T
 /// For worst-case benchmarking, we advance by `StaleVaultThreshold` milliseconds.
 /// This represents the realistic maximum time a vault could go without
 /// fee updates, since `on_idle` processes vaults that exceed this threshold.
-///
-/// Note: For benchmark tests (using mock), this sets the timestamp directly.
-/// For actual runtime benchmarks, a BenchmarkHelper trait would be needed
-/// to manipulate timestamps in a runtime-agnostic way.
-/// Also updates the oracle price timestamp.
-fn advance_to_stale_threshold() {
-	// In test/mock environment, advance timestamp past the stale threshold
-	#[cfg(test)]
-	{
-		let stale_threshold = crate::mock::StaleVaultThreshold::get();
-		crate::mock::advance_timestamp(stale_threshold + 1);
-		// Keep oracle price fresh by updating its timestamp to current time
-		let current_time = crate::mock::MockTimestamp::get();
-		crate::mock::set_mock_price_timestamp(current_time);
-	}
+fn advance_to_stale_threshold<T: Config>() {
+	let stale_threshold: u64 = T::StaleVaultThreshold::get().saturated_into();
+	T::BenchmarkHelper::advance_time(stale_threshold + 1);
 }
 
 #[benchmarks]
@@ -159,7 +170,7 @@ mod benchmarks {
 		create_vault_with_debt::<T>(&caller)?;
 
 		// Advance to stale threshold (worst case - just before on_idle would process)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		// Fund additional collateral
 		let additional = minimum_deposit::<T>();
@@ -192,7 +203,7 @@ mod benchmarks {
 		create_vault_for::<T>(&caller, deposit)?;
 
 		// Advance to stale threshold (worst case)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		// Withdraw a small amount (must remain above minimum)
 		let withdraw_amount = minimum_deposit::<T>();
@@ -224,10 +235,12 @@ mod benchmarks {
 		create_vault_for::<T>(&caller, deposit)?;
 
 		// Advance to stale threshold (worst case)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
-		// Mint a safe amount
+		// Mint a safe amount - ensure stablecoin asset exists and we can mint
 		let mint_amount = safe_mint_amount::<T>();
+		ensure_stablecoin_asset::<T>();
+		ensure_can_mint::<T>(mint_amount);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), mint_amount);
@@ -252,7 +265,7 @@ mod benchmarks {
 		let debt = create_vault_with_debt::<T>(&caller)?;
 
 		// Advance to stale threshold to accrue interest (worst case)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		// Caller already has pUSD from minting, repay half
 		let repay_amount = debt / 2u32.into();
@@ -271,28 +284,26 @@ mod benchmarks {
 	/// Liquidates an undercollateralized vault.
 	/// Worst case: vault at StaleVaultThreshold with accrued fees,
 	/// penalty calculation, auction start.
-	///
-	/// NOTE: This benchmark requires the mock oracle to be configured with a low price
-	/// to make the vault undercollateralized. In tests, we call set_mock_price().
-	/// For actual runtime benchmarking, the runtime must provide a BenchmarkHelper
-	/// that allows price manipulation.
 	#[benchmark]
 	fn liquidate_vault() -> Result<(), BenchmarkError> {
 		// Create a vault owner (victim) and a liquidator (keeper)
 		let vault_owner: T::AccountId = account("vault_owner", 0, 0);
 		let keeper: T::AccountId = whitelisted_caller();
 
-		// Create vault with debt at normal price ($4.21/DOT)
-		// Vault has 100 DOT ($421 value) backing 200 pUSD debt = 210% CR (safe)
+		// Create vault with debt at normal price
 		create_vault_with_debt::<T>(&vault_owner)?;
 
 		// Advance to stale threshold (worst case)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		// Crash the price to make vault undercollateralized
-		// At $0.50/DOT: 100 DOT = $50 value, CR = 50/200 = 25% << 130% MCR
-		#[cfg(test)]
-		crate::mock::set_mock_price(Some(FixedU128::from_rational(50, 100)));
+		// With large_deposit (1000 DOLLARS) and safe_mint_amount (2000 pUSD):
+		// - collateral_value = large_deposit * price / 10^18
+		// - For CR < 180% (MCR): collateral_value < 2000 * 1.8 = 3600 pUSD
+		// - Need: large_deposit * price / 10^18 < 3600 * 10^6
+		// - With large_deposit = 10^17: price < 36 * 10^9
+		// Set price to 1_000_000_000 (very low) to ensure CR << MCR
+		T::BenchmarkHelper::set_price(FixedU128::from_inner(1_000_000_000));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(keeper), vault_owner.clone());
@@ -302,9 +313,8 @@ mod benchmarks {
 			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		assert_eq!(vault.status, crate::VaultStatus::InLiquidation);
 
-		// Reset price for other tests
-		#[cfg(test)]
-		crate::mock::set_mock_price(Some(FixedU128::from_rational(421, 100)));
+		// Reset price for other tests (normalized $4.21)
+		T::BenchmarkHelper::set_price(FixedU128::from_inner(421_000_000_000_000));
 
 		Ok(())
 	}
@@ -322,7 +332,7 @@ mod benchmarks {
 		create_vault_for::<T>(&caller, deposit)?;
 
 		// Advance to stale threshold (worst case - tests fee path even without debt)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -369,7 +379,7 @@ mod benchmarks {
 		create_vault_with_debt::<T>(&vault_owner)?;
 
 		// Advance to stale threshold (worst case - just before on_idle would process)
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		let vault_before =
 			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
@@ -489,7 +499,7 @@ mod benchmarks {
 		create_vault_with_debt::<T>(&vault_owner)?;
 
 		// Advance to stale threshold so vault will be processed
-		advance_to_stale_threshold();
+		advance_to_stale_threshold::<T>();
 
 		// Clear cursor to start fresh iteration
 		crate::OnIdleCursor::<T>::kill();

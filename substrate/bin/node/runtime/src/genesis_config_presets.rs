@@ -23,7 +23,7 @@ use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
 	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
-	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+	SudoConfig, TechnicalCommitteeConfig, VaultsConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -97,6 +97,20 @@ pub fn kitchensink_genesis(
 		},
 		revive: ReviveConfig {
 			mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect(),
+		},
+		vaults: VaultsConfig {
+			// 180% - Minimum safety margin before liquidation
+			minimum_collateralization_ratio: sp_runtime::FixedU128::from_rational(180, 100),
+			// 200% - Prevents immediate liquidation after minting
+			initial_collateralization_ratio: sp_runtime::FixedU128::from_rational(200, 100),
+			// 4% annual stability fee
+			stability_fee: sp_runtime::Permill::from_percent(4),
+			// 13% liquidation penalty
+			liquidation_penalty: sp_runtime::Permill::from_percent(13),
+			// 20M pUSD system-wide debt ceiling (6 decimals)
+			maximum_issuance: 20_000_000 * 1_000_000,
+			// 20M pUSD maximum concurrent liquidation exposure
+			max_liquidation_amount: 20_000_000 * 1_000_000,
 		},
 	})
 }

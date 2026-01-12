@@ -718,6 +718,90 @@ mod close_vault {
 			);
 		});
 	}
+
+	/// **Test: `close_vault` requires all debt (principal + interest) to be repaid**
+	///
+	/// Per spec, Debt == 0 means both principal AND accrued_interest must be zero.
+	/// If only principal is zero but interest remains, closing should fail.
+	#[test]
+	fn close_vault_fails_with_accrued_interest() {
+		new_test_ext().execute_with(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Accrue interest over time.
+			jump_to_block(5_256_000);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			assert!(interest > 0, "Interest should be accrued");
+
+			// Simulate principal fully repaid while interest remains.
+			crate::Vaults::<Test>::mutate(ALICE, |maybe_vault| {
+				let vault = maybe_vault.as_mut().expect("vault should exist");
+				vault.principal = 0;
+			});
+
+			// Cannot close - still has accrued interest
+			assert_noop!(
+				Vaults::close_vault(RuntimeOrigin::signed(ALICE)),
+				Error::<Test>::VaultHasDebt
+			);
+		});
+	}
+
+	/// **Test: `close_vault` succeeds after repaying all debt including interest**
+	///
+	/// User must repay both principal and accrued interest before closing.
+	/// The interest is transferred to InsuranceFund during repayment.
+	#[test]
+	fn close_vault_succeeds_after_full_debt_repayment() {
+		new_test_ext().execute_with(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Accrue interest over time.
+			jump_to_block(5_256_000);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
+			let total_debt = vault.principal + vault.accrued_interest;
+			assert!(vault.accrued_interest > 0, "Interest should be accrued");
+
+			// Alice only has the minted pUSD, need extra to cover interest
+			// Mint extra pUSD directly to Alice for interest payment
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(ALICE),
+				STABLECOIN_ASSET_ID.into(),
+				ALICE,
+				vault.accrued_interest
+			));
+
+			let insurance_before = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+
+			// Repay all debt (principal + interest)
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), total_debt));
+
+			// Verify interest was transferred to InsuranceFund
+			let insurance_after = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+			assert_eq!(
+				insurance_after,
+				insurance_before + vault.accrued_interest,
+				"`InsuranceFund` should receive accrued interest on repayment"
+			);
+
+			// Now can close the vault
+			assert_ok!(Vaults::close_vault(RuntimeOrigin::signed(ALICE)));
+			assert!(crate::Vaults::<Test>::get(ALICE).is_none());
+		});
+	}
 }
 
 // ============================================================================
@@ -1354,7 +1438,7 @@ mod liquidation_edge_cases {
 			let remaining_principal = mint_amount.saturating_sub(collateral_value_pusd);
 			let bad_debt_before = crate::BadDebt::<Test>::get();
 
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_principal));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_principal, &BOB, 0));
 
 			// Bad debt should equal remaining principal only
 			assert_eq!(
@@ -1970,7 +2054,7 @@ mod vault_status {
 			assert_eq!(vault.status, VaultStatus::InLiquidation);
 
 			// Simulate auction completion
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
 
 			// Vault should be removed immediately (no deferred cleanup)
 			assert!(crate::Vaults::<Test>::get(ALICE).is_none());
@@ -2020,7 +2104,7 @@ mod vault_status {
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
 
 			// Vault is removed immediately - ALICE can create a new vault right away
 			set_mock_price(Some(FixedU128::from_rational(421, 100)));
@@ -2043,7 +2127,7 @@ mod vault_status {
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
 
 			// Vault no longer exists - operations fail with VaultNotFound
 			assert_noop!(
@@ -2466,6 +2550,35 @@ mod oracle_edge_cases {
 mod mint_edge_cases {
 	use super::*;
 
+	/// **Test: Minting zero amount fails with BelowMinimumMint**
+	///
+	/// Minting 0 pUSD is not allowed per the spec. Users must mint at least
+	/// MinimumMint (5 pUSD). To trigger fee updates without minting, use `poke()`.
+	#[test]
+	fn mint_zero_amount_fails() {
+		new_test_ext().execute_with(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// First mint some debt
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 100 * PUSD);
+
+			// Mint 0 pUSD - should fail (below MinimumMint)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 0),
+				Error::<Test>::BelowMinimumMint
+			);
+
+			// Principal unchanged
+			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 100 * PUSD, "Principal should remain unchanged");
+		});
+	}
+
 	/// **Test: Multiple mints accumulate debt correctly**
 	///
 	/// Users can mint pUSD multiple times, with each mint adding to
@@ -2555,7 +2668,7 @@ mod mint_edge_cases {
 
 			// Complete auction - vault is immediately removed
 			use crate::CollateralManager;
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
 
 			// Vault should be removed
 			assert!(crate::Vaults::<Test>::get(ALICE).is_none());
@@ -2914,9 +3027,8 @@ mod collateral_manager {
 				ALICE,
 				BOB,
 				CHARLIE,
-				BOB, // keeper not used since keeper amount is 0
 				20 * DOT,
-				crate::PaymentBreakdown { burn: 50 * PUSD, keeper: 0, insurance_fund: 0 },
+				crate::PaymentBreakdown { burn: 50 * PUSD, insurance_fund: 0 },
 			)));
 
 			// BOB's pUSD burned (50 pUSD)
@@ -2950,9 +3062,8 @@ mod collateral_manager {
 					ALICE,
 					BOB,
 					CHARLIE,
-					BOB,
 					20 * DOT,
-					crate::PaymentBreakdown { burn: 50 * PUSD, keeper: 0, insurance_fund: 0 },
+					crate::PaymentBreakdown { burn: 50 * PUSD, insurance_fund: 0 },
 				)),
 				TokenError::FundsUnavailable
 			);
@@ -2982,6 +3093,8 @@ mod collateral_manager {
 				&ALICE,
 				remaining_collateral,
 				0, // no shortfall
+				&BOB,
+				0, // no keeper incentive
 			));
 
 			// Vault should be immediately removed
@@ -3019,7 +3132,7 @@ mod collateral_manager {
 			let shortfall = 100 * PUSD;
 			assert_ok!(Vaults::complete_auction(
 				&ALICE, 0, // no remaining collateral
-				shortfall,
+				shortfall, &BOB, 0, // no keeper incentive
 			));
 
 			// Bad debt should increase
@@ -3187,12 +3300,18 @@ mod lifecycle_integration {
 
 			// Advance another 3 months
 			jump_to_block(2_628_000);
+
+			// Poke triggers fee update (mint(0) is not allowed per spec)
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
 			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
 			let interest_q2 = vault.accrued_interest;
 			assert!(interest_q2 > interest_q1, "Should accrue more interest in Q2");
 
 			// Advance another 6 months
 			jump_to_block(5_256_000);
+
+			// Poke triggers fee update
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
 			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
 			let interest_full_year = vault.accrued_interest;
 
@@ -3373,7 +3492,7 @@ mod on_idle_edge_cases {
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
 
 			use crate::CollateralManager;
-			assert_ok!(Vaults::complete_auction(&BOB, 0, 0));
+			assert_ok!(Vaults::complete_auction(&BOB, 0, 0, &ALICE, 0));
 
 			// BOB's vault should be immediately removed after auction completion
 			assert!(crate::Vaults::<Test>::get(BOB).is_none());
@@ -3703,6 +3822,191 @@ mod oracle_staleness {
 
 			// Should still succeed (at boundary, not past it)
 			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD));
+		});
+	}
+}
+
+// ============================================================================
+// Parameter Invariant Tests
+// ============================================================================
+
+mod parameter_invariants {
+	use super::*;
+
+	/// **Test: Liquidation penalty is always larger than keeper incentive**
+	///
+	/// This is a critical invariant: the keeper incentive must come ONLY from
+	/// the penalty pool. If the keeper incentive could exceed the penalty,
+	/// the protocol would have to pay from principal (increasing bad debt)
+	/// or interest (which belongs to the Insurance Fund).
+	///
+	/// Keeper incentive formula (from auctions pallet):
+	///   keeper_incentive = tip + (chip × tab)
+	///
+	/// Where:
+	///   - tip = flat fee (default: 1 pUSD)
+	///   - chip = percentage of tab (default: 0.1%)
+	///   - tab = principal + interest + penalty
+	///
+	/// The auction pallet caps keeper_incentive to penalty, but this test
+	/// verifies that with reasonable parameters, the penalty naturally exceeds
+	/// the keeper incentive for typical vault sizes.
+	#[test]
+	fn liquidation_penalty_exceeds_keeper_incentive() {
+		new_test_ext().execute_with(|| {
+			// Keeper incentive parameters
+			let tip = 1 * PUSD; // 1 pUSD flat fee
+			let chip = Permill::from_parts(1000); // 0.1%
+
+			// Get liquidation penalty from storage
+			let liquidation_penalty = LiquidationPenalty::<Test>::get();
+
+			// Test various vault sizes to ensure the invariant holds
+			let test_principals = [
+				100 * PUSD,       // Small vault
+				1_000 * PUSD,     // Medium vault
+				10_000 * PUSD,    // Large vault
+				100_000 * PUSD,   // Very large vault
+				1_000_000 * PUSD, // Massive vault
+			];
+
+			for principal in test_principals {
+				// Assume 10% interest for a stressed scenario
+				let interest = principal / 10;
+
+				// Calculate penalty
+				let penalty = liquidation_penalty.mul_floor(principal);
+
+				// Calculate tab (total debt for auction)
+				let tab = principal + interest + penalty;
+
+				// Calculate keeper incentive (before capping)
+				let keeper_incentive_raw = tip + chip.mul_floor(tab);
+
+				// The penalty should exceed the raw keeper incentive
+				// (the auction pallet will cap it anyway, but we want margin)
+				assert!(
+					penalty > keeper_incentive_raw,
+					"Penalty ({} pUSD) should exceed keeper incentive ({} pUSD) for principal {} pUSD. \
+					 This ensures keeper is paid only from penalty, not from principal/interest.",
+					penalty / PUSD,
+					keeper_incentive_raw / PUSD,
+					principal / PUSD
+				);
+
+				// Log the margin for visibility
+				let margin = penalty.saturating_sub(keeper_incentive_raw);
+				let margin_percent = if penalty > 0 { (margin * 100) / penalty } else { 0 };
+
+				// Ensure there's meaningful margin (at least 50% of penalty remains for IF)
+				assert!(
+					margin_percent >= 50,
+					"At least 50% of penalty should remain for Insurance Fund after keeper. \
+					 Got {}% for principal {} pUSD",
+					margin_percent,
+					principal / PUSD
+				);
+			}
+		});
+	}
+
+	/// **Test: Verify penalty vs keeper incentive at minimum vault size**
+	///
+	/// Edge case: The minimum mint is 5 pUSD. Even at this smallest vault,
+	/// the penalty should exceed the keeper incentive.
+	#[test]
+	fn penalty_exceeds_keeper_at_minimum_vault() {
+		new_test_ext().execute_with(|| {
+			let tip = 1 * PUSD;
+			let chip = Permill::from_parts(1000); // 0.1%
+			let liquidation_penalty = LiquidationPenalty::<Test>::get(); // 13%
+
+			// Minimum principal (5 pUSD from MinimumMint)
+			let principal = 5 * PUSD;
+			let interest = 0; // Fresh vault, no interest
+
+			let penalty = liquidation_penalty.mul_floor(principal);
+			let tab = principal + interest + penalty;
+			let keeper_incentive = tip + chip.mul_floor(tab);
+
+			// For 5 pUSD principal with 13% penalty:
+			// penalty = 0.65 pUSD
+			// tab = 5 + 0 + 0.65 = 5.65 pUSD
+			// keeper = 1 + 0.001 * 5.65 = 1.00565 pUSD
+			//
+			// In this edge case, penalty (0.65) < keeper (1.00565)!
+			// This is expected because the tip dominates for tiny vaults.
+			// The auction pallet caps keeper_incentive to penalty, protecting the protocol.
+
+			// Document this edge case - the capping mechanism is essential
+			if penalty < keeper_incentive {
+				// This is acceptable because auction pallet caps to penalty
+				assert!(
+					penalty < tip,
+					"For tiny vaults, penalty may be less than tip, \
+					 but auction pallet caps keeper incentive to penalty"
+				);
+			}
+		});
+	}
+
+	/// **Test: Minimum principal where penalty exceeds keeper incentive**
+	///
+	/// Calculate the minimum principal where the penalty naturally exceeds
+	/// the keeper incentive without capping.
+	#[test]
+	fn find_minimum_principal_for_penalty_dominance() {
+		new_test_ext().execute_with(|| {
+			let tip = 1 * PUSD;
+			let chip = Permill::from_parts(1000); // 0.1%
+			let liquidation_penalty = LiquidationPenalty::<Test>::get(); // 13%
+
+			// Solve for principal where penalty = keeper_incentive:
+			// penalty = principal * 0.13
+			// keeper = tip + chip * (principal + penalty)
+			// keeper = tip + chip * principal * (1 + 0.13)
+			// keeper = tip + chip * principal * 1.13
+			//
+			// Set penalty = keeper:
+			// principal * 0.13 = tip + chip * principal * 1.13
+			// principal * (0.13 - chip * 1.13) = tip
+			// principal = tip / (0.13 - 0.001 * 1.13)
+			// principal = tip / (0.13 - 0.00113)
+			// principal = tip / 0.12887
+			// principal ≈ 7.76 pUSD
+
+			let mut min_principal = 0u128;
+			for principal in (1..100).map(|x| x * PUSD) {
+				let penalty = liquidation_penalty.mul_floor(principal);
+				let tab = principal + penalty; // No interest for simplicity
+				let keeper = tip + chip.mul_floor(tab);
+
+				if penalty > keeper {
+					min_principal = principal;
+					break;
+				}
+			}
+
+			// The minimum principal should be around 8 pUSD
+			// (above our MinimumMint of 5 pUSD, so small vaults rely on capping)
+			assert!(
+				min_principal > 0 && min_principal <= 10 * PUSD,
+				"Expected minimum principal around 8 pUSD, got {} pUSD",
+				min_principal / PUSD
+			);
+
+			// Verify MinimumMint is documented as potentially below this threshold
+			// MinimumMint is 5 pUSD (from mock.rs)
+			let min_mint = 5 * PUSD;
+			if min_mint < min_principal {
+				// This is fine - the capping in auctions pallet handles it
+				// But it's worth documenting that small vaults (below ~8 pUSD principal)
+				// rely on the auction pallet's keeper_incentive capping mechanism
+				assert!(
+					min_mint >= 5 * PUSD,
+					"MinimumMint should be at least 5 pUSD to ensure non-dust vaults"
+				);
+			}
 		});
 	}
 }

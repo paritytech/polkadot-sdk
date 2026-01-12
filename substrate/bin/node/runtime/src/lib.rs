@@ -3046,8 +3046,8 @@ impl pallet_oracle::Config for Runtime {
 parameter_types! {
 	/// The pUSD stablecoin asset ID.
 	pub const VaultsStablecoinAssetId: u32 = 1;
-	/// Minimum collateral deposit to create a vault (1 DOT = 10^10 planck).
-	pub const VaultsMinimumDeposit: Balance = 10_000_000_000;
+	/// Minimum collateral deposit to create a vault: 100 DOT.
+	pub const VaultsMinimumDeposit: Balance = 100 * DOLLARS;
 	/// Minimum mint amount: 5 pUSD (pUSD has 6 decimals, so 5_000_000).
 	pub const VaultsMinimumMint: Balance = 5_000_000;
 	/// Duration (milliseconds) before a vault is considered stale for on_idle fee accrual.
@@ -3078,6 +3078,18 @@ impl frame_support::traits::Get<AccountId> for InsuranceFundAccount {
 ///
 /// **Price format (normalized):** smallest_pUSD_units / smallest_collateral_unit
 ///
+/// Default DOT price: $4.21 normalized for DOT (10 decimals) and pUSD (6 decimals)
+/// Price = 4.21 * 10^6 / 10^10 = 0.000421
+/// As FixedU128: 421_000_000_000_000 (0.000421 * 10^18)
+pub const DEFAULT_DOT_PRICE: u128 = 421_000_000_000_000;
+
+#[cfg(feature = "runtime-benchmarks")]
+frame_support::parameter_types! {
+    /// Storage for benchmark price override.
+    /// When set, MockOracleAdapter will use this price instead of the default.
+	pub storage BenchmarkOraclePrice: Option<FixedU128> = None;
+}
+
 /// Example calculation for DOT at $4.21:
 /// - DOT has 10 decimals, pUSD has 6 decimals
 /// - 1 DOT = 4.21 pUSD
@@ -3094,10 +3106,12 @@ impl pallet_vaults::ProvidePrice for MockOracleAdapter {
 			return None;
 		}
 
-		// Fixed DOT price: $4.21 normalized for DOT (10 decimals) and pUSD (6 decimals)
-		// Price = 4.21 * 10^6 / 10^10 = 0.000421
-		// As FixedU128: 421_000_000_000_000 (0.000421 * 10^18)
-		let price = FixedU128::from_inner(421_000_000_000_000);
+		// Check for benchmark price override
+		#[cfg(feature = "runtime-benchmarks")]
+		let price = BenchmarkOraclePrice::get().unwrap_or(FixedU128::from_inner(DEFAULT_DOT_PRICE));
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		let price = FixedU128::from_inner(DEFAULT_DOT_PRICE);
 
 		// Use current timestamp from the Timestamp pallet
 		let now = <Timestamp as frame_support::traits::Time>::now();
@@ -3122,8 +3136,13 @@ impl pallet_vaults::AuctionsHandler<AccountId, Balance> for AuctionAdapter {
 		_penalty: Balance,
 		_keeper: &AccountId,
 	) -> Result<u32, frame_support::pallet_prelude::DispatchError> {
+		// During benchmarks, return success to allow liquidation benchmarks to complete
+		#[cfg(feature = "runtime-benchmarks")]
+		return Ok(1);
+
 		// TODO: Implement actual auction logic when pallet_auctions is available
 		// For now, liquidations are disabled
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		Err(frame_support::pallet_prelude::DispatchError::Other("Auctions not yet implemented"))
 	}
 }
@@ -3153,6 +3172,65 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager 
 	}
 }
 
+/// Benchmark helper for the Vaults pallet.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct VaultsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_vaults::BenchmarkHelper<AccountId, u32, Balance> for VaultsBenchmarkHelper {
+	fn fund_account(account: &AccountId, amount: Balance) {
+		use frame_support::traits::fungible::{Inspect, Mutate};
+
+		// Ensure account exists first by adding a provider reference
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(account);
+
+		// Use mint_into which is more reliable than set_balance
+		let target_balance = amount.saturating_mul(2);
+		let current = <Balances as Inspect<AccountId>>::balance(account);
+		if current < target_balance {
+			let to_mint = target_balance.saturating_sub(current);
+			let _ = <Balances as Mutate<AccountId>>::mint_into(account, to_mint);
+		}
+	}
+
+	fn create_stablecoin_asset(asset_id: u32) {
+		use frame_support::traits::fungibles::Create;
+
+		// Ensure the owner account exists
+		let owner = InsuranceFundAccount::get();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&owner);
+
+		// Create the asset if it doesn't exist (ignore errors if already exists)
+		let _ = <Assets as Create<AccountId>>::create(
+			asset_id,
+			owner.clone(),
+			true, // is_sufficient
+			1,    // min_balance
+		);
+	}
+
+	fn mint_stablecoin_to(asset_id: u32, account: &AccountId, amount: Balance) {
+		use frame_support::traits::fungibles::Mutate;
+		let _ = <Assets as Mutate<AccountId>>::mint_into(asset_id, account, amount);
+	}
+
+	fn set_price(price: sp_runtime::FixedU128) {
+		BenchmarkOraclePrice::set(&Some(price));
+		log::info!(
+			target: "runtime::vaults::benchmark",
+			"set_price: {:?}",
+			price
+		);
+	}
+
+	fn advance_time(millis: u64) {
+		// Advance the timestamp pallet by the given milliseconds
+		let current = pallet_timestamp::Now::<Runtime>::get();
+		let new_time = current.saturating_add(millis);
+		pallet_timestamp::Now::<Runtime>::put(new_time);
+	}
+}
+
 /// Configure the Vaults pallet.
 impl pallet_vaults::Config for Runtime {
 	type Currency = Balances;
@@ -3161,6 +3239,7 @@ impl pallet_vaults::Config for Runtime {
 	type AssetId = u32;
 	type StablecoinAssetId = VaultsStablecoinAssetId;
 	type InsuranceFund = InsuranceFundAccount;
+	type Treasury = TreasuryAccount;
 	type MinimumDeposit = VaultsMinimumDeposit;
 	type MinimumMint = VaultsMinimumMint;
 	type TimeProvider = Timestamp;
@@ -3171,6 +3250,8 @@ impl pallet_vaults::Config for Runtime {
 	type CollateralLocation = VaultsCollateralLocation;
 	type AuctionsHandler = AuctionAdapter;
 	type WeightInfo = pallet_vaults::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = VaultsBenchmarkHelper;
 }
 
 /// MMR helper types.
@@ -3310,6 +3391,7 @@ mod benches {
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
+		[pallet_vaults, Vaults]
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
