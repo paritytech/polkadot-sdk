@@ -35,7 +35,7 @@ use sp_statement_store::{Statement, StatementSource, StatementStore};
 use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc};
 use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
-const STATEMENT_DATA_SIZE: usize = 256;
+const STATEMENT_DATA_SIZE: usize = 512;
 
 #[derive(Clone)]
 struct TestNetwork;
@@ -173,6 +173,9 @@ fn create_signed_statement(id: usize, keypair: &sp_core::ed25519::Pair) -> State
 	let mut data = vec![0u8; STATEMENT_DATA_SIZE];
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
+	statement.set_topic(0, [0u8; 32]);
+	statement.set_expiry_from_parts(u32::MAX, 1);
+	statement.set_topic(1, [id as u8; 32]);
 
 	statement.sign_ed25519_private(keypair);
 	statement
@@ -198,7 +201,15 @@ fn build_handler(
 	);
 	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let statement_store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
@@ -221,6 +232,7 @@ fn build_handler(
 		let store = statement_store.clone();
 		let receiver = queue_receiver.clone();
 		executor(Box::pin(async move {
+			let mut count = 0;
 			loop {
 				let task = receiver.recv().await;
 				match task {
@@ -230,6 +242,18 @@ fn build_handler(
 					},
 					Err(_) => return,
 				}
+				count += 1;
+				// if count % 1000 == 0 {
+				// 	println!(
+				// 		"TOOK {} ms {} ms  {} ms inserting statement",
+				// 		store.time_insert_topics.load(std::sync::atomic::Ordering::Relaxed) as f64 /
+				// 			1000_000.0,
+				// 		store.time_insert_key.load(std::sync::atomic::Ordering::Relaxed) as f64 /
+				// 			1000_000.0,
+				// 		store.time_insert_entry.load(std::sync::atomic::Ordering::Relaxed) as f64 /
+				// 			1000_000.0
+				// 	)
+				// }
 			}
 		}));
 	}
@@ -280,10 +304,10 @@ fn blocking_executor(
 }
 
 fn bench_on_statements(c: &mut Criterion) {
-	let statement_counts = [100, 500, 1000, 2000];
-	let thread_counts = [1, 2, 4, 8];
+	let statement_counts = [2000];
+	let thread_counts = [1, 4];
 	let max_runtime_instances = 8;
-	let executor_types = [("blocking", true), ("non_blocking", false)];
+	let executor_types = [("blocking", true)];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");

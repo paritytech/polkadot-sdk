@@ -10,8 +10,8 @@ use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Channel, Statement, SubmitResult, Topic, TopicFilter};
-use std::{cell::Cell, collections::HashMap, time::Duration};
-use tokio::time::timeout;
+use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
+use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
@@ -54,8 +54,14 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+	let barrier = Arc::new(Barrier::new(PARTICIPANT_SIZE as usize));
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, node.rpc().await?, node.rpc().await?));
+		participants.push(Participant::new(
+			i as u32,
+			node.rpc().await?,
+			node.rpc().await?,
+			barrier.clone(),
+		));
 	}
 
 	let handles: Vec<_> = participants
@@ -105,6 +111,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	}
 	info!("Created RPC clients for {} collator nodes", rpc_clients.len());
 
+	let barrier = Arc::new(Barrier::new(PARTICIPANT_SIZE as usize));
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
 		// let client_idx = i % collator_names.len();
@@ -113,6 +120,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 			i as u32,
 			rpc_clients[0].rpc().await?,
 			rpc_clients[1].rpc().await?,
+			barrier.clone(),
 		));
 	}
 	info!(
@@ -336,7 +344,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"--max-runtime-instances=32".into(),
 					"--rpc-rate-limit=70000000".into(),
 					"--statement-validation-workers=1".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
+					"-linfo,statement-store=info,statement-gossip=debug".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
 				])
@@ -374,6 +382,7 @@ struct StatementMessage {
 struct ParticipantStats {
 	total_time: Duration,
 	session_keys: Duration,
+	submit_time: Duration,
 	sent_count: u32,
 	received_count: u32,
 	retry_count: u32,
@@ -390,6 +399,9 @@ struct AggregatedStats {
 	min_session_keys: Duration,
 	max_session_keys: Duration,
 	avg_session_keys: Duration,
+	min_submit_time: Duration,
+	max_submit_time: Duration,
+	avg_submit_time: Duration,
 	min_retries: u32,
 	max_retries: u32,
 	avg_retries: u32,
@@ -416,6 +428,15 @@ impl ParticipantStats {
 				participants as f64,
 		);
 
+		let min_submit_time =
+			all_stats.iter().map(|s| s.submit_time).min().unwrap_or(Duration::ZERO);
+		let max_submit_time =
+			all_stats.iter().map(|s| s.submit_time).max().unwrap_or(Duration::ZERO);
+		let avg_submit_time = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.submit_time.as_secs_f64()).sum::<f64>() /
+				participants as f64,
+		);
+
 		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
 		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
 		let avg_retries = all_stats.iter().map(|s| s.retry_count).sum::<u32>() / participants;
@@ -430,6 +451,9 @@ impl ParticipantStats {
 			min_session_keys,
 			max_session_keys,
 			avg_session_keys,
+			min_submit_time,
+			max_submit_time,
+			avg_submit_time,
 			min_retries,
 			max_retries,
 			avg_retries,
@@ -455,11 +479,20 @@ impl AggregatedStats {
 
 		info!(
 			" {:<8} {:>8}  {:>8}  {:>8}",
-			"time, s",
+			"time, k",
 			self.min_session_keys.as_secs(),
 			self.avg_session_keys.as_secs(),
 			self.max_session_keys.as_secs(),
 		);
+
+		info!(
+			" {:<8} {:>8}  {:>8}  {:>8}",
+			"time, m",
+			self.min_submit_time.as_secs(),
+			self.avg_submit_time.as_secs(),
+			self.max_submit_time.as_secs(),
+		);
+
 		info!(
 			" {:<8} {:>8}  {:>8}  {:>8}",
 			"retries", self.min_retries, self.avg_retries, self.max_retries
@@ -481,6 +514,7 @@ struct Participant {
 	retry_count: u32,
 	rpc_client_send: RpcClient,
 	rpc_client_receive: RpcClient,
+	barrier: Arc<Barrier>,
 }
 
 impl Participant {
@@ -488,7 +522,12 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_client_send: RpcClient, rpc_client_receive: RpcClient) -> Self {
+	fn new(
+		idx: u32,
+		rpc_client_send: RpcClient,
+		rpc_client_receive: RpcClient,
+		barrier: Arc<Barrier>,
+	) -> Self {
 		debug!(target: &format!("participant_{idx}"), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -511,6 +550,7 @@ impl Participant {
 			retry_count: 0,
 			rpc_client_send,
 			rpc_client_receive,
+			barrier,
 		}
 	}
 
@@ -762,9 +802,15 @@ impl Participant {
 		trace!(target: &self.log_target(), "Session keys received");
 		let session_keys_time = start_time.elapsed();
 
+		let mut submit_time = Duration::ZERO;
+
+		self.barrier.wait().await;
+		let after_session = std::time::Instant::now();
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
+			let submit_start = std::time::Instant::now();
 			self.send_messages(round).await?;
+			submit_time = submit_start.elapsed();
 			trace!(target: &self.log_target(), "Messages requests started");
 			self.receive_messages(round).await?;
 		}
@@ -777,6 +823,7 @@ impl Participant {
 			received_count: self.received_count,
 			retry_count: self.retry_count,
 			session_keys: session_keys_time,
+			submit_time,
 		})
 	}
 }

@@ -29,9 +29,11 @@
 use crate::config::*;
 
 use codec::{Decode, Encode};
+use core::time;
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
 use prometheus_endpoint::{
-	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+	prometheus::{self, core::Atomic},
+	register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -55,7 +57,7 @@ use std::{
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicU64, Arc},
 };
 use tokio::time::timeout;
 
@@ -211,9 +213,12 @@ impl StatementHandlerPrototype {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 		log::info!(target: LOG_TARGET, "Spawning {} statement validation workers", num_validation_workers);
+		let mut time_submit = Vec::with_capacity(num_validation_workers);
 		for _ in 0..num_validation_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
+			let time_submit_worker = Arc::new(AtomicU64::new(0u64));
+			time_submit.push(time_submit_worker.clone());
 			executor(
 				async move {
 					loop {
@@ -222,7 +227,12 @@ impl StatementHandlerPrototype {
 						match task {
 							None => return,
 							Some((statement, completion)) => {
+								let start = std::time::Instant::now();
 								let result = store.submit(statement, StatementSource::Network);
+								time_submit_worker.fetch_add(
+									start.elapsed().as_nanos() as u64,
+									std::sync::atomic::Ordering::Relaxed,
+								);
 								if completion.send(result).is_err() {
 									log::debug!(
 										target: LOG_TARGET,
@@ -256,6 +266,11 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
+			time_submit,
 		};
 
 		Ok(handler)
@@ -292,6 +307,11 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	time_take_recent: u128,
+	time_take_propagate: u128,
+	time_on_stmts: u128,
+	time_await_send: u128,
+	time_submit: Vec<Arc<AtomicU64>>,
 }
 
 /// Peer information
@@ -342,6 +362,11 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
+			time_submit: Vec::new(),
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
 		}
 	}
 
@@ -472,6 +497,7 @@ where
 	/// Called when peer sends us new statements
 	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
+		let start = std::time::Instant::now();
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
@@ -550,6 +576,7 @@ where
 				statements_left -= 1;
 			}
 		}
+		self.time_on_stmts += start.elapsed().as_nanos();
 	}
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
@@ -596,7 +623,7 @@ where
 			let mut offset = 0;
 			while offset < to_send.len() {
 				// Try to send as many statements as possible in one notification
-				let mut current_end = to_send.len();
+				let mut current_end = std::cmp::min(offset + 1000, to_send.len());
 				log::trace!(target: LOG_TARGET, "Looking for better chunk size");
 
 				loop {
@@ -606,6 +633,7 @@ where
 
 					// If chunk fits, send it
 					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+						let start = std::time::Instant::now();
 						if let Err(e) = timeout(
 							SEND_TIMEOUT,
 							self.notification_service.send_async_notification(who, chunk.encode()),
@@ -616,6 +644,7 @@ where
 							offset = to_send.len();
 							break;
 						}
+						self.time_await_send += start.elapsed().as_nanos();
 						offset = current_end;
 						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
 						self.metrics.as_ref().map(|metrics| {
@@ -658,11 +687,24 @@ where
 		if self.sync.is_major_syncing() {
 			return
 		}
-
+		let start = std::time::Instant::now();
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
+		self.time_take_recent += start.elapsed().as_nanos();
 		if !statements.is_empty() {
+			let start = std::time::Instant::now();
 			self.do_propagate_statements(&statements).await;
+			self.time_take_propagate += start.elapsed().as_nanos();
 		}
+		log::info!(
+			target: LOG_TARGET,
+			"Propagated {} statements (take_recent: {} ms, propagate: {} ms, on_stmts: {} ms, await_send: {} ms {} )",
+			statements.len(),
+			self.time_take_recent as f64 / 1_000_000.0,
+			self.time_take_propagate as f64 / 1_000_000.0,
+			self.time_on_stmts as f64 / 1_000_000.0,
+			self.time_await_send as f64 / 1_000_000.0,
+			self.time_submit.iter().enumerate().map(|(i, t)| format!("submit_worker_{}: {} ms", i, t.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1_000_000.0)).collect::<Vec<_>>().join(", "),
+		);
 	}
 }
 
@@ -1007,6 +1049,11 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
+			time_submit: Vec::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
