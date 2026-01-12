@@ -72,7 +72,7 @@ pub(crate) async fn run_workers<W, F, Fut>(
 {
 	let work_queue = Arc::new(Mutex::new(initial_work));
 	let active_workers = Arc::new(AtomicUsize::new(0));
-	let conn_manager = Arc::new(conn_manager.clone());
+	let conn_manager = conn_manager.clone();
 
 	let mut handles = vec![];
 
