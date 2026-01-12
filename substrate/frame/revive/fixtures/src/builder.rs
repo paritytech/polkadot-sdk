@@ -235,27 +235,23 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.current_dir(current_dir)
 		.env_clear()
 		.env("PATH", env::var("PATH").unwrap_or_default())
-        // .env("RUSTFLAGS", rustflags)
+		// .env("RUSTFLAGS", rustflags)
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 		.env("RUSTC_BOOTSTRAP", "1")
 		// Always use nightly cargo to accept -Z flags
-        .arg("+nightly");
-    if immediate_abort {
+		.arg("+nightly");
+	if immediate_abort {
 		println!(")))))))))))))))))))))) Building with immediate abort support");
-        build_command.args([
-            "build",
-            "--release",
-            "-Zbuild-std=core",
-        ]);
-    } else {
-        build_command.args([
-            "build",
-            "--release",
-            "-Zbuild-std=core",
-            "-Zbuild-std-features=panic_immediate_abort",
-        ]);
-    }
+		build_command.args(["build", "--release", "-Zbuild-std=core"]);
+	} else {
+		build_command.args([
+			"build",
+			"--release",
+			"-Zbuild-std=core",
+			"-Zbuild-std-features=panic_immediate_abort",
+		]);
+	}
 	build_command
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
