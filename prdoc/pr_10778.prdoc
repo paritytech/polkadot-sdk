@@ -1,4 +1,4 @@
-title: '[WIP][pallet-revive] fix build 1.92.0'
+title: '[pallet-revive] fix build 1.92.0'
 doc:
 - audience: Runtime Dev
   description: 'Fix mistake in this PR: https://github.com/paritytech/polkadot-sdk/pull/10749'
