@@ -837,7 +837,7 @@ construct_runtime!(
 
 		// Removed, i.e. merged into the foreign assets pallet.
 		// Assets: pallet_assets::<Instance1> = 50,
-		Assets: pallet_assets::<Instance2> = 51,
+		Assets: pallet_assets::<Instance2> = 50,
 		PoolAssets: pallet_assets::<Instance3> = 52,
 		AssetConversion: pallet_asset_conversion = 53,
 

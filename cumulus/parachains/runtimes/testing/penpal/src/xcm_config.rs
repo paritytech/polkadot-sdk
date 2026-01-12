@@ -285,7 +285,7 @@ pub const PEN2_TELEPORTABLE_GENERAL_INDEX: u32 = 2;
 pub const ASSET_HUB_ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
 
-pub const PENPAL_ASSETS_PALLET_ID: u8 = 51;
+pub const PENPAL_ASSETS_PALLET_ID: u8 = 50;
 
 pub const USDT_ASSET_ID: u128 = 1984;
 
