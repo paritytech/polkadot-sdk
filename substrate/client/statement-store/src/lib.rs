@@ -860,6 +860,7 @@ impl StatementStore for Store {
 		let mut result = Vec::new();
 		let mut processed = 0;
 		for hash in hashes {
+			processed += 1;
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -871,9 +872,12 @@ impl StatementStore for Store {
 				FilterDecision::Take => {
 					result.push((*hash, statement));
 				},
-				FilterDecision::Abort => break,
+				FilterDecision::Abort => {
+					// We did not process it :)
+					processed -= 1;
+					break
+				},
 			}
-			processed += 1;
 		}
 
 		Ok((result, processed))

@@ -776,25 +776,18 @@ where
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
-				let stmt_size = encoded.len();
-
-				if stmt_size > MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-					return FilterDecision::Skip
-				}
-
 				if accumulated_size > 0 &&
-					accumulated_size + stmt_size > MAX_STATEMENT_NOTIFICATION_SIZE as usize
+					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
 				{
 					return FilterDecision::Abort
 				}
-
-				accumulated_size += stmt_size;
+				accumulated_size += encoded.len();
 				FilterDecision::Take
 			},
 		) {
 			Ok(r) => r,
 			Err(e) => {
-				log::error!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
+				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
 				entry.remove();
 				return;
 			},
