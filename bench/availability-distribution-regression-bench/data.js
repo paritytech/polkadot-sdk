@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768233149796,
+  "lastUpdate": 1768245813211,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e40bb358fa7ae62d3752c9735e286ff7bab0ea1",
-          "message": "dispute-coordinator: increase lru_observed_blocks_capacity (#8831)\n\nUnder increase load with finality lagging behind there is a risk for\nblocks to arrive late or out of sequence in that case we will end up\nscrapping from the received block un till last finalized block and then\nprocess all the dispute in-between.\n\nThis couple with other inefficiencies like\nhttps://github.com/paritytech/polkadot-sdk/issues/8823 will increase\nunnecessarily the load on dispute-coordinator.\n\nDecided to make this super large to err on the cautious side, the Hash\nsize is only 32 bytes, so this will make the LRU grow up to 65k, which I\ndon't think is a significant increase.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T14:31:41Z",
-          "tree_id": "4acf7f01505f2f71ef40ce2b7150b32b09b9d603",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e40bb358fa7ae62d3752c9735e286ff7bab0ea1"
-        },
-        "date": 1749742672620,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008863034933333434,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022781333140000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15848745283333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012955037919999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01002322033333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0130e98195941a7ce009547b797dcd007003424a",
+          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-12T18:16:26Z",
+          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
+        },
+        "date": 1768245789467,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022960937,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009917854873333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14360186776000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007030749146666669,
             "unit": "seconds"
           }
         ]
