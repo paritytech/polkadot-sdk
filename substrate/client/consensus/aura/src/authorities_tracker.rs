@@ -25,8 +25,8 @@ use fork_tree::ForkTree;
 use parking_lot::RwLock;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi};
-use sp_core::Pair;
+use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi, ConsensusLog, AURA_ENGINE_ID};
+use sp_core::{bytes::from_hex, Pair};
 use sp_runtime::{
 	traits::{Block, Header, NumberFor},
 	DigestItem,
@@ -125,6 +125,7 @@ where
 		cache.import(hash, number, authorities, &is_descendent_of).map_err(|e| {
 			format!("Could not import authorities for block {hash:?} at number {number}: {e}")
 		})?;
+		log::info!("Imported authorities for block {hash} (#{number})");
 		Ok(())
 	}
 }
@@ -229,10 +230,12 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	header.digest().convert_first(|log| -> Option<Vec<AuthorityId<P>>> {
+	let consensus_log = header.digest().convert_first(|log| -> Option<ConsensusLog<AuthorityId<P>>> {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		<DigestItem as CompatibleDigestItem<P::Signature>>::as_authorities_change::<AuthorityId<P>>(
-			log,
-		)
-	})
+		<DigestItem as CompatibleDigestItem<P::Signature>>::as_consensus_log::<AuthorityId<P>>(log)
+	})?;
+	match consensus_log {
+		ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
+		ConsensusLog::OnDisabled(idx) => panic!("got OnDisabled"),
+	}
 }
