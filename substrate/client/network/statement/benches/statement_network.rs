@@ -198,7 +198,15 @@ fn build_handler(
 	);
 	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let statement_store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(

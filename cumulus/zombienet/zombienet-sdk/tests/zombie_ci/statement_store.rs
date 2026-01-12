@@ -4,7 +4,7 @@
 // Test that people-westend enables the statement store in the node and that statements are
 // propagated to peers.
 
-use std::{time::Duration, u32};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use sp_core::{Bytes, Encode};

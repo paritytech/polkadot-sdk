@@ -21,9 +21,7 @@ const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 512;
 const MESSAGE_COUNT: usize = 1;
-const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
-const PROPAGATION_DELAY_MS: u64 = 2000;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
 /// Single-node benchmark.
@@ -486,25 +484,6 @@ impl Participant {
 		}
 	}
 
-	async fn wait_for_retry(&mut self) -> Result<(), anyhow::Error> {
-		if self.retry_count >= MAX_RETRIES {
-			return Err(anyhow!("No more retry attempts for participant {}", self.idx))
-		}
-
-		self.retry_count += 1;
-		if self.retry_count % 10 == 0 {
-			debug!(target: &self.log_target(), "Retry attempt {}", self.retry_count);
-		}
-		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
-
-		Ok(())
-	}
-
-	async fn wait_for_propagation(&mut self) {
-		trace!(target: &self.log_target(), "Waiting {}ms for propagation", PROPAGATION_DELAY_MS);
-		tokio::time::sleep(tokio::time::Duration::from_millis(PROPAGATION_DELAY_MS)).await;
-	}
-
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
 		let _: SubmitResult = self
@@ -584,14 +563,14 @@ impl Participant {
 	}
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
-		let mut pending = self.group_members.clone();
+		let pending = self.group_members.clone();
 
 		let mut subscriptions = Vec::new();
 
 		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
 
 		for idx in &pending {
-			let mut subscription = self
+			let subscription = self
 				.rpc_client
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
@@ -657,14 +636,14 @@ impl Participant {
 	}
 
 	async fn receive_messages(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let mut pending: Vec<(u32, sr25519::Public)> =
+		let pending: Vec<(u32, sr25519::Public)> =
 			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
 
 		let mut subscriptions = Vec::new();
 
 		for &(sender_idx, sender_session_key) in &pending {
-			let mut subscription = self
+			let subscription = self
 				.rpc_client
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
