@@ -1,0 +1,11 @@
+title: Extend remote externalities Transport and child storage query unit tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes a test failure in the remote externalities crate concerning optionality of child key loading.
+      It also adds follow-up tests to #10258 to check `Transport` construction from valid/invalid URIs.
+
+crates:
+  - name: frame-remote-externalities
+    bump: patch
