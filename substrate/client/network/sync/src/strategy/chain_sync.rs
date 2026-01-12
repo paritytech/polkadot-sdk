@@ -2020,6 +2020,13 @@ where
 					peer.state = PeerSyncState::DownloadingStale(hash);
 					Some((id, req))
 				} else if let Some((range, req)) = gap_sync.as_mut().and_then(|sync| {
+					// Skip body requests for gap sync only if not in archive mode.
+					// Archive nodes need bodies to maintain complete block history.
+					let attrs = if blocks_pruning.is_archive() {
+						attrs
+					} else {
+						attrs & !BlockAttributes::BODY
+					};
 					peer_gap_block_request(
 						&id,
 						peer,
@@ -2028,7 +2035,6 @@ where
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
-						blocks_pruning,
 					)
 				}) {
 					peer.state = PeerSyncState::DownloadingGap(range.start);
@@ -2335,11 +2341,7 @@ fn peer_gap_block_request<B: BlockT>(
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
-	blocks_pruning: &BlocksPruning,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-	// Skip body requests for gap sync only if not in archive mode.
-	// Archive nodes need bodies to maintain complete block history.
-	let attrs = if blocks_pruning.is_archive() { attrs } else { attrs & !BlockAttributes::BODY };
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,
