@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
+<<<<<<< HEAD
       - name: Installing the Latest Resolc
         run: |
           VERSION="0.5.0"
@@ -96,6 +97,15 @@ jobs:
         with:
           header: diff-tests-report-${{ matrix.platform }}
           path: report.md
+=======
+      - name: Run revive differential tests
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@main
+        with:
+          platform: ${{ matrix.platform }}
+          cargo-command: "forklift cargo"
+          revive-differential-tests-ref: "main"
+          resolc-version: "0.5.0"
+>>>>>>> 0c70641 (Use the revive-differential-tests reusable action (#10732))
 
   evm-test-suite:
     needs: [preflight]
