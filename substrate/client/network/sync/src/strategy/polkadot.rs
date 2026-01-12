@@ -82,7 +82,7 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
 	/// Warp strategy.
-	warp: Option<WarpSync<B, Client>>,
+	warp: Option<WarpSync<B>>,
 	/// State strategy.
 	state: Option<StateStrategy<B>>,
 	/// `ChainSync` strategy.`
@@ -207,7 +207,7 @@ where
 					);
 					debug_assert!(false);
 				},
-			WarpSync::<B, Client>::STRATEGY_KEY =>
+			WarpSync::<B>::STRATEGY_KEY =>
 				if let Some(warp) = &mut self.warp {
 					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {

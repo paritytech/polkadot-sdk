@@ -98,15 +98,22 @@ impl TransactionSigned {
 
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
-		if data.len() < 1 {
+		if data.is_empty() {
 			return Err(rlp::DecoderError::RlpIsTooShort);
 		}
-		match data[0] {
-			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
-			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
+		let first_byte = data[0];
+
+		// EIP-2718: Typed transactions use type identifiers in [0x00, 0x7f].
+		if first_byte <= 0x7f {
+			match first_byte {
+				TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
+				_ => Err(rlp::DecoderError::Custom("Unknown transaction type")),
+			}
+		} else {
+			rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 		}
 	}
 }
@@ -630,7 +637,6 @@ mod test {
 			),
 			// type 3: EIP4844
 			(
-
 				"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 				r#"
 				{
@@ -655,7 +661,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
+				"#,
 			)
 		];
 
@@ -685,5 +691,33 @@ mod test {
 		let dummy_signed_payload = tx.clone().dummy_signed_payload();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
+	}
+
+	#[test]
+	fn rlp_codec_is_compatible_with_ethereum() {
+		// RLP encoded transactions
+		let test_cases = [
+			// Legacy
+			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-2930
+			"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-1559
+			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP4844
+      		"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
+		];
+
+		for hex_tx in test_cases {
+			let rlp_encoded_tx = alloy_core::hex::decode(hex_tx).unwrap();
+
+			// RLP decode using this implementation
+			let tx_revive = TransactionSigned::decode(&rlp_encoded_tx).unwrap();
+
+			// RLP encode using this implementation
+			let rlp_encoded_revive = tx_revive.signed_payload();
+
+			// Verify round-trip: our encoding should decode back to the same transaction
+			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
+		}
 	}
 }

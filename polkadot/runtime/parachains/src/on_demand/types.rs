@@ -20,7 +20,7 @@ use super::{alloc, pallet::Config};
 use alloc::collections::BinaryHeap;
 use core::cmp::{Ord, Ordering, PartialOrd};
 use frame_support::{
-	pallet_prelude::{Decode, Encode, RuntimeDebug, TypeInfo},
+	pallet_prelude::{Debug, Decode, Encode, TypeInfo},
 	traits::Currency,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
@@ -213,21 +213,21 @@ impl Ord for EnqueuedOrder {
 /// Keeps track of how many assignments a scheduler currently has at a specific `CoreIndex` for a
 /// specific `ParaId`.
 #[derive(Encode, Decode, Default, Clone, Copy, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct CoreAffinityCount {
 	pub core_index: CoreIndex,
 	pub count: u32,
 }
 
 /// An indicator as to which end of the `OnDemandQueue` an assignment will be placed.
-#[cfg_attr(test, derive(RuntimeDebug))]
+#[cfg_attr(test, derive(Debug))]
 pub enum QueuePushDirection {
 	Back,
 	Front,
 }
 
 /// Errors that can happen during spot traffic calculation.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub enum SpotTrafficCalculationErr {
 	/// The order queue capacity is at 0.
 	QueueCapacityIsZero,

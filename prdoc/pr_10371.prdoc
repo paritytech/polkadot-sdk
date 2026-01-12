@@ -1,0 +1,8 @@
+title: Try State Hook for Pallet Assets
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the try_state hook to pallet-assets to verify key storage invariants.
+crates:
+- name: pallet-assets
+  bump: patch

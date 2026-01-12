@@ -13,6 +13,11 @@ on:
         required: true
         type: string
 
+      final_tag:
+        description: Final release tag without RC suffix (e.g., polkadot-stableYYMM)
+        required: true
+        type: string
+
       target:
         description: Target triple for which the artifacts are being uploaded (e.g aarch64-apple-darwin)
         required: true
@@ -36,20 +41,13 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       RELEASE_TAG: ${{ inputs.release_tag }}
+      FINAL_TAG: ${{ inputs.final_tag }}
       PACKAGE: ${{ inputs.package }}
       TARGET: ${{ inputs.target }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Prepare final tag
-        id: prepare_final_tag
-        shell: bash
-        run: |
-          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
-          echo $tag
-          echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Fetch binaries from s3 based on version
         run: |
@@ -63,13 +61,15 @@ jobs:
               fetch_release_artifacts_from_s3 "$package" "$TARGET"
             done
             NODE_VERSION="$(get_polkadot_node_version_from_code)"
+
             fetch_debian_package_from_s3 polkadot
+            fetch_rpm_package_from_s3 polkadot
           else
             fetch_release_artifacts_from_s3 "$PACKAGE" "$TARGET"
           fi
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -82,8 +82,8 @@ jobs:
           if [[ "$PACKAGE" == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
-              upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+              upload_s3_release $package "$FINAL_TAG" "$TARGET"
             done
           else
-            upload_s3_release "$PACKAGE" ${{ steps.prepare_final_tag.outputs.final_tag }} "$TARGET"
+            upload_s3_release "$PACKAGE" "$FINAL_TAG" "$TARGET"
           fi
