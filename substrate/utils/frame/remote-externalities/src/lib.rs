@@ -63,7 +63,7 @@ type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
+const DEFAULT_WS_ENDPOINT: &str = "wss://try-runtime.polkadot.io:443";
 const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
 /// The snapshot that we store on disk.
@@ -177,7 +177,7 @@ impl Transport {
 		}
 	}
 
-/// /// Build a [`Self::RemoteClient`] from a WS URI.
+	/// Build a [`Self::RemoteClient`] from a WS URI.
 	///
 	/// # Errors
 	///
@@ -256,7 +256,7 @@ impl<H: Clone> OnlineConfig<H> {
 impl<H> Default for OnlineConfig<H> {
 	fn default() -> Self {
 		Self {
-			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
+			transport: Transport::from(DEFAULT_WS_ENDPOINT.to_owned()),
 			child_trie: true,
 			at: None,
 			state_snapshot: None,
@@ -1311,7 +1311,7 @@ mod remote_tests {
 	use std::{env, os::unix::fs::MetadataExt};
 
 	fn endpoint() -> String {
-		env::var("TEST_URI").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
+		env::var("TEST_URI").unwrap_or_else(|_| DEFAULT_WS_ENDPOINT.to_string())
 	}
 
 	#[tokio::test]
