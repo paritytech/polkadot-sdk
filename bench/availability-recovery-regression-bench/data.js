@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768003295423,
+  "lastUpdate": 1768230269313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "153776336+robertvaneerdewijk@users.noreply.github.com",
-            "name": "robertvaneerdewijk",
-            "username": "robertvaneerdewijk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "806888d614f186f2876a670f6ec69cbf9bc027d8",
-          "message": "renamed wasm module in pallet-revive to vm (#8794)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8341\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T11:35:20Z",
-          "tree_id": "fb4eeeac7a462a4a5de8479336e429ac4403a57c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/806888d614f186f2876a670f6ec69cbf9bc027d8"
-        },
-        "date": 1749732896113,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.284372542033337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19957999829999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12187987883333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "62fa27df30d985600963fd5bcec1080e4c63fd4b",
+          "message": "remote-externalities: Use `WsClient` (#10258)\n\nI was removing the rewrite of the uri from `ws(s)` to `http(s)`, but I\nforgot to change `HttpClient` to `WsClient`. This is now done by this\npr.\n\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-12T13:57:33Z",
+          "tree_id": "faa765d22b95a5e7584fed7cd7c3d06b4662ba41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62fa27df30d985600963fd5bcec1080e4c63fd4b"
+        },
+        "date": 1768230244026,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.277520975466668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12613107493333336,
             "unit": "seconds"
           }
         ]
