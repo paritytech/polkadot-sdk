@@ -1373,6 +1373,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-dap",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
@@ -11288,6 +11289,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-dap",
  "pallet-election-provider-multi-block",
  "pallet-offences",
  "pallet-root-offences",
@@ -12064,6 +12066,22 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-dap"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
@@ -13508,6 +13526,7 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-dap",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -13588,6 +13607,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-dap",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
@@ -14938,6 +14958,7 @@ dependencies = [
  "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives",
+ "polkadot-jemalloc-shim",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-common",
  "polkadot-node-core-pvf-execute-worker",
@@ -14946,7 +14967,6 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-rpc-client",
  "tempfile",
- "tikv-jemallocator",
  "tokio",
 ]
 
@@ -15215,6 +15235,17 @@ dependencies = [
  "sp-keystore",
  "sp-tracing 16.0.0",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-jemalloc-shim"
+version = "1.0.0"
+dependencies = [
+ "polkadot-cli",
+ "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-prepare-worker",
+ "polkadot-overseer",
+ "tikv-jemallocator",
 ]
 
 [[package]]
@@ -15880,6 +15911,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
 ]
@@ -16020,6 +16052,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "people-westend-runtime",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "sc-chain-spec",
  "sc-cli",
@@ -16360,6 +16393,7 @@ dependencies = [
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
+ "pallet-dap",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -16480,8 +16514,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
- "polkadot-node-core-pvf-execute-worker",
- "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
@@ -20282,17 +20314,26 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
+ "criterion",
  "futures",
  "log",
  "parity-scale-codec",
+ "sc-keystore",
  "sc-network",
  "sc-network-common",
  "sc-network-sync",
  "sc-network-types",
+ "sc-statement-store",
+ "sp-api",
+ "sp-blockchain",
  "sp-consensus",
+ "sp-core 28.0.0",
+ "sp-keyring",
  "sp-runtime",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "tempfile",
  "tokio",
 ]
 
@@ -24482,6 +24523,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
+ "sp-statement-store",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-trie",
