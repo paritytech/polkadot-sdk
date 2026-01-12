@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768230366963,
+  "lastUpdate": 1768233204434,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0157f244d0560d439b73a5aedbfe6bed56376a26",
-          "message": "[Release|CI/CD] Exclude test runtimes from the runtimes build (#8820)",
-          "timestamp": "2025-06-11T10:29:21Z",
-          "tree_id": "23d2e8d96dba309117b9ecd6b553ac0ff718f58c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0157f244d0560d439b73a5aedbfe6bed56376a26"
-        },
-        "date": 1749641220264,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03416090472999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04470328921199997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06644704833199992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
+          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-12T14:46:18Z",
+          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
+        },
+        "date": 1768233183341,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.048,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03810611944399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06152354165599991,
             "unit": "seconds"
           }
         ]
