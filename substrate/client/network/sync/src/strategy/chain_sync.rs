@@ -276,7 +276,7 @@ pub enum ChainSyncMode {
 impl ChainSyncMode {
 	/// Returns the base block attributes required for this sync mode.
 	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
-		let attrs  = match self {
+		let attrs = match self {
 			ChainSyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
