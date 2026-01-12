@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768230399595,
+  "lastUpdate": 1768233232033,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -20530,6 +20530,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002685942370000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
+          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-12T14:46:18Z",
+          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
+        },
+        "date": 1768233210121,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006573201369999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009333458549999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027603317299999997,
             "unit": "seconds"
           }
         ]
