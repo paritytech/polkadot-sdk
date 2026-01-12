@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768003322818,
+  "lastUpdate": 1768230302229,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "292368d05eec5d6649607251ab21ed2c96ebd158",
-          "message": "release/build-macos-binaries: add missing FEATURES argument  (#8816)\n\n# Description\n\nIn #8755 we enabled release scripts to build binaries with certain\nfeatures too, used especially for `polkadot-omni-node`. I missed to add\nthe `FEATURES` argument to the build script used for macos:\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8755/files#diff-f4ebb5b55e4d2f4ec7ab5674ac3376839b13358d78935f9c388d79e75beeceb8R224\n\n## Integration\n\nN/A\n\n## Review Notes\n\nThis must be merged to be able to build `polkadot-omni-node` binary with\nruntime-benchmarks feature on macos.\nFixed also the macos build per:\nhttps://github.com/paritytech/polkadot-sdk/pull/8815/commits/05502a350b5995c5b3386ef42bd608c88ec8f17c.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2025-06-11T13:30:59Z",
-          "tree_id": "7cf74cf428cf045868c4132fa89faff0364bceda",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/292368d05eec5d6649607251ab21ed2c96ebd158"
-        },
-        "date": 1749653637945,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15804528537333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022667241093333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013173518706666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009255485693333431,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007086751586666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "62fa27df30d985600963fd5bcec1080e4c63fd4b",
+          "message": "remote-externalities: Use `WsClient` (#10258)\n\nI was removing the rewrite of the uri from `ws(s)` to `http(s)`, but I\nforgot to change `HttpClient` to `WsClient`. This is now done by this\npr.\n\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-12T13:57:33Z",
+          "tree_id": "faa765d22b95a5e7584fed7cd7c3d06b4662ba41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62fa27df30d985600963fd5bcec1080e4c63fd4b"
+        },
+        "date": 1768230278451,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023098787900000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009820123813333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006988358753333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14396991493999992,
             "unit": "seconds"
           }
         ]
