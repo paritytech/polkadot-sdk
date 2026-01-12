@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768003378608,
+  "lastUpdate": 1768230366963,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "patrick.mcevoy@moose.run",
-            "name": "Patrick McEvoy",
-            "username": "firegrass"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "934d5139caf1c3203be0bfca5344fa1dcfd5f13c",
-          "message": "Add freebsd sysinfo for telemetry (#7985)\n\n# Description\n\nGathering hardware information on FreeBSD\n\n## Integration\n\nN/A (I think)\n\n## Review Notes\n\nPlease note FreeBSD does not use the linux kernel, nor is it's kernel\nversioned differently as in linux distros.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nYou can remove the \"Checklist\" section once all have been checked. Thank\nyou for your contribution!\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2025-06-10T20:40:15Z",
-          "tree_id": "e3053bd6ecc7f34bb7e67d94f33bb4b311dbdc71",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/934d5139caf1c3203be0bfca5344fa1dcfd5f13c"
-        },
-        "date": 1749591799978,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95799999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033693261547999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04414863795799993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038208403246,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "62fa27df30d985600963fd5bcec1080e4c63fd4b",
+          "message": "remote-externalities: Use `WsClient` (#10258)\n\nI was removing the rewrite of the uri from `ws(s)` to `http(s)`, but I\nforgot to change `HttpClient` to `WsClient`. This is now done by this\npr.\n\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-12T13:57:33Z",
+          "tree_id": "faa765d22b95a5e7584fed7cd7c3d06b4662ba41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62fa27df30d985600963fd5bcec1080e4c63fd4b"
+        },
+        "date": 1768230343654,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.02399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03800298953200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06644704833199992,
             "unit": "seconds"
           }
         ]
