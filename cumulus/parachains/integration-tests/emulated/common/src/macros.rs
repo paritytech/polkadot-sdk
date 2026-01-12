@@ -839,7 +839,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			let call = get_call(
 				($crate::macros::Parent, local_execution_fees + local_delivery_fees),
 				($crate::macros::Parent, intermediate_execution_fees + intermediate_delivery_fees),
-				($crate::macros::Parent, final_execution_fees),
+				($crate::macros::Parent, final_execution_fees + 1),
 			);
 			test.set_call(call);
 			test.assert();
@@ -862,7 +862,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					local_delivery_fees -
 					intermediate_execution_fees -
 					intermediate_delivery_fees -
-					final_execution_fees
+					final_execution_fees - 1
 			);
 		}
 	};
