@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768233204434,
+  "lastUpdate": 1768245878965,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "37951b676608dce36c7997f2950f7d3a9a21118b",
-          "message": "Add XCM Precompile to `pallet-xcm` (#8693)\n\nThis PR adds the XCM precompile (with `xcmSend`, `xcmExecute` and\n`weightMessage` functionalities) to `pallet-xcm`.\n\nThis follows the discussion we had on the now closed\n[PR](https://github.com/paritytech/polkadot-sdk/pull/8471/), which\nattempted to add the precompile to `pallet-revive`, but that approach\nwould have introduced unwanted cyclic dependencies. That's why we\ndecided to migrate the precompile to `pallet-xcm`, avoiding adding\nunnecessary dependencies to `pallet-revive`.\n\nThis PR should also encapsulate unit tests in `precompiles.rs` as well\nas integration tests under\n`cumulus/parachains/integration-tests/emulated/tests`.\n\nSee tracking parent\n[issue](https://github.com/paritytech/polkadot-sdk/issues/6718)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Siphamandla Mjoli <brianm445@yahoo.com>\nCo-authored-by: Siphamandla Mjoli <siphamandla@parity.io>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-06-11T12:57:58Z",
-          "tree_id": "413c3d93f10ff655360c35656d034658631b6523",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/37951b676608dce36c7997f2950f7d3a9a21118b"
-        },
-        "date": 1749650333322,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04478574588399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033967566931999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06152354165599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0130e98195941a7ce009547b797dcd007003424a",
+          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-12T18:16:26Z",
+          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
+        },
+        "date": 1768245854881,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038424594962000014,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06821088777599993,
             "unit": "seconds"
           }
         ]
