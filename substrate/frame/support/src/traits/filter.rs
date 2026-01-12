@@ -78,8 +78,16 @@ impl<F: FilterStack<T>, T> Drop for ClearFilterGuard<F, T> {
 
 /// Simple trait for providing a filter over a reference to some type, given an instance of itself.
 pub trait InstanceFilter<T>: Sized + Send + Sync {
+	/// The type of proxy data used for filtering decisions.
+	type ProxyData: Default;
+
 	/// Determine if a given value should be allowed through the filter (returns `true`) or not.
-	fn filter(&self, _: &T) -> bool;
+	fn filter(&self, c: &T) -> bool {
+		self.filter_with_data(c, &Self::ProxyData::default())
+	}
+
+	/// Determine if a given value should be allowed through the filter with additional proxy data.
+	fn filter_with_data(&self, c: &T, proxy_data: &Self::ProxyData) -> bool;
 
 	/// Determines whether `self` matches at least everything that `_o` does.
 	fn is_superset(&self, _o: &Self) -> bool {
@@ -87,10 +95,17 @@ pub trait InstanceFilter<T>: Sized + Send + Sync {
 	}
 }
 
-impl<T> InstanceFilter<T> for () {
-	fn filter(&self, _: &T) -> bool {
+// Default implementation for when no proxy data is needed
+impl<T> InstanceFilter<T> for ()
+where
+	(): Default,
+{
+	type ProxyData = ();
+
+	fn filter_with_data(&self, _: &T, _: &()) -> bool {
 		true
 	}
+
 	fn is_superset(&self, _o: &Self) -> bool {
 		true
 	}
