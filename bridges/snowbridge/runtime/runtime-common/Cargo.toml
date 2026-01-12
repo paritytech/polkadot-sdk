@@ -18,10 +18,10 @@ exclude-from-umbrella = true
 codec = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-log = { workspace = true }
 pallet-xcm = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-std = { workspace = true }
+tracing = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
@@ -34,10 +34,10 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-xcm/std",
 	"sp-arithmetic/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

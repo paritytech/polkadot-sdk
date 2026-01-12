@@ -40,6 +40,7 @@ sp-transaction-pool = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 # Polkadot
+polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus

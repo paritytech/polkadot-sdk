@@ -80,10 +80,40 @@ pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<'_, [u8]>, Error
 	}
 }
 
-/// Encode a blob as compressed. If the blob's size is over the bomb limit,
-/// this will not compress the blob, as the decoder will not be able to be
-/// able to differentiate it from a compression bomb.
+/// Weakly compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob,
+/// as the decoder will not be able to be able to differentiate it from a compression bomb.
+pub fn compress_weakly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level(blob, bomb_limit, 3)
+}
+
+/// Strongly compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+pub fn compress_strongly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level(blob, bomb_limit, 22)
+}
+
+/// Compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+#[deprecated(
+	note = "Will be removed after June 2026. Use compress_strongly, compress_weakly or compress_with_level instead"
+)]
 pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level(blob, bomb_limit, 3)
+}
+
+/// Compress a blob who's size is limited by `bomb_limit` with adjustable compression level.
+///
+/// The levels are passed through to `zstd` and can be in range [1, 22] (weakest to strongest).
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+fn compress_with_level(blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}
@@ -91,7 +121,7 @@ pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	let mut buf = ZSTD_PREFIX.to_vec();
 
 	{
-		let mut v = zstd::Encoder::new(&mut buf, 22).ok()?.auto_finish();
+		let mut v = zstd::Encoder::new(&mut buf, level).ok()?.auto_finish();
 		v.write_all(blob).ok()?;
 	}
 
@@ -107,20 +137,26 @@ mod tests {
 	#[test]
 	fn refuse_to_encode_over_limit() {
 		let mut v = vec![0; BOMB_LIMIT + 1];
-		assert!(compress(&v, BOMB_LIMIT).is_none());
+		assert!(compress_weakly(&v, BOMB_LIMIT).is_none());
+		assert!(compress_strongly(&v, BOMB_LIMIT).is_none());
 
 		let _ = v.pop();
-		assert!(compress(&v, BOMB_LIMIT).is_some());
+		assert!(compress_weakly(&v, BOMB_LIMIT).is_some());
+		assert!(compress_strongly(&v, BOMB_LIMIT).is_some());
 	}
 
 	#[test]
 	fn compress_and_decompress() {
 		let v = vec![0; BOMB_LIMIT];
 
-		let compressed = compress(&v, BOMB_LIMIT).unwrap();
+		let compressed_weakly = compress_weakly(&v, BOMB_LIMIT).unwrap();
+		let compressed_strongly = compress_strongly(&v, BOMB_LIMIT).unwrap();
 
-		assert!(compressed.starts_with(&ZSTD_PREFIX));
-		assert_eq!(&decompress(&compressed, BOMB_LIMIT).unwrap()[..], &v[..])
+		assert!(compressed_weakly.starts_with(&ZSTD_PREFIX));
+		assert!(compressed_strongly.starts_with(&ZSTD_PREFIX));
+
+		assert_eq!(&decompress(&compressed_weakly, BOMB_LIMIT).unwrap()[..], &v[..]);
+		assert_eq!(&decompress(&compressed_strongly, BOMB_LIMIT).unwrap()[..], &v[..]);
 	}
 
 	#[test]

@@ -90,6 +90,7 @@ impl pallet_balances::Config for TestRuntime {
 	type ExistentialDeposit = ExistentialDeposit;
 }
 
+// Assets instance
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for TestRuntime {
 	type AssetId = AssetIdForAssetsPallet;
@@ -153,9 +154,9 @@ impl InspectMessageQueues for TestXcmSender {
 pub type XcmRouter = TestXcmSender;
 
 parameter_types! {
-	pub const DeliveryFees: u128 = 20; // Random value.
-	pub const ExistentialDeposit: u128 = 1; // Random value.
-	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
+	pub const DeliveryFees: u128 = 20; // Arbitrary value.
+	pub const ExistentialDeposit: u128 = 1; // Arbitrary value.
+	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Arbitrary value.
 	pub const MaxInstructions: u32 = 100;
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis([0; 32])), Parachain(2000)].into();
@@ -185,17 +186,29 @@ type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 pub struct NativeTokenToAssetHub;
 impl ContainsPair<Asset, Location> for NativeTokenToAssetHub {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		matches!(asset.id.0.unpack(), (0, [])) && matches!(origin.unpack(), (1, [Parachain(1000)]))
+		matches!(asset.id.0.unpack(), (0, [])) &&
+			matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]))
 	}
 }
 
-/// Matches the pair (RelayToken, AssetHub).
+/// Parachain id of Asset Hub.
+pub const ASSET_HUB_PARA_ID: u32 = 1000;
+/// The instance index of the trust-backed assets pallet in Asset Hub.
+pub const ASSET_HUB_ASSETS_PALLET_INSTANCE: u8 = 50;
+/// Id of USDT in Asset Hub.
+pub const USDT_ID: u32 = 1984;
+
+/// Matches the pairs (RelayToken, AssetHub) and (UsdtToken, AssetHub).
 /// This is used in the `IsReserve` configuration item, meaning we accept the relay token
 /// coming from AssetHub as a reserve asset transfer.
-pub struct RelayTokenToAssetHub;
-impl ContainsPair<Asset, Location> for RelayTokenToAssetHub {
+pub struct RelayTokenAndUsdtToAssetHub;
+impl ContainsPair<Asset, Location> for RelayTokenAndUsdtToAssetHub {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		matches!(asset.id.0.unpack(), (1, [])) && matches!(origin.unpack(), (1, [Parachain(1000)]))
+		let is_asset_hub = matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]));
+		let is_relay_token = matches!(asset.id.0.unpack(), (1, []));
+		let is_usdt = matches!(asset.id.0.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(asset_id)]) if *asset_id == USDT_ID.into());
+
+		is_asset_hub && (is_relay_token || is_usdt)
 	}
 }
 
@@ -243,11 +256,16 @@ pub type NativeTokenTransactor = FungibleAdapter<
 	LocalCheckAccount,
 >;
 
+/// Converter from Location to local asset id and viceversa.
 pub struct LocationToAssetIdForAssetsPallet;
 impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdForAssetsPallet {
 	fn convert(location: &Location) -> Option<AssetIdForAssetsPallet> {
 		match location.unpack() {
 			(1, []) => Some(1 as AssetIdForAssetsPallet),
+			(
+				1,
+				[Parachain(ASSET_HUB_PARA_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(asset_id)],
+			) if *asset_id == USDT_ID.into() => Some(USDT_ID as AssetIdForAssetsPallet),
 			_ => None,
 		}
 	}
@@ -255,13 +273,21 @@ impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdFor
 	fn convert_back(id: &AssetIdForAssetsPallet) -> Option<Location> {
 		match id {
 			1 => Some(Location::new(1, [])),
+			asset_id if *asset_id == USDT_ID => Some(Location::new(
+				1,
+				[
+					Parachain(ASSET_HUB_PARA_ID),
+					PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+					GeneralIndex(USDT_ID.into()),
+				],
+			)),
 			_ => None,
 		}
 	}
 }
 
-/// AssetTransactor for handling the relay chain token.
-pub type RelayTokenTransactor = FungiblesAdapter<
+/// AssetTransactor for handling assets other than the native one.
+pub type AssetsTransactor = FungiblesAdapter<
 	// We use pallet-assets for handling the relay token.
 	AssetsPallet,
 	// Matches the relay token.
@@ -275,7 +301,7 @@ pub type RelayTokenTransactor = FungiblesAdapter<
 	(),
 >;
 
-pub type AssetTransactors = (NativeTokenTransactor, RelayTokenTransactor);
+pub type AssetTransactors = (NativeTokenTransactor, AssetsTransactor);
 
 pub struct HereAndInnerLocations;
 impl Contains<Location> for HereAndInnerLocations {
@@ -299,7 +325,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = ();
-	type IsReserve = RelayTokenToAssetHub;
+	type IsReserve = RelayTokenAndUsdtToAssetHub;
 	type IsTeleporter = NativeTokenToAssetHub;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -308,7 +334,7 @@ impl xcm_executor::Config for XcmConfig {
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();
-	type AssetExchanger = ();
+	type AssetExchanger = MockAssetExchanger;
 	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = AllPalletsWithSystem;
@@ -324,6 +350,69 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = XcmPallet;
+}
+
+/// Mock AssetExchanger that recognizes USDT and provides a 1:2 exchange rate
+/// (1 native token = 2 USDT tokens)
+pub struct MockAssetExchanger;
+impl xcm_executor::traits::AssetExchange for MockAssetExchanger {
+	fn exchange_asset(
+		_origin: Option<&Location>,
+		give: xcm_executor::AssetsInHolding,
+		want: &Assets,
+		_maximal: bool,
+	) -> Result<xcm_executor::AssetsInHolding, xcm_executor::AssetsInHolding> {
+		let usdt_location = Location::new(
+			1,
+			[
+				Parachain(ASSET_HUB_PARA_ID),
+				PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+				GeneralIndex(USDT_ID.into()),
+			],
+		);
+
+		// Check if we're trying to exchange native asset for USDT
+		if let Some(give_asset) = give.fungible.get(&AssetId(HereLocation::get())) {
+			if let Some(want_asset) = want.get(0) {
+				if want_asset.id.0 == usdt_location {
+					// Convert native asset to USDT at 1:2 rate
+					let usdt_amount = give_asset.saturating_mul(2);
+					let mut result = xcm_executor::AssetsInHolding::new();
+					result.subsume((AssetId(usdt_location), usdt_amount).into());
+					return Ok(result);
+				}
+			}
+		}
+
+		// If we can't handle the exchange, return the original assets
+		Err(give)
+	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, _maximal: bool) -> Option<Assets> {
+		let usdt_location = Location::new(
+			1,
+			[
+				Parachain(ASSET_HUB_PARA_ID),
+				PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+				GeneralIndex(USDT_ID.into()),
+			],
+		);
+
+		// Check if we're trying to quote native asset for USDT
+		if let Some(give_asset) = give.get(0) {
+			if let Some(want_asset) = want.get(0) {
+				if give_asset.id.0 == HereLocation::get() && want_asset.id.0 == usdt_location {
+					if let Fungible(amount) = give_asset.fun {
+						// Return the USDT amount we'd get at 1:2 rate
+						let usdt_amount = amount.saturating_mul(2);
+						return Some((AssetId(usdt_location), usdt_amount).into());
+					}
+				}
+			}
+		}
+
+		None
+	}
 }
 
 /// Converts a signed origin of a u64 account into a location with only the `AccountIndex64`
@@ -408,13 +497,16 @@ pub fn new_test_ext_with_balances_and_assets(
 			// We don't actually need this to be sufficient, since we use the native assets in
 			// tests for the existential deposit.
 			(1, 0, true, 1),
+			(1984, 0, true, 1),
 		],
 		metadata: vec![
 			// id, name, symbol, decimals.
 			(1, "Relay Token".into(), "RLY".into(), 12),
+			(1984, "Tether".into(), "USDT".into(), 6),
 		],
 		accounts: assets,
 		next_asset_id: None,
+		reserves: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -495,8 +587,8 @@ sp_api::mock_impl_runtime_apis! {
 			}
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			XcmPallet::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			XcmPallet::query_delivery_fees::<<XcmConfig as xcm_executor::Config>::AssetExchanger>(destination, message, asset_id)
 		}
 	}
 

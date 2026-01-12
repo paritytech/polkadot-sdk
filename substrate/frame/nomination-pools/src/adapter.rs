@@ -22,7 +22,7 @@ use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 /// Types of stake strategies.
 ///
 /// Useful for determining current staking strategy of a runtime and enforce integrity tests.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq)]
 pub enum StakeStrategyType {
 	/// Member funds are transferred to pool account and staked.
 	///

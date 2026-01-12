@@ -22,7 +22,6 @@ use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawSto
 use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 /// Messages proof from bridged chain.
@@ -37,7 +36,7 @@ use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 /// - lane id;
 ///
 /// - nonces (inclusive range) of messages which are included in this proof.
-#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct FromBridgedChainMessagesProof<BridgedHeaderHash, Lane> {
 	/// Hash of the finalized bridged header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
@@ -62,7 +61,7 @@ impl<BridgedHeaderHash, Lane> Size for FromBridgedChainMessagesProof<BridgedHead
 pub type ProvedMessages<LaneId, Message> = (LaneId, ProvedLaneMessages<Message>);
 
 /// Proved messages from single lane of the source chain.
-#[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
 pub struct ProvedLaneMessages<Message> {
 	/// Optional outbound lane state.
 	pub lane_state: Option<OutboundLaneData>,
@@ -71,14 +70,14 @@ pub struct ProvedLaneMessages<Message> {
 }
 
 /// Message data with decoded dispatch payload.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct DispatchMessageData<DispatchPayload> {
 	/// Result of dispatch payload decoding.
 	pub payload: Result<DispatchPayload, CodecError>,
 }
 
 /// Message with decoded dispatch payload.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct DispatchMessage<DispatchPayload, LaneId: Encode> {
 	/// Message key.
 	pub key: MessageKey<LaneId>,
