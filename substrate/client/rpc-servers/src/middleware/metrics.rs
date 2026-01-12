@@ -81,8 +81,8 @@ impl RpcMetrics {
 	pub fn new(metrics_registry: Option<&Registry>) -> Result<Option<Self>, PrometheusError> {
 		if let Some(metrics_registry) = metrics_registry {
 			// Register RPC thread metrics
-			registry.register(Box::new(RPC_THREADS_TOTAL.clone()))?;
-			registry.register(Box::new(RPC_THREADS_ALIVE.clone()))?;
+			metrics_registry.register(Box::new(RPC_THREADS_TOTAL.clone()))?;
+			metrics_registry.register(Box::new(RPC_THREADS_ALIVE.clone()))?;
 
 			Ok(Some(Self {
 				calls_time: register(
