@@ -25,6 +25,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-statement-store = { workspace = true }
+sp-storage = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -43,6 +44,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-statement-store/std",
+	"sp-storage/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

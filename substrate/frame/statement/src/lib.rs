@@ -108,6 +108,14 @@ pub mod pallet {
 	{
 		/// A new statement is submitted
 		NewStatement { account: T::AccountId, statement: Statement },
+		/// Statement allowance set for an account
+		AllowanceSet { account: T::AccountId, max_count: u32, max_size: u32 },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Failed to convert account ID to 32 bytes
+		InvalidAccountId,
 	}
 
 	#[pallet::hooks]
@@ -122,6 +130,58 @@ pub mod pallet {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			log::trace!(target: LOG_TARGET, "Collecting statements at #{:?}", now);
 			Pallet::<T>::collect_statements();
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_statement_store::AccountId>,
+	{
+		/// Set statement allowance for a specific account.
+		///
+		/// This is a root-only call intended for test networks to manually configure
+		/// per-account statement allowances.
+		///
+		/// ## Parameters
+		/// - `origin`: Must be root
+		/// - `who`: The account to set allowance for
+		/// - `max_count`: Maximum number of statements allowed
+		/// - `max_size`: Maximum total size of statements in bytes
+		///
+		/// ## Weight
+		/// - 1 storage write to well-known key
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_statement_allowance(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			max_count: u32,
+			max_size: u32,
+		) -> DispatchResult {
+			use codec::Encode;
+			use sp_io;
+			use sp_storage::well_known_keys;
+
+			ensure_root(origin)?;
+
+			let account_bytes: [u8; 32] =
+				who.encode().as_slice().try_into().map_err(|_| Error::<T>::InvalidAccountId)?;
+
+			let key = well_known_keys::statement_allowance_key(&account_bytes);
+			let value = (max_count, max_size).encode();
+			sp_io::storage::set(&key, &value);
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Set statement allowance for account: max_count={}, max_size={}",
+				max_count,
+				max_size
+			);
+
+			Self::deposit_event(Event::AllowanceSet { account: who, max_count, max_size });
+
+			Ok(())
 		}
 	}
 }
