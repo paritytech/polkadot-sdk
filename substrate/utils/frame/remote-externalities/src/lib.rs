@@ -52,6 +52,7 @@ use sp_runtime::{
 use sp_state_machine::TestExternalities;
 use std::{
 	collections::{BTreeSet, VecDeque},
+	future::Future,
 	ops::{Deref, DerefMut},
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -159,7 +160,31 @@ where
 		self.conn_manager
 			.as_ref()
 			.map(|cm| cm.num_clients() * Self::PARALLEL_REQUESTS_PER_CLIENT)
-			.unwrap_or(Self::PARALLEL_REQUESTS_PER_CLIENT)
+			.expect("connection manager must be initialized; qed")
+	}
+
+	/// Execute an RPC call on any available client. Tries each client until one succeeds.
+	async fn with_any_client<T, E, F, Fut>(&self, op_name: &'static str, f: F) -> Result<T, ()>
+	where
+		F: Fn(Client) -> Fut,
+		Fut: Future<Output = std::result::Result<T, E>>,
+		E: std::fmt::Debug,
+	{
+		let conn_manager = self.conn_manager().map_err(|_| ())?;
+		for i in 0..conn_manager.num_clients() {
+			let client = conn_manager.get(i).await;
+			let result = with_timeout(f(client), RPC_TIMEOUT).await;
+			match result {
+				Ok(Ok(value)) => return Ok(value),
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Client {i}: {op_name} RPC error: {e:?}");
+				},
+				Err(()) => {
+					debug!(target: LOG_TARGET, "Client {i}: {op_name} timeout");
+				},
+			}
+		}
+		Err(())
 	}
 
 	/// Get a single storage value. Tries each client until one succeeds.
@@ -169,24 +194,12 @@ where
 		maybe_at: Option<B::Hash>,
 	) -> Result<Option<StorageData>> {
 		trace!(target: LOG_TARGET, "rpc: get_storage");
-
-		let conn_manager = self.conn_manager()?;
-		for i in 0..conn_manager.num_clients() {
-			let client = conn_manager.get(i).await;
-			let result = with_timeout(client.storage(key.clone(), maybe_at), RPC_TIMEOUT).await;
-
-			match result {
-				Ok(Ok(data)) => return Ok(data),
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "Client {i}: get_storage RPC error: {e:?}");
-				},
-				Err(()) => {
-					debug!(target: LOG_TARGET, "Client {i}: get_storage timeout");
-				},
-			}
-		}
-
-		Err("rpc get_storage failed on all clients")
+		self.with_any_client("get_storage", move |client| {
+			let key = key.clone();
+			async move { client.storage(key, maybe_at).await }
+		})
+		.await
+		.map_err(|_| "rpc get_storage failed on all clients")
 	}
 
 	/// Fetch the state version from the runtime. Tries each client until one succeeds.
@@ -218,28 +231,11 @@ where
 	/// Get the latest finalized head. Tries each client until one succeeds.
 	async fn rpc_get_head(&self) -> Result<B::Hash> {
 		trace!(target: LOG_TARGET, "rpc: finalized_head");
-
-		let conn_manager = self.conn_manager()?;
-		for i in 0..conn_manager.num_clients() {
-			let client = conn_manager.get(i).await;
-			let result = with_timeout(
-				ChainApi::<(), _, B::Header, ()>::finalized_head(client.ws_client.as_ref()),
-				RPC_TIMEOUT,
-			)
-			.await;
-
-			match result {
-				Ok(Ok(head)) => return Ok(head),
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "Client {i}: finalized_head RPC error: {e:?}");
-				},
-				Err(()) => {
-					debug!(target: LOG_TARGET, "Client {i}: finalized_head timeout");
-				},
-			}
-		}
-
-		Err("rpc finalized_head failed on all clients")
+		self.with_any_client("finalized_head", |client| async move {
+			ChainApi::<(), _, B::Header, ()>::finalized_head(&*client).await
+		})
+		.await
+		.map_err(|_| "rpc finalized_head failed on all clients")
 	}
 
 	/// Get keys with `prefix` at `block` using parallel workers.
@@ -1172,6 +1168,7 @@ mod tests {
 #[cfg(all(test, feature = "remote-test"))]
 mod remote_tests {
 	use super::test_prelude::*;
+	use frame_support::storage::KeyPrefixIterator;
 	use std::{env, os::unix::fs::MetadataExt};
 
 	fn endpoint() -> String {
@@ -1536,17 +1533,7 @@ mod remote_tests {
 
 		// Verify we actually got some keys
 		ext.execute_with(|| {
-			let key_count = sp_io::storage::next_key(&[])
-				.map(|first_key| {
-					let mut count = 1;
-					let mut current = first_key;
-					while let Some(next) = sp_io::storage::next_key(&current) {
-						count += 1;
-						current = next;
-					}
-					count
-				})
-				.unwrap_or(0);
+			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
 
 			info!(target: LOG_TARGET, "Total keys in state: {}", key_count);
 			assert!(key_count > 0, "Should have fetched some keys");
