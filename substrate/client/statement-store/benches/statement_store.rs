@@ -43,18 +43,7 @@ const TOTAL_OPS: usize = NUM_THREADS * OPS_PER_THREAD;
 #[derive(Clone)]
 struct TestClient;
 
-struct RuntimeApi {
-	_inner: TestClient,
-}
-
 type TestBackend = sc_client_api::in_mem::Backend<Block>;
-
-impl sp_api::ProvideRuntimeApi<Block> for TestClient {
-	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
-		RuntimeApi { _inner: self.clone() }.into()
-	}
-}
 
 impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 	fn storage(
@@ -62,7 +51,7 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_hash: Hash,
 		_key: &sc_client_api::StorageKey,
 	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
-		Ok(None)
+		Ok(sc_client_api::StorageData::new((100_000, 1_000_000).encode()))
 	}
 
 	fn storage_hash(
@@ -149,32 +138,6 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_key: &sc_client_api::StorageKey,
 	) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
 		unimplemented!()
-	}
-}
-
-sp_api::mock_impl_runtime_apis! {
-	impl ValidateStatement<Block> for RuntimeApi {
-		fn validate_statement(
-			_source: StatementSource,
-			statement: Statement,
-		) -> std::result::Result<ValidStatement, InvalidStatement> {
-			match statement.verify_signature() {
-				SignatureVerificationResult::Valid(_) =>
-					Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				SignatureVerificationResult::NoSignature => {
-					if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-						if block_hash == &CORRECT_BLOCK_HASH {
-							Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
-						} else {
-							Err(InvalidStatement::BadProof)
-						}
-					} else {
-						Err(InvalidStatement::BadProof)
-					}
-				},
-			}
-		}
 	}
 }
 
