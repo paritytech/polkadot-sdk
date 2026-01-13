@@ -500,7 +500,7 @@ pub mod pallet {
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type AddressToAssetId<T: Config<I>, I: 'static = ()> =
+	pub type AccountIdToAssetId<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
@@ -509,7 +509,7 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		pub fn asset_id_of(address: &T::AccountId) -> Option<T::AssetId> {
-			AddressToAssetId::<T, I>::get(address)
+			AccountIdToAssetId::<T, I>::get(address)
 		}
 		pub fn account_id_of(id: &T::AssetId) -> Option<T::AccountId> {
 			AssetIdToAccountId::<T, I>::get(id)
@@ -830,7 +830,9 @@ pub mod pallet {
 				owner: admin.clone(),
 			});
 
-			AddressToAssetId::<T, I>::insert(&admin, id.clone());
+			ensure!(!AccountIdToAssetId::<T, I>::contains_key(&admin), Error::<T, I>::InUse);
+			ensure!(!AssetIdToAccountId::<T, I>::contains_key(&id), Error::<T, I>::InUse);
+			AccountIdToAssetId::<T, I>::insert(&admin, id.clone());
 			AssetIdToAccountId::<T, I>::insert(&id, admin);
 
 			Ok(())
@@ -866,6 +868,10 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
+
+			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
+			AccountIdToAssetId::<T, I>::insert(&owner, id.clone());
+			AssetIdToAccountId::<T, I>::insert(&id, owner.clone());
 			Self::do_force_create(id, owner, is_sufficient, min_balance)
 		}
 
@@ -953,7 +959,19 @@ pub mod pallet {
 		pub fn finish_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			Self::do_finish_destroy(id)
+			let result = Self::do_finish_destroy(id.clone());
+
+			if result.is_ok() {
+				ensure!(AssetIdToAccountId::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
+				let account_id = AssetIdToAccountId::<T, I>::get(&id).unwrap();
+				ensure!(
+					AccountIdToAssetId::<T, I>::contains_key(&account_id),
+					Error::<T, I>::Unknown
+				);
+				AccountIdToAssetId::<T, I>::remove(&account_id);
+				AssetIdToAccountId::<T, I>::remove(&id);
+			}
+			result
 		}
 
 		/// Mint assets of a particular class.

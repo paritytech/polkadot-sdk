@@ -1196,7 +1196,11 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles = (
-		ERC20<Self, InlineIdConfig<0x120, Self, TrustBackedAssetsInstance>, TrustBackedAssetsInstance>,
+		ERC20<
+			Self,
+			InlineIdConfig<0x120, Self, TrustBackedAssetsInstance>,
+			TrustBackedAssetsInstance,
+		>,
 		ERC20<Self, InlineIdConfig<0x320, Self, PoolAssetsInstance>, PoolAssetsInstance>,
 		ERC20<Self, InlineIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,

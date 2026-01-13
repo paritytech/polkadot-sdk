@@ -62,7 +62,7 @@ pub struct InlineAssetIdExtractor<Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
-impl<Runtime, Instance: 'static> AssetIdExtractor for InlineAssetIdExtractor<Runtime, Instance> 
+impl<Runtime, Instance: 'static> AssetIdExtractor for InlineAssetIdExtractor<Runtime, Instance>
 where
 	Runtime: pallet_assets::Config<Instance> + pallet_revive::Config,
 {
@@ -80,7 +80,8 @@ pub struct InlineIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
-impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig for InlineIdConfig<P, Runtime, Instance> 
+impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
+	for InlineIdConfig<P, Runtime, Instance>
 where
 	Runtime: pallet_assets::Config<Instance> + pallet_revive::Config,
 {
