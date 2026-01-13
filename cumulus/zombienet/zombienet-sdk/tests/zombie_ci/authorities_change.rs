@@ -69,7 +69,7 @@ async fn authorities_change() -> Result<(), anyhow::Error> {
 	res.unwrap().wait_for_finalized_success().await.unwrap();
 	log::info!("Extrinsic finalized");
 
-	for (name, timeout_secs) in [("dave", 250u64), ("ferdie", 250u64)] {
+	for name in ["dave", "ferdie"] {
 		log::info!("Ensuring {name} imported new authorities");
 		let result = network
 			.get_node(name)?
