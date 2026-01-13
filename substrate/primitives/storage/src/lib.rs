@@ -209,6 +209,11 @@ pub mod well_known_keys {
 	/// Encodes to `0x3a696e747261626c6f636b5f656e74726f7079`.
 	pub const INTRABLOCK_ENTROPY: &[u8] = b":intrablock_entropy";
 
+	/// Global statement allowance (max_count: u32, max_size: u32).
+	///
+	/// The value is SCALE-encoded as a tuple of two u32 values.
+	pub const STATEMENT_ALLOWANCE_GLOBAL: &[u8] = b":statement-allowance-global";
+
 	/// Prefix of child storage keys.
 	pub const CHILD_STORAGE_KEY_PREFIX: &[u8] = b":child_storage:";
 

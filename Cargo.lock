@@ -13910,6 +13910,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-statement-store",
+ "sp-storage 19.0.0",
 ]
 
 [[package]]

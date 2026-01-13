@@ -120,6 +120,27 @@ pub mod pallet {
 			log::trace!(target: LOG_TARGET, "Collecting statements at #{:?}", now);
 			Pallet::<T>::collect_statements();
 		}
+
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			use codec::Encode;
+			use sp_io;
+			use sp_storage::well_known_keys::STATEMENT_ALLOWANCE_GLOBAL;
+
+			let max_count: u32 = 100_000;
+			let max_size: u32 = 1_000_000;
+
+			let value = (max_count, max_size).encode();
+			sp_io::storage::set(STATEMENT_ALLOWANCE_GLOBAL, &value);
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Wrote global statement allowance to well-known key: max_count={}, max_size={}",
+				max_count,
+				max_size
+			);
+
+			T::DbWeight::get().writes(1)
+		}
 	}
 }
 
