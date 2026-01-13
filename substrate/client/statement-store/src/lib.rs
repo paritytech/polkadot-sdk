@@ -56,14 +56,13 @@ use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{StatementSource, StatementStoreExt, ValidStatement, ValidateStatement},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, RejectionReason, Result,
-	SignatureVerificationResult, Statement, SubmitResult, Topic,
+	runtime_api::{StatementSource, StatementStoreExt, ValidStatement},
+	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, Proof, RejectionReason,
+	Result, SignatureVerificationResult, Statement, SubmitResult, Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -180,29 +179,23 @@ where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
 	BE: Backend<Block> + 'static,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderBackend<Block>
-		+ StorageProvider<Block, BE>
-		+ Send
-		+ Sync
-		+ 'static,
-	Client::Api: ValidateStatement<Block>,
+	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	// TODO: This is a temporary mock implementation. Real storage reading should be implemented
-	// when runtime-side allowance storage is available.
-	fn read_allowance(&self, account_id: &AccountId) -> Result<ValidStatement> {
+	fn read_allowance(&self, account_id: &AccountId) -> Result<Option<ValidStatement>> {
+		use sp_storage::well_known_keys;
+
 		let block_hash = self.client.info().finalized_hash;
-		let storage_key = StorageKey(sp_core::storage::well_known_keys::HEAP_PAGES.to_vec());
-		self.client.storage(block_hash, &storage_key).map_err(|e| {
-			log::debug!(
-				target: LOG_TARGET,
-				"Error reading storage for account {:?}: {:?}",
-				HexDisplay::from(account_id),
-				e
-			);
-			Error::Runtime
-		})?;
-		Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
+		let key = well_known_keys::statement_allowance_key(account_id);
+		let storage_key = StorageKey(key);
+		self.client
+			.storage(block_hash, &storage_key)
+			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?
+			.map(|value| {
+				<(u32, u32)>::decode(&mut &value.0[..])
+					.map(|(max_count, max_size)| ValidStatement { max_count, max_size })
+					.map_err(|e| Error::Decode(format!("Failed to decode allowance: {:?}", e)))
+			})
+			.transpose()
 	}
 }
 
@@ -210,7 +203,7 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<ValidStatement> + Send + Sync>,
+	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<Option<ValidStatement>> + Send + Sync>,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
 	time_override: Option<u64>,
@@ -508,13 +501,7 @@ impl Store {
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
 		BE: Backend<Block> + 'static,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ StorageProvider<Block, BE>
-			+ Send
-			+ Sync
-			+ 'static,
-		Client::Api: ValidateStatement<Block>,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
 
@@ -549,13 +536,7 @@ impl Store {
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
 		BE: Backend<Block> + 'static,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ StorageProvider<Block, BE>
-			+ Send
-			+ Sync
-			+ 'static,
-		Client::Api: ValidateStatement<Block>,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
@@ -947,7 +928,26 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
-		// Validate.
+		let validation = match (self.read_allowance_fn)(&account_id) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Account {} has no statement allowance set",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+			},
+			Err(e) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Reading statement allowance for account {} failed",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::InternalError(e)
+			},
+		};
+
 		match statement.verify_signature() {
 			SignatureVerificationResult::Valid(_) => {},
 			SignatureVerificationResult::Invalid => {
@@ -960,25 +960,21 @@ impl StatementStore for Store {
 				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},
 			SignatureVerificationResult::NoSignature => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Statement validation failed: NoProof, {:?}",
-					HexDisplay::from(&hash),
-				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::NoProof);
-			},
-		};
-
-		let validation = match (self.read_allowance_fn)(&account_id) {
-			Ok(allowance) => allowance,
-			Err(e) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Reading statement allowance for account {} failed",
-					HexDisplay::from(&account_id),
-				);
-				return SubmitResult::InternalError(e)
+				if let Some(Proof::OnChain { .. }) = statement.proof() {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement with OnChain proof accepted: {:?}",
+						HexDisplay::from(&hash),
+					);
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement validation failed: NoProof, {:?}",
+						HexDisplay::from(&hash),
+					);
+					self.metrics.report(|metrics| metrics.validations_invalid.inc());
+					return SubmitResult::Invalid(InvalidReason::NoProof);
+				}
 			},
 		};
 
@@ -1071,9 +1067,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, Proof, Statement, StatementSource, StatementStore,
+		SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1088,26 +1083,28 @@ mod tests {
 	#[derive(Clone)]
 	pub(crate) struct TestClient;
 
-	pub(crate) struct RuntimeApi {
-		_inner: TestClient,
-	}
-
 	pub(crate) type TestBackend = sc_client_api::in_mem::Backend<Block>;
-
-	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
-		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-			RuntimeApi { _inner: self.clone() }.into()
-		}
-	}
 
 	impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		fn storage(
 			&self,
 			_hash: Hash,
-			_key: &sc_client_api::StorageKey,
+			key: &sc_client_api::StorageKey,
 		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
-			Ok(None)
+			assert_eq!(&key.0[0..21], b":statement-allowance:" as &[u8],);
+
+			// Extract account ID (32 bytes) from the storage key
+			let account_bytes = &key.0[21..53];
+			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
+			let allowance = match account_id {
+				1 => (1u32, 1000u32),
+				2 => (2u32, 1000u32),
+				3 => (3u32, 1000u32),
+				4 => (4u32, 1000u32),
+				42 => (42u32, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				_ => (100u32, 1000u32), // Default for other accounts
+			};
+			Ok(Some(sc_client_api::StorageData(allowance.encode())))
 		}
 
 		fn storage_hash(
@@ -1194,40 +1191,6 @@ mod tests {
 			_key: &sc_client_api::StorageKey,
 		) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
 			unimplemented!()
-		}
-	}
-
-	sp_api::mock_impl_runtime_apis! {
-		impl ValidateStatement<Block> for RuntimeApi {
-			fn validate_statement(
-				_source: StatementSource,
-				statement: Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement> {
-				use crate::tests::account;
-				match statement.verify_signature() {
-					SignatureVerificationResult::Valid(_) => Ok(ValidStatement{max_count: 100, max_size: 1000}),
-					SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-					SignatureVerificationResult::NoSignature => {
-						if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-							if block_hash == &CORRECT_BLOCK_HASH {
-								let (max_count, max_size) = match statement.account_id() {
-									Some(a) if a == account(1) => (1, 1000),
-									Some(a) if a == account(2) => (2, 1000),
-									Some(a) if a == account(3) => (3, 1000),
-									Some(a) if a == account(4) => (4, 1000),
-									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
-									_ => (2, 2000),
-								};
-								Ok(ValidStatement{ max_count, max_size })
-							} else {
-								Err(InvalidStatement::BadProof)
-							}
-						} else {
-							Err(InvalidStatement::BadProof)
-						}
-					}
-				}
-			}
 		}
 	}
 

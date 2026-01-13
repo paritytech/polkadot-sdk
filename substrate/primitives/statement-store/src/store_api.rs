@@ -25,12 +25,12 @@ pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
 	Db(String),
-	/// Error decoding statement structure.
-	#[error("Error decoding statement: {0:?}")]
+	/// Decoding error
+	#[error("Decoding error: {0:?}")]
 	Decode(String),
-	/// Error making runtime call.
-	#[error("Error calling into the runtime")]
-	Runtime,
+	/// Error reading from storage.
+	#[error("Storage error: {0:?}")]
+	Storage(String),
 }
 
 /// Reason why a statement was rejected from the store.
@@ -61,6 +61,8 @@ pub enum RejectionReason {
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
 }
 
 /// Reason why a statement failed validation.
