@@ -40,6 +40,7 @@ impl frame_system::Config for Test {
 
 impl pallet::Config for Test {}
 
+#[allow(unused)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(Default::default())
 }

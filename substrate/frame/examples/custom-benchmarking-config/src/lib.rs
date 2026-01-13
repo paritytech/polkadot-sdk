@@ -68,7 +68,7 @@ pub mod pallet {
 
 #[cfg(test)]
 mod tests {
-	use super::{pallet, pallet::*};
+	use super::pallet::*;
 	use crate::mock::*;
 	use frame_support::assert_ok;
 
