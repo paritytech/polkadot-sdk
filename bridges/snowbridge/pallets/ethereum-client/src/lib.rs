@@ -676,7 +676,7 @@ pub mod pallet {
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
 			let fork_version = Self::compute_fork_version(compute_epoch(
-				signature_slot,
+				signature_slot.saturating_sub(1),
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
