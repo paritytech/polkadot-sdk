@@ -289,10 +289,10 @@ pub enum SyncMode {
 	Fast,
 	/// Download blocks without executing them. Download latest state without proofs.
 	FastUnsafe,
-	#[value(help = "Prove finality and download the latest state.\n\n\
-		After warp sync completes, the node will have block headers but not bodies for historical \
-		blocks (unless archive mode is enabled). This saves bandwidth while still allowing the \
-		node to serve as a warp sync source for other nodes")]
+	/// Prove finality and download the latest state.
+	/// After warp sync completes, the node will have block headers but not bodies for historical
+	/// blocks (unless archive mode is enabled). This saves bandwidth while still allowing the
+	/// node to serve as a warp sync source for other nodes.
 	Warp,
 }
 
