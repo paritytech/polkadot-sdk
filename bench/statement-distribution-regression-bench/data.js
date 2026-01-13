@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768299318207,
+  "lastUpdate": 1768314005641,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "153776336+robertvaneerdewijk@users.noreply.github.com",
-            "name": "robertvaneerdewijk",
-            "username": "robertvaneerdewijk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "806888d614f186f2876a670f6ec69cbf9bc027d8",
-          "message": "renamed wasm module in pallet-revive to vm (#8794)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8341\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T11:35:20Z",
-          "tree_id": "fb4eeeac7a462a4a5de8479336e429ac4403a57c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/806888d614f186f2876a670f6ec69cbf9bc027d8"
-        },
-        "date": 1749732977345,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034014375099999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04465914514799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06552292224799997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dca3da257b2d8532867e7856bafd1971aaa34edb",
+          "message": "Missing sign_with forward call (#10784)\n\nAs a follow-up of the discussion\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2682026297,\nI am extracting a missing forward call to a separate PR so we can\ndeliver it independently.\n\nContext:\nWhen keystore is used by some component (like BEEFY) via Arc, then calls\nof `sign_with` function are forwarded to default trait implementation.\nIt is not working, when custom keystore with custom `sign_with`\nimplementation is used.",
+          "timestamp": "2026-01-13T13:10:39Z",
+          "tree_id": "0b900d0cb850b34188068cf7c1bcab61e0f5091c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dca3da257b2d8532867e7856bafd1971aaa34edb"
+        },
+        "date": 1768313981543,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.09799999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03807911775200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06523771088399993,
             "unit": "seconds"
           }
         ]
