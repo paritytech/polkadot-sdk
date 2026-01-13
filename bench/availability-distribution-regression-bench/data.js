@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768318598497,
+  "lastUpdate": 1768346286390,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8e2b6f742a38bb13688e12abacded0aab2dbbb23",
-          "message": "[pallet-revive] dev-node (#8746)\n\nThis adds a dev-node that is essentially the minimal template with the\naddition of pallet-revive\n\ncan be launched with\n\n```\ncargo run -p revive-dev-node\n```\n\nGoal: \n- use dev-node instead of kitchensink in\npolkadot-sdk/substrate/frame/revive/rpc/src/tests.rs for faster run and\nbuild time\n- use dev-node in https://github.com/paritytech/evm-test-suite and\nhttps://github.com/paritytech/revive-differential-tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T12:08:22Z",
-          "tree_id": "c95826a81d74bea1a5dca5cacc79c43ce746071d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e2b6f742a38bb13688e12abacded0aab2dbbb23"
-        },
-        "date": 1749820875050,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022469381013333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15801047643333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01320200704666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00894699910666675,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009468047113333313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "x@acg.box",
+            "name": "Xavier Lau",
+            "username": "aurexav"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea05e170716a1bace2e2d8bad2d98c1fdcea224",
+          "message": "Fix auto-renew core tracking on immediate renew (#10767)\n\n## Summary\nFix auto-renew tracking when `do_enable_auto_renew` triggers an\nimmediate renewal. The auto-renew record now follows the new core index\nreturned by `do_renew`, preventing a stale core from being\nrenewed in the next sale rotation.\n\nDiscovered by the Darwinia Network team while attempting a renew.\n\n## Problem\nWhen enabling auto-renew during the renewal window (`PotentialRenewals`\nat `sale.region_begin`), `do_enable_auto_renew` immediately calls\n`do_renew`. That call can allocate a *different* core\nindex, but the auto-renew record was stored with the **old** core. On\nthe next rotation, `renew_cores` attempts to renew that stale core and\nemits `AutoRenewalFailed`, even though the workload has\nalready moved to the new core.\n\n## Fix\nCapture the returned core index from `do_renew` inside\n`do_enable_auto_renew`, and store that core in `AutoRenewals` (and the\nenable event).\n\n## Tests\n- Added `enable_auto_renew_immediate_updates_core_and_renews`\n- `cargo test -p pallet-broker`\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10006\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-13T22:05:32Z",
+          "tree_id": "d40538ab29c12ab529aa5da38fef927d44adbba5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea05e170716a1bace2e2d8bad2d98c1fdcea224"
+        },
+        "date": 1768346262425,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02331234082,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14594106725333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010334777246666649,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007185485800000001,
             "unit": "seconds"
           }
         ]
