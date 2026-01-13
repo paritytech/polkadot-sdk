@@ -652,6 +652,8 @@ pub struct ErasureChunk {
 	pub index: ChunkIndex,
 	/// Proof for this chunk's branch in the Merkle tree.
 	pub proof: Proof,
+	/// Session the chunk belongs to
+	pub session_index: Option<SessionIndex>,
 }
 
 impl ErasureChunk {

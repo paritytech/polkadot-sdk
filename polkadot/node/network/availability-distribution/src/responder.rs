@@ -244,14 +244,19 @@ where
 
 	let result = chunk.is_some();
 
-	if result {
+	if let Some(chunk) = &chunk {
 		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
-		if let Some(authority_ids) = authority_ids {
-			_ = sender.try_send_message(RewardsStatisticsCollectorMessage::ChunkUploaded(
-				authority_ids,
-			));
-		}
+		match (chunk.session_index, authority_ids) {
+			(Some(session_index), Some(authority_ids)) => {
+				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::ChunkUploaded(
+					session_index,
+					authority_ids,
+				));
+			}
+			_ => {}
+		};
 	}
+
 
 	gum::trace!(
 		target: LOG_TARGET,

@@ -3283,8 +3283,6 @@ where
 			// In all other cases, we need to write the candidate entry.
 			db.write_candidate_entry(candidate_entry);
 		}
-
-		newly_approved
 	};
 
 	actions

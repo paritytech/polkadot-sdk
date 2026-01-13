@@ -1476,7 +1476,7 @@ pub enum ProspectiveParachainsMessage {
 #[derive(Debug)]
 pub enum RewardsStatisticsCollectorMessage {
 	ChunksDownloaded(SessionIndex, HashMap<ValidatorIndex, u64>),
-	ChunkUploaded(HashSet<AuthorityDiscoveryId>),
+	ChunkUploaded(SessionIndex, HashSet<AuthorityDiscoveryId>),
 
 	// Candidate received enough approval and now is approved
 	CandidateApproved(Hash, BlockNumber, Vec<ValidatorIndex>),

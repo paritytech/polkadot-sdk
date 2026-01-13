@@ -107,19 +107,19 @@ pub fn handle_chunks_downloaded(
 // we just uploaded chunks to
 pub fn handle_chunk_uploaded(
 	view: &mut View,
+	session_index: SessionIndex,
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
-	// aggregate the statistic on the most up-to-date session
-	if let Some((session_index, session_info)) = view.per_session.last_key_value() {
+	if let Some(session_info) = view.per_session.get(&session_index) {
 		let validator_authority_id = session_info
 			.authorities_ids
 			.iter()
 			.find(|auth| authority_ids.contains(auth));
 
 		if let Some(auth_id) = validator_authority_id {
-			let av_chunks = view
+			view
 				.availability_chunks
-				.entry(*session_index)
+				.entry(session_index)
 				.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
 				.or_insert(AvailabilityChunks::new_with_upload(auth_id.clone(), 1));
 		}

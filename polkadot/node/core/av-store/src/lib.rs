@@ -46,10 +46,7 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util as util;
-use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
-	CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
-};
+use polkadot_primitives::{BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, SessionIndex, ValidatorIndex};
 use util::availability_chunks::availability_chunk_indices;
 
 mod metrics;
@@ -154,6 +151,7 @@ enum State {
 struct CandidateMeta {
 	state: State,
 	data_available: bool,
+	session_index: Option<SessionIndex>,
 	chunks_stored: BitVec<u8, BitOrderLsb0>,
 }
 
@@ -793,6 +791,7 @@ fn note_block_backed(
 		let meta = CandidateMeta {
 			state: State::Unavailable(now.into()),
 			data_available: false,
+			session_index: candidate.descriptor.session_index(),
 			chunks_stored: bitvec::bitvec![u8, BitOrderLsb0; 0; n_validators],
 		};
 
@@ -852,6 +851,11 @@ fn note_block_included(
 					return Ok(())
 				},
 			};
+
+			let candidate_session_index = candidate.descriptor.session_index();
+			if meta.session_index.is_none() && candidate_session_index.is_some() {
+				meta.session_index = candidate_session_index;
+			}
 
 			write_unfinalized_block_contains(
 				db_transaction,
@@ -1105,8 +1109,17 @@ fn process_message(
 		},
 		AvailabilityStoreMessage::QueryChunk(candidate, validator_index, tx) => {
 			let _timer = subsystem.metrics.time_get_chunk();
-			let _ =
-				tx.send(load_chunk(&subsystem.db, &subsystem.config, &candidate, validator_index)?);
+			let chunk = load_chunk(&subsystem.db, &subsystem.config, &candidate, validator_index)?;
+			let chunk_meta = load_meta(&subsystem.db, &subsystem.config, &candidate)?;
+
+			let _ = match (chunk, chunk_meta) {
+				(Some(mut chunk), Some(chunk_meta)) => {
+					chunk.session_index = chunk_meta.session_index;
+					tx.send(Some(chunk))
+				},
+				(Some(chunk), _)=>  tx.send(Some(chunk)),
+				_ => tx.send(None)
+			};
 		},
 		AvailabilityStoreMessage::QueryChunkSize(candidate, tx) => {
 			let meta = load_meta(&subsystem.db, &subsystem.config, &candidate)?;
@@ -1304,6 +1317,7 @@ fn store_available_data(
 			CandidateMeta {
 				state: State::Unavailable(now.into()),
 				data_available: false,
+				session_index: None,
 				chunks_stored: BitVec::new(),
 			}
 		},

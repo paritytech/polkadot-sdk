@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+
 fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }

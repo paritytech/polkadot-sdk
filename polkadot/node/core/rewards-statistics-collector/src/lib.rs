@@ -91,15 +91,12 @@ struct PerValidatorTally {
 }
 
 impl PerValidatorTally {
-	fn increment_stats(&mut self, total_approvals: u32, total_noshows: u32) {
-
-	}
 	fn increment_noshow_by(&mut self, value: u32) {
-		self.no_shows += value;
+		self.no_shows = self.no_shows.saturating_add(value);
 	}
 
 	fn increment_approval_by(&mut self, value: u32) {
-		self.approvals += value;
+		self.approvals = self.approvals.saturating_add(value);
 	}
 }
 
@@ -127,7 +124,6 @@ struct View {
 	/// availability_chunks holds collected upload and download chunks
 	/// statistics per validator
 	availability_chunks: BTreeMap<SessionIndex, AvailabilityChunks>,
-	current_session: Option<SessionIndex>,
 	latest_finalized_block: (BlockNumber, Hash),
 }
 
@@ -137,7 +133,6 @@ impl View {
 			per_relay: HashMap::new(),
 			per_session: BTreeMap::new(),
 			availability_chunks: BTreeMap::new(),
-			current_session: None,
 			latest_finalized_block: (0, Hash::default()),
 		}
 	}
@@ -276,8 +271,20 @@ pub(crate) async fn run_iteration<Context>(
 					session_index,
 					downloads,
 				) => handle_chunks_downloaded(view, session_index, downloads),
-				RewardsStatisticsCollectorMessage::ChunkUploaded(authority_ids) =>
-					handle_chunk_uploaded(view, authority_ids),
+				RewardsStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) => {
+					let Ok(session_idx) = get_session_from_candidate(&mut *ctx, candidate_hash) else {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							?authority_ids,
+							"failed to retrieve candidate's session index"
+						);
+						continue
+					};
+
+					handle_chunk_uploaded(view, session_idx, authority_ids);
+				},
+
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					block_hash,
 					block_number,
@@ -295,6 +302,11 @@ pub(crate) async fn run_iteration<Context>(
 			},
 		}
 	}
+}
+
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
+fn get_session_from_candidate<Context>(ctx: &mut Context, candidate_hash: CandidateHash) -> Result<SessionIndex, String> {
+	Ok(0 as SessionIndex)
 }
 
 // aggregate_finalized_approvals_stats will iterate over the finalized hashes
