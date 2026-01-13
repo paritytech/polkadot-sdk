@@ -57,7 +57,7 @@ impl Client {
 		WsClientBuilder::default()
 			.max_request_size(u32::MAX)
 			.max_response_size(u32::MAX)
-			.request_timeout(std::time::Duration::from_secs(60 * 5))
+			.request_timeout(Duration::from_secs(60))
 			.build(uri)
 			.await
 			.map_err(|e| format!("{e:?}"))
