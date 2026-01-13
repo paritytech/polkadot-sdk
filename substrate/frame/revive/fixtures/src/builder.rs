@@ -195,11 +195,14 @@ pub fn create_cargo_toml<'a>(
 
 /// Invoke cargo build to compile contracts to RISC-V ELF.
 pub fn invoke_build(current_dir: &Path) -> Result<()> {
+	let toolchain =
+		env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR).or_else(|_| env::var("RUSTUP_TOOLCHAIN"));
+
 	// Necessary to make this work with both 1.92+ and versions before 1.92 of rustc.
 	let new_immediate_abort = {
 		let mut cmd = Command::new("rustc");
-		if let Ok(tc) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
-			cmd.arg(format!("+{tc}"));
+		if let Ok(toolchain) = &toolchain {
+			cmd.env("RUSTUP_TOOLCHAIN", toolchain);
 		}
 		let out = cmd.arg("--version").output().context("rustc --version failed")?;
 		let ver = String::from_utf8(out.stdout).context("utf8 from rustc --version failed")?;
@@ -221,6 +224,7 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		major > 1 || (major == 1 && minor >= 92)
 	};
 
+	// on newer version this is a stable compiler flag
 	let encoded_rustflags = if new_immediate_abort {
 		["-Dwarnings", "-Zunstable-options", "-Cpanic=immediate-abort"].join("\x1f")
 	} else {
@@ -238,19 +242,16 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 		.env("RUSTC_BOOTSTRAP", "1")
-		.args([
-			"build",
-			"--release",
-			"-Zbuild-std=core",
-		])
+		.args(["build", "--release", "-Zbuild-std=core"])
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
 
+	// on older versions this is a unstable cargo cli argument
 	if !new_immediate_abort {
 		build_command.arg("-Zbuild-std-features=panic_immediate_abort");
 	}
 
-	if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
+	if let Ok(toolchain) = &toolchain {
 		build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
 	}
 
