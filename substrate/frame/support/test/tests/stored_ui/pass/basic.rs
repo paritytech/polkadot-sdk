@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use frame_support::stored;
-use scale_info::TypeInfo;
 
 pub trait Config {
 	type Balance;
@@ -37,3 +36,4 @@ pub enum Status<T: Config> {
 	Pending(T::Balance),
 }
 
+fn main() {}

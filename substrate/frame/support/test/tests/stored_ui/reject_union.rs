@@ -23,3 +23,4 @@ pub union MyUnion {
 	f2: u64,
 }
 
+fn main() {}
