@@ -32,10 +32,9 @@
   use-zombienet-sdk: false
 
 - job-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
-  test-definition: "0007-dispute-freshly-finalized.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::dispute_freshly_finalized::dispute_freshly_finalized"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
   test-definition: "0013-systematic-chunk-recovery.zndsl"
@@ -88,10 +87,9 @@
 
 # Smoke tests using traditional zombienet
 - job-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
-  test-definition: "0001-parachains-smoke-test.zndsl"
-  local-dir: "./polkadot/zombienet_tests/smoke"
+  test-filter: "smoke::parachains_smoke::parachains_smoke_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke"
   test-definition: "0002-parachains-upgrade-smoke-test.zndsl"
@@ -99,12 +97,10 @@
   runner-type: "default"
   use-zombienet-sdk: false
 
-# TODO: Disabled
 - job-name: "zombienet-polkadot-smoke-0003-deregister-register-validator"
-  test-definition: "0003-deregister-register-validator-smoke.zndsl"
-  local-dir: "./polkadot/zombienet_tests/smoke"
+  test-filter: "smoke::deregister_register_validator::deregister_register_validator_smoke_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-smoke-0004-coretime-smoke-test"
   test-definition: "0004-coretime-smoke-test.zndsl"
