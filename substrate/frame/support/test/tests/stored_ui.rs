@@ -32,4 +32,3 @@ fn stored_ui() {
 	t.pass("tests/stored_ui/pass/*.rs");
 	t.compile_fail("tests/stored_ui/*.rs");
 }
-

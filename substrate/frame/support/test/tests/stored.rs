@@ -63,4 +63,3 @@ fn test_stored_struct_implements_required_traits() {
 fn test_stored_enum_implements_required_traits() {
 	ensure_storable::<Status<NotStored>>();
 }
-
