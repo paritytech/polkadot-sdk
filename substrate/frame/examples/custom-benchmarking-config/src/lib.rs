@@ -28,6 +28,7 @@
 pub use pallet::*;
 
 mod benchmarking;
+mod mock;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -68,34 +69,8 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::{pallet, pallet::*};
-	use crate::tests::runtime::*;
-	use frame_support::{assert_ok, derive_impl};
-	use sp_runtime::BuildStorage;
-
-	mod runtime {
-		use super::*;
-
-		type Block = frame_system::mocking::MockBlock<Test>;
-
-		frame_support::construct_runtime!(
-			pub enum Test {
-				System: frame_system,
-				MyPallet: pallet,
-			}
-		);
-
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-		impl frame_system::Config for Test {
-			type Block = Block;
-		}
-
-		impl Config for Test {}
-	}
-
-	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = RuntimeGenesisConfig { system: Default::default() }.build_storage().unwrap();
-		t.into()
-	}
+	use crate::mock::*;
+	use frame_support::assert_ok;
 
 	#[test]
 	fn new_registration_works() {

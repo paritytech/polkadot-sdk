@@ -21,50 +21,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! Benchmarking for `pallet-example-custom-benchmarking-config`.
+use crate::*;
+use frame_support::derive_impl;
 
-// Only enable this module for benchmarking.
-#![cfg(feature = "runtime-benchmarks")]
+type Block = frame_system::mocking::MockBlock<Test>;
 
-use crate::{mock::*, *};
-use frame_benchmarking::v2::*;
-
-pub trait BenchmarkHelper<Rumtime> {
-	/// Initialize storage and return a valid free ID.
-	fn initialize_and_get_id() -> u32;
-}
-
-pub trait BenchmarkConfig: pallet::Config {
-	type Helper: BenchmarkHelper<Test>;
-}
-
-impl BenchmarkHelper<Test> for () {
-	fn initialize_and_get_id() -> u32 {
-		let id = 1_000;
-
-		// Privileged storage initialization
-		NextId::<Test>::put(id);
-		Registered::<Test>::remove(id);
-		id
+frame_support::construct_runtime!(
+	pub enum Test {
+		System: frame_system,
+		MyPallet: pallet,
 	}
+);
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+	type Block = Block;
 }
 
-#[benchmarks(where T: BenchmarkConfig)]
-mod benchmarks {
-	use super::*;
-	use frame_system::RawOrigin;
+impl pallet::Config for Test {}
 
-	#[benchmark]
-	fn register() {
-		let caller: T::AccountId = whitelisted_caller();
-		let id = T::Helper::initialize_and_get_id();
-
-		#[extrinsic_call]
-		register(RawOrigin::Signed(caller), id);
-
-		assert_eq!(NextId::<T>::get(), id);
-		assert_eq!(Registered::<T>::contains_key(id), true);
-	}
-
-	// impl_benchmark_test_suite!(MyPallet, new_test_ext(), Test);
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_io::TestExternalities::new(Default::default())
 }
