@@ -1044,8 +1044,8 @@ impl StatementStore for Store {
 		self.index.read().entries.contains_key(hash)
 	}
 
-	fn statement_hashes(&self) -> Result<Vec<Hash>> {
-		Ok(self.index.read().entries.keys().cloned().collect())
+	fn statement_hashes(&self) -> Vec<Hash> {
+		self.index.read().entries.keys().cloned().collect()
 	}
 
 	fn statements_by_hashes(
