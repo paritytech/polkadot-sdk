@@ -1340,6 +1340,7 @@ fn store_available_data(
 			chunk: chunk.clone(),
 			proof,
 			index: ChunkIndex(index as u32),
+			session_index: meta.session_index,
 		})
 		.collect();
 
