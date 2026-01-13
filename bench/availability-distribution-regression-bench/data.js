@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768299252894,
+  "lastUpdate": 1768313939169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "donal.murray@parity.io",
-            "name": "Dónal Murray",
-            "username": "seadanda"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f96dfb73ff0472a5087451fd0227949b44756478",
-          "message": "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them (#4081)\n\nThis PR force removes regions from the pool before allowing them to be\nredispatched (through `partition`/`interlace`/`assign`) in the case that\na region was pooled with `Provisional` finality.\n\nThis PR does not account for the case where a pooled region already\nentitles the benefactor to a contribution reward before the point of it\nbeing redispatched. However, `claim_revenue` should be called before\ntrying to redispatch a region anyway.\nOtherwise there would be ambiguity as to what should be done with the\nfirst part of a partitioned region. The first of the two new regions\nactually has the exact same `region_id` as the original region -- leave\nit pooled/withdraw from pool/claim contribution then withdraw?\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T10:33:18Z",
-          "tree_id": "9252b4ba357a052894712e133e0ddc077a35254b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f96dfb73ff0472a5087451fd0227949b44756478"
-        },
-        "date": 1749815851175,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012925199980000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15743449511333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008976781940000088,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02245022881333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1453267070933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dca3da257b2d8532867e7856bafd1971aaa34edb",
+          "message": "Missing sign_with forward call (#10784)\n\nAs a follow-up of the discussion\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2682026297,\nI am extracting a missing forward call to a separate PR so we can\ndeliver it independently.\n\nContext:\nWhen keystore is used by some component (like BEEFY) via Arc, then calls\nof `sign_with` function are forwarded to default trait implementation.\nIt is not working, when custom keystore with custom `sign_with`\nimplementation is used.",
+          "timestamp": "2026-01-13T13:10:39Z",
+          "tree_id": "0b900d0cb850b34188068cf7c1bcab61e0f5091c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dca3da257b2d8532867e7856bafd1971aaa34edb"
+        },
+        "date": 1768313914787,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0072495201866666645,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14420776256666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02302667485333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009998756133333323,
             "unit": "seconds"
           }
         ]
