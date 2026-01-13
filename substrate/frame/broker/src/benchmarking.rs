@@ -1131,11 +1131,7 @@ mod benches {
 
 		assert_eq!(Reservations::<T>::decode_len().unwrap(), T::MaxReservedCores::get() as usize);
 
-		let sale_info = SaleInfo::<T>::get().unwrap();
-		assert_eq!(
-			Workplan::<T>::get((sale_info.region_begin, status.core_count)),
-			Some(schedule.clone())
-		);
+		assert_eq!(ForceReservations::<T>::get(), vec![schedule.clone()]);
 		// We called at timeslice 1, therefore 2 was already processed and 3 is the next possible
 		// assignment point.
 		assert_eq!(Workplan::<T>::get((3, status.core_count)), Some(schedule));
