@@ -176,6 +176,23 @@ pub mod pallet {
 		/// Maximum data set in a single transaction in bytes.
 		#[pallet::constant]
 		type MaxTransactionSize: Get<u32>;
+		/// Authorizations expire after this many blocks.
+		#[pallet::constant]
+		type AuthorizationPeriod: Get<BlockNumberFor<Self>>;
+		/// The origin that can authorize data storage.
+		type Authorizer: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Priority of store/renew transactions.
+		#[pallet::constant]
+		type StoreRenewPriority: Get<TransactionPriority>;
+		/// Longevity of store/renew transactions.
+		#[pallet::constant]
+		type StoreRenewLongevity: Get<TransactionLongevity>;
+		/// Priority of unsigned transactions to remove expired authorizations.
+		#[pallet::constant]
+		type RemoveExpiredAuthorizationPriority: Get<TransactionPriority>;
+		/// Longevity of unsigned transactions to remove expired authorizations.
+		#[pallet::constant]
+		type RemoveExpiredAuthorizationLongevity: Get<TransactionLongevity>;
 	}
 
 	#[pallet::error]
@@ -410,6 +427,146 @@ pub mod pallet {
 			Self::deposit_event(Event::ProofChecked);
 			Ok(().into())
 		}
+
+		/// Authorize an account to store up to a given amount of arbitrary data. The authorization
+		/// will expire after a configured number of blocks.
+		///
+		/// If the account is already authorized to store data, this will increase the amount of
+		/// data the account is authorized to store (and the number of transactions the account may
+		/// submit to supply the data), and push back the expiration block.
+		///
+		/// Parameters:
+		///
+		/// - `who`: The account to be credited with an authorization to store data.
+		/// - `transactions`: The number of transactions that `who` may submit to supply that data.
+		/// - `bytes`: The number of bytes that `who` may submit.
+		///
+		/// The origin for this call must be the pallet's `Authorizer`. Emits
+		/// [`AccountAuthorized`](Event::AccountAuthorized) when successful.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::authorize_account())]
+		pub fn authorize_account(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			transactions: u32,
+			bytes: u64,
+		) -> DispatchResult {
+			T::Authorizer::ensure_origin(origin)?;
+			Self::authorize(AuthorizationScope::Account(who.clone()), transactions, bytes);
+			Self::deposit_event(Event::AccountAuthorized { who, transactions, bytes });
+			Ok(())
+		}
+
+		/// Authorize anyone to store a preimage of the given BLAKE2b hash. The authorization will
+		/// expire after a configured number of blocks.
+		///
+		/// If authorization already exists for a preimage of the given hash to be stored, the
+		/// maximum size of the preimage will be increased to `max_size`, and the expiration block
+		/// will be pushed back.
+		///
+		/// Parameters:
+		///
+		/// - `content_hash`: The BLAKE2b hash of the data to be submitted.
+		/// - `max_size`: The maximum size, in bytes, of the preimage.
+		///
+		/// The origin for this call must be the pallet's `Authorizer`. Emits
+		/// [`PreimageAuthorized`](Event::PreimageAuthorized) when successful.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::authorize_preimage())]
+		pub fn authorize_preimage(
+			origin: OriginFor<T>,
+			content_hash: ContentHash,
+			max_size: u64,
+		) -> DispatchResult {
+			T::Authorizer::ensure_origin(origin)?;
+			Self::authorize(AuthorizationScope::Preimage(content_hash), 1, max_size);
+			Self::deposit_event(Event::PreimageAuthorized { content_hash, max_size });
+			Ok(())
+		}
+
+		/// Remove an expired account authorization from storage. Anyone can call this.
+		///
+		/// Parameters:
+		///
+		/// - `who`: The account with an expired authorization to remove.
+		///
+		/// Emits [`ExpiredAccountAuthorizationRemoved`](Event::ExpiredAccountAuthorizationRemoved)
+		/// when successful.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::remove_expired_account_authorization())]
+		pub fn remove_expired_account_authorization(
+			_origin: OriginFor<T>,
+			who: T::AccountId,
+		) -> DispatchResult {
+			Self::remove_expired_authorization(AuthorizationScope::Account(who.clone()))?;
+			Self::deposit_event(Event::ExpiredAccountAuthorizationRemoved { who });
+			Ok(())
+		}
+
+		/// Remove an expired preimage authorization from storage. Anyone can call this.
+		///
+		/// Parameters:
+		///
+		/// - `content_hash`: The BLAKE2b hash that was authorized.
+		///
+		/// Emits
+		/// [`ExpiredPreimageAuthorizationRemoved`](Event::ExpiredPreimageAuthorizationRemoved)
+		/// when successful.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::remove_expired_preimage_authorization())]
+		pub fn remove_expired_preimage_authorization(
+			_origin: OriginFor<T>,
+			content_hash: ContentHash,
+		) -> DispatchResult {
+			Self::remove_expired_authorization(AuthorizationScope::Preimage(content_hash))?;
+			Self::deposit_event(Event::ExpiredPreimageAuthorizationRemoved { content_hash });
+			Ok(())
+		}
+
+		/// Refresh the expiration of an existing authorization for an account.
+		///
+		/// If the account does not have an authorization, the call will fail.
+		///
+		/// Parameters:
+		///
+		/// - `who`: The account to be credited with an authorization to store data.
+		///
+		/// The origin for this call must be the pallet's `Authorizer`. Emits
+		/// [`AccountAuthorizationRefreshed`](Event::AccountAuthorizationRefreshed) when successful.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::refresh_account_authorization())]
+		pub fn refresh_account_authorization(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+		) -> DispatchResult {
+			T::Authorizer::ensure_origin(origin)?;
+			Self::refresh_authorization(AuthorizationScope::Account(who.clone()))?;
+			Self::deposit_event(Event::AccountAuthorizationRefreshed { who });
+			Ok(())
+		}
+
+		/// Refresh the expiration of an existing authorization for a preimage of a BLAKE2b hash.
+		///
+		/// If the preimage does not have an authorization, the call will fail.
+		///
+		/// Parameters:
+		///
+		/// - `content_hash`: The BLAKE2b hash of the data to be submitted.
+		///
+		/// The origin for this call must be the pallet's `Authorizer`. Emits
+		/// [`PreimageAuthorizationRefreshed`](Event::PreimageAuthorizationRefreshed) when
+		/// successful.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::refresh_preimage_authorization())]
+		pub fn refresh_preimage_authorization(
+			origin: OriginFor<T>,
+			content_hash: ContentHash,
+		) -> DispatchResult {
+			T::Authorizer::ensure_origin(origin)?;
+			Self::refresh_authorization(AuthorizationScope::Preimage(content_hash))?;
+			Self::deposit_event(Event::PreimageAuthorizationRefreshed { content_hash });
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -531,14 +688,17 @@ pub mod pallet {
 		) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
 			Transactions::<T>::get(block)
 		}
+
 		/// Get ByteFee storage information from the outside of this pallet.
 		pub fn byte_fee() -> Option<BalanceOf<T>> {
 			ByteFee::<T>::get()
 		}
+
 		/// Get EntryFee storage information from the outside of this pallet.
 		pub fn entry_fee() -> Option<BalanceOf<T>> {
 			EntryFee::<T>::get()
 		}
+
 		/// Get RetentionPeriod storage information from the outside of this pallet.
 		pub fn retention_period() -> BlockNumberFor<T> {
 			RetentionPeriod::<T>::get()
