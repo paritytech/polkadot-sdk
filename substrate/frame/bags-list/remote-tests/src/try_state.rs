@@ -35,7 +35,7 @@ pub async fn execute<Runtime, Block>(
 {
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
-			transports: vec![ws_url.to_string().into()],
+			transport_uris: vec![ws_url.to_string()],
 			pallets: vec![pallet_bags_list::Pallet::<Runtime, pallet_bags_list::Instance1>::name()
 				.to_string()],
 			hashed_prefixes: vec![
