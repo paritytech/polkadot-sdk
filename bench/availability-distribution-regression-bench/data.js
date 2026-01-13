@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768245813211,
+  "lastUpdate": 1768299252894,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cadf3ac73893e3d9e1e08ac9f914822375c97a14",
-          "message": "increase session index cache (#8832)\n\nA 10 session index cache is not enough when you run under intense\npressure and finality is lagg since you will end requesting the session\nindex for blocks older than that. So let's make this cache larger to\nachieve its purpose even under intense load when it actually matters\nmore to be faster.\n\nThe session_index_cache keeps a Hash and a u32, so that's about 36 bytes\nper entry, with this increase it can grow up to 65k which is not that\nbig in my book.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T15:14:26Z",
-          "tree_id": "d493466580217c13a7ecddb3780d30470202c766",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cadf3ac73893e3d9e1e08ac9f914822375c97a14"
-        },
-        "date": 1749746424151,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013156113266666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15719583444666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009158583060000093,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257317843333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007030749146666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
+          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
+          "timestamp": "2026-01-13T08:45:40Z",
+          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
+        },
+        "date": 1768299228592,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02318328341999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0071137363399999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01000028702666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1453267070933334,
             "unit": "seconds"
           }
         ]
