@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768314005641,
+  "lastUpdate": 1768318665803,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e40bb358fa7ae62d3752c9735e286ff7bab0ea1",
-          "message": "dispute-coordinator: increase lru_observed_blocks_capacity (#8831)\n\nUnder increase load with finality lagging behind there is a risk for\nblocks to arrive late or out of sequence in that case we will end up\nscrapping from the received block un till last finalized block and then\nprocess all the dispute in-between.\n\nThis couple with other inefficiencies like\nhttps://github.com/paritytech/polkadot-sdk/issues/8823 will increase\nunnecessarily the load on dispute-coordinator.\n\nDecided to make this super large to err on the cautious side, the Hash\nsize is only 32 bytes, so this will make the LRU grow up to 65k, which I\ndon't think is a significant increase.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T14:31:41Z",
-          "tree_id": "4acf7f01505f2f71ef40ce2b7150b32b09b9d603",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e40bb358fa7ae62d3752c9735e286ff7bab0ea1"
-        },
-        "date": 1749742727302,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034172561394,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04494355775599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06523771088399993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80a438ea4defc8e4b93f4ab1c2492b82e9b954e0",
+          "message": "Fix pallet-revive-fixtures (#10780)\n\nFixing two issues:\n\n1. Build on rustc >= 1.92 was broken despite\nhttps://github.com/paritytech/polkadot-sdk/pull/10749. That PR was\nbroken.\n2. The nested cargo didn't properly inherit the parent toolchain (an\nolder error). Leading to the situation where a `1.88` was only applied\nto the parent toolchain\n\nReplacement for https://github.com/paritytech/polkadot-sdk/pull/10778.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-13T14:08:34Z",
+          "tree_id": "e2fd8ae9df0be03497c08378224d879458a594ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80a438ea4defc8e4b93f4ab1c2492b82e9b954e0"
+        },
+        "date": 1768318641539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.01999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06500876857799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038523811972000006,
             "unit": "seconds"
           }
         ]
