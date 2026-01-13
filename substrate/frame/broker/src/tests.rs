@@ -2574,27 +2574,163 @@ fn force_reserve_works() {
 			CoretimeTrace::get(),
 			vec![
 				// First sale period: all cores to pool (reservation not yet active)
-				(6, AssignCore { core: 0, begin: 8, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(6, AssignCore { core: 1, begin: 8, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(6, AssignCore { core: 2, begin: 8, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(6, AssignCore { core: 3, begin: 8, assignment: vec![(Pool, 57600)], end_hint: None }),
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 1,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 2,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 3,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
 				// Second sale period: reservation becomes active at core 0
-				(12, AssignCore { core: 0, begin: 14, assignment: vec![(Task(1000), 57600)], end_hint: None }),
-				(12, AssignCore { core: 1, begin: 14, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(12, AssignCore { core: 2, begin: 14, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(12, AssignCore { core: 3, begin: 14, assignment: vec![(Pool, 57600)], end_hint: None }),
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(Task(1000), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 1,
+						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 2,
+						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 3,
+						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
 				// Immediate assignment from force_reserve
-				(16, AssignCore { core: 3, begin: 18, assignment: vec![(Task(1004), 57600)], end_hint: None }),
+				(
+					16,
+					AssignCore {
+						core: 3,
+						begin: 18,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
 				// Third sale: reservation core 0, purchase core 1, ForceReservation core 2
-				(18, AssignCore { core: 0, begin: 20, assignment: vec![(Task(1000), 57600)], end_hint: None }),
-				(18, AssignCore { core: 1, begin: 20, assignment: vec![(Task(1001), 57600)], end_hint: None }),
-				(18, AssignCore { core: 2, begin: 20, assignment: vec![(Task(1004), 57600)], end_hint: None }),
-				(18, AssignCore { core: 3, begin: 20, assignment: vec![(Pool, 57600)], end_hint: None }),
+				(
+					18,
+					AssignCore {
+						core: 0,
+						begin: 20,
+						assignment: vec![(Task(1000), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 1,
+						begin: 20,
+						assignment: vec![(Task(1001), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 2,
+						begin: 20,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 3,
+						begin: 20,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
 				// Fourth sale: both permanent reservations active
-				(24, AssignCore { core: 0, begin: 26, assignment: vec![(Task(1000), 57600)], end_hint: None }),
-				(24, AssignCore { core: 1, begin: 26, assignment: vec![(Task(1004), 57600)], end_hint: None }),
-				(24, AssignCore { core: 2, begin: 26, assignment: vec![(Pool, 57600)], end_hint: None }),
-				(24, AssignCore { core: 3, begin: 26, assignment: vec![(Pool, 57600)], end_hint: None }),
+				(
+					24,
+					AssignCore {
+						core: 0,
+						begin: 26,
+						assignment: vec![(Task(1000), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 1,
+						begin: 26,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 2,
+						begin: 26,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 3,
+						begin: 26,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
 			]
 		);
 	});
