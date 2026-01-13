@@ -196,7 +196,7 @@ pub fn create_cargo_toml<'a>(
 /// Invoke cargo build to compile contracts to RISC-V ELF.
 pub fn invoke_build(current_dir: &Path) -> Result<()> {
 	// Necessary to make this work with both 1.92+ and versions before 1.92 of rustc.
-	let immediate_abort = {
+	let new_immediate_abort = {
 		let mut cmd = Command::new("rustc");
 		if let Ok(tc) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
 			cmd.arg(format!("+{tc}"));
@@ -221,7 +221,7 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		major > 1 || (major == 1 && minor >= 92)
 	};
 
-	let encoded_rustflags = if immediate_abort {
+	let encoded_rustflags = if new_immediate_abort {
 		["-Dwarnings", "-Zunstable-options", "-Cpanic=immediate-abort"].join("\x1f")
 	} else {
 		["-Dwarnings"].join("\x1f")
@@ -241,14 +241,14 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.args([
 			"build",
 			"--release",
-			if immediate_abort {
-				"-Zbuild-std=core -Zbuild-std-features=panic_immediate_abort"
-			} else {
-				"-Zbuild-std=core"
-			},
+			"-Zbuild-std=core",
 		])
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
+
+	if !new_immediate_abort {
+		build_command.arg("-Zbuild-std-features=panic_immediate_abort");
+	}
 
 	if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
 		build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
