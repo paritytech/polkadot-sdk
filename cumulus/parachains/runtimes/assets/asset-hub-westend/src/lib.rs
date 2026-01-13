@@ -262,6 +262,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// q
 	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
+	Balance,
 >;
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -1202,7 +1203,6 @@ impl pallet_revive::Config for Runtime {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = ConstBool<false>;
 	type AllowEVMBytecode = ConstBool<true>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
@@ -1399,6 +1399,9 @@ construct_runtime!(
 		AssetRate: pallet_asset_rate = 95,
 		MultiAssetBounties: pallet_multi_asset_bounties = 96,
 
+		// Dynamic Allocation Pool / Issuance Buffer
+		Dap: pallet_dap = 100,
+
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
@@ -1495,6 +1498,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	pallet_dap::migrations::v1::InitBufferAccount<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2234,6 +2238,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 			}
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
