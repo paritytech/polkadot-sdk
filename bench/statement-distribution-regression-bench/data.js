@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768318665803,
+  "lastUpdate": 1768346352382,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cadf3ac73893e3d9e1e08ac9f914822375c97a14",
-          "message": "increase session index cache (#8832)\n\nA 10 session index cache is not enough when you run under intense\npressure and finality is lagg since you will end requesting the session\nindex for blocks older than that. So let's make this cache larger to\nachieve its purpose even under intense load when it actually matters\nmore to be faster.\n\nThe session_index_cache keeps a Hash and a u32, so that's about 36 bytes\nper entry, with this increase it can grow up to 65k which is not that\nbig in my book.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-12T15:14:26Z",
-          "tree_id": "d493466580217c13a7ecddb3780d30470202c766",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cadf3ac73893e3d9e1e08ac9f914822375c97a14"
-        },
-        "date": 1749746478340,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94399999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034060097660000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04472786080399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038523811972000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "x@acg.box",
+            "name": "Xavier Lau",
+            "username": "aurexav"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea05e170716a1bace2e2d8bad2d98c1fdcea224",
+          "message": "Fix auto-renew core tracking on immediate renew (#10767)\n\n## Summary\nFix auto-renew tracking when `do_enable_auto_renew` triggers an\nimmediate renewal. The auto-renew record now follows the new core index\nreturned by `do_renew`, preventing a stale core from being\nrenewed in the next sale rotation.\n\nDiscovered by the Darwinia Network team while attempting a renew.\n\n## Problem\nWhen enabling auto-renew during the renewal window (`PotentialRenewals`\nat `sale.region_begin`), `do_enable_auto_renew` immediately calls\n`do_renew`. That call can allocate a *different* core\nindex, but the auto-renew record was stored with the **old** core. On\nthe next rotation, `renew_cores` attempts to renew that stale core and\nemits `AutoRenewalFailed`, even though the workload has\nalready moved to the new core.\n\n## Fix\nCapture the returned core index from `do_renew` inside\n`do_enable_auto_renew`, and store that core in `AutoRenewals` (and the\nenable event).\n\n## Tests\n- Added `enable_auto_renew_immediate_updates_core_and_renews`\n- `cargo test -p pallet-broker`\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10006\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-13T22:05:32Z",
+          "tree_id": "d40538ab29c12ab529aa5da38fef927d44adbba5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea05e170716a1bace2e2d8bad2d98c1fdcea224"
+        },
+        "date": 1768346328478,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.01399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03806329189999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0671888849199999,
             "unit": "seconds"
           }
         ]
