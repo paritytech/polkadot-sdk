@@ -91,12 +91,6 @@ pub struct PalletCmd {
 	#[arg(short, long, default_value_t = 20)]
 	pub repeat: u32,
 
-	/// Select how many repetitions of this benchmark should run from the client.
-	///
-	/// NOTE: Using this alone may give slower results, but will afford you maximum Wasm memory.
-	#[arg(long, default_value_t = 1)]
-	pub external_repeat: u32,
-
 	/// Print the raw results in JSON format.
 	#[arg(long = "json")]
 	pub json_output: bool,

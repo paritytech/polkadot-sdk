@@ -26,6 +26,7 @@ use crate::{
 		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
 	},
 };
+use std::time::Duration;
 use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
@@ -350,7 +351,7 @@ impl PalletCmd {
 		// Run the benchmarks
 		let mut batches = Vec::new();
 		let mut batches_db = Vec::new();
-		let mut timer = time::SystemTime::now();
+		let mut progress_timer = time::SystemTime::now();
 		// Maps (pallet, extrinsic) to its component ranges.
 		let mut component_ranges = HashMap::<(String, String), Vec<ComponentRange>>::new();
 		let pov_modes =
@@ -483,7 +484,7 @@ impl PalletCmd {
 							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
-							&params(false, self.repeat),
+							&params(false, 1),
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
@@ -505,16 +506,21 @@ impl PalletCmd {
 
 					batches_db.extend(batch);
 				}
+
 				// Finally run a bunch of loops to get extrinsic timing information.
-				for r in 0..self.external_repeat {
-					let state = &state_without_tracking;
+				let state = &state_without_tracking;
+				// Ensure each benchmark runs for at least 60 seconds.
+				let start = time::Instant::now();					
+				let deadline = start + Duration::from_secs(60);
+
+				loop {
 					let batch = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
 						_,
 						_,
 					>(
 						StateMachine::new(
-							state, // todo remove tracking
+							state,
 							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
@@ -540,28 +546,29 @@ impl PalletCmd {
 
 					batches.extend(batch);
 
-					// Show progress information
-					if let Ok(elapsed) = timer.elapsed() {
-						if elapsed >= time::Duration::from_secs(5) {
-							timer = time::SystemTime::now();
+					let remaining = deadline.saturating_duration_since(time::Instant::now());
+					if remaining == Duration::ZERO {
+						break;
+					}
 
-							log::info!(
-								target: LOG_TARGET,
-								"[{: >3} % ] Running  benchmark: {pallet}::{extrinsic}({} args) {}/{} {}/{}",
-								(i * 100) / benchmarks_to_run.len(),
-								components.len(),
-								s + 1, // s starts at 0.
-								all_components.len(),
-								r + 1,
-								self.external_repeat,
-							);
-						}
+					// Show progress information at most every 5 seconds.
+					let Ok(elapsed) = progress_timer.elapsed() else { continue };
+					if elapsed >= time::Duration::from_secs(5) {
+						progress_timer = time::SystemTime::now();
+
+						log::info!(
+							target: LOG_TARGET,
+							"[{: >3} % ] Running  benchmark: {pallet}::{extrinsic}({} args) {}/{} ({}s remaining)",
+							(i * 100) / benchmarks_to_run.len(),
+							components.len(),
+							s + 1, // s starts at 0.
+							all_components.len(),
+							remaining.as_secs()
+						);
 					}
 				}
 			}
 		}
-
-		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
 
 		if !failed.is_empty() {
 			failed.sort();
