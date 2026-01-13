@@ -170,4 +170,4 @@ runtime-metrics = [
 ]
 
 [package.metadata.cargo-udeps.ignore]
-development = ["thousands"]
+development = ["thousands", "pretty_assertions"]

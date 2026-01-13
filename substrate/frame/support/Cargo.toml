@@ -114,4 +114,5 @@ tuples-96 = ["frame-support-procedural/tuples-96"]
 tuples-128 = ["frame-support-procedural/tuples-128"]
 
 [package.metadata.cargo-udeps.ignore]
+normal = ["sp-debug-derive"]
 development = ["sp-timestamp"]
