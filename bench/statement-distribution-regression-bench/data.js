@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768245878965,
+  "lastUpdate": 1768299318207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "292368d05eec5d6649607251ab21ed2c96ebd158",
-          "message": "release/build-macos-binaries: add missing FEATURES argument  (#8816)\n\n# Description\n\nIn #8755 we enabled release scripts to build binaries with certain\nfeatures too, used especially for `polkadot-omni-node`. I missed to add\nthe `FEATURES` argument to the build script used for macos:\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8755/files#diff-f4ebb5b55e4d2f4ec7ab5674ac3376839b13358d78935f9c388d79e75beeceb8R224\n\n## Integration\n\nN/A\n\n## Review Notes\n\nThis must be merged to be able to build `polkadot-omni-node` binary with\nruntime-benchmarks feature on macos.\nFixed also the macos build per:\nhttps://github.com/paritytech/polkadot-sdk/pull/8815/commits/05502a350b5995c5b3386ef42bd608c88ec8f17c.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2025-06-11T13:30:59Z",
-          "tree_id": "7cf74cf428cf045868c4132fa89faff0364bceda",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/292368d05eec5d6649607251ab21ed2c96ebd158"
-        },
-        "date": 1749653692045,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96799999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04479174343399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03393489184800002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06821088777599993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
+          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
+          "timestamp": "2026-01-13T08:45:40Z",
+          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
+        },
+        "date": 1768299294053,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.066,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038369270628,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06552292224799997,
             "unit": "seconds"
           }
         ]
