@@ -205,9 +205,9 @@ pub async fn register_paras<S: zombienet_sdk::subxt::tx::signer::Signer<Polkadot
 		600u64,
 	)
 	.await
-	.map_err(|e| anyhow!("Failed to register paras {:?}: {}", para_ids, e))?;
+	.map_err(|e| anyhow!("Failed to register paras {para_ids:?}: {e}"))?;
 
-	log::info!("Parachains {:?} registered successfully", para_ids);
+	log::info!("Parachains {para_ids:?} registered successfully");
 	Ok(())
 }
 
@@ -237,7 +237,7 @@ pub async fn enable_node_feature(
 		}],
 	);
 
-	log::info!("Submitting sudo set_node_feature({}, true) via {}", index, node_name);
+	log::info!("Submitting sudo set_node_feature({index}, true) via {node_name}");
 
 	// Sign and submit with Alice
 	let alice = dev::alice();

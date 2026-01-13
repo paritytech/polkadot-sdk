@@ -31,6 +31,7 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"scale-info/std",
+	"schemars?/std",
 	"serde/std",
 	"sp-arithmetic/std",
 	"sp-debug-derive/std",
