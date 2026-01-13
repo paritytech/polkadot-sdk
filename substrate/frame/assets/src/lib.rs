@@ -511,9 +511,6 @@ pub mod pallet {
 		pub fn asset_id_of(address: &T::AccountId) -> Option<T::AssetId> {
 			AccountIdToAssetId::<T, I>::get(address)
 		}
-		pub fn account_id_of(id: &T::AssetId) -> Option<T::AccountId> {
-			AssetIdToAccountId::<T, I>::get(id)
-		}
 	}
 
 	#[pallet::genesis_config]
