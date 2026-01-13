@@ -335,32 +335,45 @@ enum SendChunkResult {
 
 /// Find the largest chunk of statements starting from the beginning that fits
 /// within MAX_STATEMENT_NOTIFICATION_SIZE.
+///
+/// Uses an incremental approach: adds statements one by one until the limit is reached.
+/// This is efficient because we only compute sizes for statements we'll actually send
+/// in this chunk, rather than computing sizes for all statements upfront.
 fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 	if statements.is_empty() {
 		return ChunkResult::Send(0);
 	}
 
-	let mut current_end = statements.len();
-	loop {
-		let chunk = &statements[..current_end];
-		let encoded_size = chunk.encoded_size();
+	let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1024; // Reserve some space for encoding the length of the vector.
 
-		if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-			return ChunkResult::Send(current_end);
-		}
-
-		let split_factor = (encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-		let new_chunk_size = current_end / split_factor;
-
-		if new_chunk_size == 0 {
-			if current_end == 1 {
-				return ChunkResult::SkipOversized;
-			}
-			current_end = 1;
-		} else {
-			current_end = new_chunk_size;
-		}
+	// Check first statement to see if it's oversized
+	let first_size = statements[0].encoded_size();
+	if first_size > max_size {
+		return ChunkResult::SkipOversized;
 	}
+
+	// Incrementally add statements until we exceed the limit.
+	// This is efficient because we only compute sizes for statements in this chunk.
+	// accumulated_size is the sum of encoded sizes of all statements so far (without vec
+	// overhead).
+	let mut accumulated_size = first_size;
+	let mut count = 1usize;
+
+	for stmt in &statements[1..] {
+		let stmt_size = stmt.encoded_size();
+		let new_count = count + 1;
+		// Compact encoding overhead for the new count
+		let new_total = accumulated_size + stmt_size;
+
+		if new_total > max_size {
+			break;
+		}
+
+		accumulated_size += stmt_size;
+		count = new_count;
+	}
+
+	ChunkResult::Send(count)
 }
 
 impl Peer {
@@ -716,9 +729,14 @@ where
 			return
 		}
 
+		self.send_statements_in_chunks(who, &to_send).await;
+	}
+
+	/// Send statements to a peer in chunks, respecting the maximum notification size.
+	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
 		let mut offset = 0;
-		while offset < to_send.len() {
-			match self.send_statement_chunk(who, &to_send[offset..]).await {
+		while offset < statements.len() {
+			match self.send_statement_chunk(who, &statements[offset..]).await {
 				SendChunkResult::Sent(chunk_end) => {
 					offset += chunk_end;
 				},
