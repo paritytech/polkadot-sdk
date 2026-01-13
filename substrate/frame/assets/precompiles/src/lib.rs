@@ -58,58 +58,32 @@ pub trait AssetPrecompileConfig {
 }
 
 /// An `AssetIdExtractor` that stores the asset id directly inside the address.
-pub struct InlineAssetIdExtractor;
-
-impl AssetIdExtractor for InlineAssetIdExtractor {
-	type AssetId = u32;
-	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
-		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
-		let index = u32::from_be_bytes(bytes);
-		return Ok(index.into());
-	}
-}
-
-/// An `AssetIdExtractor` that maps foreign assets.
-pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
+pub struct InlineAssetIdExtractor<Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
-impl<Runtime, Instance: 'static> AssetIdExtractor for ForeignAssetIdExtractor<Runtime, Instance>
+
+impl<Runtime, Instance: 'static> AssetIdExtractor for InlineAssetIdExtractor<Runtime, Instance> 
 where
 	Runtime: pallet_assets::Config<Instance>,
 {
 	type AssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId;
-
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
-		let bytes: [u8; 4] = addr[0..4]
-			.try_into()
-			.map_err(|_| Error::Revert(Revert { reason: "Bad address".into() }))?;
-		let id4 = u32::from_be_bytes(bytes);
-
-		pallet_assets::Pallet::<Runtime, Instance>::foreign_location_for(id4)
+		pallet_assets::Pallet::<Runtime, Instance>::foreign_location_for(addr)
 			.ok_or(Error::Revert(Revert { reason: "Invalid foreign asset id".into() }))
 	}
 }
 
 /// A precompile configuration that uses a prefix [`AddressMatcher`].
-pub struct InlineIdConfig<const PREFIX: u16>;
-
-impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
-	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
-	type AssetIdExtractor = InlineAssetIdExtractor;
-}
-
-/// A precompile configuration that uses a prefix [`AddressMatcher`].
-pub struct ForeignIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
+pub struct InlineIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
-impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
-	for ForeignIdConfig<P, Runtime, Instance>
+impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig for InlineIdConfig<P, Runtime, Instance> 
 where
-	Runtime: crate::Config<Instance> + pallet_revive::Config,
+	Runtime: pallet_assets::Config<Instance>,
 {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
-	type AssetIdExtractor = ForeignAssetIdExtractor<Runtime, Instance>;
+	type AssetIdExtractor = InlineAssetIdExtractor<Runtime, Instance>;
 }
 
 /// An ERC20 precompile.

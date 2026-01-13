@@ -501,17 +501,17 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ForeignLocationOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, [u8; 20], T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ForeignIdOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AssetId, [u8; 20], OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		pub fn foreign_location_for(id: u32) -> Option<T::AssetId> {
-			ForeignLocationOf::<T, I>::get(id)
+		pub fn foreign_location_for(address: &[u8; 20]) -> Option<T::AssetId> {
+			ForeignLocationOf::<T, I>::get(address)
 		}
-		pub fn foreign_id_for(loc: &T::AssetId) -> Option<u32> {
+		pub fn foreign_id_for(loc: &T::AssetId) -> Option<[u8; 20]> {
 			ForeignIdOf::<T, I>::get(loc)
 		}
 	}
