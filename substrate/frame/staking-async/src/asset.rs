@@ -19,6 +19,7 @@
 //! asset.
 
 use crate::{BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
+use frame_support::traits::fungible::Mutate;
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
@@ -120,6 +121,18 @@ pub fn deposit_slashed<T: Config>(who: &T::AccountId, value: NegativeImbalanceOf
 /// Creates a negative imbalance.
 pub fn issue<T: Config>(value: BalanceOf<T>) -> NegativeImbalanceOf<T> {
 	T::Currency::issue(value)
+}
+
+/// Transfer `value` from `source` to `dest`.
+///
+/// Used for paying out reward from Era pot to the staker.
+pub fn transfer<T: Config>(
+	source: &T::AccountId,
+	dest: &T::AccountId,
+	value: BalanceOf<T>,
+	preservation: Preservation,
+) -> DispatchResult {
+	T::Currency::transfer(source, dest, value, preservation).map(|_| ())
 }
 
 /// Burn the amount from the total issuance.

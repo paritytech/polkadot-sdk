@@ -953,7 +953,11 @@ fn bond_with_no_staked_value() {
 
 #[test]
 fn bond_with_little_staked_value_bounded() {
-	ExtBuilder::default().validator_count(3).nominate(false).build_and_execute(|| {
+	ExtBuilder::default()
+		.validator_count(3)
+		.nominate(false)
+		.validator_reward_percentage(100)
+		.build_and_execute(|| {
 		// setup
 		assert_ok!(Staking::chill(RuntimeOrigin::signed(31)));
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
