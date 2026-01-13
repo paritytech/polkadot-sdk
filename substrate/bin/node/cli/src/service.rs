@@ -792,6 +792,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_store.clone(),
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
+		1,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
