@@ -23,8 +23,8 @@
 //!
 //! Constraint management.
 //!
-//! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
+//! The statement store validates statements using node-side signature verification and
+//! static runtime allowance limits.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -61,9 +61,7 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{
-		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
-	},
+	runtime_api::{StatementSource, StatementStoreExt, ValidStatement, ValidateStatement},
 	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, RejectionReason, Result,
 	SignatureVerificationResult, Statement, SubmitResult, Topic,
 };
@@ -190,22 +188,8 @@ where
 		+ 'static,
 	Client::Api: ValidateStatement<Block>,
 {
-	fn validate_statement(
-		&self,
-		block: Option<BlockHash>,
-		source: StatementSource,
-		statement: Statement,
-	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
-		let block = block.map(Into::into).unwrap_or_else(|| {
-			// Validate against the finalized state.
-			self.client.info().finalized_hash
-		});
-		api.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?
-	}
-
-	// TODO: Read actual allowance from storage.
+	// TODO: This is a temporary mock implementation. Real storage reading should be implemented
+	// when runtime-side allowance storage is available.
 	fn read_allowance(&self, account_id: &AccountId) -> Result<ValidStatement> {
 		let block_hash = self.client.info().finalized_hash;
 		let storage_key = StorageKey(sp_core::storage::well_known_keys::HEAP_PAGES.to_vec());
@@ -226,15 +210,6 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	_validate_fn: Box<
-		dyn Fn(
-				Option<BlockHash>,
-				StatementSource,
-				Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement>
-			+ Send
-			+ Sync,
-	>,
 	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<ValidStatement> + Send + Sync>,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
@@ -613,15 +588,6 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper {
-			client: client.clone(),
-			_block: Default::default(),
-			_backend: Default::default(),
-		};
-		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
-		});
-
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
 		let read_allowance_fn =
@@ -630,7 +596,6 @@ impl Store {
 		let store = Store {
 			db,
 			index: RwLock::new(Index::new(options)),
-			_validate_fn: validate_fn,
 			read_allowance_fn,
 			keystore,
 			time_override: None,

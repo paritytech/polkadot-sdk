@@ -28,6 +28,9 @@
 //! `max_count`: Maximum number of statements allowed for the author (signer) of this statement.
 //! `max_size`: Maximum total size of statements allowed for the author (signer) of this statement.
 //!
+//! Note: The `validate_statement()` function is deprecated. Node-side validation now uses
+//! direct signature verification with static allowance limits.
+//!
 //! This pallet also contains an offchain worker that turns on-chain statement events into
 //! statements. These statements are placed in the store and propagated over the network.
 
@@ -131,8 +134,16 @@ where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet::Event<T>>,
 	sp_statement_store::BlockHash: From<<T as frame_system::Config>::Hash>,
 {
-	/// Validate a statement against current state. This is supposed to be called by the statement
-	/// store on the host side.
+	/// Validate a statement against current state.
+	///
+	/// # Deprecated
+	///
+	/// This function is no longer used by the node-side statement store as of the migration
+	/// to direct signature verification and static allowances.
+	#[deprecated(
+		since = "2.0.0",
+		note = "Node-side validation no longer calls this function. Use direct signature verification instead."
+	)]
 	pub fn validate_statement(
 		_source: StatementSource,
 		mut statement: Statement,
