@@ -1,10 +1,5 @@
 error: #[stored] is only supported on structs and enums, not unions
-   --> $DIR/reject_union.rs:20:1
-    |
-20  | #[stored]
-    | ^^^^^^^^
-    |
-    = note: this error originates in the attribute macro `stored` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: aborting due to previous error
-
+  --> tests/stored_ui/reject_union.rs:21:1
+   |
+21 | pub union MyUnion {
+   | ^^^
