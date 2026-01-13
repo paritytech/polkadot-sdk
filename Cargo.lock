@@ -11455,6 +11455,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-builder",
 ]
 
 [[package]]

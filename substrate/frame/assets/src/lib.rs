@@ -247,6 +247,23 @@ where
 	}
 }
 
+pub trait ToAssetIndex {
+    fn to_asset_index(&self) -> u32;
+}
+
+impl ToAssetIndex for u32 {
+    fn to_asset_index(&self) -> u32 { *self }
+}
+
+// #[cfg(feature = "xcm-support")]
+impl ToAssetIndex for xcm::v5::Location {
+    fn to_asset_index(&self) -> u32 {
+		use codec::Encode;
+        let h = sp_core::hashing::blake2_256(&self.encode());
+        u32::from_le_bytes([h[0], h[1], h[2], h[3]])
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -343,7 +360,7 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 
 		/// Identifier for the class of asset.
-		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + ToAssetIndex;
 
 		/// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
 		/// of compact encoding in instances of the pallet, which will prevent breaking changes
@@ -500,16 +517,19 @@ pub mod pallet {
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type AccountIdToAssetId<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, T::AssetId, OptionQuery>;
+	pub type AssetIndexToAssetId<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type AssetIdToAccountId<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, T::AccountId, OptionQuery>;
+	pub type AssetIdToAssetIndex<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		pub fn asset_id_of(address: &T::AccountId) -> Option<T::AssetId> {
-			AccountIdToAssetId::<T, I>::get(address)
+		pub fn asset_id_of(asset_index: u32) -> Option<T::AssetId> {
+			AssetIndexToAssetId::<T, I>::get(asset_index)
+		}
+		pub fn asset_index_of(asset_id: &T::AssetId) -> Option<u32> {
+			AssetIdToAssetIndex::<T, I>::get(asset_id)
 		}
 	}
 
@@ -788,7 +808,10 @@ pub mod pallet {
 			id: T::AssetIdParameter,
 			admin: AccountIdLookupOf<T>,
 			min_balance: T::Balance,
-		) -> DispatchResult {
+		) -> DispatchResult 
+where
+    T::AssetId: ToAssetIndex,
+	{
 			let id: T::AssetId = id.into();
 			let owner = T::CreateOrigin::ensure_origin(origin, &id)?;
 			let admin = T::Lookup::lookup(admin)?;
@@ -827,10 +850,10 @@ pub mod pallet {
 				owner: admin.clone(),
 			});
 
-			ensure!(!AccountIdToAssetId::<T, I>::contains_key(&admin), Error::<T, I>::InUse);
-			ensure!(!AssetIdToAccountId::<T, I>::contains_key(&id), Error::<T, I>::InUse);
-			AccountIdToAssetId::<T, I>::insert(&admin, id.clone());
-			AssetIdToAccountId::<T, I>::insert(&id, admin);
+			ensure!(!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()), Error::<T, I>::InUse);
+			ensure!(!AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::InUse);
+			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
+			AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
 
 			Ok(())
 		}
@@ -861,14 +884,17 @@ pub mod pallet {
 			owner: AccountIdLookupOf<T>,
 			is_sufficient: bool,
 			#[pallet::compact] min_balance: T::Balance,
-		) -> DispatchResult {
+		) -> DispatchResult 
+where
+    T::AssetId: ToAssetIndex,
+	{
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
 
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
-			AccountIdToAssetId::<T, I>::insert(&owner, id.clone());
-			AssetIdToAccountId::<T, I>::insert(&id, owner.clone());
+			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
+			AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
 			Self::do_force_create(id, owner, is_sufficient, min_balance)
 		}
 
@@ -959,14 +985,14 @@ pub mod pallet {
 			let result = Self::do_finish_destroy(id.clone());
 
 			if result.is_ok() {
-				ensure!(AssetIdToAccountId::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
-				let account_id = AssetIdToAccountId::<T, I>::get(&id).unwrap();
+				ensure!(AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
+				let account_id = AssetIdToAssetIndex::<T, I>::get(&id).unwrap();
 				ensure!(
-					AccountIdToAssetId::<T, I>::contains_key(&account_id),
+					AssetIndexToAssetId::<T, I>::contains_key(&account_id),
 					Error::<T, I>::Unknown
 				);
-				AccountIdToAssetId::<T, I>::remove(&account_id);
-				AssetIdToAccountId::<T, I>::remove(&id);
+				AssetIndexToAssetId::<T, I>::remove(&account_id);
+				AssetIdToAssetIndex::<T, I>::remove(&id);
 			}
 			result
 		}

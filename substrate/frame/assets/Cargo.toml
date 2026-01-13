@@ -29,6 +29,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
 xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
