@@ -64,11 +64,13 @@ pub struct InlineAssetIdExtractor<Runtime, Instance = ()> {
 
 impl<Runtime, Instance: 'static> AssetIdExtractor for InlineAssetIdExtractor<Runtime, Instance> 
 where
-	Runtime: pallet_assets::Config<Instance>,
+	Runtime: pallet_assets::Config<Instance> + pallet_revive::Config,
 {
 	type AssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId;
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
-		pallet_assets::Pallet::<Runtime, Instance>::foreign_location_for(addr)
+		let account_id =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&H160(*addr).into());
+		pallet_assets::Pallet::<Runtime, Instance>::asset_id_of(&account_id)
 			.ok_or(Error::Revert(Revert { reason: "Invalid foreign asset id".into() }))
 	}
 }
@@ -80,7 +82,7 @@ pub struct InlineIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 
 impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig for InlineIdConfig<P, Runtime, Instance> 
 where
-	Runtime: pallet_assets::Config<Instance>,
+	Runtime: pallet_assets::Config<Instance> + pallet_revive::Config,
 {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
 	type AssetIdExtractor = InlineAssetIdExtractor<Runtime, Instance>;

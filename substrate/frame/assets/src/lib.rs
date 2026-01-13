@@ -500,19 +500,19 @@ pub mod pallet {
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ForeignLocationOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, [u8; 20], T::AssetId, OptionQuery>;
+	pub type AddressToAssetId<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, T::AssetId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ForeignIdOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, [u8; 20], OptionQuery>;
+	pub type AssetIdToAccountId<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, T::AssetId, T::AccountId, OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		pub fn foreign_location_for(address: &[u8; 20]) -> Option<T::AssetId> {
-			ForeignLocationOf::<T, I>::get(address)
+		pub fn asset_id_of(address: &T::AccountId) -> Option<T::AssetId> {
+			AddressToAssetId::<T, I>::get(address)
 		}
-		pub fn foreign_id_for(loc: &T::AssetId) -> Option<[u8; 20]> {
-			ForeignIdOf::<T, I>::get(loc)
+		pub fn account_id_of(id: &T::AssetId) -> Option<T::AccountId> {
+			AssetIdToAccountId::<T, I>::get(id)
 		}
 	}
 
@@ -825,10 +825,13 @@ pub mod pallet {
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
 			Self::deposit_event(Event::Created {
-				asset_id: id,
+				asset_id: id.clone(),
 				creator: owner.clone(),
-				owner: admin,
+				owner: admin.clone(),
 			});
+
+			AddressToAssetId::<T, I>::insert(&admin, id.clone());
+			AssetIdToAccountId::<T, I>::insert(&id, admin);
 
 			Ok(())
 		}
