@@ -248,20 +248,22 @@ where
 }
 
 pub trait ToAssetIndex {
-    fn to_asset_index(&self) -> u32;
+	fn to_asset_index(&self) -> u32;
 }
 
 impl ToAssetIndex for u32 {
-    fn to_asset_index(&self) -> u32 { *self }
+	fn to_asset_index(&self) -> u32 {
+		*self
+	}
 }
 
 // #[cfg(feature = "xcm-support")]
 impl ToAssetIndex for xcm::v5::Location {
-    fn to_asset_index(&self) -> u32 {
+	fn to_asset_index(&self) -> u32 {
 		use codec::Encode;
-        let h = sp_core::hashing::blake2_256(&self.encode());
-        u32::from_le_bytes([h[0], h[1], h[2], h[3]])
-    }
+		let h = sp_core::hashing::blake2_256(&self.encode());
+		u32::from_le_bytes([h[0], h[1], h[2], h[3]])
+	}
 }
 
 #[frame_support::pallet]
@@ -360,7 +362,12 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 
 		/// Identifier for the class of asset.
-		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + ToAssetIndex;
+		type AssetId: Member
+			+ Parameter
+			+ Clone
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ ToAssetIndex;
 
 		/// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
 		/// of compact encoding in instances of the pallet, which will prevent breaking changes
@@ -808,10 +815,10 @@ pub mod pallet {
 			id: T::AssetIdParameter,
 			admin: AccountIdLookupOf<T>,
 			min_balance: T::Balance,
-		) -> DispatchResult 
-where
-    T::AssetId: ToAssetIndex,
-	{
+		) -> DispatchResult
+		where
+			T::AssetId: ToAssetIndex,
+		{
 			let id: T::AssetId = id.into();
 			let owner = T::CreateOrigin::ensure_origin(origin, &id)?;
 			let admin = T::Lookup::lookup(admin)?;
@@ -850,7 +857,10 @@ where
 				owner: admin.clone(),
 			});
 
-			ensure!(!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()), Error::<T, I>::InUse);
+			ensure!(
+				!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()),
+				Error::<T, I>::InUse
+			);
 			ensure!(!AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
 			AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
@@ -884,10 +894,10 @@ where
 			owner: AccountIdLookupOf<T>,
 			is_sufficient: bool,
 			#[pallet::compact] min_balance: T::Balance,
-		) -> DispatchResult 
-where
-    T::AssetId: ToAssetIndex,
-	{
+		) -> DispatchResult
+		where
+			T::AssetId: ToAssetIndex,
+		{
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
