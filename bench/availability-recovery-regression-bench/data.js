@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768313905631,
+  "lastUpdate": 1768318565197,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8e2b6f742a38bb13688e12abacded0aab2dbbb23",
-          "message": "[pallet-revive] dev-node (#8746)\n\nThis adds a dev-node that is essentially the minimal template with the\naddition of pallet-revive\n\ncan be launched with\n\n```\ncargo run -p revive-dev-node\n```\n\nGoal: \n- use dev-node instead of kitchensink in\npolkadot-sdk/substrate/frame/revive/rpc/src/tests.rs for faster run and\nbuild time\n- use dev-node in https://github.com/paritytech/evm-test-suite and\nhttps://github.com/paritytech/revive-differential-tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T12:08:22Z",
-          "tree_id": "c95826a81d74bea1a5dca5cacc79c43ce746071d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e2b6f742a38bb13688e12abacded0aab2dbbb23"
-        },
-        "date": 1749820848795,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2017397316333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.303092861266668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1314649987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80a438ea4defc8e4b93f4ab1c2492b82e9b954e0",
+          "message": "Fix pallet-revive-fixtures (#10780)\n\nFixing two issues:\n\n1. Build on rustc >= 1.92 was broken despite\nhttps://github.com/paritytech/polkadot-sdk/pull/10749. That PR was\nbroken.\n2. The nested cargo didn't properly inherit the parent toolchain (an\nolder error). Leading to the situation where a `1.88` was only applied\nto the parent toolchain\n\nReplacement for https://github.com/paritytech/polkadot-sdk/pull/10778.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-13T14:08:34Z",
+          "tree_id": "e2fd8ae9df0be03497c08378224d879458a594ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80a438ea4defc8e4b93f4ab1c2492b82e9b954e0"
+        },
+        "date": 1768318539116,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.316608380566665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13632560403333333,
             "unit": "seconds"
           }
         ]
