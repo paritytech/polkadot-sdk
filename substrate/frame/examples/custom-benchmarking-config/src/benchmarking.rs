@@ -26,8 +26,60 @@
 // Only enable this module for benchmarking.
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::pallet::Config;
+use crate::*;
+use frame_benchmarking::v2::*;
+use frame_support::derive_impl;
 
-trait BenchmarkHelper: Config {
-	fn set_counter(value: u32);
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test {
+		System: frame_system,
+		MyPallet: pallet,
+	}
+);
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+	type Block = Block;
+}
+
+impl pallet::Config for Test {}
+
+pub trait BenchmarkHelper<Rumtime> {
+	/// Initialize storage and return a valid free ID.
+	fn initialize_and_get_id() -> u32;
+}
+
+pub trait BenchmarkConfig: pallet::Config {
+	type Helper: BenchmarkHelper<Test>;
+}
+
+impl BenchmarkHelper<Test> for () {
+	fn initialize_and_get_id() -> u32 {
+		let id = 1_000;
+
+		// Privileged storage initialization
+		NextId::<Test>::put(id);
+		Registered::<Test>::remove(id);
+		id
+	}
+}
+
+#[benchmarks(where T: BenchmarkConfig)]
+mod benchmarks {
+	use super::*;
+	use frame_system::RawOrigin;
+
+	#[benchmark]
+	fn register() {
+		let caller: T::AccountId = whitelisted_caller();
+		let id = T::Helper::initialize_and_get_id();
+
+		#[extrinsic_call]
+		register(RawOrigin::Signed(caller), id);
+
+		assert_eq!(NextId::<T>::get(), id);
+		assert_eq!(Registered::<T>::contains_key(id), true);
+	}
 }

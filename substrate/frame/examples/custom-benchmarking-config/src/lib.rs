@@ -25,6 +25,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use pallet::*;
+
 mod benchmarking;
 
 #[frame_support::pallet]
@@ -42,7 +44,7 @@ pub mod pallet {
 	pub type NextId<T> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
-	pub type Registered<T> = StorageMap<_, Blake2_128Concat, u32, (), OptionQuery>;
+	pub type Registered<T> = StorageMap<_, Blake2_128Concat, u32, (), ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
