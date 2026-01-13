@@ -181,7 +181,7 @@ mod tests {
 			
 			// Test reconstruction from a subset of chunks (any f+1 chunks should work)
 			// For n_validators, we need at least (n_validators - 1) / 3 + 1 chunks
-			let min_chunks = (n_validators - 1) / 3 + 1;
+			let min_chunks = recovery_threshold(n_validators);
 			
 			// Take a few more chunks than minimum to ensure reconstruction
 			let chunks_to_use = (min_chunks + 2).min(n_validators);

@@ -45,7 +45,7 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 				}))
 				.with_node(|node| node.with_name("validator-0"));
 
-			// Add validators 1-6 with the current branch image (total 7 validators)
+			// Add validators 1-3 with the current branch image (total 4 validators)
 			let r = (1..3)
 				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))));
 
