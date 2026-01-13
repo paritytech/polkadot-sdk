@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768318565197,
+  "lastUpdate": 1768346253847,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4413b73fef7b3c18dd79aaa75322fee6da2e34d7",
-          "message": "Eth transaction do not double bump the nonce (#8829)\n\nAdd an extra `eth_instantiate_with_code` dispatchable that is used by\nthe EVM compatibility layer and ensure that the origin's nonce is only\nincremented once\n\nFixes https://github.com/paritytech/contract-issues/issues/64\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-06-13T14:29:27Z",
-          "tree_id": "3bcdd2b0980e306ab0e381a2ef5238dd74fba94c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4413b73fef7b3c18dd79aaa75322fee6da2e34d7"
-        },
-        "date": 1749829616427,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2012801549,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.234465791666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13632560403333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "x@acg.box",
+            "name": "Xavier Lau",
+            "username": "aurexav"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea05e170716a1bace2e2d8bad2d98c1fdcea224",
+          "message": "Fix auto-renew core tracking on immediate renew (#10767)\n\n## Summary\nFix auto-renew tracking when `do_enable_auto_renew` triggers an\nimmediate renewal. The auto-renew record now follows the new core index\nreturned by `do_renew`, preventing a stale core from being\nrenewed in the next sale rotation.\n\nDiscovered by the Darwinia Network team while attempting a renew.\n\n## Problem\nWhen enabling auto-renew during the renewal window (`PotentialRenewals`\nat `sale.region_begin`), `do_enable_auto_renew` immediately calls\n`do_renew`. That call can allocate a *different* core\nindex, but the auto-renew record was stored with the **old** core. On\nthe next rotation, `renew_cores` attempts to renew that stale core and\nemits `AutoRenewalFailed`, even though the workload has\nalready moved to the new core.\n\n## Fix\nCapture the returned core index from `do_renew` inside\n`do_enable_auto_renew`, and store that core in `AutoRenewals` (and the\nenable event).\n\n## Tests\n- Added `enable_auto_renew_immediate_updates_core_and_renews`\n- `cargo test -p pallet-broker`\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10006\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-13T22:05:32Z",
+          "tree_id": "d40538ab29c12ab529aa5da38fef927d44adbba5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea05e170716a1bace2e2d8bad2d98c1fdcea224"
+        },
+        "date": 1768346229384,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1251602238666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.175302892833333,
             "unit": "seconds"
           }
         ]
