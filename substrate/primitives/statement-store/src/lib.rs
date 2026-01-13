@@ -49,8 +49,8 @@ pub const MAX_ANY_TOPICS: usize = 128;
 
 #[cfg(feature = "std")]
 pub use store_api::{
-	CheckedTopicFilter, Error, InvalidReason, RejectionReason, Result, StatementSource,
-	StatementStore, SubmitResult, TopicFilter,
+	CheckedTopicFilter, Error, FilterDecision, InvalidReason, RejectionReason, Result,
+	StatementSource, StatementStore, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]

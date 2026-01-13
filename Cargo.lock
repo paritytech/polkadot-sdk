@@ -10759,7 +10759,6 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-keystore",
  "sp-runtime",
- "sp-statement-store",
  "substrate-frame-rpc-system",
  "substrate-state-trie-migration-rpc",
 ]
@@ -14938,6 +14937,7 @@ dependencies = [
  "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives",
+ "polkadot-jemalloc-shim",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-common",
  "polkadot-node-core-pvf-execute-worker",
@@ -14946,7 +14946,6 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-rpc-client",
  "tempfile",
- "tikv-jemallocator",
  "tokio",
 ]
 
@@ -15215,6 +15214,17 @@ dependencies = [
  "sp-keystore",
  "sp-tracing 16.0.0",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-jemalloc-shim"
+version = "1.0.0"
+dependencies = [
+ "polkadot-cli",
+ "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-prepare-worker",
+ "polkadot-overseer",
+ "tikv-jemallocator",
 ]
 
 [[package]]
@@ -15880,6 +15890,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
 ]
@@ -16020,6 +16031,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "people-westend-runtime",
+ "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
  "sc-chain-spec",
  "sc-cli",
@@ -16480,8 +16492,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
- "polkadot-node-core-pvf-execute-worker",
- "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",

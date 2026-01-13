@@ -48,10 +48,6 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
-use sp_statement_store::{
-	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
-	Proof, SignatureVerificationResult, Statement,
-};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};

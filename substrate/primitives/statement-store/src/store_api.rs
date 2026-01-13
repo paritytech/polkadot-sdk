@@ -186,6 +186,17 @@ pub enum SubmitResult {
 /// Result type for `Error`
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Decision returned by the filter used in [`StatementStore::statements_by_hashes`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterDecision {
+	/// Skip this statement, continue to next.
+	Skip,
+	/// Take this statement, continue to next.
+	Take,
+	/// Stop iteration, return collected statements.
+	Abort,
+}
+
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
 	/// Return all statements.
@@ -204,6 +215,23 @@ pub trait StatementStore: Send + Sync {
 	///
 	/// Fast index check without accessing the DB.
 	fn has_statement(&self, hash: &Hash) -> bool;
+
+	/// Return all statement hashes.
+	fn statement_hashes(&self) -> Result<Vec<Hash>>;
+
+	/// Fetch statements by their hashes with a filter callback.
+	///
+	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:
+	/// - `Skip`: ignore this statement, continue to next
+	/// - `Take`: include this statement in the result, continue to next
+	/// - `Abort`: stop iteration, return collected statements so far
+	///
+	/// Returns (statements, number_of_hashes_processed).
+	fn statements_by_hashes(
+		&self,
+		hashes: &[Hash],
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<(Vec<(Hash, Statement)>, usize)>;
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.

@@ -18,12 +18,10 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 100; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 512;
 const MESSAGE_COUNT: usize = 1;
-const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
-const PROPAGATION_DELAY_MS: u64 = 2000;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
 /// Single-node benchmark.
@@ -554,25 +552,6 @@ impl Participant {
 		}
 	}
 
-	async fn wait_for_retry(&mut self) -> Result<(), anyhow::Error> {
-		if self.retry_count >= MAX_RETRIES {
-			return Err(anyhow!("No more retry attempts for participant {}", self.idx))
-		}
-
-		self.retry_count += 1;
-		if self.retry_count % 10 == 0 {
-			debug!(target: &self.log_target(), "Retry attempt {}", self.retry_count);
-		}
-		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
-
-		Ok(())
-	}
-
-	async fn wait_for_propagation(&mut self) {
-		trace!(target: &self.log_target(), "Waiting {}ms for propagation", PROPAGATION_DELAY_MS);
-		tokio::time::sleep(tokio::time::Duration::from_millis(PROPAGATION_DELAY_MS)).await;
-	}
-
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
 		let res = self
@@ -589,27 +568,6 @@ impl Participant {
 		trace!(target: &self.log_target(), "Submitted statement (counter: {})", self.sent_count);
 
 		Ok(())
-	}
-
-	async fn statement_broadcasts_statement(
-		&mut self,
-		topics: Vec<Topic>,
-	) -> Result<Vec<Statement>, anyhow::Error> {
-		let statements: Vec<Bytes> = self
-			.rpc_client_receive
-			.request("statement_broadcastsStatement", rpc_params![topics])
-			.await?;
-
-		let mut decoded_statements = Vec::new();
-		for statement_bytes in &statements {
-			let statement = Statement::decode(&mut &statement_bytes[..])?;
-			decoded_statements.push(statement);
-		}
-
-		self.received_count += decoded_statements.len() as u32;
-		trace!(target: &self.log_target(), "Received {} statements (counter: {})", decoded_statements.len(), self.received_count);
-
-		Ok(decoded_statements)
 	}
 
 	fn create_session_key_statement(&self) -> Statement {
@@ -657,14 +615,14 @@ impl Participant {
 	}
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
-		let mut pending = self.group_members.clone();
+		let pending = self.group_members.clone();
 
 		let mut subscriptions = Vec::new();
 
 		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
 
 		for idx in &pending {
-			let mut subscription = self
+			let subscription = self
 				.rpc_client_receive
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
@@ -730,14 +688,14 @@ impl Participant {
 	}
 
 	async fn receive_messages(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let mut pending: Vec<(u32, sr25519::Public)> =
+		let pending: Vec<(u32, sr25519::Public)> =
 			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
 
 		let mut subscriptions = Vec::new();
 
 		for &(sender_idx, sender_session_key) in &pending {
-			let mut subscription = self
+			let subscription = self
 				.rpc_client_receive
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
@@ -805,7 +763,6 @@ impl Participant {
 		let mut submit_time = Duration::ZERO;
 
 		self.barrier.wait().await;
-		let after_session = std::time::Instant::now();
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
 			let submit_start = std::time::Instant::now();

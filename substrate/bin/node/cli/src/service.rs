@@ -304,7 +304,7 @@ pub fn new_partial(
 		client.clone(),
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 
@@ -356,9 +356,12 @@ pub fn new_partial(
 						beefy_best_block_stream: beefy_rpc_links
 							.from_voter_best_beefy_stream
 							.clone(),
+						subscription_executor: subscription_executor.clone(),
+					},
+					statement_store: node_rpc::StatementStoreDeps {
+						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},
-					statement_store: rpc_statement_store.clone(),
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),
 				};
