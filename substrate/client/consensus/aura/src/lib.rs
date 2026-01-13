@@ -886,7 +886,10 @@ mod tests {
 			digest: Digest {
 				logs: vec![DigestItem::Consensus(
 					AURA_ENGINE_ID,
-					vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())].encode(),
+					ConsensusLog::AuthoritiesChange(vec![AuthorityId::<AuthorityPair>::from(
+						Keyring::Alice.public(),
+					)])
+					.encode(),
 				)],
 			},
 		};
