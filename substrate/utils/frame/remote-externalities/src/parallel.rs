@@ -86,32 +86,37 @@ pub(crate) async fn run_workers<W, F, Fut>(
 			let mut is_active = false;
 
 			loop {
-				let maybe_work = { work_queue.lock().unwrap().pop_front() };
+				let work = {
+					let mut queue = work_queue.lock().unwrap();
+					match queue.pop_front() {
+						Some(w) => {
+							if !is_active {
+								active_workers.fetch_add(1, Ordering::SeqCst);
+								is_active = true;
+							}
+							Some(w)
+						},
+						None => {
+							if is_active {
+								active_workers.fetch_sub(1, Ordering::SeqCst);
+								is_active = false;
+							}
+							None
+						},
+					}
+				};
 
-				let work = match maybe_work {
-					Some(w) => {
-						if !is_active {
-							active_workers.fetch_add(1, Ordering::SeqCst);
-							is_active = true;
-						}
-						w
-					},
-					None => {
-						if is_active {
-							active_workers.fetch_sub(1, Ordering::SeqCst);
-							is_active = false;
-						}
+				let Some(work) = work else {
+					// Prevent creating a busy loop.
+					sleep(Duration::from_millis(100)).await;
 
-						sleep(Duration::from_millis(100)).await;
+					let queue_len = work_queue.lock().unwrap().len();
+					let active = active_workers.load(Ordering::SeqCst);
 
-						let queue_len = work_queue.lock().unwrap().len();
-						let active = active_workers.load(Ordering::SeqCst);
-
-						if queue_len == 0 && active == 0 {
-							break;
-						}
-						continue;
-					},
+					if queue_len == 0 && active == 0 {
+						break;
+					}
+					continue;
 				};
 
 				let client = conn_manager.get(worker_index).await;
