@@ -821,6 +821,56 @@ pub mod pallet {
 			Self::do_cancel_time_named(Some(origin.caller().clone()), id)?;
 			Ok(())
 		}
+
+		/// Anonymously schedule a task after a delay (in milliseconds).
+		#[pallet::call_index(14)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn schedule_after_time(
+			origin: OriginFor<T>,
+			after: u64,
+			maybe_periodic: Option<(u64, u32)>,
+			priority: schedule::Priority,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let now: u64 = T::TimestampProvider::now().saturated_into();
+			let when = now.saturating_add(after);
+			Self::do_schedule_at_time(
+				when,
+				maybe_periodic,
+				priority,
+				origin.caller().clone(),
+				T::Preimages::bound(*call)?,
+			)?;
+			Ok(())
+		}
+
+		/// Schedule a named task after a delay (in milliseconds).
+		#[pallet::call_index(15)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn schedule_named_after_time(
+			origin: OriginFor<T>,
+			id: TaskName,
+			after: u64,
+			maybe_periodic: Option<(u64, u32)>,
+			priority: schedule::Priority,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let now: u64 = T::TimestampProvider::now().saturated_into();
+			let when = now.saturating_add(after);
+			Self::do_schedule_named_at_time(
+				id,
+				when,
+				maybe_periodic,
+				priority,
+				origin.caller().clone(),
+				T::Preimages::bound(*call)?,
+			)?;
+			Ok(())
+		}
 	}
 }
 
