@@ -29,6 +29,7 @@ jobs:
     permissions:
       pull-requests: write
     strategy:
+      fail-fast: false
       matrix:
         platform:
           ["revive-dev-node-revm-solc", "revive-dev-node-polkavm-resolc"]
