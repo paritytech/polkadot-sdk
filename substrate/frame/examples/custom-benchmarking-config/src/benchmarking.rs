@@ -65,4 +65,6 @@ mod benchmarks {
 		assert_eq!(NextId::<T>::get(), id);
 		assert_eq!(Registered::<T>::contains_key(id), true);
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::tests::Test);
 }

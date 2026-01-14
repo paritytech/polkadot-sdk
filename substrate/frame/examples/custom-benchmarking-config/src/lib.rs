@@ -89,6 +89,10 @@ mod tests {
 
 	impl pallet::Config for Test {}
 
+	impl benchmarking::BenchmarkConfig for Test {
+		type Helper = ();
+	}
+
 	#[allow(unused)]
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(Default::default())
