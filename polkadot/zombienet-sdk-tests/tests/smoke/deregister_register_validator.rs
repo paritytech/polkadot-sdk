@@ -8,14 +8,17 @@
 //! validator status metrics update correctly after session boundaries.
 
 use crate::utils::{
-	create_deregister_validator_call, create_register_validator_call, env_or_default,
-	initialize_network, ACTIVE_VALIDATOR_METRIC, INTEGRATION_IMAGE_ENV, PARACHAIN_VALIDATOR_METRIC,
+	env_or_default, initialize_network, ACTIVE_VALIDATOR_METRIC, INTEGRATION_IMAGE_ENV,
+	PARACHAIN_VALIDATOR_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_nth_session_change,
 };
 use std::str::FromStr;
+use zombienet_orchestrator::tx_helper::parachain::{
+	create_deregister_validator_call, create_register_validator_call,
+};
 use zombienet_sdk::{
 	subxt::{dynamic::Value, OnlineClient, PolkadotConfig},
 	subxt_signer::{
@@ -136,10 +139,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(polkadot_image.as_str())
 				.with_default_args(vec![("-lruntime=debug,parachain=trace").into()])
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
-				.with_node(|node| node.with_name("charlie"))
-				.with_node(|node| node.with_name("dave"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("charlie"))
+				.with_validator(|node| node.with_name("dave"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

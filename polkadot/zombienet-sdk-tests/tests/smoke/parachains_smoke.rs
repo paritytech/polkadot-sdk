@@ -58,11 +58,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(polkadot_image.as_str())
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("alice")
 						.with_args(vec![("-lruntime=debug,parachain=trace").into()])
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("bob")
 						.with_args(vec![("-lruntime=debug,parachain=trace").into()])
 				})

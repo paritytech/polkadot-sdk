@@ -3,11 +3,9 @@
 
 use anyhow::{anyhow, Context, Result};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
+use zombienet_orchestrator::tx_helper::parachain::{fetch_genesis_header, fetch_validation_code};
 use zombienet_sdk::{
-	subxt::{
-		dynamic::Value, ext::scale_value::value, tx, tx::DynamicPayload, OnlineClient,
-		PolkadotConfig,
-	},
+	subxt::{dynamic::Value, ext::scale_value::value, tx, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	LocalFileSystem, Network, NetworkConfig,
 };
@@ -62,86 +60,6 @@ pub async fn initialize_network(
 
 pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
-}
-
-/// Fetches the genesis header from a parachain node
-pub async fn fetch_genesis_header(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<Vec<u8>, anyhow::Error> {
-	use zombienet_sdk::subxt::ext::codec::Encode;
-	let genesis_hash = client.genesis_hash();
-	let header = client
-		.backend()
-		.block_header(genesis_hash)
-		.await?
-		.ok_or_else(|| anyhow!("Failed to fetch genesis header"))?;
-	Ok(header.encode())
-}
-
-/// Fetches the validation code from a parachain node
-pub async fn fetch_validation_code(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<Vec<u8>, anyhow::Error> {
-	let code_key = sp_core::storage::well_known_keys::CODE;
-	client
-		.storage()
-		.at_latest()
-		.await?
-		.fetch_raw(code_key)
-		.await?
-		.ok_or_else(|| anyhow!("Failed to fetch validation code"))
-}
-
-/// Creates a sudo call to deregister a validator
-pub fn create_deregister_validator_call(stash_account: Value) -> DynamicPayload {
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			ValidatorManager(deregister_validators { validators: (stash_account) })
-		}],
-	)
-}
-
-/// Creates a sudo call to register a validator
-pub fn create_register_validator_call(stash_account: Value) -> DynamicPayload {
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			ValidatorManager(register_validators { validators: (stash_account) })
-		}],
-	)
-}
-
-/// Creates a sudo batch call to register a parachain with trusted validation code
-pub fn create_register_para_call(
-	genesis_header: Vec<u8>,
-	validation_code: Vec<u8>,
-	para_id: u32,
-	registrar_account: Value,
-) -> DynamicPayload {
-	let genesis_head_value = Value::from_bytes(&genesis_header);
-	let validation_code_value = Value::from_bytes(&validation_code);
-	let validation_code_for_trusted = Value::from_bytes(&validation_code);
-
-	let add_trusted_code_call = value! {
-		Paras(add_trusted_validation_code { validation_code: validation_code_for_trusted })
-	};
-
-	let force_register_call = value! {
-		Registrar(force_register { who: registrar_account, deposit: 0u128, id: para_id, genesis_head: genesis_head_value, validation_code: validation_code_value })
-	};
-
-	let calls = vec![add_trusted_code_call, force_register_call];
-
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Utility(batch { calls: calls })
-		}],
-	)
 }
 
 /// Registers the given parachains by fetching their genesis header and validation code

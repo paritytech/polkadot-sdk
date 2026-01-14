@@ -157,20 +157,20 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			});
 
 		// Add first honest validator to transition type
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("honest-0").with_args(vec!["-lparachain=debug".into()])
 		});
 
 		// Add remaining 5 honest validators
 		let r = (1..6).fold(r, |acc, i| {
-			acc.with_node(|node| {
+			acc.with_validator(|node| {
 				node.with_name(&format!("honest-{i}"))
 					.with_args(vec!["-lparachain=debug".into()])
 			})
 		});
 
 		// Add malus validator
-		r.with_node(|node| {
+		r.with_validator(|node| {
 			node.with_name("malus")
 				.with_image(malus_image.as_str())
 				.with_command("malus")
