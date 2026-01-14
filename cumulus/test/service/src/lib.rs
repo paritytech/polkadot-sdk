@@ -23,7 +23,10 @@ pub mod bench_utils;
 
 pub mod chain_spec;
 
-use cumulus_client_collator::service::CollatorService;
+use cumulus_client_collator::{
+	metrics::CollatorMetrics,
+	service::{create_proof_size_check, CollatorService},
+};
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
@@ -441,12 +444,18 @@ where
 			None,
 		);
 
+		let collator_metrics =
+			prometheus_registry.as_ref().and_then(|r| CollatorMetrics::register(r).ok());
+
+		let proof_size_check = create_proof_size_check(client.clone(), collator_metrics.clone());
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
-		);
+			collator_metrics,
+		)
+		.with_proof_size_check(proof_size_check);
 
 		let client_for_aura = client.clone();
 

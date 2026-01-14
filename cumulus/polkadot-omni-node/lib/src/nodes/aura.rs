@@ -31,8 +31,9 @@ use crate::{
 	},
 };
 use codec::Encode;
-use cumulus_client_collator::service::{
-	CollatorService, ServiceInterface as CollatorServiceInterface,
+use cumulus_client_collator::{
+	metrics::CollatorMetrics,
+	service::{create_proof_size_check, CollatorService, ServiceInterface as CollatorServiceInterface},
 };
 #[docify::export(slot_based_colator_import)]
 use cumulus_client_consensus_aura::collators::slot_based::{
@@ -595,12 +596,18 @@ where
 			telemetry.clone(),
 		);
 
+		let collator_metrics =
+			prometheus_registry.and_then(|r| CollatorMetrics::register(r).ok());
+
+		let proof_size_check = create_proof_size_check(client.clone(), collator_metrics.clone());
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
-		);
+			collator_metrics,
+		)
+		.with_proof_size_check(proof_size_check);
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -740,12 +747,19 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
+
+		let collator_metrics =
+			prometheus_registry.and_then(|r| CollatorMetrics::register(r).ok());
+
+		let proof_size_check = create_proof_size_check(client.clone(), collator_metrics.clone());
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
-		);
+			collator_metrics,
+		)
+		.with_proof_size_check(proof_size_check);
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

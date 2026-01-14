@@ -4264,6 +4264,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-tracing 16.0.0",
+ "substrate-prometheus-endpoint",
  "tracing",
 ]
 
@@ -4753,6 +4754,7 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "sp-trie",
+ "sp-weights",
  "staging-xcm",
  "tracing",
 ]

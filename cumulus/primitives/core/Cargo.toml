@@ -20,6 +20,7 @@ tracing = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-trie = { workspace = true }
+sp-weights = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true }
@@ -38,6 +39,7 @@ std = [
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-trie/std",
+	"sp-weights/std",
 	"tracing/std",
 	"xcm/std",
 ]

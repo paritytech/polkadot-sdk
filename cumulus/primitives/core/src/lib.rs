@@ -513,4 +513,13 @@ sp_api::decl_runtime_apis! {
 		/// Returns the target number of blocks per relay chain slot.
 		fn target_block_rate() -> u32;
 	}
+
+	/// Runtime API to query the current block weight.
+	///
+	/// Used by collators to compare the runtime-reported proof size against the actual
+	/// proof size in the PoV for sanity checking.
+	pub trait BlockWeightApi {
+		/// Get the total consumed weight of the current block.
+		fn block_weight() -> sp_weights::Weight;
+	}
 }

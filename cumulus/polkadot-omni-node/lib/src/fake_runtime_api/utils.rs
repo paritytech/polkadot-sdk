@@ -249,6 +249,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl cumulus_primitives_core::BlockWeightApi<$block> for $runtime {
+				fn block_weight() -> sp_weights::Weight {
+					unimplemented!()
+				}
+			}
+
 			impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<$block> for $runtime {
 				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
 					unimplemented!()

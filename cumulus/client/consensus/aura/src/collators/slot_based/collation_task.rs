@@ -141,6 +141,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		};
 
 	block_data.log_size_info();
+	collator_service.check_proof_size_deviation(hash, &block_data);
 
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 		if let Some(pov_path) = export_pov {

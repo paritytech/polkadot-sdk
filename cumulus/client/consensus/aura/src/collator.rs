@@ -359,6 +359,7 @@ where
 			self.collator_service.build_collation(parent_header, hash, candidate.into())
 		{
 			block_data.log_size_info();
+			self.collator_service.check_proof_size_deviation(hash, &block_data);
 
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(

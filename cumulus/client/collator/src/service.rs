@@ -19,8 +19,11 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
+use cumulus_primitives_core::{
+	BlockWeightApi, CollationInfo, CollectCollationInfo, ParachainBlockData,
+};
 
+use crate::metrics::CollatorMetrics;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::BlockStatus;
@@ -71,7 +74,29 @@ pub trait ServiceInterface<Block: BlockT> {
 
 	/// Directly announce a block on the network.
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>);
+
+	/// Check the deviation between runtime-reported proof size and actual proof size.
+	///
+	/// This is a sanity check to detect discrepancies between what the runtime reports
+	/// as the consumed proof size in `BlockWeight` vs the actual proof size in the PoV.
+	///
+	/// Default implementation does nothing. Implementations that have access to runtimes
+	/// supporting [`BlockWeightApi`] should override this.
+	fn check_proof_size_deviation(
+		&self,
+		_block_hash: Block::Hash,
+		_block_data: &ParachainBlockData<Block>,
+	) {
+		// Default: no-op for runtimes that don't support BlockWeightApi
+	}
 }
+
+/// Callback type for proof size deviation checking.
+///
+/// This callback is invoked after building a collation to compare the runtime-reported
+/// proof size against the actual proof size.
+pub type ProofSizeCheckFn<Block> =
+	Arc<dyn Fn(<Block as BlockT>::Hash, &ParachainBlockData<Block>) + Send + Sync>;
 
 /// The [`CollatorService`] provides common utilities for parachain consensus and authoring.
 ///
@@ -83,6 +108,8 @@ pub struct CollatorService<Block: BlockT, BS, RA> {
 	wait_to_announce: Arc<Mutex<WaitToAnnounce<Block>>>,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	runtime_api: Arc<RA>,
+	metrics: Option<CollatorMetrics>,
+	proof_size_check: Option<ProofSizeCheckFn<Block>>,
 }
 
 impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
@@ -92,6 +119,8 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 			wait_to_announce: self.wait_to_announce.clone(),
 			announce_block: self.announce_block.clone(),
 			runtime_api: self.runtime_api.clone(),
+			metrics: self.metrics.clone(),
+			proof_size_check: self.proof_size_check.clone(),
 		}
 	}
 }
@@ -109,11 +138,19 @@ where
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 		runtime_api: Arc<RA>,
+		metrics: Option<CollatorMetrics>,
 	) -> Self {
 		let wait_to_announce =
 			Arc::new(Mutex::new(WaitToAnnounce::new(spawner, announce_block.clone())));
 
-		Self { block_status, wait_to_announce, announce_block, runtime_api }
+		Self {
+			block_status,
+			wait_to_announce,
+			announce_block,
+			runtime_api,
+			metrics,
+			proof_size_check: None,
+		}
 	}
 
 	/// Checks the status of the given block hash in the Parachain.
@@ -328,6 +365,85 @@ where
 	}
 }
 
+/// Builder methods for configuring optional features on [`CollatorService`].
+impl<Block, BS, RA> CollatorService<Block, BS, RA>
+where
+	Block: BlockT,
+	BS: BlockBackend<Block>,
+	RA: ProvideRuntimeApi<Block>,
+	RA::Api: CollectCollationInfo<Block>,
+{
+	/// Enable proof size deviation checking for this collator service.
+	///
+	/// This method should only be called when the runtime implements [`BlockWeightApi`].
+	/// Use [`create_proof_size_check`] to create the callback.
+	pub fn with_proof_size_check(mut self, check: ProofSizeCheckFn<Block>) -> Self {
+		self.proof_size_check = Some(check);
+		self
+	}
+}
+
+/// Create a proof size check callback for runtimes that implement [`BlockWeightApi`].
+///
+/// This function creates a callback that can be passed to
+/// [`CollatorService::with_proof_size_check`] to enable proof size deviation checking.
+pub fn create_proof_size_check<Block, RA>(
+	runtime_api: Arc<RA>,
+	metrics: Option<CollatorMetrics>,
+) -> ProofSizeCheckFn<Block>
+where
+	Block: BlockT,
+	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	RA::Api: BlockWeightApi<Block>,
+{
+	Arc::new(move |block_hash, block_data| {
+		let api = runtime_api.runtime_api();
+
+		let reported_weight = match api.block_weight(block_hash) {
+			Ok(weight) => weight,
+			Err(e) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					block_hash = ?block_hash,
+					error = ?e,
+					"Failed to fetch block weight from runtime API",
+				);
+				return;
+			},
+		};
+
+		let reported_proof_size = reported_weight.proof_size();
+		let actual_proof_size = block_data.proof().encoded_size() as u64;
+		let deviation = actual_proof_size as i64 - reported_proof_size as i64;
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			block_hash = ?block_hash,
+			%reported_proof_size,
+			%actual_proof_size,
+			%deviation,
+			"BlockWeight proof size sanity check",
+		);
+
+		// Warning threshold: 10KB deviation
+		const WARNING_THRESHOLD: i64 = 10_000;
+		if deviation.abs() > WARNING_THRESHOLD {
+			tracing::warn!(
+				target: LOG_TARGET,
+				block_hash = ?block_hash,
+				%reported_proof_size,
+				%actual_proof_size,
+				%deviation,
+				"Large BlockWeight proof size deviation detected",
+			);
+		}
+
+		if let Some(ref m) = metrics {
+			m.proof_size_deviation.observe(deviation as f64);
+		}
+	})
+}
+
 impl<Block, BS, RA> ServiceInterface<Block> for CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
@@ -357,5 +473,15 @@ where
 
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>) {
 		(self.announce_block)(block_hash, data)
+	}
+
+	fn check_proof_size_deviation(
+		&self,
+		block_hash: Block::Hash,
+		block_data: &ParachainBlockData<Block>,
+	) {
+		if let Some(ref check) = self.proof_size_check {
+			check(block_hash, block_data);
+		}
 	}
 }

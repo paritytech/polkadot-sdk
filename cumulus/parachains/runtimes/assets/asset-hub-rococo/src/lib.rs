@@ -1612,6 +1612,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::BlockWeightApi<Block> for Runtime {
+		fn block_weight() -> Weight {
+			System::block_weight().total()
+		}
+	}
+
 	impl pallet_asset_rewards::AssetRewards<Block, Balance> for Runtime {
 		fn pool_creation_cost() -> Balance {
 			StakePoolCreationDeposit::get()

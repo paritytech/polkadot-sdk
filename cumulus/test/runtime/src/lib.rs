@@ -615,6 +615,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::BlockWeightApi<Block> for Runtime {
+		fn block_weight() -> Weight {
+			System::block_weight().total()
+		}
+	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
