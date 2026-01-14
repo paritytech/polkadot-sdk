@@ -640,4 +640,17 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	/// Storage: `Broker::Workplan` (r:1 w:1)
+    /// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+    fn add_assignment() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `408`
+        //  Estimated: `4681`
+        // Minimum execution time: 15_911_000 picoseconds.
+        Weight::from_parts(16_782_000, 4681)
+		    .saturating_add(Weight::from_parts(0, 4681))
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
 }
