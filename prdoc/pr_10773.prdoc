@@ -1,4 +1,4 @@
-title: '[WIP][pallet-revive] added ForeignAssetIdExtractor'
+title: '[pallet-revive] added ForeignAssetIdExtractor'
 doc:
 - audience: Runtime Dev
   description: |-
