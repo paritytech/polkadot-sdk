@@ -1712,15 +1712,15 @@ macro_rules! implement_fixed {
 
 				// Max - 1.
 				let b = $name::from_inner(inner_max - 1);
-				assert_eq!(a.const_checked_mul((b / 2.into())), Some(b));
+				assert_eq!(a.const_checked_mul(b / 2.into()), Some(b));
 
 				// Max.
 				let c = $name::from_inner(inner_max);
-				assert_eq!(a.const_checked_mul((c / 2.into())), Some(b));
+				assert_eq!(a.const_checked_mul(c / 2.into()), Some(b));
 
 				// Max + 1 => None.
 				let e = $name::from_inner(1);
-				assert_eq!(a.const_checked_mul((c / 2.into() + e)), None);
+				assert_eq!(a.const_checked_mul(c / 2.into() + e), None);
 
 				if $name::SIGNED {
 					// Min + 1.
