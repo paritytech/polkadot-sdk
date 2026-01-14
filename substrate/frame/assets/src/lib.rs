@@ -252,12 +252,14 @@ pub trait ToAssetIndex {
 	fn to_asset_index(&self) -> u32;
 }
 
+/// Implemented for trust-backed assets and pool assets.
 impl ToAssetIndex for u32 {
 	fn to_asset_index(&self) -> u32 {
 		*self
 	}
 }
 
+/// Implemented for foreign assets.
 impl ToAssetIndex for xcm::v5::Location {
 	fn to_asset_index(&self) -> u32 {
 		use codec::Encode;
