@@ -23,7 +23,6 @@
 
 //! Benchmarking for `pallet-example-custom-benchmarking-config`.
 
-// Only enable this module for benchmarking.
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;

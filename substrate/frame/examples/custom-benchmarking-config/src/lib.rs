@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! # Custom Config Pallet
+//! # Pallet
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
