@@ -113,6 +113,18 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Broker::SaleInfo` (r:1 w:1)
+    /// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
+    fn reset_base_price() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `197`
+        //  Estimated: `1542`
+        // Minimum execution time: 11_000_000 picoseconds.
+        Weight::from_parts(11_500_000, 0)
+            .saturating_add(Weight::from_parts(0, 1542))
+            .saturating_add(T::DbWeight::get().reads(1))
+            .saturating_add(T::DbWeight::get().writes(1))
+    }
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Leases` (r:1 w:1)
