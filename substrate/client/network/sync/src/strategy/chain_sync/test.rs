@@ -93,7 +93,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -159,7 +159,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		8,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -366,7 +366,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -525,7 +525,7 @@ fn can_sync_huge_fork() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -674,7 +674,7 @@ fn syncs_fork_without_duplicate_requests() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -823,7 +823,7 @@ fn removes_target_fork_on_disconnect() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -859,7 +859,7 @@ fn can_import_response_with_missing_blocks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -901,7 +901,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1054,7 +1054,7 @@ fn request_across_forks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1163,7 +1163,7 @@ fn sync_verification_failed_with_gap_filled() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1302,7 +1302,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		BlocksPruning::Some(256),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1360,16 +1360,11 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 fn gap_sync_body_request_depends_on_pruning_mode() {
 	sp_tracing::try_init_simple();
 
-	// Test data: (pruning_mode_name, blocks_pruning, should_request_bodies)
-	let test_cases = vec![
-		("KeepAll", BlocksPruning::KeepAll, true),
-		("KeepFinalized", BlocksPruning::KeepFinalized, true),
-		("Some(256)", BlocksPruning::Some(256), false),
-		("Some(1000)", BlocksPruning::Some(1000), false),
-	];
+	// Test data: (mode_name, archive_all_blocks, should_request_bodies)
+	let test_cases = vec![("archive", true, true), ("non-archive", false, false)];
 
-	for (mode_name, blocks_pruning, should_request_bodies) in test_cases {
-		log::info!("Testing gap sync with pruning mode: {}", mode_name);
+	for (mode_name, archive_all_blocks, should_request_bodies) in test_cases {
+		log::info!("Testing gap sync with archive_all_blocks: {}", archive_all_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1381,7 +1376,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			blocks_pruning,
+			archive_all_blocks,
 			None,
 			std::iter::empty(),
 		)
@@ -1426,14 +1421,10 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	// Verify that regular (non-gap) sync always requests bodies,
 	// regardless of pruning mode - our optimization only applies to gap sync
 
-	let test_cases = vec![
-		("KeepAll", BlocksPruning::KeepAll),
-		("KeepFinalized", BlocksPruning::KeepFinalized),
-		("Some(256)", BlocksPruning::Some(256)),
-	];
+	let test_cases = vec![("archive", true), ("non-archive", false)];
 
-	for (mode_name, blocks_pruning) in test_cases {
-		log::info!("Testing regular sync with pruning mode: {}", mode_name);
+	for (mode_name, archive_all_blocks) in test_cases {
+		log::info!("Testing regular sync with archive_all_blocks: {}", archive_all_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1445,7 +1436,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			blocks_pruning,
+			archive_all_blocks,
 			None,
 			std::iter::empty(),
 		)

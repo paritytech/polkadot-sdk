@@ -46,7 +46,6 @@ use sc_client_api::{
 	BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 	FinalityNotifications, ImportNotifications,
 };
-use sc_client_db::BlocksPruning;
 use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxJustificationImport,
 	ForkChoiceStrategy, ImportQueue, ImportResult, JustificationImport, JustificationSyncLink,
@@ -926,12 +925,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 			<Block as BlockT>::Hash,
 		>>::register_notification_metrics(None);
 
-		let blocks_pruning = if let Some(blocks_pruning) = config.blocks_pruning {
-			BlocksPruning::Some(blocks_pruning)
-		} else {
-			BlocksPruning::KeepAll
-		};
-
 		let syncing_config = PolkadotSyncingStrategyConfig {
 			mode: network_config.sync_mode,
 			max_parallel_downloads: network_config.max_parallel_downloads,
@@ -940,7 +933,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			blocks_pruning,
+			archive_all_blocks: config.blocks_pruning.is_none(),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

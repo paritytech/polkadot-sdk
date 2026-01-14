@@ -35,7 +35,6 @@ use crate::{
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
-use sc_client_db::BlocksPruning;
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::ProtocolName;
 use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
@@ -74,8 +73,9 @@ where
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
-	/// Blocks pruning mode
-	pub blocks_pruning: BlocksPruning,
+	/// Whether to archive all blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	pub archive_all_blocks: bool,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
@@ -383,7 +383,7 @@ where
 				config.max_blocks_per_request,
 				config.state_request_protocol_name.clone(),
 				config.block_downloader.clone(),
-				config.blocks_pruning,
+				config.archive_all_blocks,
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
@@ -436,7 +436,7 @@ where
 						self.config.max_blocks_per_request,
 						self.config.state_request_protocol_name.clone(),
 						self.config.block_downloader.clone(),
-						self.config.blocks_pruning,
+						self.config.archive_all_blocks,
 						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
@@ -467,7 +467,7 @@ where
 				self.config.max_blocks_per_request,
 				self.config.state_request_protocol_name.clone(),
 				self.config.block_downloader.clone(),
-				self.config.blocks_pruning,
+				self.config.archive_all_blocks,
 				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)

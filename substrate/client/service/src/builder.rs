@@ -1054,7 +1054,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
-		config.blocks_pruning,
+		config.blocks_pruning.is_archive(),
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1324,8 +1324,9 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
-	/// Blocks pruning mode.
-	pub blocks_pruning: BlocksPruning,
+	/// Whether to archive all blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	pub archive_all_blocks: bool,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1358,7 +1359,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
-		blocks_pruning,
+		archive_all_blocks,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1379,7 +1380,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
-		blocks_pruning,
+		archive_all_blocks,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1447,7 +1448,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
-	blocks_pruning: BlocksPruning,
+	archive_all_blocks: bool,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1516,7 +1517,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
-		blocks_pruning,
+		archive_all_blocks,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

@@ -50,7 +50,6 @@ use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
-use sc_client_db::BlocksPruning;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
@@ -212,13 +211,15 @@ struct GapSyncStats {
 	body_bytes: usize,
 	/// Size of justifications downloaded during gap sync
 	justification_bytes: usize,
-	/// Block bytes received over the wire
-	block_bytes: usize,
 }
 
 impl GapSyncStats {
 	fn new() -> Self {
 		Self::default()
+	}
+
+	fn total_bytes(&self) -> usize {
+		self.header_bytes + self.body_bytes + self.justification_bytes
 	}
 
 	fn bytes_to_mb(bytes: usize) -> f64 {
@@ -228,6 +229,7 @@ impl GapSyncStats {
 
 impl fmt::Display for GapSyncStats {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let total = self.total_bytes();
 		write!(
 			f,
 			"hdr: {} B ({:.2} MB), body: {} B ({:.2} MB), just: {} B ({:.2} MB) | total: {} B ({:.2} MB)",
@@ -237,8 +239,8 @@ impl fmt::Display for GapSyncStats {
 			Self::bytes_to_mb(self.body_bytes),
 			self.justification_bytes,
 			Self::bytes_to_mb(self.justification_bytes),
-			self.block_bytes,
-			Self::bytes_to_mb(self.block_bytes),
+			total,
+			Self::bytes_to_mb(total),
 		)
 	}
 }
@@ -248,7 +250,6 @@ impl AddAssign for GapSyncStats {
 		self.header_bytes += other.header_bytes;
 		self.body_bytes += other.body_bytes;
 		self.justification_bytes += other.justification_bytes;
-		self.block_bytes += other.block_bytes;
 	}
 }
 
@@ -288,9 +289,10 @@ impl ChainSyncMode {
 		};
 		// Skip body requests for gap sync only if not in archive mode.
 		// Archive nodes need bodies to maintain complete block history.
-		match (is_gap, is_archive) {
-			(true, false) => attrs & !BlockAttributes::BODY,
-			(_, _) => attrs,
+		if is_gap && !is_archive {
+			attrs & !BlockAttributes::BODY
+		} else {
+			attrs
 		}
 	}
 }
@@ -412,8 +414,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Blocks pruning mode
-	blocks_pruning: BlocksPruning,
+	/// Whether to archive all blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	archive_all_blocks: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -1020,7 +1023,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		blocks_pruning: BlocksPruning,
+		archive_all_blocks: bool,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -1044,7 +1047,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			blocks_pruning,
+			archive_all_blocks,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1069,22 +1072,18 @@ where
 
 	/// Complete the gap sync if the target number is reached and there is a gap.
 	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
-		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
-		if gap_sync_complete {
-			if let Some(gap_sync) = &self.gap_sync {
-				info!(
-					target: LOG_TARGET,
-					"Block history download is complete. Total downloaded - {}",
-					gap_sync.stats
-				);
-			} else {
-				info!(
-					target: LOG_TARGET,
-					"Block history download is complete."
-				);
-			}
-			self.gap_sync = None;
+		let Some(gap_sync) = &self.gap_sync else { return };
+
+		if gap_sync.target != number {
+			return
 		}
+
+		info!(
+			target: LOG_TARGET,
+			"Block history download is complete. Total downloaded - {}",
+			gap_sync.stats
+		);
+		self.gap_sync = None;
 	}
 
 	#[must_use]
@@ -1277,7 +1276,6 @@ where
 								.ready_blocks(gap_sync.best_queued_number + One::one())
 								.into_iter()
 								.map(|block_data| {
-									let block_bytes = block_data.block.encoded_size();
 									let justifications =
 										block_data.block.justifications.or_else(|| {
 											legacy_justification_mapping(
@@ -1285,7 +1283,6 @@ where
 											)
 										});
 									let gap_sync_stats = GapSyncStats {
-										block_bytes,
 										header_bytes: block_data
 											.block
 											.header
@@ -1303,13 +1300,6 @@ where
 											.map(|j| j.encoded_size())
 											.unwrap_or(0),
 									};
-
-									trace!(
-										target: LOG_TARGET,
-										"Draining gap block {} ({:?}) stats: {gap_sync_stats}",
-										block_data.block.hash,
-										block_data.block.header.as_ref().map(|h| *h.number()),
-									);
 									batch_gap_sync_stats += gap_sync_stats;
 
 									IncomingBlock {
@@ -1329,7 +1319,7 @@ where
 
 							debug!(
 								target: LOG_TARGET,
-								"Drained {} gap blocks from {}, stats: {batch_gap_sync_stats}",
+								"Drained {} gap blocks from {}",
 								blocks.len(),
 								gap_sync.best_queued_number,
 							);
@@ -1337,7 +1327,7 @@ where
 							gap_sync.stats += batch_gap_sync_stats;
 
 							if blocks.len() > 0 {
-								debug!(
+								trace!(
 									target: LOG_TARGET,
 									"Gap sync cumulative stats: {}",
 									gap_sync.stats
@@ -1939,7 +1929,7 @@ where
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
-		let is_archive = self.blocks_pruning.is_archive();
+		let is_archive = self.archive_all_blocks;
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized =

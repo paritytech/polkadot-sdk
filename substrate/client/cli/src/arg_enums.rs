@@ -291,8 +291,8 @@ pub enum SyncMode {
 	FastUnsafe,
 	/// Prove finality and download the latest state.
 	/// After warp sync completes, the node will have block headers but not bodies for historical
-	/// blocks (unless archive mode is enabled). This saves bandwidth while still allowing the
-	/// node to serve as a warp sync source for other nodes.
+	/// blocks (unless `blocks-pruning` is set to archive mode). This saves bandwidth while still
+	/// allowing the node to serve as a warp sync source for other nodes.
 	Warp,
 }
 
