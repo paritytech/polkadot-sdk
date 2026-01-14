@@ -38,12 +38,13 @@ jobs:
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
       - name: Run revive differential tests
-        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@main
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@1231a9b6c53ffe7e4ee5cd40add504d4d9f5ff06
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
           revive-differential-tests-ref: "main"
           resolc-version: "0.5.0"
+          expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
   evm-test-suite:
     needs: [preflight]
