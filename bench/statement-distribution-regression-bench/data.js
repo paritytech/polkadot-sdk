@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768346352382,
+  "lastUpdate": 1768395463915,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "donal.murray@parity.io",
-            "name": "Dónal Murray",
-            "username": "seadanda"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f96dfb73ff0472a5087451fd0227949b44756478",
-          "message": "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them (#4081)\n\nThis PR force removes regions from the pool before allowing them to be\nredispatched (through `partition`/`interlace`/`assign`) in the case that\na region was pooled with `Provisional` finality.\n\nThis PR does not account for the case where a pooled region already\nentitles the benefactor to a contribution reward before the point of it\nbeing redispatched. However, `claim_revenue` should be called before\ntrying to redispatch a region anyway.\nOtherwise there would be ambiguity as to what should be done with the\nfirst part of a partitioned region. The first of the two new regions\nactually has the exact same `region_id` as the original region -- leave\nit pooled/withdraw from pool/claim contribution then withdraw?\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T10:33:18Z",
-          "tree_id": "9252b4ba357a052894712e133e0ddc077a35254b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f96dfb73ff0472a5087451fd0227949b44756478"
-        },
-        "date": 1749815904544,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999992,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044408347663999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03396409516599999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0671888849199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
+          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-01-14T11:50:36Z",
+          "tree_id": "36107140a1792163eace77a49154710099d32009",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
+        },
+        "date": 1768395440004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.01999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866505688600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06783323763799992,
             "unit": "seconds"
           }
         ]
