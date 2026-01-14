@@ -998,10 +998,7 @@ pub mod pallet {
 
 			ensure!(AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
 			let account_id = AssetIdToAssetIndex::<T, I>::get(&id).unwrap();
-			ensure!(
-				AssetIndexToAssetId::<T, I>::contains_key(&account_id),
-				Error::<T, I>::Unknown
-			);
+			ensure!(AssetIndexToAssetId::<T, I>::contains_key(&account_id), Error::<T, I>::Unknown);
 			AssetIndexToAssetId::<T, I>::remove(&account_id);
 			AssetIdToAssetIndex::<T, I>::remove(&id);
 			Ok(())
