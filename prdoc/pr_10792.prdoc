@@ -5,7 +5,7 @@ doc:
     \ the current and next region `WorkPlan`. The issue is that at the next sale rotation\
     \ we override all unused cores. As the sale rotation isn't aware of the forcefully\
     \ registered core, also the force reserved core is overwritten and the parachain\
-    \ looses their coretime for one region (it comes back in the next region). To\
+    \ loses their coretime for one region (it comes back in the next region). To\
     \ fix this we now keep track of forcefully registered reserves. We input them\
     \ alongside the other reservations into the workplan, but for the current region\
     \ using any free cores from the previous sale.\r\n"
