@@ -772,6 +772,30 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// Schedule a named task at a specific timestamp (in milliseconds since Unix epoch).
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn schedule_named_at_time(
+			origin: OriginFor<T>,
+			id: TaskName,
+			when: u64,
+			maybe_periodic: Option<(u64, u32)>,
+			priority: schedule::Priority,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			Self::do_schedule_named_at_time(
+				id,
+				when,
+				maybe_periodic,
+				priority,
+				origin.caller().clone(),
+				T::Preimages::bound(*call)?,
+			)?;
+			Ok(())
+		}
 	}
 }
 
@@ -1356,6 +1380,52 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(hash) = lookup_hash {
 			// Request the call to be made available.
+			T::Preimages::request(&hash);
+		}
+
+		Ok(res)
+	}
+
+	/// Schedule a named task at a specific timestamp.
+	fn do_schedule_named_at_time(
+		id: TaskName,
+		when: u64,
+		maybe_periodic: Option<(u64, u32)>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+	) -> Result<(u64, u32), DispatchError> {
+		// Ensure id is unique
+		if TimeLookup::<T>::contains_key(&id) {
+			return Err(Error::<T>::FailedToSchedule.into());
+		}
+
+		let now = T::TimestampProvider::now();
+		let now_ms: u64 = now.saturated_into();
+
+		if when <= now_ms {
+			return Err(Error::<T>::TargetTimestampInPast.into());
+		}
+
+		let lookup_hash = call.lookup_hash();
+
+		// Sanitize maybe_periodic
+		let maybe_periodic = maybe_periodic
+			.filter(|p| p.1 > 1 && p.0 > 0)
+			.map(|(p, c)| (p, c - 1));
+
+		let task = Scheduled {
+			maybe_id: Some(id),
+			priority,
+			call,
+			maybe_periodic,
+			origin,
+			_phantom: PhantomData,
+		};
+
+		let res = Self::place_time_task(when, task).map_err(|x| x.0)?;
+
+		if let Some(hash) = lookup_hash {
 			T::Preimages::request(&hash);
 		}
 
