@@ -835,6 +835,7 @@ impl<T: Config> Pallet<T> {
 					if let Some(s) = agenda.get_mut(i) {
 						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
 							Self::ensure_privilege(o, &s.origin)?;
+							Retries::<T>::remove((when, index));
 							T::Preimages::drop(&s.call);
 						}
 						*s = None;
@@ -873,47 +874,6 @@ impl<T: Config> Pallet<T> {
 		Retries::<T>::remove((when, index));
 		Ok(())
 	}
-
-	/// Schedule a retry for a task that failed.
-	fn schedule_retry(
-		weight: &mut WeightMeter,
-		now: MomentFor<T>,
-		when: MomentFor<T>,
-		agenda_index: u32,
-		task: &ScheduledOf<T>,
-		retry_config: RetryConfig<MomentFor<T>>,
-	) {
-		if weight
-			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerMinute::get()))
-			.is_err()
-		{
-			Self::deposit_event(Event::RetryFailed {
-				task: (when, agenda_index),
-				id: task.maybe_id,
-			});
-			return;
-		}
-
-		let RetryConfig { total_retries, mut remaining, period } = retry_config;
-		remaining = match remaining.checked_sub(1) {
-			Some(n) => n,
-			None => return,
-		};
-		let wake = now.saturating_add(period);
-		match Self::place_task(wake, task.as_retry()) {
-			Ok(address) => {
-				// Reinsert the retry config to the new address of the task after it was placed.
-				Retries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
-			},
-			Err((_, task)) => {
-				T::Preimages::drop(&task.call);
-				Self::deposit_event(Event::RetryFailed {
-					task: (when, agenda_index),
-					id: task.maybe_id,
-				});
-			},
-		}
-	}
 }
 
 enum ServiceTaskError {
@@ -925,58 +885,6 @@ enum ServiceTaskError {
 use ServiceTaskError::*;
 
 impl<T: Config> Pallet<T> {
-	/// Make a dispatch to the given `call` from the given `origin`, ensuring that the `weight`
-	/// counter does not exceed its limit and that it is counted accurately (e.g. accounted using
-	/// post info if available).
-	///
-	/// NOTE: Only the weight for this function will be counted (origin lookup, dispatch and the
-	/// call itself).
-	///
-	/// Returns an error if the call is overweight.
-	fn execute_dispatch(
-		weight: &mut WeightMeter,
-		origin: T::PalletsOrigin,
-		call: <T as Config>::RuntimeCall,
-	) -> Result<DispatchResult, ()> {
-		let base_weight = match origin.as_system_ref() {
-			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
-			_ => T::WeightInfo::execute_dispatch_unsigned(),
-		};
-		let call_weight = call.get_dispatch_info().call_weight;
-		// We only allow a scheduled call if it cannot push the weight past the limit.
-		let max_weight = base_weight.saturating_add(call_weight);
-
-		if !weight.can_consume(max_weight) {
-			return Err(());
-		}
-
-		let dispatch_origin = origin.into();
-		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
-			Ok(post_info) => (post_info.actual_weight, Ok(())),
-			Err(error_and_info) => {
-				(error_and_info.post_info.actual_weight, Err(error_and_info.error))
-			},
-		};
-		let call_weight = maybe_actual_call_weight.unwrap_or(call_weight);
-		let _ = weight.try_consume(base_weight);
-		let _ = weight.try_consume(call_weight);
-		Ok(result)
-	}
-
-	/// Ensure that `left` has at least the same level of privilege or higher than `right`.
-	///
-	/// Returns an error if `left` has a lower level of privilege or the two cannot be compared.
-	fn ensure_privilege(
-		left: &<T as Config>::PalletsOrigin,
-		right: &<T as Config>::PalletsOrigin,
-	) -> Result<(), DispatchError> {
-		if matches!(T::OriginPrivilegeCmp::cmp_privilege(left, right), Some(Ordering::Less) | None)
-		{
-			return Err(BadOrigin.into());
-		}
-		Ok(())
-	}
-
 	/// Service agendas starting from the earliest incomplete minute.
 	fn service_agendas(weight: &mut WeightMeter, now: MomentFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
@@ -1174,6 +1082,99 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 	}
+
+	/// Make a dispatch to the given `call` from the given `origin`, ensuring that the `weight`
+	/// counter does not exceed its limit and that it is counted accurately (e.g. accounted using
+	/// post info if available).
+	///
+	/// NOTE: Only the weight for this function will be counted (origin lookup, dispatch and the
+	/// call itself).
+	///
+	/// Returns an error if the call is overweight.
+	fn execute_dispatch(
+		weight: &mut WeightMeter,
+		origin: T::PalletsOrigin,
+		call: <T as Config>::RuntimeCall,
+	) -> Result<DispatchResult, ()> {
+		let base_weight = match origin.as_system_ref() {
+			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
+			_ => T::WeightInfo::execute_dispatch_unsigned(),
+		};
+		let call_weight = call.get_dispatch_info().call_weight;
+		// We only allow a scheduled call if it cannot push the weight past the limit.
+		let max_weight = base_weight.saturating_add(call_weight);
+
+		if !weight.can_consume(max_weight) {
+			return Err(());
+		}
+
+		let dispatch_origin = origin.into();
+		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
+			Ok(post_info) => (post_info.actual_weight, Ok(())),
+			Err(error_and_info) => {
+				(error_and_info.post_info.actual_weight, Err(error_and_info.error))
+			},
+		};
+		let call_weight = maybe_actual_call_weight.unwrap_or(call_weight);
+		let _ = weight.try_consume(base_weight);
+		let _ = weight.try_consume(call_weight);
+		Ok(result)
+	}
+
+	/// Schedule a retry for a task that failed.
+	fn schedule_retry(
+		weight: &mut WeightMeter,
+		now: MomentFor<T>,
+		when: MomentFor<T>,
+		agenda_index: u32,
+		task: &ScheduledOf<T>,
+		retry_config: RetryConfig<MomentFor<T>>,
+	) {
+		if weight
+			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerMinute::get()))
+			.is_err()
+		{
+			Self::deposit_event(Event::RetryFailed {
+				task: (when, agenda_index),
+				id: task.maybe_id,
+			});
+			return;
+		}
+
+		let RetryConfig { total_retries, mut remaining, period } = retry_config;
+		remaining = match remaining.checked_sub(1) {
+			Some(n) => n,
+			None => return,
+		};
+		let wake = now.saturating_add(period);
+		match Self::place_task(wake, task.as_retry()) {
+			Ok(address) => {
+				// Reinsert the retry config to the new address of the task after it was placed.
+				Retries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
+			},
+			Err((_, task)) => {
+				T::Preimages::drop(&task.call);
+				Self::deposit_event(Event::RetryFailed {
+					task: (when, agenda_index),
+					id: task.maybe_id,
+				});
+			},
+		}
+	}
+
+	/// Ensure that `left` has at least the same level of privilege or higher than `right`.
+	///
+	/// Returns an error if `left` has a lower level of privilege or the two cannot be compared.
+	fn ensure_privilege(
+		left: &<T as Config>::PalletsOrigin,
+		right: &<T as Config>::PalletsOrigin,
+	) -> Result<(), DispatchError> {
+		if matches!(T::OriginPrivilegeCmp::cmp_privilege(left, right), Some(Ordering::Less) | None)
+		{
+			return Err(BadOrigin.into());
+		}
+		Ok(())
+	}
 }
 
 use time_schedule::v1::TaskName;
@@ -1182,7 +1183,7 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 	for Pallet<T>
 {
 	type Address = TaskAddress<MomentFor<T>>;
-	type Hasher = <T as frame_system::Config>::Hashing;
+	type Hasher = T::Hashing;
 
 	fn schedule(
 		when: DispatchTime<MomentFor<T>>,
@@ -1220,7 +1221,7 @@ impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCal
 	for Pallet<T>
 {
 	type Address = TaskAddress<MomentFor<T>>;
-	type Hasher = <T as frame_system::Config>::Hashing;
+	type Hasher = T::Hashing;
 
 	fn schedule_named(
 		id: TaskName,
