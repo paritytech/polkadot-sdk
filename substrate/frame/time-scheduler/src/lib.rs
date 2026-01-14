@@ -624,6 +624,24 @@ impl<T: Config> Pallet<T> {
 		timestamp / 60_000u32.into()
 	}
 
+	fn resolve_time(when: DispatchTime<MomentFor<T>>) -> Result<MomentFor<T>, DispatchError> {
+		let now = T::TimestampProvider::now();
+		let when = match when {
+			DispatchTime::At(x) => x,
+			// The current minute has already completed its scheduled tasks, so
+			// schedule the task at least one minute after the current minute.
+			DispatchTime::After(x) => now
+				.saturating_add(x)
+				.saturating_add(60_000u32.into()),
+		};
+
+		if when <= now {
+			return Err(Error::<T>::TargetTimestampInPast.into());
+		}
+
+		Ok(when)
+	}
+
 	/// Place a task in the agenda and update lookup if named.
 	fn place_task(
 		when: MomentFor<T>,
@@ -634,7 +652,7 @@ impl<T: Config> Pallet<T> {
 		let index = Self::push_to_agenda(minute, what)?;
 		let address = (minute, index);
 		if let Some(name) = maybe_name {
-			Lookup::<T>::insert(name, address);
+			Lookup::<T>::insert(name, address)
 		}
 		Self::deposit_event(Event::Scheduled { when: minute, index });
 		Ok(address)
@@ -686,13 +704,7 @@ impl<T: Config> Pallet<T> {
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
-		let now = T::TimestampProvider::now();
-		let when = when.evaluate(now);
-
-		// Ensure the target time is in the future
-		if when <= now {
-			return Err(Error::<T>::TargetTimestampInPast.into());
-		}
+		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
 
@@ -755,12 +767,7 @@ impl<T: Config> Pallet<T> {
 		(when, index): TaskAddress<MomentFor<T>>,
 		new_time: DispatchTime<MomentFor<T>>,
 	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
-		let now = T::TimestampProvider::now();
-		let new_time = new_time.evaluate(now);
-
-		if new_time <= now {
-			return Err(Error::<T>::TargetTimestampInPast.into());
-		}
+		let new_time = Self::resolve_time(new_time)?;
 
 		let task = Agenda::<T>::try_mutate(
 			when,
@@ -794,12 +801,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::FailedToSchedule.into());
 		}
 
-		let now = T::TimestampProvider::now();
-		let when = when.evaluate(now);
-
-		if when <= now {
-			return Err(Error::<T>::TargetTimestampInPast.into());
-		}
+		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
 
