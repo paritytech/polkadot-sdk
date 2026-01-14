@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768346286390,
+  "lastUpdate": 1768395398155,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4413b73fef7b3c18dd79aaa75322fee6da2e34d7",
-          "message": "Eth transaction do not double bump the nonce (#8829)\n\nAdd an extra `eth_instantiate_with_code` dispatchable that is used by\nthe EVM compatibility layer and ensure that the origin's nonce is only\nincremented once\n\nFixes https://github.com/paritytech/contract-issues/issues/64\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-06-13T14:29:27Z",
-          "tree_id": "3bcdd2b0980e306ab0e381a2ef5238dd74fba94c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4413b73fef7b3c18dd79aaa75322fee6da2e34d7"
-        },
-        "date": 1749829643189,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02260892061333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013096007533333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009172347473333413,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1576212746600001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007185485800000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
+          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-01-14T11:50:36Z",
+          "tree_id": "36107140a1792163eace77a49154710099d32009",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
+        },
+        "date": 1768395374070,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14373588527333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02321140406,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009912981653333371,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0067293502266666675,
             "unit": "seconds"
           }
         ]
