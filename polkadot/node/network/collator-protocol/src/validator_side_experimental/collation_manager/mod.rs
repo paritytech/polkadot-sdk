@@ -1191,6 +1191,8 @@ fn process_collation_fetch_result(
 
 #[cfg(test)]
 mod tests {
+	use crate::validator_side_experimental::common::MAX_SCORE;
+
 	use super::*;
 	use std::sync::Arc;
 
@@ -1202,17 +1204,23 @@ mod tests {
 		let now = Instant::now();
 		let no_fetch_delay = now.checked_sub(UNDER_THRESHOLD_FETCH_DELAY).unwrap();
 		let small_fetch_delay = no_fetch_delay.checked_add(Duration::from_millis(1)).unwrap();
+		let instant_fetch_threshold = INSTANT_FETCH_REP_THRESHOLD;
 
 		let peer_1 = PeerId::random();
 		let peer_2 = PeerId::random();
 		let peer_3 = PeerId::random();
 		let peer_4 = PeerId::random();
+		let trusted_peer = PeerId::random();
+
+		assert!(INSTANT_FETCH_REP_THRESHOLD > Score::new(100).unwrap());
+
 		let get_peer_rep = |peer_id: &PeerId, _para_id: &ParaId| -> Option<Score> {
 			match peer_id {
 				peer if peer == &peer_1 => Some(Score::new(50).unwrap()),
 				peer if peer == &peer_2 => Some(Score::new(75).unwrap()),
 				peer if peer == &peer_3 => Some(Score::new(99).unwrap()),
 				peer if peer == &peer_4 => Some(Score::new(100).unwrap()),
+				peer if peer == &trusted_peer => Some(Score::new(MAX_SCORE).unwrap()),
 				_ => None,
 			}
 		};
@@ -1235,14 +1243,30 @@ mod tests {
 
 		// available advertisements:
 		// - peer 1 (rep: 50), fetch_delay: 1 ms
-		// - peer 1 (rep: 75), fetch_delay: 1 ms
-		// - peer 1 (rep: 99), fetch_delay: 1 ms
-		// - peer 1 (rep: 100), fetch_delay: 1 ms
+		// - peer 2 (rep: 75), fetch_delay: 1 ms
+		// - peer 3 (rep: 99), fetch_delay: 1 ms
+		// - peer 4 (rep: 100), fetch_delay: 1 ms
+		// - trusted_peer (rep: MAX), no fetch delay
 		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
 		per_rp.add_advertisement(adv(peer_1), small_fetch_delay);
 		per_rp.add_advertisement(adv(peer_2), small_fetch_delay);
 		per_rp.add_advertisement(adv(peer_3), small_fetch_delay);
 		per_rp.add_advertisement(adv(peer_4), small_fetch_delay);
+		per_rp.add_advertisement(adv(trusted_peer), small_fetch_delay);
+
+		// We should fetch the advertisement from the trusted peer first.
+		assert_eq!(
+			collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				Score::new(1000).unwrap(),
+				&get_peer_rep,
+			),
+			Either::Left(Some(adv(trusted_peer)))
+		);
+
 		// Instant fetch rep: 1000
 		// We shouldn't have any advertisement that can be instantly fetched
 		assert_eq!(
