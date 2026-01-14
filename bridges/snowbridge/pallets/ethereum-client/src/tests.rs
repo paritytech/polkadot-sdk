@@ -1033,3 +1033,24 @@ fn signing_root_uses_previous_slot_for_fork_version() {
 		);
 	});
 }
+
+#[test]
+fn signing_root_handles_signature_slot_zero() {
+	// Per spec: fork_version_slot = max(signature_slot, 1) - 1
+	// When signature_slot = 0, saturating_sub(1) = 0, which matches max(0, 1) - 1 = 0
+	new_tester().execute_with(|| {
+		let header = BeaconHeader {
+			slot: 0,
+			proposer_index: 0,
+			parent_root: H256::repeat_byte(0x11),
+			state_root: H256::repeat_byte(0x22),
+			body_root: H256::repeat_byte(0x33),
+		};
+
+		let validators_root = H256::repeat_byte(0x44);
+
+		// Should not panic and should use epoch 0 fork version
+		let result = EthereumBeaconClient::signing_root(&header, validators_root, 0);
+		assert!(result.is_ok(), "signing_root should handle signature_slot = 0");
+	});
+}
