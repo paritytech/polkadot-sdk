@@ -88,7 +88,9 @@ mod tests {
 		type Block = Block;
 	}
 
-	impl pallet::Config for Test {}
+	impl pallet::Config for Test {
+		type WeightInfo = ();
+	}
 
 	impl benchmarking::BenchmarkConfig for Test {
 		type Helper = ();
