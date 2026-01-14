@@ -333,6 +333,14 @@ enum SendChunkResult {
 	Failed,
 }
 
+/// Returns the maximum payload size for statement notifications.
+///
+/// This reserves space for encoding the length of the vector (Compact<u32>),
+/// ensuring the final encoded message fits within MAX_STATEMENT_NOTIFICATION_SIZE.
+fn max_statement_payload_size() -> usize {
+	MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len()
+}
+
 /// Find the largest chunk of statements starting from the beginning that fits
 /// within MAX_STATEMENT_NOTIFICATION_SIZE.
 ///
@@ -343,8 +351,7 @@ fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 	if statements.is_empty() {
 		return ChunkResult::Send(0);
 	}
-	// Reserve some space for encoding the length of the vector.
-	let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
+	let max_size = max_statement_payload_size();
 
 	// Incrementally add statements until we exceed the limit.
 	// This is efficient because we only compute sizes for statements in this chunk.
@@ -787,14 +794,13 @@ where
 			return;
 		}
 
-		// Fetch statements up to MAX_STATEMENT_NOTIFICATION_SIZE
+		// Fetch statements up to max_statement_payload_size (reserves space for vec encoding)
+		let max_size = max_statement_payload_size();
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
-				if accumulated_size > 0 &&
-					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
-				{
+				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 					return FilterDecision::Abort
 				}
 				accumulated_size += encoded.len();
