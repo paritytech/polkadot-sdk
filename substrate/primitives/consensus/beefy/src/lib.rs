@@ -72,7 +72,7 @@ pub trait BeefyAuthorityId: RuntimeAppPublic {
 	/// We can't access the private key directly, so we need to receive the store that contains it.
 	fn try_sign(
 		&self,
-		store: sp_keystore::KeystorePtr,
+		store: KeystorePtr,
 		msg: &[u8],
 	) -> Result<Option<Vec<u8>>, sp_keystore::Error>;
 
