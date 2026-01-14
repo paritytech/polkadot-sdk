@@ -303,6 +303,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			?id, ?weight, ?given, ?context,
 			"FixedRateOfFungible::quote_weight",
 		);
+		if weight.is_zero() {
+			return Err(XcmError::NoDeal);
+		}
 		if given != id {
 			return Err(XcmError::NotHoldingFees);
 		}
@@ -386,6 +389,9 @@ where
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
 		tracing::trace!(target: "xcm::weight", ?weight, ?context, available_weight = ?self.0, available_amount = ?self.1, "UsingComponents::refund_weight");
 		let weight = weight.min(self.0);
+		if weight.is_zero() {
+			return None;
+		}
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.0 -= weight;
 		// self.1 = self.1.saturating_sub(amount);
@@ -408,6 +414,9 @@ where
 		context: &XcmContext,
 	) -> Result<Asset, XcmError> {
 		tracing::trace!(target: "xcm::weight", ?weight, ?given, ?context, "UsingComponents::quote_weight");
+		if weight.is_zero() {
+			return Err(XcmError::NoDeal);
+		}
 		let supported_id = AssetId(AssetIdValue::get());
 		if given != supported_id {
 			return Err(XcmError::NotHoldingFees);

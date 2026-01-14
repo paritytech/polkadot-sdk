@@ -179,17 +179,17 @@ impl<
 
 		// Make sure we don't enter twice
 		if self.outstanding_credit.is_some() {
-			return Err((payment, XcmError::NotWithdrawable))
+			return Err((payment, XcmError::NotWithdrawable));
 		}
 
 		// We take the very first asset from payment
 		let Some(used) = payment.fungible_assets_iter().next() else {
-			return Err((payment, XcmError::AssetNotFound))
+			return Err((payment, XcmError::AssetNotFound));
 		};
 
 		// Get the local asset id in which we can pay for fees
 		let Ok((fungibles_asset_id, _)) = Matcher::matches_fungibles(&used) else {
-			return Err((payment, XcmError::AssetNotFound))
+			return Err((payment, XcmError::AssetNotFound));
 		};
 
 		// Calculate how much we should charge in the asset_id for such amount of weight
@@ -214,7 +214,7 @@ impl<
 			.ok()
 			.and_then(|taken| taken.fungible.into_iter().next().map(|(_, v)| v))
 		else {
-			return Err((payment, XcmError::TooExpensive))
+			return Err((payment, XcmError::TooExpensive));
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = fungibles::Credit::<AccountId, Fungibles>::zero(fungibles_asset_id);
@@ -237,6 +237,9 @@ impl<
 	/// - This ensures collateral-backed assets always have sufficient balance for proper cleanup.
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}", weight, context);
+		if weight.is_zero() {
+			return None;
+		}
 		let outstanding_credit = self.outstanding_credit.as_mut()?;
 		let id = outstanding_credit.asset();
 		let fun = Fungible(outstanding_credit.peek());
@@ -284,6 +287,9 @@ impl<
 			"TakeFirstAssetTrader::quote_weight weight: {:?}, given_id: {:?}, context: {:?}",
 			weight, given_id, context
 		);
+		if weight.is_zero() {
+			return Err(XcmError::NoDeal);
+		}
 
 		let give_matcher: Asset = (given_id.clone(), 1).into();
 		// Get the local asset id in which we can pay for fees
@@ -428,7 +434,7 @@ where
 			payment,
 		);
 		let Some((id, given_credit)) = payment.fungible.first_key_value() else {
-			return Err((payment, XcmError::AssetNotFound))
+			return Err((payment, XcmError::AssetNotFound));
 		};
 		let id = id.clone();
 		let given_credit_amount = given_credit.amount();
@@ -439,7 +445,7 @@ where
 				"SwapFirstAssetTrader::buy_weight asset {:?} didn't match",
 				first_asset,
 			);
-			return Err((payment, XcmError::AssetNotFound))
+			return Err((payment, XcmError::AssetNotFound));
 		};
 
 		let swap_asset = fungibles_id.clone().into();
@@ -449,11 +455,11 @@ where
 				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
 			);
 			// current trader is not applicable.
-			return Err((payment, XcmError::FeesNotMet))
+			return Err((payment, XcmError::FeesNotMet));
 		}
 		// Subtract required from payment
 		let Some(imbalance) = payment.fungible.remove(&first_asset.id) else {
-			return Err((payment, XcmError::TooExpensive))
+			return Err((payment, XcmError::TooExpensive));
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit_in = fungibles::Credit::<AccountId, Fungibles>::zero(fungibles_id);
@@ -477,7 +483,7 @@ where
 				let taken =
 					AssetsInHolding::new_from_fungible_credit(id.clone(), Box::new(credit_in));
 				payment.subsume_assets(taken);
-				return Err((payment, XcmError::FeesNotMet))
+				return Err((payment, XcmError::FeesNotMet));
 			},
 		};
 
@@ -489,7 +495,7 @@ where
 					"`total_fee.asset` must be equal to `credit_out.asset`",
 					(self.total_fee.asset(), credit_out.asset())
 				);
-				return Err((payment, XcmError::FeesNotMet))
+				return Err((payment, XcmError::FeesNotMet));
 			},
 			_ => (),
 		};
@@ -507,20 +513,20 @@ where
 			weight,
 			self.total_fee,
 		);
-		if self.total_fee.peek().is_zero() {
+		if weight.is_zero() || self.total_fee.peek().is_zero() {
 			// noting to refund.
-			return None
+			return None;
 		}
 		let refund_asset = if let Some(asset) = &self.last_fee_asset {
 			// create an initial zero refund in the asset used in the last `buy_weight`.
 			(asset.clone(), Fungible(0)).into()
 		} else {
-			return None
+			return None;
 		};
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
 		if refund_amount >= self.total_fee.peek() {
 			// not enough was paid to refund the `weight`.
-			return None
+			return None;
 		}
 
 		let refund_swap_asset = FungiblesAssetMatcher::matches_fungibles(&refund_asset)
@@ -544,7 +550,7 @@ where
 						(self.total_fee.asset(), refund.asset())
 					);
 				});
-				return None
+				return None;
 			},
 		};
 
@@ -564,13 +570,16 @@ where
 			weight,
 			given_id,
 		);
+		if weight.is_zero() {
+			return Err(XcmError::NoDeal);
+		}
 
 		let give_matcher: Asset = (given_id.clone(), 1).into();
 		let (give_fungibles_id, _) = FungiblesAssetMatcher::matches_fungibles(&give_matcher)
 			.map_err(|_| XcmError::AssetNotFound)?;
 		let want_fungibles_id = Target::get();
 		if give_fungibles_id.eq(&want_fungibles_id.clone().into()) {
-			return Err(XcmError::FeesNotMet)
+			return Err(XcmError::FeesNotMet);
 		}
 
 		let want_amount = WeightToFee::weight_to_fee(&weight);
@@ -581,6 +590,7 @@ where
 			want_amount,
 			true, // Include fee.
 		)
+		.filter(|amount| amount > 0.into())
 		.ok_or(XcmError::FeesNotMet)?
 		.into();
 		Ok((given_id, necessary_give).into())
@@ -615,7 +625,7 @@ where
 {
 	fn drop(&mut self) {
 		if self.total_fee.peek().is_zero() {
-			return
+			return;
 		}
 		let total_fee = self.total_fee.extract(self.total_fee.peek());
 		OnUnbalanced::on_unbalanced(total_fee);

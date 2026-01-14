@@ -737,6 +737,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	safe_xcm_version: Option<XcmVersion>,
 	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
