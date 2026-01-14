@@ -558,6 +558,7 @@ impl<T: Config> Pallet<T> {
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let mut core = core;
 
 		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
 		//
@@ -566,7 +567,7 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 			.is_some()
 		{
-			Self::do_renew(sovereign_account.clone(), core)?;
+			core = Self::do_renew(sovereign_account.clone(), core)?;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
