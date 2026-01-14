@@ -20,4 +20,4 @@ pub const UNITS: Balance = 10_000_000_000;
 pub const CENTS: Balance = UNITS / 100; // 100_000_000
 
 pub type AccountId = sp_runtime::AccountId32;
-pub type AssetIdForAssets = u32;
+pub type AssetIdForAssets = u128;

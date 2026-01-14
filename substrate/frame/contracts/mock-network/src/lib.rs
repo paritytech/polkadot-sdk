@@ -106,12 +106,12 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 
 	pallet_assets::GenesisConfig::<Runtime> {
 		assets: vec![
-			(0u32, ADMIN, false, 1u128), // Create derivative asset for relay's native token
+			(0u128, ADMIN, false, 1u128), // Create derivative asset for relay's native token
 		],
 		metadata: Default::default(),
 		accounts: vec![
-			(0u32, ALICE, INITIAL_BALANCE),
-			(0u32, relay_sovereign_account_id(), INITIAL_BALANCE),
+			(0u128, ALICE, INITIAL_BALANCE),
+			(0u128, relay_sovereign_account_id(), INITIAL_BALANCE),
 		],
 		next_asset_id: None,
 		reserves: vec![],

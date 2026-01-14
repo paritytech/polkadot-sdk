@@ -151,7 +151,7 @@ impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAs
 	}
 }
 
-type AssetIdForAssets = u32;
+type AssetIdForAssets = u128;
 
 pub struct FromLocationToAsset<Location, AssetId>(core::marker::PhantomData<(Location, AssetId)>);
 impl MaybeEquivalence<Location, AssetIdForAssets>
@@ -169,8 +169,8 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 
 	fn convert_back(value: &AssetIdForAssets) -> Option<Location> {
 		match value {
-			0u32 => Some(Location { parents: 1, interior: Here }),
-			1u32 => Some(Location { parents: 0, interior: Here }),
+			0u128 => Some(Location { parents: 1, interior: Here }),
+			1u128 => Some(Location { parents: 0, interior: Here }),
 			para_id @ 1..=1000 =>
 				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
 			_ => None,
