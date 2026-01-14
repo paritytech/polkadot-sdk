@@ -258,6 +258,7 @@ pub trait Chain: TestExt {
 
 	fn events() -> Vec<<Self as Chain>::RuntimeEvent>;
 
+	/// Whether the local Total Issuance can be treated as authoritative.
 	fn native_total_issuance_source_of_truth() -> bool;
 }
 
