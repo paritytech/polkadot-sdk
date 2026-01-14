@@ -37,6 +37,10 @@ mod tasks;
 #[import_section(tasks::tasks_example)]
 #[pallet]
 pub mod frame_system {
+	// The pallet::tasks_experimental macro generates code that assigns to task parameters
+	// before passing them to the task function, triggering the unused_assignments lint.
+	#![allow(unused_assignments)]
+
 	#[allow(unused)]
 	use super::{frame_system, frame_system::pallet_prelude::*};
 	pub use crate::dispatch::RawOrigin;

@@ -17,6 +17,9 @@
 
 //! This pallet demonstrates the use of the `pallet::task` api for service work.
 #![cfg_attr(not(feature = "std"), no_std)]
+// The pallet::tasks_experimental macro generates code that assigns to task parameters
+// before passing them to the task function, triggering this lint.
+#![allow(unused_assignments)]
 
 use frame_support::dispatch::DispatchResult;
 use frame_system::offchain::CreateBare;
@@ -50,12 +53,14 @@ pub mod pallet {
 	}
 
 	#[pallet::tasks_experimental]
+	#[allow(unused_assignments)]
 	impl<T: Config> Pallet<T> {
 		/// Add a pair of numbers into the totals and remove them.
 		#[pallet::task_list(Numbers::<T>::iter_keys())]
 		#[pallet::task_condition(|i| Numbers::<T>::contains_key(i))]
 		#[pallet::task_weight(T::WeightInfo::add_number_into_total())]
 		#[pallet::task_index(0)]
+		#[allow(unused_assignments)]
 		pub fn add_number_into_total(i: u32) -> DispatchResult {
 			let v = Numbers::<T>::take(i).ok_or(Error::<T>::NotFound)?;
 			Total::<T>::mutate(|(total_keys, total_values)| {
