@@ -119,7 +119,13 @@ pub type PeriodicIndex = u32;
 /// The location of a scheduled task that can be used to remove it.
 pub type TaskAddress<BlockNumber> = (BlockNumber, u32);
 /// The location of a time-scheduled task (minute, index).
-pub type TimeTaskAddress = (u64, u32);
+pub type TimeTaskAddress<Moment> = (Moment, u32);
+
+/// The moment type used by a config's timestamp provider.
+pub type MomentFor<T> = <<T as Config>::TimestampProvider as Time>::Moment;
+
+/// Alias for TimeTaskAddress using the config's moment type.
+pub type TimeTaskAddressFor<T> = TimeTaskAddress<MomentFor<T>>;
 
 pub type CallOrHashOf<T> =
 	MaybeHashed<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hash>;
@@ -235,11 +241,11 @@ pub type ScheduledOf<T> = Scheduled<
 >;
 
 /// Scheduled task for time-based scheduling.
-/// Uses `u64` for time period (milliseconds) instead of block number.
+/// Uses `MomentFor<T>` for time period (milliseconds) instead of block number.
 pub type ScheduledTimeOf<T> = Scheduled<
 	TaskName,
 	BoundedCallOf<T>,
-	u64,
+	MomentFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
 >;
@@ -397,23 +403,24 @@ pub mod pallet {
 	pub type TimeAgenda<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		u64,
+		MomentFor<T>,
 		BoundedVec<Option<ScheduledTimeOf<T>>, T::MaxTimeScheduledPerMinute>,
 		ValueQuery,
 	>;
 
 	/// Minute at which the time agenda began incomplete execution.
 	#[pallet::storage]
-	pub type TimeIncompleteSince<T: Config> = StorageValue<_, u64>;
+	pub type TimeIncompleteSince<T: Config> = StorageValue<_, MomentFor<T>>;
 
 	/// Lookup from a name to the minute and index of the time-scheduled task.
 	#[pallet::storage]
-	pub type TimeLookup<T: Config> = StorageMap<_, Twox64Concat, TaskName, TimeTaskAddress>;
+	pub type TimeLookup<T: Config> =
+		StorageMap<_, Twox64Concat, TaskName, TimeTaskAddressFor<T>>;
 
 	/// Retry configurations for time-based tasks, indexed by task address (minute, index).
 	#[pallet::storage]
 	pub type TimeRetries<T: Config> =
-		StorageMap<_, Blake2_128Concat, TimeTaskAddress, RetryConfig<u64>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TimeTaskAddressFor<T>, RetryConfig<MomentFor<T>>, OptionQuery>;
 
 	/// Retry configurations for items to be executed, indexed by task address.
 	#[pallet::storage]
@@ -468,31 +475,35 @@ pub mod pallet {
 		/// Agenda is incomplete from `when`.
 		AgendaIncomplete { when: BlockNumberFor<T> },
 		/// Scheduled some time-based task.
-		TimeScheduled { when: u64, index: u32 },
+		TimeScheduled { when: MomentFor<T>, index: u32 },
 		/// Canceled some time-based task.
-		TimeCanceled { when: u64, index: u32 },
+		TimeCanceled { when: MomentFor<T>, index: u32 },
 		/// Dispatched some time-based task.
-		TimeDispatched { task: TimeTaskAddress, id: Option<TaskName>, result: DispatchResult },
+		TimeDispatched {
+			task: TimeTaskAddressFor<T>,
+			id: Option<TaskName>,
+			result: DispatchResult,
+		},
 		/// The call for the provided hash was not found so the time-based task has been aborted.
-		TimeCallUnavailable { task: TimeTaskAddress, id: Option<TaskName> },
+		TimeCallUnavailable { task: TimeTaskAddressFor<T>, id: Option<TaskName> },
 		/// The given time-based task was unable to be renewed since the agenda is full.
-		TimePeriodicFailed { task: TimeTaskAddress, id: Option<TaskName> },
+		TimePeriodicFailed { task: TimeTaskAddressFor<T>, id: Option<TaskName> },
 		/// The given time-based task can never be executed since it is overweight.
-		TimePermanentlyOverweight { task: TimeTaskAddress, id: Option<TaskName> },
+		TimePermanentlyOverweight { task: TimeTaskAddressFor<T>, id: Option<TaskName> },
 		/// Time agenda is incomplete from `when` (minute).
-		TimeAgendaIncomplete { when: u64 },
+		TimeAgendaIncomplete { when: MomentFor<T> },
 		/// Set a retry configuration for some time-based task.
 		TimeRetrySet {
-			task: TimeTaskAddress,
+			task: TimeTaskAddressFor<T>,
 			id: Option<TaskName>,
-			period: u64,
+			period: MomentFor<T>,
 			retries: u8,
 		},
 		/// Cancel a retry configuration for some time-based task.
-		TimeRetryCancelled { task: TimeTaskAddress, id: Option<TaskName> },
+		TimeRetryCancelled { task: TimeTaskAddressFor<T>, id: Option<TaskName> },
 		/// The given time-based task was unable to be retried since the agenda is full or there
 		/// was not enough weight to reschedule it.
-		TimeRetryFailed { task: TimeTaskAddress, id: Option<TaskName> },
+		TimeRetryFailed { task: TimeTaskAddressFor<T>, id: Option<TaskName> },
 	}
 
 	#[pallet::error]
@@ -520,8 +531,8 @@ pub mod pallet {
 
 			// Service time-based agendas
 			// Note: This reads the timestamp from the previous block (1-block delay)
-			let now_ms: u64 = T::TimestampProvider::now().saturated_into();
-			Self::service_time_agendas(&mut weight_counter, now_ms, u32::MAX);
+			let now = T::TimestampProvider::now();
+			Self::service_time_agendas(&mut weight_counter, now, u32::MAX);
 
 			weight_counter.consumed()
 		}
@@ -776,8 +787,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxTimeScheduledPerMinute::get()))]
 		pub fn schedule_at_time(
 			origin: OriginFor<T>,
-			when: u64,
-			maybe_periodic: Option<(u64, u32)>,
+			when: MomentFor<T>,
+			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -799,8 +810,8 @@ pub mod pallet {
 		pub fn schedule_named_at_time(
 			origin: OriginFor<T>,
 			id: TaskName,
-			when: u64,
-			maybe_periodic: Option<(u64, u32)>,
+			when: MomentFor<T>,
+			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -822,7 +833,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxTimeScheduledPerMinute::get()))]
 		pub fn cancel_time_task(
 			origin: OriginFor<T>,
-			minute: u64,
+			minute: MomentFor<T>,
 			index: u32,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
@@ -846,14 +857,14 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxTimeScheduledPerMinute::get()))]
 		pub fn schedule_after_time(
 			origin: OriginFor<T>,
-			after: u64,
-			maybe_periodic: Option<(u64, u32)>,
+			after: MomentFor<T>,
+			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let now: u64 = T::TimestampProvider::now().saturated_into();
+			let now = T::TimestampProvider::now();
 			let when = now.saturating_add(after);
 			Self::do_schedule_at_time(
 				when,
@@ -871,14 +882,14 @@ pub mod pallet {
 		pub fn schedule_named_after_time(
 			origin: OriginFor<T>,
 			id: TaskName,
-			after: u64,
-			maybe_periodic: Option<(u64, u32)>,
+			after: MomentFor<T>,
+			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let now: u64 = T::TimestampProvider::now().saturated_into();
+			let now = T::TimestampProvider::now();
 			let when = now.saturating_add(after);
 			Self::do_schedule_named_at_time(
 				id,
@@ -898,9 +909,9 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_time_retry(
 			origin: OriginFor<T>,
-			task: TimeTaskAddress,
+			task: TimeTaskAddressFor<T>,
 			retries: u8,
-			period: u64,
+			period: MomentFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -928,7 +939,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: TaskName,
 			retries: u8,
-			period: u64,
+			period: MomentFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -957,7 +968,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
 		pub fn cancel_time_retry(
 			origin: OriginFor<T>,
-			task: TimeTaskAddress,
+			task: TimeTaskAddressFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -1519,24 +1530,23 @@ impl<T: Config> Pallet<T> {
 	// ==================== Time-based scheduling functions ====================
 
 	/// Convert a timestamp in milliseconds to a minute key (timestamp / 60_000).
-	fn timestamp_to_minute(timestamp: u64) -> u64 {
-		timestamp / 60_000
+	fn timestamp_to_minute(timestamp: MomentFor<T>) -> MomentFor<T> {
+		timestamp / 60_000u32.into()
 	}
 
 	/// Schedule a task at a specific timestamp.
 	fn do_schedule_at_time(
-		when: u64,
-		maybe_periodic: Option<(u64, u32)>,
+		when: MomentFor<T>,
+		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<(u64, u32), DispatchError> {
+	) -> Result<TimeTaskAddressFor<T>, DispatchError> {
 		// Get current timestamp from the timestamp provider
 		let now = T::TimestampProvider::now();
-		let now_ms: u64 = now.saturated_into();
 
 		// Ensure the target time is in the future
-		if when <= now_ms {
+		if when <= now {
 			return Err(Error::<T>::TargetTimestampInPast.into());
 		}
 
@@ -1544,7 +1554,7 @@ impl<T: Config> Pallet<T> {
 
 		// Sanitize maybe_periodic: period must be > 0 and count must be > 1
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && p.0 > 0)
+			.filter(|p| p.1 > 1 && p.0 > Zero::zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
 
@@ -1570,21 +1580,20 @@ impl<T: Config> Pallet<T> {
 	/// Schedule a named task at a specific timestamp.
 	fn do_schedule_named_at_time(
 		id: TaskName,
-		when: u64,
-		maybe_periodic: Option<(u64, u32)>,
+		when: MomentFor<T>,
+		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<(u64, u32), DispatchError> {
+	) -> Result<TimeTaskAddressFor<T>, DispatchError> {
 		// Ensure id is unique
 		if TimeLookup::<T>::contains_key(&id) {
 			return Err(Error::<T>::FailedToSchedule.into());
 		}
 
 		let now = T::TimestampProvider::now();
-		let now_ms: u64 = now.saturated_into();
 
-		if when <= now_ms {
+		if when <= now {
 			return Err(Error::<T>::TargetTimestampInPast.into());
 		}
 
@@ -1592,7 +1601,7 @@ impl<T: Config> Pallet<T> {
 
 		// Sanitize maybe_periodic
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && p.0 > 0)
+			.filter(|p| p.1 > 1 && p.0 > Zero::zero())
 			.map(|(p, c)| (p, c - 1));
 
 		let task = Scheduled {
@@ -1615,9 +1624,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Place a time-based task in the agenda and update lookup if named.
 	fn place_time_task(
-		when: u64,
+		when: MomentFor<T>,
 		what: ScheduledTimeOf<T>,
-	) -> Result<(u64, u32), (DispatchError, ScheduledTimeOf<T>)> {
+	) -> Result<TimeTaskAddressFor<T>, (DispatchError, ScheduledTimeOf<T>)> {
 		let maybe_name = what.maybe_id;
 		let minute = Self::timestamp_to_minute(when);
 		let index = Self::push_to_time_agenda(minute, what)?;
@@ -1631,7 +1640,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Push a task to the time agenda for a given minute.
 	fn push_to_time_agenda(
-		minute: u64,
+		minute: MomentFor<T>,
 		what: ScheduledTimeOf<T>,
 	) -> Result<u32, (DispatchError, ScheduledTimeOf<T>)> {
 		let mut agenda = TimeAgenda::<T>::get(minute);
@@ -1653,7 +1662,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Remove trailing `None` items of a time agenda at `minute`. If all items are `None` remove
 	/// the agenda record entirely.
-	fn cleanup_time_agenda(minute: u64) {
+	fn cleanup_time_agenda(minute: MomentFor<T>) {
 		let mut agenda = TimeAgenda::<T>::get(minute);
 		match agenda.iter().rposition(|i| i.is_some()) {
 			Some(i) if agenda.len() > i + 1 => {
@@ -1670,7 +1679,7 @@ impl<T: Config> Pallet<T> {
 	/// Cancel a time-based task by address.
 	fn do_cancel_time_task(
 		origin: Option<T::PalletsOrigin>,
-		(minute, index): (u64, u32),
+		(minute, index): TimeTaskAddressFor<T>,
 	) -> Result<(), DispatchError> {
 		let scheduled = TimeAgenda::<T>::try_mutate(minute, |agenda| {
 			agenda.get_mut(index as usize).map_or(
@@ -1723,7 +1732,7 @@ impl<T: Config> Pallet<T> {
 	/// Cancel the retry configuration for a time-based task.
 	fn do_cancel_time_retry(
 		origin: &T::PalletsOrigin,
-		(minute, index): TimeTaskAddress,
+		(minute, index): TimeTaskAddressFor<T>,
 	) -> Result<(), DispatchError> {
 		let agenda = TimeAgenda::<T>::get(minute);
 		let scheduled = agenda
@@ -1738,11 +1747,11 @@ impl<T: Config> Pallet<T> {
 	/// Schedule a retry for a time-based task that failed.
 	fn schedule_time_retry(
 		weight: &mut WeightMeter,
-		now_ms: u64,
-		minute: u64,
+		now: MomentFor<T>,
+		minute: MomentFor<T>,
 		agenda_index: u32,
 		task: &ScheduledTimeOf<T>,
-		retry_config: RetryConfig<u64>,
+		retry_config: RetryConfig<MomentFor<T>>,
 	) {
 		if weight
 			.try_consume(T::WeightInfo::schedule_retry(T::MaxTimeScheduledPerMinute::get()))
@@ -1760,7 +1769,7 @@ impl<T: Config> Pallet<T> {
 			Some(n) => n,
 			None => return,
 		};
-		let wake = now_ms.saturating_add(period);
+		let wake = now.saturating_add(period);
 		match Self::place_time_task(wake, task.as_retry()) {
 			Ok(address) => {
 				// Reinsert the retry config to the new address of the task after it was placed.
@@ -2094,13 +2103,13 @@ impl<T: Config> Pallet<T> {
 	// ==================== Time-based dispatch service functions ====================
 
 	/// Service time-based agendas starting from the earliest incomplete minute.
-	fn service_time_agendas(weight: &mut WeightMeter, now_ms: u64, max: u32) {
+	fn service_time_agendas(weight: &mut WeightMeter, now: MomentFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
 			return;
 		}
 
-		let now_minute = Self::timestamp_to_minute(now_ms);
-		let mut incomplete_since = now_minute + 1;
+		let now_minute = Self::timestamp_to_minute(now);
+		let mut incomplete_since = now_minute + One::one();
 		let mut minute = TimeIncompleteSince::<T>::take().unwrap_or(now_minute);
 		let mut is_first = true;
 
@@ -2111,11 +2120,11 @@ impl<T: Config> Pallet<T> {
 			&& minute <= now_minute
 			&& weight.can_consume(service_agenda_base_weight)
 		{
-			if !Self::service_time_agenda(weight, is_first, now_ms, minute, u32::MAX) {
+			if !Self::service_time_agenda(weight, is_first, now, minute, u32::MAX) {
 				incomplete_since = incomplete_since.min(minute);
 			}
 			is_first = false;
-			minute = minute.saturating_add(1);
+			minute = minute.saturating_add(One::one());
 			count_down = count_down.saturating_sub(1);
 		}
 		incomplete_since = incomplete_since.min(minute);
@@ -2124,7 +2133,7 @@ impl<T: Config> Pallet<T> {
 			TimeIncompleteSince::<T>::put(incomplete_since);
 		} else {
 			// Start from the next minute on the next iteration
-			TimeIncompleteSince::<T>::put(now_minute + 1);
+			TimeIncompleteSince::<T>::put(now_minute + One::one());
 		}
 	}
 
@@ -2133,8 +2142,8 @@ impl<T: Config> Pallet<T> {
 	fn service_time_agenda(
 		weight: &mut WeightMeter,
 		mut is_first: bool,
-		now_ms: u64,
-		minute: u64,
+		now: MomentFor<T>,
+		minute: MomentFor<T>,
 		max: u32,
 	) -> bool {
 		let mut agenda = TimeAgenda::<T>::get(minute);
@@ -2167,7 +2176,7 @@ impl<T: Config> Pallet<T> {
 				break;
 			}
 			let result =
-				Self::service_time_task(weight, now_ms, minute, agenda_index, is_first, task);
+				Self::service_time_task(weight, now, minute, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -2195,8 +2204,8 @@ impl<T: Config> Pallet<T> {
 	/// Service a single time-based task.
 	fn service_time_task(
 		weight: &mut WeightMeter,
-		now_ms: u64,
-		minute: u64,
+		now: MomentFor<T>,
+		minute: MomentFor<T>,
 		agenda_index: u32,
 		is_first: bool,
 		mut task: ScheduledTimeOf<T>,
@@ -2251,7 +2260,7 @@ impl<T: Config> Pallet<T> {
 					Some(retry_config) if failed => {
 						Self::schedule_time_retry(
 							weight,
-							now_ms,
+							now,
 							minute,
 							agenda_index,
 							&task,
@@ -2262,14 +2271,14 @@ impl<T: Config> Pallet<T> {
 				}
 
 				// Handle periodic rescheduling
-				if let &Some((period_ms, count)) = &task.maybe_periodic {
+				if let &Some((period, count)) = &task.maybe_periodic {
 					if count > 1 {
-						task.maybe_periodic = Some((period_ms, count - 1));
+						task.maybe_periodic = Some((period, count - 1));
 					} else {
 						task.maybe_periodic = None;
 					}
-					let wake_ms = now_ms.saturating_add(period_ms);
-					match Self::place_time_task(wake_ms, task) {
+					let wake = now.saturating_add(period);
+					match Self::place_time_task(wake, task) {
 						Ok(new_address) => {
 							if let Some(retry_config) = maybe_retry_config {
 								TimeRetries::<T>::insert(new_address, retry_config);
