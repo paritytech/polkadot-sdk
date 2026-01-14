@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768397737352,
+  "lastUpdate": 1768431185435,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ludovic.domingues96@gmail.com",
-            "name": "Ludovic Domingues",
-            "username": "Krayt78"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4a4009589b17267e32983c0f4e0c7f54860b40cb",
-          "message": "Add deposit for setting session keys (#7953)\n\n# Description\ncloses #1625\n\nImplement hold balance tracking for test accounts in the session pallet.\nRequires `pallet_session::Config` to specify:\n    * `type Currency`, assigned to an instance of `pallet_balances`.\n* `type RuntimeHoldReason`, almost always set to `RuntimeHoldReason`.\n* `type KeyDeposit`, the amount of deposit. Set to `()` to assert no\ndeposit amount is needed.\n    \nPolkadot address: 14AgwoPjcRiEEJgjfHmvAqkjdERCG26WEvQUoGLuBzcXKMS2\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-14T09:17:53Z",
-          "tree_id": "63e297516823da22031454bcad0b74b53ad6347b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a4009589b17267e32983c0f4e0c7f54860b40cb"
-        },
-        "date": 1749896372289,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022446495040000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15699019684666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008760280460000082,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012907508299999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00983937255333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b3bfba618e98f2aa10ee8d4233a15c1e09fef50f",
+          "message": "[Staking] Allow nominators to be non-slashable and fast unbondable (#10502)\n\n## Context\nWe want to make nominators unslashable (configurable via a storage set),\nand once they are unslashable, they can also unbond and withdraw in 2\nera instead of the full BondingDuration (28 eras).\n\n## Storage Changes\n- `AreNominatorsSlashable: StorageValue<bool>` (default: true):\nRuntime-configurable flag. Made this a storage value (not a config\nconstant) so it can be enabled together with MinValidatorBond and\nMinCommission via `set_staking_configs`.\n- `ErasNominatorsSlashable: StorageMap<EraIndex, bool>` (default: true):\nPer-era snapshot of slashability setting. This ensures offences are\nprocessed with the rules that were in effect at the time of the offence,\nnot the current rules. Cleaned up automatically for eras outside bonding\nwindow.\n- `LastValidatorEra` to track if a staker was a validator in a recent\nera and hence needs to follow full unbonding time. Does not need\nmigration as long as we disable nominator slash (in other words: reduce\ntheir unbond time) at least one era after these changes are applied.\n\n## Slashing logic\n- Added `process_offence_validator_only` as a separate code path instead\nof overloading the same function. See `process_offence_for_era` in\n`substrate/frame/staking-async/src/slashing.rs`.\n- We might want to remove nominator slashing code completely at some\npoint.\n\n## Unbonding logic:\n- Introduce new config constant `NominatorFastUnbondDuration` that\ndetermines the fast unbond duration (recommended value: 2 eras) when\nnominators are not slashable.\n- Added `nominator_bonding_duration()` to `StakingInterface` trait\n(returns `NominatorFastUnbondDuration` era when not slashable, full\nunbond duration otherwise).\n- Nomination pools now use `nominator_bonding_duration()`, so pool\nmembers also benefit from fast unbonding.\n- Ported auto-chill on full unbond from pallet-staking (PR #3811) to\nprevent `InsufficientBond` errors.\n- Nominators unbonding the era before the nominators become unslashable\nwill still have 28 days of unbonding.\n\n## Era pruning:\n- Moved pruning of `ValidatorSlashInEra` as well as\n`ErasNominatorsSlashable` in lazy pruning. This has a minor (I believe\nacceptable) side effect that they will be cleaned up in 84 eras instead\nof 28 eras.\n---\n\n## TODO\n- [x] Ensure delegator slash works correctly (nomination pool). \n- [x] Ensure pool members can unbond in 1 day as well.\n- [x] Benchmark update.\n- [x] Document how all three can be changed in one go: `MinCommission`,\n`MinValidatorBond`, and `AreNominatorsSlashable`.\n- [x] Regenerate weight\n- [x] Make nominator unbonding time configurable and set it to 2 eras.\n- [x] Refactor compute slash to avoid calling `slash_nominator`\ncompletely.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-14T21:42:10Z",
+          "tree_id": "6fdc9be95a252247b6eab51732820ba65a2a6534",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3bfba618e98f2aa10ee8d4233a15c1e09fef50f"
+        },
+        "date": 1768431161779,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023038118293333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007058864526666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009921234273333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14432562515333341,
             "unit": "seconds"
           }
         ]
