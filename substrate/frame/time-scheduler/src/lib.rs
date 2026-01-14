@@ -118,6 +118,8 @@ pub use weights::WeightInfo;
 pub type PeriodicIndex = u32;
 /// The location of a scheduled task that can be used to remove it.
 pub type TaskAddress<BlockNumber> = (BlockNumber, u32);
+/// The location of a time-scheduled task (minute, index).
+pub type TimeTaskAddress = (u64, u32);
 
 pub type CallOrHashOf<T> =
 	MaybeHashed<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hash>;
@@ -406,7 +408,12 @@ pub mod pallet {
 
 	/// Lookup from a name to the minute and index of the time-scheduled task.
 	#[pallet::storage]
-	pub type TimeLookup<T: Config> = StorageMap<_, Twox64Concat, TaskName, (u64, u32)>;
+	pub type TimeLookup<T: Config> = StorageMap<_, Twox64Concat, TaskName, TimeTaskAddress>;
+
+	/// Retry configurations for time-based tasks, indexed by task address (minute, index).
+	#[pallet::storage]
+	pub type TimeRetries<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeTaskAddress, RetryConfig<u64>, OptionQuery>;
 
 	/// Retry configurations for items to be executed, indexed by task address.
 	#[pallet::storage]
@@ -465,15 +472,27 @@ pub mod pallet {
 		/// Canceled some time-based task.
 		TimeCanceled { when: u64, index: u32 },
 		/// Dispatched some time-based task.
-		TimeDispatched { task: (u64, u32), id: Option<TaskName>, result: DispatchResult },
+		TimeDispatched { task: TimeTaskAddress, id: Option<TaskName>, result: DispatchResult },
 		/// The call for the provided hash was not found so the time-based task has been aborted.
-		TimeCallUnavailable { task: (u64, u32), id: Option<TaskName> },
+		TimeCallUnavailable { task: TimeTaskAddress, id: Option<TaskName> },
 		/// The given time-based task was unable to be renewed since the agenda is full.
-		TimePeriodicFailed { task: (u64, u32), id: Option<TaskName> },
+		TimePeriodicFailed { task: TimeTaskAddress, id: Option<TaskName> },
 		/// The given time-based task can never be executed since it is overweight.
-		TimePermanentlyOverweight { task: (u64, u32), id: Option<TaskName> },
+		TimePermanentlyOverweight { task: TimeTaskAddress, id: Option<TaskName> },
 		/// Time agenda is incomplete from `when` (minute).
 		TimeAgendaIncomplete { when: u64 },
+		/// Set a retry configuration for some time-based task.
+		TimeRetrySet {
+			task: TimeTaskAddress,
+			id: Option<TaskName>,
+			period: u64,
+			retries: u8,
+		},
+		/// Cancel a retry configuration for some time-based task.
+		TimeRetryCancelled { task: TimeTaskAddress, id: Option<TaskName> },
+		/// The given time-based task was unable to be retried since the agenda is full or there
+		/// was not enough weight to reschedule it.
+		TimeRetryFailed { task: TimeTaskAddress, id: Option<TaskName> },
 	}
 
 	#[pallet::error]
@@ -869,6 +888,93 @@ pub mod pallet {
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
 			)?;
+			Ok(())
+		}
+
+		/// Set a retry configuration for a time-based task so that, in case its scheduled run
+		/// fails, it will be retried after `period` milliseconds, for a total amount of `retries`
+		/// retries or until it succeeds.
+		#[pallet::call_index(16)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
+		pub fn set_time_retry(
+			origin: OriginFor<T>,
+			task: TimeTaskAddress,
+			retries: u8,
+			period: u64,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (minute, index) = task;
+			let agenda = TimeAgenda::<T>::get(minute);
+			let scheduled = agenda
+				.get(index as usize)
+				.and_then(Option::as_ref)
+				.ok_or(Error::<T>::NotFound)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			TimeRetries::<T>::insert(
+				task,
+				RetryConfig { total_retries: retries, remaining: retries, period },
+			);
+			Self::deposit_event(Event::TimeRetrySet { task, id: None, period, retries });
+			Ok(())
+		}
+
+		/// Set a retry configuration for a named time-based task so that, in case its scheduled
+		/// run fails, it will be retried after `period` milliseconds, for a total amount of
+		/// `retries` retries or until it succeeds.
+		#[pallet::call_index(17)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
+		pub fn set_time_retry_named(
+			origin: OriginFor<T>,
+			id: TaskName,
+			retries: u8,
+			period: u64,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (minute, agenda_index) = TimeLookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+			let agenda = TimeAgenda::<T>::get(minute);
+			let scheduled = agenda
+				.get(agenda_index as usize)
+				.and_then(Option::as_ref)
+				.ok_or(Error::<T>::NotFound)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			TimeRetries::<T>::insert(
+				(minute, agenda_index),
+				RetryConfig { total_retries: retries, remaining: retries, period },
+			);
+			Self::deposit_event(Event::TimeRetrySet {
+				task: (minute, agenda_index),
+				id: Some(id),
+				period,
+				retries,
+			});
+			Ok(())
+		}
+
+		/// Removes the retry configuration of a time-based task.
+		#[pallet::call_index(18)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
+		pub fn cancel_time_retry(
+			origin: OriginFor<T>,
+			task: TimeTaskAddress,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			Self::do_cancel_time_retry(origin.caller(), task)?;
+			Self::deposit_event(Event::TimeRetryCancelled { task, id: None });
+			Ok(())
+		}
+
+		/// Cancel the retry configuration of a named time-based task.
+		#[pallet::call_index(19)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry_named())]
+		pub fn cancel_time_retry_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let task = TimeLookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+			Self::do_cancel_time_retry(origin.caller(), task)?;
+			Self::deposit_event(Event::TimeRetryCancelled { task, id: Some(id) });
 			Ok(())
 		}
 	}
@@ -1614,62 +1720,60 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Reschedule an anonymous time-based task.
-	fn do_reschedule_time_task(
-		(minute, index): (u64, u32),
-		new_time: u64,
-	) -> Result<(u64, u32), DispatchError> {
-		let now = T::TimestampProvider::now();
-		let now_ms: u64 = now.saturated_into();
-
-		if new_time <= now_ms {
-			return Err(Error::<T>::TargetTimestampInPast.into());
-		}
-
-		let new_minute = Self::timestamp_to_minute(new_time);
-		if new_minute == minute {
-			return Err(Error::<T>::RescheduleNoChange.into());
-		}
-
-		let task = TimeAgenda::<T>::try_mutate(minute, |agenda| {
-			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
-			ensure!(!matches!(task, Some(Scheduled { maybe_id: Some(_), .. })), Error::<T>::Named);
-			task.take().ok_or(Error::<T>::NotFound)
-		})?;
-		Self::cleanup_time_agenda(minute);
-		Self::deposit_event(Event::TimeCanceled { when: minute, index });
-
-		Self::place_time_task(new_time, task).map_err(|x| x.0)
+	/// Cancel the retry configuration for a time-based task.
+	fn do_cancel_time_retry(
+		origin: &T::PalletsOrigin,
+		(minute, index): TimeTaskAddress,
+	) -> Result<(), DispatchError> {
+		let agenda = TimeAgenda::<T>::get(minute);
+		let scheduled = agenda
+			.get(index as usize)
+			.and_then(Option::as_ref)
+			.ok_or(Error::<T>::NotFound)?;
+		Self::ensure_privilege(origin, &scheduled.origin)?;
+		TimeRetries::<T>::remove((minute, index));
+		Ok(())
 	}
 
-	/// Reschedule a named time-based task.
-	fn do_reschedule_time_named(
-		id: TaskName,
-		new_time: u64,
-	) -> Result<(u64, u32), DispatchError> {
-		let now = T::TimestampProvider::now();
-		let now_ms: u64 = now.saturated_into();
-
-		if new_time <= now_ms {
-			return Err(Error::<T>::TargetTimestampInPast.into());
+	/// Schedule a retry for a time-based task that failed.
+	fn schedule_time_retry(
+		weight: &mut WeightMeter,
+		now_ms: u64,
+		minute: u64,
+		agenda_index: u32,
+		task: &ScheduledTimeOf<T>,
+		retry_config: RetryConfig<u64>,
+	) {
+		if weight
+			.try_consume(T::WeightInfo::schedule_retry(T::MaxTimeScheduledPerMinute::get()))
+			.is_err()
+		{
+			Self::deposit_event(Event::TimeRetryFailed {
+				task: (minute, agenda_index),
+				id: task.maybe_id,
+			});
+			return;
 		}
 
-		let lookup = TimeLookup::<T>::get(id);
-		let (minute, index) = lookup.ok_or(Error::<T>::NotFound)?;
-
-		let new_minute = Self::timestamp_to_minute(new_time);
-		if new_minute == minute {
-			return Err(Error::<T>::RescheduleNoChange.into());
+		let RetryConfig { total_retries, mut remaining, period } = retry_config;
+		remaining = match remaining.checked_sub(1) {
+			Some(n) => n,
+			None => return,
+		};
+		let wake = now_ms.saturating_add(period);
+		match Self::place_time_task(wake, task.as_retry()) {
+			Ok(address) => {
+				// Reinsert the retry config to the new address of the task after it was placed.
+				TimeRetries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
+			},
+			Err((_, task)) => {
+				T::Preimages::drop(&task.call);
+				Self::deposit_event(Event::TimeRetryFailed {
+					task: (minute, agenda_index),
+					id: task.maybe_id,
+				});
+			},
 		}
-
-		let task = TimeAgenda::<T>::try_mutate(minute, |agenda| {
-			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
-			task.take().ok_or(Error::<T>::NotFound)
-		})?;
-		Self::cleanup_time_agenda(minute);
-		Self::deposit_event(Event::TimeCanceled { when: minute, index });
-
-		Self::place_time_task(new_time, task).map_err(|x| x.0)
 	}
 }
 
@@ -2135,11 +2239,27 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(()) => Err((Overweight, Some(task))),
 			Ok(result) => {
+				let failed = result.is_err();
+				let maybe_retry_config = TimeRetries::<T>::take((minute, agenda_index));
 				Self::deposit_event(Event::TimeDispatched {
 					task: (minute, agenda_index),
 					id: task.maybe_id,
 					result,
 				});
+
+				match maybe_retry_config {
+					Some(retry_config) if failed => {
+						Self::schedule_time_retry(
+							weight,
+							now_ms,
+							minute,
+							agenda_index,
+							&task,
+							retry_config,
+						);
+					},
+					_ => {},
+				}
 
 				// Handle periodic rescheduling
 				if let &Some((period_ms, count)) = &task.maybe_periodic {
@@ -2150,7 +2270,11 @@ impl<T: Config> Pallet<T> {
 					}
 					let wake_ms = now_ms.saturating_add(period_ms);
 					match Self::place_time_task(wake_ms, task) {
-						Ok(_) => {},
+						Ok(new_address) => {
+							if let Some(retry_config) = maybe_retry_config {
+								TimeRetries::<T>::insert(new_address, retry_config);
+							}
+						},
 						Err((_, task)) => {
 							T::Preimages::drop(&task.call);
 							Self::deposit_event(Event::TimePeriodicFailed {
