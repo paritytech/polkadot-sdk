@@ -1,0 +1,8 @@
+title: Pin the Version of The Retester CI Action
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR pins the version of the retester CI action to the commit hash `94b04c01898193b729f64613187618d9786898f3` from the retester repo. This is done to stabilize the CI.
+crates: []
