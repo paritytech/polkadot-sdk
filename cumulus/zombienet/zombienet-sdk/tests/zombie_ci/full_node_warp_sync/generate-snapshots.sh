@@ -72,10 +72,9 @@ snapshots_run() {
     export ZOMBIE_PROVIDER=native
     export ZOMBIENET_SDK_BASE_DIR=$SNAPSHOT_DIR
 
-    cargo nextest run --release \
+    cargo test --release \
         -p cumulus-zombienet-sdk-tests \
         --features zombie-ci,generate-snapshots \
-        --no-capture \
         -- full_node_warp_sync::generate_snapshots
     unset ZOMBIENET_SDK_BASE_DIR
 
@@ -112,10 +111,9 @@ snapshots_test_local() {
     export RUST_LOG=info,zombienet_orchestrator=debug
     export ZOMBIE_PROVIDER=native
 
-    cargo nextest run --release \
+    cargo test --release \
         -p cumulus-zombienet-sdk-tests \
         --features zombie-ci \
-        --no-capture \
         -- full_node_warp_sync
 
     echo "Test passed - snapshots validated"

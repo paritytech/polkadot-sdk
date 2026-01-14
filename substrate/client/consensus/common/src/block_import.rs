@@ -250,8 +250,12 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
-			// Never create gaps for warp sync imported blocks, because the following
-			// gap sync needs to import all blocks between the warp sync target and genesis.
+			// Never create gaps for warp sync imported blocks.
+			// Warp sync downloads only session blocks. Gap sync to work needs one gap even if
+			// between gap start and gap end some blocks are existing. If each warp sync block
+			// created a gap, every new block import would override the previous gap, losing the
+			// real gap start. In case of warp sync a gap is created separately when the target
+			// block with state is imported.
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}
