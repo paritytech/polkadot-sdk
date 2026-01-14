@@ -1116,6 +1116,7 @@ fn expand_benchmark(
 				// benchmark setup code
 				#(
 					#setup_stmts
+					#krate::benchmarking::commit_db();
 				)*
 				#pre_call
 				recording.start();
