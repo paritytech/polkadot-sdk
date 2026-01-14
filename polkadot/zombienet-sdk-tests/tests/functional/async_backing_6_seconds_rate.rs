@@ -92,7 +92,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 	// all requests should be occupied since speculative availability is disabled
 	assert!(
 		relay_node
-			.assert_with(occupied_metric_name, |v| { v >= 22.0 && v <= 40.0 })
+			.assert_with(occupied_metric_name, |v| (22.0..=40.0).contains(&v))
 			.await?
 	);
 

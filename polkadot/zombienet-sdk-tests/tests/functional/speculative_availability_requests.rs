@@ -84,7 +84,7 @@ async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 	// still produced.
 	assert!(
 		relay_node
-			.assert_with(scheduled_metric_name, |v| { v >= 22.0 && v <= 40.0 })
+			.assert_with(scheduled_metric_name, |v| (22.0..=40.0).contains(&v))
 			.await?
 	);
 
@@ -94,7 +94,7 @@ async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 	// any backable candidates from Prospective Parachains at that the time.
 	assert!(
 		relay_node
-			.assert_with(occupied_metric_name, |v| { v >= 2.0 && v <= 10.0 })
+			.assert_with(occupied_metric_name, |v| (2.0..=10.0).contains(&v))
 			.await?
 	);
 
