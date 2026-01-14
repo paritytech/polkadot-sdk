@@ -62,7 +62,7 @@ use polkadot_sdk::{
 	sp_runtime::{
 		generic::SignedPayload,
 		traits::{Convert, Verify},
-		SaturatedConversion,
+		FixedU128, SaturatedConversion,
 	},
 	staging_parachain_info as parachain_info, staging_xcm as xcm, *,
 };
@@ -360,9 +360,8 @@ where
 		nonce: Self::Nonce,
 	) -> Option<Self::Extrinsic> {
 		use sp_runtime::traits::StaticLookup;
-		// take the biggest period possible.
-		let period =
-			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		// Use the hardcoded longevity as period.
+		let period = pallet_staking_async_price_oracle::oracle::LONGEVITY;
 
 		let current_block = System::block_number()
 			.saturated_into::<u64>()
@@ -382,7 +381,10 @@ where
 			)),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip), // TODO
+			pallet_staking_async_price_oracle::extensions::SetPriorityFromProducedIn::<
+				Runtime,
+			>::default(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		)
 			.into();
@@ -425,9 +427,15 @@ impl frame_system::offchain::AppCrypto<<Signature as Verify>::Signer, Signature>
 	type GenericSignature = sp_core::sr25519::Signature;
 }
 
+parameter_types! {
+	pub const MaxBump: FixedU128 = FixedU128::from_rational(1, 10);
+}
+
 impl pallet_staking_async_price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
-	type PriceUpdateInterval = ConstU32<2>;
+	type PriceUpdateInterval = ConstU32<3>;
+	type AssetId = u32;
+	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_staking_async_price_oracle::rc_client::Config for Runtime {

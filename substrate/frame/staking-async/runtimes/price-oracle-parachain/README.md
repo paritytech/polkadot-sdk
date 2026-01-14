@@ -15,9 +15,6 @@ I have a helper script that runs everything. All you need to do is to make sure 
 
 Make sure you have the latest version zombienet, as it contains some fixes that are needed to work here.
 
-> Note: The fix to not use `//stash` as the default is not published. Talk to Javier, he is aware. Without this, even
-> though on the relay chain we register, `Alice`, `Alice//stash` becomes the validator.
-
 
 #### Organization
 
@@ -46,10 +43,32 @@ some scripts that at startup. Without this, our setup is not realistic
 
 lots of TODOs are left in the code. Notably:
 
-1. We need a tx extension that either does `CheckNonce` or mimics it. Currently it doesn't work.
-2. Make our `bump` tx `Operational`, making sure even if some manic moves DOTs to this chain and remark-spams it, it is
-   pointless.
-3. Work out what the longevity of the `bumps` should be. `CheckNonce` will help as the new ones will invalidate old
-   ones. Currently we stack too many txs even with two nodes.
-4. No mechanism yet exists to send price update to AH. It will be simple though.
-5. Start writing unit tests, ala `ahm-tests` crate which simulates two an RC and a parachain.
+- [x] OCW RELIABILITY: OCWs are not running quite reliably on every block, it seems to be every other block
+- [x] PRIORITY INC: Not all transactions are being included, some fail with priority. Priority should only ever go up.
+- [x] LONGEVITY: Bump transctions should have low lengivity.
+- [ ] OCWs should not overlap, add the lock mechanism from EPMB
+- [x] Use some real HTTP endpoints
+- [x] TRANSACTION DROPPING: need to know when and why transactions get dropped.
+   - run with txpool=trace
+   - run the txpool monitor.
+   - Conclusion: Happens because we are sending new txs before the previous one is included.
+   - [ ] can I trace the transaction status from within the OCW?
+- [ ] TEST-VAL-SWAP: Test setup where RC swaps Bob with someone else.
+- [ ] OPERATIONAL: Bump should be operational.
+- [ ] SEND-TO-AH: Mechanism to send update to AH
+- [ ] UNIT-TEST-SETUP: Unit test setup, we can use ahm-test, but it would be very good to mimic the runtime level stuff like signed tx
+  generation, so better write it in the runtime.
+- [ ] DESIGN: Who else should be able to transact on this chain? should we have a signed ext that will block all other origins
+  other than current validators? Probably yes, because there are system remark and so on, and users can transact with
+  them for free!
+  - Or use system call filter? Might prevent governance interventions
+  - Or a tx extension that will just check the call, and allow bump call only.
+- [ ] XCM-CONFIG: Block all teleportation and so on to this chain. You should not be able to transfer funds to this chain to begin
+  with. Maybe.
+- [ ] DESIGN-WHEN-NUDGE: Options
+  - All validators YOLO send at all blocks, increasing the priority (as it is now)
+  - If feasible: All validators send and wait till it is included, then repeat
+  - All validators can send at all blocks, but default OCW settings is such that they converge to one per block.
+    - Or we can enforce this.
+- [ ] Confidence on endpoints should be dropped and reported.
+- [ ] How to represent price and bumps: FixedU128?

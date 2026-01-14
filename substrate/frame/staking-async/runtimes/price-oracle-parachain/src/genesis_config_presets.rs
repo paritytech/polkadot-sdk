@@ -1,16 +1,16 @@
 use crate::{
-	configs::OracleId, AccountId, BalancesConfig, ParachainInfoConfig,
-	PolkadotXcmConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig,
+	configs::OracleId, AccountId, BalancesConfig, ParachainInfoConfig, PolkadotXcmConfig,
+	PriceOracleConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig,
 	EXISTENTIAL_DEPOSIT,
 };
-
-use alloc::{vec, vec::Vec};
-
-use polkadot_sdk::{staging_xcm as xcm, *};
-
+use alloc::{string::ToString, vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use parachains_common::AuraId;
+use polkadot_sdk::{
+	sp_runtime::{BoundedVec, FixedU128},
+	staging_xcm as xcm, *,
+};
 use serde_json::Value;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
@@ -57,6 +57,20 @@ fn testnet_genesis(
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
+		price_oracle: PriceOracleConfig {
+			tracked_assets: vec![(
+				1,
+				pallet_staking_async_price_oracle::oracle::Asset {
+					endpoints: BoundedVec::try_from(vec![
+						"https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
+							.to_string()
+					])
+					.unwrap(),
+					price: FixedU128::from_rational(1, 1),
+					max_bump: FixedU128::from_rational(1, 10),
+				}
+			)]
+		}
 	})
 }
 
