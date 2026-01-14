@@ -26,10 +26,9 @@
   use-zombienet-sdk: false
 
 - job-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
-  test-definition: "0006-parachains-max-tranche0.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::parachains_max_tranche0::parachains_max_tranche0"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
   test-filter: "functional::dispute_freshly_finalized::dispute_freshly_finalized"

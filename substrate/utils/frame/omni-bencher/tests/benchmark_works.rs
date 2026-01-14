@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use assert_cmd::cargo::cargo_bin;
 use std::{
 	fs,
 	path::{Path, PathBuf},
@@ -32,7 +31,7 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 		fs::write(&runtime_path, wasm).map_err(|e| format!("Unable to write runtime file: {}", e));
 
 	// Invoke `benchmark overhead` with all options to make sure that they are valid.
-	let status = std::process::Command::new(cargo_bin("frame-omni-bencher"))
+	let status = std::process::Command::new(assert_cmd::cargo::cargo_bin!("frame-omni-bencher"))
 		.args(["v1", "benchmark", "overhead", "--runtime", runtime_path.to_str().unwrap()])
 		.arg("-d")
 		.arg(base_path)
@@ -141,7 +140,7 @@ fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), Str
 
 /// Creates a Command for the benchmark with common arguments
 fn create_benchmark_spec_command(base_path: &Path, chain_spec_path: &Path) -> Command {
-	let mut cmd = Command::new(cargo_bin("frame-omni-bencher"));
+	let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("frame-omni-bencher"));
 	cmd.args(["v1", "benchmark", "overhead", "--chain", chain_spec_path.to_str().unwrap()])
 		.arg("-d")
 		.arg(base_path)
