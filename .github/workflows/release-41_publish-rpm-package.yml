@@ -15,8 +15,6 @@ on:
         required: true
         type: string
 
-<<<<<<< HEAD
-=======
   workflow_call:
     inputs:
       tag:
@@ -29,7 +27,6 @@ on:
         required: true
         type: string
 
->>>>>>> 0130e981 ([Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530))
 jobs:
   call-publish-workflow:
     uses: ./.github/workflows/release-reusable-publish-packages.yml
