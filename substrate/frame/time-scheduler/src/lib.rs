@@ -713,7 +713,6 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && p.0 > Zero::zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
-
 		let task = Scheduled {
 			maybe_id: None,
 			priority,
@@ -722,7 +721,6 @@ impl<T: Config> Pallet<T> {
 			origin,
 			_phantom: PhantomData,
 		};
-
 		let res = Self::place_task(when, task).map_err(|x| x.0)?;
 
 		if let Some(hash) = lookup_hash {
