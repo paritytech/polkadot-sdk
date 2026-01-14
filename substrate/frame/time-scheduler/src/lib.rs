@@ -1563,6 +1563,64 @@ impl<T: Config> Pallet<T> {
 			}
 		})
 	}
+
+	/// Reschedule an anonymous time-based task.
+	fn do_reschedule_time_task(
+		(minute, index): (u64, u32),
+		new_time: u64,
+	) -> Result<(u64, u32), DispatchError> {
+		let now = T::TimestampProvider::now();
+		let now_ms: u64 = now.saturated_into();
+
+		if new_time <= now_ms {
+			return Err(Error::<T>::TargetTimestampInPast.into());
+		}
+
+		let new_minute = Self::timestamp_to_minute(new_time);
+		if new_minute == minute {
+			return Err(Error::<T>::RescheduleNoChange.into());
+		}
+
+		let task = TimeAgenda::<T>::try_mutate(minute, |agenda| {
+			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
+			ensure!(!matches!(task, Some(Scheduled { maybe_id: Some(_), .. })), Error::<T>::Named);
+			task.take().ok_or(Error::<T>::NotFound)
+		})?;
+		Self::cleanup_time_agenda(minute);
+		Self::deposit_event(Event::TimeCanceled { when: minute, index });
+
+		Self::place_time_task(new_time, task).map_err(|x| x.0)
+	}
+
+	/// Reschedule a named time-based task.
+	fn do_reschedule_time_named(
+		id: TaskName,
+		new_time: u64,
+	) -> Result<(u64, u32), DispatchError> {
+		let now = T::TimestampProvider::now();
+		let now_ms: u64 = now.saturated_into();
+
+		if new_time <= now_ms {
+			return Err(Error::<T>::TargetTimestampInPast.into());
+		}
+
+		let lookup = TimeLookup::<T>::get(id);
+		let (minute, index) = lookup.ok_or(Error::<T>::NotFound)?;
+
+		let new_minute = Self::timestamp_to_minute(new_time);
+		if new_minute == minute {
+			return Err(Error::<T>::RescheduleNoChange.into());
+		}
+
+		let task = TimeAgenda::<T>::try_mutate(minute, |agenda| {
+			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
+			task.take().ok_or(Error::<T>::NotFound)
+		})?;
+		Self::cleanup_time_agenda(minute);
+		Self::deposit_event(Event::TimeCanceled { when: minute, index });
+
+		Self::place_time_task(new_time, task).map_err(|x| x.0)
+	}
 }
 
 enum ServiceTaskError {
