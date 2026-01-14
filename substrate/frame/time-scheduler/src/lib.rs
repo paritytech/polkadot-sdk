@@ -95,6 +95,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
+		time_schedule,
 		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PalletInfoAccess,
 		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage, Time,
 	},
@@ -796,6 +797,30 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// Cancel an anonymously scheduled time-based task.
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn cancel_time_task(
+			origin: OriginFor<T>,
+			minute: u64,
+			index: u32,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			Self::do_cancel_time_task(Some(origin.caller().clone()), (minute, index))?;
+			Ok(())
+		}
+
+		/// Cancel a named time-based task.
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_named(T::MaxTimeScheduledPerMinute::get()))]
+		pub fn cancel_time_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			Self::do_cancel_time_named(Some(origin.caller().clone()), id)?;
+			Ok(())
+		}
 	}
 }
 
@@ -1484,6 +1509,59 @@ impl<T: Config> Pallet<T> {
 				TimeAgenda::<T>::remove(minute);
 			},
 		}
+	}
+
+	/// Cancel a time-based task by address.
+	fn do_cancel_time_task(
+		origin: Option<T::PalletsOrigin>,
+		(minute, index): (u64, u32),
+	) -> Result<(), DispatchError> {
+		let scheduled = TimeAgenda::<T>::try_mutate(minute, |agenda| {
+			agenda.get_mut(index as usize).map_or(
+				Ok(None),
+				|s| -> Result<Option<ScheduledTimeOf<T>>, DispatchError> {
+					if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
+						Self::ensure_privilege(o, &s.origin)?;
+					};
+					Ok(s.take())
+				},
+			)
+		})?;
+		if let Some(s) = scheduled {
+			T::Preimages::drop(&s.call);
+			if let Some(id) = s.maybe_id {
+				TimeLookup::<T>::remove(id);
+			}
+			Self::cleanup_time_agenda(minute);
+			Self::deposit_event(Event::TimeCanceled { when: minute, index });
+			Ok(())
+		} else {
+			Err(Error::<T>::NotFound.into())
+		}
+	}
+
+	/// Cancel a named time-based task.
+	fn do_cancel_time_named(origin: Option<T::PalletsOrigin>, id: TaskName) -> DispatchResult {
+		TimeLookup::<T>::try_mutate_exists(id, |lookup| -> DispatchResult {
+			if let Some((minute, index)) = lookup.take() {
+				let i = index as usize;
+				TimeAgenda::<T>::try_mutate(minute, |agenda| -> DispatchResult {
+					if let Some(s) = agenda.get_mut(i) {
+						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
+							Self::ensure_privilege(o, &s.origin)?;
+							T::Preimages::drop(&s.call);
+						}
+						*s = None;
+					}
+					Ok(())
+				})?;
+				Self::cleanup_time_agenda(minute);
+				Self::deposit_event(Event::TimeCanceled { when: minute, index });
+				Ok(())
+			} else {
+				Err(Error::<T>::NotFound.into())
+			}
+		})
 	}
 }
 
