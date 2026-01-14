@@ -77,7 +77,7 @@ pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
-	use alloc::{vec, vec::Vec};
+	use alloc::vec::Vec;
 	use core::ops::Deref;
 	use frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},

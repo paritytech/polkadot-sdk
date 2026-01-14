@@ -237,8 +237,6 @@ macro_rules! generate_lease_period_per_slot {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-
 	#[test]
 	fn slot_range_4_works() {
 		generate_slot_range!(Zero(0), One(1), Two(2), Three(3));

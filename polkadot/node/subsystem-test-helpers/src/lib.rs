@@ -572,8 +572,6 @@ pub fn derive_erasure_chunks_with_proofs_and_root(
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-
 	#[test]
 	fn macro_arbitrary_order() {
 		let mut vals = vec![Some(15_usize), None];
