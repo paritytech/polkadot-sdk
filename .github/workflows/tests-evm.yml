@@ -42,7 +42,7 @@ jobs:
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
-          revive-differential-tests-ref: "main"
+          revive-differential-tests-ref: "e2d626d45be1440933b1938f38cfc78a4796372a"
           resolc-version: "0.5.0"
           expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
