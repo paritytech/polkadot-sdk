@@ -14,7 +14,3 @@ crates:
   bump: minor
 - name: pallet-revive-fixtures
   bump: minor
-- name: pallet-contracts-mock-network
-  bump: minor
-- name: staging-xcm-builder
-  bump: minor
