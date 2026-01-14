@@ -9047,6 +9047,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "log",
  "node-primitives",
+ "pallet-example-custom-benchmarking-config",
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",

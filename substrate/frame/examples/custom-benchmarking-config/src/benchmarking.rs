@@ -26,25 +26,25 @@
 // Only enable this module for benchmarking.
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{mock::*, *};
+use crate::*;
 use frame_benchmarking::v2::*;
 
-pub trait BenchmarkHelper<Rumtime> {
+pub trait BenchmarkHelper<T:Config> {
 	/// Initialize storage and return a valid free ID.
 	fn initialize_and_get_id() -> u32;
 }
 
 pub trait BenchmarkConfig: pallet::Config {
-	type Helper: BenchmarkHelper<Test>;
+	type Helper: BenchmarkHelper<Self>;
 }
 
-impl BenchmarkHelper<Test> for () {
+impl<T: Config> BenchmarkHelper<T> for () {
 	fn initialize_and_get_id() -> u32 {
 		let id = 1_000;
 
 		// Privileged storage initialization
-		NextId::<Test>::put(id);
-		Registered::<Test>::remove(id);
+		NextId::<T>::put(id);
+		Registered::<T>::remove(id);
 		id
 	}
 }
