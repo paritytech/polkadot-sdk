@@ -27,12 +27,12 @@ use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
 
-const ASSET_INDEX: u16 = 0x0120;
-const ASSET_INDEX_FOREIGN: u16 = 0x0220;
+const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
+const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
 
-fn splice_asset_index_into_address(base_hex: &[u8; 40], asset_index: u16) -> [u8; 20] {
+fn set_prefix_in_address(base_hex: &[u8; 40], prefix: u16) -> [u8; 20] {
 	let mut addr = hex::const_decode_to_array(base_hex).unwrap();
-	addr[16..18].copy_from_slice(&asset_index.to_be_bytes());
+	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
 	addr
 }
 
@@ -60,12 +60,12 @@ fn asset_id_extractor_works() {
 	);
 }
 
-#[test_case(ASSET_INDEX)]
-#[test_case(ASSET_INDEX_FOREIGN)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn precompile_transfer_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(splice_asset_index_into_address(
+		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
@@ -112,12 +112,12 @@ fn precompile_transfer_works(asset_index: u16) {
 	});
 }
 
-#[test_case(ASSET_INDEX)]
-#[test_case(ASSET_INDEX_FOREIGN)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn total_supply_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(splice_asset_index_into_address(
+		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
@@ -150,12 +150,12 @@ fn total_supply_works(asset_index: u16) {
 	});
 }
 
-#[test_case(ASSET_INDEX)]
-#[test_case(ASSET_INDEX_FOREIGN)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn balance_of_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(splice_asset_index_into_address(
+		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
@@ -187,14 +187,14 @@ fn balance_of_works(asset_index: u16) {
 	});
 }
 
-#[test_case(ASSET_INDEX)]
-#[test_case(ASSET_INDEX_FOREIGN)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn approval_works(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(splice_asset_index_into_address(
+		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
