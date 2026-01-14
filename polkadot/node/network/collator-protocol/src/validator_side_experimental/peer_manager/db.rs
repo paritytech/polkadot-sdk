@@ -31,14 +31,14 @@ use std::{
 pub struct Db {
 	db: BTreeMap<ParaId, HashMap<PeerId, ScoreEntry>>,
 	last_finalized: Option<BlockNumber>,
-	stored_limit_per_para: u8,
+	stored_limit_per_para: u16,
 }
 
 impl Db {
 	/// Create a new instance of the in-memory DB.
 	///
 	/// `stored_limit_per_para` is the maximum number of reputations that can be stored per para.
-	pub async fn new(stored_limit_per_para: u8) -> Self {
+	pub async fn new(stored_limit_per_para: u16) -> Self {
 		Self { db: BTreeMap::new(), last_finalized: None, stored_limit_per_para }
 	}
 }
