@@ -1,0 +1,8 @@
+title: Add CLAUDE.md
+doc:
+- audience: Runtime Dev
+  description: |-
+    So that not everybody has to re-generate it when using claude. I manually edited the initially auto generated file. Especially the dependencies and build command section. So that it properly uses `SKIP_WASM_BUILD` and checks the whole work space.
+
+    This file is mend to grow over time with more instructions to improve the LLMs understanding of the repository.
+crates: []
