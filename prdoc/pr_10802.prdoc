@@ -1,0 +1,12 @@
+title: 'benchmarking: commit db after each setup statement to prevent timing leaks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Call `commit_db()` inside the setup_stmts repetition block in the benchmark procedural macro. This ensures each setup statement's storage changes are committed immediately, rather than batching all commits in the following on_before_start triggered by recording.start().
+
+    Fixes timing leaks in benchmarks with large setup operations (e.g., `clear_validators_and_nominators()` which removes ~27k entries). Without this fix, such benchmarks show regression (milliseconds instead of microseconds for extrinsics requiring very few storage operations) even though timing starts after commit.
+
+    Aims to fix https://github.com/paritytech/polkadot-sdk/issues/10798
+crates:
+- name: frame-support-procedural
+  bump: patch
