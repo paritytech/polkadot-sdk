@@ -82,6 +82,7 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
+	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -436,6 +437,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type BondingDuration = BondingDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
@@ -486,6 +488,7 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
+	nominators_slashable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -502,6 +505,7 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
+			nominators_slashable: true,
 		}
 	}
 }
@@ -548,9 +552,14 @@ impl ExtBuilder {
 		SlashDeferDuration::set(eras);
 		self
 	}
+<<<<<<< HEAD
 	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
 		self.invulnerables = BoundedVec::try_from(invulnerables)
 			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
+=======
+	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
+		self.nominators_slashable = slashable;
+>>>>>>> b3bfba61 ([Staking] Allow nominators to be non-slashable and fast unbondable (#10502))
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -697,8 +706,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {
