@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768346253847,
+  "lastUpdate": 1768395365000,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d0a525301ab8d962e478ed87b8665f30142a879d",
-          "message": "EPMB: Handle empty solution pages gracefully in verifier (#8666)\n\n- Treat missing solution pages as empty rather than errors.\n- Updated `get_page` method now returns a default Solution instead of an\nOption when no candidate solutions are available. This simplifies the\nAPI\nand improves code clarity by removing the need to handle None cases.\n- Similarly, updated `get_score` method now returns a default (0) score\nif no leader is available.\n- Removed VerificationDataUnavailable now that `get_page` and\n`get_score` don't return an Option anymore\n- Signed validation phase must now be a multiple of the number of pages\n- Updated tests to reflect new behavior and remove defensive unwraps.\n\nClose security vulnerability found\n[here](https://github.com/paritytech-secops/srlabs_findings/issues/505).\nA malicious miner could trigger panic in the EPMB pallet, submitting a\nvery high score and then intentionally\nfailing in submitting one or more pages.\n\nA unit test replicating the vulnerability ensures that the fix works as\nexpected (i.e. no panic, solution is rejected).\n\n---------\n\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-06-13T21:14:57Z",
-          "tree_id": "af343733a89a05442777f0e8f32fbeeeb548ab3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d0a525301ab8d962e478ed87b8665f30142a879d"
-        },
-        "date": 1749852933741,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20479561103333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.337612254433335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.175302892833333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
+          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-01-14T11:50:36Z",
+          "tree_id": "36107140a1792163eace77a49154710099d32009",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
+        },
+        "date": 1768395340968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12207104256666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.1535071676,
             "unit": "seconds"
           }
         ]
