@@ -57,7 +57,7 @@ impl<AssetId: From<u32> + Ord> BenchmarkHelper<NativeOrWithId<AssetId>>
 	for NativeOrWithIdFactory<AssetId>
 {
 	fn create_pair(seed1: u32, seed2: u32) -> (NativeOrWithId<AssetId>, NativeOrWithId<AssetId>) {
-		if seed1 % 2 == 0 {
+		if seed1.is_multiple_of(2) {
 			(NativeOrWithId::WithId(seed2.into()), NativeOrWithId::Native)
 		} else {
 			(NativeOrWithId::Native, NativeOrWithId::WithId(seed2.into()))

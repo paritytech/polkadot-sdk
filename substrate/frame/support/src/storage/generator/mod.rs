@@ -190,7 +190,7 @@ mod tests {
 
 			// do translation.
 			NumberMap::translate(
-				|k: u32, v: u64| if k % 2 == 0 { Some(((k as u64) << 32) | v) } else { None },
+				|k: u32, v: u64| if k.is_multiple_of(2) { Some(((k as u64) << 32) | v) } else { None },
 			);
 
 			assert_eq!(
