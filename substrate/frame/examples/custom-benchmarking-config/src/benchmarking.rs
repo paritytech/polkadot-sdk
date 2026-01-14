@@ -28,12 +28,12 @@
 use crate::*;
 use frame_benchmarking::v2::*;
 
-pub trait BenchmarkHelper<T: Config> {
-	fn initialize_and_get_id() -> u32;
-}
-
 pub trait BenchmarkConfig: pallet::Config {
 	type Helper: BenchmarkHelper<Self>;
+}
+
+pub trait BenchmarkHelper<T: Config> {
+	fn initialize_and_get_id() -> u32;
 }
 
 impl<T: Config> BenchmarkHelper<T> for () {
