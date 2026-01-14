@@ -276,7 +276,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
-		let (id, units_per_second, units_per_mb) = T::get();
+		let (id, _, _) = T::get();
 		let weight = weight.min(self.0);
 		tracing::trace!(target: "xcm::weight", ?id, ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let quote = self.quote_weight(weight, id, context).ok()?;

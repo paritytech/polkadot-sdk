@@ -54,8 +54,7 @@ where
 			Credit = fungibles::Credit<AccountId, Fungibles>,
 		> + QuotePrice<Balance = u128, AssetKind = Fungibles::AssetId>,
 	Fungibles: fungibles::Inspect<AccountId, AssetId: 'static>
-		+ fungibles::Balanced<AccountId, Balance = u128, OnDropCredit: 'static, OnDropDebt: 'static>
-		+ 'static,
+		+ fungibles::Balanced<AccountId, Balance = u128, OnDropCredit: 'static, OnDropDebt: 'static>,
 	Matcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
 {
 	fn exchange_asset(
