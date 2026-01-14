@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768397803145,
+  "lastUpdate": 1768431250398,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8e2b6f742a38bb13688e12abacded0aab2dbbb23",
-          "message": "[pallet-revive] dev-node (#8746)\n\nThis adds a dev-node that is essentially the minimal template with the\naddition of pallet-revive\n\ncan be launched with\n\n```\ncargo run -p revive-dev-node\n```\n\nGoal: \n- use dev-node instead of kitchensink in\npolkadot-sdk/substrate/frame/revive/rpc/src/tests.rs for faster run and\nbuild time\n- use dev-node in https://github.com/paritytech/evm-test-suite and\nhttps://github.com/paritytech/revive-differential-tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T12:08:22Z",
-          "tree_id": "c95826a81d74bea1a5dca5cacc79c43ce746071d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e2b6f742a38bb13688e12abacded0aab2dbbb23"
-        },
-        "date": 1749820930141,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033903028396000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04433980043799997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0647668279159999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b3bfba618e98f2aa10ee8d4233a15c1e09fef50f",
+          "message": "[Staking] Allow nominators to be non-slashable and fast unbondable (#10502)\n\n## Context\nWe want to make nominators unslashable (configurable via a storage set),\nand once they are unslashable, they can also unbond and withdraw in 2\nera instead of the full BondingDuration (28 eras).\n\n## Storage Changes\n- `AreNominatorsSlashable: StorageValue<bool>` (default: true):\nRuntime-configurable flag. Made this a storage value (not a config\nconstant) so it can be enabled together with MinValidatorBond and\nMinCommission via `set_staking_configs`.\n- `ErasNominatorsSlashable: StorageMap<EraIndex, bool>` (default: true):\nPer-era snapshot of slashability setting. This ensures offences are\nprocessed with the rules that were in effect at the time of the offence,\nnot the current rules. Cleaned up automatically for eras outside bonding\nwindow.\n- `LastValidatorEra` to track if a staker was a validator in a recent\nera and hence needs to follow full unbonding time. Does not need\nmigration as long as we disable nominator slash (in other words: reduce\ntheir unbond time) at least one era after these changes are applied.\n\n## Slashing logic\n- Added `process_offence_validator_only` as a separate code path instead\nof overloading the same function. See `process_offence_for_era` in\n`substrate/frame/staking-async/src/slashing.rs`.\n- We might want to remove nominator slashing code completely at some\npoint.\n\n## Unbonding logic:\n- Introduce new config constant `NominatorFastUnbondDuration` that\ndetermines the fast unbond duration (recommended value: 2 eras) when\nnominators are not slashable.\n- Added `nominator_bonding_duration()` to `StakingInterface` trait\n(returns `NominatorFastUnbondDuration` era when not slashable, full\nunbond duration otherwise).\n- Nomination pools now use `nominator_bonding_duration()`, so pool\nmembers also benefit from fast unbonding.\n- Ported auto-chill on full unbond from pallet-staking (PR #3811) to\nprevent `InsufficientBond` errors.\n- Nominators unbonding the era before the nominators become unslashable\nwill still have 28 days of unbonding.\n\n## Era pruning:\n- Moved pruning of `ValidatorSlashInEra` as well as\n`ErasNominatorsSlashable` in lazy pruning. This has a minor (I believe\nacceptable) side effect that they will be cleaned up in 84 eras instead\nof 28 eras.\n---\n\n## TODO\n- [x] Ensure delegator slash works correctly (nomination pool). \n- [x] Ensure pool members can unbond in 1 day as well.\n- [x] Benchmark update.\n- [x] Document how all three can be changed in one go: `MinCommission`,\n`MinValidatorBond`, and `AreNominatorsSlashable`.\n- [x] Regenerate weight\n- [x] Make nominator unbonding time configurable and set it to 2 eras.\n- [x] Refactor compute slash to avoid calling `slash_nominator`\ncompletely.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-14T21:42:10Z",
+          "tree_id": "6fdc9be95a252247b6eab51732820ba65a2a6534",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3bfba618e98f2aa10ee8d4233a15c1e09fef50f"
+        },
+        "date": 1768431226663,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.054,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038307353420000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06528275225399996,
             "unit": "seconds"
           }
         ]
