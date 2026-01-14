@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768395365000,
+  "lastUpdate": 1768397704924,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ludovic.domingues96@gmail.com",
-            "name": "Ludovic Domingues",
-            "username": "Krayt78"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4a4009589b17267e32983c0f4e0c7f54860b40cb",
-          "message": "Add deposit for setting session keys (#7953)\n\n# Description\ncloses #1625\n\nImplement hold balance tracking for test accounts in the session pallet.\nRequires `pallet_session::Config` to specify:\n    * `type Currency`, assigned to an instance of `pallet_balances`.\n* `type RuntimeHoldReason`, almost always set to `RuntimeHoldReason`.\n* `type KeyDeposit`, the amount of deposit. Set to `()` to assert no\ndeposit amount is needed.\n    \nPolkadot address: 14AgwoPjcRiEEJgjfHmvAqkjdERCG26WEvQUoGLuBzcXKMS2\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-14T09:17:53Z",
-          "tree_id": "63e297516823da22031454bcad0b74b53ad6347b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a4009589b17267e32983c0f4e0c7f54860b40cb"
-        },
-        "date": 1749896344747,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.324204993933332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20131604206666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.1535071676,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84064c944a46abef63eb7f66b3c1184dc2083d7e",
+          "message": "pallet-broker: Fix `force_reserve` (#10792)\n\nWhen issuing a `force_reserve` we are putting the reservation into the\ncurrent and next region `WorkPlan`. The issue is that at the next sale\nrotation we override all unused cores. As the sale rotation isn't aware\nof the forcefully registered core, also the force reserved core is\noverwritten and the parachain looses their coretime for one region (it\ncomes back in the next region). To fix this we now keep track of\nforcefully registered reserves. We input them alongside the other\nreservations into the workplan, but for the current region using any\nfree cores from the previous sale.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-01-14T12:27:06Z",
+          "tree_id": "3c822971879882703dc9218117bdb59dcadec8c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/84064c944a46abef63eb7f66b3c1184dc2083d7e"
+        },
+        "date": 1768397680521,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.378727442966671,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1305001183333333,
             "unit": "seconds"
           }
         ]
