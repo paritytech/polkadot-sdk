@@ -1,0 +1,8 @@
+title: 'Snowbridge: Fix fork version slot selection for sync committee signature verification'
+doc:
+- audience: Runtime Dev
+  description: |
+    Fixes fork version selection for sync committee signature verification to use `signature_slot - 1` per the Ethereum Altair light-client spec. This prevents valid light client updates from being rejected at fork activation boundaries.
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
