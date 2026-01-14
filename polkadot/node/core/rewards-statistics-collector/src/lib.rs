@@ -271,20 +271,8 @@ pub(crate) async fn run_iteration<Context>(
 					session_index,
 					downloads,
 				) => handle_chunks_downloaded(view, session_index, downloads),
-				RewardsStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) => {
-					let Ok(session_idx) = get_session_from_candidate(&mut *ctx, candidate_hash) else {
-						gum::warn!(
-							target: LOG_TARGET,
-							?candidate_hash,
-							?authority_ids,
-							"failed to retrieve candidate's session index"
-						);
-						continue
-					};
-
-					handle_chunk_uploaded(view, session_idx, authority_ids);
-				},
-
+				RewardsStatisticsCollectorMessage::ChunkUploaded(session_index, authority_ids) =>
+					handle_chunk_uploaded(view, session_index, authority_ids),
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					block_hash,
 					block_number,
@@ -302,11 +290,6 @@ pub(crate) async fn run_iteration<Context>(
 			},
 		}
 	}
-}
-
-#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
-fn get_session_from_candidate<Context>(ctx: &mut Context, candidate_hash: CandidateHash) -> Result<SessionIndex, String> {
-	Ok(0 as SessionIndex)
 }
 
 // aggregate_finalized_approvals_stats will iterate over the finalized hashes
