@@ -259,6 +259,14 @@ impl ToAssetIndex for u32 {
 	}
 }
 
+/// Implemented for trust-backed assets and pool assets.
+impl ToAssetIndex for u128 {
+	fn to_asset_index(&self) -> u32 {
+		ensure!(*self <= u32::MAX as u128, "AssetId overflow when converting to u32");
+		return *self as u32;
+	}
+}
+
 /// Implemented for foreign assets.
 impl ToAssetIndex for xcm::v5::Location {
 	fn to_asset_index(&self) -> u32 {
