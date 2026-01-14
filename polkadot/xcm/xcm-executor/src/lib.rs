@@ -448,6 +448,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	/// Send an XCM, charging fees from Holding as needed.
+	/// Note: Should be called under a transactional processor to ensure storage noop on failures.
 	fn send(
 		&mut self,
 		dest: Location,
@@ -592,6 +593,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
+	/// Takes `fees` from holding or fees registers.
+	/// Note: Should be called under a transactional processor to ensure storage noop on failures.
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
 			return Ok(());
@@ -606,7 +609,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		// We only ever use the first asset from `fees`.
 		let Some(asset_needed_for_fees) = fees.get(0) else {
-			return Ok(()) // No delivery fees need to be paid.
+			return Ok(()); // No delivery fees need to be paid.
 		};
 		// If `BuyExecution` or `PayFees` was called, we use that asset for delivery fees as well.
 		let asset_to_pay_for_fees =
