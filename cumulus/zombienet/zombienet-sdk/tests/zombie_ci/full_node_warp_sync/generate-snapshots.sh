@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Automation script for updating the full_node_warp_sync test
 set -euo pipefail
 

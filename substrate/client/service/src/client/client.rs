@@ -564,7 +564,6 @@ where
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
 
-		let info = self.backend.blockchain().info();
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -572,6 +571,7 @@ where
 			(true, blockchain::BlockStatus::Unknown) => {},
 		}
 
+		let info = self.backend.blockchain().info();
 		let gap_block = info.block_gap.map_or(false, |gap| {
 			let number = *import_headers.post().number();
 			number == gap.start ||

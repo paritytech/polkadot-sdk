@@ -14,7 +14,7 @@ Use the automation script for all steps:
 ```bash
 cd cumulus/zombienet/zombienet-sdk/tests/zombie_ci/full_node_warp_sync
 
-# Run all phases
+# Run all phases (~24h)
 ./generate-snapshots.sh all
 
 # Or run individual phases
