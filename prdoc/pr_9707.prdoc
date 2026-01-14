@@ -34,9 +34,9 @@ crates:
 - name: sp-consensus-aura
   bump: major
 - name: sp-consensus
-  bump: patch
+  bump: minor
 - name: fork-tree
-  bump: patch
+  bump: minor
 - name: cumulus-client-consensus-common
   bump: patch
 - name: sc-consensus-babe
