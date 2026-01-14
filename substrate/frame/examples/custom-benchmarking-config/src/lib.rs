@@ -28,14 +28,18 @@
 pub use pallet::*;
 
 pub mod benchmarking;
+pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::weights::WeightInfo;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		type WeightInfo: WeightInfo;
+	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -55,7 +59,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(100)]
+		#[pallet::weight(T::WeightInfo::register())]
 		pub fn register(origin: OriginFor<T>, id: u32) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			ensure!(!Registered::<T>::contains_key(id), Error::<T>::AlreadyRegistered);
