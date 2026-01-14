@@ -13,15 +13,7 @@ merging three previously separate repositories:
 - **Cumulus** (`cumulus/`): SDK for building parachains that connect to Polkadot
 - **Bridges** (`bridges/`): Cross-chain bridge infrastructure including Snowbridge (Ethereum bridge)
 
-## Dependencies
-
-- The protobuf compiler. [Installation Instructions](https://protobuf.dev/installation/)
-- The Solidity compiler.
-  [Installation Instructions](https://docs.soliditylang.org/en/latest/installing-solidity.html)
-- The resolc compiler.
-  [Installation Instructions](https://github.com/paritytech/revive?tab=readme-ov-file#resolcbinary-releases)
-
-### Rust
+## Rust Toolchain
 
 This repository is meant to be compiled with a stable Rust toolchain. A nightly toolchain is only required
 to run `cargo +nightly fmt`. It should always compile with the latest Rust version. However, the CI will
@@ -30,11 +22,6 @@ Additionally, newer versions will likely result in warnings when compiling the r
 
 The toolchain requires the `rust-src` component to build for the PolkaVM target.
 We also need the `wasm32v1-none` target to compile the WASM runtimes.
-
-```bash
-rustup component add rust-src
-rustup target add wasm32v1-none
-```
 
 ## Build Commands
 
