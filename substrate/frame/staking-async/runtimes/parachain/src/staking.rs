@@ -812,8 +812,7 @@ mod tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport_uri =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 
 		let mut ext = Builder::<Block>::default()
