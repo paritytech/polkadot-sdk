@@ -89,6 +89,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
+	ensure,
 	traits::{
 		schedule,
 		time_schedule::{self, DispatchTime},
@@ -368,6 +369,10 @@ pub mod pallet {
 		NotFound,
 		/// Given target timestamp is in the past.
 		TargetTimestampInPast,
+		/// Reschedule failed because it does not change scheduled time.
+		RescheduleNoChange,
+		/// Attempt to use a non-named function on a named task.
+		Named,
 	}
 
 	#[pallet::hooks]
@@ -766,18 +771,17 @@ impl<T: Config> Pallet<T> {
 		new_time: DispatchTime<MomentFor<T>>,
 	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
+		let new_time_minute = Self::timestamp_to_minute(new_time);
 
-		let task = Agenda::<T>::try_mutate(
-			when,
-			|agenda| -> Result<ScheduledOf<T>, DispatchError> {
-				let task = agenda
-					.get_mut(index as usize)
-					.ok_or(Error::<T>::NotFound)?
-					.take()
-					.ok_or(Error::<T>::NotFound)?;
-				Ok(task)
-			},
-		)?;
+		if new_time_minute == when {
+			return Err(Error::<T>::RescheduleNoChange.into());
+		}
+
+		let task = Agenda::<T>::try_mutate(when, |agenda| {
+			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
+			ensure!(!matches!(task, Some(Scheduled { maybe_id: Some(_), .. })), Error::<T>::Named);
+			task.take().ok_or(Error::<T>::NotFound)
+		})?;
 
 		Self::cleanup_agenda(when);
 		Self::deposit_event(Event::Canceled { when, index });
@@ -854,10 +858,25 @@ impl<T: Config> Pallet<T> {
 	/// Reschedule a named task.
 	fn do_reschedule_named(
 		id: TaskName,
-		when: DispatchTime<MomentFor<T>>,
+		new_time: DispatchTime<MomentFor<T>>,
 	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
-		let (minute, index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
-		Self::do_reschedule((minute, index), when)
+		let new_time = Self::resolve_time(new_time)?;
+		let new_time_minute = Self::timestamp_to_minute(new_time);
+
+		let lookup = Lookup::<T>::get(id);
+		let (when, index) = lookup.ok_or(Error::<T>::NotFound)?;
+
+		if new_time_minute == when {
+			return Err(Error::<T>::RescheduleNoChange.into());
+		}
+
+		let task = Agenda::<T>::try_mutate(when, |agenda| {
+			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
+			task.take().ok_or(Error::<T>::NotFound)
+		})?;
+		Self::cleanup_agenda(when);
+		Self::deposit_event(Event::Canceled { when, index });
+		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
 	/// Cancel the retry configuration for a task.
