@@ -42,3 +42,4 @@ substrate.code-workspace
 target/
 *.scale
 rustc-ice-*
+/.claude/settings.local.json
