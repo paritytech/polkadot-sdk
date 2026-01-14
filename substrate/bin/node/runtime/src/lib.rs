@@ -3052,7 +3052,9 @@ mod mmr {
 	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
 }
 
-impl pallet_example_custom_benchmarking_config::Config for Runtime {}
+impl pallet_example_custom_benchmarking_config::Config for Runtime {
+	type WeightInfo = pallet_example_custom_benchmarking_config::weights::SubstrateWeight<Runtime>;
+}
 
 impl pallet_example_custom_benchmarking_config::benchmarking::BenchmarkConfig for Runtime {
 	type Helper = ();
