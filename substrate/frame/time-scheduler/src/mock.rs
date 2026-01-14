@@ -239,7 +239,7 @@ impl Config for Test {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type MaxTimeScheduledPerMinute = ConstU32<100>;
+	type MaxScheduledPerMinute = ConstU32<100>;
 	type WeightInfo = TestWeightInfo;
 	type Preimages = Preimage;
 	type TimestampProvider = Timestamp;

@@ -38,7 +38,7 @@ fn basic_time_scheduling_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule call to be executed at 120_000ms (2 minutes from epoch)
-		assert_ok!(Scheduler::schedule_at_time(
+		assert_ok!(Scheduler::schedule(
 			RuntimeOrigin::root(),
 			120_000, // when: 2 minutes from epoch
 			None,    // not periodic
@@ -47,7 +47,7 @@ fn basic_time_scheduling_works() {
 		));
 
 		// Check that the task is scheduled in minute 2 (120_000 / 60_000 = 2)
-		assert!(!TimeAgenda::<Test>::get(2).is_empty());
+		assert!(!Agenda::<Test>::get(2).is_empty());
 		assert!(logger::log().is_empty());
 
 		// Advance timestamp to 120_000ms and run on_initialize
@@ -57,7 +57,7 @@ fn basic_time_scheduling_works() {
 		// Check that the log was executed
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
-		// TimeAgenda should be cleaned up after dispatch
-		assert!(TimeAgenda::<Test>::get(2).is_empty());
+		// Agenda should be cleaned up after dispatch
+		assert!(Agenda::<Test>::get(2).is_empty());
 	});
 }
