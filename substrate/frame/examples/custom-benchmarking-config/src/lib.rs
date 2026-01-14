@@ -39,6 +39,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type WeightInfo: WeightInfo;
+		// No BenchmarkHelper
 	}
 
 	#[pallet::pallet]
@@ -52,7 +53,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// ID already registered.
 		AlreadyRegistered,
 	}
 

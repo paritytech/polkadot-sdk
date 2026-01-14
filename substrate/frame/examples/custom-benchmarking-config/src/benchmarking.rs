@@ -30,7 +30,6 @@ use crate::*;
 use frame_benchmarking::v2::*;
 
 pub trait BenchmarkHelper<T: Config> {
-	/// Initialize storage and return a valid free ID.
 	fn initialize_and_get_id() -> u32;
 }
 
@@ -42,7 +41,6 @@ impl<T: Config> BenchmarkHelper<T> for () {
 	fn initialize_and_get_id() -> u32 {
 		let id = 1_000;
 
-		// Privileged storage initialization
 		NextId::<T>::put(id);
 		Registered::<T>::remove(id);
 		id
