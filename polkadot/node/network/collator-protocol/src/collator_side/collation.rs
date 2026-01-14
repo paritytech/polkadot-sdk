@@ -122,7 +122,7 @@ impl VersionedCollationRequest {
 	}
 
 	/// Returns relay parent from the request payload.
-	pub fn relay_parent(&self) -> Hash {
+	pub fn scheduling_parent(&self) -> Hash {
 		match self {
 			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
 		}

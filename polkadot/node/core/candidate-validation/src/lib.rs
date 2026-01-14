@@ -731,9 +731,9 @@ async fn get_block_ancestors<Sender>(
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
+	let Some((scheduling_parent, session_index)) = maybe_new_leaf else { return vec![] };
 	let scheduling_lookahead =
-		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
+		match fetch_scheduling_lookahead(scheduling_parent, session_index, sender).await {
 			Ok(scheduling_lookahead) => scheduling_lookahead,
 			res => {
 				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
@@ -744,8 +744,8 @@ where
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
-			hash: relay_parent,
-			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			hash: scheduling_parent,
+			// Subtract 1 from the claim queue length, as it includes current `scheduling_parent`.
 			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})

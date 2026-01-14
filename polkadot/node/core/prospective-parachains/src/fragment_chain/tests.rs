@@ -1565,7 +1565,10 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 				chain.find_backable_chain(Ancestors::new(), count),
 				(0..6)
 					.take(count as usize)
-					.map(|i| BackableCandidateRef { candidate_hash: candidates[i], scheduling_parent: relay_parent })
+					.map(|i| BackableCandidateRef {
+						candidate_hash: candidates[i],
+						scheduling_parent: relay_parent
+					})
 					.collect::<Vec<_>>()
 			);
 		}

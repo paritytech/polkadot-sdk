@@ -880,7 +880,16 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 			1.into(),
 			Ancestors::default(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_a.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_b.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_a.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 		virtual_overseer
@@ -1027,7 +1036,16 @@ fn fragment_chain_best_chain_length_is_bounded() {
 			1.into(),
 			Ancestors::default(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_a.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_b.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_a.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -1042,7 +1060,16 @@ fn fragment_chain_best_chain_length_is_bounded() {
 			1.into(),
 			Ancestors::default(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_a.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_b.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_a.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -1442,7 +1469,10 @@ fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
 			1.into(),
 			Ancestors::default(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_a.hash(), scheduling_parent: leaf_a.hash }],
+			vec![BackableCandidateRef {
+				candidate_hash: candidate_a.hash(),
+				scheduling_parent: leaf_a.hash,
+			}],
 		)
 		.await;
 
@@ -1457,10 +1487,22 @@ fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
 			Ancestors::default(),
 			5,
 			vec![
-				BackableCandidateRef { candidate_hash: candidate_a.hash(), scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_b.hash(), scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
+				BackableCandidateRef {
+					candidate_hash: candidate_a.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_c.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_d.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
 			],
 		)
 		.await;
@@ -1729,10 +1771,22 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 					Ancestors::new(),
 					count,
 					vec![
-						BackableCandidateRef { candidate_hash: candidate_hash_a, scheduling_parent: leaf_a.hash },
-						BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash },
-						BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash },
-						BackableCandidateRef { candidate_hash: candidate_hash_d, scheduling_parent: leaf_a.hash },
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_a,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_b,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_c,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_d,
+							scheduling_parent: leaf_a.hash,
+						},
 					],
 				)
 				.await;
@@ -1759,7 +1813,16 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 				1.into(),
 				vec![candidate_hash_a].into_iter().collect(),
 				2,
-				vec![BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash }],
+				vec![
+					BackableCandidateRef {
+						candidate_hash: candidate_hash_b,
+						scheduling_parent: leaf_a.hash,
+					},
+					BackableCandidateRef {
+						candidate_hash: candidate_hash_c,
+						scheduling_parent: leaf_a.hash,
+					},
+				],
 			)
 			.await;
 
@@ -1773,9 +1836,18 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 					vec![candidate_hash_a].into_iter().collect(),
 					count,
 					vec![
-						BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash },
-						BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash },
-						BackableCandidateRef { candidate_hash: candidate_hash_d, scheduling_parent: leaf_a.hash },
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_b,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_c,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_d,
+							scheduling_parent: leaf_a.hash,
+						},
 					],
 				)
 				.await;
@@ -1819,7 +1891,16 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 					1.into(),
 					vec![candidate_hash_a, candidate_hash_b].into_iter().collect(),
 					count,
-					vec![BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_hash_d, scheduling_parent: leaf_a.hash }],
+					vec![
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_c,
+							scheduling_parent: leaf_a.hash,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_hash_d,
+							scheduling_parent: leaf_a.hash,
+						},
+					],
 				)
 				.await;
 			}
@@ -1860,9 +1941,18 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 			vec![candidate_hash_b, candidate_hash_c].into_iter().collect(),
 			3,
 			vec![
-				BackableCandidateRef { candidate_hash: candidate_hash_a, scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash },
+				BackableCandidateRef {
+					candidate_hash: candidate_hash_a,
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_hash_b,
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_hash_c,
+					scheduling_parent: leaf_a.hash,
+				},
 			],
 		)
 		.await;
@@ -1895,7 +1985,16 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 				.into_iter()
 				.collect(),
 			2,
-			vec![BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_hash_b,
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_hash_c,
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -2388,10 +2487,22 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_c, 4);
 
 		let mut all_candidates_resp = vec![
-			BackableCandidateRef { candidate_hash: candidate_hash_a, scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_hash_b, scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_hash_c, scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_hash_d, scheduling_parent: leaf_a.hash },
+			BackableCandidateRef {
+				candidate_hash: candidate_hash_a,
+				scheduling_parent: leaf_a.hash,
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_hash_b,
+				scheduling_parent: leaf_a.hash,
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_hash_c,
+				scheduling_parent: leaf_a.hash,
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_hash_d,
+				scheduling_parent: leaf_a.hash,
+			},
 		];
 
 		// Check candidate tree membership.
@@ -2451,7 +2562,16 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			para_id,
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_c.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_d.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -2494,7 +2614,16 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			para_id,
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_c.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_d.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -2524,7 +2653,16 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			para_id,
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 			5,
-			vec![BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash }, BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash }],
+			vec![
+				BackableCandidateRef {
+					candidate_hash: candidate_c.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_d.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+			],
 		)
 		.await;
 
@@ -2561,14 +2699,26 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 			5,
 			vec![
-				BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
-				BackableCandidateRef { candidate_hash: candidate_e.hash(), scheduling_parent: leaf_a.hash },
+				BackableCandidateRef {
+					candidate_hash: candidate_c.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_d.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_e.hash(),
+					scheduling_parent: leaf_a.hash,
+				},
 			],
 		)
 		.await;
 
-		all_candidates_resp.push(BackableCandidateRef { candidate_hash: candidate_e.hash(), scheduling_parent: leaf_a.hash });
+		all_candidates_resp.push(BackableCandidateRef {
+			candidate_hash: candidate_e.hash(),
+			scheduling_parent: leaf_a.hash,
+		});
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_c,
