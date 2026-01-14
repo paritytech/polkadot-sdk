@@ -29,7 +29,7 @@
 use crate::*;
 use frame_benchmarking::v2::*;
 
-pub trait BenchmarkHelper<T:Config> {
+pub trait BenchmarkHelper<T: Config> {
 	/// Initialize storage and return a valid free ID.
 	fn initialize_and_get_id() -> u32;
 }

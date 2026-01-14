@@ -37,6 +37,7 @@ polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
 node-primitives = { workspace = true }
 
 # Example pallets that are not published:
+pallet-example-custom-benchmarking-config = { workspace = true }
 pallet-example-mbm = { workspace = true }
 pallet-example-tasks = { workspace = true }
 
@@ -61,6 +62,7 @@ std = [
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
+	"pallet-example-custom-benchmarking-config/runtime-benchmarks",
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",

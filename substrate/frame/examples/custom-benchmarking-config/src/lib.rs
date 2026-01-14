@@ -25,12 +25,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
 pub use pallet::*;
 
-mod benchmarking;
+pub mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
