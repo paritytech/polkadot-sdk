@@ -62,7 +62,7 @@ pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less
 
 /// Minimum reputation threshold that warrants an instant fetch.
 pub const INSTANT_FETCH_REP_THRESHOLD: Score =
-	Score::new(1800).expect("1000 is less than MAX_SCORE");
+	Score::new(1800).expect("1800 is less than MAX_SCORE");
 
 /// Delay for fetching collations when the reputation score is below the threshold
 /// defined by `INSTANT_FETCH_REP_THRESHOLD`.
