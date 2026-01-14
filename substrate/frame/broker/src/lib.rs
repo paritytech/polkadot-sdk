@@ -285,6 +285,15 @@ pub mod pallet {
 			/// The Region which was removed from the workplan.
 			region_id: RegionId,
 		},
+		/// An assignment has been added to the workplan.
+		AssignmentAdded {
+			/// The timeslice for which the assignment was added.
+			timeslice: Timeslice,
+			/// The core to which the assignment was added.
+			core: CoreIndex,
+			/// The assignment that was added.
+			assignment: Schedule,
+		},
 		/// A Region has been added to the Instantaneous Coretime Pool.
 		Pooled {
 			/// The Region which was added to the Instantaneous Coretime Pool.
@@ -1020,6 +1029,19 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
+		}
+
+		#[pallet::call_index(27)]
+		#[pallet::weight(T::WeightInfo::add_assignment())]
+		pub fn add_assignment(
+			origin: OriginFor<T>,
+			timeslice: Timeslice,
+			core: CoreIndex,
+			assignment: Schedule,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_add_assignment(timeslice, core, assignment)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

@@ -2636,3 +2636,153 @@ fn force_reserve_works() {
 		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
 	});
 }
+
+#[test]
+fn add_assignment_works() {
+	TestExt::new().execute_with(|| {
+		// Setup: start sales and get a core
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let assignment = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1001),
+		}]);
+
+		// Test 1: Admin can add assignment
+		assert_ok!(Broker::add_assignment(RuntimeOrigin::signed(1), 4, 0, assignment.clone()));
+
+		// Verify workplan was updated
+		assert_eq!(Workplan::<Test>::get((4, 0)), Some(assignment.clone()));
+
+		// Test 2: Event was emitted
+		System::assert_last_event(
+			Event::<Test>::AssignmentAdded {
+				timeslice: 4,
+				core: 0,
+				assignment: assignment.clone(),
+			}
+			.into(),
+		);
+
+		// Test 3: Non-admin cannot call
+		assert_noop!(
+			Broker::add_assignment(RuntimeOrigin::signed(2), 4, 0, assignment.clone()),
+			BadOrigin
+		);
+	});
+}
+
+#[test]
+fn add_assignment_respects_core_limits() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let status = Status::<Test>::get().unwrap();
+		let invalid_core = status.core_count + 1;
+		let assignment = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1001),
+		}]);
+
+		// Test: Cannot add assignment to non-existent core
+		assert_noop!(
+			Broker::add_assignment(RuntimeOrigin::root(), 4, invalid_core, assignment.clone()),
+			Error::<Test>::Unavailable
+		);
+	});
+}
+
+#[test]
+fn add_assignment_handles_conflicts() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Setup: Purchase a region and assign it
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
+
+		// Verify existing workplan
+		let existing_workplan = Workplan::<Test>::get((region.begin, region.core)).unwrap();
+		assert_eq!(existing_workplan.len(), 1);
+
+		// Create new assignment that overlaps with existing
+		let new_assignment = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::from_chunk(0, 40), // Overlaps with complete mask
+			assignment: Task(1002),
+		}]);
+
+		// Add overlapping assignment
+		assert_ok!(Broker::add_assignment(
+			RuntimeOrigin::signed(1),
+			region.begin,
+			region.core,
+			new_assignment.clone()
+		));
+
+		// Verify the workplan
+		let updated_workplan = Workplan::<Test>::get((region.begin, region.core)).unwrap();
+
+		let has_task_1002 = updated_workplan.iter().any(|item| item.assignment == Task(1002));
+		assert!(has_task_1002, "Workplan should contain Task(1002)");
+
+		// Verify masks if there are multiple items
+		if updated_workplan.len() > 1 {
+			// If there are multiple items, their masks should not overlap
+			for i in 0..updated_workplan.len() {
+				for j in i + 1..updated_workplan.len() {
+					let mask1 = updated_workplan[i].mask;
+					let mask2 = updated_workplan[j].mask;
+					assert!((mask1 & mask2).is_void(), "Masks should not overlap");
+				}
+			}
+		}
+	});
+}
+
+#[test]
+fn add_assignment_validates_empty_assignment() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let empty_assignment = Schedule::truncate_from(vec![]);
+
+		// Test: Cannot add empty assignment
+		assert_noop!(
+			Broker::add_assignment(RuntimeOrigin::root(), 4, 0, empty_assignment),
+			Error::<Test>::NothingToDo
+		);
+	});
+}
+
+#[test]
+fn add_assignment_integration_with_workload() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Add assignment for future timeslice
+		let assignment = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1001),
+		}]);
+
+		assert_ok!(Broker::add_assignment(RuntimeOrigin::signed(1), 4, 0, assignment.clone()));
+
+		// Advance to process the assignment
+		advance_to(8); // Timeslice 4 corresponds to block 8
+
+		// Check that our assignment was scheduled
+		// The workplan might have been consumed, so check CoretimeTrace instead
+		let trace = CoretimeTrace::get();
+		assert!(!trace.is_empty(), "Coretime trace should not be empty");
+
+		// Look for an assignment for core 0 starting at block 8 (timeslice 4)
+		let has_core_0_assignment = trace
+			.iter()
+			.any(|(_, item)| matches!(item, AssignCore { core: 0, begin: 8, .. }));
+		assert!(has_core_0_assignment, "Should have assignment for core 0 starting at block 8");
+	});
+}

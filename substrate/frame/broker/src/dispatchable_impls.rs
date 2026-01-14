@@ -627,6 +627,57 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_add_assignment(
+		timeslice: Timeslice,
+		core: CoreIndex,
+		assignment: Schedule,
+	) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		ensure!(core < status.core_count, Error::<T>::Unavailable);
+
+		// Validate the assignment
+		ensure!(!assignment.is_empty(), Error::<T>::NothingToDo);
+
+		// Get existing workplan
+		let existing_workplan = Workplan::<T>::get((timeslice, core)).unwrap_or_default();
+
+		// Create a new combined schedule
+		let mut combined_schedule = Schedule::default();
+
+		// First, add non-conflicting existing items
+		let new_masks: CoreMask = assignment
+			.iter()
+			.map(|item| item.mask)
+			.fold(CoreMask::void(), |acc, mask| acc | mask);
+
+		for existing_item in existing_workplan.iter() {
+			if (existing_item.mask & new_masks).is_void() {
+				if combined_schedule.try_push(existing_item.clone()).is_err() {
+					return Err(Error::<T>::TooManyReservations.into());
+				}
+			}
+		}
+
+		// Then add all new assignments
+		for item in assignment.iter() {
+			if combined_schedule.try_push(item.clone()).is_err() {
+				return Err(Error::<T>::TooManyReservations.into());
+			}
+		}
+
+		// Update the workplan
+		Workplan::<T>::insert((timeslice, core), &combined_schedule);
+
+		// Deposit event
+		Self::deposit_event(Event::<T>::AssignmentAdded {
+			timeslice,
+			core,
+			assignment: assignment.clone(),
+		});
+
+		Ok(())
+	}
+
 	/// If there is an ongoing sale returns the current price of a core.
 	pub fn current_price() -> Result<BalanceOf<T>, DispatchError> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
