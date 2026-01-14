@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-The Polkadot SDK is a monorepo containing all components needed to build on the Polkadot network. It was formed by merging three previously separate repositories:
+The Polkadot SDK is a monorepo containing all components needed to build on the Polkadot network. It was formed by
+merging three previously separate repositories:
 
-- **Substrate** (`substrate/`): Core blockchain framework providing consensus, networking, storage, and runtime execution
+- **Substrate** (`substrate/`): Core blockchain framework providing consensus, networking, storage, and runtime
+  execution
 - **Polkadot** (`polkadot/`): Relay chain implementation including the validator node
 - **Cumulus** (`cumulus/`): SDK for building parachains that connect to Polkadot
 - **Bridges** (`bridges/`): Cross-chain bridge infrastructure including Snowbridge (Ethereum bridge)
@@ -14,8 +16,10 @@ The Polkadot SDK is a monorepo containing all components needed to build on the 
 ## Dependencies
 
 - The protobuf compiler. [Installation Instructions](https://protobuf.dev/installation/)
-- The Solidity compiler. [Installation Instructions](https://docs.soliditylang.org/en/latest/installing-solidity.html)
-- The resolc compiler. [Installation Instructions](https://github.com/paritytech/revive?tab=readme-ov-file#resolcbinary-releases)
+- The Solidity compiler.
+  [Installation Instructions](https://docs.soliditylang.org/en/latest/installing-solidity.html)
+- The resolc compiler.
+  [Installation Instructions](https://github.com/paritytech/revive?tab=readme-ov-file#resolcbinary-releases)
 
 ### Rust
 
