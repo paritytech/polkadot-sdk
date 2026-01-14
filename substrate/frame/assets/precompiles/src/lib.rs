@@ -76,7 +76,8 @@ impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
 	type AssetIdExtractor = InlineAssetIdExtractor;
 }
-/// An `AssetIdExtractor` that stores the asset id directly inside the address.
+/// An `AssetIdExtractor` that maps a local asset id (4 bytes taken from the address) to a foreign
+/// asset id.
 pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }

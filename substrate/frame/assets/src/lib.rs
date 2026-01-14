@@ -247,6 +247,7 @@ where
 	}
 }
 
+// Trait to convert various types to u32 asset index used internally by the pallet.
 pub trait ToAssetIndex {
 	fn to_asset_index(&self) -> u32;
 }
@@ -257,7 +258,6 @@ impl ToAssetIndex for u32 {
 	}
 }
 
-// #[cfg(feature = "xcm-support")]
 impl ToAssetIndex for xcm::v5::Location {
 	fn to_asset_index(&self) -> u32 {
 		use codec::Encode;
@@ -523,10 +523,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
+	/// Mapping an asset index (which is used internally by the pallet) to an `AssetId`.
 	#[pallet::storage]
 	pub type AssetIndexToAssetId<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
 
+	/// Mapping an `AssetId` to an asset index (which is used internally by the pallet).
 	#[pallet::storage]
 	pub type AssetIdToAssetIndex<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
@@ -853,8 +855,8 @@ pub mod pallet {
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
 			Self::deposit_event(Event::Created {
 				asset_id: id.clone(),
-				creator: owner.clone(),
-				owner: admin.clone(),
+				creator: owner,
+				owner: admin,
 			});
 
 			ensure!(
@@ -992,19 +994,17 @@ pub mod pallet {
 		pub fn finish_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			let result = Self::do_finish_destroy(id.clone());
+			Self::do_finish_destroy(id.clone())?;
 
-			if result.is_ok() {
-				ensure!(AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
-				let account_id = AssetIdToAssetIndex::<T, I>::get(&id).unwrap();
-				ensure!(
-					AssetIndexToAssetId::<T, I>::contains_key(&account_id),
-					Error::<T, I>::Unknown
-				);
-				AssetIndexToAssetId::<T, I>::remove(&account_id);
-				AssetIdToAssetIndex::<T, I>::remove(&id);
-			}
-			result
+			ensure!(AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
+			let account_id = AssetIdToAssetIndex::<T, I>::get(&id).unwrap();
+			ensure!(
+				AssetIndexToAssetId::<T, I>::contains_key(&account_id),
+				Error::<T, I>::Unknown
+			);
+			AssetIndexToAssetId::<T, I>::remove(&account_id);
+			AssetIdToAssetIndex::<T, I>::remove(&id);
+			Ok(())
 		}
 
 		/// Mint assets of a particular class.
