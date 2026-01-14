@@ -414,9 +414,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Whether to archive all blocks. When `true`, gap sync requests bodies to maintain complete
+	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
 	/// block history.
-	archive_all_blocks: bool,
+	archive_blocks: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -1023,7 +1023,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		archive_all_blocks: bool,
+		archive_blocks: bool,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -1047,7 +1047,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			archive_all_blocks,
+			archive_blocks,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1929,7 +1929,7 @@ where
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
-		let is_archive = self.archive_all_blocks;
+		let is_archive = self.archive_blocks;
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized =

@@ -1360,11 +1360,11 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 fn gap_sync_body_request_depends_on_pruning_mode() {
 	sp_tracing::try_init_simple();
 
-	// Test data: (mode_name, archive_all_blocks, should_request_bodies)
+	// Test data: (mode_name, archive_blocks, should_request_bodies)
 	let test_cases = vec![("archive", true, true), ("non-archive", false, false)];
 
-	for (mode_name, archive_all_blocks, should_request_bodies) in test_cases {
-		log::info!("Testing gap sync with archive_all_blocks: {}", archive_all_blocks);
+	for (mode_name, archive_blocks, should_request_bodies) in test_cases {
+		log::info!("Testing gap sync with archive_blocks: {}", archive_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1376,7 +1376,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_all_blocks,
+			archive_blocks,
 			None,
 			std::iter::empty(),
 		)
@@ -1423,8 +1423,8 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 	let test_cases = vec![("archive", true), ("non-archive", false)];
 
-	for (mode_name, archive_all_blocks) in test_cases {
-		log::info!("Testing regular sync with archive_all_blocks: {}", archive_all_blocks);
+	for (mode_name, archive_blocks) in test_cases {
+		log::info!("Testing regular sync with archive_blocks: {}", archive_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1436,7 +1436,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_all_blocks,
+			archive_blocks,
 			None,
 			std::iter::empty(),
 		)

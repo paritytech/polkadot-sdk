@@ -20369,7 +20369,6 @@ dependencies = [
  "rand 0.8.5",
  "sc-block-builder",
  "sc-client-api",
- "sc-client-db",
  "sc-consensus",
  "sc-network",
  "sc-network-common",

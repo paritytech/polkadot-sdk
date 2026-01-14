@@ -212,7 +212,7 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			archive_all_blocks: false,
+			archive_blocks: false,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
