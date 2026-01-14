@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768395398155,
+  "lastUpdate": 1768397737352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d0a525301ab8d962e478ed87b8665f30142a879d",
-          "message": "EPMB: Handle empty solution pages gracefully in verifier (#8666)\n\n- Treat missing solution pages as empty rather than errors.\n- Updated `get_page` method now returns a default Solution instead of an\nOption when no candidate solutions are available. This simplifies the\nAPI\nand improves code clarity by removing the need to handle None cases.\n- Similarly, updated `get_score` method now returns a default (0) score\nif no leader is available.\n- Removed VerificationDataUnavailable now that `get_page` and\n`get_score` don't return an Option anymore\n- Signed validation phase must now be a multiple of the number of pages\n- Updated tests to reflect new behavior and remove defensive unwraps.\n\nClose security vulnerability found\n[here](https://github.com/paritytech-secops/srlabs_findings/issues/505).\nA malicious miner could trigger panic in the EPMB pallet, submitting a\nvery high score and then intentionally\nfailing in submitting one or more pages.\n\nA unit test replicating the vulnerability ensures that the fix works as\nexpected (i.e. no panic, solution is rejected).\n\n---------\n\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-06-13T21:14:57Z",
-          "tree_id": "af343733a89a05442777f0e8f32fbeeeb548ab3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d0a525301ab8d962e478ed87b8665f30142a879d"
-        },
-        "date": 1749852960469,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00909730231333341,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022384986873333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013033226039999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1577985453066667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0067293502266666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84064c944a46abef63eb7f66b3c1184dc2083d7e",
+          "message": "pallet-broker: Fix `force_reserve` (#10792)\n\nWhen issuing a `force_reserve` we are putting the reservation into the\ncurrent and next region `WorkPlan`. The issue is that at the next sale\nrotation we override all unused cores. As the sale rotation isn't aware\nof the forcefully registered core, also the force reserved core is\noverwritten and the parachain looses their coretime for one region (it\ncomes back in the next region). To fix this we now keep track of\nforcefully registered reserves. We input them alongside the other\nreservations into the workplan, but for the current region using any\nfree cores from the previous sale.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-01-14T12:27:06Z",
+          "tree_id": "3c822971879882703dc9218117bdb59dcadec8c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/84064c944a46abef63eb7f66b3c1184dc2083d7e"
+        },
+        "date": 1768397713637,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1463199280266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007285173093333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02304036140666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00983937255333332,
             "unit": "seconds"
           }
         ]
