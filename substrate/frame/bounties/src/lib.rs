@@ -637,12 +637,6 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
-				// Ensure no active child bounties before processing the call.
-				ensure!(
-					T::ChildBountyManager::child_bounties_count(bounty_id) == 0,
-					Error::<T, I>::HasActiveChildBounty
-				);
-
 				match &bounty.status {
 					BountyStatus::Active { curator, .. } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
@@ -744,12 +738,6 @@ pub mod pallet {
 				bounty_id,
 				|maybe_bounty| -> DispatchResultWithPostInfo {
 					let bounty = maybe_bounty.as_ref().ok_or(Error::<T, I>::InvalidIndex)?;
-
-					// Ensure no active child bounties before processing the call.
-					ensure!(
-						T::ChildBountyManager::child_bounties_count(bounty_id) == 0,
-						Error::<T, I>::HasActiveChildBounty
-					);
 
 					match &bounty.status {
 						BountyStatus::Proposed => {
