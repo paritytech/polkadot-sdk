@@ -137,6 +137,8 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 	) -> Option<ExecResult> {
 		use polkavm::InterruptKind::*;
 
+		log::info!("RVE: handle_interrupt: {interrupt:?}");
+
 		match interrupt {
 			Err(error) => {
 				// in contrast to the other returns this "should" not happen: log level error
@@ -299,8 +301,9 @@ pub mod env {
 
 		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
+		log::info!("RVE: call: {callee_ptr:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_and_value:?}, {input_data:?}, {output_data:?}");
 
-		self.call(
+		let result = self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
@@ -310,7 +313,11 @@ pub mod env {
 			input_data_len,
 			output_ptr,
 			output_len_ptr,
-		)
+		);
+		log::info!("RVE: call result: {result:?}");
+		let result = result.unwrap();
+		log::info!("RVE: call result.unwrap(): {:?}", result);
+		Ok(result)
 	}
 
 	/// Make a call to another contract.
@@ -327,6 +334,8 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		log::info!("RVE: call_evm: callee={callee:?}, gas={gas:?}, input_data=({input_data_ptr:?}, {input_data_len:?}), output_data=({output_ptr:?}, {output_len_ptr:?})");
+
 		let resources = if gas == u64::MAX {
 			CallResources::NoLimits
 		} else {
@@ -336,6 +345,7 @@ pub mod env {
 			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
 			CallResources::from_ethereum_gas(gas.into(), add_stipend)
 		};
+
 
 		self.call(
 			memory,
@@ -362,6 +372,7 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		log::info!("RVE: delegate_call: {flags_and_callee:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_ptr:?}, {input_data:?}, {output_data:?}");
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);

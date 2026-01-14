@@ -221,7 +221,7 @@ fn deploy_revert() {
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the
 // INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
-#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
+// #[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
@@ -240,14 +240,14 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
+		
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
 					_callee: callee_addr.0.into(),
 					_value: 0,
 					_data: Callee::invalidCall {}.abi_encode().into(),
-					_gas: u64::MAX,
+					_gas: 1,
 				}
 				.abi_encode(),
 			)

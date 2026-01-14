@@ -822,6 +822,7 @@ pub struct PreparedCall<'a, E: Ext> {
 
 impl<'a, E: Ext> PreparedCall<'a, E> {
 	pub fn call(mut self) -> ExecResult {
+		log::info!("RVE: pvm.rs call");
 		let exec_result = loop {
 			let interrupt = self.instance.run();
 			if let Some(exec_result) =
