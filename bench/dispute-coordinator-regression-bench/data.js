@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768395496998,
+  "lastUpdate": 1768397836111,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -20873,6 +20873,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00271789554,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84064c944a46abef63eb7f66b3c1184dc2083d7e",
+          "message": "pallet-broker: Fix `force_reserve` (#10792)\n\nWhen issuing a `force_reserve` we are putting the reservation into the\ncurrent and next region `WorkPlan`. The issue is that at the next sale\nrotation we override all unused cores. As the sale rotation isn't aware\nof the forcefully registered core, also the force reserved core is\noverwritten and the parachain looses their coretime for one region (it\ncomes back in the next region). To fix this we now keep track of\nforcefully registered reserves. We input them alongside the other\nreservations into the workplan, but for the current region using any\nfree cores from the previous sale.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-01-14T12:27:06Z",
+          "tree_id": "3c822971879882703dc9218117bdb59dcadec8c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/84064c944a46abef63eb7f66b3c1184dc2083d7e"
+        },
+        "date": 1768397812244,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006362187410000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00277519764,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009198633579999987,
             "unit": "seconds"
           }
         ]
