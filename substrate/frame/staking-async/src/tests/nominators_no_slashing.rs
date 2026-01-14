@@ -103,8 +103,8 @@ fn nominators_can_unbond_in_next_era() {
 			}
 		);
 
-		let current_era = active_era();
-		assert_eq!(current_era, 1);
+		let era = active_era();
+		assert_eq!(era, 1);
 
 		// Nominator unbonds some stake
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(101), 200));
@@ -115,7 +115,7 @@ fn nominators_can_unbond_in_next_era() {
 
 		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era +
 		// BondingDuration)
-		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
+		let fast_unbond_era = era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(101.into()).unwrap(),
 			StakingLedgerInspect {
@@ -171,8 +171,8 @@ fn validators_still_have_full_bonding_duration() {
 			}
 		);
 
-		let current_era = active_era();
-		assert_eq!(current_era, 1);
+		let era = active_era();
+		assert_eq!(era, 1);
 		let bonding_duration = BondingDuration::get();
 		assert_eq!(bonding_duration, 3);
 
@@ -192,27 +192,24 @@ fn validators_still_have_full_bonding_duration() {
 				total: 1000,
 				active: 800,
 				// Unlocking era is active_era + BondingDuration = 1 + 3 = 4
-				unlocking: bounded_vec![UnlockChunk {
-					value: 200,
-					era: current_era + bonding_duration
-				}],
+				unlocking: bounded_vec![UnlockChunk { value: 200, era: era + bonding_duration }],
 			}
 		);
 
 		// Cannot withdraw before the full bonding duration expires
-		Session::roll_until_active_era(current_era + 1);
+		Session::roll_until_active_era(era + 1);
 		assert_eq!(active_era(), 2);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
 		assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000); // still locked
 
 		// Cannot withdraw in era 3
-		Session::roll_until_active_era(current_era + 2);
+		Session::roll_until_active_era(era + 2);
 		assert_eq!(active_era(), 3);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
 		assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000); // still locked
 
 		// Can withdraw in era 4 (current_era + bonding_duration)
-		Session::roll_until_active_era(current_era + bonding_duration);
+		Session::roll_until_active_era(era + bonding_duration);
 		assert_eq!(active_era(), 4);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
 
@@ -347,15 +344,15 @@ fn virtual_staker_unbonds_in_one_era() {
 		assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&pool_account, pool_stake, &payee));
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(pool_account), vec![11]));
 
-		let current_era = active_era();
-		assert_eq!(current_era, 1);
+		let era = active_era();
+		assert_eq!(era, 1);
 
 		// Virtual staker unbonds some stake.
 		assert_ok!(<Staking as StakingInterface>::unbond(&pool_account, 200));
 
 		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era +
 		// BondingDuration).
-		let fast_unbond_era = current_era + NominatorFastUnbondDuration::get();
+		let fast_unbond_era = era + NominatorFastUnbondDuration::get();
 		assert_eq!(
 			Staking::ledger(pool_account.into()).unwrap(),
 			StakingLedgerInspect {
