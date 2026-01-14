@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768346385135,
+  "lastUpdate": 1768395496998,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -20824,6 +20824,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009206084319999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
+          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-01-14T11:50:36Z",
+          "tree_id": "36107140a1792163eace77a49154710099d32009",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
+        },
+        "date": 1768395472776,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.008996331969999981,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006172831620000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00271789554,
             "unit": "seconds"
           }
         ]
