@@ -29,6 +29,7 @@ jobs:
     permissions:
       pull-requests: write
     strategy:
+      fail-fast: false
       matrix:
         platform:
           ["revive-dev-node-revm-solc", "revive-dev-node-polkavm-resolc"]
@@ -38,11 +39,11 @@ jobs:
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
       - name: Run revive differential tests
-        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@e2d626d45be1440933b1938f38cfc78a4796372a
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@659263b8c5177cfbd7a665320fd40ac2a7280d3c
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
-          revive-differential-tests-ref: "e2d626d45be1440933b1938f38cfc78a4796372a"
+          revive-differential-tests-ref: "659263b8c5177cfbd7a665320fd40ac2a7280d3c"
           resolc-version: "0.5.0"
           expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
