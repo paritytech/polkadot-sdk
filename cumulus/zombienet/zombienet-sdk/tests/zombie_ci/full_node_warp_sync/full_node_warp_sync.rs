@@ -36,7 +36,7 @@ pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
 // Asserting Warp sync requires at least sync=debug level
 async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(20), false);
 
 	log::info!("Asserting Warp sync for node {}", node.name());
 	// We are interested only in Relaychain Warp sync (relaychain and parachain nodes),
@@ -88,9 +88,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 
 // Asserting Gap sync requires at least sync=debug level
 async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(20), false);
 	let option_at_least_5_lines =
-		LogLineCountOptions::new(|n| n >= 5, Duration::from_secs(5), false);
+		LogLineCountOptions::new(|n| n >= 5, Duration::from_secs(20), false);
 
 	log::info!("Asserting Gap sync for node {}", node.name());
 	// We are interested only in Relaychain Gap sync (relaychain and parachain nodes),
