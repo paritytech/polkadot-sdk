@@ -88,7 +88,7 @@ mod imbalances {
 		T: Config<I, Balance: From<u128> + Into<u128>>,
 		I: 'static,
 	{
-		fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
 			let amount = other.forget_imbalance();
 			self.0 = self.0.saturating_add(amount.into())
 		}

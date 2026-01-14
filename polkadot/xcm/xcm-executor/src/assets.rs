@@ -200,7 +200,7 @@ impl AssetsInHolding {
 		for (asset_id, accounting) in assets.fungible.into_iter() {
 			match self.fungible.entry(asset_id) {
 				btree_map::Entry::Occupied(mut e) => {
-					e.get_mut().subsume_other(accounting);
+					e.get_mut().saturating_subsume(accounting);
 				},
 				btree_map::Entry::Vacant(e) => {
 					e.insert(accounting);
@@ -260,6 +260,11 @@ impl AssetsInHolding {
 
 	/// Return all inner assets, but interpreted from the perspective of a `target` chain. The local
 	/// chain's `context` is provided.
+	///
+	/// **Warning**: This method returns `Assets` which only contains amounts (not imbalances).
+	/// The returned `Assets` is suitable for cross-chain messaging but does not preserve the
+	/// imbalance accounting semantics of the original `AssetsInHolding`. Do not use the returned
+	/// value for local balance operations that require imbalance tracking.
 	pub fn reanchored_assets(&self, target: &Location, context: &InteriorLocation) -> Assets {
 		let mut assets: Vec<Asset> = self
 			.fungible

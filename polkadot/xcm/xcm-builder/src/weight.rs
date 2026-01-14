@@ -37,6 +37,7 @@ use xcm_executor::{
 };
 
 pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
+
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
@@ -121,6 +122,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 }
 
 pub struct WeightInfoBounds<W, C, M>(PhantomData<(W, C, M)>);
+
 impl<W, C, M> WeightBounds<C> for WeightInfoBounds<W, C, M>
 where
 	W: XcmWeightInfo<C>,
@@ -239,6 +241,7 @@ pub struct FixedRateOfFungible<T: Get<(AssetId, u128, u128)>, R: TakeRevenue>(
 	AssetsInHolding,
 	PhantomData<(T, R)>,
 );
+
 impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOfFungible<T, R> {
 	fn new() -> Self {
 		Self(Weight::zero(), AssetsInHolding::new(), PhantomData)
@@ -260,7 +263,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		if amount == 0 {
-			return Ok(payment)
+			return Ok(payment);
 		}
 		let to_charge: Asset = (id, amount).into();
 		if let Ok(taken) = payment.try_take(to_charge.into()) {
@@ -274,20 +277,18 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
 		let (id, units_per_second, units_per_mb) = T::get();
-		tracing::trace!(target: "xcm::weight", ?id, ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let weight = weight.min(self.0);
-		let amount = (units_per_second * (weight.ref_time() as u128) /
-			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
-			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
+		tracing::trace!(target: "xcm::weight", ?id, ?weight, ?context, "FixedRateOfFungible::refund_weight");
+		let quote = self.quote_weight(weight, id, context).ok()?;
+		// Subtract refunded weight.
 		self.0 -= weight;
-		self.1.fungible.get_mut(&id).and_then(|credit| {
-			let refunded = credit.saturating_take(amount);
-			if refunded.amount() > 0 {
-				Some(AssetsInHolding::new_from_fungible_credit(id, refunded))
-			} else {
-				None
-			}
-		})
+		// Refund equivalent assets in holding from trader to caller.
+		let refunded = self.1.saturating_take(quote.into());
+		if refunded.is_empty() {
+			None
+		} else {
+			Some(refunded)
+		}
 	}
 
 	fn quote_weight(
@@ -335,6 +336,7 @@ pub struct UsingComponents<
 	Credit<AccountId, Fungible>,
 	PhantomData<(WeightToFee, AssetIdValue, AccountId, Fungible, OnUnbalanced)>,
 );
+
 impl<
 		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
 		AssetIdValue: Get<Location>,
@@ -363,14 +365,14 @@ where
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let Ok(u128_amount): Result<u128, _> = TryInto::<u128>::try_into(amount) else {
 			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
-			return Err((payment, XcmError::Overflow))
+			return Err((payment, XcmError::Overflow));
 		};
 		let asset_id = AssetId(AssetIdValue::get());
 		let required = Asset { id: asset_id.clone(), fun: Fungible(u128_amount) };
 		if let Ok(mut taken) = payment.try_take(required.into()) {
 			self.0 = self.0.saturating_add(weight);
 			if let Some(imbalance) = taken.fungible.remove(&asset_id) {
-				self.1.subsume_other(imbalance);
+				self.1.saturating_subsume(imbalance);
 				Ok(payment)
 			} else {
 				payment.subsume_assets(taken);
@@ -419,6 +421,7 @@ where
 		Ok(required)
 	}
 }
+
 impl<
 		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
 		AssetId: Get<Location>,
@@ -429,7 +432,7 @@ impl<
 {
 	fn drop(&mut self) {
 		if self.1.peek().is_zero() {
-			return
+			return;
 		}
 		let total_fee = self.1.extract(self.1.peek());
 		OnUnbalanced::on_unbalanced(total_fee);

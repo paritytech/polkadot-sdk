@@ -196,16 +196,9 @@ impl<
 		// Require at least a payment of minimum_balance
 		// Necessary for fully collateral-backed assets
 		let required_amount: u128 =
-			match FeeCharger::charge_weight_in_fungibles(fungibles_asset_id.clone(), weight).map(
-				|amount| {
-					let minimum_balance = Fungibles::minimum_balance(fungibles_asset_id.clone());
-					if amount < minimum_balance {
-						minimum_balance
-					} else {
-						amount
-					}
-				},
-			) {
+			match FeeCharger::charge_weight_in_fungibles(fungibles_asset_id.clone(), weight)
+				.map(|amount| amount.max(Fungibles::minimum_balance(fungibles_asset_id.clone())))
+			{
 				Ok(a) => a,
 				Err(_) => return Err((payment, XcmError::Overflow)),
 			};
@@ -213,7 +206,9 @@ impl<
 		// Convert to the same kind of asset, with the required fungible balance
 		let required = used.id.into_asset(required_amount.into());
 
-		// Subtract required from payment
+		// Subtract required from payment.
+		// Note: `payment` may contain multiple assets, but we only take from the first fungible
+		// asset that was matched above. Any remaining assets stay in `payment` and are returned.
 		let Some(imbalance) = payment
 			.try_take(required.into())
 			.ok()
@@ -223,9 +218,9 @@ impl<
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = fungibles::Credit::<AccountId, Fungibles>::zero(fungibles_asset_id);
-		credit.subsume_other(imbalance);
+		credit.saturating_subsume(imbalance);
 
-		// record weight and credit
+		// Record weight and credit.
 		self.outstanding_credit = Some(credit);
 		self.weight_outstanding = weight;
 
@@ -233,42 +228,44 @@ impl<
 		Ok(payment)
 	}
 
+	/// Refunds unused weight back to holding.
+	///
+	/// Note: This is a best-effort refund. The actual refunded amount may differ from the
+	/// weight-equivalent amount due to existential deposit (ED) constraints. Specifically:
+	/// - If refunding the full amount would leave less than ED in outstanding credit, we only
+	///   refund enough to keep ED for the drop handler.
+	/// - This ensures collateral-backed assets always have sufficient balance for proper cleanup.
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}", weight, context);
-		if self.outstanding_credit.is_none() {
-			return None
-		}
 		let outstanding_credit = self.outstanding_credit.as_mut()?;
 		let id = outstanding_credit.asset();
 		let fun = Fungible(outstanding_credit.peek());
 		let asset = (id.clone(), fun).into();
 
-		// Get the local asset id in which we can refund fees
+		// Get the local asset id in which we can refund fees.
 		let (fungibles_asset_id, _) = Matcher::matches_fungibles(&asset).ok()?;
 		let minimum_balance = Fungibles::minimum_balance(fungibles_asset_id.clone());
 
-		// Calculate asset_balance
-		// This read should have already been cached in buy_weight
-		// Map `weight` to actual asset amount given fungibles id.
+		// Calculate how much to refund based on unused weight.
+		// This read should have already been cached in buy_weight.
 		let refund_credit = FeeCharger::charge_weight_in_fungibles(fungibles_asset_id, weight)
 			.ok()
 			.map(|refund_balance| {
-				// Require at least a drop of minimum_balance
-				// Necessary for fully collateral-backed assets
-				if outstanding_credit.peek().saturating_sub(refund_balance) > minimum_balance {
+				// Ensure at least minimum_balance remains for the drop handler.
+				// This is necessary for fully collateral-backed assets.
+				if outstanding_credit.peek().saturating_sub(refund_balance) >= minimum_balance {
 					outstanding_credit.extract(refund_balance)
-				}
-				// If the amount to be refunded leaves the remaining balance below ED,
-				// we just refund the exact amount that guarantees at least ED will be
-				// dropped
-				else {
+				} else {
+					// If refunding would leave less than ED, we refund ED to ensure the
+					// OnUnbalanced handler receives at least ED when this trader is dropped.
+					// This prevents dust amounts that can't be properly handled.
 					outstanding_credit.extract(minimum_balance)
 				}
 			})?;
-		// Subtract the refunded weight from existing weight
+		// Subtract the refunded weight from existing weight.
 		self.weight_outstanding = self.weight_outstanding.saturating_sub(weight);
 
-		// Only refund if positive
+		// Only return refund if non-zero.
 		if refund_credit.peek() != Zero::zero() {
 			Some(AssetsInHolding::new_from_fungible_credit(asset.id, Box::new(refund_credit)))
 		} else {
@@ -298,14 +295,7 @@ impl<
 		// Necessary for fully collateral-backed assets
 		let required_amount: u128 =
 			FeeCharger::charge_weight_in_fungibles(give_fungibles_id.clone(), weight)
-				.map(|amount| {
-					let minimum_balance = Fungibles::minimum_balance(give_fungibles_id.clone());
-					if amount < minimum_balance {
-						minimum_balance
-					} else {
-						amount
-					}
-				})
+				.map(|amount| amount.max(Fungibles::minimum_balance(give_fungibles_id.clone())))
 				.map_err(|_| XcmError::Overflow)?;
 
 		// Convert to the same kind of asset, with the required fungible balance
@@ -323,12 +313,10 @@ impl<
 	> Drop for TakeFirstAssetTrader<AccountId, FeeCharger, Matcher, Fungibles, OnUnbalanced>
 {
 	fn drop(&mut self) {
-		if let Some(outstanding_credit) = self.outstanding_credit.take() {
-			if outstanding_credit.peek().is_zero() {
-				return
-			}
-			OnUnbalanced::on_unbalanced(outstanding_credit);
-		}
+		self.outstanding_credit
+			.take()
+			.filter(|credit| !credit.peek().is_zero())
+			.map(OnUnbalanced::on_unbalanced);
 	}
 }
 
@@ -469,7 +457,7 @@ where
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit_in = fungibles::Credit::<AccountId, Fungibles>::zero(fungibles_id);
-		credit_in.subsume_other(imbalance);
+		credit_in.saturating_subsume(imbalance);
 
 		let fee = WeightToFee::weight_to_fee(&weight);
 		// swap the user's asset for the `Target` asset.

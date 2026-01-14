@@ -37,7 +37,7 @@ impl UnsafeConstructorDestructor<u128> for MockCredit {
 }
 
 impl UnsafeManualAccounting<u128> for MockCredit {
-	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+	fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
 		self.0 = self.0.saturating_add(other.forget_imbalance());
 	}
 }

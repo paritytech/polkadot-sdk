@@ -225,7 +225,7 @@ impl<
 		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
 	> UnsafeManualAccounting<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
 {
-	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+	fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
 		let amount = other.forget_imbalance();
 		self.amount = self.amount.saturating_add(amount.saturated_into());
 	}

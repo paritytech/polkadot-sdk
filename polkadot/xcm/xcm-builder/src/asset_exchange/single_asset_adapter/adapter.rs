@@ -102,7 +102,7 @@ where
 		let Some(imbalance) = give.fungible.remove(&give_asset.id) else { return Err(give) };
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit_in = fungibles::Credit::<AccountId, Fungibles>::zero(give_asset_id);
-		credit_in.subsume_other(imbalance);
+		credit_in.saturating_subsume(imbalance);
 
 		// Do the swap.
 		let (credit_out, maybe_credit_change) = if maximal {

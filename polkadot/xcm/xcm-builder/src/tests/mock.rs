@@ -60,7 +60,7 @@ pub fn assets_to_holding(assets: impl IntoIterator<Item = Asset>) -> AssetsInHol
 		match asset.fun {
 			Fungibility::Fungible(amount) => match holding.fungible.entry(asset.id.clone()) {
 				alloc::collections::btree_map::Entry::Occupied(mut e) => {
-					e.get_mut().subsume_other(Box::new(MockCredit(amount)));
+					e.get_mut().saturating_subsume(Box::new(MockCredit(amount)));
 				},
 				alloc::collections::btree_map::Entry::Vacant(e) => {
 					e.insert(Box::new(MockCredit(amount)));

@@ -546,6 +546,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(refund) = self.trader.refund_weight(current_surplus, &self.context) {
+				// Check if adding the refund would overflow holding. This can happen if the
+				// refund asset is not already in holding and holding is at max capacity.
 				if refund
 					.fungible
 					.first_key_value()
@@ -555,6 +557,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					})
 					.unwrap_or(false)
 				{
+					// Can't add refund to holding - undo by buying back the weight.
+					// This returns the refund credit to the trader where it will be
+					// handled by OnUnbalanced when the trader is dropped.
 					let _ = self
 						.trader
 						.buy_weight(current_surplus, refund, &self.context)
@@ -931,21 +936,26 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			ReserveAssetDeposited(assets) => {
-				// check whether we trust origin to be our reserve location for this asset.
-				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
-				let mut minted_assets = AssetsInHolding::new();
-				for asset in assets.inner() {
-					// Must ensure that we recognise the asset as being managed by the origin.
-					ensure!(
-						Config::IsReserve::contains(asset, origin),
-						XcmError::UntrustedReserveLocation
-					);
-					Config::AssetTransactor::mint_asset(asset, &self.context)
-						.map(|minted| minted_assets.subsume_assets(minted))?;
-				}
-				self.holding.subsume_assets(minted_assets);
-				Ok(())
+				Config::TransactionalProcessor::process(|| {
+					// Check whether we trust origin to be our reserve location for this asset.
+					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					// Collect all minted assets first, then add to holding atomically.
+					// This ensures partial mints don't pollute holding if a later mint fails. If one of them does fail,
+					// TransactionalProcessor makes sure the imbalance changes do not get committed.
+					let mut minted_assets = AssetsInHolding::new();
+					for asset in assets.inner() {
+						// Must ensure that we recognise the asset as being managed by the origin.
+						ensure!(
+							Config::IsReserve::contains(asset, origin),
+							XcmError::UntrustedReserveLocation
+						);
+						Config::AssetTransactor::mint_asset(asset, &self.context)
+							.map(|minted| minted_assets.subsume_assets(minted))?;
+					}
+					self.holding.subsume_assets(minted_assets);
+					Ok(())
+				})
 			},
 			TransferAsset { assets, beneficiary } => {
 				Config::TransactionalProcessor::process(|| {
@@ -1004,11 +1014,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			ReceiveTeleportedAsset(assets) => {
-				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
-				let mut minted_assets = AssetsInHolding::new();
 				Config::TransactionalProcessor::process(|| {
-					// check whether we trust origin to teleport this asset to us via config trait.
+					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut minted_assets = AssetsInHolding::new();
+					// Check whether we trust origin to teleport this asset to us via config trait.
 					for asset in assets.inner() {
 						// We only trust the origin to send us assets that they identify as their
 						// sovereign assets.
@@ -1025,10 +1035,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						Config::AssetTransactor::mint_asset(asset, &self.context)
 							.map(|minted| minted_assets.subsume_assets(minted))?;
 					}
+					self.holding.subsume_assets(minted_assets);
 					Ok(())
-				})?;
-				self.holding.subsume_assets(minted_assets);
-				Ok(())
+				})
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
 			Transact { origin_kind, mut call, .. } => {

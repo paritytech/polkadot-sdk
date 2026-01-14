@@ -244,7 +244,7 @@ where
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = fungible::Credit::<AccountId, Fungible>::zero();
-		credit.subsume_other(imbalance);
+		credit.saturating_subsume(imbalance);
 		Fungible::resolve(&who, credit).map_err(|unspent| {
 			tracing::debug!(target: "xcm::fungible_adapter", ?asset_id, ?who, ?amount, "Failed to deposit asset");
 			(

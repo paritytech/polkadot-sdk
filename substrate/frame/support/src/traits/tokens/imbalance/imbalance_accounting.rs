@@ -52,7 +52,7 @@ pub trait UnsafeManualAccounting<Balance> {
 	/// The caller is responsible for making sure `self` and `other` are compatible concrete types.
 	/// Compatible meaning both `self` and `other` imbalances are equivalent types with same
 	/// imbalance resolution implementation.
-	fn subsume_other(&mut self, other: Box<dyn ImbalanceAccounting<Balance>>);
+	fn saturating_subsume(&mut self, other: Box<dyn ImbalanceAccounting<Balance>>);
 }
 
 /// Helper trait to be used for generic Imbalance, helpful for tracking multiple concrete types of

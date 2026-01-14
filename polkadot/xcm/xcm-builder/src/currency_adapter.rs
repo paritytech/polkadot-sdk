@@ -229,7 +229,7 @@ impl<
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = Currency::NegativeImbalance::zero();
-		credit.subsume_other(imbalance);
+		credit.saturating_subsume(imbalance);
 		Currency::resolve_creating(&who, credit);
 		Ok(())
 	}

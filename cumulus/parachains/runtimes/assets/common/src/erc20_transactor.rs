@@ -76,10 +76,10 @@ pub struct ERC20Transactor<
 /// runtime-level balance enforcement. It's used to track ERC20 token amounts within XCM
 /// asset holdings, where the actual balance constraints are enforced by the ERC20 smart
 /// contract itself rather than the runtime.
-pub struct NoopCredit(u128);
-impl UnsafeConstructorDestructor<u128> for NoopCredit {
+struct Erc20Credit(u128);
+impl UnsafeConstructorDestructor<u128> for Erc20Credit {
 	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-		Box::new(NoopCredit(self.0))
+		Box::new(Erc20Credit(self.0))
 	}
 	fn forget_imbalance(&mut self) -> u128 {
 		let amount = self.0;
@@ -88,21 +88,21 @@ impl UnsafeConstructorDestructor<u128> for NoopCredit {
 	}
 }
 
-impl UnsafeManualAccounting<u128> for NoopCredit {
-	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+impl UnsafeManualAccounting<u128> for Erc20Credit {
+	fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
 		let amount = other.forget_imbalance();
 		self.0 = self.0.saturating_add(amount);
 	}
 }
 
-impl ImbalanceAccounting<u128> for NoopCredit {
+impl ImbalanceAccounting<u128> for Erc20Credit {
 	fn amount(&self) -> u128 {
 		self.0
 	}
 	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
 		let new = self.0.min(amount);
 		self.0 = self.0 - new;
-		Box::new(NoopCredit(new))
+		Box::new(Erc20Credit(new))
 	}
 }
 
@@ -197,7 +197,7 @@ where
 					Ok((
 						AssetsInHolding::new_from_fungible_credit(
 							what.id.clone(),
-							Box::new(NoopCredit(amount)),
+							Box::new(Erc20Credit(amount)),
 						),
 						surplus,
 					))
@@ -215,6 +215,13 @@ where
 		}
 	}
 
+	/// Deposits assets from holding to a beneficiary account via ERC20 transfer.
+	///
+	/// Note: This implementation only handles a single fungible asset at a time. The
+	/// `AssetsInHolding` parameter is required by the `TransactAsset` trait, but callers
+	/// should ensure only one asset is passed. If multiple assets are present, only the
+	/// first fungible asset will be deposited and the rest will be silently ignored.
+	/// The `defensive_assert!` helps catch misuse during development.
 	fn deposit_asset_with_surplus(
 		what: AssetsInHolding,
 		who: &Location,

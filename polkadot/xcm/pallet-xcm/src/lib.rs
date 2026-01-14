@@ -3951,6 +3951,11 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 					// trapped assets too), and now a duplicate asset was just minted.
 					// To balance the system and keep total issuance constant, we drop and resolve
 					// one of the duplicates. As a result, total issuance doesn't change.
+					//
+					// Note: This may emit Burned/Minted events even though the net issuance change
+					// is zero. The mint creates a +X imbalance, and dropping the clone resolves -X,
+					// resulting in no net change but potentially two events. This is an acceptable
+					// tradeoff for the asset trap/claim mechanism.
 					minted.fungible.iter().for_each(|(_, imbalance)| {
 						let to_resolve = imbalance.unsafe_clone();
 						core::mem::drop(to_resolve);
