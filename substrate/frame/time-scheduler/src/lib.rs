@@ -670,7 +670,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<u32, (DispatchError, ScheduledOf<T>)> {
 		let mut agenda = Agenda::<T>::get(when);
 		let index = if (agenda.len() as u32) < T::MaxScheduledPerMinute::get() {
-			// Will always succeed due to the above check.
+			// will always succeed due to the above check.
 			let _ = agenda.try_push(Some(what));
 			agenda.len() as u32 - 1
 		} else {
@@ -713,9 +713,9 @@ impl<T: Config> Pallet<T> {
 
 		let lookup_hash = call.lookup_hash();
 
-		// Sanitize maybe_periodic: period must be > 0 and count must be > 1
+		// sanitize maybe_periodic
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && p.0 > Zero::zero())
+			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
 		let task = Scheduled {
@@ -798,18 +798,18 @@ impl<T: Config> Pallet<T> {
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
-		// Ensure id is unique
+		// ensure id is unique
 		if Lookup::<T>::contains_key(&id) {
-			return Err(Error::<T>::FailedToSchedule.into());
+			return Err(Error::<T>::FailedToSchedule.into())
 		}
 
 		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
 
-		// Sanitize maybe_periodic
+		// sanitize maybe_periodic
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && p.0 > Zero::zero())
+			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			.map(|(p, c)| (p, c - 1));
 
 		let task = Scheduled {
@@ -1124,15 +1124,14 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(());
+			return Err(())
 		}
 
 		let dispatch_origin = origin.into();
 		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
-			Err(error_and_info) => {
-				(error_and_info.post_info.actual_weight, Err(error_and_info.error))
-			},
+			Err(error_and_info) =>
+				(error_and_info.post_info.actual_weight, Err(error_and_info.error)),
 		};
 		let call_weight = maybe_actual_call_weight.unwrap_or(call_weight);
 		let _ = weight.try_consume(base_weight);
@@ -1172,6 +1171,8 @@ impl<T: Config> Pallet<T> {
 				Retries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
 			},
 			Err((_, task)) => {
+				// TODO: Leave task in storage somewhere for it to be
+				// rescheduled manually.
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::RetryFailed {
 					task: (when, agenda_index),
