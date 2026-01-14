@@ -1,9 +1,19 @@
 name: Release - Post Crates Release Activities
 
 on:
-  push:
-    branches:
-      - 'post-crates-release-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Full version identifier (e.g., stable2512-2)'
+        required: true
+        type: string
+      bump_node_version:
+        description: 'Bump NODE_VERSION? Select "yes" if this is the first run for this post-crates PR, "no" if re-running or if you have another reason not to bump'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
 
 permissions:
   contents: write
@@ -68,6 +78,7 @@ jobs:
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Bump NODE_VERSION for polkadot
+        if: inputs.bump_node_version == 'yes'
         run: |
           echo "Bumping NODE_VERSION in polkadot..."
           FILE="polkadot/node/primitives/src/lib.rs"
@@ -87,6 +98,7 @@ jobs:
           echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Bump NODE_VERSION for polkadot-parachain and polkadot-omni-node
+        if: inputs.bump_node_version == 'yes'
         run: |
           echo "Bumping NODE_VERSION in cumulus..."
           FILE="cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
@@ -106,6 +118,7 @@ jobs:
           echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Commit NODE_VERSION bumps
+        if: inputs.bump_node_version == 'yes'
         shell: bash
         run: |
           . ./.github/scripts/release/release_lib.sh
@@ -123,21 +136,10 @@ jobs:
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          # Extract release name from branch name (everything after "post-crates-release-")
-          BRANCH_NAME="${{ github.ref_name }}"
-          echo "Branch name: $BRANCH_NAME"
+          VERSION="${{ inputs.version }}"
+          echo "Version: $VERSION"
 
-          if [[ "$BRANCH_NAME" =~ post-crates-release-(.+)$ ]]; then
-            RELEASE_FOLDER="${BASH_REMATCH[1]}"
-            echo "Release folder name: $RELEASE_FOLDER"
-
-            # Use the reorder_prdocs helper function
-            reorder_prdocs "$RELEASE_FOLDER"
-          else
-            echo "WARNING: Could not extract release name from branch name: $BRANCH_NAME"
-            echo "Expected format: post-crates-release-<release-name>"
-            exit 1
-          fi
+          reorder_prdocs "$VERSION"
 
       - name: Replace path dependencies
         run: |
@@ -248,32 +250,38 @@ jobs:
         shell: bash
         run: |
           BRANCH_NAME="${{ github.ref_name }}"
+          FULL_RELEASE="${{ inputs.version }}"
           echo "Current branch: $BRANCH_NAME"
+          echo "Version: $FULL_RELEASE"
 
-          # Extract base release branch name
-          if [[ "$BRANCH_NAME" =~ ^post-crates-release-(.+)$ ]]; then
-            FULL_RELEASE="${BASH_REMATCH[1]}"
+          # Extract base release branch name by removing the last segment after dash
+          if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
+            BASE_RELEASE="${BASH_REMATCH[1]}"
+          else
+            BASE_RELEASE="$FULL_RELEASE"
+          fi
 
-            if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
-              BASE_RELEASE="${BASH_REMATCH[1]}"
-            else
-              BASE_RELEASE="$FULL_RELEASE"
-            fi
+          echo "Base release branch: $BASE_RELEASE"
 
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$BASE_RELEASE" --json number --jq '.[0].number')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "✅ PR #$EXISTING_PR already exists for this branch"
+            echo "PR URL: $(gh pr view $EXISTING_PR --json url --jq '.url')"
+          else
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
             gh pr create \
-              --title "Post crates release activities for $BASE_RELEASE" \
+              --title "${VERSION_TAG} Post crates release activities for $FULL_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
-            - NODE_VERSION bumps
-            - Path dependencies replacement
-            - Zepter fixes
-            - Taplo formatting
-            - PRDocs reorganization" \
+          - NODE_VERSION bumps (if selected)
+          - Path dependencies replacement
+          - Zepter fixes
+          - Taplo formatting
+          - PRDocs reorganization (if prdocs exist)" \
               --base "$BASE_RELEASE" \
-              --head "$BRANCH_NAME" || echo "PR may already exist or there was an error creating it"
-          else
-            echo "ERROR: Could not extract base release branch from: $BRANCH_NAME, probably wrong format"
-            exit 1
+              --head "$BRANCH_NAME"
+            echo "✅ PR created successfully"
           fi
 
       - name: Add comment about spec_version

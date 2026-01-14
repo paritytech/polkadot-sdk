@@ -91,13 +91,20 @@ function get_spec_version() {
 reorder_prdocs() {
     VERSION="$1"
 
-    printf "[+] ℹ️ Reordering prdocs:"
+    printf "[+] ℹ️ Reordering prdocs:\n"
 
     VERSION=$(sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/' <<< "$VERSION") #getting reed of the 'v' prefix
-    mkdir -p "prdoc/$VERSION"
-    mv prdoc/pr_*.prdoc prdoc/$VERSION
-    git add -A
-    commit_with_message "Reordering prdocs for the release $VERSION"
+
+    # Check if there are any prdoc files to move
+    if ls prdoc/pr_*.prdoc 1> /dev/null 2>&1; then
+        mkdir -p "prdoc/$VERSION"
+        mv prdoc/pr_*.prdoc prdoc/$VERSION
+        git add -A
+        commit_with_message "Reordering prdocs for the release $VERSION"
+        echo "✅ Successfully reordered prdocs"
+    else
+        echo "⚠️ No prdoc files found to reorder"
+    fi
 }
 
 # Bump the binary version of the polkadot-parachain binary with the
