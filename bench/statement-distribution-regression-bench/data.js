@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768395463915,
+  "lastUpdate": 1768397803145,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5a84a332babf7968569b88034b5e4fc4abead35e",
-          "message": "[pallet-revive] prestate tracer (#8742)\n\n- Add prestate tracer, with identical API as\nhttps://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#prestate-tracer\n- Add coinbase runtime API to get the miner's address\ntested against geth with\nhttps://github.com/paritytech/evm-test-suite/pull/93\n\nfixes https://github.com/paritytech/revive-differential-tests/issues/7\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-13T11:28:21Z",
-          "tree_id": "9a88c8e461debb0a6fb502b48679ebd679f381ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a84a332babf7968569b88034b5e4fc4abead35e"
-        },
-        "date": 1749818578384,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03405607164999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044605953049999945,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06783323763799992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84064c944a46abef63eb7f66b3c1184dc2083d7e",
+          "message": "pallet-broker: Fix `force_reserve` (#10792)\n\nWhen issuing a `force_reserve` we are putting the reservation into the\ncurrent and next region `WorkPlan`. The issue is that at the next sale\nrotation we override all unused cores. As the sale rotation isn't aware\nof the forcefully registered core, also the force reserved core is\noverwritten and the parachain looses their coretime for one region (it\ncomes back in the next region). To fix this we now keep track of\nforcefully registered reserves. We input them alongside the other\nreservations into the workplan, but for the current region using any\nfree cores from the previous sale.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-01-14T12:27:06Z",
+          "tree_id": "3c822971879882703dc9218117bdb59dcadec8c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/84064c944a46abef63eb7f66b3c1184dc2083d7e"
+        },
+        "date": 1768397779379,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.02600000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03821920590200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0647668279159999,
             "unit": "seconds"
           }
         ]
