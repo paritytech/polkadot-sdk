@@ -25,6 +25,16 @@ use frame_support::{assert_ok, traits::Currency};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
+use test_case::test_case;
+
+const ASSET_INDEX: u16 = 0x0120;
+const ASSET_INDEX_FOREIGN: u16 = 0x0220;
+
+fn splice_asset_index_into_address(base_hex: &[u8; 40], asset_index: u16) -> [u8; 20] {
+	let mut addr = hex::const_decode_to_array(base_hex).unwrap();
+	addr[16..18].copy_from_slice(&asset_index.to_be_bytes());
+	addr
+}
 
 fn assert_contract_event(contract: H160, event: IERC20Events) {
 	let (topics, data) = event.into_log_data().split();
@@ -50,13 +60,17 @@ fn asset_id_extractor_works() {
 	);
 }
 
-#[test]
-fn precompile_transfer_works() {
+#[test_case(ASSET_INDEX)]
+#[test_case(ASSET_INDEX_FOREIGN)]
+fn precompile_transfer_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(
-			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
-		);
+		let asset_addr = H160::from(splice_asset_index_into_address(
+			b"0000000000000000000000000000000000000000",
+			asset_index,
+		));
+
+		println!("asset_addr: {:?}", asset_addr);
 
 		let from = 123456789;
 		let to = 987654321;
@@ -98,12 +112,15 @@ fn precompile_transfer_works() {
 	});
 }
 
-#[test]
-fn total_supply_works() {
+#[test_case(ASSET_INDEX)]
+#[test_case(ASSET_INDEX_FOREIGN)]
+fn total_supply_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr =
-			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+		let asset_addr = H160::from(splice_asset_index_into_address(
+			b"0000000000000000000000000000000000000000",
+			asset_index,
+		));
 
 		let owner = 123456789;
 
@@ -133,13 +150,15 @@ fn total_supply_works() {
 	});
 }
 
-#[test]
-fn balance_of_works() {
+#[test_case(ASSET_INDEX)]
+#[test_case(ASSET_INDEX_FOREIGN)]
+fn balance_of_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr =
-			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
-
+		let asset_addr = H160::from(splice_asset_index_into_address(
+			b"0000000000000000000000000000000000000000",
+			asset_index,
+		));
 		let owner = 123456789;
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
@@ -168,15 +187,17 @@ fn balance_of_works() {
 	});
 }
 
-#[test]
-fn approval_works() {
+#[test_case(ASSET_INDEX)]
+#[test_case(ASSET_INDEX_FOREIGN)]
+fn approval_works(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(
-			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
-		);
+		let asset_addr = H160::from(splice_asset_index_into_address(
+			b"0000000000000000000000000000000000000000",
+			asset_index,
+		));
 
 		let owner = 123456789;
 		let spender = 987654321;

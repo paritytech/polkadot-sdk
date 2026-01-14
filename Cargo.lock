@@ -11503,6 +11503,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
+ "test-case",
 ]
 
 [[package]]

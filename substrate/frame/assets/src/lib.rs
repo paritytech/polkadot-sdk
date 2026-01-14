@@ -585,6 +585,14 @@ pub mod pallet {
 						status: AssetStatus::Live,
 					},
 				);
+				// Insert reverse/forward index mappings for genesis assets.
+				assert!(
+					!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()),
+					"Asset index already in use"
+				);
+				assert!(!AssetIdToAssetIndex::<T, I>::contains_key(id), "Asset id already in use");
+				AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
+				AssetIdToAssetIndex::<T, I>::insert(id.clone(), id.to_asset_index());
 			}
 
 			for (id, name, symbol, decimals) in &self.metadata {

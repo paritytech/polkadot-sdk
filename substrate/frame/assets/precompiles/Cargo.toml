@@ -29,6 +29,7 @@ scale-info = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+test-case = { workspace = true }
 
 [features]
 default = ["std"]
