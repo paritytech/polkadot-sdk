@@ -120,6 +120,7 @@ parameter_types! {
 	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
 	pub People: Location = Parachain(PEOPLE_ID).into_location();
 	pub Broker: Location = Parachain(BROKER_ID).into_location();
+	pub Oracle: Location = Parachain(PRICE_ORACLE_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
@@ -127,6 +128,7 @@ parameter_types! {
 	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
 	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
 	pub WndForBroker: (AssetFilter, Location) = (Wnd::get(), Broker::get());
+	pub WndForOracle: (AssetFilter, Location) = (Wnd::get(), Oracle::get());
 	pub MaxInstructions: u32 = 100;
 	pub MaxAssetsIntoHolding: u32 = 64;
 }
@@ -138,6 +140,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForEncointer>,
 	xcm_builder::Case<WndForPeople>,
 	xcm_builder::Case<WndForBroker>,
+	xcm_builder::Case<WndForOracle>,
 );
 
 pub struct OnlyParachains;

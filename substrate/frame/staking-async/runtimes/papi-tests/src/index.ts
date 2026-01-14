@@ -1,4 +1,4 @@
-import { rcPresetFor, runPreset } from "./cmd";
+import { priceOracleSetup, rcPresetFor, runPreset, runZn } from "./cmd";
 import { logger } from "./utils";
 import { monitorVmpQueues } from "./vmp-monitor";
 import { Command } from "commander";
@@ -17,6 +17,13 @@ if (require.main === module) {
 		.name("staking-async-papi-tests")
 		.description("Run staking-async PAPI tests")
 		.version("0.1.0");
+
+	program.command("price-oracle")
+		.description("Run the price oracle preset")
+		.action(async () => {
+			priceOracleSetup();
+			runZn("../zn-oracle.toml");
+		});
 
 	program
 		.command("run")

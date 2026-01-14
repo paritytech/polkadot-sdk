@@ -5,6 +5,8 @@ import { join } from "path";
 import stripAnsi from "strip-ansi";
 import { createWriteStream } from "fs";
 
+const TARGET_DIR = "../../../../../../target";
+
 export function rcPresetFor(paraPreset: Presets): string {
 	return paraPreset == Presets.FakeDev ||
 		paraPreset == Presets.FakeDot ||
@@ -17,12 +19,16 @@ export function znConfigFor(paraPreset: Presets): string {
 	return paraPreset == Presets.RealM ? "../zn-m.toml" : "../zn-s.toml";
 }
 
-/// Returns the parachain log file.
 export async function runPreset(paraPreset: Presets): Promise<void> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
-	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
-	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], "inherit");
+	logger.info(`Launching ZN with preset ${paraPreset}`);
+	runZn(znConfig);
+}
+
+export async function runZn(config: string): Promise<void> {
+	logger.info(`Launching ZN config: ${config}`);
+	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", config], "inherit");
 }
 
 export async function runPresetUntilLaunched(
@@ -110,7 +116,6 @@ export async function spawnMiner(): Promise<() => void> {
 
 function prepPreset(paraPreset: Presets): void {
 	const rcPreset = rcPresetFor(paraPreset);
-	const targetDir = "../../../../../../target";
 
 	logger.info(`Running para-preset: ${paraPreset}, rc-preset: ${rcPreset}`);
 	cmd("cargo", [
@@ -127,13 +132,13 @@ function prepPreset(paraPreset: Presets): void {
 	cmd("rm", ["-f", "./parachain.json"]);
 	cmd("rm", ["-f", "./rc.json"]);
 
-	cmd(join(targetDir, "/release/chain-spec-builder"), [
+	cmd(join(TARGET_DIR, "/release/chain-spec-builder"), [
 		"create",
 		"-t",
 		"development",
 		"--runtime",
 		join(
-			targetDir,
+			TARGET_DIR,
 			"/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm"
 		),
 		"--relay-chain",
@@ -145,13 +150,13 @@ function prepPreset(paraPreset: Presets): void {
 	]);
 	cmd("mv", ["chain_spec.json", "parachain.json"]);
 
-	cmd(join(targetDir, "/release/chain-spec-builder"), [
+	cmd(join(TARGET_DIR, "/release/chain-spec-builder"), [
 		"create",
 		"-t",
 		"development",
 		"--runtime",
 		join(
-			targetDir,
+			TARGET_DIR,
 			"/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm"
 		),
 		"named-preset",
@@ -160,6 +165,86 @@ function prepPreset(paraPreset: Presets): void {
 	cmd("mv", ["chain_spec.json", "rc.json"]);
 }
 
+export function priceOracleSetup(): void {
+	const paraPreset = Presets.FakeDev
+	const RcPreset = rcPresetFor(paraPreset);
+	const oraclePreset = "development";
+	cmd("cargo", [
+		"build",
+		"--release",
+		`-p`,
+		`pallet-staking-async-rc-runtime`,
+		`-p`,
+		`pallet-staking-async-parachain-runtime`,
+		`-p`,
+		`staging-chain-spec-builder`,
+	]);
+	cmd("cargo", [
+		"build",
+		"--release",
+		`--features`,
+		`on-chain-release-build`,
+		`-p`,
+		`pallet-staking-async-price-oracle-parachain-runtime`,
+	]);
+
+	cmd("rm", [ "-f", "./parachain.json"]);
+	cmd("rm", [ "-f", "./price-oracle-parachain.json"]);
+	cmd("rm", [ "-f", "./rc.json"]);
+
+	cmd(join(TARGET_DIR, "/release/chain-spec-builder"), [
+		"create",
+		"-t",
+		"development",
+		"--runtime",
+		join(
+			TARGET_DIR,
+			"/release/wbuild/pallet-staking-async-price-oracle-parachain-runtime/pallet_staking_async_price_oracle_parachain_runtime.compact.compressed.wasm"
+		),
+		"--relay-chain",
+		"rococo-local",
+		"--para-id",
+		"1101",
+		"named-preset",
+		oraclePreset,
+	]);
+	cmd("mv", ["chain_spec.json", "price-oracle-parachain.json"]);
+
+	cmd(join(TARGET_DIR, "/release/chain-spec-builder"), [
+		"create",
+		"-t",
+		"development",
+		"--runtime",
+		join(
+			TARGET_DIR,
+			"/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm"
+		),
+		"--relay-chain",
+		"rococo-local",
+		"--para-id",
+		"1100",
+		"named-preset",
+		paraPreset,
+	]);
+	cmd("mv", ["chain_spec.json", "parachain.json"]);
+
+	cmd(join(TARGET_DIR, "/release/chain-spec-builder"), [
+		"create",
+		"-t",
+		"development",
+		"--runtime",
+		join(
+			TARGET_DIR,
+			"/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm"
+		),
+		"named-preset",
+		RcPreset,
+	]);
+	cmd("mv", ["chain_spec.json", "rc.json"]);
+}
+
+
+
 function cmd(cmd: string, args: string[], stdio: string = "ignore"): void {
 	logger.info(`Running command: ${cmd} ${args.join(" ")}`);
 	// @ts-ignore
@@ -167,5 +252,6 @@ function cmd(cmd: string, args: string[], stdio: string = "ignore"): void {
 	if (result.error || result.status !== 0) {
 		logger.error(`Error running command: ${cmd} ${args.join(" ")}`);
 		logger.error(`Status: ${result.status}`);
+		logger.error(`Error: ${result.error}`);
 	}
 }

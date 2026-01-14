@@ -52,7 +52,7 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::{
 	disabling::{DisablingDecision, DisablingStrategy},
-	historical as session_historical,
+	historical as session_historical, SessionHandler,
 };
 use pallet_staking_async_ah_client::{self as ah_client};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -645,6 +645,71 @@ impl<S: Get<Perbill>> DisablingStrategy<Runtime> for AlwaysDisableForSlashGreate
 	}
 }
 
+#[derive(Encode, Decode)]
+enum PriceOracleRuntimePallets<AccountId> {
+	#[codec(index = 51)]
+	OracleRcClient(OracleRcClientCalls<AccountId>),
+}
+
+#[derive(Encode, Decode)]
+enum OracleRcClientCalls<AccountId> {
+	#[codec(index = 0)]
+	RelayNewValidatorSet(Vec<AccountId>),
+}
+
+type LocalSessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+
+/// Custom session handler that does two things:
+///
+/// 1. `on_new_session`, broadcast the stash keys (`AccountId`) associated with the new session keys
+///    to the price oracle.
+/// 2. Run all logic associated with `LocalSessionHandler`, which is the default session handlers of
+///    this runtime as they used to be. Therefore, it should be a noop for all local operations.
+pub struct BroadcastAndLocal;
+
+impl pallet_session::SessionHandler<AccountId> for BroadcastAndLocal {
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = LocalSessionHandler::KEY_TYPE_IDS;
+
+	fn on_disabled(validator_index: u32) {
+		LocalSessionHandler::on_disabled(validator_index);
+	}
+	fn on_before_session_ending() {
+		LocalSessionHandler::on_before_session_ending();
+	}
+	fn on_genesis_session<Ks: OpaqueKeys>(validators: &[(AccountId, Ks)]) {
+		LocalSessionHandler::on_genesis_session(validators);
+	}
+	fn on_new_session<Ks: OpaqueKeys>(
+		changed: bool,
+		validators: &[(AccountId, Ks)],
+		queued_validators: &[(AccountId, Ks)],
+	) {
+		LocalSessionHandler::on_new_session(changed, validators, queued_validators);
+
+		// but, here, we also forward the new validators to the oracle chain.
+		let validator_ids = validators.iter().map(|(v, _)| v).collect::<Vec<_>>();
+		log::info!(target: "runtime", "sending new validator set to price oracle, size: {:?}, changed: {:?}", validator_ids.len(), changed);
+		let xcm = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: PriceOracleRuntimePallets::OracleRcClient(
+					OracleRcClientCalls::RelayNewValidatorSet(validator_ids),
+				)
+				.encode()
+				.into(),
+			},
+		]);
+		let dest = Location::new(0, [Junction::Parachain(1101)]);
+		let res = send_xcm::<xcm_config::XcmRouter>(dest, xcm);
+		log::info!(target: "runtime", ">> sent new validator set to price oracle: {:?}", res);
+	}
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
@@ -654,7 +719,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = MaybeUsePreviousValidatorsElse<
 		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
 	>;
-	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type SessionHandler = BroadcastAndLocal;
 	type Keys = SessionKeys;
 	type DisablingStrategy = AlwaysDisableForSlashGreaterThan<DisablingLimit>;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
@@ -677,7 +742,7 @@ impl pallet_root_offences::Config for Runtime {
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
-		Location::new(0, [Junction::Parachain(1100)])
+		Location::new(0, [Junction::Parachain(ASSET_HUB_ID)])
 	}
 }
 
@@ -771,7 +836,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 		match <RuntimeOrigin as Into<Result<parachains_origin::Origin, RuntimeOrigin>>>::into(
 			o.clone(),
 		) {
-			Ok(parachains_origin::Origin::Parachain(id)) if id == 1100.into() => Ok(()),
+			Ok(parachains_origin::Origin::Parachain(id)) if id == ASSET_HUB_ID.into() => Ok(()),
 			_ => Err(o),
 		}
 	}
