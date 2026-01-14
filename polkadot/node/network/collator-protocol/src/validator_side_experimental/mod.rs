@@ -138,6 +138,11 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 	let mut timer = create_timer(None);
 	loop {
 		select! {
+			// Calling `fuse()` here is useless, because the termination state of the resulting
+			// fused future is discarded after each iteration. But we need to do it in order to
+			// make the compiler happy.
+			// However, we actually need `ctx.recv()` to poll for received messages/signals during
+			// each loop iteration, so the resulting behavior is the desired one.
 			res = ctx.recv().fuse() => {
 				match res {
 					Ok(FromOrchestra::Communication { msg }) => {
