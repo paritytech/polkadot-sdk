@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768438542994,
+  "lastUpdate": 1768492606942,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d0a525301ab8d962e478ed87b8665f30142a879d",
-          "message": "EPMB: Handle empty solution pages gracefully in verifier (#8666)\n\n- Treat missing solution pages as empty rather than errors.\n- Updated `get_page` method now returns a default Solution instead of an\nOption when no candidate solutions are available. This simplifies the\nAPI\nand improves code clarity by removing the need to handle None cases.\n- Similarly, updated `get_score` method now returns a default (0) score\nif no leader is available.\n- Removed VerificationDataUnavailable now that `get_page` and\n`get_score` don't return an Option anymore\n- Signed validation phase must now be a multiple of the number of pages\n- Updated tests to reflect new behavior and remove defensive unwraps.\n\nClose security vulnerability found\n[here](https://github.com/paritytech-secops/srlabs_findings/issues/505).\nA malicious miner could trigger panic in the EPMB pallet, submitting a\nvery high score and then intentionally\nfailing in submitting one or more pages.\n\nA unit test replicating the vulnerability ensures that the fix works as\nexpected (i.e. no panic, solution is rejected).\n\n---------\n\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-06-13T21:14:57Z",
-          "tree_id": "af343733a89a05442777f0e8f32fbeeeb548ab3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d0a525301ab8d962e478ed87b8665f30142a879d"
-        },
-        "date": 1749853014124,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94399999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04433658452399996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03362525051,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03833959341000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
+          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-15T14:44:00Z",
+          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
+        },
+        "date": 1768492581737,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.03599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038008989216,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06471528511999992,
             "unit": "seconds"
           }
         ]
