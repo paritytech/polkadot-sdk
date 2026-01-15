@@ -89,6 +89,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		// pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		pallet_staking_async_price_oracle::extensions::SetPriorityFromProducedIn<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;

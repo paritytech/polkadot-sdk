@@ -21,8 +21,11 @@ frame-system = { workspace = true }
 pallet-session = { workspace = true }
 
 sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 
-
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"]}
 log = { workspace = true }
 
 
@@ -31,10 +34,13 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
+	"serde/std",
 
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-session/std",
 
 	"sp-runtime/std",
+	"sp-io/std",
+	"sp-core/std",
 ]
