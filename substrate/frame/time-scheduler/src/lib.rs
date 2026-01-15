@@ -757,6 +757,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(id) = s.maybe_id {
 				Lookup::<T>::remove(id);
 			}
+			Retries::<T>::remove((when, index));
 			Self::cleanup_agenda(when);
 			Self::deposit_event(Event::Canceled { when, index });
 			Ok(())
