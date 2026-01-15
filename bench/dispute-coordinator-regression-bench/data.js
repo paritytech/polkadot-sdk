@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768438576341,
+  "lastUpdate": 1768492641233,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21020,6 +21020,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006310492200000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
+          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-15T14:44:00Z",
+          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
+        },
+        "date": 1768492616097,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027148624699999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009091359249999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006278506919999999,
             "unit": "seconds"
           }
         ]
