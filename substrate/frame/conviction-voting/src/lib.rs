@@ -235,11 +235,14 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
+		/// Clear delegate votes or undelegate.
+		/// 
 		/// The voter's delegate has reached the maximum number of votes and has no room for the
-		/// retraction. Clear delegate votes or undelegate.
+		/// retraction. The voter can attempt to clear votes or they can undelegate. 
 		NoRoomForRetraction,
-		/// The delegate does not allow for delegator voting.
 		/// Ask delegate to allow voting or undelegate.
+		/// 
+		/// The delegate does not allow for delegator voting on this class.
 		DelegateHasDisabledDelegatorVoting,
 	}
 
