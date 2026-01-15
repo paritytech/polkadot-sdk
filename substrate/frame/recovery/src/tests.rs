@@ -868,3 +868,159 @@ fn bitfield_all_bits_in_word_set() {
 		assert_err!(bitfield.set_if_not_set(i), ());
 	}
 }
+
+/// A non-friend cannot initiate a recovery attempt.
+#[test]
+fn initiate_attempt_not_friend_fails() {
+	new_test_ext().execute_with(|| {
+		// Alice has friend group with Bob and Charlie as friends
+		setup_alice_fgs([[BOB, CHARLIE]]);
+
+		// Eve is not a friend and cannot initiate
+		assert_noop!(Recovery::initiate_attempt(signed(EVE), ALICE, 0), Error::<T>::NotFriend);
+	});
+}
+
+/// The lost account cannot include themselves in their own friend group.
+#[test]
+fn set_friend_groups_lost_account_in_group_fails() {
+	new_test_ext().execute_with(|| {
+		let fg = FriendGroupOf::<T> {
+			deposit: 10,
+			friends: friends([ALICE, BOB, CHARLIE]),
+			friends_needed: 2,
+			inheritor: FERDIE,
+			inheritance_delay: 10,
+			inheritance_order: 0,
+			cancel_delay: 10,
+		};
+
+		assert_noop!(
+			Recovery::set_friend_groups(signed(ALICE), vec![fg]),
+			Error::<T>::LostAccountInFriendGroup
+		);
+	});
+}
+
+/// Cannot initiate with an invalid friend group index.
+#[test]
+fn initiate_attempt_not_friend_group_fails() {
+	new_test_ext().execute_with(|| {
+		// Alice has only friend group at index 0
+		setup_alice_fgs([[BOB, CHARLIE]]);
+
+		// Bob tries to initiate with non-existent index 5
+		assert_noop!(Recovery::initiate_attempt(signed(BOB), ALICE, 5), Error::<T>::NotFriendGroup);
+	});
+}
+
+/// Finish attempt works at the exact inheritance_delay boundary.
+#[test]
+fn finish_attempt_at_exact_boundary_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
+
+		// inheritance_delay is 10, init at block 1, so exactly block 11 should work
+		System::set_block_number(10);
+		assert_noop!(Recovery::finish_attempt(signed(EVE), ALICE, 0), Error::<T>::NotYetInheritable);
+
+		System::set_block_number(11);
+		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 0));
+	});
+}
+
+/// Cancel attempt works at the exact cancel_delay boundary.
+#[test]
+fn cancel_attempt_at_exact_boundary_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+
+		// cancel_delay is ABORT_DELAY (5), last_approval at block 1
+		// Block 5 should still fail (1 + 5 = 6 needed)
+		System::set_block_number(5);
+		assert_noop!(Recovery::cancel_attempt(signed(BOB), ALICE, 0), Error::<T>::NotYetCancelable);
+
+		// Exact boundary: block 6 should work
+		System::set_block_number(6);
+		assert_ok!(Recovery::cancel_attempt(signed(BOB), ALICE, 0));
+	});
+}
+
+/// Non-inheritor cannot control inherited account.
+#[test]
+fn control_inherited_account_not_inheritor_fails() {
+	new_test_ext().execute_with(|| {
+		// Mark FERDIE as the inheritor of ALICE
+		let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
+		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
+
+		let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+
+		// Charlie is not the inheritor
+		assert_noop!(
+			Recovery::control_inherited_account(signed(CHARLIE), ALICE, Box::new(call)),
+			Error::<T>::NotInheritor
+		);
+	});
+}
+
+/// Cannot control account that has no inheritor set.
+#[test]
+fn control_inherited_account_no_inheritor_fails() {
+	new_test_ext().execute_with(|| {
+		let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+
+		// ALICE has no inheritor
+		assert_noop!(
+			Recovery::control_inherited_account(signed(BOB), ALICE, Box::new(call)),
+			Error::<T>::NoInheritor
+		);
+	});
+}
+
+/// Maximum number of friend groups (16) can be set.
+#[test]
+fn set_friend_groups_max_groups_works() {
+	new_test_ext().execute_with(|| {
+		// Create 16 friend groups (MAX_GROUPS_PER_ACCOUNT)
+		let friend_groups: Vec<_> = (0..16u8)
+			.map(|i| FriendGroupOf::<T> {
+				deposit: 10,
+				friends: friends([BOB, CHARLIE]),
+				friends_needed: 1,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_order: i as u32,
+				cancel_delay: 10,
+			})
+			.collect();
+
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), friend_groups));
+		assert_eq!(Recovery::friend_groups(ALICE).len(), 16);
+
+		// Adding one more should fail
+		let too_many: Vec<_> = (0..17u8)
+			.map(|i| FriendGroupOf::<T> {
+				deposit: 10,
+				friends: friends([BOB, CHARLIE]),
+				friends_needed: 1,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_order: i as u32,
+				cancel_delay: 10,
+			})
+			.collect();
+
+		assert_noop!(
+			Recovery::set_friend_groups(signed(ALICE), too_many),
+			Error::<T>::TooManyFriendGroups
+		);
+	});
+}
