@@ -94,8 +94,8 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{
-			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap,
-			StorageVersion, ValueQuery,
+			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, StorageVersion,
+			ValueQuery,
 		},
 		traits::ClassCountOf,
 		Twox64Concat,
@@ -236,12 +236,12 @@ pub mod pallet {
 		/// The class ID supplied is invalid.
 		BadClass,
 		/// Clear delegate votes or undelegate.
-		/// 
+		///
 		/// The voter's delegate has reached the maximum number of votes and has no room for the
-		/// retraction. The voter can attempt to clear votes or they can undelegate. 
+		/// retraction. The voter can attempt to clear votes or they can undelegate.
 		NoRoomForRetraction,
 		/// Ask delegate to allow voting or undelegate.
-		/// 
+		///
 		/// The delegate does not allow for delegator voting on this class.
 		DelegateHasDisabledDelegatorVoting,
 	}
