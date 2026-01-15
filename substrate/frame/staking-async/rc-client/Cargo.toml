@@ -18,7 +18,9 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-xcm = { workspace = true }
+# XCM dependencies are only needed for the optional XCMSender helper struct.
+# They can be removed entirely once XCMSender is moved to a separate crate.
+xcm = { optional = true, workspace = true }
 xcm-builder = { optional = true, workspace = true }
 xcm-executor = { optional = true, workspace = true }
 
@@ -36,15 +38,21 @@ std = [
 	"sp-staking/std",
 	"xcm-builder?/std",
 	"xcm-executor?/std",
-	"xcm/std",
+	"xcm?/std",
 ]
+# Enables the XCMSender helper struct for runtimes that want to use XCM transport.
+xcm-sender = ["xcm"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	# Benchmarks require XCM for delivery fee setup
+	"xcm",
+	"xcm-builder",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]

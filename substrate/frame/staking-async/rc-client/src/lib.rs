@@ -123,18 +123,28 @@ pub mod weights;
 
 use alloc::{vec, vec::Vec};
 use codec::Decode;
+#[cfg(feature = "xcm-sender")]
 use core::fmt::Display;
-use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
-use sp_runtime::{
-	traits::{Convert, OpaqueKeys},
-	Perbill, TransactionOutcome,
-};
+#[cfg(feature = "xcm-sender")]
+use frame_support::storage::transactional::with_transaction_opaque_err;
+use frame_support::{pallet_prelude::*, weights::Weight};
+#[cfg(feature = "xcm-sender")]
+use sp_runtime::{traits::Convert, TransactionOutcome};
+use sp_runtime::{traits::OpaqueKeys, Perbill};
 use sp_staking::SessionIndex;
-use xcm::latest::{send_xcm, validate_send, Assets, ExecuteXcm, Location, SendError, SendXcm, Xcm};
+// XCM imports are only used by the optional XCMSender helper struct for runtimes, not by the
+// pallet's public API. The pallet only uses the abstract SendToRelayChain trait.
+#[cfg(feature = "xcm-sender")]
+use xcm::latest::{
+	send_xcm, validate_send, ExecuteXcm, Fungibility::Fungible, Location, SendError, SendXcm, Xcm,
+};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+/// Type alias for balance used in this pallet.
+pub type BalanceOf<T> = <T as pallet::Config>::CurrencyBalance;
 
 const LOG_TARGET: &str = "runtime::staking-async::rc-client";
 
@@ -149,6 +159,31 @@ macro_rules! log {
 	};
 }
 
+/// Detailed errors for message send operations.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub enum SendOperationError {
+	/// Failed to validate the message before sending.
+	ValidationFailed,
+	/// Failed to charge delivery fees from the payer.
+	ChargeFeesFailed,
+	/// Failed to deliver the message to the relay chain.
+	DeliveryFailed,
+}
+
+/// Error type for [`SendToRelayChain`] operations.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub enum SendKeysError<Balance> {
+	/// Message send operation failed.
+	Send(SendOperationError),
+	/// Delivery fees exceeded the specified maximum.
+	FeesExceededMax {
+		/// The required fee amount.
+		required: Balance,
+		/// The maximum fee the user was willing to pay.
+		max: Balance,
+	},
+}
+
 /// The communication trait of `pallet-staking-async-rc-client` -> `relay-chain`.
 ///
 /// This trait should only encapsulate our _outgoing_ communication to the RC. Any incoming
@@ -156,9 +191,15 @@ macro_rules! log {
 ///
 /// In a real runtime, this is implemented via XCM calls, much like how the core-time pallet works.
 /// In a test runtime, it can be wired to direct function calls.
+///
+/// Note: This trait intentionally avoids XCM types in its signature to keep the pallet
+/// XCM-agnostic. The implementation details (XCM, direct calls, etc.) are left to the runtime.
 pub trait SendToRelayChain {
 	/// The validator account ids.
 	type AccountId;
+
+	/// The balance type used for fee limits and reporting.
+	type Balance: Parameter + Member + Copy;
 
 	/// Send a new validator set report to relay chain.
 	#[allow(clippy::result_unit_err)]
@@ -169,29 +210,57 @@ pub trait SendToRelayChain {
 	/// The keys are forwarded to `pallet-staking-async-ah-client::set_keys_from_ah` on the RC.
 	/// Note: proof is validated on AH side, so only validated keys are sent.
 	///
+	/// - `stash`: The validator stash account.
+	/// - `keys`: The encoded session keys.
+	/// - `max_fee`: Optional maximum delivery fee the user is willing to pay. If the actual fee
+	///   exceeds this, the operation fails with [`SendKeysError::FeesExceededMax`].
+	/// - `max_remote_weight`: Optional maximum weight for remote execution. `None` means unlimited.
+	///
 	/// Returns the delivery fees charged on success.
-	#[allow(clippy::result_unit_err)]
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<Assets, ()>;
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_fee: Option<Self::Balance>,
+		max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>>;
 
 	/// Send a request to purge session keys on the relay chain.
 	///
 	/// The request is forwarded to `pallet-staking-async-ah-client::purge_keys_from_ah` on the RC.
 	///
+	/// - `stash`: The validator stash account.
+	/// - `max_fee`: Optional maximum delivery fee the user is willing to pay. If the actual fee
+	///   exceeds this, the operation fails with [`SendKeysError::FeesExceededMax`].
+	/// - `max_remote_weight`: Optional maximum weight for remote execution. `None` means unlimited.
+	///
 	/// Returns the delivery fees charged on success.
-	#[allow(clippy::result_unit_err)]
-	fn purge_keys(stash: Self::AccountId) -> Result<Assets, ()>;
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_fee: Option<Self::Balance>,
+		max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>>;
 }
 
 #[cfg(feature = "std")]
 impl SendToRelayChain for () {
 	type AccountId = u64;
+	type Balance = u128;
 	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		unimplemented!();
 	}
-	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<Assets, ()> {
+	fn set_keys(
+		_stash: Self::AccountId,
+		_keys: Vec<u8>,
+		_max_fee: Option<Self::Balance>,
+		_max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		unimplemented!();
 	}
-	fn purge_keys(_stash: Self::AccountId) -> Result<Assets, ()> {
+	fn purge_keys(
+		_stash: Self::AccountId,
+		_max_fee: Option<Self::Balance>,
+		_max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		unimplemented!();
 	}
 }
@@ -447,10 +516,15 @@ impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
 /// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
 /// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
 /// the correct call indices, which we only know at the runtime level.
+//
+// NOTE: to have the pallet fully XCM-agnostic, XCMSender should be moved out (to a new or existing
+// XCM helper crate or to runtimes crates directly)
+#[cfg(feature = "xcm-sender")]
 pub struct XCMSender<Sender, Destination, Message, ToXcm>(
 	core::marker::PhantomData<(Sender, Destination, Message, ToXcm)>,
 );
 
+#[cfg(feature = "xcm-sender")]
 impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
 where
 	Sender: SendXcm,
@@ -470,51 +544,94 @@ where
 		send_xcm::<Sender>(dest, xcm).map(|_| ()).map_err(|_| ())
 	}
 
-	/// Send the message with fee charging.
+	/// Send the message with fee charging and optional max fee limit.
 	///
-	/// This method validates the XCM message first, charges delivery fees from the payer,
-	/// and only then delivers the message. This ensures fees are collected before the
-	/// message is sent.
+	/// This method validates the XCM message first, optionally checks if fees exceed the
+	/// specified maximum, charges delivery fees from the payer, and only then delivers
+	/// the message. This ensures fees are collected before the message is sent.
 	///
 	/// - `message`: The message to send
 	/// - `payer`: The account paying delivery fees
+	/// - `max_fee`: Optional maximum fee the user is willing to pay
 	///
 	/// Generic parameters:
 	/// - `XcmExec`: The XCM executor that implements `charge_fees`
 	/// - `Call`: The runtime call type (used by XcmExec)
 	/// - `AccountId`: The account identifier type
-	/// - `AccountToLocation`: Converter from AccountId to XCM Location
+	/// - `AccountToLoc`: Converter from AccountId to XCM Location
+	/// - `Balance`: The balance type for fee limits
 	///
-	/// Returns the fees charged on success.
-	#[allow(clippy::result_unit_err)]
-	pub fn send_with_fees<XcmExec, Call, AccountId, AccountToLocation>(
+	/// Returns the fees charged on success (as Balance, not XCM Assets).
+	pub fn send_with_fees<XcmExec, Call, AccountId, AccountToLoc, Balance>(
 		message: Message,
 		payer: AccountId,
-	) -> Result<Assets, ()>
+		max_fee: Option<Balance>,
+	) -> Result<Balance, SendKeysError<Balance>>
 	where
 		XcmExec: ExecuteXcm<Call>,
-		AccountToLocation: Convert<AccountId, Location>,
+		AccountToLoc: Convert<AccountId, Location>,
+		Balance: TryFrom<u128> + PartialOrd + Copy + Default,
 	{
-		let payer_location = AccountToLocation::convert(payer);
+		let payer_location = AccountToLoc::convert(payer);
 		let xcm = ToXcm::convert(message);
 		let dest = Destination::get();
 
 		let (ticket, price) = validate_send::<Sender>(dest, xcm).map_err(|e| {
 			log::error!(target: LOG_TARGET, "Failed to validate XCM: {:?}", e);
+			SendKeysError::Send(SendOperationError::ValidationFailed)
 		})?;
 
-		XcmExec::charge_fees(payer_location, price.clone()).map_err(|e| {
+		// Extract the delivery fee amount from the price.
+		//
+		// For parachain→relay chain messages, delivery fees are returned as a single
+		// fungible asset. This is based on `ExponentialPrice::price_for_delivery` in
+		// `polkadot/runtime/common/src/xcm_sender.rs` which returns `(AssetId, amount).into()`,
+		// converting to a single-element `Assets` via `impl<T: Into<Asset>> From<T> for Assets`.
+		//
+		// We extract the fee amount to:
+		// 1. Check against the user's max_fee limit before charging
+		// 2. Report the actual fee paid in the event
+		//
+		// If the price structure unexpectedly differs (empty, multiple assets, or non-fungible),
+		// we fail rather than silently proceeding with incorrect fee reporting.
+		let fee_amount: Balance = price
+			.inner()
+			.first()
+			.and_then(|asset| match &asset.fun {
+				Fungible(amount) => Balance::try_from(*amount).ok(),
+				_ => None,
+			})
+			.ok_or_else(|| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to extract delivery fee from price: {:?}",
+					price
+				);
+				SendKeysError::Send(SendOperationError::ValidationFailed)
+			})?;
+
+		// Check max fee before charging
+		if let Some(max) = max_fee {
+			if fee_amount > max {
+				return Err(SendKeysError::FeesExceededMax { required: fee_amount, max });
+			}
+		}
+
+		XcmExec::charge_fees(payer_location, price).map_err(|e| {
 			log::error!(target: LOG_TARGET, "Failed to charge XCM fees: {:?}", e);
+			SendKeysError::Send(SendOperationError::ChargeFeesFailed)
 		})?;
 
 		Sender::deliver(ticket).map_err(|e| {
 			log::error!(target: LOG_TARGET, "Failed to deliver XCM: {:?}", e);
+			SendKeysError::Send(SendOperationError::DeliveryFailed)
 		})?;
 
-		Ok(price)
+		Ok(fee_amount)
 	}
 }
 
+#[cfg(feature = "xcm-sender")]
 impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
 where
 	Sender: SendXcm,
@@ -800,7 +917,10 @@ pub mod pallet {
 		type AHStakingInterface: AHStakingInterface<AccountId = Self::AccountId>;
 
 		/// Our communication handle to the relay chain.
-		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
+		type SendToRelayChain: SendToRelayChain<
+			AccountId = Self::AccountId,
+			Balance = Self::CurrencyBalance,
+		>;
 
 		/// Maximum number of times that we retry sending a validator set to RC, after which, if
 		/// sending still fails, we emit an [`UnexpectedKind::ValidatorSetDropped`] event and drop
@@ -839,6 +959,16 @@ pub mod pallet {
 		/// to verify the keys can be properly decoded.
 		type SessionKeys: OpaqueKeys + Decode;
 
+		/// The balance type used for delivery fee limits.
+		type CurrencyBalance: Parameter
+			+ Member
+			+ sp_runtime::traits::AtLeast32BitUnsigned
+			+ Default
+			+ Copy
+			+ sp_runtime::traits::MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TypeInfo;
+
 		/// Maximum length of encoded session keys.
 		#[pallet::constant]
 		type MaxSessionKeysLength: Get<u32>;
@@ -865,6 +995,8 @@ pub mod pallet {
 		InvalidKeys,
 		/// Invalid ownership proof for the session keys.
 		InvalidProof,
+		/// Delivery fees exceeded the specified maximum.
+		FeesExceededMax,
 	}
 
 	#[pallet::event]
@@ -879,8 +1011,8 @@ pub mod pallet {
 		},
 		/// A new offence was reported.
 		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
-		/// XCM delivery fees were charged for a user operation (set_keys or purge_keys).
-		DeliveryFeesPaid { who: T::AccountId, fees: Assets },
+		/// Delivery fees were charged for a user operation (set_keys or purge_keys).
+		DeliveryFeesPaid { who: T::AccountId, fees: BalanceOf<T> },
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1055,16 +1187,27 @@ pub mod pallet {
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
 		/// while the stash (delegating account) pays the XCM delivery fee.
 		///
+		/// **Max Fee Limit:**
+		/// Users can optionally specify `max_delivery_fee` to limit the maximum delivery fee
+		/// they are willing to pay. If the actual fee exceeds this limit, the operation fails
+		/// with `FeesExceededMax`. Pass `None` for unlimited (no cap).
+		///
+		/// **Max Remote Weight:**
+		/// Users can specify `max_remote_weight` to limit the execution weight on the Relay
+		/// Chain. This follows the pattern of `limited_reserve_transfer_assets` in pallet-xcm.
+		/// Pass `None` for no cap.
+		///
 		/// NOTE: unlike the current flow for new validators on RC (bond -> set_keys -> validate),
 		/// users on Asset Hub MUST call bond and validate BEFORE calling set_keys. Attempting to
 		/// set keys before declaring intent to validate will fail with NotValidator.
-
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
 			origin: OriginFor<T>,
 			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
 			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
+			max_delivery_fee: Option<BalanceOf<T>>,
+			max_remote_weight: Option<Weight>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
@@ -1082,8 +1225,16 @@ pub mod pallet {
 			);
 
 			// Forward validated keys to RC (no proof needed, already validated)
-			let fees = T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner())
-				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			let fees = T::SendToRelayChain::set_keys(
+				stash.clone(),
+				keys.into_inner(),
+				max_delivery_fee,
+				max_remote_weight,
+			)
+			.map_err(|e| match e {
+				SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
+				SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
+			})?;
 			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys validated and set for {stash:?}, forwarded to RC");
@@ -1107,6 +1258,16 @@ pub mod pallet {
 		/// The caller must have sufficient balance to pay XCM delivery fees.
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
 		/// while the delegating account pays the XCM delivery fee.
+		///
+		/// **Max Fee Limit:**
+		/// Users can optionally specify `max_delivery_fee` to limit the maximum delivery fee
+		/// they are willing to pay. If the actual fee exceeds this limit, the operation fails
+		/// with `FeesExceededMax`. Pass `None` for unlimited (no cap).
+		///
+		/// **Max Remote Weight:**
+		/// Users can specify `max_remote_weight` to limit the execution weight on the Relay
+		/// Chain. This follows the pattern of `limited_reserve_transfer_assets` in pallet-xcm.
+		/// Pass `None` for no cap.
 		//
 		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		// (storage item) to track accounts that have called set_keys. We will also need to perform
@@ -1115,13 +1276,21 @@ pub mod pallet {
 		// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
-		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
+		pub fn purge_keys(
+			origin: OriginFor<T>,
+			max_delivery_fee: Option<BalanceOf<T>>,
+			max_remote_weight: Option<Weight>,
+		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// Forward purge request to RC via XCM
+			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
-			let fees = T::SendToRelayChain::purge_keys(stash.clone())
-				.map_err(|()| Error::<T>::XcmSendFailed)?;
+			let fees =
+				T::SendToRelayChain::purge_keys(stash.clone(), max_delivery_fee, max_remote_weight)
+					.map_err(|e| match e {
+						SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
+						SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
+					})?;
 			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");

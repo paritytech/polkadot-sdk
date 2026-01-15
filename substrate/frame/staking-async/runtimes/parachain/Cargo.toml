@@ -58,7 +58,7 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking-async = { workspace = true }
 pallet-staking-async-preset-store = { workspace = true }
-pallet-staking-async-rc-client = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-async-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }

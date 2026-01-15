@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::{traits::EitherOf, weights::Weight};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -327,6 +327,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type SessionKeys = RelayChainSessionKeys;
+	type CurrencyBalance = Balance;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -400,16 +401,14 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 pub struct SetKeysMessage {
 	pub stash: AccountId,
 	pub keys: Vec<u8>,
+	pub weight_limit: WeightLimit,
 }
 
 pub struct SetKeysToXcm;
 impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 	fn convert(msg: SetKeysMessage) -> Xcm<()> {
 		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
+			Instruction::UnpaidExecution { weight_limit: msg.weight_limit, check_origin: None },
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
@@ -428,16 +427,14 @@ impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 #[derive(Encode, Decode, Clone)]
 pub struct PurgeKeysMessage {
 	pub stash: AccountId,
+	pub weight_limit: WeightLimit,
 }
 
 pub struct PurgeKeysToXcm;
 impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
 	fn convert(msg: PurgeKeysMessage) -> Xcm<()> {
 		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
+			Instruction::UnpaidExecution { weight_limit: msg.weight_limit, check_origin: None },
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
@@ -467,6 +464,8 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
+	type Balance = Balance;
+
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
@@ -476,7 +475,14 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		>::send(report)
 	}
 
-	fn set_keys(stash: Self::AccountId, keys: Vec<u8>) -> Result<xcm::latest::Assets, ()> {
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_fee: Option<Self::Balance>,
+		max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		let weight_limit =
+			max_remote_weight.map(WeightLimit::Limited).unwrap_or(WeightLimit::Unlimited);
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
@@ -487,10 +493,21 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			RuntimeCall,
 			AccountId,
 			AccountIdToLocation,
-		>(SetKeysMessage { stash: stash.clone(), keys }, stash)
+			Self::Balance,
+		>(
+			SetKeysMessage { stash: stash.clone(), keys, weight_limit },
+			stash,
+			max_fee,
+		)
 	}
 
-	fn purge_keys(stash: Self::AccountId) -> Result<xcm::latest::Assets, ()> {
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_fee: Option<Self::Balance>,
+		max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		let weight_limit =
+			max_remote_weight.map(WeightLimit::Limited).unwrap_or(WeightLimit::Unlimited);
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
@@ -501,7 +518,12 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			RuntimeCall,
 			AccountId,
 			AccountIdToLocation,
-		>(PurgeKeysMessage { stash: stash.clone() }, stash)
+			Self::Balance,
+		>(
+			PurgeKeysMessage { stash: stash.clone(), weight_limit },
+			stash,
+			max_fee,
+		)
 	}
 }
 

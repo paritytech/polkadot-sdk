@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ah::mock::*;
+use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, hypothetically};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
@@ -1443,16 +1443,13 @@ mod session_keys {
 				RuntimeOrigin::signed(validator),
 				keys,
 				proof,
+				None,
+				None,
 			));
 
 			// THEN: DeliveryFeesPaid event is emitted with the fees
-			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
-				id: xcm::latest::AssetId(xcm::latest::Location::here()),
-				fun: xcm::latest::Fungibility::Fungible(fee_amount),
-			});
 			System::assert_has_event(
-				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
-					.into(),
+				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: fee_amount }.into(),
 			);
 
 			// AND: Validator's balance is reduced by the fee amount
@@ -1470,7 +1467,13 @@ mod session_keys {
 			// WHEN: Nominator tries to set keys
 			// THEN: NotValidator error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(nominator), keys, proof,),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(nominator),
+					keys,
+					proof,
+					None,
+					None,
+				),
 				rc_client::Error::<T>::NotValidator
 			);
 		});
@@ -1487,7 +1490,13 @@ mod session_keys {
 			// WHEN: set_keys fails with XcmSendFailed
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof,),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+					None,
+				),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1509,6 +1518,8 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					invalid_keys,
 					proof,
+					None,
+					None,
 				),
 				rc_client::Error::<T>::InvalidKeys
 			);
@@ -1530,6 +1541,8 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					wrong_proof,
+					None,
+					None,
 				),
 				rc_client::Error::<T>::InvalidProof
 			);
@@ -1551,6 +1564,8 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					empty_proof,
+					None,
+					None,
 				),
 				rc_client::Error::<T>::InvalidProof
 			);
@@ -1572,6 +1587,8 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					malformed_proof,
+					None,
+					None,
 				),
 				rc_client::Error::<T>::InvalidProof
 			);
@@ -1598,8 +1615,12 @@ mod session_keys {
 			));
 
 			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
-			let set_keys_call =
-				RuntimeCall::RcClient(rc_client::Call::set_keys { keys: keys.clone(), proof });
+			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys {
+				keys: keys.clone(),
+				proof,
+				max_delivery_fee: None,
+				max_remote_weight: None,
+			});
 
 			// THEN: The call succeeds (keys forwarded to RC via XCM)
 			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
@@ -1610,7 +1631,10 @@ mod session_keys {
 			));
 
 			// WHEN: Proxy calls purge_keys on behalf of stash
-			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {});
+			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {
+				max_delivery_fee: None,
+				max_remote_weight: None,
+			});
 
 			// THEN: The call succeeds
 			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
@@ -1636,7 +1660,13 @@ mod session_keys {
 			// WHEN: Validator tries to set keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, proof),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+					None,
+				),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 
@@ -1652,6 +1682,69 @@ mod session_keys {
 	}
 
 	#[test]
+	fn set_keys_max_fee_scenarios() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			let actual_fee: u128 = 50;
+			XcmDeliveryFee::set(actual_fee);
+			let balance_before = Balances::free_balance(validator);
+
+			// max_fee > actual: succeeds, charges actual fee
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					proof.clone(),
+					Some(actual_fee + 100),
+					None,
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before - actual_fee);
+			});
+
+			// max_fee == actual: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					proof.clone(),
+					Some(actual_fee),
+					None,
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before - actual_fee);
+			});
+
+			// max_fee < actual: fails with FeesExceededMax
+			hypothetically!({
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						keys.clone(),
+						proof.clone(),
+						Some(actual_fee - 1),
+						None,
+					),
+					rc_client::Error::<T>::FeesExceededMax
+				);
+				assert_eq!(Balances::free_balance(validator), balance_before);
+			});
+
+			// max_fee = 0, actual = 0: succeeds
+			hypothetically!({
+				XcmDeliveryFee::set(0);
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					proof.clone(),
+					Some(0),
+					None,
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before);
+			});
+		});
+	}
+
+	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator with delivery fees configured
@@ -1661,16 +1754,15 @@ mod session_keys {
 			let balance_before = Balances::free_balance(validator);
 
 			// WHEN: Validator purges session keys
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(
+				RuntimeOrigin::signed(validator),
+				None,
+				None,
+			));
 
 			// THEN: DeliveryFeesPaid event is emitted with the fees
-			let expected_fees = xcm::latest::Assets::from(xcm::latest::Asset {
-				id: xcm::latest::AssetId(xcm::latest::Location::here()),
-				fun: xcm::latest::Fungibility::Fungible(fee_amount),
-			});
 			System::assert_has_event(
-				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: expected_fees }
-					.into(),
+				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: fee_amount }.into(),
 			);
 
 			// AND: Validator's balance is reduced by the fee amount
@@ -1691,7 +1783,11 @@ mod session_keys {
 
 			// WHEN: Non-validator calls purge_keys
 			// THEN: Call succeeds - XCM is sent to RC (RC will validate if keys exist)
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator),));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(
+				RuntimeOrigin::signed(nominator),
+				None,
+				None,
+			));
 		});
 	}
 
@@ -1711,7 +1807,11 @@ mod session_keys {
 			);
 
 			// THEN: Chilled account can still purge their session keys
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(
+				RuntimeOrigin::signed(validator),
+				None,
+				None,
+			));
 		});
 	}
 
@@ -1725,7 +1825,7 @@ mod session_keys {
 			// WHEN: Validator purges sesion keys
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),),
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None, None,),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1744,7 +1844,7 @@ mod session_keys {
 			// WHEN: Account tries to purge keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
 			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account)),
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account), None, None),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 
@@ -1759,11 +1859,52 @@ mod session_keys {
 		});
 	}
 
+	#[test]
+	fn purge_keys_max_fee_scenarios() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let account: AccountId = 3;
+			let actual_fee: u128 = 50;
+			XcmDeliveryFee::set(actual_fee);
+			let balance_before = Balances::free_balance(account);
+
+			// max_fee > actual: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(account),
+					Some(actual_fee + 100),
+					None,
+				));
+				assert_eq!(Balances::free_balance(account), balance_before - actual_fee);
+			});
+
+			// max_fee == actual: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(account),
+					Some(actual_fee),
+					None,
+				));
+				assert_eq!(Balances::free_balance(account), balance_before - actual_fee);
+			});
+
+			// max_fee < actual: fails with FeesExceededMax
+			hypothetically!({
+				assert_noop!(
+					rc_client::Pallet::<T>::purge_keys(
+						RuntimeOrigin::signed(account),
+						Some(actual_fee - 1),
+						None,
+					),
+					rc_client::Error::<T>::FeesExceededMax
+				);
+				assert_eq!(Balances::free_balance(account), balance_before);
+			});
+		});
+	}
+
 	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
 	#[test]
 	fn set_and_purge_keys_e2e() {
-		use crate::{rc, shared};
-
 		// Set up both AH and RC states (no local_queue, so XCM messages flow through)
 		shared::put_ah_state(ExtBuilder::default().build());
 		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
@@ -1779,6 +1920,8 @@ mod session_keys {
 				RuntimeOrigin::signed(validator),
 				encoded_keys.clone(),
 				proof.clone(),
+				None,
+				None,
 			));
 		});
 
@@ -1790,7 +1933,11 @@ mod session_keys {
 
 		// WHEN: Validator purges keys on AH
 		shared::in_ah(|| {
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator),));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(
+				RuntimeOrigin::signed(validator),
+				None,
+				None,
+			));
 		});
 
 		// THEN: Keys are purged on RC

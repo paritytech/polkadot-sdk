@@ -19,7 +19,10 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{ConstU128, EitherOf};
+use frame_support::{
+	traits::{ConstU128, EitherOf},
+	weights::Weight,
+};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -482,6 +485,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type SessionKeys = RelayChainSessionKeys;
+	type CurrencyBalance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
 	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();
@@ -536,6 +540,8 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
+	type Balance = Balance;
+
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
@@ -545,12 +551,21 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		>::send(report)
 	}
 
-	fn set_keys(_stash: Self::AccountId, _keys: Vec<u8>) -> Result<xcm::latest::Assets, ()> {
+	fn set_keys(
+		_stash: Self::AccountId,
+		_keys: Vec<u8>,
+		_max_fee: Option<Self::Balance>,
+		_max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		// Stub implementation for test runtime - no actual fees charged
 		Ok(Default::default())
 	}
 
-	fn purge_keys(_stash: Self::AccountId) -> Result<xcm::latest::Assets, ()> {
+	fn purge_keys(
+		_stash: Self::AccountId,
+		_max_fee: Option<Self::Balance>,
+		_max_remote_weight: Option<Weight>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		// Stub implementation for test runtime - no actual fees charged
 		Ok(Default::default())
 	}
