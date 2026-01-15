@@ -69,8 +69,10 @@ impl<T: Config> Pallet<T> {
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
 
-		// Add to workload - grants one region from the next sale boundary.
-		Workplan::<T>::insert((sale.region_begin, core), &workload);
+		// Add to ForceReservations for dynamic core assignment in rotate_sale.
+		ForceReservations::<T>::try_mutate(|r| {
+			r.try_push(workload.clone()).map_err(|_| Error::<T>::TooManyReservations)
+		})?;
 
 		// Assign now until the next sale boundary unless the next timeslice is already the sale
 		// boundary.
