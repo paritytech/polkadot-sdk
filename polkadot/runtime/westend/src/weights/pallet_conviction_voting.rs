@@ -203,7 +203,13 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 	}
 
 	// Stub.
-	fn toggle_allow_delegator_voting() -> Weight {
+	fn enable_delegator_voting() -> Weight {
+		T::DbWeight::get().reads(1_u64)
+		.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	// Stub.
+	fn disable_delegator_voting() -> Weight {
 		T::DbWeight::get().reads(1_u64)
 		.saturating_add(T::DbWeight::get().writes(1_u64))
 	}

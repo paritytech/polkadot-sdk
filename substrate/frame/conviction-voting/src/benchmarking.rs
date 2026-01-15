@@ -393,7 +393,35 @@ benchmarks_instance_pallet! {
 		assert_eq!(orig_usable, <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite));
 	}
 
-	toggle_allow_delegator_voting {
+	enable_delegator_voting {
+		let caller = funded_account::<T, I>("caller", 0);
+		whitelist_account!(caller);
+
+		T::VotingHooks::on_vote_worst_case(&caller);
+
+		let (class, all_polls) = fill_voting::<T, I>();
+		let polls = &all_polls[&class];
+
+		// We need to create existing votes for voter.
+		let account_vote = account_vote::<T, I>(100u32.into());
+		for i in polls.iter() {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
+		}
+
+		set_delegator_voting::<T, I>(&caller, &class, false);
+		let flag = VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting;
+		assert_eq!(flag, false, "Voting should be disabled.");
+
+	}: _(RawOrigin::Signed(caller.clone()), class.clone())
+	verify {
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting,
+			true,
+			"Voting should be allowed."
+		);
+	}
+
+	disable_delegator_voting {
 		let caller = funded_account::<T, I>("caller", 0);
 		whitelist_account!(caller);
 

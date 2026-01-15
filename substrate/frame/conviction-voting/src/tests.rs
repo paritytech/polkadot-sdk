@@ -711,7 +711,7 @@ fn errors_with_vote_work() {
 			.collect(),
 		);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Voting::disable_delegator_voting(RuntimeOrigin::signed(2), 0));
 
 		// Cannot vote if delegate has turned it off.
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
@@ -729,7 +729,7 @@ fn errors_with_vote_work() {
 		);
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 0));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Voting::enable_delegator_voting(RuntimeOrigin::signed(2), 0));
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)));
@@ -1340,12 +1340,12 @@ fn errors_with_delegating_work() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 2, aye(20, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Voting::disable_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
 			Error::<Test>::DelegateHasDisabledDelegatorVoting
 		);
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Voting::enable_delegator_voting(RuntimeOrigin::signed(2), 0));
 
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
@@ -1813,7 +1813,7 @@ fn can_remove_vote_and_undelegate_while_delegator_voting_off() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 2, aye(5, 1)));
 
 		// Delegate disables voting.
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
+		assert_ok!(Voting::disable_delegator_voting(RuntimeOrigin::signed(delegate), class));
 
 		// Delegator can remove vote.
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator), Some(class), 2));
@@ -1824,14 +1824,14 @@ fn can_remove_vote_and_undelegate_while_delegator_voting_off() {
 }
 
 #[test]
-fn can_flip_delegator_voting_flag_per_class() {
+fn can_set_delegator_voting_flag_per_class() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Voting::disable_delegator_voting(RuntimeOrigin::signed(1), 0));
 		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, false);
 		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, true);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Voting::enable_delegator_voting(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Voting::disable_delegator_voting(RuntimeOrigin::signed(1), 1));
 		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, true);
 		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, false);
 	});

@@ -79,7 +79,8 @@ pub trait WeightInfo {
 	fn delegate(r: u32, _s: u32) -> Weight;
 	fn undelegate(r: u32, _s: u32) -> Weight;
 	fn unlock() -> Weight;
-	fn toggle_allow_delegator_voting() -> Weight;
+	fn enable_delegator_voting() -> Weight;
+	fn disable_delegator_voting() -> Weight;
 	fn step_to_v1() -> Weight;
 }
 
@@ -167,7 +168,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Stub.
-	fn toggle_allow_delegator_voting() -> Weight {
+	fn enable_delegator_voting() -> Weight {
+		T::DbWeight::get().reads(1_u64)
+		.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	// Stub.
+	fn disable_delegator_voting() -> Weight {
 		T::DbWeight::get().reads(1_u64)
 		.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -340,7 +346,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Placeholder.
-	fn toggle_allow_delegator_voting() -> Weight {
+	fn enable_delegator_voting() -> Weight {
+		RocksDbWeight::get().reads(1_u64)
+		.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	// Stub.
+	fn disable_delegator_voting() -> Weight {
 		RocksDbWeight::get().reads(1_u64)
 		.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

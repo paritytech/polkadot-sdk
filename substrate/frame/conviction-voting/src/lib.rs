@@ -94,7 +94,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{
-			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, StorageValue,
+			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap,
 			StorageVersion, ValueQuery,
 		},
 		traits::ClassCountOf,
@@ -418,19 +418,35 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Toggle `allow_delegator_voting` for the class.
+		/// Enable `allow_delegator_voting` for the class.
 		///
 		/// The dispatch origin of this call must be _Signed_.
 		///
-		/// - `class`: The class for which to toggle the functionality.
+		/// - `class`: The class for which to enable the functionality.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::toggle_allow_delegator_voting())]
-		pub fn toggle_allow_delegator_voting(
+		#[pallet::weight(T::WeightInfo::enable_delegator_voting())]
+		pub fn enable_delegator_voting(
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::toggle_delegator_voting(who, class);
+			Self::set_delegator_voting(who, class, true);
+			Ok(())
+		}
+
+		/// Disable `allow_delegator_voting` for the class.
+		///
+		/// The dispatch origin of this call must be _Signed_.
+		///
+		/// - `class`: The class for which to disable the functionality.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::disable_delegator_voting())]
+		pub fn disable_delegator_voting(
+			origin: OriginFor<T>,
+			class: ClassOf<T, I>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::set_delegator_voting(who, class, false);
 			Ok(())
 		}
 	}
@@ -1086,10 +1102,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes_accessed)
 	}
 
-	/// Toggle `allow_delegator_voting` for the specific class.
-	fn toggle_delegator_voting(who: T::AccountId, class: ClassOf<T, I>) {
+	/// Set `allow_delegator_voting` for the specific class.
+	fn set_delegator_voting(who: T::AccountId, class: ClassOf<T, I>, allow: bool) {
 		VotingFor::<T, I>::mutate(&who, &class, |voting| {
-			voting.allow_delegator_voting = !voting.allow_delegator_voting;
+			voting.allow_delegator_voting = allow;
 		});
 	}
 
