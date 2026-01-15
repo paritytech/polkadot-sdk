@@ -342,6 +342,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"--max-runtime-instances=32".into(),
 					"--rpc-rate-limit=70000000".into(),
 					"--statement-validation-workers=1".into(),
+					"--statement-store-filter-workers=2".into(),
 					"-linfo,statement-store=info,statement-gossip=debug".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
