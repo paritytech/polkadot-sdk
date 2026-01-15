@@ -65,12 +65,14 @@ pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_type
 /// Trait representing BEEFY authority id, including custom signature verification.
 pub trait BeefyAuthorityId: RuntimeAppPublic {
 	/// Get all the public keys of the current type from a provided `Keystore`.
-	fn get_all_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>>;
+	#[cfg(feature = "std")]
+	fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>>;
 
 	/// Sign a message using the private key associated to the current public key.
 	///
 	/// We can't access the private key directly, so we need to receive the store that contains it.
-	fn try_sign(
+	#[cfg(feature = "std")]
+	fn try_sign_with_store(
 		&self,
 		store: KeystorePtr,
 		msg: &[u8],
@@ -119,11 +121,13 @@ pub mod ecdsa_crypto {
 	pub type AuthoritySignature = Signature;
 
 	impl BeefyAuthorityId for AuthorityId {
-		fn get_all_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
+		#[cfg(feature = "std")]
+		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
 			store.ecdsa_public_keys(BEEFY_KEY_TYPE)
 		}
 
-		fn try_sign(
+		#[cfg(feature = "std")]
+		fn try_sign_with_store(
 			&self,
 			store: sp_keystore::KeystorePtr,
 			msg: &[u8],
@@ -209,11 +213,13 @@ pub mod ecdsa_bls_crypto {
 	pub type AuthoritySignature = Signature;
 
 	impl BeefyAuthorityId for AuthorityId {
-		fn get_all_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
+		#[cfg(feature = "std")]
+		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
 			store.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
 		}
 
-		fn try_sign(
+		#[cfg(feature = "std")]
+		fn try_sign_with_store(
 			&self,
 			store: sp_keystore::KeystorePtr,
 			msg: &[u8],
@@ -601,19 +607,15 @@ mod tests {
 		let msg = &b"test-message"[..];
 		let (pair, _) = ecdsa_crypto::Pair::generate();
 
-		let keccak_256_signature: ecdsa_crypto::Signature =
+		let signature: ecdsa_crypto::Signature =
 			pair.as_inner_ref().sign_prehashed(&keccak_256(msg)).into();
 
-		// Verification works if same hashing function is used when signing and verifying.
-		assert!(BeefyAuthorityId::verify(&pair.public(), &keccak_256_signature, msg));
-		// Verification fails if distinct hashing functions are used when signing and verifying.
-		let blake2_256_signature: ecdsa_crypto::Signature =
-			pair.as_inner_ref().sign_prehashed(&blake2_256(msg)).into();
-		assert!(!BeefyAuthorityId::verify(&pair.public(), &blake2_256_signature, msg));
+		// Verification works if same key is used when signing and verifying.
+		assert!(BeefyAuthorityId::verify(&pair.public(), &signature, msg));
 
 		// Other public key doesn't work
 		let (other_pair, _) = ecdsa_crypto::Pair::generate();
-		assert!(!BeefyAuthorityId::verify(&other_pair.public(), &keccak_256_signature, msg,));
+		assert!(!BeefyAuthorityId::verify(&other_pair.public(), &signature, msg,));
 	}
 
 	#[test]

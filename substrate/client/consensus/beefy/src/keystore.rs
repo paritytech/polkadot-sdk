@@ -79,10 +79,13 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let raw_signature = BeefyAuthorityId::try_sign(public, store, message)
+		let raw_signature = BeefyAuthorityId::try_sign_with_store(public, store, message)
 			.map_err(|e| error::Error::Keystore(e.to_string()))?
 			.ok_or_else(|| {
-				error::Error::Signature("BeefyAuthorityId::try_sign() returned None".to_string())
+				error::Error::Signature(format!(
+					"{}::try_sign_with_store() failed",
+					core::any::type_name::<AuthorityId>(),
+				))
 			})?;
 		let signature =
 			<AuthorityId as RuntimeAppPublic>::Signature::decode(&mut raw_signature.as_slice())
@@ -101,7 +104,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn public_keys(&self) -> Result<Vec<AuthorityId>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		<AuthorityId as BeefyAuthorityId>::get_all_from_store(store)
+		<AuthorityId as BeefyAuthorityId>::get_all_public_keys_from_store(store)
 			.drain(..)
 			.map(|pk| AuthorityId::try_from(pk.as_ref()))
 			.collect::<Result<Vec<_>, _>>()
@@ -396,13 +399,17 @@ pub mod tests {
 
 	#[test]
 	fn sign_error_for_ecdsa() {
-		sign_error::<ecdsa_crypto::AuthorityId>("BeefyAuthorityId::try_sign() returned None");
+		sign_error::<ecdsa_crypto::AuthorityId>(
+			"sp_consensus_beefy::ecdsa_crypto::Public::try_sign_with_store() failed",
+		);
 	}
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn sign_error_for_ecdsa_n_bls() {
-		sign_error::<ecdsa_bls_crypto::AuthorityId>("BeefyAuthorityId::try_sign() returned None");
+		sign_error::<ecdsa_bls_crypto::AuthorityId>(
+			"sp_consensus_beefy::ecdsa_bls_crypto::Public::try_sign_with_store() failed",
+		);
 	}
 
 	#[test]
