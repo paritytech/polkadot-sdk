@@ -81,11 +81,11 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -109,11 +109,13 @@ impl<T: Config> Eras<T> {
 		<ErasValidatorPrefs<T>>::insert(era, stash, prefs);
 	}
 
+	#[allow(dead_code)]
 	pub(crate) fn get_validator_prefs(era: EraIndex, stash: &T::AccountId) -> ValidatorPrefs {
 		<ErasValidatorPrefs<T>>::get(era, stash)
 	}
 
 	/// Returns validator commission for this era and page.
+	#[allow(dead_code)]
 	pub(crate) fn get_validator_commission(era: EraIndex, stash: &T::AccountId) -> Perbill {
 		Self::get_validator_prefs(era, stash).commission
 	}
@@ -350,10 +352,14 @@ impl<T: Config> Eras<T> {
 		};
 	}
 
+	/// LEGACY: Set validator reward for an era (pre-pot system).
+	/// Only used for backward compatibility with old eras that don't have pot accounts.
 	pub(crate) fn set_validators_reward(era: EraIndex, amount: BalanceOf<T>) {
 		ErasValidatorReward::<T>::insert(era, amount);
 	}
 
+	/// LEGACY: Get validator reward for an era (pre-pot system).
+	/// Only used for backward compatibility with old eras that don't have pot accounts.
 	pub(crate) fn get_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
 	}
@@ -415,10 +421,10 @@ impl<T: Config> Eras<T> {
 		let e4 = if era.saturating_sub(1) > 0 &&
 			era.saturating_sub(1) > active_era.saturating_sub(T::HistoryDepth::get() + 1)
 		{
-			// `ErasValidatorReward` is set at active era n for era n-1, and is not set for era 0 in
+			// `ErasValidatorBudgetSnapshot` is set at active era n for era n-1, and is not set for era 0 in
 			// our tests. Moreover, it cannot be checked for presence in the oldest present era
 			// (`active_era.saturating_sub(1)`)
-			ErasValidatorReward::<T>::contains_key(era.saturating_sub(1))
+			ErasValidatorBudgetSnapshot::<T>::contains_key(era.saturating_sub(1))
 		} else {
 			// ignore
 			e2
@@ -456,16 +462,19 @@ impl<T: Config> Eras<T> {
 		let e2 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
 
 		// check maps
-		// `ErasValidatorReward` is set at active era n for era n-1
-		let e3 = ErasValidatorReward::<T>::contains_key(era);
+		// `ErasValidatorBudgetSnapshot` and `ErasNominatorBudgetSnapshot` are set at active era n for era n-1
+		let e3 = ErasValidatorBudgetSnapshot::<T>::contains_key(era);
 		let e4 = ErasTotalStake::<T>::contains_key(era);
+		let e8 = ErasNominatorBudgetSnapshot::<T>::contains_key(era);
+		let e9 = ErasValidatorPot::<T>::contains_key(era);
+		let e10 = ErasNominatorPot::<T>::contains_key(era);
 
 		// these two are only populated conditionally, so we only check them for lack of existence
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
 		// Check if era info is consistent - if not, era is in partial pruning state
-		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+		if !vec![e0, e1, e2, e3, e4, e6, e7, e8, e9, e10].windows(2).all(|w| w[0] == w[1]) {
 			return Err("era info absence not consistent - partial pruning state".into());
 		}
 
@@ -709,6 +718,9 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Pre-compute total validator self-stake for reward distribution
+		Self::compute_era_total_validator_self_stake(starting_era);
+
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
@@ -766,6 +778,28 @@ impl<T: Config> Rotator<T> {
 		});
 	}
 
+	/// Pre-compute and store the total self-stake of all validators for an era.
+	///
+	/// This is used to calculate each validator's proportional share of the validator budget.
+	/// Called at the start of each era to avoid expensive computation during payouts.
+	fn compute_era_total_validator_self_stake(era: EraIndex) {
+		let mut total_self_stake: BalanceOf<T> = Zero::zero();
+
+		// Iterate over all validators in this era
+		for overview in ErasStakersOverview::<T>::iter_prefix_values(era) {
+			total_self_stake = total_self_stake.saturating_add(overview.own);
+		}
+
+		log!(
+			debug,
+			"Era {:?}: computed total validator self-stake = {:?}",
+			era,
+			total_self_stake
+		);
+
+		ErasTotalValidatorSelfStake::<T>::insert(era, total_self_stake);
+	}
+
 	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
 		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
 		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
@@ -792,38 +826,63 @@ impl<T: Config> Rotator<T> {
 			uncapped_era_duration
 		};
 
-		Self::end_era_compute_payout(ending_era, era_duration);
+		Self::end_era_compute_payout(ending_era, era_duration, new_era_start);
 	}
 
-	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
-		let staked = ErasTotalStake::<T>::get(ending_era.index);
-		let issuance = asset::total_issuance::<T>();
+	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64, current_timestamp: u64) {
+		let _staked = ErasTotalStake::<T>::get(ending_era.index);
+		let era_index = ending_era.index;
 
 		log!(
 			debug,
-			"computing inflation for era {:?} with duration {:?}",
-			ending_era.index,
+			"funding era pots for era {:?} with duration {:?}",
+			era_index,
 			era_duration
 		);
-		let (validator_payout, remainder) =
-			T::EraPayout::era_payout(staked, issuance, era_duration);
 
-		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		// Generate pot accounts for this era
+		let validator_pot = Pallet::<T>::era_validator_pot_account(era_index);
+		let nominator_pot = Pallet::<T>::era_nominator_pot_account(era_index);
 
-		// apply cap to validators payout and add difference to remainder.
-		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-		let remainder = total_payout.saturating_sub(validator_payout);
+		// Fund era pots via StakingBudgetProvider
+		// Staking pallet never mints - it only transfers from pre-funded pots
+		// The budget provider decides amounts based on era duration and its own config
+		let (validator_budget, nominator_budget) = T::StakingBudgetProvider::fund_era_pots(
+			era_index,
+			&validator_pot,
+			&nominator_pot,
+			era_duration,
+			current_timestamp,
+		)
+		.expect("StakingBudgetProvider must be configured to fund era pots");
 
-		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
-			era_index: ending_era.index,
-			validator_payout,
-			remainder,
+		log!(
+			debug,
+			"era {:?} pots funded - validator: {:?}, nominator: {:?}",
+			era_index,
+			validator_budget,
+			nominator_budget
+		);
+
+		// Snapshot the budgets for accurate per-staker reward calculation
+		ErasValidatorBudgetSnapshot::<T>::insert(era_index, validator_budget);
+		ErasNominatorBudgetSnapshot::<T>::insert(era_index, nominator_budget);
+
+		// Store pot accounts
+		ErasValidatorPot::<T>::insert(era_index, validator_pot);
+		ErasNominatorPot::<T>::insert(era_index, nominator_pot);
+
+		// LEGACY: Also set ErasValidatorReward for backward compatibility.
+		// This ensures old code that checks for era presence still works.
+		// Can be removed after HistoryDepth eras have passed post-upgrade.
+		let total_budget = validator_budget.saturating_add(nominator_budget);
+		Eras::<T>::set_validators_reward(era_index, total_budget);
+
+		Pallet::<T>::deposit_event(Event::<T>::EraPotsFunded {
+			era_index,
+			validator_budget,
+			nominator_budget,
 		});
-
-		// Set ending era reward.
-		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
-		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
 	/// Plans a new era by kicking off the election process.

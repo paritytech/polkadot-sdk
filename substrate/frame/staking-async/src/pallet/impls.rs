@@ -38,8 +38,7 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		Defensive, DefensiveSaturating, Get, InspectLockableCurrency, LockableCurrency,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -47,7 +46,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
-	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
+	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill,
 };
 use sp_staking::{
@@ -72,6 +71,14 @@ use sp_runtime::TryRuntimeError;
 /// times and then give up.
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
+/// Prefix for generating validator pot sub-accounts.
+/// Used with PalletId to derive unique era validator reward pot accounts.
+const VALIDATOR_POT_PREFIX: &[u8] = b"val/pot";
+
+/// Prefix for generating nominator pot sub-accounts.
+/// Used with PalletId to derive unique era nominator reward pot accounts.
+const NOMINATOR_POT_PREFIX: &[u8] = b"nom/pot";
+
 impl<T: Config> Pallet<T> {
 	/// Returns the minimum required bond for participation, considering nominators,
 	/// and the chain’s existential deposit.
@@ -93,6 +100,24 @@ impl<T: Config> Pallet<T> {
 	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
+	}
+
+	/// Generate the validator pot account for a given era.
+	///
+	/// This account holds the validator reward budget for the era.
+	/// Public for use in runtime APIs.
+	pub fn era_validator_pot_account(era_index: EraIndex) -> T::AccountId {
+		<T as Config>::PalletId::get()
+			.into_sub_account_truncating((VALIDATOR_POT_PREFIX, era_index))
+	}
+
+	/// Generate the nominator pot account for a given era.
+	///
+	/// This account holds the nominator reward budget for the era.
+	/// Public for use in runtime APIs.
+	pub fn era_nominator_pot_account(era_index: EraIndex) -> T::AccountId {
+		<T as Config>::PalletId::get()
+			.into_sub_account_truncating((NOMINATOR_POT_PREFIX, era_index))
 	}
 
 	/// Fetches the ledger associated with a controller or stash account, if any.
@@ -349,11 +374,34 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
 
-		// Note: if era has no reward to be claimed, era may be future.
-		let era_payout = Eras::<T>::get_validators_reward(era).ok_or_else(|| {
-			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
+		// Detect whether this is a new era (with pot accounts) or old era (legacy minting).
+		// This determines which payout path to use: pot-based (new) or minting-based (legacy).
+		let validator_pot = ErasValidatorPot::<T>::get(era);
+		let nominator_pot = ErasNominatorPot::<T>::get(era);
+		let is_new_era = validator_pot.is_some() && nominator_pot.is_some();
+
+		// Load budget snapshots based on era type
+		let (validator_budget, nominator_budget) = if is_new_era {
+			// NEW ERA PATH: Load budget snapshots from new storage
+			let v_budget = ErasValidatorBudgetSnapshot::<T>::get(era).ok_or_else(|| {
+				Error::<T>::InvalidEraToReward
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			})?;
+			let n_budget = ErasNominatorBudgetSnapshot::<T>::get(era).ok_or_else(|| {
+				Error::<T>::InvalidEraToReward
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			})?;
+			(v_budget, n_budget)
+		} else {
+			// LEGACY ERA PATH: Load from old ErasValidatorReward and split 50/50
+			// This path is ONLY for old eras created before the transition to pot-based payouts.
+			let legacy_reward = Eras::<T>::get_validators_reward(era).ok_or_else(|| {
+				Error::<T>::InvalidEraToReward
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			})?;
+			let half = legacy_reward / 2u32.into();
+			(half, legacy_reward - half)
+		};
 
 		let account = StakingAccount::Stash(validator_stash.clone());
 		let ledger = Self::ledger(account.clone()).or_else(|_| {
@@ -383,12 +431,7 @@ impl<T: Config> Pallet<T> {
 		// Input data seems good, no errors allowed after this point
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
-		// Find the fraction of the era reward that belongs to the validator
-		// Take that fraction of the eras rewards to split to nominator and validator
-		//
-		// Then look at the validator, figure out the proportion of their reward
-		// which goes to them and each of their nominators.
-
+		// Find the fraction of the era reward that belongs to the validator based on reward points
 		let era_reward_points = Eras::<T>::get_reward_points(era);
 		let total_reward_points = era_reward_points.total;
 		let validator_reward_points =
@@ -399,26 +442,38 @@ impl<T: Config> Pallet<T> {
 			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
 		}
 
-		// This is the fraction of the total reward that the validator and the
-		// nominators will get.
-		let validator_total_reward_part =
+		// Calculate this validator's fraction of the era based on reward points
+		let validator_points_share =
 			Perbill::from_rational(validator_reward_points, total_reward_points);
 
-		// This is how much validator + nominators are entitled to.
-		let validator_total_payout = validator_total_reward_part * era_payout;
+		// === VALIDATOR BUDGET CALCULATION ===
+		// Validator rewards are based on TWO factors:
+		// 1. Points share: Performance (blocks produced, availability)
+		// 2. Self-stake share: Skin-in-game incentive
+		//
+		// Formula: validator_reward = (points_share) × (self_stake_share) × validator_budget
 
-		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
-		// total commission validator takes across all nominator pages
-		let validator_total_commission_payout = validator_commission * validator_total_payout;
+		// Get this validator's self-stake
+		let validator_self_stake = exposure.own();
 
-		let validator_leftover_payout =
-			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
-		// Now let's calculate how this is split to the validator.
-		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
-		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
-		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
-		// validator commission is paid out in fraction across pages proportional to the page stake.
-		let validator_commission_payout = page_stake_part * validator_total_commission_payout;
+		// Get total self-stake across all validators in this era
+		let total_validator_self_stake = ErasTotalValidatorSelfStake::<T>::get(era);
+
+		// Calculate self-stake share (defensive: avoid division by zero)
+		let validator_stake_share = if !total_validator_self_stake.is_zero() {
+			Perbill::from_rational(validator_self_stake, total_validator_self_stake)
+		} else {
+			Perbill::zero()
+		};
+
+		// Validator gets: points_share × stake_share × validator_budget
+		let validator_staking_payout = validator_points_share * validator_stake_share * validator_budget;
+
+		// === NOMINATOR BUDGET CALCULATION ===
+		// Nominator rewards come from the nominator budget pot
+		// This is how much this validator's nominators are entitled to from nominator budget
+		// Note: Only points matter for nominator budget allocation (not validator self-stake)
+		let nominator_total_from_budget = validator_points_share * nominator_budget;
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -427,42 +482,104 @@ impl<T: Config> Pallet<T> {
 			next: Eras::<T>::get_next_claimable_page(era, &stash),
 		});
 
-		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
-		// We can now make total validator payout:
-		if let Some((imbalance, dest)) =
-			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
-		{
-			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: imbalance.peek() });
-			total_imbalance.subsume(imbalance);
-		}
-
 		// Track the number of payout ops to nominators. Note:
 		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
 		// out, so we do not need to count their payout op.
 		let mut nominator_payout_count: u32 = 0;
 
-		// Lets now calculate how this is split to the nominators.
-		// Reward only the clipped exposures. Note this is not necessarily sorted.
-		for nominator in exposure.others().iter() {
-			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+		if is_new_era {
+			// === NEW ERA PATH: Pay from pot accounts ===
+			// Pay validator from validator pot (only their own stake portion, no commission)
+			if let Some((amount, dest)) = Self::make_payout_from_pot(
+				&validator_pot,
+				&stash,
+				validator_staking_payout,
+			) {
+				Self::deposit_event(Event::<T>::Rewarded {
+					stash: stash.clone(),
+					dest,
+					amount,
+				});
+			}
 
-			let nominator_reward: BalanceOf<T> =
-				nominator_exposure_part * validator_leftover_payout;
-			// We can now make nominator payout:
-			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
-				// Note: this logic does not count payouts for `RewardDestination::None`.
-				nominator_payout_count += 1;
-				let e = Event::<T>::Rewarded {
+			// Pay nominators from nominator pot
+			// Reward only the clipped exposures. Note this is not necessarily sorted.
+			// Calculate total nominator stake (excluding validator self-stake)
+			let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+
+			for nominator in exposure.others().iter() {
+				// Each nominator's share is their stake divided by TOTAL NOMINATOR STAKE (not total exposure)
+				// This ensures validator self-stake doesn't participate in nominator budget distribution
+				let nominator_stake_share = if !total_nominator_stake.is_zero() {
+					Perbill::from_rational(nominator.value, total_nominator_stake)
+				} else {
+					Perbill::zero()
+				};
+
+				// Nominator reward calculated from nominator budget (separate from validator budget)
+				let nominator_reward: BalanceOf<T> =
+					nominator_stake_share * nominator_total_from_budget;
+
+				// Pay from nominator pot
+				if let Some((amount, dest)) =
+					Self::make_payout_from_pot(&nominator_pot, &nominator.who, nominator_reward)
+				{
+					// Note: this logic does not count payouts for `RewardDestination::None`.
+					nominator_payout_count += 1;
+					Self::deposit_event(Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
 					dest,
-					amount: imbalance.peek(),
+					amount,
+				});
+			}
+		}
+		} else {
+			// === LEGACY ERA PATH: Mint tokens on payout ===
+			// This path is ONLY for old eras created before pot-based payouts were implemented.
+			// Pay validator by minting (only their own stake portion, no commission)
+			if let Some((imbalance, dest)) = Self::make_payout(&stash, validator_staking_payout) {
+				use frame_support::traits::Imbalance;
+				let amount = imbalance.peek();
+				Self::deposit_event(Event::<T>::Rewarded {
+					stash: stash.clone(),
+					dest,
+					amount,
+				});
+			}
+
+			// Pay nominators by minting
+			// Reward only the clipped exposures. Note this is not necessarily sorted.
+			// Calculate total nominator stake (excluding validator self-stake)
+			let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+
+			for nominator in exposure.others().iter() {
+				// Each nominator's share is their stake divided by TOTAL NOMINATOR STAKE (not total exposure)
+				// This ensures validator self-stake doesn't participate in nominator budget distribution
+				let nominator_stake_share = if !total_nominator_stake.is_zero() {
+					Perbill::from_rational(nominator.value, total_nominator_stake)
+				} else {
+					Perbill::zero()
 				};
-				Self::deposit_event(e);
-				total_imbalance.subsume(imbalance);
+
+				// Nominator reward calculated from nominator budget (separate from validator budget)
+				let nominator_reward: BalanceOf<T> =
+					nominator_stake_share * nominator_total_from_budget;
+
+				// Pay by minting
+				if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
+					use frame_support::traits::Imbalance;
+					let amount = imbalance.peek();
+					// Note: this logic does not count payouts for `RewardDestination::None`.
+					nominator_payout_count += 1;
+					Self::deposit_event(Event::<T>::Rewarded {
+						stash: nominator.who.clone(),
+						dest,
+						amount,
+					});
+				}
 			}
 		}
 
-		T::Reward::on_unbalanced(total_imbalance);
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 
 		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
@@ -477,8 +594,73 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Actually make a payment to a staker. This uses the currency's reward function
-	/// to pay the right payee for the given staker account.
+	/// Make a payment to a staker from a pot account.
+	///
+	/// Transfers funds from the pot account instead of minting.
+	/// Returns None if pot_account is None (falls back to legacy minting).
+	/// Returns Some((amount, destination)) on success.
+	fn make_payout_from_pot(
+		pot_account: &Option<T::AccountId>,
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
+		// noop if amount is zero
+		if amount.is_zero() {
+			return None
+		}
+
+		// Pot account must exist - staking never mints
+		let pot = pot_account
+			.as_ref()
+			.expect("Era pot accounts must be funded by StakingBudgetProvider");
+
+		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
+
+		let success = match dest {
+			RewardDestination::Stash =>
+				asset::transfer::<T>(pot, stash, amount, frame_support::traits::tokens::Preservation::Expendable).is_ok(),
+			RewardDestination::Staked => {
+				if let Ok(mut ledger) = Self::ledger(Stash(stash.clone())) {
+					ledger.active += amount;
+					ledger.total += amount;
+					if asset::transfer::<T>(pot, stash, amount, frame_support::traits::tokens::Preservation::Expendable).is_ok() {
+						ledger
+							.update()
+							.defensive_proof("ledger fetched from storage, so it exists; qed.")
+							.is_ok()
+					} else {
+						false
+					}
+				} else {
+					false
+				}
+			},
+			RewardDestination::Account(ref dest_account) =>
+				asset::transfer::<T>(pot, dest_account, amount, frame_support::traits::tokens::Preservation::Expendable).is_ok(),
+			RewardDestination::None => return None,
+			#[allow(deprecated)]
+			RewardDestination::Controller => {
+				if let Some(controller) = Self::bonded(stash) {
+					defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
+					asset::transfer::<T>(pot, &controller, amount, frame_support::traits::tokens::Preservation::Expendable).is_ok()
+				} else {
+					false
+				}
+			},
+		};
+
+		if success {
+			Some((amount, dest))
+		} else {
+			None
+		}
+	}
+
+	/// LEGACY: Make a payment to a staker by minting new tokens.
+	/// This uses the currency's reward function to pay the right payee for the given staker account.
+	///
+	/// Only used for paying out old eras that don't have pot accounts (pre-transition eras).
+	/// New eras should use `make_payout_from_pot` instead.
 	fn make_payout(
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
@@ -514,7 +696,7 @@ impl<T: Config> Pallet<T> {
 						// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
 						asset::mint_creating::<T>(&controller, amount)
-		}),
+			}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}

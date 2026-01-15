@@ -474,6 +474,9 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// DEPRECATED: This trait is being phased out in favor of `StakingBudgetProvider`.
+/// It is kept for backward compatibility during the transition period.
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -495,6 +498,11 @@ impl<Balance: Default> EraPayout<Balance> for () {
 		(Default::default(), Default::default())
 	}
 }
+
+// Re-export StakingBudgetProvider from sp-staking for convenience.
+// This trait was moved to sp-staking to avoid circular dependencies between
+// pallet-staking-async and pallet-dap.
+pub use sp_staking::StakingBudgetProvider;
 
 /// Mode of era-forcing.
 #[derive(

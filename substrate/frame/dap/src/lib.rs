@@ -17,17 +17,16 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account is created at genesis with a provider reference
+//! This pallet implements:
+//! - `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
+//! - `StakingBudgetProvider` to fund staking era rewards with configurable APYs
+//! - Era-triggered inflation minting (mints when eras rotate based on actual era duration)
+//!
+//! The buffer account is created at genesis with a provider reference
 //! and funded with the existential deposit (ED) to ensure it can receive deposits of any size.
 //!
 //! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
 //! migrations tuple.
-//!
-//! Future phases will add:
-//! - `FundingSource` (request_funds) for pulling funds
-//! - Issuance curve and minting logic
-//! - Distribution rules and scheduling
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -47,6 +46,7 @@ use frame_support::{
 	},
 	PalletId,
 };
+use sp_runtime::{traits::Zero, DispatchError, DispatchResult, Percent, Saturating};
 
 pub use pallet::*;
 
@@ -81,6 +81,20 @@ pub mod pallet {
 		/// DAP instances are used.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// Validator budget rate as a percentage of total issuance.
+		/// This is the annual inflation rate allocated to validator rewards.
+		/// Note: This is NOT the APY that validators earn (which depends on staking rate).
+		/// Example: 3.33% means validators receive 3.33% of total issuance annually.
+		#[pallet::constant]
+		type ValidatorBudgetRate: Get<Percent>;
+
+		/// Nominator budget rate as a percentage of total issuance.
+		/// This is the annual inflation rate allocated to nominator rewards.
+		/// Note: This is NOT the APY that nominators earn (which depends on staking rate).
+		/// Example: 1.43% means nominators receive 1.43% of total issuance annually.
+		#[pallet::constant]
+		type NominatorBudgetRate: Get<Percent>;
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -132,6 +146,7 @@ pub mod pallet {
 				},
 			}
 		}
+
 	}
 
 	/// Genesis config for the DAP pallet.
@@ -214,3 +229,120 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 			});
 	}
 }
+
+impl<T: Config> Pallet<T> {
+		/// Fund era reward pots with budgets based on configured APYs.
+		///
+		/// This is the core budget allocation logic that:
+		/// - Mints inflation for this era based on actual era duration
+		/// - Calculates validator and nominator budgets based on APYs
+		/// - Transfers funds from DAP buffer to the era pot accounts
+		///
+		/// Returns (validator_budget, nominator_budget)
+		pub fn fund_era_pots(
+			era_index: u32,
+			validator_pot: &T::AccountId,
+			nominator_pot: &T::AccountId,
+			era_duration_millis: u64,
+			_current_timestamp_millis: u64,
+		) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
+			let total_issuance = T::Currency::total_issuance();
+			let validator_budget_rate = T::ValidatorBudgetRate::get();
+			let nominator_budget_rate = T::NominatorBudgetRate::get();
+
+			// Calculate budgets based on budget rates and era duration
+			// Formula: budget = issuance * budget_rate * (era_duration / year_duration)
+			let year_in_millis = 365u64 * 24 * 60 * 60 * 1000;
+			let era_fraction = Percent::from_rational(era_duration_millis, year_in_millis);
+
+			let validator_budget = validator_budget_rate * era_fraction * total_issuance;
+			let nominator_budget = nominator_budget_rate * era_fraction * total_issuance;
+			let total_budget = validator_budget.saturating_add(nominator_budget);
+
+			// Mint the inflation for this era into the buffer
+			let buffer = Self::buffer_account();
+			if !total_budget.is_zero() {
+				T::Currency::mint_into(&buffer, total_budget).map_err(|e| {
+					log::error!(
+						target: LOG_TARGET,
+						"🚨 Failed to mint inflation for era {era_index}: {e:?}"
+					);
+					e
+				})?;
+
+				log::debug!(
+					target: LOG_TARGET,
+					"💰 Minted inflation for era {era_index}: {total_budget:?} (validator: {validator_budget:?}, nominator: {nominator_budget:?})"
+				);
+			}
+
+			// Transfer from buffer to validator pot
+			T::Currency::transfer(
+				&buffer,
+				validator_pot,
+				validator_budget,
+				frame_support::traits::tokens::Preservation::Preserve,
+			)?;
+
+			// Transfer from buffer to nominator pot
+			T::Currency::transfer(
+				&buffer,
+				nominator_pot,
+				nominator_budget,
+				frame_support::traits::tokens::Preservation::Preserve,
+			)?;
+
+			log::info!(
+				target: LOG_TARGET,
+				"💸 Funded era {era_index}: validator={validator_budget:?}, nominator={nominator_budget:?}"
+			);
+
+			Ok((validator_budget, nominator_budget))
+		}
+
+		/// Return unused budget from an era pot back to the DAP buffer.
+		///
+		/// Called during era cleanup to return any unspent rewards.
+		pub fn return_unused_budget(from: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			if amount.is_zero() {
+				return Ok(());
+			}
+
+			let buffer = Self::buffer_account();
+
+			// Transfer unused funds back to buffer
+			T::Currency::transfer(
+				from,
+				&buffer,
+				amount,
+				frame_support::traits::tokens::Preservation::Expendable,
+			)?;
+
+			log::debug!(
+				target: LOG_TARGET,
+				"💸 Returned unused budget: {amount:?}"
+			);
+
+			Ok(())
+		}
+	}
+
+	/// Implementation of StakingBudgetProvider trait from sp-staking.
+	///
+	/// This allows pallet-dap to be used directly as the budget provider for staking pallets,
+	/// without needing wrapper types in runtimes.
+	impl<T: Config> sp_staking::StakingBudgetProvider<T::AccountId, BalanceOf<T>> for Pallet<T> {
+		fn fund_era_pots(
+			era_index: sp_staking::EraIndex,
+			validator_pot: &T::AccountId,
+			nominator_pot: &T::AccountId,
+			era_duration_millis: u64,
+			current_timestamp_millis: u64,
+		) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
+			Self::fund_era_pots(era_index, validator_pot, nominator_pot, era_duration_millis, current_timestamp_millis)
+		}
+
+		fn return_unused_budget(from: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			Self::return_unused_budget(from, amount)
+		}
+	}

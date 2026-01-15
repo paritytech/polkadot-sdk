@@ -91,6 +91,9 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
+	/// Percentage of era reward allocated to validators (rest goes to nominators).
+	/// Default is 50% (Percent::from_percent(50)).
+	pub static ValidatorRewardPercent: sp_runtime::Percent = sp_runtime::Percent::from_percent(50);
 	// Session configs
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
@@ -113,11 +116,16 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const TestPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stash");
+	pub const ValidatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
+	pub const NominatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_percent(3);
 }
 
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type ValidatorBudgetRate = ValidatorBudgetRate;
+	type NominatorBudgetRate = NominatorBudgetRate;
 }
 
 parameter_types! {
@@ -436,6 +444,65 @@ impl EraPayout<Balance> for OneTokenPerMillisecond {
 	}
 }
 
+/// Test budget provider that mints based on era duration (1 token per millisecond).
+/// Splits 50/50 between validators and nominators for testing.
+///
+/// For production, use DapBudgetProvider which delegates to pallet-dap.
+pub struct TestBudgetProvider;
+impl crate::StakingBudgetProvider<AccountId, Balance> for TestBudgetProvider {
+	fn fund_era_pots(
+		_era_index: crate::EraIndex,
+		validator_pot: &AccountId,
+		nominator_pot: &AccountId,
+		era_duration_millis: u64,
+		_current_timestamp_millis: u64,
+	) -> Result<(Balance, Balance), sp_runtime::DispatchError> {
+		use frame_support::traits::fungible::Mutate;
+
+		// Use EraPayout to calculate total reward (1 token per millisecond for tests)
+		let total_staked = crate::ErasTotalStake::<Test>::get(crate::CurrentEra::<Test>::get().unwrap_or(0));
+		let total_issuance = Balances::total_issuance();
+		let (validator_payout, remainder) = OneTokenPerMillisecond::era_payout(
+			total_staked,
+			total_issuance,
+			era_duration_millis,
+		);
+
+		// Split based on ValidatorRewardPercent (configurable via ExtBuilder)
+		let validator_budget = ValidatorRewardPercent::get() * validator_payout;
+		let nominator_budget = validator_payout - validator_budget;
+
+		// Mint into pot accounts
+		let _ = Balances::mint_into(validator_pot, validator_budget)
+			.map_err(|_| sp_runtime::DispatchError::Other("Failed to mint validator budget"))?;
+		let _ = Balances::mint_into(nominator_pot, nominator_budget)
+			.map_err(|_| sp_runtime::DispatchError::Other("Failed to mint nominator budget"))?;
+
+		// Issue remainder for treasury
+		RewardRemainderMock::on_unbalanced(asset::issue::<Test>(remainder));
+
+		Ok((validator_budget, nominator_budget))
+	}
+
+	fn return_unused_budget(from: &AccountId, amount: Balance) -> sp_runtime::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+		// Burn the unused budget
+		let _ = Balances::burn_from(
+			from,
+			amount,
+			frame_support::traits::tokens::Preservation::Expendable,
+			frame_support::traits::tokens::Precision::BestEffort,
+			frame_support::traits::tokens::Fortitude::Force
+		);
+		Ok(())
+	}
+}
+
+/// Type alias for using pallet-dap directly as the budget provider.
+/// Since pallet-dap now implements sp_staking::StakingBudgetProvider directly,
+/// we can just use it without a wrapper.
+pub type DapBudgetProvider = pallet_dap::Pallet<Test>;
+
 impl crate::pallet::pallet::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type OldCurrency = Balances;
@@ -465,6 +532,8 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
+	type StakingBudgetProvider = TestBudgetProvider;
+	type PalletId = TestPalletId;
 	type WeightInfo = ();
 }
 
@@ -605,6 +674,16 @@ impl ExtBuilder {
 		self.stakers.push((stash, stake, status));
 		self
 	}
+	/// Set the percentage of era reward allocated to validators (rest goes to nominators).
+	/// Default is 50%. Use 100 for validator-only tests.
+	///
+	/// # Panics
+	/// Panics if percent > 100.
+	pub(crate) fn validator_reward_percentage(self, percent: u8) -> Self {
+		assert!(percent <= 100, "Validator reward percentage must be <= 100");
+		ValidatorRewardPercent::set(sp_runtime::Percent::from_percent(percent));
+		self
+	}
 	pub(crate) fn exposures_page_size(self, max: u32) -> Self {
 		MaxExposurePageSize::set(max);
 		self
@@ -686,6 +765,8 @@ impl ExtBuilder {
 			(4, ed + 400 * self.balance_factor),
 			// This allows us to have a total_payout different from 0.
 			(999, 1_000_000_000_000),
+			// DAP buffer account - needs funds to distribute era budgets
+			(Dap::buffer_account(), ed + 10_000_000_000),
 		];
 		// given each stakers their stake + ed as balance.
 		let stakers_balances =

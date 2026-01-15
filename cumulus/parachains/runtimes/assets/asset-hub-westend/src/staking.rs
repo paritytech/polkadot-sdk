@@ -300,6 +300,8 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type StakingBudgetProvider = Dap;
+	type PalletId = StakingPalletId;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -312,12 +314,19 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
+	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"stak/pot");
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	// Post-March 14, 2026: Total staking inflation is 4.76% (85% of 5.6% total inflation)
+	// 70/30 split between validators and nominators
+	pub const ValidatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_rational(333u32, 10000u32); // 3.33%
+	pub const NominatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_rational(143u32, 10000u32); // 1.43%
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type ValidatorBudgetRate = ValidatorBudgetRate;
+	type NominatorBudgetRate = NominatorBudgetRate;
 }
 
 #[derive(Encode, Decode)]

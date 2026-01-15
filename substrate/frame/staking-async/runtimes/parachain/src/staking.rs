@@ -426,6 +426,7 @@ parameter_types! {
 	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"stak/pot");
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -459,6 +460,8 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
+	type StakingBudgetProvider = Dap;
+	type PalletId = StakingPalletId;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -472,11 +475,18 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const ValidatorApy: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
+	pub const NominatorApy: sp_runtime::Percent = sp_runtime::Percent::from_percent(3);
+	// 7 days in milliseconds
+	pub const InflationPeriod: u64 = 7 * 24 * 60 * 60 * 1000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type ValidatorApy = ValidatorApy;
+	type NominatorApy = NominatorApy;
+	type InflationPeriod = InflationPeriod;
 }
 
 parameter_types! {

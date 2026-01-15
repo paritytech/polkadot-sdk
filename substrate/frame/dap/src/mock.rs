@@ -44,11 +44,15 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const ValidatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
+	pub const NominatorBudgetRate: sp_runtime::Percent = sp_runtime::Percent::from_percent(3);
 }
 
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type ValidatorBudgetRate = ValidatorBudgetRate;
+	type NominatorBudgetRate = NominatorBudgetRate;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

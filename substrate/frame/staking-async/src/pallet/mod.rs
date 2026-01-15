@@ -21,8 +21,8 @@ use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
 	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	PositiveImbalanceOf, RewardDestination, StakingBudgetProvider, StakingLedger,
+	UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -39,7 +39,7 @@ use frame_support::{
 		Nothing, OnUnbalanced,
 	},
 	weights::Weight,
-	BoundedBTreeSet, BoundedVec,
+	BoundedBTreeSet, BoundedVec, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use impls::*;
@@ -86,6 +86,10 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
+		/// Pruning ErasTotalValidatorSelfStake storage
+		ErasTotalValidatorSelfStake,
+		/// Return unused budget from era pots back to DAP
+		ReturnUnusedBudget,
 		/// Pruning ErasTotalStake storage
 		ErasTotalStake,
 	}
@@ -240,8 +244,22 @@ pub mod pallet {
 
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
+		///
+		/// DEPRECATED: This is being phased out in favor of `StakingBudgetProvider`.
+		/// Set to `()` if using `StakingBudgetProvider`.
 		#[pallet::no_default]
 		type EraPayout: EraPayout<BalanceOf<Self>>;
+
+		/// Provides separate budgets for validator and nominator rewards.
+		///
+		/// This trait is implemented by pallet-dap to provide era funding with separate budgets.
+		/// If set to `()`, the pallet will fall back to using `EraPayout` (legacy behavior).
+		#[pallet::no_default_bounds]
+		type StakingBudgetProvider: StakingBudgetProvider<Self::AccountId, BalanceOf<Self>>;
+
+		/// The pallet id, used to derive era pot accounts.
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -408,6 +426,16 @@ pub mod pallet {
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
+			type StakingBudgetProvider = ();
+			type PalletId = ConstPalletId;
+		}
+	}
+
+	/// Default pallet ID for testing
+	pub struct ConstPalletId;
+	impl Get<PalletId> for ConstPalletId {
+		fn get() -> PalletId {
+			PalletId(*b"py/stash")
 		}
 	}
 
@@ -683,8 +711,50 @@ pub mod pallet {
 	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
 	///
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
+	///
+	/// DEPRECATED: This is kept for backward compatibility. Use `ErasValidatorBudgetSnapshot`
+	/// and `ErasNominatorBudgetSnapshot` for new implementations.
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// The validator budget snapshot for each era.
+	///
+	/// Stores the initial validator reward budget allocated at era start.
+	/// Used to calculate accurate per-validator rewards based on reward points.
+	#[pallet::storage]
+	pub type ErasValidatorBudgetSnapshot<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// The nominator budget snapshot for each era.
+	///
+	/// Stores the initial nominator reward budget allocated at era start.
+	/// Used to calculate accurate per-nominator rewards based on exposure.
+	#[pallet::storage]
+	pub type ErasNominatorBudgetSnapshot<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// Validator reward pot account for each era.
+	///
+	/// Holds the validator budget funds that are distributed as rewards.
+	#[pallet::storage]
+	pub type ErasValidatorPot<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, T::AccountId>;
+
+	/// Nominator reward pot account for each era.
+	///
+	/// Holds the nominator budget funds that are distributed as rewards.
+	#[pallet::storage]
+	pub type ErasNominatorPot<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, T::AccountId>;
+
+	/// Total self-stake of all validators in an era.
+	///
+	/// Used to calculate each validator's proportional share of the validator budget.
+	/// Validator reward = (their_points / total_points) × (their_self_stake / total_self_stake) × budget.
+	/// This is pre-computed at era start for efficient payout calculations.
+	#[pallet::storage]
+	pub type ErasTotalValidatorSelfStake<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
@@ -1054,10 +1124,18 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
+		///
+		/// DEPRECATED: Use `EraPotsFunded` event instead for separate budget tracking.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
 			remainder: BalanceOf<T>,
+		},
+		/// Era reward pots have been funded with separate budgets for validators and nominators.
+		EraPotsFunded {
+			era_index: EraIndex,
+			validator_budget: BalanceOf<T>,
+			nominator_budget: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
@@ -1389,8 +1467,45 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					EraPruningState::<T>::insert(era, PruningStep::ErasTotalValidatorSelfStake);
 					T::WeightInfo::prune_era_reward_points()
+				},
+				PruningStep::ErasTotalValidatorSelfStake => {
+					ErasTotalValidatorSelfStake::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ReturnUnusedBudget);
+					T::WeightInfo::prune_era_single_entry_cleanups()
+				},
+				PruningStep::ReturnUnusedBudget => {
+					// Return any unused funds from era pots back to DAP
+					let validator_pot = ErasValidatorPot::<T>::get(era);
+					let nominator_pot = ErasNominatorPot::<T>::get(era);
+
+					// Return unused validator budget
+					if let Some(pot) = validator_pot {
+						let remaining = asset::total_balance::<T>(&pot);
+						if !remaining.is_zero() {
+							let _ = T::StakingBudgetProvider::return_unused_budget(&pot, remaining)
+								.defensive_proof("returning unused budget should not fail");
+						}
+					}
+
+					// Return unused nominator budget
+					if let Some(pot) = nominator_pot {
+						let remaining = asset::total_balance::<T>(&pot);
+						if !remaining.is_zero() {
+							let _ = T::StakingBudgetProvider::return_unused_budget(&pot, remaining)
+								.defensive_proof("returning unused budget should not fail");
+						}
+					}
+
+					// Clean up budget snapshot storage
+					ErasValidatorBudgetSnapshot::<T>::remove(era);
+					ErasNominatorBudgetSnapshot::<T>::remove(era);
+					ErasValidatorPot::<T>::remove(era);
+					ErasNominatorPot::<T>::remove(era);
+
+					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					T::WeightInfo::prune_era_return_unused_budget()
 				},
 				PruningStep::ErasTotalStake => {
 					ErasTotalStake::<T>::remove(era);

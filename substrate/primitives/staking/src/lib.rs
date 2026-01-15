@@ -711,6 +711,73 @@ pub trait DelegationMigrator {
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
 
+/// Trait for providing staking era reward budgets.
+///
+/// This trait is implemented by issuance/treasury systems (like pallet-dap) to fund
+/// staking reward pots at the start of each era. It separates the concerns of:
+/// - **When** to fund rewards (determined by staking pallet based on era timing)
+/// - **How much** to fund (determined by the implementor based on economic policy)
+///
+/// The trait is designed to support separate budgets for validators and nominators,
+/// allowing different reward policies for each group.
+pub trait StakingBudgetProvider<AccountId, Balance> {
+	/// Fund era reward pots at the start of an era.
+	///
+	/// Called by the staking pallet when a new era begins. The implementation should:
+	/// 1. Calculate appropriate budgets based on its economic model
+	/// 2. Transfer funds to the provided pot accounts
+	/// 3. Return the actual amounts transferred
+	///
+	/// # Parameters
+	/// - `era_index`: The era being funded
+	/// - `validator_pot`: Account to receive validator rewards budget
+	/// - `nominator_pot`: Account to receive nominator rewards budget
+	/// - `era_duration_millis`: Duration of the era in milliseconds (subject to MaxEraDuration cap)
+	/// - `current_timestamp_millis`: Current blockchain timestamp in milliseconds
+	///
+	/// # Returns
+	/// `(validator_budget, nominator_budget)` - The amounts transferred to each pot
+	///
+	/// # Note
+	/// The staking pallet does NOT dictate the amounts - it only provides timing information.
+	/// The budget provider decides amounts based on its own economic model (e.g., APY targets,
+	/// inflation schedules, available reserves).
+	fn fund_era_pots(
+		era_index: EraIndex,
+		validator_pot: &AccountId,
+		nominator_pot: &AccountId,
+		era_duration_millis: u64,
+		current_timestamp_millis: u64,
+	) -> Result<(Balance, Balance), DispatchError>;
+
+	/// Return unused budget back to the issuance buffer.
+	///
+	/// Called during era cleanup for funds that weren't claimed by stakers.
+	/// The implementation should transfer funds back to its buffer/reserve account.
+	///
+	/// # Parameters
+	/// - `from`: The pot account containing unused funds
+	/// - `amount`: The amount to return
+	fn return_unused_budget(from: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+/// No-op implementation for unit type.
+impl<AccountId, Balance: Default> StakingBudgetProvider<AccountId, Balance> for () {
+	fn fund_era_pots(
+		_era_index: EraIndex,
+		_validator_pot: &AccountId,
+		_nominator_pot: &AccountId,
+		_era_duration_millis: u64,
+		_current_timestamp_millis: u64,
+	) -> Result<(Balance, Balance), DispatchError> {
+		Err(DispatchError::Other("StakingBudgetProvider not configured"))
+	}
+
+	fn return_unused_budget(_from: &AccountId, _amount: Balance) -> DispatchResult {
+		Ok(())
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use sp_core::ConstU32;

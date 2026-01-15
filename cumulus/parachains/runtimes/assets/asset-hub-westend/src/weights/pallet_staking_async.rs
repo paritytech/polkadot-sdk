@@ -983,6 +983,9 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn prune_era_single_entry_cleanups() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
 	/// Storage: `Staking::ActiveEra` (r:1 w:0)
 	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `Measured`)
 	/// Storage: `Staking::EraPruningState` (r:1 w:1)
@@ -998,5 +1001,9 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(Weight::from_parts(0, 4254))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn prune_era_return_unused_budget() -> Weight {
+		// TODO: regenerate weights via benchmarking
+		Weight::from_parts(10_000, 0)
 	}
 }

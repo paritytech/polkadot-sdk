@@ -94,6 +94,8 @@ pub trait WeightInfo {
 	fn prune_era_claimed_rewards(v: u32, ) -> Weight;
 	fn prune_era_validator_reward() -> Weight;
 	fn prune_era_reward_points() -> Weight;
+	fn prune_era_single_entry_cleanups() -> Weight;
+	fn prune_era_return_unused_budget() -> Weight;
 	fn prune_era_total_stake() -> Weight;
 }
 
@@ -1049,6 +1051,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(15_950_000_000, 3998937)
 			.saturating_add(T::DbWeight::get().reads(4010_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn prune_era_single_entry_cleanups() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+	fn prune_era_return_unused_budget() -> Weight {
+		Weight::from_parts(10_000, 0)
 	}
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
@@ -2033,6 +2041,12 @@ impl WeightInfo for () {
 		Weight::from_parts(15_950_000_000, 3998937)
 			.saturating_add(RocksDbWeight::get().reads(4010_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn prune_era_single_entry_cleanups() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+	fn prune_era_return_unused_budget() -> Weight {
+		Weight::from_parts(10_000, 0)
 	}
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
