@@ -88,7 +88,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				))
 			})?;
 		let signature =
-			<AuthorityId as RuntimeAppPublic>::Signature::decode(&mut raw_signature.as_slice())
+			<AuthorityId as RuntimeAppPublic>::Signature::decode(&mut raw_signature.as_ref())
 				.map_err(|_| {
 					error::Error::Signature(format!(
 						"invalid signature {:?} for key {:?}",

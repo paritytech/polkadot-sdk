@@ -76,7 +76,7 @@ pub trait BeefyAuthorityId: RuntimeAppPublic {
 		&self,
 		store: KeystorePtr,
 		msg: &[u8],
-	) -> Result<Option<Vec<u8>>, sp_keystore::Error>;
+	) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error>;
 
 	/// Verify a signature.
 	///
@@ -107,6 +107,7 @@ pub mod ecdsa_crypto {
 	use super::{
 		AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, Vec, BEEFY_KEY_TYPE, KEY_TYPE,
 	};
+	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, ecdsa};
 	use sp_core::{crypto::Wraps, ByteArray};
 	use sp_crypto_hashing::keccak_256;
@@ -131,16 +132,10 @@ pub mod ecdsa_crypto {
 			&self,
 			store: sp_keystore::KeystorePtr,
 			msg: &[u8],
-		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let msg_hash = keccak_256(msg);
 			let public = ecdsa::Public::try_from(self.as_slice()).unwrap();
-
-			let maybe_sig = store.ecdsa_sign_prehashed(BEEFY_KEY_TYPE, &public, &msg_hash)?;
-			let Some(sig) = maybe_sig else {
-				return Ok(None);
-			};
-			let sig_ref: &[u8] = sig.as_ref();
-			Ok(Some(sig_ref.to_vec()))
+			store.ecdsa_sign_prehashed(BEEFY_KEY_TYPE, &public, &msg_hash)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
@@ -174,6 +169,7 @@ pub mod ecdsa_crypto {
 pub mod bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
 	use crate::runtime_decl_for_beefy_api::BEEFY_KEY_TYPE;
+	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, bls381};
 	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, ByteArray, Pair as _};
 	use sp_keystore::{Keystore, KeystorePtr};
@@ -197,14 +193,9 @@ pub mod bls_crypto {
 			&self,
 			store: sp_keystore::KeystorePtr,
 			msg: &[u8],
-		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let public = bls381::Public::try_from(self.as_slice()).unwrap();
-			let maybe_sig = store.bls381_sign(BEEFY_KEY_TYPE, &public, msg)?;
-			let Some(sig) = maybe_sig else {
-				return Ok(None);
-			};
-			let sig_ref: &[u8] = sig.as_ref();
-			Ok(Some(sig_ref.to_vec()))
+			store.bls381_sign(BEEFY_KEY_TYPE, &public, msg)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
@@ -236,6 +227,7 @@ pub mod ecdsa_bls_crypto {
 	use super::{
 		AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, Vec, BEEFY_KEY_TYPE, KEY_TYPE,
 	};
+	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, ecdsa_bls381};
 	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair, ByteArray};
 	use sp_keystore::KeystorePtr;
@@ -260,16 +252,9 @@ pub mod ecdsa_bls_crypto {
 			&self,
 			store: sp_keystore::KeystorePtr,
 			msg: &[u8],
-		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let public = ecdsa_bls381::Public::try_from(self.as_slice()).unwrap();
-
-			let maybe_sig =
-				store.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &msg)?;
-			let Some(sig) = maybe_sig else {
-				return Ok(None);
-			};
-			let sig_ref: &[u8] = sig.as_ref();
-			Ok(Some(sig_ref.to_vec()))
+			store.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &msg)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
