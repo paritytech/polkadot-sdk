@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768438441250,
+  "lastUpdate": 1768492504543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "donal.murray@parity.io",
-            "name": "Dónal Murray",
-            "username": "seadanda"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "20452a838f4f1970a407aea9e15ba7321684a704",
-          "message": "Allow RelaychainDataProvider set_block_number to be used in tests (#8537)\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-15T15:07:24Z",
-          "tree_id": "1c14e417a3e086902c0e82202b2ef5f749766a47",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20452a838f4f1970a407aea9e15ba7321684a704"
-        },
-        "date": 1750003605457,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19794040090000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.280472965266666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.374448359833334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
+          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-15T14:44:00Z",
+          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
+        },
+        "date": 1768492479401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1323411005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.225285338766668,
             "unit": "seconds"
           }
         ]
