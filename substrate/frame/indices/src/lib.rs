@@ -282,7 +282,7 @@ pub mod pallet {
 					&who,
 					amount,
 					Precision::Exact,
-					Fortitude::Force,
+					Fortitude::Polite,
 				)?;
 
 				*maybe_value = Some((account, Zero::zero(), true));

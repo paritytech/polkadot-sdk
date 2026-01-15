@@ -294,6 +294,8 @@ where
 				Fortitude::Polite,
 			);
 
+			let hold_amount = min(reserve_to_migrate, reducible_balance);
+
 			// Try to hold in new fungibles system
 			// We take the minimum of the reserve to migrate and the reducible balance
 			// This is to avoid trying to hold more than the account can actually hold while
@@ -302,7 +304,7 @@ where
 			match T::NativeBalance::hold(
 				&HoldReason::DepositForIndex.into(),
 				&account,
-				min(reserve_to_migrate, reducible_balance),
+				hold_amount,
 			) {
 				Ok(_) => {
 					// Success: migrate to new storage with hold
