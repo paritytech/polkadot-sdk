@@ -298,12 +298,13 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	let consensus_log = header.digest().convert_first(|log| -> Option<ConsensusLog<AuthorityId<P>>> {
+	header.digest().convert_first(|log| -> Option<Vec<AuthorityId<P>>> {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		<DigestItem as CompatibleDigestItem<P::Signature>>::as_consensus_log::<AuthorityId<P>>(log)
-	})?;
-	match consensus_log {
-		ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
-		ConsensusLog::OnDisabled(_) => None,
-	}
+		<DigestItem as CompatibleDigestItem<P::Signature>>::as_consensus_log::<AuthorityId<P>>(
+			log,
+		).and_then(|log| match log {
+			ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
+			ConsensusLog::OnDisabled(_) => None,
+		})
+	})
 }
