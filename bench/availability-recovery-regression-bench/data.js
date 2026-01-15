@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768431152960,
+  "lastUpdate": 1768438441250,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9f38b8cfebf8f4e6b51d7a5a267a8b224a494bf7",
-          "message": "Mute a lot of logs in Staking-async and EPMB (#8855)",
-          "timestamp": "2025-06-15T11:07:11Z",
-          "tree_id": "dee4712a2ed13a96a6d6b3b5ca35c7a12a031a8f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f38b8cfebf8f4e6b51d7a5a267a8b224a494bf7"
-        },
-        "date": 1749989276989,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.297365427633334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19983365616666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.358649001633335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b8cd8bbd17856dfd63729691625c088cc41521b",
+          "message": "Add CLAUDE.md (#10805)\n\nSo that not everybody has to re-generate it when using claude. I\nmanually edited the initially auto generated file. Especially the\ndependencies and build command section. So that it properly uses\n`SKIP_WASM_BUILD` and checks the whole work space.\n\nThis file is mend to grow over time with more instructions to improve\nthe LLMs understanding of the repository.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-14T23:46:36Z",
+          "tree_id": "252350b5c457f19cdf3ec883979dcb4863249974",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b8cd8bbd17856dfd63729691625c088cc41521b"
+        },
+        "date": 1768438416251,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1299612522666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.374448359833334,
             "unit": "seconds"
           }
         ]
