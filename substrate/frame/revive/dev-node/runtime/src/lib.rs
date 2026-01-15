@@ -71,7 +71,7 @@ pub mod genesis_config_presets {
 	use alloc::{vec, vec::Vec};
 	use serde_json::Value;
 
-	pub const ENDOWMENT: Balance = 1_000_000_001 * DOLLARS;
+	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
@@ -334,7 +334,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<1, 1, Self>;
+	type WeightToFee = BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -356,6 +356,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<50000>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(

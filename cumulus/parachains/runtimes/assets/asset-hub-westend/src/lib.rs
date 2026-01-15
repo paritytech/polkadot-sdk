@@ -262,6 +262,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// q
 	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
+	Balance,
 >;
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -1214,6 +1215,7 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
 }
 
 parameter_types! {
@@ -2474,7 +2476,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					assert_ok!(ForeignAssets::set_reserves(
 						RuntimeOrigin::signed(account),
 						roc_id.clone().into(),
-						vec![reserves.clone()],
+						vec![reserves.clone()].try_into().unwrap(),
 					));
 					(reserves.reserve, roc)
 				});

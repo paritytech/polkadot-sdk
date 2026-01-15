@@ -1,0 +1,10 @@
+title: Allow for "Nick's Method" style deployments
+doc:
+- audience: Runtime Dev
+  description: Allow eth legacy transactions to not contain a chain id.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: minor
+  validate: false
