@@ -172,9 +172,11 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
+	use crate::runtime_decl_for_beefy_api::BEEFY_KEY_TYPE;
 	use sp_application_crypto::{app_crypto, bls381};
-	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, Pair as _};
+	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, ByteArray, Pair as _};
+	use sp_keystore::{Keystore, KeystorePtr};
 
 	app_crypto!(bls381, KEY_TYPE);
 
@@ -184,10 +186,27 @@ pub mod bls_crypto {
 	/// Signature for a BEEFY authority using BLS as its crypto.
 	pub type AuthoritySignature = Signature;
 
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
-	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
-	{
+	impl BeefyAuthorityId for AuthorityId {
+		#[cfg(feature = "std")]
+		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
+			store.bls381_public_keys(BEEFY_KEY_TYPE)
+		}
+
+		#[cfg(feature = "std")]
+		fn try_sign_with_store(
+			&self,
+			store: sp_keystore::KeystorePtr,
+			msg: &[u8],
+		) -> Result<Option<Vec<u8>>, sp_keystore::Error> {
+			let public = bls381::Public::try_from(self.as_slice()).unwrap();
+			let maybe_sig = store.bls381_sign(BEEFY_KEY_TYPE, &public, msg)?;
+			let Some(sig) = maybe_sig else {
+				return Ok(None);
+			};
+			let sig_ref: &[u8] = sig.as_ref();
+			Ok(Some(sig_ref.to_vec()))
+		}
+
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash-to-field function.
@@ -605,7 +624,7 @@ mod tests {
 	use super::*;
 	use sp_application_crypto::ecdsa::{self, Public};
 	use sp_core::crypto::{Pair, Wraps};
-	use sp_crypto_hashing::{blake2_256, keccak_256};
+	use sp_crypto_hashing::keccak_256;
 
 	#[test]
 	fn validator_set() {
@@ -645,11 +664,11 @@ mod tests {
 		let signature: bls_crypto::Signature = pair.as_inner_ref().sign(&msg).into();
 
 		// Verification works if same hashing function is used when signing and verifying.
-		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
+		assert!(BeefyAuthorityId::verify(&pair.public(), &signature, msg));
 
 		// Other public key doesn't work
 		let (other_pair, _) = bls_crypto::Pair::generate();
-		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
+		assert!(!BeefyAuthorityId::verify(&other_pair.public(), &signature, msg,));
 	}
 
 	#[test]
