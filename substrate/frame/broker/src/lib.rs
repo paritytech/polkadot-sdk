@@ -577,6 +577,8 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// A renewal record already exists for the given core and timeslice.
+		RenewalAlreadyExists,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -1020,6 +1022,26 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
+		}
+
+		/// Directly add a potential renewal record.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: The core to which the renewal refers.
+		/// - `when`: The timeslice when the renewal should be available.
+		/// - `price`: The price for renewal.
+		/// - `completion`: The workload completion status.
+		#[pallet::call_index(28)]
+		pub fn add_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+			price: BalanceOf<T>,
+			workload: Schedule,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_add_potential_renewal(core, when, price, workload)?;
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]
