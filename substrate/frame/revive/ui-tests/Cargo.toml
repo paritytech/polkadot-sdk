@@ -11,26 +11,25 @@ description = "UI tests for pallet-revive."
 
 [dependencies]
 alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
+codec = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-revive = { workspace = true }
 pallet-balances = { workspace = true }
-codec = { workspace = true }
+pallet-revive = { workspace = true }
 scale-info = { workspace = true }
 
 [dev-dependencies]
-trybuild = { workspace = true }
 pallet-revive = { workspace = true, features = ["trybuild"] }
+trybuild = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-revive/std",
 	"scale-info/std",
-	"alloy-core/std"
 ]
-
