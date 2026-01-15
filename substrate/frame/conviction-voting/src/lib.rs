@@ -188,10 +188,6 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Is a pallet storage migration currently ongoing?
-	#[pallet::storage]
-	pub type MigrationOngoing<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, ValueQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -251,8 +247,6 @@ pub mod pallet {
 		/// The delegate does not allow for delegator voting.
 		/// Ask delegate to allow voting or undelegate.
 		DelegateHasDisabledDelegatorVoting,
-		/// A storage migration is currently ongoing.
-		MigrationOngoing,
 	}
 
 	#[pallet::call]
@@ -274,7 +268,6 @@ pub mod pallet {
 			#[pallet::compact] poll_index: PollIndexOf<T, I>,
 			vote: AccountVote<BalanceOf<T, I>>,
 		) -> DispatchResult {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			Self::try_vote(&who, poll_index, vote)
 		}
@@ -311,7 +304,6 @@ pub mod pallet {
 			conviction: Conviction,
 			balance: BalanceOf<T, I>,
 		) -> DispatchResultWithPostInfo {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			let to = T::Lookup::lookup(to)?;
 			let (delegate_votes, delegator_votes) =
@@ -343,7 +335,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 		) -> DispatchResultWithPostInfo {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			let (delegate_votes, delegator_votes) = Self::try_undelegate(who, class)?;
 			Ok(Some(T::WeightInfo::undelegate(delegate_votes, delegator_votes)).into())
@@ -365,7 +356,6 @@ pub mod pallet {
 			class: ClassOf<T, I>,
 			target: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			Self::ensure_migration_not_ongoing()?;
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			Self::update_lock(&class, &target);
@@ -409,7 +399,6 @@ pub mod pallet {
 			class: Option<ClassOf<T, I>>,
 			index: PollIndexOf<T, I>,
 		) -> DispatchResult {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			Self::try_remove_vote(&who, index, class, UnvoteScope::Any)
 		}
@@ -438,7 +427,6 @@ pub mod pallet {
 			class: ClassOf<T, I>,
 			index: PollIndexOf<T, I>,
 		) -> DispatchResult {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			let scope = if target == who { UnvoteScope::Any } else { UnvoteScope::OnlyExpired };
@@ -457,7 +445,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 		) -> DispatchResult {
-			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			Self::toggle_delegator_voting(who, class);
 			Ok(())
@@ -1176,13 +1163,5 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				WithdrawReasons::except(WithdrawReasons::RESERVE),
 			);
 		}
-	}
-
-	/// Ensures that the pallet is not currently undergoing a multi-block storage migration.
-	fn ensure_migration_not_ongoing() -> Result<(), DispatchError> {
-		if MigrationOngoing::<T, I>::get() {
-			return Err(Error::<T, I>::MigrationOngoing.into());
-		}
-		Ok(())
 	}
 }

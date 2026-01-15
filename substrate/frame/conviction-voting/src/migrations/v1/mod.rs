@@ -19,7 +19,7 @@
 
 use super::CONVICTION_VOTING_ID;
 use crate::{
-	pallet::{Config, MigrationOngoing, VotingFor},
+	pallet::{Config, VotingFor},
 	weights::*,
 	Pallet, PollRecord, VotingOf,
 };
@@ -209,7 +209,6 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 				v0::VotingFor::<T, I>::iter_from(hashed_key)
 			} else {
 				// If no cursor is provided, start iterating from the beginning.
-				MigrationOngoing::<T, I>::set(true);
 				v0::VotingFor::<T, I>::iter()
 			};
 
@@ -255,7 +254,6 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 			} else {
 				// Migration is complete.
 				cursor = None;
-				MigrationOngoing::<T, I>::set(false);
 				StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T, I>>();
 				break
 			}
@@ -269,9 +267,6 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 
 		// Storage version check.
 		assert_eq!(Pallet::<T, I>::on_chain_storage_version(), Self::id().version_to as u16);
-
-		// Ensure migration flag turned off.
-		assert!(!MigrationOngoing::<T, I>::get());
 
 		// Decodes.
 		let prev_vec =
