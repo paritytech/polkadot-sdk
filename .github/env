@@ -1,1 +1,1 @@
-IMAGE="docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243"
+IMAGE="docker.io/paritytech/ci-unified:bullseye-1.92.0-2026-01-14-v202601151240"
