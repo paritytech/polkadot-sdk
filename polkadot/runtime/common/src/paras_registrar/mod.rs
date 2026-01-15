@@ -19,7 +19,7 @@
 
 pub mod migration;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::result;
 use frame_support::{
 	dispatch::DispatchResult,

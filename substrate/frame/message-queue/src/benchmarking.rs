@@ -37,6 +37,7 @@ use sp_io::hashing::blake2_256;
 )]
 mod benchmarks {
 	use super::*;
+	use alloc::vec;
 
 	// Worst case path of `ready_ring_knit`.
 	#[benchmark]

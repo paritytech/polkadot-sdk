@@ -2032,6 +2032,7 @@ mod benchmarking {
 	)]
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn create() -> Result<(), BenchmarkError> {

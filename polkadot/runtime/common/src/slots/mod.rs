@@ -1005,6 +1005,7 @@ mod benchmarking {
 
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn force_lease() -> Result<(), BenchmarkError> {
