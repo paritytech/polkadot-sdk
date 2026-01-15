@@ -1,1 +1,1 @@
-IMAGE="docker.io/paritypr/ci-unified:staging-bullseye-1.92.0-v202601150841"
+IMAGE="docker.io/paritypr/ci-unified:bullseye-1.92.0-2026-01-14-v202601151115"
