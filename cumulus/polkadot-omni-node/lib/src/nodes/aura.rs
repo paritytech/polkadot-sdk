@@ -420,7 +420,7 @@ where
 		let initial_relay_slot = std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)
 			.expect("Current time is always after UNIX_EPOCH; qed")
-			.sub(Duration::from_hours(2))
+			.sub(Duration::from_secs(2 * 60 * 60))
 			.as_millis() as u64 /
 			RELAY_CHAIN_SLOT_DURATION_MILLIS;
 
