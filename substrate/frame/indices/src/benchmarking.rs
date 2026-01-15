@@ -21,29 +21,37 @@
 
 use crate::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Currency, Get, ReservableCurrency};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 
 #[benchmarks(
 	where
-		T::NativeBalance: frame_support::traits::fungible::Inspect<T::AccountId>,
-		T: Config + pallet_balances::Config,
-		pallet_balances::Pallet<T>: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,
+		// For the migration benchmark, T::NativeBalance needs to implement the old Currency traits
+		// to set up the pre-migration state.
+		T::NativeBalance: Currency<T::AccountId, Balance = BalanceOf<T>>
+			+ ReservableCurrency<T::AccountId>,
 )]
 mod benchmarks {
 	use super::*;
 	use crate::migration::v1::MigrateCurrencyToFungibles;
-	use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
+	use frame_support::{
+		migrations::SteppedMigration,
+		traits::{
+			fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
+			Currency, ReservableCurrency,
+		},
+		weights::WeightMeter,
+	};
 
 	#[benchmark]
 	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 
 		#[extrinsic_call]
@@ -57,15 +65,15 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -82,9 +90,9 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -101,15 +109,15 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&original,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
@@ -126,9 +134,9 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -149,9 +157,9 @@ mod benchmarks {
 		// The additional amount we'll add to the deposit for the index
 		let additional_amount = 2u32.into();
 
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + T::Deposit::get() + additional_amount,
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get() + additional_amount,
 		);
 
 		let original_deposit = T::Deposit::get();
@@ -203,7 +211,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(extra)]
 	fn migrate_account_step() -> Result<(), BenchmarkError> {
 		use crate::migration::v1::v0;
 
@@ -213,13 +221,13 @@ mod benchmarks {
 		let deposit = T::Deposit::get();
 
 		// Give the account some balance (enough for deposit + existential deposit)
-		T::NativeBalance::set_balance(
+		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			T::NativeBalance::minimum_balance() + deposit + deposit,
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + deposit + deposit,
 		);
 
 		// Reserve funds using the old Currency system
-		<pallet_balances::Pallet<T> as ReservableCurrency<T::AccountId>>::reserve(
+		<T::NativeBalance as ReservableCurrency<T::AccountId>>::reserve(
 			&caller, deposit,
 		)?;
 
@@ -228,7 +236,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = MigrateCurrencyToFungibles::<T, pallet_balances::Pallet<T>>::step(
+			let _ = MigrateCurrencyToFungibles::<T, T::NativeBalance>::step(
 				None,
 				&mut WeightMeter::new(),
 			);
