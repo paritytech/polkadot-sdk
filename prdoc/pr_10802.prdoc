@@ -8,3 +8,5 @@ crates:
   bump: patch
 - name: frame-benchmarking
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
