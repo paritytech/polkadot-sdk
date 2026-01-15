@@ -608,18 +608,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Broker::Status` (r:1 w:0)
-/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
-/// Storage: `Broker::PotentialRenewals` (r:1 w:1)
-/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
-fn add_potential_renewal() -> Weight {
-    // Proof Size summary in bytes:
-    //  Measured:  `245`
-    //  Estimated: `4698`
-    // Minimum execution time: 25_000_000 picoseconds.
-    Weight::from_parts(26_000_000, 4698)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64))
-}
+    /// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+    /// Storage: `Broker::PotentialRenewals` (r:1 w:1)
+    /// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+    fn add_potential_renewal() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `245`
+        //  Estimated: `4698`
+        // Minimum execution time: 25_000_000 picoseconds.
+        Weight::from_parts(26_000_000, 4698)
+            .saturating_add(T::DbWeight::get().reads(2_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
 }
 
 // For backwards compatibility and tests.

@@ -1030,7 +1030,7 @@ pub mod pallet {
 		/// - `core`: The core to which the renewal refers.
 		/// - `when`: The timeslice when the renewal should be available.
 		/// - `price`: The price for renewal.
-		/// - `completion`: The workload completion status.
+		/// - `workload`: The workload completion status.
 		#[pallet::call_index(28)]
 		pub fn add_potential_renewal(
 			origin: OriginFor<T>,
