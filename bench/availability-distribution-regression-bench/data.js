@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768431185435,
+  "lastUpdate": 1768438474479,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ludovic.domingues96@gmail.com",
-            "name": "Ludovic Domingues",
-            "username": "Krayt78"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ffee63df61d45b9c7b2c53afb10a9495bee792e",
-          "message": "Fix calling nominate on a validator that doesn’t exist silently succeeds (#8436)\n\n# Description\nThis PR fixes a bug where calling nominate on a validator that doesn’t\nexist silently succeeds.\nIt also updates all the tests that had an incorrect setup - they were\nsimulating elections with unregistered validators.\n\npolkadot address: 14AgwoPjcRiEEJgjfHmvAqkjdERCG26WEvQUoGLuBzcXKMS2\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>",
-          "timestamp": "2025-06-14T16:47:26Z",
-          "tree_id": "0293d0c7a9f22add7fbdf28e59c8ca843c037003",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ffee63df61d45b9c7b2c53afb10a9495bee792e"
-        },
-        "date": 1749923316176,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008879930166666768,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02280339090666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013217350753333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15893751131333342,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14432562515333341,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b8cd8bbd17856dfd63729691625c088cc41521b",
+          "message": "Add CLAUDE.md (#10805)\n\nSo that not everybody has to re-generate it when using claude. I\nmanually edited the initially auto generated file. Especially the\ndependencies and build command section. So that it properly uses\n`SKIP_WASM_BUILD` and checks the whole work space.\n\nThis file is mend to grow over time with more instructions to improve\nthe LLMs understanding of the repository.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-14T23:46:36Z",
+          "tree_id": "252350b5c457f19cdf3ec883979dcb4863249974",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b8cd8bbd17856dfd63729691625c088cc41521b"
+        },
+        "date": 1768438450209,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1440565749466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006894596100000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009575557439999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02297667314,
             "unit": "seconds"
           }
         ]
