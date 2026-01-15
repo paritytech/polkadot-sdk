@@ -40,7 +40,7 @@ pub trait BlockInfoProvider: Send + Sync {
 
 	/// Return the latest block number
 	async fn latest_block_number(&self) -> SubstrateBlockNumber {
-		return self.latest_block().await.number()
+		return self.latest_block().await.number();
 	}
 
 	/// Get block by block_number.

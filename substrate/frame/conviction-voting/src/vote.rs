@@ -23,13 +23,11 @@ use frame_support::{pallet_prelude::Get, BoundedVec};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(
-	DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen,
-)]
+#[derive(DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, Debug, MaxEncodedLen)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -76,7 +74,7 @@ impl TypeInfo for Vote {
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -93,7 +91,7 @@ pub enum AccountVote<Balance> {
 }
 
 /// Present the conditions under which an account's Funds are locked after a voting action.
-#[derive(Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LockedIf {
 	/// Lock the funds if the outcome of the referendum matches the voting behavior of the user.
 	///
@@ -159,7 +157,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -190,15 +188,7 @@ type RetractedVotes<Balance> = Delegations<Balance>;
 
 /// Information concerning a voting power in regards to a specific poll.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct PollRecord<PollIndex, Balance> {
 	/// The poll index this information concerns.
@@ -213,15 +203,7 @@ pub struct PollRecord<PollIndex, Balance> {
 
 /// Information concerning the vote-casting of some voting power.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxVotes))]
 pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>

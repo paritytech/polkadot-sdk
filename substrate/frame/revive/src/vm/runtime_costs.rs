@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	gas::Token, limits, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo, Config,
+	limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
+	Config,
 };
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
@@ -159,8 +160,6 @@ pub enum RuntimeCosts {
 	Sr25519Verify(u32),
 	/// Weight charged by a precompile.
 	Precompile(Weight),
-	/// Weight of calling `seal_set_code_hash`
-	SetCodeHash { old_code_removed: bool },
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
 	/// Weight of calling `get_immutable_dependency`
@@ -226,7 +225,7 @@ macro_rules! cost_args {
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
-	fn influence_lowest_gas_limit(&self) -> bool {
+	fn influence_lowest_weight_limit(&self) -> bool {
 		true
 	}
 
@@ -329,8 +328,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			P256Verify => T::WeightInfo::p256_verify(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
-			SetCodeHash { old_code_removed } =>
-				T::WeightInfo::seal_set_code_hash(old_code_removed.into()),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
 			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),

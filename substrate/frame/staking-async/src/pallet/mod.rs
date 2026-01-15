@@ -69,10 +69,10 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{weights::WeightMeter, DefaultNoBound};
+	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
 
 	/// Represents the current step in the era pruning process
-	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum PruningStep {
 		/// Pruning ErasStakersPaged storage
 		ErasStakersPaged,
@@ -86,8 +86,10 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning ErasTotalStake storage
-		ErasTotalStake,
+		/// Pruning single-entry storages: ErasTotalStake and ErasNominatorsSlashable
+		SingleEntryCleanups,
+		/// Pruning ValidatorSlashInEra storage
+		ValidatorSlashInEra,
 	}
 
 	/// The in-code storage version.
@@ -222,8 +224,23 @@ pub mod pallet {
 		type PlanningEraOffset: Get<SessionIndex>;
 
 		/// Number of eras that staked funds must remain bonded for.
+		///
+		/// This is the bonding duration for validators. Nominators may have a shorter bonding
+		/// duration when [`AreNominatorsSlashable`] is set to `false` (see
+		/// [`StakingInterface::nominator_bonding_duration`]).
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
+
+		/// Number of eras nominators must wait to unbond when they are not slashable.
+		///
+		/// This duration is used for nominators when [`AreNominatorsSlashable`] is `false`.
+		/// When nominators are slashable, they use the full [`Config::BondingDuration`] to ensure
+		/// slashes can be applied during the unbonding period.
+		///
+		/// Setting this to a lower value (e.g., 1 era) allows for faster withdrawals when
+		/// nominators are not subject to slashing risk.
+		#[pallet::constant]
+		type NominatorFastUnbondDuration: Get<EraIndex>;
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
@@ -381,6 +398,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
 		}
 
@@ -397,6 +415,7 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
 			type MaxExposurePageSize = ConstU32<64>;
@@ -439,6 +458,27 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
+	/// Whether nominators are slashable or not.
+	///
+	/// - When set to `true` (default), nominators are slashed along with validators and must wait
+	///   the full [`Config::BondingDuration`] before withdrawing unbonded funds.
+	/// - When set to `false`, nominators are not slashed, and can unbond in
+	///   [`Config::NominatorFastUnbondDuration`] eras instead of the full
+	///   [`Config::BondingDuration`] (see [`StakingInterface::nominator_bonding_duration`]).
+	#[pallet::storage]
+	pub type AreNominatorsSlashable<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
+
+	/// Per-era snapshot of whether nominators are slashable.
+	///
+	/// This is copied from [`AreNominatorsSlashable`] at the start of each era. When processing
+	/// offences, we use the value from this storage for the offence era to ensure that the
+	/// slashing rules at the time of the offence are applied, not the current rules.
+	///
+	/// If an entry does not exist for an era, nominators are assumed to be slashable (default).
+	#[pallet::storage]
+	pub type ErasNominatorsSlashable<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, bool, OptionQuery>;
+
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 	///
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
@@ -465,6 +505,21 @@ pub mod pallet {
 	/// When this value is not set, no limits are enforced.
 	#[pallet::storage]
 	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
+
+	/// Tracks the last era in which an account was active as a validator (included in the era's
+	/// exposure/snapshot).
+	///
+	/// This is used to enforce that accounts who were recently validators must wait the full
+	/// [`Config::BondingDuration`] before their funds can be withdrawn, even if they switch to
+	/// nominator role. This prevents validators from:
+	/// 1. Committing a slashable offence in era N
+	/// 2. Switching to nominator role
+	/// 3. Using the shorter nominator unbonding duration to withdraw funds before being slashed
+	///
+	/// Updated when era snapshots are created (in `ErasStakersPaged`/`ErasStakersOverview`).
+	/// Cleaned up when the stash is killed (fully withdrawn/reaped).
+	#[pallet::storage]
+	pub type LastValidatorEra<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, EraIndex>;
 
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
@@ -1202,7 +1257,7 @@ pub mod pallet {
 	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
 	/// failed. While these should never occur under normal operation, they are useful for
 	/// diagnosing issues in production or test environments.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// Emitted when calculated era duration exceeds the configured maximum.
 		EraDurationBoundExceeded,
@@ -1307,6 +1362,8 @@ pub mod pallet {
 					active_era,
 				);
 
+				let nominators_slashed = slash.others.len() as u32;
+
 				// Check if this slash has been cancelled
 				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
 					crate::log!(
@@ -1329,7 +1386,7 @@ pub mod pallet {
 					CancelledSlashes::<T>::remove(&active_era);
 				}
 
-				T::WeightInfo::apply_slash()
+				T::WeightInfo::apply_slash(nominators_slashed)
 			} else {
 				// No slashes found for this era
 				T::DbWeight::get().reads(1)
@@ -1389,14 +1446,27 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
-				PruningStep::ErasTotalStake => {
+				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
-					// This is the final step - remove the pruning state
-					EraPruningState::<T>::remove(era);
-					T::WeightInfo::prune_era_total_stake()
+					// Also clean up ErasNominatorsSlashable
+					ErasNominatorsSlashable::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					T::WeightInfo::prune_era_single_entry_cleanups()
+				},
+				PruningStep::ValidatorSlashInEra => {
+					// Clear ValidatorSlashInEra entries for this era
+					let result = ValidatorSlashInEra::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+
+					// This is the final step - remove the pruning state when done
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::remove(era);
+					}
+
+					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
 				},
 			};
 
@@ -1436,8 +1506,8 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// process our queue.
-			let mut consumed_weight = slashing::process_offence::<T>();
+			// Process our queue, using the era-specific nominators slashable setting.
+			let mut consumed_weight = slashing::process_offence_for_era::<T>();
 
 			// apply any pending slashes after `SlashDeferDuration`.
 			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));
@@ -1466,6 +1536,13 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
+			// Ensure NominatorFastUnbondDuration is not greater than BondingDuration
+			assert!(
+				T::NominatorFastUnbondDuration::get() <= T::BondingDuration::get(),
+				"NominatorFastUnbondDuration ({}) must not exceed BondingDuration ({}).",
+				T::NominatorFastUnbondDuration::get(),
+				T::BondingDuration::get(),
+			);
 			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
 			assert!(
 				T::MaxPruningItems::get() >= 100,
@@ -1599,6 +1676,15 @@ pub mod pallet {
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
 
+			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
+			// errors. This matches the behavior of pallet-staking.
+			let chill_weight = if value >= ledger.active {
+				Self::chill_stash(&stash);
+				T::WeightInfo::chill()
+			} else {
+				Weight::zero()
+			};
+
 			ensure!(
 				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
 				Error::<T>::NoMoreChunks,
@@ -1613,7 +1699,9 @@ pub mod pallet {
 					ledger.active = Zero::zero();
 				}
 
-				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
+				let is_nominator = Nominators::<T>::contains_key(&stash);
+
+				let min_active_bond = if is_nominator {
 					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
 					Self::min_validator_bond()
@@ -1626,11 +1714,26 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: we used current era before, but that is meant to be used for only election.
-				// The right value to use here is the active era.
+				// Determine unbonding duration based on validator history.
+				// If the account was a validator in recent eras (within BondingDuration), they must
+				// wait the full BondingDuration even if they've switched to nominator role.
+				// This prevents validators from avoiding slashing by switching roles and using the
+				// shorter nominator unbonding period.
+				let active_era = session_rotation::Rotator::<T>::active_era();
+				let was_recent_validator = LastValidatorEra::<T>::get(&stash)
+					.map(|last_era| active_era.saturating_sub(last_era) < T::BondingDuration::get())
+					.unwrap_or(false);
 
-				let era = session_rotation::Rotator::<T>::active_era()
-					.saturating_add(T::BondingDuration::get());
+				let unbond_duration = if was_recent_validator {
+					// Use full bonding duration for recent validators
+					T::BondingDuration::get()
+				} else {
+					// Use nominator bonding duration for pure nominators
+					<Self as sp_staking::StakingInterface>::nominator_bonding_duration()
+				};
+
+				let era =
+					session_rotation::Rotator::<T>::active_era().saturating_add(unbond_duration);
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1654,9 +1757,13 @@ pub mod pallet {
 			}
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+				Some(
+					T::WeightInfo::unbond()
+						.saturating_add(withdraw_weight)
+						.saturating_add(chill_weight),
+				)
 			} else {
-				Some(T::WeightInfo::unbond())
+				Some(T::WeightInfo::unbond().saturating_add(chill_weight))
 			};
 
 			Ok(actual_weight.into())
@@ -2243,6 +2350,7 @@ pub mod pallet {
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
+			are_nominators_slashable: ConfigOp<bool>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -2263,6 +2371,7 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -2646,7 +2755,7 @@ pub mod pallet {
 		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
 		///   is unused block space, improving efficiency.
 		#[pallet::call_index(31)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
+		#[pallet::weight(T::WeightInfo::apply_slash(T::MaxExposurePageSize::get()))]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			slash_era: EraIndex,
@@ -2690,7 +2799,8 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_claimed_rewards(v))
 				.max(T::WeightInfo::prune_era_validator_reward())
 				.max(T::WeightInfo::prune_era_reward_points())
-				.max(T::WeightInfo::prune_era_total_stake())
+				.max(T::WeightInfo::prune_era_single_entry_cleanups())
+				.max(T::WeightInfo::prune_era_validator_slash_in_era(v))
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
