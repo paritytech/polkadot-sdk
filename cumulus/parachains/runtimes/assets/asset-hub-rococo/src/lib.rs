@@ -1704,6 +1704,8 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use pallet_xcm_bridge_hub_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,
 				Config as XcmBridgeHubRouterConfig,

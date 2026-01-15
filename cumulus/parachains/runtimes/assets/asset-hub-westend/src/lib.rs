@@ -2239,6 +2239,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 			}
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((

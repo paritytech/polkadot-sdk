@@ -1883,6 +1883,8 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),
