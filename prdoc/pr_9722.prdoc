@@ -24,25 +24,38 @@ doc:
      ❯ cast rpc debug_traceTransaction "<TX_HASH>", { "tracer": { "enableMemory": true } } | jq
     ```
 
+    The response includes additional fields compared to the original Geth debug RPC endpoints:
+
+    For the trace:
+    - `weight_consumed`: same as gas but expressed in Weight
+    - `base_call_weight`: the base cost of the transaction
+
+    For each step:
+    - `weight_cost`: same as gas_cost but expressed in Weight
+
     For an EVM execution, the output will look like this
 
     ```json
     {
-      "gas": 16208049,
+      "gas": 4208049,
+      "weight_consumed": { "ref_time": 126241470000, "proof_size": 4208 },
+      "base_call_weight": { "ref_time": 9000000000, "proof_size": 3000 },
       "failed": false,
       "returnValue": "0x",
       "structLogs": [
         {
-          "gas": 14609533,
-          "gasCost": 1,
+          "gas": 4109533,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
           "depth": 1,
           "pc": 0,
           "op": "PUSH1",
           "stack": []
         },
         {
-          "gas": 14609532,
-          "gasCost": 1,
+          "gas": 4109530,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
           "depth": 1,
           "pc": 2,
           "op": "PUSH1",
@@ -51,8 +64,9 @@ doc:
           ]
         },
         {
-          "gas": 14609531,
-          "gasCost": 1,
+          "gas": 4109527,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
           "depth": 1,
           "pc": 4,
           "op": "MSTORE",
@@ -68,25 +82,30 @@ doc:
 
     ```json
     {
-      "gas": 279456,
+      "gas": 97945,
+      "weight_consumed": { "ref_time": 2938350000, "proof_size": 97 },
+      "base_call_weight": { "ref_time": 9000000000, "proof_size": 3000 },
       "failed": false,
       "returnValue": "0x",
       "structLogs": [
         {
-          "gas": 27108,
-          "gasCost": 7,
+          "gas": 97108,
+          "gasCost": 131,
+          "weight_cost": { "ref_time": 3930000, "proof_size": 0 },
           "depth": 1,
           "op": "call_data_size"
         },
         {
-          "gas": 26977,
-          "gasCost": 7,
+          "gas": 96977,
+          "gasCost": 20,
+          "weight_cost": { "ref_time": 600000, "proof_size": 0 },
           "depth": 1,
           "op": "call_data_load"
         },
         {
-          "gas": 26957,
+          "gas": 96957,
           "gasCost": 7,
+          "weight_cost": { "ref_time": 210000, "proof_size": 0 },
           "depth": 1,
           "op": "value_transferred"
         }]
