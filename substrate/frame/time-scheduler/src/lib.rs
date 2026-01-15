@@ -44,7 +44,7 @@
 //! ### Examples
 //!
 //! 1. Scheduling a runtime call at a specific time.
-#![doc = docify::embed!("src/tests.rs", basic_time_scheduling_works)]
+#![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
 
 //!
 //! ## Pallet API
@@ -1217,14 +1217,14 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 	}
 
 	fn cancel(address: Self::Address) -> Result<(), DispatchError> {
-		Self::do_cancel(None, address)
+		Self::do_cancel(None, address).map_err(map_err_to_v1_err::<T>)
 	}
 
 	fn reschedule(
 		address: Self::Address,
 		when: DispatchTime<MomentFor<T>>,
 	) -> Result<Self::Address, DispatchError> {
-		Self::do_reschedule(address, when)
+		Self::do_reschedule(address, when).map_err(map_err_to_v1_err::<T>)
 	}
 
 	fn next_dispatch_time(address: Self::Address) -> Result<MomentFor<T>, DispatchError> {
@@ -1256,18 +1256,27 @@ impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCal
 	}
 
 	fn cancel_named(id: TaskName) -> Result<(), DispatchError> {
-		Self::do_cancel_named(None, id)
+		Self::do_cancel_named(None, id).map_err(map_err_to_v1_err::<T>)
 	}
 
 	fn reschedule_named(
 		id: TaskName,
 		when: DispatchTime<MomentFor<T>>,
 	) -> Result<Self::Address, DispatchError> {
-		Self::do_reschedule_named(id, when)
+		Self::do_reschedule_named(id, when).map_err(map_err_to_v1_err::<T>)
 	}
 
 	fn next_dispatch_time(id: TaskName) -> Result<MomentFor<T>, DispatchError> {
 		let (minute, _index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 		Ok(minute * 60_000u32.into())
+	}
+}
+
+/// Maps a pallet error to a `time_schedule::v1` error.
+fn map_err_to_v1_err<T: Config>(err: DispatchError) -> DispatchError {
+	if err == DispatchError::from(Error::<T>::NotFound) {
+		DispatchError::Unavailable
+	} else {
+		err
 	}
 }

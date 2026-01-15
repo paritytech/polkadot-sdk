@@ -37,9 +37,19 @@ pub mod logger {
 
 	parameter_types! {
 		static Log: Vec<(OriginCaller, u32)> = Vec::new();
+		// Time-based threshold (start_ms, end_ms) for timed_log
+		static TimeThreshold: Option<(u64, u64)> = None;
 	}
 	pub fn log() -> Vec<(OriginCaller, u32)> {
 		Log::get().clone()
+	}
+
+	pub fn set_time_threshold(start: u64, end: u64) {
+		TimeThreshold::set(Some((start, end)));
+	}
+
+	pub fn clear_time_threshold() {
+		TimeThreshold::set(None);
 	}
 
 	#[pallet::pallet]
@@ -60,7 +70,7 @@ pub mod logger {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_timestamp::Config<Moment = u64> {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -99,10 +109,12 @@ pub mod logger {
 		#[pallet::call_index(2)]
 		#[pallet::weight(*weight)]
 		pub fn timed_log(origin: OriginFor<T>, i: u32, weight: Weight) -> DispatchResult {
-			let now = frame_system::Pallet::<T>::block_number();
-			let (start, end) = Threshold::<T>::get().unwrap_or((0u32.into(), u32::MAX.into()));
-			ensure!(now >= start, Error::<T>::TooEarly);
-			ensure!(now <= end, Error::<T>::TooLate);
+			// Use timestamp-based threshold for time-based scheduler
+			if let Some((start, end)) = TimeThreshold::get() {
+				let now = pallet_timestamp::Pallet::<T>::get();
+				ensure!(now >= start, Error::<T>::TooEarly);
+				ensure!(now <= end, Error::<T>::TooLate);
+			}
 			Self::deposit_event(Event::Logged(i, weight));
 			Log::mutate(|log| {
 				log.push((origin.caller().clone(), i));
@@ -254,4 +266,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn root() -> OriginCaller {
 	system::RawOrigin::Root.into()
+}
+
+// Advance timestamp to the given time and run on_initialize.
+// This simulates time progression for the time-based scheduler.
+pub fn run_to_time(time_ms: u64) {
+	use frame_support::traits::OnInitialize;
+	Timestamp::set_timestamp(time_ms);
+	Scheduler::on_initialize(0); // block number is unused in time-based scheduler
 }
