@@ -377,6 +377,10 @@ pub trait Recording {
 
 	// Stop the benchmark.
 	fn stop(&mut self) {}
+
+	/// Called after each setup statement completes.
+	/// In actual benchmarks, this commits the DB to prevent timing leaks.
+	fn on_setup_stmt_complete(&self) {}
 }
 
 /// A no-op recording, used for unit test.
@@ -431,6 +435,10 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 	fn stop(&mut self) {
 		self.finish_extrinsic = Some(current_time());
 		self.end_pov = crate::benchmarking::proof_size();
+	}
+
+	fn on_setup_stmt_complete(&self) {
+		crate::benchmarking::commit_db();
 	}
 }
 
