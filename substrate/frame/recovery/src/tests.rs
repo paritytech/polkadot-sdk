@@ -461,13 +461,18 @@ fn inheritance_order_conflict_overwrite() {
 		// Eve is still inheritor
 		assert_eq!(Recovery::inheritor(ALICE), Some(EVE));
 		assert!(can_control_account(EVE, ALICE));
+		// Eve has the inheritor deposit
+		assert_inheritor_deposit(EVE, 14);
 
 		// But now Ferdie will kick Eve out
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert!(can_control_account(FERDIE, ALICE));
+		// Ferdie has the inheritor deposit
+		assert_inheritor_deposit(FERDIE, 14);
 		// Eve was kicked out
 		assert!(!can_control_account(EVE, ALICE));
+		//assert_inheritor_deposit(EVE, 0);
 	});
 }
 

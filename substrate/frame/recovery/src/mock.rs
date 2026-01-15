@@ -182,6 +182,17 @@ pub fn assert_security_deposit(who: u64, deposit: u128) {
 	);
 }
 
+pub fn assert_inheritor_deposit(who: u64, deposit: u128) {
+	use frame::traits::fungible::InspectHold;
+	assert_eq!(
+		<Test as crate::Config>::Currency::balance_on_hold(
+			&crate::HoldReason::InheritorStorage.into(),
+			&who
+		),
+		deposit
+	);
+}
+
 pub fn clear_events() {
 	frame_system::Pallet::<Test>::reset_events();
 }

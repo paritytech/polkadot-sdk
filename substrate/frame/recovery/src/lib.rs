@@ -325,7 +325,7 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 		Ok(Self { depositor: depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
-	fn update(
+	fn _update(
 		self,
 		new_depositor: &AccountId,
 		fp: Option<Footprint>,
@@ -851,8 +851,7 @@ pub mod pallet {
 					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
 					None
 				},
-				// new recovery has a lower inheritance order, we therefore replace the existing
-				// inheritor
+				// new recovery has a lower inheritance order, we replace the existing inheritor
 				Some((old_order, old_inheritor, ticket)) if inheritance_order < old_order => {
 					// We have to update the ticket since we don't know who created it:
 					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;

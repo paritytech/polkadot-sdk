@@ -38,6 +38,7 @@ pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
+pallet-recovery = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
