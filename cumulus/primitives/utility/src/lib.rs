@@ -590,7 +590,7 @@ where
 			want_amount,
 			true, // Include fee.
 		)
-		.filter(|amount| amount > 0.into())
+		.filter(|amount| *amount > 0u128.into())
 		.ok_or(XcmError::FeesNotMet)?
 		.into();
 		Ok((given_id, necessary_give).into())
