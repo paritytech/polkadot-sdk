@@ -305,6 +305,7 @@ pub fn new_partial(
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),
 		Box::new(task_manager.spawn_handle()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 

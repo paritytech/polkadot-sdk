@@ -98,8 +98,12 @@ impl SubscriptionsHandle {
 						target: LOG_TARGET,
 						"Started statement subscription matcher task"
 					);
+					let mut duration = 0;
+					let mut count = 0;
 					loop {
 						let res = subscription_matcher_receiver.recv().await;
+						let start = std::time::Instant::now();
+						count += 1;
 						match res {
 							Ok(MatcherMessage::NewStatement(statement)) => {
 								subscriptions.notify_matching_filters(&statement);
@@ -119,6 +123,14 @@ impl SubscriptionsHandle {
 								break
 							},
 						};
+						duration += start.elapsed().as_nanos() as u64;
+						if count % 100_000 == 0 {
+							log::info!(
+								target: LOG_TARGET,
+								"Time to process matcher message: {} ms",
+								duration as f64 / 1_000_000.0
+							);
+						}
 					}
 				}),
 			);

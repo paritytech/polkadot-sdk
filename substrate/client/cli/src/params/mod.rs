@@ -28,6 +28,7 @@ mod pruning_params;
 mod rpc_params;
 mod runtime_params;
 mod shared_params;
+mod statement_store_params;
 mod telemetry_params;
 mod transaction_pool_params;
 
@@ -44,8 +45,8 @@ use std::{fmt::Debug, str::FromStr};
 pub use crate::params::{
 	database_params::*, import_params::*, keystore_params::*, message_params::*, mixnet_params::*,
 	network_params::*, node_key_params::*, offchain_worker_params::*, prometheus_params::*,
-	pruning_params::*, rpc_params::*, runtime_params::*, shared_params::*, telemetry_params::*,
-	transaction_pool_params::*,
+	pruning_params::*, rpc_params::*, runtime_params::*, shared_params::*,
+	statement_store_params::*, telemetry_params::*, transaction_pool_params::*,
 };
 
 /// Parse Ss58AddressFormat

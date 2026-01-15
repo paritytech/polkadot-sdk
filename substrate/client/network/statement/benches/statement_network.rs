@@ -208,6 +208,7 @@ fn build_handler(
 		keystore,
 		None,
 		Box::new(sp_core::testing::TaskExecutor::new()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.unwrap();
 	let statement_store = Arc::new(statement_store);

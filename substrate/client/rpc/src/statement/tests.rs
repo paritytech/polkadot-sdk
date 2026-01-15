@@ -62,6 +62,7 @@ async fn subscribe_works() {
 		Arc::new(sc_keystore::LocalKeystore::in_memory()),
 		None,
 		Box::new(executor.as_ref().clone()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.expect("Failed to create statement store");
 

@@ -1716,13 +1716,14 @@ mod tests {
 		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
 		//
 		// Statement encoding (encodes as Vec<Field>):
-		// - Compact<u32> for number of fields (1 byte for value 1)
+		// - Compact<u32> for number of fields (1 byte for value 2)
+		// - Field::Expiry discriminant (1 byte) + u64 expiry value (8 bytes) = 9 bytes (always present)
 		// - Field::Data discriminant (1 byte, value 8)
-		// - Compact<u32> for the data length (2 bytes for small data)
-		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
+		// - Compact<u32> for the data length (2 bytes for small data < 16384)
+		// So per-statement overhead = 1 + 9 + 1 + 2 = 13 bytes for small data
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let per_statement_overhead = 1 + 9 + 1 + 2; // field count + expiry + data discriminant + compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;
@@ -1790,5 +1791,125 @@ mod tests {
 		expected_hashes.sort();
 		received_hashes.sort();
 		assert_eq!(expected_hashes, received_hashes, "All statement hashes should match");
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "assertion `left == right` failed")]
+	async fn test_initial_sync_size_mismatch_triggers_assertion() {
+		// This test demonstrates a bug where process_initial_sync_burst uses
+		// MAX_STATEMENT_NOTIFICATION_SIZE directly, while find_sendable_chunk
+		// subtracts Compact::<u32>::max_encoded_len() for the vec length prefix.
+		//
+		// This causes process_initial_sync_burst to collect more statements than
+		// find_sendable_chunk will accept, triggering debug_assert_eq!(to_send.len(), sent).
+		//
+		// TODO: Fix by using consistent max size calculation in both places.
+
+		let (mut handler, statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		// Calculate sizes to exploit the mismatch:
+		// - process_initial_sync_burst allows up to MAX_STATEMENT_NOTIFICATION_SIZE
+		// - find_sendable_chunk allows up to MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
+		// The difference is Compact::<u32>::max_encoded_len() = 5 bytes
+		let max_size_initial_sync = MAX_STATEMENT_NOTIFICATION_SIZE as usize;
+		let max_size_chunk =
+			MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
+
+		// Build statements iteratively to find the exact sizes we need.
+		// We want: stmt1.encoded_size() + stmt2.encoded_size() > max_size_chunk
+		//          stmt1.encoded_size() + stmt2.encoded_size() <= max_size_initial_sync
+		//
+		// Create a second statement first (small, fixed size)
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(vec![2u8; 10]);
+		let stmt2_size = stmt2.encoded_size();
+
+		// Now create first statement sized so that combined they land in the gap
+		// We want combined = max_size_chunk + 1 (just over chunk limit, but under initial_sync limit)
+		let target_combined = max_size_chunk + 1;
+		let target_stmt1_size = target_combined - stmt2_size;
+
+		// Statement with data of size D has encoded_size approximately:
+		// 1 (field count) + 1 + 8 (expiry) + 1 + compact_len(D) + D
+		// For D in range [16384, 2^30), compact_len = 4 bytes, so overhead = 15 bytes
+		// Solve: target_stmt1_size = 15 + D => D = target_stmt1_size - 15
+		let first_stmt_data_size = target_stmt1_size - 15;
+
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
+
+		// Fine-tune: if we're slightly off, adjust
+		let combined_size = stmt1.encoded_size() + stmt2_size;
+		let mut stmt1_final = stmt1;
+
+		// Adjust if needed to land exactly in the gap
+		if combined_size <= max_size_chunk {
+			// Need more, add bytes
+			let needed = max_size_chunk + 1 - combined_size;
+			let adjusted_data_size = first_stmt_data_size + needed;
+			stmt1_final = Statement::new();
+			stmt1_final.set_plain_data(vec![1u8; adjusted_data_size]);
+		} else if combined_size > max_size_initial_sync {
+			// Too much, reduce
+			let excess = combined_size - max_size_initial_sync;
+			let adjusted_data_size = first_stmt_data_size - excess - 1;
+			stmt1_final = Statement::new();
+			stmt1_final.set_plain_data(vec![1u8; adjusted_data_size]);
+		}
+
+		let hash1 = stmt1_final.hash();
+		let hash2 = stmt2.hash();
+
+		// Verify our setup: combined size should exceed max_size_chunk but fit max_size_initial_sync
+		let combined_size = stmt1_final.encoded_size() + stmt2.encoded_size();
+		assert!(
+			combined_size > max_size_chunk,
+			"Combined size {} should exceed max_size_chunk {}",
+			combined_size,
+			max_size_chunk
+		);
+		assert!(
+			combined_size <= max_size_initial_sync,
+			"Combined size {} should fit in max_size_initial_sync {}",
+			combined_size,
+			max_size_initial_sync
+		);
+
+		// Also verify that stmt1 alone fits in max_size_chunk (so find_sendable_chunk will accept it)
+		assert!(
+			stmt1_final.encoded_size() <= max_size_chunk,
+			"stmt1 size {} should fit in max_size_chunk {}",
+			stmt1_final.encoded_size(),
+			max_size_chunk
+		);
+
+		// Add statements to the store
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1_final);
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		// Set up a peer for initial sync
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+		handler.peers.insert(
+			peer_id,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+				role: ObservedRole::Full,
+			},
+		);
+
+		// Queue initial sync with both statement hashes
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![hash1, hash2] },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+
+		// This should trigger the assertion because:
+		// 1. process_initial_sync_burst will collect both statements (fits in MAX_STATEMENT_NOTIFICATION_SIZE)
+		// 2. find_sendable_chunk will only accept one (exceeds max_size after subtracting overhead)
+		// 3. debug_assert_eq!(to_send.len(), sent) will fail: to_send.len()=2, sent=1
+		handler.process_initial_sync_burst().await;
 	}
 }

@@ -155,6 +155,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 		keystore,
 		None,
 		Box::new(sp_core::testing::TaskExecutor::new()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.unwrap();
 

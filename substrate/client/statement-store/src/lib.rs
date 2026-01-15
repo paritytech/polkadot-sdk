@@ -72,7 +72,10 @@ use sp_statement_store::{
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
 	time::Instant,
 };
 
@@ -104,8 +107,8 @@ const MAX_EXPIRY_ACCOUNTS_PER_ITERATION: usize = 10_000;
 /// Maximum time in milliseconds to spend checking for expiry in a single iteration.
 const MAX_EXPIRY_TIME_MS_PER_ITERATION: u128 = 100;
 
-/// Number of subscription filter worker tasks.
-const NUM_FILTER_WORKERS: usize = 1;
+/// Default number of subscription filter worker tasks.
+pub const DEFAULT_NUM_FILTER_WORKERS: usize = 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -248,6 +251,8 @@ pub struct Store {
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
+	time_validate: Arc<AtomicU64>,
+	time_locked: Arc<AtomicU64>,
 }
 
 enum IndexQuery {
@@ -602,6 +607,7 @@ impl Store {
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
 		task_spawner: Box<dyn SpawnNamed>,
+		num_filter_workers: usize,
 	) -> Result<Arc<Store>>
 	where
 		Block: BlockT,
@@ -609,8 +615,15 @@ impl Store {
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
-		let store =
-			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
+		let store = Arc::new(Self::new(
+			path,
+			options,
+			client,
+			keystore,
+			prometheus,
+			task_spawner.clone(),
+			num_filter_workers,
+		)?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -642,6 +655,7 @@ impl Store {
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
 		task_spawner: Box<dyn SpawnNamed>,
+		num_filter_workers: usize,
 	) -> Result<Store>
 	where
 		Block: BlockT,
@@ -694,8 +708,10 @@ impl Store {
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
 				task_spawner.clone(),
-				NUM_FILTER_WORKERS,
+				num_filter_workers,
 			),
+			time_locked: Arc::new(AtomicU64::new(0)),
+			time_validate: Arc::new(AtomicU64::new(0)),
 		};
 		store.populate()?;
 		Ok(store)
@@ -878,6 +894,13 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
+		log::info!(
+			target: LOG_TARGET,
+			"Time to validate statements  {} ms time insert {} ms",
+			self.time_validate.load(Ordering::Relaxed) as f64 / 1_000_000.0,
+			self.time_locked.load(Ordering::Relaxed) as f64 / 1_000_000.0
+		);
+
 		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
 			let mut index = self.index.write();
 			let deleted = index.maintain(self.timestamp());
@@ -1197,7 +1220,10 @@ impl StatementStore for Store {
 		} else {
 			None
 		};
+		let start = Instant::now();
 		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
+		self.time_validate
+			.fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
 		let validation = match validation_result {
 			Ok(validation) => validation,
 			Err(InvalidStatement::BadProof) => {
@@ -1226,7 +1252,7 @@ impl StatementStore for Store {
 		let mut commit = Vec::new();
 		{
 			let mut index = self.index.write();
-
+			let start = Instant::now();
 			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					Ok(evicted) => evicted,
@@ -1248,6 +1274,7 @@ impl StatementStore for Store {
 				return SubmitResult::InternalError(Error::Db(e.to_string()))
 			}
 			self.subscription_manager.notify(statement);
+			self.time_locked.fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
@@ -1331,7 +1358,7 @@ impl StatementStoreSubscriptionApi for Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::Store;
+	use crate::{Store, DEFAULT_NUM_FILTER_WORKERS};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -1439,6 +1466,7 @@ mod tests {
 			keystore,
 			None,
 			Box::new(sp_core::testing::TaskExecutor::new()),
+			DEFAULT_NUM_FILTER_WORKERS,
 		)
 		.unwrap();
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
@@ -1543,6 +1571,7 @@ mod tests {
 			keystore,
 			None,
 			Box::new(sp_core::testing::TaskExecutor::new()),
+			DEFAULT_NUM_FILTER_WORKERS,
 		)
 		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 3);
@@ -1755,6 +1784,7 @@ mod tests {
 			keystore,
 			None,
 			Box::new(sp_core::testing::TaskExecutor::new()),
+			DEFAULT_NUM_FILTER_WORKERS,
 		)
 		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);

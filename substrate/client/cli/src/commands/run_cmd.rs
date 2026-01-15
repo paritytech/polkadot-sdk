@@ -20,7 +20,7 @@ use crate::{
 	error::{Error, Result},
 	params::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, RpcEndpoint,
-		SharedParams, TransactionPoolParams,
+		SharedParams, StatementStoreParams, TransactionPoolParams,
 	},
 	CliConfiguration, PrometheusParams, RpcParams, RuntimeParams, TelemetryParams,
 };
@@ -98,6 +98,10 @@ pub struct RunCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub keystore_params: KeystoreParams,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub statement_store_params: StatementStoreParams,
 
 	/// Shortcut for `--name Alice --validator`.
 	///
@@ -340,6 +344,10 @@ impl CliConfiguration for RunCmd {
 
 	fn runtime_cache_size(&self) -> Result<u8> {
 		Ok(self.runtime_params.runtime_cache_size)
+	}
+
+	fn statement_store_filter_workers(&self) -> Result<usize> {
+		Ok(self.statement_store_params.statement_store_filter_workers)
 	}
 
 	fn base_path(&self) -> Result<Option<BasePath>> {
