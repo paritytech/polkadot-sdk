@@ -1563,3 +1563,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+litep2p = { path = "vendor/litep2p" }

@@ -32,6 +32,10 @@ use std::{future::Future, pin::Pin, sync::Arc};
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
+/// Maximum payload size for batching bitswap responses (8 MB).
+/// We use a slightly smaller value than the wire limit to account for protobuf encoding overhead.
+const MAX_RESPONSE_SIZE: usize = 7_800_000;
+
 pub struct BitswapServer<Block: BlockT> {
 	/// Bitswap handle.
 	handle: BitswapHandle,
@@ -59,7 +63,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 				BitswapEvent::Request { peer, cids } => {
 					log::debug!(target: LOG_TARGET, "handle bitswap request from {peer:?} for {cids:?}");
 
-					let response: Vec<ResponseType> = cids
+					let responses: Vec<ResponseType> = cids
 						.into_iter()
 						.filter(|(cid, _)| is_cid_supported(&cid))
 						.map(|(cid, want_type)| {
@@ -98,7 +102,44 @@ impl<Block: BlockT> BitswapServer<Block> {
 						})
 						.collect();
 
-					self.handle.send_response(peer, response).await;
+					// Batch responses to avoid exceeding the bitswap message size limit.
+					// Each batch is sent as a separate message.
+					let mut current_batch: Vec<ResponseType> = Vec::new();
+					let mut current_size: usize = 0;
+
+					for response in responses {
+						let response_size = match &response {
+							ResponseType::Block { block, .. } => block.len() + 64, // block data + CID overhead
+							ResponseType::Presence { .. } => 64, // CID + presence type
+						};
+
+						// If adding this response would exceed the limit, send current batch first
+						if !current_batch.is_empty() && current_size + response_size > MAX_RESPONSE_SIZE
+						{
+							log::trace!(
+								target: LOG_TARGET,
+								"sending bitswap batch of {} responses ({} bytes) to {peer:?}",
+								current_batch.len(),
+								current_size
+							);
+							self.handle.send_response(peer, std::mem::take(&mut current_batch)).await;
+							current_size = 0;
+						}
+
+						current_size += response_size;
+						current_batch.push(response);
+					}
+
+					// Send any remaining responses
+					if !current_batch.is_empty() {
+						log::trace!(
+							target: LOG_TARGET,
+							"sending final bitswap batch of {} responses ({} bytes) to {peer:?}",
+							current_batch.len(),
+							current_size
+						);
+						self.handle.send_response(peer, current_batch).await;
+					}
 				},
 			}
 		}

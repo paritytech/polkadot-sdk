@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+    # Run jobs when commits are pushed to
+    # master or release-like branches:
+    branches:
+      - master
+  pull_request:
+    # Run jobs for any external PR that wants
+    # to merge to master, too:
+    branches:
+      - master
+
+# Disable previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# common variable is defined in the workflow
+# repo env variable doesn't work for PR from forks
+env:
+  CI_IMAGE: "paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240222"
+
+jobs:
+  set-image:
+    # This workaround sets the container image for each job using 'set-image' job output.
+    # env variables don't work for PR from forks, so we need to use outputs.
+    runs-on: ubuntu-latest
+    outputs:
+      CI_IMAGE: ${{ steps.set_image.outputs.CI_IMAGE }}
+    steps:
+      - id: set_image
+        run: echo "CI_IMAGE=${{ env.CI_IMAGE }}" >> $GITHUB_OUTPUT
+  fmt:
+    name: Cargo fmt
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Cargo fmt
+        run: cargo +nightly fmt --all -- --check
+
+  machete:
+    name: Check unused dependencies
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Install cargo-machete
+        run: cargo install cargo-machete
+
+      - name: Check unused dependencies
+        run: cargo machete
+
+  check:
+    name: Cargo check
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Cargo check
+        run: cargo check --all-features
+
+  doc:
+    name: Check documentation
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+      - name: Check documentation
+        run: RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links" cargo doc --workspace --no-deps --document-private-items
+
+  clippy:
+    name: Cargo clippy
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Run clippy
+        run: cargo clippy --all-features -- -D warnings
+
+  test:
+    name: Test
+    runs-on: parity-default
+    timeout-minutes: 15
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.CI_IMAGE }}
+      options: --sysctl net.ipv6.conf.all.disable_ipv6=0
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install Rust 1.85
+        run: rustup install 1.85.0-x86_64-unknown-linux-gnu
+
+      - name: Use Rust 1.85
+        run: rustup default 1.85.0-x86_64-unknown-linux-gnu
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Run tests
+        run: cargo test --all-features

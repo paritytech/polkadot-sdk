@@ -1,0 +1,20 @@
+# Basic
+edition = "2021"
+max_width = 100
+
+# Imports
+imports_granularity = "Crate"
+reorder_imports = true
+
+# Consistency
+newline_style = "Unix"
+
+# Misc
+chain_width = 80
+spaces_around_ranges = false
+match_arm_blocks = false
+trailing_comma = "Vertical"
+
+# Format comments
+comment_width = 100
+wrap_comments = true
