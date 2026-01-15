@@ -539,16 +539,6 @@ where
 	fn wipe(&self) -> Result<(), Self::Error> {
 		Ok(())
 	}
-
-	fn commit(
-		&self,
-		_: H::Out,
-		_: crate::BackendTransaction<H>,
-		_: crate::StorageCollection,
-		_: crate::ChildStorageCollection,
-	) -> Result<(), Self::Error> {
-		Ok(())
-	}
 }
 
 #[cfg(feature = "std")]
