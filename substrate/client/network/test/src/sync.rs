@@ -1331,3 +1331,48 @@ async fn syncs_huge_blocks() {
 	assert_eq!(net.peer(0).client.info().best_number, 33);
 	assert_eq!(net.peer(1).client.info().best_number, 33);
 }
+
+/// Test syncing 512 blocks with ~1.2 MiB headers (empty bodies) to test large header handling.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn syncs_blocks_with_large_headers() {
+	use sc_consensus::ForkChoiceStrategy;
+	use sp_runtime::{
+		generic::{BlockId, DigestItem},
+		Digest,
+	};
+
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(2);
+
+	{
+		let peer = net.peer(0);
+		let best_hash = peer.client.info().best_hash;
+		peer.generate_blocks_at_with_inherent_digests(
+			BlockId::Hash(best_hash),
+			512,
+			BlockOrigin::Own,
+			|builder| builder.build().unwrap().block,
+			|i| {
+				let large_data = vec![i as u8; 1200 * 1024];
+				Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] }
+			},
+			false,
+			true,
+			true,
+			ForkChoiceStrategy::LongestChain,
+		);
+		assert_eq!(peer.client.info().best_number, 512);
+	}
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(1).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[1]));
+
+	net.add_full_peer();
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(2).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[2]));
+}
