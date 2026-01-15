@@ -223,12 +223,6 @@ pub mod pallet {
 		NoPermissionYet,
 		/// The account is already delegating.
 		AlreadyDelegating,
-		/// The account currently has votes attached to it and the operation cannot succeed until
-		/// these are removed through `remove_vote`.
-		#[deprecated(
-			note = "This error is no longer used. Delegating while voting is now permitted."
-		)]
-		AlreadyVoting,
 		/// Too high a balance was provided that the account cannot afford.
 		InsufficientFunds,
 		/// The account is not currently delegating.
