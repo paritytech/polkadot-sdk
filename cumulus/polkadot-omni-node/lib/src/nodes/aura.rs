@@ -448,9 +448,10 @@ where
 			let relay_blocks_per_para_block =
 				(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
 
-			// Each para block gets a unique relay slot: initial_relay_slot + relay_blocks_per_para_block * block_number
-			let target_relay_slot =
-				initial_relay_slot + u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
+			// Each para block gets a unique relay slot: initial_relay_slot +
+			// relay_blocks_per_para_block * block_number
+			let target_relay_slot = initial_relay_slot +
+				u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
 
 			let relay_offset = (target_relay_slot as u32)
 				.saturating_sub(relay_blocks_per_para_block * current_block_number);
