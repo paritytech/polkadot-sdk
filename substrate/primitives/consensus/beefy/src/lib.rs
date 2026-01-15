@@ -52,6 +52,7 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppPublic, RuntimeAppPublic};
 use sp_core::H256;
+#[cfg(feature = "std")]
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, Keccak256, NumberFor},
@@ -104,12 +105,14 @@ pub trait AuthorityIdBound:
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{
-		AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, Vec, BEEFY_KEY_TYPE, KEY_TYPE,
-	};
+	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
+	#[cfg(feature = "std")]
+	use super::{Vec, BEEFY_KEY_TYPE};
 	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, ecdsa};
-	use sp_core::{crypto::Wraps, ByteArray};
+	use sp_core::crypto::Wraps;
+	#[cfg(feature = "std")]
+	use sp_core::ByteArray;
 	use sp_crypto_hashing::keccak_256;
 	use sp_keystore::KeystorePtr;
 
