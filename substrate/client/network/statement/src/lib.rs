@@ -31,7 +31,8 @@ use crate::config::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
-	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+	prometheus::{self},
+	register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -56,7 +57,7 @@ use std::{
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicU64, Arc},
 };
 use tokio::time::timeout;
 
@@ -192,6 +193,9 @@ impl StatementHandlerPrototype {
 		(Self { protocol_name: protocol_name.into(), notification_service }, config)
 	}
 
+	/// Default number of statement validation workers.
+	pub const DEFAULT_NUM_VALIDATION_WORKERS: usize = 4;
+
 	/// Turns the prototype into the actual handler.
 	///
 	/// Important: the statements handler is initially disabled and doesn't gossip statements.
@@ -206,32 +210,44 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		num_validation_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
-
-		let store = statement_store.clone();
-		executor(
-			async move {
-				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-						queue_receiver.next().await;
-					match task {
-						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
-								log::debug!(
-									target: LOG_TARGET,
-									"Error sending validation completion"
+		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		log::info!(target: LOG_TARGET, "Spawning {} statement validation workers", num_validation_workers);
+		let mut time_submit = Vec::with_capacity(num_validation_workers);
+		for _ in 0..num_validation_workers {
+			let store = statement_store.clone();
+			let mut queue_receiver = queue_receiver.clone();
+			let time_submit_worker = Arc::new(AtomicU64::new(0u64));
+			time_submit.push(time_submit_worker.clone());
+			executor(
+				async move {
+					loop {
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
+						match task {
+							None => return,
+							Some((statement, completion)) => {
+								let start = std::time::Instant::now();
+								let result = store.submit(statement, StatementSource::Network);
+								time_submit_worker.fetch_add(
+									start.elapsed().as_nanos() as u64,
+									std::sync::atomic::Ordering::Relaxed,
 								);
-							}
-						},
+								if completion.send(result).is_err() {
+									log::debug!(
+										target: LOG_TARGET,
+										"Error sending validation completion"
+									);
+								}
+							},
+						}
 					}
 				}
-			}
-			.boxed(),
-		);
+				.boxed(),
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -252,6 +268,11 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
+			time_submit,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
@@ -291,6 +312,11 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	time_take_recent: u128,
+	time_take_propagate: u128,
+	time_on_stmts: u128,
+	time_await_send: u128,
+	time_submit: Vec<Arc<AtomicU64>>,
 	/// Timeout for sending next statement batch during initial sync.
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
@@ -420,6 +446,11 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
+			time_submit: Vec::new(),
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
@@ -604,6 +635,7 @@ where
 	/// Called when peer sends us new statements
 	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
+		let start = std::time::Instant::now();
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
@@ -682,6 +714,7 @@ where
 				statements_left -= 1;
 			}
 		}
+		self.time_on_stmts += start.elapsed().as_nanos();
 	}
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
@@ -768,11 +801,24 @@ where
 		if self.sync.is_major_syncing() {
 			return
 		}
-
+		let start = std::time::Instant::now();
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
+		self.time_take_recent += start.elapsed().as_nanos();
 		if !statements.is_empty() {
+			let start = std::time::Instant::now();
 			self.do_propagate_statements(&statements).await;
+			self.time_take_propagate += start.elapsed().as_nanos();
 		}
+		log::info!(
+			target: LOG_TARGET,
+			"Propagated {} statements (take_recent: {} ms, propagate: {} ms, on_stmts: {} ms, await_send: {} ms {} )",
+			statements.len(),
+			self.time_take_recent as f64 / 1_000_000.0,
+			self.time_take_propagate as f64 / 1_000_000.0,
+			self.time_on_stmts as f64 / 1_000_000.0,
+			self.time_await_send as f64 / 1_000_000.0,
+			self.time_submit.iter().enumerate().map(|(i, t)| format!("submit_worker_{}: {} ms", i, t.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1_000_000.0)).collect::<Vec<_>>().join(", "),
+		);
 	}
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
@@ -1236,6 +1282,11 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
+			time_take_recent: 0,
+			time_take_propagate: 0,
+			time_on_stmts: 0,
+			time_await_send: 0,
+			time_submit: Vec::new(),
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
@@ -1444,6 +1495,11 @@ mod tests {
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			time_await_send: 0,
+			time_on_stmts: 0,
+			time_take_propagate: 0,
+			time_take_recent: 0,
+			time_submit: Vec::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -1670,7 +1726,7 @@ mod tests {
 		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let per_statement_overhead = 1 + 9 + 1 + 2; // field count + expiry + data discriminant + compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;

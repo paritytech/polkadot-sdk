@@ -304,7 +304,8 @@ pub fn new_partial(
 		client.clone(),
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 
@@ -356,9 +357,12 @@ pub fn new_partial(
 						beefy_best_block_stream: beefy_rpc_links
 							.from_voter_best_beefy_stream
 							.clone(),
+						subscription_executor: subscription_executor.clone(),
+					},
+					statement_store: node_rpc::StatementStoreDeps {
+						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},
-					statement_store: rpc_statement_store.clone(),
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),
 				};
@@ -780,7 +784,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let statement_protocol_executor = {
 		let spawn_handle = task_manager.spawn_handle();
 		Box::new(move |fut| {
-			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+			spawn_handle.spawn_blocking("network-statement-validator", Some("networking"), fut);
 		})
 	};
 	let statement_handler = statement_handler_proto.build(
@@ -789,6 +793,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_store.clone(),
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
+		1,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

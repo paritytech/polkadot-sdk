@@ -476,6 +476,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(2)
 	}
 
+	/// Get the number of statement store filter workers.
+	///
+	/// By default this is `1`.
+	fn statement_store_filter_workers(&self) -> Result<usize> {
+		Ok(crate::params::DEFAULT_STATEMENT_STORE_FILTER_WORKERS)
+	}
+
 	/// Activate or not the automatic announcing of blocks after import
 	///
 	/// By default this is `false`.

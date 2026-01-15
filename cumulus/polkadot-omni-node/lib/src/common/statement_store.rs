@@ -63,6 +63,7 @@ pub(crate) fn build_statement_store<
 	sync_service: Arc<sc_network_sync::service::syncing_service::SyncingService<Block>>,
 	local_keystore: Arc<sc_keystore::LocalKeystore>,
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
+	num_validation_workers: usize,
 ) -> sc_service::error::Result<Arc<Store>> {
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -70,13 +71,14 @@ pub(crate) fn build_statement_store<
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
+		sc_statement_store::DEFAULT_NUM_FILTER_WORKERS,
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	let statement_protocol_executor = {
 		let spawn_handle = task_manager.spawn_handle();
 		Box::new(move |fut| {
-			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+			spawn_handle.spawn_blocking("network-statement-validator", Some("networking"), fut);
 		})
 	};
 	let statement_handler = statement_handler_proto.build(
@@ -85,6 +87,7 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
+		num_validation_workers,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

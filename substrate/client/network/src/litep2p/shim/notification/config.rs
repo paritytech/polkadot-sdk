@@ -109,6 +109,7 @@ impl NotificationProtocolConfig {
 			.with_max_size(max_notification_size as usize)
 			.with_auto_accept_inbound(true)
 			.with_fallback_names(fallback_names.into_iter().map(From::from).collect())
+			.with_async_channel_size(1024 * 1024)
 			.build();
 
 		// initialize the actual object implementing `NotificationService` and combine the

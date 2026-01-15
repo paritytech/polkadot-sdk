@@ -5,25 +5,24 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
+use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_statement_store::{Channel, Statement, Topic};
-use std::{cell::Cell, collections::HashMap, time::Duration};
-use tokio::time::timeout;
+use sp_statement_store::{Channel, Statement, SubmitResult, Topic, TopicFilter};
+use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
+use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 100; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 512;
 const MESSAGE_COUNT: usize = 1;
-const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
-const PROPAGATION_DELAY_MS: u64 = 2000;
-const TIMEOUT_MS: u64 = 3000;
+const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
 /// Single-node benchmark.
 ///
@@ -50,12 +49,17 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
-	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+	let barrier = Arc::new(Barrier::new(PARTICIPANT_SIZE as usize));
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, rpc_client.clone()));
+		participants.push(Participant::new(
+			i as u32,
+			node.rpc().await?,
+			node.rpc().await?,
+			barrier.clone(),
+		));
 	}
 
 	let handles: Vec<_> = participants
@@ -93,7 +97,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let collator_names = ["alice", "bob"];
 	let network = spawn_network(&collator_names).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
@@ -101,15 +105,21 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	let mut rpc_clients = Vec::new();
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
-		let rpc_client = node.rpc().await?;
-		rpc_clients.push(rpc_client);
+		rpc_clients.push(node);
 	}
 	info!("Created RPC clients for {} collator nodes", rpc_clients.len());
 
+	let barrier = Arc::new(Barrier::new(PARTICIPANT_SIZE as usize));
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
+		// let client_idx = i % collator_names.len();
+
+		participants.push(Participant::new(
+			i as u32,
+			rpc_clients[0].rpc().await?,
+			rpc_clients[1].rpc().await?,
+			barrier.clone(),
+		));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -158,7 +168,6 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
-	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let total_tasks = 64 * 1024;
@@ -174,7 +183,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 		total_tasks, statements_per_task, payload_size, submit_capacity, propogation_capacity);
 
 	for _ in 0..total_tasks {
-		let rpc_client = rpc_client.clone();
+		let rpc_client = node.rpc().await?;
 		tokio::spawn(async move {
 			let (keyring, _) = sr25519::Pair::generate();
 			let public = keyring.public().0;
@@ -193,7 +202,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 				loop {
 					let statement_bytes: Bytes = statement.encode().into();
 					let Err(err) = rpc_client
-						.request::<()>("statement_submit", rpc_params![statement_bytes])
+						.request::<SubmitResult>("statement_submit", rpc_params![statement_bytes])
 						.await
 					else {
 						break; // Successfully submitted
@@ -326,12 +335,17 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.with_id(2400)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain_spec_path("tests/zombie_ci/people-westend-spec.json")
+				// TODO: we need a new custom chain spec with new statement format.
+				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lstatement-store=info,statement-gossip=info,error".into(),
+					"--max-runtime-instances=32".into(),
+					"--rpc-rate-limit=70000000".into(),
+					"--statement-validation-workers=1".into(),
+					"--statement-store-filter-workers=2".into(),
+					"-linfo,statement-store=info,statement-gossip=debug".into(),
 					"--enable-statement-store".into(),
-					"--rpc-max-connections=50000".into(),
+					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
@@ -366,6 +380,8 @@ struct StatementMessage {
 #[derive(Debug, Clone)]
 struct ParticipantStats {
 	total_time: Duration,
+	session_keys: Duration,
+	submit_time: Duration,
 	sent_count: u32,
 	received_count: u32,
 	retry_count: u32,
@@ -379,6 +395,12 @@ struct AggregatedStats {
 	min_time: Duration,
 	max_time: Duration,
 	avg_time: Duration,
+	min_session_keys: Duration,
+	max_session_keys: Duration,
+	avg_session_keys: Duration,
+	min_submit_time: Duration,
+	max_submit_time: Duration,
+	avg_submit_time: Duration,
 	min_retries: u32,
 	max_retries: u32,
 	avg_retries: u32,
@@ -396,6 +418,24 @@ impl ParticipantStats {
 			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() / participants as f64,
 		);
 
+		let min_session_keys =
+			all_stats.iter().map(|s| s.session_keys).min().unwrap_or(Duration::ZERO);
+		let max_session_keys =
+			all_stats.iter().map(|s| s.session_keys).max().unwrap_or(Duration::ZERO);
+		let avg_session_keys = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.session_keys.as_secs_f64()).sum::<f64>() /
+				participants as f64,
+		);
+
+		let min_submit_time =
+			all_stats.iter().map(|s| s.submit_time).min().unwrap_or(Duration::ZERO);
+		let max_submit_time =
+			all_stats.iter().map(|s| s.submit_time).max().unwrap_or(Duration::ZERO);
+		let avg_submit_time = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.submit_time.as_secs_f64()).sum::<f64>() /
+				participants as f64,
+		);
+
 		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
 		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
 		let avg_retries = all_stats.iter().map(|s| s.retry_count).sum::<u32>() / participants;
@@ -407,6 +447,12 @@ impl ParticipantStats {
 			min_time,
 			max_time,
 			avg_time,
+			min_session_keys,
+			max_session_keys,
+			avg_session_keys,
+			min_submit_time,
+			max_submit_time,
+			avg_submit_time,
 			min_retries,
 			max_retries,
 			avg_retries,
@@ -429,6 +475,23 @@ impl AggregatedStats {
 			self.avg_time.as_secs(),
 			self.max_time.as_secs(),
 		);
+
+		info!(
+			" {:<8} {:>8}  {:>8}  {:>8}",
+			"time, k",
+			self.min_session_keys.as_secs(),
+			self.avg_session_keys.as_secs(),
+			self.max_session_keys.as_secs(),
+		);
+
+		info!(
+			" {:<8} {:>8}  {:>8}  {:>8}",
+			"time, m",
+			self.min_submit_time.as_secs(),
+			self.avg_submit_time.as_secs(),
+			self.max_submit_time.as_secs(),
+		);
+
 		info!(
 			" {:<8} {:>8}  {:>8}  {:>8}",
 			"retries", self.min_retries, self.avg_retries, self.max_retries
@@ -448,7 +511,9 @@ struct Participant {
 	received_count: u32,
 	pending_messages: HashMap<u32, Option<u32>>,
 	retry_count: u32,
-	rpc_client: RpcClient,
+	rpc_client_send: RpcClient,
+	rpc_client_receive: RpcClient,
+	barrier: Arc<Barrier>,
 }
 
 impl Participant {
@@ -456,7 +521,12 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_client: RpcClient) -> Self {
+	fn new(
+		idx: u32,
+		rpc_client_send: RpcClient,
+		rpc_client_receive: RpcClient,
+		barrier: Arc<Barrier>,
+	) -> Self {
 		debug!(target: &format!("participant_{idx}"), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -477,35 +547,23 @@ impl Participant {
 			sent_count: 0,
 			received_count: 0,
 			retry_count: 0,
-			rpc_client,
+			rpc_client_send,
+			rpc_client_receive,
+			barrier,
 		}
-	}
-
-	async fn wait_for_retry(&mut self) -> Result<(), anyhow::Error> {
-		if self.retry_count >= MAX_RETRIES {
-			return Err(anyhow!("No more retry attempts for participant {}", self.idx))
-		}
-
-		self.retry_count += 1;
-		if self.retry_count % 10 == 0 {
-			debug!(target: &self.log_target(), "Retry attempt {}", self.retry_count);
-		}
-		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
-
-		Ok(())
-	}
-
-	async fn wait_for_propagation(&mut self) {
-		trace!(target: &self.log_target(), "Waiting {}ms for propagation", PROPAGATION_DELAY_MS);
-		tokio::time::sleep(tokio::time::Duration::from_millis(PROPAGATION_DELAY_MS)).await;
 	}
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		let _: () = self
-			.rpc_client
-			.request("statement_submit", rpc_params![statement_bytes])
-			.await?;
+		let res = self
+			.rpc_client_send
+			.request::<SubmitResult>("statement_submit", rpc_params![statement_bytes])
+			.await;
+
+		if res.is_err() {
+			info!(target: &self.log_target(), "Failed to submit statement, will retry: {:?}", res.as_ref().err());
+		}
+		let _ = res?;
 
 		self.sent_count += 1;
 		trace!(target: &self.log_target(), "Submitted statement (counter: {})", self.sent_count);
@@ -513,31 +571,10 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn statement_broadcasts_statement(
-		&mut self,
-		topics: Vec<Topic>,
-	) -> Result<Vec<Statement>, anyhow::Error> {
-		let statements: Vec<Bytes> = self
-			.rpc_client
-			.request("statement_broadcastsStatement", rpc_params![topics])
-			.await?;
-
-		let mut decoded_statements = Vec::new();
-		for statement_bytes in &statements {
-			let statement = Statement::decode(&mut &statement_bytes[..])?;
-			decoded_statements.push(statement);
-		}
-
-		self.received_count += decoded_statements.len() as u32;
-		trace!(target: &self.log_target(), "Received {} statements (counter: {})", decoded_statements.len(), self.received_count);
-
-		Ok(decoded_statements)
-	}
-
 	fn create_session_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_channel(channel_public_key());
-		statement.set_priority(self.sent_count);
+		statement.set_expiry_from_parts(u32::MAX, self.sent_count);
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
 		statement.set_plain_data(self.session_key.public().to_vec());
@@ -566,7 +603,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
+		statement.set_expiry_from_parts(u32::MAX, self.sent_count);
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -579,38 +616,49 @@ impl Participant {
 	}
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
-		let mut pending = self.group_members.clone();
+		let pending = self.group_members.clone();
+
+		let mut subscriptions = Vec::new();
 
 		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
-		loop {
-			let mut completed_this_round = Vec::new();
-			for &idx in &pending {
-				match timeout(
-					Duration::from_millis(TIMEOUT_MS),
-					self.statement_broadcasts_statement(vec![topic_public_key(), topic_idx(idx)]),
-				)
-				.await
-				{
-					Ok(Ok(statements)) if !statements.is_empty() => {
-						if let Some(statement) = statements.first() {
-							let data = statement.data().expect("Must contain session_key");
-							let session_key = sr25519::Public::from_raw(data[..].try_into()?);
-							self.session_keys.insert(idx, session_key);
-							completed_this_round.push(idx);
-						}
-					},
-					res => {
-						debug!(target: &self.log_target(), "No statements received for idx {:?}: {:?}", idx, res);
-					},
-				}
-			}
 
-			pending.retain(|x| !completed_this_round.contains(x));
-			if pending.is_empty() {
-				break;
-			}
-			trace!(target: &self.log_target(), "Session keys left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
-			self.wait_for_retry().await?;
+		for idx in &pending {
+			let subscription = self
+				.rpc_client_receive
+				.subscribe::<Bytes>(
+					"statement_subscribeStatement",
+					rpc_params![TopicFilter::MatchAll(vec![
+						topic_public_key().to_vec().into(),
+						topic_idx(*idx).to_vec().into()
+					])],
+					"statement_unsubscribeStatement",
+				)
+				.await?;
+			subscriptions.push((*idx, subscription));
+		}
+
+		let mut futures: FuturesUnordered<_> = subscriptions
+			.into_iter()
+			.map(|(idx, mut subscription)| async move {
+				let statement_bytes =
+					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+						.await
+						.map_err(|_| anyhow!("Timeout waiting for session key"))?
+						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement = Statement::decode(&mut &statement_bytes[..])
+					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
+				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
+				let session_key = sr25519::Public::from_raw(
+					data[..].try_into().map_err(|_| anyhow!("Invalid session key length"))?,
+				);
+				Ok::<_, anyhow::Error>((idx, session_key))
+			})
+			.collect();
+
+		while let Some(result) = futures.next().await {
+			let (idx, session_key) = result?;
+			self.session_keys.insert(idx, session_key);
 		}
 
 		assert_eq!(
@@ -641,49 +689,53 @@ impl Participant {
 	}
 
 	async fn receive_messages(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let mut pending: Vec<(u32, sr25519::Public)> =
+		let pending: Vec<(u32, sr25519::Public)> =
 			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
 
-		trace!(target: &self.log_target(), "Pending messages to receive: {:?}", pending.len());
-		loop {
-			let mut completed_this_round = Vec::new();
-			for &(sender_idx, sender_session_key) in &pending {
-				match timeout(
-					Duration::from_millis(TIMEOUT_MS),
-					self.statement_broadcasts_statement(vec![
-						topic_message(),
-						topic_pair(&sender_session_key, &own_session_key),
-					]),
+		let mut subscriptions = Vec::new();
+
+		for &(sender_idx, sender_session_key) in &pending {
+			let subscription = self
+				.rpc_client_receive
+				.subscribe::<Bytes>(
+					"statement_subscribeStatement",
+					rpc_params![TopicFilter::MatchAll(vec![
+						topic_message().to_vec().into(),
+						topic_pair(&sender_session_key, &own_session_key).to_vec().into()
+					])],
+					"statement_unsubscribeStatement",
 				)
-				.await
-				{
-					Ok(Ok(statements)) if !statements.is_empty() => {
-						if let Some(statement) = statements.first() {
-							let data = statement.data().expect("Must contain request");
-							let req = StatementMessage::decode(&mut &data[..])?;
+				.await?;
+			subscriptions.push((sender_idx, subscription));
+		}
 
-							if let std::collections::hash_map::Entry::Vacant(e) =
-								self.received_messages.entry((sender_idx, req.message_id))
-							{
-								e.insert(false);
-								self.pending_messages.insert(sender_idx, Some(req.message_id));
-								completed_this_round.push((sender_idx, sender_session_key));
-							}
-						}
-					},
-					res => {
-						debug!(target: &self.log_target(), "No statements received for sender {:?}: {:?}", sender_idx, res);
-					},
-				}
-			}
+		let mut futures: FuturesUnordered<_> = subscriptions
+			.into_iter()
+			.map(|(sender_idx, mut subscription)| async move {
+				let statement_bytes =
+					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+						.await
+						.map_err(|_| anyhow!("Timeout waiting for message"))?
+						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement = Statement::decode(&mut &statement_bytes[..])
+					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
+				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
+				let req = StatementMessage::decode(&mut &data[..])
+					.map_err(|e| anyhow!("Failed to decode message: {}", e))?;
+				Ok::<_, anyhow::Error>((sender_idx, req.message_id))
+			})
+			.collect();
 
-			pending.retain(|x| !completed_this_round.contains(x));
-			if pending.is_empty() {
-				break;
+		while let Some(result) = futures.next().await {
+			let (sender_idx, message_id) = result?;
+			if let std::collections::hash_map::Entry::Vacant(e) =
+				self.received_messages.entry((sender_idx, message_id))
+			{
+				e.insert(false);
+				self.pending_messages.insert(sender_idx, Some(message_id));
 			}
-			trace!(target: &self.log_target(), "Messages left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
-			self.wait_for_retry().await?;
 		}
 
 		assert_eq!(
@@ -696,7 +748,6 @@ impl Participant {
 			self.group_members.len(),
 			"Not every request received"
 		);
-
 		Ok(())
 	}
 
@@ -705,20 +756,21 @@ impl Participant {
 
 		debug!(target: &self.log_target(), "Session keys exchange");
 		self.send_session_key().await?;
-		trace!(target: &self.log_target(), "Session keys sent");
-		self.wait_for_propagation().await;
-		trace!(target: &self.log_target(), "Session keys requests started");
+		trace!(target: &self.log_target(), "Session keys sent, receiving session keys");
 		self.receive_session_keys().await?;
 		trace!(target: &self.log_target(), "Session keys received");
+		let session_keys_time = start_time.elapsed();
 
+		let mut submit_time = Duration::ZERO;
+
+		self.barrier.wait().await;
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
+			let submit_start = std::time::Instant::now();
 			self.send_messages(round).await?;
-			trace!(target: &self.log_target(), "Messages sent");
-			self.wait_for_propagation().await;
+			submit_time = submit_start.elapsed();
 			trace!(target: &self.log_target(), "Messages requests started");
 			self.receive_messages(round).await?;
-			trace!(target: &self.log_target(), "Messages received");
 		}
 
 		let elapsed = start_time.elapsed();
@@ -728,6 +780,8 @@ impl Participant {
 			sent_count: self.sent_count,
 			received_count: self.received_count,
 			retry_count: self.retry_count,
+			session_keys: session_keys_time,
+			submit_time,
 		})
 	}
 }

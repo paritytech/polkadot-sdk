@@ -1168,13 +1168,13 @@ impl_runtime_apis! {
 			// In the future we will allow people.
 			if pallet_session::Validators::<Runtime>::get().contains(&account) {
 				Ok(ValidStatement {
-					max_count: 2,
-					max_size: 1024,
+					max_count: 2 * 1024,
+					max_size: 1024 * 1024,
 				})
 			} else {
 				Ok(ValidStatement {
-					max_count: 0,
-					max_size: 0,
+					max_count: 2 * 1024,
+					max_size: 1024 * 1024,
 				})
 			}
 		}
