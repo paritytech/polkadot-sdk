@@ -13292,13 +13292,12 @@ name = "pallet-revive-ui-tests"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
- "array-bytes 6.2.2",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
  "pallet-revive",
  "parity-scale-codec",
- "polkadot-sdk",
  "scale-info",
- "serde_json",
- "sp-debug-derive 14.0.0",
  "trybuild",
 ]
 

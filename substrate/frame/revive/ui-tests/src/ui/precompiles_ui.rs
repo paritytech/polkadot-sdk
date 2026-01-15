@@ -15,14 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use polkadot_sdk::pallet_revive::precompiles::Precompile;
-use polkadot_sdk::pallet_revive::Config;
-use polkadot_sdk::pallet_revive::precompiles::AddressMatcher;
-use core::num::NonZeroU16;
 use alloy_core::sol;
+use core::num::NonZeroU16;
+use pallet_revive::{
+	precompiles::{AddressMatcher, Precompile},
+	Config,
+};
 
-use pallet_revive_ui_tests::runtime::Runtime;
 use core::marker::PhantomData;
+use pallet_revive_ui_tests::runtime::Runtime;
 
 sol! {
 	interface IPrecompileA {
@@ -54,8 +55,12 @@ impl<T: Config> Precompile for PrecompileB<T> {
 	const HAS_CONTRACT_INFO: bool = false;
 }
 
-const _: (PrecompileA<Runtime>, PrecompileB<Runtime>) = (PrecompileA(PhantomData::<Runtime>), PrecompileB(PhantomData::<Runtime>));
+const _: (PrecompileA<Runtime>, PrecompileB<Runtime>) =
+	(PrecompileA(PhantomData::<Runtime>), PrecompileB(PhantomData::<Runtime>));
 
-const _: () = polkadot_sdk::pallet_revive::precompiles::check_collision_for::<Runtime, (PrecompileA<Runtime>, PrecompileB<Runtime>)>();
+const _: () = pallet_revive::precompiles::check_collision_for::<
+	Runtime,
+	(PrecompileA<Runtime>, PrecompileB<Runtime>),
+>();
 
 fn main() {}

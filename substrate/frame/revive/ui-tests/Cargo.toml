@@ -11,44 +11,26 @@ description = "UI tests for pallet-revive."
 
 [dependencies]
 alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
-array-bytes = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-revive = { workspace = true }
+pallet-balances = { workspace = true }
 codec = { workspace = true }
-polkadot-sdk = { workspace = true, features = [
-	"pallet-balances",
-	"pallet-revive",
-	"pallet-sudo",
-	"pallet-timestamp",
-	"pallet-transaction-payment",
-	"pallet-transaction-payment-rpc-runtime-api",
-	"parachains-common",
-	"polkadot-runtime-common",
-	"runtime",
-	"with-tracing",
-] }
-
 scale-info = { workspace = true }
-serde_json = { workspace = true, default-features = false, features = [
-	"alloc",
-] }
-sp-debug-derive = { workspace = true, features = ["force-debug"] }
-
-[build-dependencies]
-polkadot-sdk = { optional = true, workspace = true, features = [
-	"substrate-wasm-builder",
-] }
 
 [dev-dependencies]
-pallet-revive = { workspace = true, features = ["trybuild"] }
 trybuild = { workspace = true }
+pallet-revive = { workspace = true, features = ["trybuild"] }
 
 [features]
 default = ["std"]
 std = [
-	"alloy-core/std",
 	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
 	"pallet-revive/std",
-	"polkadot-sdk/std",
 	"scale-info/std",
-	"serde_json/std",
-	"sp-debug-derive/std",
+	"alloy-core/std"
 ]
+
