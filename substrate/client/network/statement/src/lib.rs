@@ -1726,7 +1726,7 @@ mod tests {
 		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 9 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let per_statement_overhead = 1 + 9 + 1 + 2; // field count + expiry + data discriminant + compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;
