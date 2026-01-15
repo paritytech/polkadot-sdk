@@ -225,6 +225,9 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 }
 
 /// Transfer all `RelevantAssets` of the `Fungibles` from one account to another.
+///
+/// The native asset should be the first in the list of `RelevantAssets`, otherwise the transfers
+/// of the other maybe fails.
 pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
 	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
 );
