@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768431282694,
+  "lastUpdate": 1768438576341,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -20971,6 +20971,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007045980659999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b8cd8bbd17856dfd63729691625c088cc41521b",
+          "message": "Add CLAUDE.md (#10805)\n\nSo that not everybody has to re-generate it when using claude. I\nmanually edited the initially auto generated file. Especially the\ndependencies and build command section. So that it properly uses\n`SKIP_WASM_BUILD` and checks the whole work space.\n\nThis file is mend to grow over time with more instructions to improve\nthe LLMs understanding of the repository.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-14T23:46:36Z",
+          "tree_id": "252350b5c457f19cdf3ec883979dcb4863249974",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b8cd8bbd17856dfd63729691625c088cc41521b"
+        },
+        "date": 1768438551918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009066530289999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026760356099999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006310492200000005,
             "unit": "seconds"
           }
         ]
