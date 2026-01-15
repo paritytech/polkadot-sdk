@@ -6,3 +6,5 @@ doc:
 crates:
 - name: frame-support-procedural
   bump: patch
+- name: frame-benchmarking
+  bump: patch
