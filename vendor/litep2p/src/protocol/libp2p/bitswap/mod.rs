@@ -53,6 +53,10 @@ const LOG_TARGET: &str = "litep2p::ipfs::bitswap";
 /// Write timeout for outbound messages.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Maximum size for a single bitswap response message.
+/// We use a value slightly below the codec limit to account for protobuf encoding overhead.
+const MAX_RESPONSE_MESSAGE_SIZE: usize = 7_800_000;
+
 /// Bitswap metadata.
 #[derive(Debug)]
 struct Prefix {
@@ -174,6 +178,8 @@ impl Bitswap {
     }
 
     /// Send response to bitswap request.
+    ///
+    /// Responses are split into multiple messages if they would exceed the maximum message size.
     async fn on_outbound_substream(
         &mut self,
         peer: PeerId,
@@ -185,14 +191,48 @@ impl Bitswap {
             return;
         };
 
-        let mut response = schema::bitswap::Message {
+        let mut current_response = schema::bitswap::Message {
             // `wantlist` field must always be present. This is what the official Kubo IPFS
             // implementation does.
             wantlist: Some(Default::default()),
             ..Default::default()
         };
+        let mut current_size: usize = 0;
 
         for entry in entries {
+            let entry_size = match &entry {
+                ResponseType::Block { block, .. } => block.len() + 64, // block data + CID/prefix overhead
+                ResponseType::Presence { .. } => 64, // CID + presence type
+            };
+
+            // If adding this entry would exceed the limit, send current message first
+            if current_size > 0 && current_size + entry_size > MAX_RESPONSE_MESSAGE_SIZE {
+                tracing::trace!(
+                    target: LOG_TARGET,
+                    ?peer,
+                    payload_count = current_response.payload.len(),
+                    presence_count = current_response.block_presences.len(),
+                    size = current_size,
+                    "sending bitswap response batch",
+                );
+
+                let message = current_response.encode_to_vec().into();
+                if tokio::time::timeout(WRITE_TIMEOUT, substream.send_framed(message)).await.is_err() {
+                    tracing::debug!(target: LOG_TARGET, ?peer, "timeout sending bitswap response");
+                    substream.close().await;
+                    return;
+                }
+
+                // Reset for next batch
+                current_response = schema::bitswap::Message {
+                    wantlist: Some(Default::default()),
+                    ..Default::default()
+                };
+                current_size = 0;
+            }
+
+            current_size += entry_size;
+
             match entry {
                 ResponseType::Block { cid, block } => {
                     let prefix = Prefix {
@@ -203,13 +243,13 @@ impl Bitswap {
                     }
                     .to_bytes();
 
-                    response.payload.push(schema::bitswap::Block {
+                    current_response.payload.push(schema::bitswap::Block {
                         prefix,
                         data: block,
                     });
                 }
                 ResponseType::Presence { cid, presence } => {
-                    response.block_presences.push(schema::bitswap::BlockPresence {
+                    current_response.block_presences.push(schema::bitswap::BlockPresence {
                         cid: cid.to_bytes(),
                         r#type: presence as i32,
                     });
@@ -217,8 +257,20 @@ impl Bitswap {
             }
         }
 
-        let message = response.encode_to_vec().into();
-        let _ = tokio::time::timeout(WRITE_TIMEOUT, substream.send_framed(message)).await;
+        // Send any remaining entries
+        if !current_response.payload.is_empty() || !current_response.block_presences.is_empty() {
+            tracing::trace!(
+                target: LOG_TARGET,
+                ?peer,
+                payload_count = current_response.payload.len(),
+                presence_count = current_response.block_presences.len(),
+                size = current_size,
+                "sending final bitswap response batch",
+            );
+
+            let message = current_response.encode_to_vec().into();
+            let _ = tokio::time::timeout(WRITE_TIMEOUT, substream.send_framed(message)).await;
+        }
 
         substream.close().await;
     }
