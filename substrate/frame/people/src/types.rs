@@ -39,7 +39,16 @@ pub type ChunksOf<T> = BoundedVec<
 /// The overarching state of all people rings regarding the actions that are currently allowed to be
 /// performed on them.
 #[derive(
-	Clone, PartialEq, Eq, Debug, Default, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
 )]
 pub enum RingMembersState {
 	/// The rings can accept new people sequentially if the maximum capacity has not been reached

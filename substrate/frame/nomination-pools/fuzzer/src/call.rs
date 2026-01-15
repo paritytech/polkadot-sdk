@@ -271,8 +271,8 @@ fn main() {
 					(std::env::var("SANITY_CHECK_INTERVAL")
 						.ok()
 						.and_then(|x| x.parse::<u64>().ok()))
-					.unwrap_or(1))
-				{
+					.unwrap_or(1),
+				) {
 					log!(info, "running sanity checks at {}", iteration);
 					Pools::do_try_state(u8::MAX).unwrap();
 				}

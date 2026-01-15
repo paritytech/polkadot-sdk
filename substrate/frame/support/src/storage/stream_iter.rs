@@ -592,7 +592,10 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			const BUFFER_SIZE: usize = 300;
 			// Ensure that the capacity isn't dividable by `300`.
-			assert!(!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE), "Please update buffer size");
+			assert!(
+				!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE),
+				"Please update buffer size"
+			);
 			// Create some items where the last item is partially in the inner buffer so that
 			// we need to fill the buffer to read the entire item.
 			let data: Vec<Vec<u8>> = (0..=(STORAGE_INPUT_BUFFER_CAPACITY / BUFFER_SIZE))
@@ -640,7 +643,10 @@ mod tests {
 
 			const BUFFER_SIZE: usize = 300;
 			// Ensure that the capacity isn't dividable by `300`.
-			assert!(!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE), "Please update buffer size");
+			assert!(
+				!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE),
+				"Please update buffer size"
+			);
 			// Create some items where the last item is partially in the inner buffer so that
 			// we need to fill the buffer to read the entire item.
 			let data: Vec<Vec<u8>> = (0..=(STORAGE_INPUT_BUFFER_CAPACITY / BUFFER_SIZE))
