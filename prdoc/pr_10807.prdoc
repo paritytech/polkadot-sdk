@@ -2,9 +2,7 @@ title: 'Omni-node: Move timestamps closer to now'
 doc:
 - audience: Node Dev
   description: |-
-    In omni-node dev-mode the timestamps where showing close to the unix epoch. Technically not a problem, but its a bit more aesthetic if they are closer to now, as requested in https://github.com/paritytech/polkadot-sdk/issues/10759.
-
-    I set them arbitrarily to two hours in the past so that they do not run immediately into the future.
+    Blocks produced with Omni-nodes dev-mode are now closer to the current time. Previously they were starting at `UNIX_EPOCH`.
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
