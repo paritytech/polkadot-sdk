@@ -417,11 +417,18 @@ pub trait SessionInterface {
 
 	/// Set session keys for an account.
 	///
+	/// This method is intended for privileged callers (e.g., other pallets receiving validated
+	/// requests via XCM). It bypasses deposit holds and consumer reference tracking, so the
+	/// account does not need to be "live" or have balance on this chain.
+	///
 	/// This method does not validate ownership proof. Callers must verify that the keys belong to
 	/// the account before calling this method.
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
 
 	/// Purge session keys for an account.
+	///
+	/// This method is intended for privileged callers (e.g., other pallets receiving validated
+	/// requests via XCM). It bypasses deposit release and consumer reference decrement.
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
 
 	/// Weight for setting session keys.
@@ -1187,11 +1194,23 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 	}
 
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
-		Self::do_set_keys(account, keys)
+		let who = T::ValidatorIdOf::convert(account.clone())
+			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+		Self::inner_set_keys(&who, keys)?;
+		Ok(())
 	}
 
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
-		Self::do_purge_keys(account)
+		let who = T::ValidatorIdOf::convert(account.clone())
+			.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
+			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+
+		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
+		for id in T::Keys::key_ids() {
+			let key_data = old_keys.get_raw(*id);
+			Self::clear_key_owner(*id, key_data);
+		}
+		Ok(())
 	}
 
 	fn set_keys_weight() -> Weight {

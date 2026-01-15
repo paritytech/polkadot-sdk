@@ -1599,27 +1599,30 @@ mod session_keys {
 	}
 
 	#[test]
-	fn set_keys_from_ah_nonexistent_account() {
+	fn set_keys_from_ah_works_for_account_without_providers() {
 		ExtBuilder::default()
 			.session_keys(vec![1])
 			.local_queue()
 			.build()
 			.execute_with(|| {
-				// GIVEN: Account 999 doesn't exist on RC (not funded, no reference count).
-				let nonexistent: AccountId = 999;
+				// GIVEN: Account 999 doesn't exist on RC (not funded, no provider reference).
+				// This simulates post-AHM scenario where stash balance is on AssetHub.
+				let stash: AccountId = 999;
 				let keys = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 				let encoded_keys = keys.encode();
 
-				// WHEN: Setting keys for a nonexistent account.
-				// THEN: Fails with NoAccount.
-				assert_noop!(
-					ah_client::Pallet::<Runtime>::set_keys_from_ah(
-						RuntimeOrigin::signed(1),
-						nonexistent,
-						encoded_keys,
-					),
-					pallet_session::Error::<Runtime>::NoAccount
-				);
+				// WHEN: Setting keys via ah-client (privileged path).
+				// THEN: Succeeds because SessionInterface::set_keys bypasses provider checks.
+				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
+					RuntimeOrigin::signed(1),
+					stash,
+					encoded_keys,
+				));
+
+				// AND: Keys are stored correctly.
+				let next_keys = pallet_session::NextKeys::<Runtime>::get(stash);
+				assert!(next_keys.is_some());
+				assert_eq!(next_keys.unwrap(), keys.into());
 			})
 	}
 }
