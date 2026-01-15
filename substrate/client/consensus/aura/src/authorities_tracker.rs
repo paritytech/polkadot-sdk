@@ -177,7 +177,8 @@ where
 	pub fn fetch(&self, header: &B::Header) -> Result<Vec<AuthorityId<P>>, String> {
 		if self.should_lazy_import_from_runtime.load(Ordering::SeqCst) {
 			self.should_lazy_import_from_runtime.store(false, Ordering::SeqCst);
-			log::info!(
+			log::debug!(
+				target: LOG_TARGET,
 				"Lazily importing authorities from runtime for block {} (#{})",
 				header.hash(),
 				header.number()
@@ -243,7 +244,7 @@ where
 				number,
 				authorities_change,
 			)?;
-			log::info!("Imported new authorities from block header {hash} (#{number})");
+			log::debug!(target: LOG_TARGET, "Imported new authorities from block header {hash} (#{number})");
 		}
 		Ok(())
 	}
@@ -265,7 +266,7 @@ where
 			.map_err(|e| {
 				format!("Could not import authorities for block {hash:?} at number {number}: {e}")
 			})?;
-		log::info!("Imported new authorities from runtime for block header {hash} (#{number})");
+		log::debug!(target: LOG_TARGET, "Imported new authorities from runtime for block header {hash} (#{number})");
 
 		// If a runtime import has already happened, the lazy initialization can be skipped.
 		self.should_lazy_import_from_runtime.store(false, Ordering::SeqCst);
@@ -300,11 +301,10 @@ where
 {
 	header.digest().convert_first(|log| -> Option<Vec<AuthorityId<P>>> {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		<DigestItem as CompatibleDigestItem<P::Signature>>::as_consensus_log::<AuthorityId<P>>(
-			log,
-		).and_then(|log| match log {
-			ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
-			ConsensusLog::OnDisabled(_) => None,
-		})
+		<DigestItem as CompatibleDigestItem<P::Signature>>::as_consensus_log::<AuthorityId<P>>(log)
+			.and_then(|log| match log {
+				ConsensusLog::AuthoritiesChange(authorities) => Some(authorities),
+				ConsensusLog::OnDisabled(_) => None,
+			})
 	})
 }
