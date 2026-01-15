@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768431250398,
+  "lastUpdate": 1768438542994,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4413b73fef7b3c18dd79aaa75322fee6da2e34d7",
-          "message": "Eth transaction do not double bump the nonce (#8829)\n\nAdd an extra `eth_instantiate_with_code` dispatchable that is used by\nthe EVM compatibility layer and ensure that the origin's nonce is only\nincremented once\n\nFixes https://github.com/paritytech/contract-issues/issues/64\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-06-13T14:29:27Z",
-          "tree_id": "3bcdd2b0980e306ab0e381a2ef5238dd74fba94c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4413b73fef7b3c18dd79aaa75322fee6da2e34d7"
-        },
-        "date": 1749829696716,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034071649376000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044898776137999946,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06528275225399996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b8cd8bbd17856dfd63729691625c088cc41521b",
+          "message": "Add CLAUDE.md (#10805)\n\nSo that not everybody has to re-generate it when using claude. I\nmanually edited the initially auto generated file. Especially the\ndependencies and build command section. So that it properly uses\n`SKIP_WASM_BUILD` and checks the whole work space.\n\nThis file is mend to grow over time with more instructions to improve\nthe LLMs understanding of the repository.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
+          "timestamp": "2026-01-14T23:46:36Z",
+          "tree_id": "252350b5c457f19cdf3ec883979dcb4863249974",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b8cd8bbd17856dfd63729691625c088cc41521b"
+        },
+        "date": 1768438518078,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06779991033199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03833959341000001,
             "unit": "seconds"
           }
         ]
