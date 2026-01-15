@@ -241,6 +241,8 @@ impl WeightInfo for TestWeightInfo {
 parameter_types! {
 	pub storage MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
+	/// 60 seconds (1 minute) bucket resolution - tasks grouped by minute
+	pub const BucketResolution: u32 = 60_000;
 }
 
 impl Config for Test {
@@ -251,7 +253,8 @@ impl Config for Test {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type MaxScheduledPerMinute = ConstU32<100>;
+	type BucketResolution = BucketResolution;
+	type MaxScheduledPerBucket = ConstU32<100>;
 	type WeightInfo = TestWeightInfo;
 	type Preimages = Preimage;
 	type TimestampProvider = Timestamp;

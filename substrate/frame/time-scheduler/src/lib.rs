@@ -93,8 +93,8 @@ use frame_support::{
 	traits::{
 		schedule,
 		time_schedule::{self, DispatchTime},
-		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait,
-		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage, Time,
+		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PrivilegeCmp, QueryPreimage,
+		StorageVersion, StorePreimage, Time,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -110,11 +110,18 @@ pub use weights::WeightInfo;
 
 /// Just a simple index for naming period tasks.
 pub type PeriodicIndex = u32;
-/// The location of a scheduled task (minute, index).
-pub type TaskAddress<Moment> = (Moment, u32);
+/// The location of a scheduled task (bucket, index).
+pub type TaskAddress<BucketKey> = (BucketKey, u32);
 
-/// The moment type used by a config's timestamp provider.
+/// The moment type used by a config's timestamp provider (timestamp in milliseconds).
+/// This represents absolute time as provided by the timestamp pallet.
 pub type MomentFor<T> = <<T as Config>::TimestampProvider as Time>::Moment;
+
+/// The time bucket type, representing which scheduling bucket a task belongs to.
+/// Calculated as: timestamp / BucketResolution.
+/// This is the same underlying type as MomentFor but represents a different concept:
+/// MomentFor is an absolute timestamp, TimeBucketFor is a bucket index.
+pub type TimeBucketFor<T> = MomentFor<T>;
 
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
@@ -270,13 +277,26 @@ pub mod pallet {
 		/// be used. This will only check if two given origins are equal.
 		type OriginPrivilegeCmp: PrivilegeCmp<Self::PalletsOrigin>;
 
-		/// The maximum number of scheduled calls in the queue for a single minute.
+		/// The resolution of scheduling buckets in milliseconds.
+		///
+		/// Tasks are grouped into time buckets based on this resolution. For example:
+		/// - 60_000 (1 minute): Tasks are grouped by minute
+		/// - 3_600_000 (1 hour): Tasks are grouped by hour
+		/// - 10_000 (10 seconds): Tasks are grouped by 10-second intervals
+		///
+		/// This value should be greater than or equal to the expected block time to ensure
+		/// meaningful batching of tasks. Smaller values provide finer scheduling granularity
+		/// but create more storage entries.
+		#[pallet::constant]
+		type BucketResolution: Get<u32>;
+
+		/// The maximum number of scheduled calls in the queue for a single time bucket.
 		///
 		/// NOTE:
 		/// + Dependent pallets' benchmarks might require a higher limit for the setting. Set a
 		/// higher limit under `runtime-benchmarks` feature.
 		#[pallet::constant]
-		type MaxScheduledPerMinute: Get<u32>;
+		type MaxScheduledPerBucket: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -293,72 +313,73 @@ pub mod pallet {
 		type TimestampProvider: Time;
 	}
 
-	/// Minute at which the agenda began incomplete execution.
+	/// Time bucket at which the agenda began incomplete execution.
 	#[pallet::storage]
-	pub type IncompleteSince<T: Config> = StorageValue<_, MomentFor<T>>;
+	pub type IncompleteSince<T: Config> = StorageValue<_, TimeBucketFor<T>>;
 
-	/// Items to be executed, indexed by minute (timestamp in milliseconds / 60_000).
+	/// Items to be executed, indexed by time bucket (timestamp / BucketResolution).
 	///
-	/// The key is the minute number since Unix epoch. Tasks scheduled for a specific
-	/// time will be stored in the minute bucket they belong to.
+	/// The key is the bucket number since Unix epoch. Tasks scheduled for a specific
+	/// time will be stored in the bucket they belong to based on the configured
+	/// `BucketResolution`.
 	#[pallet::storage]
 	pub type Agenda<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		MomentFor<T>,
-		BoundedVec<Option<ScheduledOf<T>>, T::MaxScheduledPerMinute>,
+		TimeBucketFor<T>,
+		BoundedVec<Option<ScheduledOf<T>>, T::MaxScheduledPerBucket>,
 		ValueQuery,
 	>;
 
-	/// Retry configurations for tasks, indexed by task address (minute, index).
+	/// Retry configurations for tasks, indexed by task address (bucket, index).
 	#[pallet::storage]
 	pub type Retries<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		TaskAddress<MomentFor<T>>,
+		TaskAddress<TimeBucketFor<T>>,
 		RetryConfig<MomentFor<T>>,
 		OptionQuery,
 	>;
 
-	/// Lookup from a name to the minute and index of the task.
+	/// Lookup from a name to the bucket and index of the task.
 	#[pallet::storage]
 	pub type Lookup<T: Config> =
-		StorageMap<_, Twox64Concat, TaskName, TaskAddress<MomentFor<T>>>;
+		StorageMap<_, Twox64Concat, TaskName, TaskAddress<TimeBucketFor<T>>>;
 
 	/// Events type.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Scheduled some task.
-		Scheduled { when: MomentFor<T>, index: u32 },
+		Scheduled { when: TimeBucketFor<T>, index: u32 },
 		/// Canceled some task.
-		Canceled { when: MomentFor<T>, index: u32 },
+		Canceled { when: TimeBucketFor<T>, index: u32 },
 		/// Dispatched some task.
 		Dispatched {
-			task: TaskAddress<MomentFor<T>>,
+			task: TaskAddress<TimeBucketFor<T>>,
 			id: Option<TaskName>,
 			result: DispatchResult,
 		},
 		/// Set a retry configuration for some task.
 		RetrySet {
-			task: TaskAddress<MomentFor<T>>,
+			task: TaskAddress<TimeBucketFor<T>>,
 			id: Option<TaskName>,
 			period: MomentFor<T>,
 			retries: u8,
 		},
 		/// Cancel a retry configuration for some task.
-		RetryCancelled { task: TaskAddress<MomentFor<T>>, id: Option<TaskName> },
+		RetryCancelled { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
 		/// The call for the provided hash was not found so the task has been aborted.
-		CallUnavailable { task: TaskAddress<MomentFor<T>>, id: Option<TaskName> },
-		/// The given task was unable to be renewed since the agenda is full at that minute.
-		PeriodicFailed { task: TaskAddress<MomentFor<T>>, id: Option<TaskName> },
-		/// The given task was unable to be retried since the agenda is full at that minute or there
+		CallUnavailable { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		/// The given task was unable to be renewed since the agenda is full at that bucket.
+		PeriodicFailed { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		/// The given task was unable to be retried since the agenda is full at that bucket or there
 		/// was not enough weight to reschedule it.
-		RetryFailed { task: TaskAddress<MomentFor<T>>, id: Option<TaskName> },
+		RetryFailed { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
-		PermanentlyOverweight { task: TaskAddress<MomentFor<T>>, id: Option<TaskName> },
+		PermanentlyOverweight { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
-		AgendaIncomplete { when: MomentFor<T> },
+		AgendaIncomplete { when: TimeBucketFor<T> },
 	}
 
 	#[pallet::error]
@@ -395,7 +416,7 @@ pub mod pallet {
 			/// Calculate the maximum weight that a lookup of a given size can take.
 			fn lookup_weight<T: Config>(s: usize) -> Weight {
 				T::WeightInfo::service_agendas_base()
-					+ T::WeightInfo::service_agenda_base(T::MaxScheduledPerMinute::get())
+					+ T::WeightInfo::service_agenda_base(T::MaxScheduledPerBucket::get())
 					+ T::WeightInfo::service_task(Some(s), true, true)
 			}
 
@@ -420,7 +441,7 @@ pub mod pallet {
 		/// is greater than or equal to `when`. Note that there is typically a 1-block
 		/// delay since the timestamp is read from the previous block.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerMinute::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule(
 			origin: OriginFor<T>,
 			when: MomentFor<T>,
@@ -442,12 +463,8 @@ pub mod pallet {
 
 		/// Cancel an anonymously scheduled task.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerMinute::get()))]
-		pub fn cancel(
-			origin: OriginFor<T>,
-			when: MomentFor<T>,
-			index: u32,
-		) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBucket::get()))]
+		pub fn cancel(origin: OriginFor<T>, when: MomentFor<T>, index: u32) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_cancel(Some(origin.caller().clone()), (when, index))?;
@@ -456,7 +473,7 @@ pub mod pallet {
 
 		/// Schedule a named task at a specific timestamp (in milliseconds since Unix epoch).
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerMinute::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule_named(
 			origin: OriginFor<T>,
 			id: TaskName,
@@ -480,7 +497,7 @@ pub mod pallet {
 
 		/// Cancel a named scheduled task.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_named(T::MaxScheduledPerMinute::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_named(T::MaxScheduledPerBucket::get()))]
 		pub fn cancel_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -490,7 +507,7 @@ pub mod pallet {
 
 		/// Anonymously schedule a task after a delay (in milliseconds).
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerMinute::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule_after(
 			origin: OriginFor<T>,
 			after: MomentFor<T>,
@@ -512,7 +529,7 @@ pub mod pallet {
 
 		/// Schedule a named task after a delay (in milliseconds).
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerMinute::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule_named_after(
 			origin: OriginFor<T>,
 			id: TaskName,
@@ -624,20 +641,19 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Convert a timestamp in milliseconds to a minute key (timestamp / 60_000).
-	fn timestamp_to_minute(timestamp: MomentFor<T>) -> MomentFor<T> {
-		timestamp / 60_000u32.into()
+	/// Convert a timestamp in milliseconds to a bucket key (timestamp / BucketResolution).
+	fn timestamp_to_bucket(timestamp: MomentFor<T>) -> TimeBucketFor<T> {
+		timestamp / T::BucketResolution::get().into()
 	}
 
 	fn resolve_time(when: DispatchTime<MomentFor<T>>) -> Result<MomentFor<T>, DispatchError> {
 		let now = T::TimestampProvider::now();
+		let resolution: MomentFor<T> = T::BucketResolution::get().into();
 		let when = match when {
 			DispatchTime::At(x) => x,
-			// The current minute has already completed its scheduled tasks, so
-			// schedule the task at least one minute after the current minute.
-			DispatchTime::After(x) => now
-				.saturating_add(x)
-				.saturating_add(60_000u32.into()),
+			// The current bucket has already completed its scheduled tasks, so
+			// schedule the task at least one bucket after the current bucket.
+			DispatchTime::After(x) => now.saturating_add(x).saturating_add(resolution),
 		};
 
 		if when <= now {
@@ -651,25 +667,25 @@ impl<T: Config> Pallet<T> {
 	fn place_task(
 		when: MomentFor<T>,
 		what: ScheduledOf<T>,
-	) -> Result<TaskAddress<MomentFor<T>>, (DispatchError, ScheduledOf<T>)> {
+	) -> Result<TaskAddress<TimeBucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
 		let maybe_name = what.maybe_id;
-		let minute = Self::timestamp_to_minute(when);
-		let index = Self::push_to_agenda(minute, what)?;
-		let address = (minute, index);
+		let bucket = Self::timestamp_to_bucket(when);
+		let index = Self::push_to_agenda(bucket, what)?;
+		let address = (bucket, index);
 		if let Some(name) = maybe_name {
 			Lookup::<T>::insert(name, address)
 		}
-		Self::deposit_event(Event::Scheduled { when: minute, index });
+		Self::deposit_event(Event::Scheduled { when: bucket, index });
 		Ok(address)
 	}
 
-	/// Push a task to the agenda for a given minute.
+	/// Push a task to the agenda for a given bucket.
 	fn push_to_agenda(
-		when: MomentFor<T>,
+		bucket: TimeBucketFor<T>,
 		what: ScheduledOf<T>,
 	) -> Result<u32, (DispatchError, ScheduledOf<T>)> {
-		let mut agenda = Agenda::<T>::get(when);
-		let index = if (agenda.len() as u32) < T::MaxScheduledPerMinute::get() {
+		let mut agenda = Agenda::<T>::get(bucket);
+		let index = if (agenda.len() as u32) < T::MaxScheduledPerBucket::get() {
 			// will always succeed due to the above check.
 			let _ = agenda.try_push(Some(what));
 			agenda.len() as u32 - 1
@@ -681,22 +697,22 @@ impl<T: Config> Pallet<T> {
 				return Err((DispatchError::Exhausted, what));
 			}
 		};
-		Agenda::<T>::insert(when, agenda);
+		Agenda::<T>::insert(bucket, agenda);
 		Ok(index)
 	}
 
-	/// Remove trailing `None` items of an agenda at `when`. If all items are `None` remove
+	/// Remove trailing `None` items of an agenda at `bucket`. If all items are `None` remove
 	/// the agenda record entirely.
-	fn cleanup_agenda(when: MomentFor<T>) {
-		let mut agenda = Agenda::<T>::get(when);
+	fn cleanup_agenda(bucket: TimeBucketFor<T>) {
+		let mut agenda = Agenda::<T>::get(bucket);
 		match agenda.iter().rposition(|i| i.is_some()) {
 			Some(i) if agenda.len() > i + 1 => {
 				agenda.truncate(i + 1);
-				Agenda::<T>::insert(when, agenda);
+				Agenda::<T>::insert(bucket, agenda);
 			},
 			Some(_) => {},
 			None => {
-				Agenda::<T>::remove(when);
+				Agenda::<T>::remove(bucket);
 			},
 		}
 	}
@@ -708,7 +724,7 @@ impl<T: Config> Pallet<T> {
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
@@ -739,9 +755,9 @@ impl<T: Config> Pallet<T> {
 	/// Cancel a task by address.
 	fn do_cancel(
 		origin: Option<T::PalletsOrigin>,
-		(when, index): TaskAddress<MomentFor<T>>,
+		(bucket, index): TaskAddress<TimeBucketFor<T>>,
 	) -> Result<(), DispatchError> {
-		let scheduled = Agenda::<T>::try_mutate(when, |agenda| {
+		let scheduled = Agenda::<T>::try_mutate(bucket, |agenda| {
 			agenda.get_mut(index as usize).map_or(
 				Ok(None),
 				|s| -> Result<Option<ScheduledOf<T>>, DispatchError> {
@@ -757,9 +773,9 @@ impl<T: Config> Pallet<T> {
 			if let Some(id) = s.maybe_id {
 				Lookup::<T>::remove(id);
 			}
-			Retries::<T>::remove((when, index));
-			Self::cleanup_agenda(when);
-			Self::deposit_event(Event::Canceled { when, index });
+			Retries::<T>::remove((bucket, index));
+			Self::cleanup_agenda(bucket);
+			Self::deposit_event(Event::Canceled { when: bucket, index });
 			Ok(())
 		} else {
 			Err(Error::<T>::NotFound.into())
@@ -768,24 +784,24 @@ impl<T: Config> Pallet<T> {
 
 	/// Reschedule a task by address.
 	fn do_reschedule(
-		(when, index): TaskAddress<MomentFor<T>>,
+		(bucket, index): TaskAddress<TimeBucketFor<T>>,
 		new_time: DispatchTime<MomentFor<T>>,
-	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
-		let new_time_minute = Self::timestamp_to_minute(new_time);
+		let new_bucket = Self::timestamp_to_bucket(new_time);
 
-		if new_time_minute == when {
+		if new_bucket == bucket {
 			return Err(Error::<T>::RescheduleNoChange.into());
 		}
 
-		let task = Agenda::<T>::try_mutate(when, |agenda| {
+		let task = Agenda::<T>::try_mutate(bucket, |agenda| {
 			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
 			ensure!(!matches!(task, Some(Scheduled { maybe_id: Some(_), .. })), Error::<T>::Named);
 			task.take().ok_or(Error::<T>::NotFound)
 		})?;
 
-		Self::cleanup_agenda(when);
-		Self::deposit_event(Event::Canceled { when, index });
+		Self::cleanup_agenda(bucket);
+		Self::deposit_event(Event::Canceled { when: bucket, index });
 
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
@@ -798,10 +814,10 @@ impl<T: Config> Pallet<T> {
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
 		// ensure id is unique
 		if Lookup::<T>::contains_key(&id) {
-			return Err(Error::<T>::FailedToSchedule.into())
+			return Err(Error::<T>::FailedToSchedule.into());
 		}
 
 		let when = Self::resolve_time(when)?;
@@ -809,9 +825,8 @@ impl<T: Config> Pallet<T> {
 		let lookup_hash = call.lookup_hash();
 
 		// sanitize maybe_periodic
-		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && !p.0.is_zero())
-			.map(|(p, c)| (p, c - 1));
+		let maybe_periodic =
+			maybe_periodic.filter(|p| p.1 > 1 && !p.0.is_zero()).map(|(p, c)| (p, c - 1));
 
 		let task = Scheduled {
 			maybe_id: Some(id),
@@ -834,21 +849,21 @@ impl<T: Config> Pallet<T> {
 	/// Cancel a named task.
 	fn do_cancel_named(origin: Option<T::PalletsOrigin>, id: TaskName) -> DispatchResult {
 		Lookup::<T>::try_mutate_exists(id, |lookup| -> DispatchResult {
-			if let Some((when, index)) = lookup.take() {
+			if let Some((bucket, index)) = lookup.take() {
 				let i = index as usize;
-				Agenda::<T>::try_mutate(when, |agenda| -> DispatchResult {
+				Agenda::<T>::try_mutate(bucket, |agenda| -> DispatchResult {
 					if let Some(s) = agenda.get_mut(i) {
 						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
 							Self::ensure_privilege(o, &s.origin)?;
-							Retries::<T>::remove((when, index));
+							Retries::<T>::remove((bucket, index));
 							T::Preimages::drop(&s.call);
 						}
 						*s = None;
 					}
 					Ok(())
 				})?;
-				Self::cleanup_agenda(when);
-				Self::deposit_event(Event::Canceled { when, index });
+				Self::cleanup_agenda(bucket);
+				Self::deposit_event(Event::Canceled { when: bucket, index });
 				Ok(())
 			} else {
 				Err(Error::<T>::NotFound.into())
@@ -860,38 +875,38 @@ impl<T: Config> Pallet<T> {
 	fn do_reschedule_named(
 		id: TaskName,
 		new_time: DispatchTime<MomentFor<T>>,
-	) -> Result<TaskAddress<MomentFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
-		let new_time_minute = Self::timestamp_to_minute(new_time);
+		let new_bucket = Self::timestamp_to_bucket(new_time);
 
 		let lookup = Lookup::<T>::get(id);
-		let (when, index) = lookup.ok_or(Error::<T>::NotFound)?;
+		let (bucket, index) = lookup.ok_or(Error::<T>::NotFound)?;
 
-		if new_time_minute == when {
+		if new_bucket == bucket {
 			return Err(Error::<T>::RescheduleNoChange.into());
 		}
 
-		let task = Agenda::<T>::try_mutate(when, |agenda| {
+		let task = Agenda::<T>::try_mutate(bucket, |agenda| {
 			let task = agenda.get_mut(index as usize).ok_or(Error::<T>::NotFound)?;
 			task.take().ok_or(Error::<T>::NotFound)
 		})?;
-		Self::cleanup_agenda(when);
-		Self::deposit_event(Event::Canceled { when, index });
+		Self::cleanup_agenda(bucket);
+		Self::deposit_event(Event::Canceled { when: bucket, index });
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
 	/// Cancel the retry configuration for a task.
 	fn do_cancel_retry(
 		origin: &T::PalletsOrigin,
-		(when, index): TaskAddress<MomentFor<T>>,
+		(bucket, index): TaskAddress<TimeBucketFor<T>>,
 	) -> Result<(), DispatchError> {
-		let agenda = Agenda::<T>::get(when);
+		let agenda = Agenda::<T>::get(bucket);
 		let scheduled = agenda
 			.get(index as usize)
 			.and_then(Option::as_ref)
 			.ok_or(Error::<T>::NotFound)?;
 		Self::ensure_privilege(origin, &scheduled.origin)?;
-		Retries::<T>::remove((when, index));
+		Retries::<T>::remove((bucket, index));
 		Ok(())
 	}
 }
@@ -905,51 +920,51 @@ enum ServiceTaskError {
 use ServiceTaskError::*;
 
 impl<T: Config> Pallet<T> {
-	/// Service agendas starting from the earliest incomplete minute.
+	/// Service agendas starting from the earliest incomplete bucket.
 	fn service_agendas(weight: &mut WeightMeter, now: MomentFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
 			return;
 		}
 
-		let now_minute = Self::timestamp_to_minute(now);
-		let mut incomplete_since = now_minute + One::one();
-		let mut minute = IncompleteSince::<T>::take().unwrap_or(now_minute);
+		let now_bucket = Self::timestamp_to_bucket(now);
+		let mut incomplete_since = now_bucket + One::one();
+		let mut bucket = IncompleteSince::<T>::take().unwrap_or(now_bucket);
 		let mut is_first = true;
 
-		let max_items = T::MaxScheduledPerMinute::get();
+		let max_items = T::MaxScheduledPerBucket::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0
-			&& minute <= now_minute
+			&& bucket <= now_bucket
 			&& weight.can_consume(service_agenda_base_weight)
 		{
-			if !Self::service_agenda(weight, is_first, now, minute, u32::MAX) {
-				incomplete_since = incomplete_since.min(minute);
+			if !Self::service_agenda(weight, is_first, now, bucket, u32::MAX) {
+				incomplete_since = incomplete_since.min(bucket);
 			}
 			is_first = false;
-			minute = minute.saturating_add(One::one());
+			bucket = bucket.saturating_add(One::one());
 			count_down = count_down.saturating_sub(1);
 		}
-		incomplete_since = incomplete_since.min(minute);
-		if incomplete_since <= now_minute {
+		incomplete_since = incomplete_since.min(bucket);
+		if incomplete_since <= now_bucket {
 			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
 		} else {
-			// Start from the next minute on the next iteration
-			IncompleteSince::<T>::put(now_minute + One::one());
+			// Start from the next bucket on the next iteration
+			IncompleteSince::<T>::put(now_bucket + One::one());
 		}
 	}
 
-	/// Service a single agenda for the given minute.
+	/// Service a single agenda for the given bucket.
 	/// Returns `true` if the agenda was fully completed.
 	fn service_agenda(
 		weight: &mut WeightMeter,
 		mut is_first: bool,
 		now: MomentFor<T>,
-		minute: MomentFor<T>,
+		bucket: TimeBucketFor<T>,
 		max: u32,
 	) -> bool {
-		let mut agenda = Agenda::<T>::get(minute);
+		let mut agenda = Agenda::<T>::get(bucket);
 		let mut ordered = agenda
 			.iter()
 			.enumerate()
@@ -978,8 +993,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break;
 			}
-			let result =
-				Self::service_task(weight, now, minute, agenda_index, is_first, task);
+			let result = Self::service_task(weight, now, bucket, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -996,9 +1010,9 @@ impl<T: Config> Pallet<T> {
 			};
 		}
 		if postponed > 0 || dropped > 0 {
-			Agenda::<T>::insert(minute, agenda);
+			Agenda::<T>::insert(bucket, agenda);
 		} else {
-			Agenda::<T>::remove(minute);
+			Agenda::<T>::remove(bucket);
 		}
 
 		postponed == 0
@@ -1008,7 +1022,7 @@ impl<T: Config> Pallet<T> {
 	fn service_task(
 		weight: &mut WeightMeter,
 		now: MomentFor<T>,
-		minute: MomentFor<T>,
+		bucket: TimeBucketFor<T>,
 		agenda_index: u32,
 		is_first: bool,
 		mut task: ScheduledOf<T>,
@@ -1021,7 +1035,7 @@ impl<T: Config> Pallet<T> {
 			Ok(c) => c,
 			Err(_) => {
 				Self::deposit_event(Event::CallUnavailable {
-					task: (minute, agenda_index),
+					task: (bucket, agenda_index),
 					id: task.maybe_id,
 				});
 				T::Preimages::drop(&task.call);
@@ -1044,7 +1058,7 @@ impl<T: Config> Pallet<T> {
 			Err(()) if is_first => {
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::PermanentlyOverweight {
-					task: (minute, agenda_index),
+					task: (bucket, agenda_index),
 					id: task.maybe_id,
 				});
 				Err((Unavailable, Some(task)))
@@ -1052,9 +1066,9 @@ impl<T: Config> Pallet<T> {
 			Err(()) => Err((Overweight, Some(task))),
 			Ok(result) => {
 				let failed = result.is_err();
-				let maybe_retry_config = Retries::<T>::take((minute, agenda_index));
+				let maybe_retry_config = Retries::<T>::take((bucket, agenda_index));
 				Self::deposit_event(Event::Dispatched {
-					task: (minute, agenda_index),
+					task: (bucket, agenda_index),
 					id: task.maybe_id,
 					result,
 				});
@@ -1064,7 +1078,7 @@ impl<T: Config> Pallet<T> {
 						Self::schedule_retry(
 							weight,
 							now,
-							minute,
+							bucket,
 							agenda_index,
 							&task,
 							retry_config,
@@ -1090,7 +1104,7 @@ impl<T: Config> Pallet<T> {
 						Err((_, task)) => {
 							T::Preimages::drop(&task.call);
 							Self::deposit_event(Event::PeriodicFailed {
-								task: (minute, agenda_index),
+								task: (bucket, agenda_index),
 								id: task.maybe_id,
 							});
 						},
@@ -1125,14 +1139,15 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(())
+			return Err(());
 		}
 
 		let dispatch_origin = origin.into();
 		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
-			Err(error_and_info) =>
-				(error_and_info.post_info.actual_weight, Err(error_and_info.error)),
+			Err(error_and_info) => {
+				(error_and_info.post_info.actual_weight, Err(error_and_info.error))
+			},
 		};
 		let call_weight = maybe_actual_call_weight.unwrap_or(call_weight);
 		let _ = weight.try_consume(base_weight);
@@ -1144,17 +1159,17 @@ impl<T: Config> Pallet<T> {
 	fn schedule_retry(
 		weight: &mut WeightMeter,
 		now: MomentFor<T>,
-		when: MomentFor<T>,
+		bucket: TimeBucketFor<T>,
 		agenda_index: u32,
 		task: &ScheduledOf<T>,
 		retry_config: RetryConfig<MomentFor<T>>,
 	) {
 		if weight
-			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerMinute::get()))
+			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBucket::get()))
 			.is_err()
 		{
 			Self::deposit_event(Event::RetryFailed {
-				task: (when, agenda_index),
+				task: (bucket, agenda_index),
 				id: task.maybe_id,
 			});
 			return;
@@ -1176,7 +1191,7 @@ impl<T: Config> Pallet<T> {
 				// rescheduled manually.
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::RetryFailed {
-					task: (when, agenda_index),
+					task: (bucket, agenda_index),
 					id: task.maybe_id,
 				});
 			},
@@ -1203,7 +1218,7 @@ use time_schedule::v1::TaskName;
 impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
-	type Address = TaskAddress<MomentFor<T>>;
+	type Address = TaskAddress<TimeBucketFor<T>>;
 	type Hasher = T::Hashing;
 
 	fn schedule(
@@ -1228,12 +1243,13 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 	}
 
 	fn next_dispatch_time(address: Self::Address) -> Result<MomentFor<T>, DispatchError> {
-		let (minute, index) = address;
-		let agenda = Agenda::<T>::get(minute);
+		let (bucket, index) = address;
+		let agenda = Agenda::<T>::get(bucket);
+		let resolution: MomentFor<T> = T::BucketResolution::get().into();
 		agenda
 			.get(index as usize)
 			.and_then(Option::as_ref)
-			.map(|_| minute * 60_000u32.into())
+			.map(|_| bucket * resolution)
 			.ok_or(Error::<T>::NotFound.into())
 	}
 }
@@ -1241,7 +1257,7 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
-	type Address = TaskAddress<MomentFor<T>>;
+	type Address = TaskAddress<TimeBucketFor<T>>;
 	type Hasher = T::Hashing;
 
 	fn schedule_named(
@@ -1267,8 +1283,9 @@ impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCal
 	}
 
 	fn next_dispatch_time(id: TaskName) -> Result<MomentFor<T>, DispatchError> {
-		let (minute, _index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
-		Ok(minute * 60_000u32.into())
+		let (bucket, _index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+		let resolution: MomentFor<T> = T::BucketResolution::get().into();
+		Ok(bucket * resolution)
 	}
 }
 
