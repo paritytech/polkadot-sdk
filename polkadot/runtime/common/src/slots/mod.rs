@@ -25,7 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
