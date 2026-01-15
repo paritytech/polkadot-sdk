@@ -637,6 +637,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		log::info!("RVE: pvm.rs call()");
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
@@ -699,6 +700,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.ext.delegate_call(resources, callee, input_data)
 			},
 		};
+
+		log::info!("RVE: pvm.rs call() call_outcome: {call_outcome:?}");
 
 		match call_outcome {
 			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
@@ -825,6 +828,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		log::info!("RVE: pvm.rs call");
 		let exec_result = loop {
 			let interrupt = self.instance.run();
+			log::info!("RVE: pvm.rs call() interrupt: {interrupt:?}");
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{

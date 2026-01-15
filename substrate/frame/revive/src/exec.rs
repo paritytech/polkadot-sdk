@@ -1269,6 +1269,7 @@ where
 		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
+			log::info!("RVE exec.rs run() do_transaction()");
 			let caller = self.caller();
 			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
@@ -1284,6 +1285,7 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
+				log::info!("RVE: exec.rs run() do_transaction() Constructor branch");
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
@@ -1358,12 +1360,14 @@ where
 				.unwrap_or_default();
 
 			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) =>
-					executable.execute(self, entry_point, input_data),
+				ExecutableOrPrecompile::Executable(executable) =>{
+					log::info!("RVE: exec.rs run() do_transaction() Executable branch");
+					executable.execute(self, entry_point, input_data)},
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
 					instance.call(input_data, self),
 			}
 			.and_then(|output| {
+				log::info!("RVE: exec.rs run() do_transaction() output: {:?}", output);
 				if u32::try_from(output.data.len())
 					.map(|len| len > limits::CALLDATA_BYTES)
 					.unwrap_or(true)
@@ -1372,10 +1376,15 @@ where
 				}
 				Ok(output)
 			})
-			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			.map_err(|e| {
+				log::info!("RVE: exec.rs run() do_transaction() error: {:?}", e);
+				ExecError { error: e.error, origin: ErrorOrigin::Callee }})?;
+
+			log::info!("RVE: exec.rs run() do_transaction() after execute output: {:?}", output);
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
+				log::info!("RVE: exec.rs run() do_transaction() output did revert");
 				return Ok(output);
 			}
 
@@ -1442,10 +1451,14 @@ where
 				} else {
 					do_transaction()
 				};
+				log::info!("RVE: exec.rs run() do_transaction() output after with_transaction: {:?}", output);
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
-					_ => TransactionOutcome::Rollback(Ok((false, output))),
+					Ok(result) if !result.did_revert() =>{
+						log::info!("RVE: exec.rs run() do_transaction() Commit branch");
+						TransactionOutcome::Commit(Ok((true, output)))},
+					_ => {
+						log::info!("RVE: exec.rs run() do_transaction() Rollback branch");
+						TransactionOutcome::Rollback(Ok((false, output)))},
 				}
 			});
 
@@ -2025,6 +2038,7 @@ where
 		allows_reentry: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError> {
+		log::info!("RVE: exec.rs call(): ");
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.

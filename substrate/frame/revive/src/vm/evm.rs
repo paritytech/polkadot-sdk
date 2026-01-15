@@ -128,14 +128,20 @@ impl<T: Config> ContractBlob<T> {
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
+	log::info!("RVE: exec.rs call()");
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
 	let ControlFlow::Break(halt) = run_plain(&mut interpreter);
-	halt.into()
+	log::info!("RVE: exec.rs call() halt: {:?}", halt);
+	let result: ExecResult = halt.into();
+
+	log::info!("RVE: exec.rs call() result: {:?}", result);
+	result
 }
 
 fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
+		log::info!("RVE: exec.rs run_plain() opcode: 0x{:02X}", opcode);
 		interpreter.bytecode.relative_jump(1);
 		exec_instruction(interpreter, opcode)?;
 	}

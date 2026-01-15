@@ -137,7 +137,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 	) -> Option<ExecResult> {
 		use polkavm::InterruptKind::*;
 
-		log::info!("RVE: handle_interrupt: {interrupt:?}");
+		log::info!("RVE: env.rs handle_interrupt(): {interrupt:?}");
 
 		match interrupt {
 			Err(error) => {
@@ -301,7 +301,7 @@ pub mod env {
 
 		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
-		log::info!("RVE: call: {callee_ptr:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_and_value:?}, {input_data:?}, {output_data:?}");
+		log::info!("RVE: env.rs call(): {callee_ptr:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_and_value:?}, {input_data:?}, {output_data:?}");
 
 		let result = self.call(
 			memory,
@@ -314,9 +314,9 @@ pub mod env {
 			output_ptr,
 			output_len_ptr,
 		);
-		log::info!("RVE: call result: {result:?}");
+		log::info!("RVE: env.rs call() result: {result:?}");
 		let result = result.unwrap();
-		log::info!("RVE: call result.unwrap(): {:?}", result);
+		log::info!("RVE: env.rs call() result.unwrap(): {:?}", result);
 		Ok(result)
 	}
 
@@ -334,7 +334,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		log::info!("RVE: call_evm: callee={callee:?}, gas={gas:?}, input_data=({input_data_ptr:?}, {input_data_len:?}), output_data=({output_ptr:?}, {output_len_ptr:?})");
+		log::info!("RVE: env.rs call_evm(): callee={callee:?}, gas={gas:?}, input_data=({input_data_ptr:?}, {input_data_len:?}), output_data=({output_ptr:?}, {output_len_ptr:?})");
 
 		let resources = if gas == u64::MAX {
 			CallResources::NoLimits
@@ -372,7 +372,7 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		log::info!("RVE: delegate_call: {flags_and_callee:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_ptr:?}, {input_data:?}, {output_data:?}");
+		log::info!("RVE: env.rs delegate_call(): {flags_and_callee:?}, {ref_time_limit:?}, {proof_size_limit:?}, {deposit_ptr:?}, {input_data:?}, {output_data:?}");
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
