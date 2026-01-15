@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768492538593,
+  "lastUpdate": 1768503621543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "donal.murray@parity.io",
-            "name": "Dónal Murray",
-            "username": "seadanda"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "20452a838f4f1970a407aea9e15ba7321684a704",
-          "message": "Allow RelaychainDataProvider set_block_number to be used in tests (#8537)\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-15T15:07:24Z",
-          "tree_id": "1c14e417a3e086902c0e82202b2ef5f749766a47",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20452a838f4f1970a407aea9e15ba7321684a704"
-        },
-        "date": 1750003632966,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0130578228,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022433502299999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009069047793333425,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15697601753333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022890924039999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "skunert49@gmail.com",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aeab77e33d1e201a75345dc4647fcbd506d5899d",
+          "message": "Omni-node: Move timestamps closer to now (#10807)\n\nIn omni-node dev-mode the timestamps where showing close to the unix\nepoch. Technically not a problem, but its a bit more aesthetic if they\nare closer to now, as requested in\nhttps://github.com/paritytech/polkadot-sdk/issues/10759.\n\nI set them arbitrarily to two hours in the past so that they do not run\nimmediately into the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-01-15T17:45:37Z",
+          "tree_id": "486b671d9c66c5c1a48e29b297e8c558199ade5a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeab77e33d1e201a75345dc4647fcbd506d5899d"
+        },
+        "date": 1768503596911,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02302433046,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009737544959999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00689805892,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14314866509333332,
             "unit": "seconds"
           }
         ]
