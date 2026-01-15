@@ -37,7 +37,7 @@ crates:
 - name: polkadot-sdk
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: westend-runtime
   bump: major
 - name: bridge-hub-westend-runtime
@@ -72,14 +72,12 @@ crates:
   bump: patch
 - name: pallet-contracts-mock-network
   bump: minor
-- name: pallet-staking-async
-  bump: minor
 - name: pallet-staking-async-rc-runtime
   bump: major
 - name: pallet-staking-async-parachain-runtime
   bump: major
 - name: pallet-dap
-  bump: patch
+  bump: minor
 - name: staging-xcm-builder
   bump: patch
 - name: solochain-template-runtime
