@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768438508557,
+  "lastUpdate": 1768492572256,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ludovic.domingues96@gmail.com",
-            "name": "Ludovic Domingues",
-            "username": "Krayt78"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ffee63df61d45b9c7b2c53afb10a9495bee792e",
-          "message": "Fix calling nominate on a validator that doesn’t exist silently succeeds (#8436)\n\n# Description\nThis PR fixes a bug where calling nominate on a validator that doesn’t\nexist silently succeeds.\nIt also updates all the tests that had an incorrect setup - they were\nsimulating elections with unregistered validators.\n\npolkadot address: 14AgwoPjcRiEEJgjfHmvAqkjdERCG26WEvQUoGLuBzcXKMS2\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>",
-          "timestamp": "2025-06-14T16:47:26Z",
-          "tree_id": "0293d0c7a9f22add7fbdf28e59c8ca843c037003",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ffee63df61d45b9c7b2c53afb10a9495bee792e"
-        },
-        "date": 1749923342958,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63621.17,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3511544563999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.47106032063001113,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021879690000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.88059656525999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3179101855225013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002080539,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006227438910000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002080539,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3677070296099996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.824956516799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.347797473969999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.400413232019999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021879690000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00002212942,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
+          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-15T14:44:00Z",
+          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
+        },
+        "date": 1768492547508,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63626.909999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002251567,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.659151251170001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005446367980000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.302434054279998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.698087768080043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.646428773159999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8171119370100446,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6371784371100007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.464440596522762,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6303369473700022,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001868624,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002251567,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001868624,
             "unit": "seconds"
           }
         ]
