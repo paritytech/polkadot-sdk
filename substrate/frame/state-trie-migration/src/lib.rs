@@ -18,7 +18,7 @@
 //! # Pallet State Trie Migration
 //!
 //! Reads and writes all keys and values in the entire state in a systematic way. This is useful for
-//! upgrading a chain to [`sp-core::StateVersion::V1`], where all keys need to be touched.
+//! upgrading a chain to `sp_core::StateVersion::V1`, where all keys need to be touched.
 //!
 //! ## Migration Types
 //!
