@@ -28,7 +28,7 @@
 
 use crate::config::*;
 
-use codec::{Decode, Encode};
+use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
@@ -333,33 +333,51 @@ enum SendChunkResult {
 	Failed,
 }
 
+/// Returns the maximum payload size for statement notifications.
+///
+/// This reserves space for encoding the length of the vector (Compact<u32>),
+/// ensuring the final encoded message fits within MAX_STATEMENT_NOTIFICATION_SIZE.
+fn max_statement_payload_size() -> usize {
+	MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len()
+}
+
 /// Find the largest chunk of statements starting from the beginning that fits
 /// within MAX_STATEMENT_NOTIFICATION_SIZE.
+///
+/// Uses an incremental approach: adds statements one by one until the limit is reached.
+/// This is efficient because we only compute sizes for statements we'll actually send
+/// in this chunk, rather than computing sizes for all statements upfront.
 fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 	if statements.is_empty() {
 		return ChunkResult::Send(0);
 	}
+	let max_size = max_statement_payload_size();
 
-	let mut current_end = statements.len();
-	loop {
-		let chunk = &statements[..current_end];
-		let encoded_size = chunk.encoded_size();
+	// Incrementally add statements until we exceed the limit.
+	// This is efficient because we only compute sizes for statements in this chunk.
+	// accumulated_size is the sum of encoded sizes of all statements so far (without vec
+	// overhead).
+	let mut accumulated_size = 0;
+	let mut count = 0usize;
 
-		if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-			return ChunkResult::Send(current_end);
+	for stmt in &statements[0..] {
+		let stmt_size = stmt.encoded_size();
+		let new_count = count + 1;
+		// Compact encoding overhead for the new count
+		let new_total = accumulated_size + stmt_size;
+		if new_total > max_size {
+			break;
 		}
 
-		let split_factor = (encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-		let new_chunk_size = current_end / split_factor;
+		accumulated_size += stmt_size;
+		count = new_count;
+	}
 
-		if new_chunk_size == 0 {
-			if current_end == 1 {
-				return ChunkResult::SkipOversized;
-			}
-			current_end = 1;
-		} else {
-			current_end = new_chunk_size;
-		}
+	// If we couldn't fit even a single statement, skip it.
+	if count == 0 {
+		ChunkResult::SkipOversized
+	} else {
+		ChunkResult::Send(count)
 	}
 }
 
@@ -551,11 +569,10 @@ where
 				debug_assert!(_was_in.is_none());
 
 				if !self.sync.is_major_syncing() && !role.is_light() {
-					if let Ok(hashes) = self.statement_store.statement_hashes() {
-						if !hashes.is_empty() {
-							self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
-							self.initial_sync_peer_queue.push_back(peer);
-						}
+					let hashes = self.statement_store.statement_hashes();
+					if !hashes.is_empty() {
+						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
+						self.initial_sync_peer_queue.push_back(peer);
 					}
 				}
 			},
@@ -716,9 +733,14 @@ where
 			return
 		}
 
+		self.send_statements_in_chunks(who, &to_send).await;
+	}
+
+	/// Send statements to a peer in chunks, respecting the maximum notification size.
+	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
 		let mut offset = 0;
-		while offset < to_send.len() {
-			match self.send_statement_chunk(who, &to_send[offset..]).await {
+		while offset < statements.len() {
+			match self.send_statement_chunk(who, &statements[offset..]).await {
 				SendChunkResult::Sent(chunk_end) => {
 					offset += chunk_end;
 				},
@@ -772,14 +794,13 @@ where
 			return;
 		}
 
-		// Fetch statements up to MAX_STATEMENT_NOTIFICATION_SIZE
+		// Fetch statements up to max_statement_payload_size (reserves space for vec encoding)
+		let max_size = max_statement_payload_size();
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
-				if accumulated_size > 0 &&
-					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
-				{
+				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 					return FilterDecision::Abort
 				}
 				accumulated_size += encoded.len();
@@ -806,7 +827,8 @@ where
 				self.pending_initial_syncs.remove(&peer_id);
 				return;
 			},
-			SendChunkResult::Sent(_) => {
+			SendChunkResult::Sent(sent) => {
+				debug_assert_eq!(to_send.len(), sent);
 				// Mark statements as known
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
 					for (hash, _) in &statements {
@@ -1074,8 +1096,8 @@ mod tests {
 			self.statements.lock().unwrap().contains_key(hash)
 		}
 
-		fn statement_hashes(&self) -> sp_statement_store::Result<Vec<sp_statement_store::Hash>> {
-			Ok(self.statements.lock().unwrap().keys().cloned().collect())
+		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
+			self.statements.lock().unwrap().keys().cloned().collect()
 		}
 
 		fn statements_by_hashes(
@@ -1628,5 +1650,202 @@ mod tests {
 		// Verify cleanup
 		assert!(handler.pending_initial_syncs.is_empty());
 		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_send_statements_in_chunks_exact_max_size() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+			build_handler();
+
+		// Calculate the data sizes so that 100 statements together exactly fill max_size.
+		// This tests that all 100 statements fit in a single notification.
+		//
+		// The limit check in find_sendable_chunk is:
+		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
+		//
+		// Statement encoding (encodes as Vec<Field>):
+		// - Compact<u32> for number of fields (1 byte for value 1)
+		// - Field::Data discriminant (1 byte, value 8)
+		// - Compact<u32> for the data length (2 bytes for small data)
+		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
+		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
+		let num_statements: usize = 100;
+		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let total_overhead = per_statement_overhead * num_statements;
+		let total_data_size = max_size - total_overhead;
+		let per_statement_data_size = total_data_size / num_statements;
+		let remainder = total_data_size % num_statements;
+
+		let mut expected_hashes = Vec::with_capacity(num_statements);
+		let mut total_encoded_size = 0;
+
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			// Distribute remainder across first `remainder` statements to exactly fill max_size
+			let extra = if i < remainder { 1 } else { 0 };
+			let mut data = vec![42u8; per_statement_data_size + extra];
+			// Make each statement unique by modifying the first few bytes
+			data[0] = i as u8;
+			data[1] = (i >> 8) as u8;
+			statement.set_plain_data(data);
+
+			total_encoded_size += statement.encoded_size();
+
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Verify our calculation: total encoded size should be <= max_size
+		assert!(
+			total_encoded_size == max_size,
+			"Total encoded size {} should be <= max_size {}",
+			total_encoded_size,
+			max_size
+		);
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+
+		// All statements should fit in a single chunk
+		assert_eq!(
+			sent.len(),
+			1,
+			"Expected 1 notification for all {} statements, but got {}",
+			num_statements,
+			sent.len()
+		);
+
+		let (_peer, notification) = &sent[0];
+		assert!(
+			notification.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize,
+			"Notification size {} exceeds limit {}",
+			notification.len(),
+			MAX_STATEMENT_NOTIFICATION_SIZE
+		);
+
+		let decoded = <Statements as Decode>::decode(&mut notification.as_slice()).unwrap();
+		assert_eq!(
+			decoded.len(),
+			num_statements,
+			"Expected {} statements in the notification",
+			num_statements
+		);
+
+		// Verify all statements were sent (order may differ due to HashMap iteration)
+		let mut received_hashes: Vec<_> = decoded.iter().map(|s| s.hash()).collect();
+		expected_hashes.sort();
+		received_hashes.sort();
+		assert_eq!(expected_hashes, received_hashes, "All statement hashes should match");
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_size_limit_consistency() {
+		// This test verifies that process_initial_sync_burst and find_sendable_chunk
+		// use the same size limit (max_statement_payload_size).
+		//
+		// Previously there was a bug where the filter in process_initial_sync_burst used
+		// MAX_STATEMENT_NOTIFICATION_SIZE, but find_sendable_chunk reserved extra space
+		// for Compact::<u32>::max_encoded_len(). This caused a debug_assert failure when
+		// statements fit the filter but not find_sendable_chunk.
+		//
+		// With the fix, both use max_statement_payload_size(), so the filter will reject
+		// statements that wouldn't fit in find_sendable_chunk.
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		let payload_limit = max_statement_payload_size();
+
+		// Create first statement that's just over half the payload limit
+		let first_stmt_data_size = payload_limit / 2 + 10;
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
+		let stmt1_encoded_size = stmt1.encoded_size();
+
+		// Create second statement that, combined with the first, exceeds the payload limit.
+		// This means the filter will only accept the first statement.
+		let remaining = payload_limit.saturating_sub(stmt1_encoded_size);
+		let target_stmt2_encoded = remaining + 3; // 3 bytes over limit when combined
+		let stmt2_data_size = target_stmt2_encoded.saturating_sub(4); // ~4 bytes encoding overhead
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(vec![2u8; stmt2_data_size]);
+		let stmt2_encoded_size = stmt2.encoded_size();
+
+		let total_encoded = stmt1_encoded_size + stmt2_encoded_size;
+
+		// Verify our setup: total exceeds payload limit
+		assert!(
+			total_encoded > payload_limit,
+			"Total {} should exceed payload_limit {} so filter rejects second statement",
+			total_encoded,
+			payload_limit
+		);
+
+		let hash1 = stmt1.hash();
+		let hash2 = stmt2.hash();
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		// Setup peer and simulate connection
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Verify initial sync was queued with both hashes
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
+
+		// Process first burst - should send only one statement (the other doesn't fit)
+		handler.process_initial_sync_burst().await;
+
+		// With the fix, the filter and find_sendable_chunk use the same limit,
+		// so no assertion failure occurs. Only one statement is fetched and sent.
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1, "First burst should send one notification");
+
+		let decoded = <Statements as Decode>::decode(&mut sent[0].1.as_slice()).unwrap();
+		assert_eq!(decoded.len(), 1, "First notification should contain one statement");
+
+		// Verify one of the two statements was sent (order is non-deterministic due to HashMap)
+		let sent_hash = decoded[0].hash();
+		assert!(
+			sent_hash == hash1 || sent_hash == hash2,
+			"Sent statement should be one of the two created"
+		);
+
+		// Second statement should still be pending
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
+
+		// Process second burst - should send the remaining statement
+		handler.process_initial_sync_burst().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 2, "Second burst should send another notification");
+
+		// Both statements should now be sent
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+		let mut expected_hashes = vec![hash1, hash2];
+		expected_hashes.sort();
+		assert_eq!(sent_hashes, expected_hashes, "Both statements should be sent");
+
+		// No more pending
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 }
