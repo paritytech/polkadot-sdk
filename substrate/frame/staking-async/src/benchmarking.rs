@@ -898,11 +898,16 @@ mod benchmarks {
 
 	#[benchmark]
 	fn force_apply_min_commission() -> Result<(), BenchmarkError> {
-		// Clean up any existing state
-		clear_validators_and_nominators::<T>();
-
-		// Create a validator with a commission of 50%
-		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+		// Use existing validator or create new one - no clearing needed
+		let (stash, controller) = if let Some(stash) = Validators::<T>::iter_keys().next() {
+			let controller = Bonded::<T>::get(&stash).ok_or(
+				"validator not
+ bonded",
+			)?;
+			(stash, controller)
+		} else {
+			create_stash_controller::<T>(1, 1, RewardDestination::Staked)?
+		};
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
