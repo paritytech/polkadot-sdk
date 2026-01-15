@@ -38,12 +38,6 @@ jobs:
         run: |
           cargo clippy --all-targets --locked --workspace --quiet
           cargo clippy --all-targets --all-features --locked --workspace --quiet
-      - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   check-try-runtime:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
