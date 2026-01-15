@@ -315,8 +315,8 @@ pub struct IdentifiedConsideration<AccountId, Footprint, C> {
 impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 	IdentifiedConsideration<AccountId, Footprint, C>
 {
-	fn new(depositor: &AccountId, fp: Option<Footprint>) -> Result<Self, DispatchError> {
-		let ticket = if let Some(fp) = fp {
+	fn new(depositor: &AccountId, fp: impl Into<Option<Footprint>>) -> Result<Self, DispatchError> {
+		let ticket = if let Some(fp) = fp.into() {
 			Some(Consideration::<AccountId, Footprint>::new(depositor, fp)?)
 		} else {
 			None
@@ -325,11 +325,12 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 		Ok(Self { depositor: depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
-	fn _update(
+	fn update(
 		self,
 		new_depositor: &AccountId,
-		fp: Option<Footprint>,
+		fp: impl Into<Option<Footprint>>,
 	) -> Result<Self, DispatchError> {
+		let fp = fp.into();
 		if *new_depositor != self.depositor || fp.is_none() {
 			if let Some(ticket) = self.ticket {
 				ticket.drop(&self.depositor)?;
@@ -354,6 +355,8 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 
 pub type AttemptTicketOf<T> =
 	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::AttemptConsideration>;
+pub type InheritorTicketOf<T> =
+	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::InheritorConsideration>;
 pub type SecurityDepositOf<T> = BalanceOf<T>;
 
 #[frame::pallet]
@@ -465,7 +468,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		(InheritanceOrder, T::AccountId, T::InheritorConsideration),
+		(InheritanceOrder, T::AccountId, InheritorTicketOf<T>),
 	>;
 
 	#[pallet::composite_enum]
@@ -853,7 +856,6 @@ pub mod pallet {
 				},
 				// new recovery has a lower inheritance order, we replace the existing inheritor
 				Some((old_order, old_inheritor, ticket)) if inheritance_order < old_order => {
-					// We have to update the ticket since we don't know who created it:
 					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;
 					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
 					Some(old_inheritor)
@@ -986,10 +988,8 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_mel::<(InheritanceOrder, T::AccountId)>()
 	}
 
-	pub fn inheritor_ticket(
-		who: &T::AccountId,
-	) -> Result<T::InheritorConsideration, DispatchError> {
-		T::InheritorConsideration::new(&who, Self::inheritor_footprint())
+	pub fn inheritor_ticket(who: &T::AccountId) -> Result<InheritorTicketOf<T>, DispatchError> {
+		InheritorTicketOf::<T>::new(&who, Self::inheritor_footprint())
 	}
 
 	pub fn friend_group_of(

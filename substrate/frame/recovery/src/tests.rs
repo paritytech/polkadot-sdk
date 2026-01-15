@@ -445,9 +445,7 @@ fn finish_attempt_works() {
 fn inheritance_order_conflict_overwrite() {
 	new_test_ext().execute_with(|| {
 		// EVE is inheritor with order 1
-		let ticket =
-			<T as Config>::InheritorConsideration::new(&EVE, Pallet::<T>::inheritor_footprint())
-				.unwrap();
+		let ticket = Recovery::inheritor_ticket(&EVE).unwrap();
 		Inheritor::<T>::insert(ALICE, (1, &EVE, ticket));
 
 		// Add friend group with order 0
@@ -468,11 +466,11 @@ fn inheritance_order_conflict_overwrite() {
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert!(can_control_account(FERDIE, ALICE));
-		// Ferdie has the inheritor deposit
-		assert_inheritor_deposit(FERDIE, 14);
+		// Bob has the inheritor deposit
+		assert_inheritor_deposit(BOB, 14);
 		// Eve was kicked out
 		assert!(!can_control_account(EVE, ALICE));
-		//assert_inheritor_deposit(EVE, 0);
+		assert_inheritor_deposit(EVE, 0);
 	});
 }
 
@@ -483,9 +481,7 @@ fn higher_inheritance_order_gets_rejected() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		// A friend group with inheritance order 0 got it
-		let ticket =
-			<T as Config>::InheritorConsideration::new(&FERDIE, Pallet::<T>::inheritor_footprint())
-				.unwrap();
+		let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
@@ -504,9 +500,7 @@ fn higher_inheritance_order_gets_rejected() {
 fn control_inherited_account_works() {
 	new_test_ext().execute_with(|| {
 		// Mark FERDIE as the inheritor of ALICE
-		let ticket =
-			<T as Config>::InheritorConsideration::new(&FERDIE, Pallet::<T>::inheritor_footprint())
-				.unwrap();
+		let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
 		let call: RuntimeCall =
