@@ -156,7 +156,7 @@ pub mod pallet {
 				ensure!(account == who, Error::<T>::NotOwner);
 
 				// We transfer the hold from the current owner to the new owner
-				T::NativeBalance::transfer_on_hold(
+				let actual_amount = T::NativeBalance::transfer_on_hold(
 					&HoldReason::DepositForIndex.into(),
 					&who,
 					&new,
@@ -166,7 +166,7 @@ pub mod pallet {
 					Fortitude::Polite,
 				)?;
 
-				*maybe_value = Some((new.clone(), amount, false));
+				*maybe_value = Some((new.clone(), actual_amount, false));
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
