@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768492504543,
+  "lastUpdate": 1768503588111,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c405dda71db4463f55b26a037484274f3ab2e646",
-          "message": "[pallet-revive] fix call-trace create calls (#8781)\n\nFix call-traces for CREATE calls.\n\nthese types of calls have a \"CREATE\" and \"CREATE2\" type see\nhttps://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#call-tracer\n\nThe input of these trace, should also contain the bytecode or code hash.\n\nfixes https://github.com/paritytech/contract-issues/issues/96\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-15T21:55:13Z",
-          "tree_id": "8a6f09d132c61e9bf5e856cf2e7a4aac082610e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c405dda71db4463f55b26a037484274f3ab2e646"
-        },
-        "date": 1750028188980,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.286699368966664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19797806326666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.225285338766668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "skunert49@gmail.com",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aeab77e33d1e201a75345dc4647fcbd506d5899d",
+          "message": "Omni-node: Move timestamps closer to now (#10807)\n\nIn omni-node dev-mode the timestamps where showing close to the unix\nepoch. Technically not a problem, but its a bit more aesthetic if they\nare closer to now, as requested in\nhttps://github.com/paritytech/polkadot-sdk/issues/10759.\n\nI set them arbitrarily to two hours in the past so that they do not run\nimmediately into the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-01-15T17:45:37Z",
+          "tree_id": "486b671d9c66c5c1a48e29b297e8c558199ade5a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeab77e33d1e201a75345dc4647fcbd506d5899d"
+        },
+        "date": 1768503562794,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1300969041666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.277878897633332,
             "unit": "seconds"
           }
         ]
