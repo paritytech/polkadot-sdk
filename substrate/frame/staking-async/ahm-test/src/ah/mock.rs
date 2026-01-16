@@ -577,16 +577,6 @@ impl MockXcmExecutor {
 	}
 }
 
-/// Helper to create delivery fees as Assets.
-fn delivery_fees() -> Assets {
-	let amount = XcmDeliveryFee::get();
-	if amount == 0 {
-		Assets::default()
-	} else {
-		Assets::from(Asset { id: AssetId(Location::here()), fun: Fungibility::Fungible(amount) })
-	}
-}
-
 pub struct DeliverToRelay;
 
 impl DeliverToRelay {
