@@ -1146,18 +1146,6 @@ impl_runtime_apis! {
 			1
 		}
 	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			_source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement> {
-			match statement.verify_signature() {
-				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-			}
-		}
-	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

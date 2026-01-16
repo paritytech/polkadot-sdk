@@ -218,8 +218,7 @@ pub struct Cli<Config: CliConfig> {
 
 	/// Enable the statement store.
 	///
-	/// The statement store is a store for statements validated using the runtime API
-	/// `validate_statement`. It should be enabled for chains that provide this runtime API.
+	/// User limits for statements should be provided by the runtime.
 	#[arg(long)]
 	pub enable_statement_store: bool,
 

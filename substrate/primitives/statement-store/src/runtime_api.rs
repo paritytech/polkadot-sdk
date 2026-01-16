@@ -77,17 +77,6 @@ impl StatementSource {
 	}
 }
 
-sp_api::decl_runtime_apis! {
-	/// Runtime API trait for statement validation.
-	pub trait ValidateStatement {
-		/// Validate the statement.
-		fn validate_statement(
-			source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement>;
-	}
-}
-
 #[cfg(feature = "std")]
 sp_externalities::decl_extension! {
 	/// The offchain database extension that will be registered at the Substrate externalities.
