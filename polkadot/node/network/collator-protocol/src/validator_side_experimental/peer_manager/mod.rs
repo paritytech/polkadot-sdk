@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 mod backend;
 mod connected;
-mod db;
 mod persistent_db;
 
 use futures::channel::oneshot;

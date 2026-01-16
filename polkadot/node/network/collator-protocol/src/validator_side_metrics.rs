@@ -163,7 +163,7 @@ impl metrics::Metrics for Metrics {
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_collator_protocol_validator_db_process_bumps_duration",
 					"Time spent updating reputation on block finalization"
-					).buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0]),
+					).buckets(vec![0.00001, 0.000025, 0.00005, 0.000075, 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01]),
 				)?,
 				registry
 			)?,
@@ -173,7 +173,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collator_protocol_validator_connection_duration", 
 						"Time spent when deciding if a collator can connect."
 					)
-					.buckets(vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1]),
+					.buckets(vec![0.00001,0.000025,0.00005,0.000075,0.0001,0.00025,0.0005,0.001,0.0025,0.005,0.01]),
 				)?,
 				registry
 			)?,
