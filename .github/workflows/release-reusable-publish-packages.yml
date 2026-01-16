@@ -185,9 +185,5 @@ jobs:
           AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
-          if [[ "${{ inputs.distribution }}" == "release" ]]; then
-            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
-          else
-            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH"
-          fi
+          aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'

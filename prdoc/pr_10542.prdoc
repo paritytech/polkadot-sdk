@@ -1,8 +1,0 @@
-title: 'statement-store: Add latency bench'
-doc:
-- audience: Node Dev
-  description: |
-    Adds a latency benchmark for the statement store to measure propagation performance across distributed nodes.
-crates:
-- name: people-westend-runtime
-  bump: patch

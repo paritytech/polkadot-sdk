@@ -24,10 +24,7 @@ mod logging;
 
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	ws_client::{WsClient, WsClientBuilder},
-};
+use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -161,35 +158,34 @@ pub struct OfflineConfig {
 pub enum Transport {
 	/// Use the `URI` to open a new WebSocket connection.
 	Uri(String),
-	/// Use WS connection.
-	RemoteClient(Arc<WsClient>),
+	/// Use HTTP connection.
+	RemoteClient(HttpClient),
 }
 
 impl Transport {
-	fn as_client(&self) -> Option<&WsClient> {
+	fn as_client(&self) -> Option<&HttpClient> {
 		match self {
 			Self::RemoteClient(client) => Some(client),
 			_ => None,
 		}
 	}
 
-	// Build an [`Self::RemoteClient`] from a URI.
+	// Build an HttpClient from a URI.
 	async fn init(&mut self) -> Result<()> {
 		if let Self::Uri(uri) = self {
 			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
 
-			let ws_client = WsClientBuilder::default()
+			let http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
 				.build(uri)
-				.await
 				.map_err(|e| {
 					error!(target: LOG_TARGET, "error: {e:?}");
 					"failed to build http client"
 				})?;
 
-			*self = Self::RemoteClient(Arc::new(ws_client))
+			*self = Self::RemoteClient(http_client)
 		}
 
 		Ok(())
@@ -202,9 +198,9 @@ impl From<String> for Transport {
 	}
 }
 
-impl From<WsClient> for Transport {
-	fn from(client: WsClient) -> Self {
-		Transport::RemoteClient(Arc::new(client))
+impl From<HttpClient> for Transport {
+	fn from(client: HttpClient) -> Self {
+		Transport::RemoteClient(client)
 	}
 }
 
@@ -232,11 +228,11 @@ pub struct OnlineConfig<H> {
 }
 
 impl<H: Clone> OnlineConfig<H> {
-	/// Return rpc (ws) client reference.
-	fn rpc_client(&self) -> &WsClient {
+	/// Return rpc (http) client reference.
+	fn rpc_client(&self) -> &HttpClient {
 		self.transport
 			.as_client()
-			.expect("ws client must have been initialized by now; qed.")
+			.expect("http client must have been initialized by now; qed.")
 	}
 
 	fn at_expected(&self) -> H {
@@ -342,7 +338,7 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 8;
+	const PARALLEL_REQUESTS: usize = 4;
 	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
 	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
 	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
@@ -437,8 +433,7 @@ where
 		let builder = Arc::new(self.clone());
 		let mut handles = vec![];
 
-		for (worker_index, (start_key, end_key)) in start_keys.into_iter().zip(end_keys).enumerate()
-		{
+		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
 			let permit = parallel
 				.clone()
 				.acquire_owned()
@@ -452,13 +447,7 @@ where
 
 			let handle = tokio::spawn(async move {
 				let res = builder
-					.rpc_get_keys_in_range(
-						&prefix,
-						block,
-						start_key.as_ref(),
-						end_key.as_ref(),
-						worker_index,
-					)
+					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
 					.await;
 				drop(permit);
 				res
@@ -490,7 +479,6 @@ where
 		block: B::Hash,
 		start_key: Option<&StorageKey>,
 		end_key: Option<&StorageKey>,
-		worker_index: usize,
 	) -> Result<Vec<StorageKey>> {
 		let mut last_key: Option<&StorageKey> = start_key;
 		let mut keys: Vec<StorageKey> = vec![];
@@ -524,7 +512,7 @@ where
 
 			debug!(
 				target: LOG_TARGET,
-				"new total = {}, full page received: {}, worker = {worker_index}",
+				"new total = {}, full page received: {}",
 				keys.len(),
 				HexDisplay::from(last_key.expect("full page received, cannot be None"))
 			);
@@ -578,7 +566,7 @@ where
 	/// }
 	/// ```
 	async fn get_storage_data_dynamic_batch_size(
-		client: &WsClient,
+		client: &HttpClient,
 		payloads: Vec<(String, ArrayParams)>,
 		bar: &ProgressBar,
 	) -> Result<Vec<Option<StorageData>>, String> {
@@ -779,7 +767,7 @@ where
 
 	/// Get the values corresponding to `child_keys` at the given `prefixed_top_key`.
 	pub(crate) async fn rpc_child_get_storage_paged(
-		client: &WsClient,
+		client: &HttpClient,
 		prefixed_top_key: &StorageKey,
 		child_keys: Vec<StorageKey>,
 		at: B::Hash,
@@ -826,7 +814,7 @@ where
 	}
 
 	pub(crate) async fn rpc_child_get_keys(
-		client: &WsClient,
+		client: &HttpClient,
 		prefixed_top_key: &StorageKey,
 		child_prefix: StorageKey,
 		at: B::Hash,
@@ -1601,12 +1589,12 @@ mod remote_tests {
 		let at = builder.as_online().at.unwrap();
 
 		let prefix = StorageKey(vec![13]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 4).await.unwrap();
 		assert_eq!(paged, para);
 
 		let prefix = StorageKey(vec![]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
 		assert_eq!(paged, para);
 	}

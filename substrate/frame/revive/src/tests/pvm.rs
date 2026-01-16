@@ -679,7 +679,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: contract_base_deposit(&callee_addr),
+						transferred: 2156,
 					}),
 					topics: vec![],
 				},
@@ -2084,7 +2084,7 @@ fn instantiate_with_zero_balance_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
 						dest: Pallet::<Test>::account_id(),
-						transferred: get_code_deposit(&code_hash),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
@@ -2131,7 +2131,7 @@ fn instantiate_with_zero_balance_works() {
 						),
 						source: ALICE,
 						dest: account_id,
-						transferred: contract_base_deposit(&addr),
+						transferred: 337,
 					}),
 					topics: vec![],
 				},
@@ -2173,7 +2173,7 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
 						dest: Pallet::<Test>::account_id(),
-						transferred: get_code_deposit(&code_hash),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
@@ -2229,7 +2229,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						),
 						source: ALICE,
 						dest: account_id.clone(),
-						transferred: contract_base_deposit(&addr),
+						transferred: 337,
 					}),
 					topics: vec![],
 				},

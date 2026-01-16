@@ -200,18 +200,6 @@ impl<T: Config> Pallet<T> {
 			Workplan::<T>::insert((region_begin, first_core), &schedule);
 			first_core.saturating_inc();
 		}
-
-		// Insert ForceReservations at the first free core from the old sale.
-		let mut force_core = old_sale.first_core + old_sale.cores_sold;
-		for schedule in ForceReservations::<T>::take() {
-			if force_core >= status.core_count {
-				Self::deposit_event(Event::<T>::ForceReservationFailed { schedule });
-				continue;
-			}
-			Workplan::<T>::insert((old_sale.region_begin, force_core), &schedule);
-			force_core.saturating_inc();
-		}
-
 		InstaPoolIo::<T>::mutate(region_begin, |r| r.system.saturating_accrue(total_pooled));
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 

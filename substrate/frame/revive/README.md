@@ -101,4 +101,19 @@ Example:
 cargo run --release -- --dev -lerror,runtime::revive::strace=trace,runtime::revive=debug
 ```
 
+## Unstable Interfaces
+
+Driven by the desire to have an iterative approach in developing new contract interfaces this pallet contains the
+concept of an unstable interface. Akin to the rust nightly compiler it allows us to add new interfaces but mark them as
+unstable so that contract languages can experiment with them and give feedback before we stabilize those.
+
+In order to access interfaces which don't have a stable `#[stable]` in [`runtime.rs`](src/vm/runtime.rs)
+one need to set `pallet_revive::Config::UnsafeUnstableInterface` to `ConstU32<true>`.
+**It should be obvious that any production runtime should never be compiled with this feature: In addition to be
+subject to change or removal those interfaces might not have proper weights associated with them and are therefore
+considered unsafe**.
+
+New interfaces are generally added as unstable and might go through several iterations before they are promoted to a
+stable interface.
+
 License: Apache-2.0

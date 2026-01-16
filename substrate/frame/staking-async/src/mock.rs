@@ -52,7 +52,6 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
-		Dap: pallet_dap,
 	}
 );
 
@@ -83,7 +82,6 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
-	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -110,15 +108,6 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-}
-
-parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-}
-
-impl pallet_dap::Config for Test {
-	type Currency = Balances;
-	type PalletId = DapPalletId;
 }
 
 parameter_types! {
@@ -456,7 +445,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type BondingDuration = BondingDuration;
-	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxEraDuration = MaxEraDuration;
@@ -466,7 +454,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = Dap;
+	type Slash = ();
 	type WeightInfo = ();
 }
 
@@ -505,7 +493,6 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
-	nominators_slashable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -521,7 +508,6 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
-			nominators_slashable: true,
 		}
 	}
 }
@@ -566,10 +552,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
-		self
-	}
-	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
-		self.nominators_slashable = slashable;
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -714,13 +696,9 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let _ = pallet_dap::GenesisConfig::<Test>::default().assimilate_storage(&mut storage);
-
 		let mut ext = sp_io::TestExternalities::from(storage);
-		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
-			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {

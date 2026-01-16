@@ -48,16 +48,12 @@ sp-genesis-builder = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-jemalloc-shim = { workspace = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-client-consensus-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 yet-another-parachain-runtime = { workspace = true }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -67,7 +63,6 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
-jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",

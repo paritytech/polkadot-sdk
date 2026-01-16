@@ -201,7 +201,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn migrate_currency() -> Weight {
 		unreachable!()
 	}
-	fn apply_slash(_n: u32) -> Weight {
+	fn apply_slash() -> Weight {
 		Default::default()
 	}
 	fn process_offence_queue() -> Weight {
@@ -231,10 +231,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn prune_era_reward_points() -> Weight {
 		unreachable!()
 	}
-	fn prune_era_single_entry_cleanups() -> Weight {
-		unreachable!()
-	}
-	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
+	fn prune_era_total_stake() -> Weight {
 		unreachable!()
 	}
 }

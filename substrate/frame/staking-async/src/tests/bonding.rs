@@ -522,7 +522,16 @@ fn unbonding_multi_chunk() {
 fn full_unbonding_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(asset::free_to_stake::<T>(&11), 0);
-		// fully unbonding a validator auto-chills first
+		// cannot fully unbond as they are a validator
+		assert_noop!(
+			Staking::unbond(RuntimeOrigin::signed(11), 1000),
+			Error::<T>::InsufficientBond
+		);
+
+		// first chill
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
+
+		// then fully unbond
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -543,53 +552,6 @@ fn full_unbonding_works() {
 		// storage is clean, balance is unheld
 		StakingLedger::<T>::assert_stash_killed(11);
 		assert_eq!(asset::free_to_stake::<T>(&11), 1000);
-	});
-}
-
-/// Test that full unbond auto-chills and removes the validator from the set.
-/// This test was added in https://github.com/paritytech/polkadot-sdk/pull/3811.
-#[test]
-fn unbond_with_chill_works() {
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
-		// Set payee to stash.
-		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
-
-		// Give account 11 some large free balance greater than total
-		let _ = asset::stakeable_balance::<T>(&11);
-		asset::set_stakeable_balance::<T>(&11, 1000000);
-
-		// confirm that 11 is a normal validator
-		assert!(Validators::<T>::contains_key(11));
-		let initial_validator_count = Validators::<T>::count();
-
-		// Initial state of 11
-		assert_eq!(
-			Staking::ledger(11.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default()
-			}
-		);
-
-		Session::roll_until_active_era(2);
-		assert_eq!(active_era(), 2);
-
-		let _ = staking_events_since_last_call();
-
-		// Unbond all amount - should auto-chill
-		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![Event::Chilled { stash: 11 }, Event::Unbonded { stash: 11, amount: 1000 }]
-		);
-
-		// Validator is removed from the set
-		assert!(!Validators::<T>::contains_key(11));
-		assert!(Nominators::<T>::get(11).is_none());
-		assert_eq!(Validators::<T>::count(), initial_validator_count - 1);
 	});
 }
 
@@ -1693,7 +1655,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
-					ConfigOp::Noop,
 				));
 
 				// Can't chill these users
@@ -1711,7 +1672,6 @@ mod staking_bounds_chill_other {
 					RuntimeOrigin::root(),
 					ConfigOp::Set(1_500),
 					ConfigOp::Set(2_000),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1739,7 +1699,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1760,7 +1719,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 				));
@@ -1785,7 +1743,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1806,7 +1763,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 				));
@@ -1831,7 +1787,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1852,7 +1807,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
 					ConfigOp::Set(Percent::from_percent(75)),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 				));
@@ -1902,7 +1856,6 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(max),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
 
@@ -1972,7 +1925,6 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,

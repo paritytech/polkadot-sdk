@@ -1153,9 +1153,6 @@ impl_runtime_apis! {
 					(keys.keys, keys.proof.encode())
 				}
 			}
-
-			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
-
 			use xcm_config::WndLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 

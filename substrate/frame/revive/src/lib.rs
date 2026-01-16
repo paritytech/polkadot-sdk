@@ -260,6 +260,18 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AddressMapper: AddressMapper<Self>;
 
+		/// Make contract callable functions marked as `#[unstable]` available.
+		///
+		/// Contracts that use `#[unstable]` functions won't be able to be uploaded unless
+		/// this is set to `true`. This is only meant for testnets and dev nodes in order to
+		/// experiment with new features.
+		///
+		/// # Warning
+		///
+		/// Do **not** set to `true` on productions chains.
+		#[pallet::constant]
+		type UnsafeUnstableInterface: Get<bool>;
+
 		/// Allow EVM bytecode to be uploaded and instantiated.
 		#[pallet::constant]
 		type AllowEVMBytecode: Get<bool>;
@@ -426,6 +438,7 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
+			type UnsafeUnstableInterface = ConstBool<true>;
 			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;

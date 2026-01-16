@@ -45,8 +45,6 @@ construct_runtime! {
 		MultiBlockVerifier: multi_block::verifier,
 		MultiBlockSigned: multi_block::signed,
 		MultiBlockUnsigned: multi_block::unsigned,
-
-		Dap: pallet_dap,
 	}
 }
 
@@ -419,7 +417,6 @@ impl multi_block::signed::Config for Runtime {
 
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
-	pub static NominatorFastUnbondDuration: u32 = 2;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
 	// Begin election as soon as a new era starts.
@@ -434,7 +431,6 @@ impl pallet_staking_async::Config for Runtime {
 
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type BondingDuration = BondingDuration;
-	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
 
@@ -449,7 +445,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
-	type Slash = Dap;
+	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;
@@ -476,15 +472,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
-}
-
-parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-}
-
-impl pallet_dap::Config for Runtime {
-	type Currency = Balances;
-	type PalletId = DapPalletId;
 }
 
 parameter_types! {

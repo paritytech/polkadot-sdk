@@ -85,7 +85,6 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
-	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-derivatives?/std",
@@ -283,7 +282,6 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
-	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
 	"pallet-derivatives?/runtime-benchmarks",
@@ -425,7 +423,6 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
-	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-derivatives?/try-runtime",
@@ -639,7 +636,6 @@ runtime-full = [
 	"pallet-contracts-uapi",
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
-	"pallet-dap",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -916,6 +912,8 @@ node = [
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
 	"polkadot-node-core-pvf-common",
+	"polkadot-node-core-pvf-execute-worker",
+	"polkadot-node-core-pvf-prepare-worker",
 	"polkadot-node-core-runtime-api",
 	"polkadot-node-metrics",
 	"polkadot-node-network-protocol",
@@ -1418,11 +1416,6 @@ path = "../substrate/frame/conviction-voting"
 default-features = false
 optional = true
 path = "../substrate/frame/core-fellowship"
-
-[dependencies.pallet-dap]
-default-features = false
-optional = true
-path = "../substrate/frame/dap"
 
 [dependencies.pallet-delegated-staking]
 default-features = false
@@ -2478,6 +2471,16 @@ path = "../polkadot/node/core/pvf-checker"
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/common"
+
+[dependencies.polkadot-node-core-pvf-execute-worker]
+default-features = false
+optional = true
+path = "../polkadot/node/core/pvf/execute-worker"
+
+[dependencies.polkadot-node-core-pvf-prepare-worker]
+default-features = false
+optional = true
+path = "../polkadot/node/core/pvf/prepare-worker"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false
