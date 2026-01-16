@@ -1116,7 +1116,6 @@ fn expand_benchmark(
 				// benchmark setup code
 				#(
 					#setup_stmts
-					recording.on_setup_stmt_complete();
 				)*
 				#pre_call
 				recording.start();

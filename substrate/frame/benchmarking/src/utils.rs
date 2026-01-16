@@ -284,12 +284,20 @@ pub trait Benchmarking {
 
 	/// Reset the trie database to the genesis state.
 	fn wipe_db(&mut self) {
-		self.wipe()
+		self.wipe();
 	}
 
 	/// Commit pending storage changes to the trie database and clear the database cache.
 	fn commit_db(&mut self) {
-		self.commit()
+		self.commit();
+
+		// Warmup the memory allocator after bulk deallocation.
+		// After draining the overlay with many entries, the first new allocation
+		// can trigger memory defragmentation. Do a dummy write/clear cycle to
+		// absorb this overhead before timing starts.
+		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
+		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
+		self.place_storage(WARMUP_KEY.to_vec(), None);
 	}
 
 	/// Get the read/write count.
@@ -377,10 +385,6 @@ pub trait Recording {
 
 	// Stop the benchmark.
 	fn stop(&mut self) {}
-
-	/// Called after each setup statement completes.
-	/// In actual benchmarks, this commits the DB to prevent timing leaks.
-	fn on_setup_stmt_complete(&self) {}
 }
 
 /// A no-op recording, used for unit test.
@@ -435,10 +439,6 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 	fn stop(&mut self) {
 		self.finish_extrinsic = Some(current_time());
 		self.end_pov = crate::benchmarking::proof_size();
-	}
-
-	fn on_setup_stmt_complete(&self) {
-		crate::benchmarking::commit_db();
 	}
 }
 
