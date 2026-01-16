@@ -68,12 +68,6 @@
   cumulus-image: "polkadot-parachain-debug"
   use-zombienet-sdk: true
 
-- job-name: "zombienet-cumulus-0012-parachain_extrinsic_gets_finalized"
-  test-filter: "zombie_ci::parachain_extrinsic_get_finalized::parachain_extrinsic_gets_finalized"
-  runner-type: "default"
-  cumulus-image: "polkadot-parachain-debug"
-  use-zombienet-sdk: true
-
 - job-name: "zombienet-cumulus-0013-elastic_scaling_slot_based_rp_offset"
   test-filter: "zombie_ci::elastic_scaling::slot_based_rp_offset::elastic_scaling_slot_based_relay_parent_offset_test"
   runner-type: "default"
