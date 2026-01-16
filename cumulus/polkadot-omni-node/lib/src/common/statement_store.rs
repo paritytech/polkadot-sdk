@@ -76,7 +76,7 @@ pub(crate) fn build_statement_store<
 	let statement_protocol_executor = {
 		let spawn_handle = task_manager.spawn_handle();
 		Box::new(move |fut| {
-			spawn_handle.spawn_blocking("network-statement-validator", Some("networking"), fut);
+			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
 		})
 	};
 	let statement_handler = statement_handler_proto.build(
