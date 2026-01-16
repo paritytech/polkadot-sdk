@@ -23,7 +23,7 @@ use crate::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
 			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, UNDER_THRESHOLD_FETCH_DELAY,
+			MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 	},
@@ -120,6 +120,33 @@ impl FetchedCollation {
 		}
 
 		Ok(())
+	}
+}
+
+/// Represents an advertisement which we have accepted. Supports ordering of the advertisements.
+///
+/// Ordering priority: score (descending), then timestamp (ascending), then advertisement as
+/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best advertisement.
+#[derive(PartialEq, Eq)]
+struct AcceptedAdvertisement<'a> {
+	adv: &'a Advertisement,
+	score: Score,
+	timestamp: &'a Instant,
+}
+
+impl<'a> Ord for AcceptedAdvertisement<'a> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		other
+			.score
+			.cmp(&self.score) // Descending: higher score comes first
+			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
+			.then_with(|| self.adv.cmp(other.adv))
+	}
+}
+
+impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
 	}
 }
 
@@ -644,6 +671,41 @@ impl CollationManager {
 		(peer_id, unblocked_can_second)
 	}
 
+	// Calculates a linear amount of delay for collators with score less than the max score for the
+	// para:
+	//
+	// delay = MAX_ACCEPTABLE_DELAY * (1 - collator_score/max_score_for_para)
+	//
+	// which roughly looks like this:
+	//
+	// delay
+	// |\
+	// | \
+	// |-- +
+	// |   | \
+	// |___|___\___________________ score
+	//.    ^    ^ max_score_for_para
+	//.    ^collator_score
+	//.
+	// In plain English: apply some delay, if the collator's score is less than the max one for the
+	// para. Otherwise fetch immediately.
+	fn calculate_delay(collator_score: Score, max_score_for_para: Score) -> Duration {
+		if collator_score > max_score_for_para {
+			gum::warn!(
+				target: LOG_TARGET,
+				?collator_score,
+				?max_score_for_para,
+				"Collator score exceeds recorded max score for para"
+			);
+			
+			return Duration::ZERO;
+		}
+
+		let ratio = collator_score.ratio(&max_score_for_para);
+		let delay_ms = MAX_FETCH_DELAY.as_millis() as f32 * (1_f32 - ratio);
+		Duration::from_millis(delay_ms as u64)
+	}
+
 	/// Tries to find the best available advertisement for the provided parachain.
 	///
 	/// If there are no advertisements, returns `Either::Left(None)`.
@@ -659,7 +721,6 @@ impl CollationManager {
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
 	) -> Either<Option<Advertisement>, Duration> {
-		let instant_fetch_rep = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
 		let advertisements = self
 			.per_relay_parent
 			.iter()
@@ -672,59 +733,26 @@ impl CollationManager {
 					return None;
 				}
 
-				let duration_since_adv = now.duration_since(*adv_timestamp);
-				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
-					.checked_sub(duration_since_adv)
-					.unwrap_or(Duration::ZERO);
-				Some((adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id)?, fetch_delay))
-			});
+				Some(AcceptedAdvertisement {
+					adv,
+					score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
+					timestamp: adv_timestamp,
+				})
+			})
+			.collect::<BTreeSet<_>>();
 
-		let mut maybe_best_adv = None;
-		let mut min_delay = UNDER_THRESHOLD_FETCH_DELAY;
-		for adv_tuple in advertisements {
-			let (_, peer_rep, fetch_delay) = adv_tuple;
-			let (_, best_adv_peer_rep, best_adv_fetch_delay) =
-				maybe_best_adv.get_or_insert(adv_tuple);
-
-			min_delay = std::cmp::min(min_delay, fetch_delay);
-
-			let can_fetch_best_adv =
-				best_adv_fetch_delay.is_zero() || *best_adv_peer_rep >= instant_fetch_rep;
-			let can_fetch_adv = fetch_delay.is_zero() || peer_rep >= instant_fetch_rep;
-			// We look at 2 conditions:
-			// - if the best advertisement so far can be instantly fetched
-			// - if the current advertisement can be instantly fetched
-			match (can_fetch_best_adv, can_fetch_adv) {
-				// If both are `true` or both are `false`, we compare the peer reps to determine
-				// which one is better.
-				(true, true) | (false, false) =>
-					if peer_rep > *best_adv_peer_rep {
-						maybe_best_adv = Some(adv_tuple);
-					},
-				// If the best advertisement so far can't be instantly fetched,
-				// but the current advertisement can, the current one is better,
-				// no matter the peer rep.
-				(false, true) => maybe_best_adv = Some(adv_tuple),
-				_ => {},
-			}
-		}
-
-		let Some((advertisement, peer_rep, fetch_delay)) = maybe_best_adv else {
-			return Either::Left(None);
+		let best_advertisement = match advertisements.first() {
+			Some(adv) => adv,
+			None => return Either::Left(None),
 		};
 
-		if fetch_delay.is_zero() || peer_rep >= instant_fetch_rep {
-			return Either::Left(Some(*advertisement));
-		}
+		let delay = Self::calculate_delay(best_advertisement.score, highest_rep_of_para);
 
-		gum::debug!(
-			target: LOG_TARGET,
-			?fetch_delay,
-			?peer_rep,
-			?highest_rep_of_para,
-			"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
-		);
-		Either::Right(min_delay)
+		if *best_advertisement.timestamp + delay <= now {
+			Either::Left(Some(*best_advertisement.adv))
+		} else {
+			Either::Right(delay)
+		}
 	}
 
 	async fn get_our_core<Sender: CollatorProtocolSenderTrait>(
@@ -1196,42 +1224,167 @@ mod tests {
 	use super::*;
 	use std::sync::Arc;
 
-	#[tokio::test]
-	async fn pick_best_advertisement_works() {
+	#[test]
+	fn calculate_delay_works() {
+		let score = |val: u16| Score::new(val).unwrap();
+
+		// collator score == max score => zero delay
+		assert_eq!(
+			CollationManager::calculate_delay(score(MAX_SCORE), score(MAX_SCORE)),
+			Duration::ZERO
+		);
+
+		// collator score == 0 => MAX_FETCH_DELAY
+		assert_eq!(CollationManager::calculate_delay(score(0), score(MAX_SCORE)), MAX_FETCH_DELAY);
+
+		// collator score == 1/2 MAX_SCORE => 1/2 MAX_FETCH_DELAY
+		assert_eq!(
+			CollationManager::calculate_delay(score(MAX_SCORE / 2), score(MAX_SCORE)),
+			MAX_FETCH_DELAY / 2
+		);
+
+		// collator score == 3/4 MAX_SCORE => 1/4 MAX_FETCH_DELAY.
+		assert_eq!(
+			CollationManager::calculate_delay(score(MAX_SCORE * 3 / 4), score(MAX_SCORE)),
+			MAX_FETCH_DELAY / 4
+		);
+
+		// collator score == 1/4 MAX_SCORE => 3/4 MAX_FETCH_DELAY.
+		assert_eq!(
+			CollationManager::calculate_delay(score(MAX_SCORE / 4), score(MAX_SCORE)),
+			MAX_FETCH_DELAY * 3 / 4
+		);
+
+		// collator score at 10% of max => 90% delay
+		assert_eq!(
+			CollationManager::calculate_delay(score(MAX_SCORE / 10), score(MAX_SCORE)),
+			MAX_FETCH_DELAY * 9 / 10
+		);
+	}
+
+	#[test]
+	fn accepted_advertisement_ordering() {
+		use std::cmp::Ordering;
+
+		let score = |val: u16| Score::new(val).unwrap();
+		let now = Instant::now();
+		let later = now + Duration::from_secs(1);
+
 		let relay_parent = Hash::random();
 		let para_id = ParaId::new(1);
 
-		let now = Instant::now();
-		let no_fetch_delay = now.checked_sub(UNDER_THRESHOLD_FETCH_DELAY).unwrap();
-		let small_fetch_delay = no_fetch_delay.checked_add(Duration::from_millis(1)).unwrap();
-		let instant_fetch_threshold = INSTANT_FETCH_REP_THRESHOLD;
+		let make_adv = |peer_id: PeerId| Advertisement {
+			relay_parent,
+			para_id,
+			peer_id,
+			prospective_candidate: None,
+		};
 
 		let peer_1 = PeerId::random();
 		let peer_2 = PeerId::random();
-		let peer_3 = PeerId::random();
-		let peer_4 = PeerId::random();
-		let trusted_peer = PeerId::random();
 
-		assert!(INSTANT_FETCH_REP_THRESHOLD > Score::new(100).unwrap());
+		let adv_1 = make_adv(peer_1);
+		let adv_2 = make_adv(peer_2);
 
-		let get_peer_rep = |peer_id: &PeerId, _para_id: &ParaId| -> Option<Score> {
-			match peer_id {
-				peer if peer == &peer_1 => Some(Score::new(50).unwrap()),
-				peer if peer == &peer_2 => Some(Score::new(75).unwrap()),
-				peer if peer == &peer_3 => Some(Score::new(99).unwrap()),
-				peer if peer == &peer_4 => Some(Score::new(100).unwrap()),
-				peer if peer == &trusted_peer => Some(Score::new(MAX_SCORE).unwrap()),
-				_ => None,
-			}
-		};
-		let adv = |peer: PeerId| Advertisement {
+		// Different scores - higher score comes first (is "less").
+		{
+			let high_score =
+				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let low_score =
+				AcceptedAdvertisement { adv: &adv_2, score: score(50), timestamp: &now };
+
+			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
+			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
+		}
+
+		// Same score, different timestamps - earlier timestamp comes first.
+		{
+			let earlier = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let later = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &later };
+
+			assert_eq!(earlier.cmp(&later), Ordering::Less);
+			assert_eq!(later.cmp(&earlier), Ordering::Greater);
+		}
+
+		// Same score, same timestamp - falls back to advertisement comparison.
+		{
+			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let acc_2 = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now };
+
+			// Result depends on advertisement Ord, but must be consistent and not Equal.
+			let cmp_result = acc_1.cmp(&acc_2);
+			assert_ne!(cmp_result, Ordering::Equal);
+			assert_eq!(acc_2.cmp(&acc_1), cmp_result.reverse());
+		}
+
+		// Same advertisement, same score, same timestamp - should be Equal.
+		{
+			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let acc_2 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+
+			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
+		}
+
+		// BTreeSet ordering - first() should return highest score.
+		{
+			let adv_3 = make_adv(PeerId::random());
+			let adv_4 = make_adv(PeerId::random());
+
+			let advertisements = [
+				AcceptedAdvertisement { adv: &adv_1, score: score(50), timestamp: &now },
+				AcceptedAdvertisement { adv: &adv_2, score: score(200), timestamp: &now },
+				AcceptedAdvertisement { adv: &adv_3, score: score(100), timestamp: &now },
+				AcceptedAdvertisement { adv: &adv_4, score: score(150), timestamp: &later },
+			]
+			.into_iter()
+			.collect::<BTreeSet<_>>();
+
+			let first = advertisements.first().unwrap();
+			assert_eq!(first.score, score(200));
+		}
+
+		// BTreeSet with same scores - first() returns earliest timestamp.
+		{
+			let adv_3 = make_adv(PeerId::random());
+
+			let advertisements: BTreeSet<_> = [
+				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &later },
+				AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now },
+				AcceptedAdvertisement { adv: &adv_3, score: score(50), timestamp: &now },
+			]
+			.into_iter()
+			.collect();
+
+			let first = advertisements.first().unwrap();
+			assert_eq!(first.score, score(100), "First should have score 100");
+			assert_eq!(first.timestamp, &now, "First should have earlier timestamp");
+		}
+	}
+
+	#[test]
+	fn pick_best_advertisement_works() {
+		let relay_parent = Hash::random();
+		let para_id = ParaId::new(1);
+		let score = |val: u16| Score::new(val).unwrap();
+
+		let now = Instant::now();
+		// Timestamp far enough in the past that any delay has passed.
+		let old_timestamp = now.checked_sub(MAX_FETCH_DELAY).unwrap();
+		// Timestamp recent enough that delay hasn't passed.
+		let recent_timestamp = now;
+
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+		let peer_c = PeerId::random();
+
+		let make_adv = |peer: PeerId| Advertisement {
 			relay_parent,
 			para_id,
 			peer_id: peer,
 			prospective_candidate: None,
 		};
 
-		let mut collation_manager = CollationManager {
+		let new_collation_manager_instance = || CollationManager {
 			implicit_view: ImplicitView::new(None),
 			claim_queue_state: PerLeafClaimQueueState::new(),
 			per_relay_parent: HashMap::from([(relay_parent, PerRelayParent::new(0, CoreIndex(0)))]),
@@ -1241,126 +1394,183 @@ mod tests {
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 		};
 
-		// available advertisements:
-		// - peer 1 (rep: 50), fetch_delay: 1 ms
-		// - peer 2 (rep: 75), fetch_delay: 1 ms
-		// - peer 3 (rep: 99), fetch_delay: 1 ms
-		// - peer 4 (rep: 100), fetch_delay: 1 ms
-		// - trusted_peer (rep: MAX), no fetch delay
-		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-		per_rp.add_advertisement(adv(peer_1), small_fetch_delay);
-		per_rp.add_advertisement(adv(peer_2), small_fetch_delay);
-		per_rp.add_advertisement(adv(peer_3), small_fetch_delay);
-		per_rp.add_advertisement(adv(peer_4), small_fetch_delay);
-		per_rp.add_advertisement(adv(trusted_peer), small_fetch_delay);
+		// No advertisements - returns Left(None).
+		{
+			let collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
-		// We should fetch the advertisement from the trusted peer first.
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(None)
+			);
+		}
+
+		// Single advertisement with delay passed - returns the advertisement.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
+
+			collation_manager
+				.per_relay_parent
+				.get_mut(&relay_parent)
+				.unwrap()
+				.add_advertisement(make_adv(peer_a), old_timestamp);
+
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100), // highest_rep == peer's score, so delay = 0
+					&get_rep,
+				),
+				Either::Left(Some(make_adv(peer_a)))
+			);
+		}
+
+		// Single advertisement with delay not passed - returns Right(delay).
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+
+			collation_manager
+				.per_relay_parent
+				.get_mut(&relay_parent)
+				.unwrap()
+				.add_advertisement(make_adv(peer_a), recent_timestamp);
+
+			// highest_rep = 100, peer's score = 50, so delay = MAX_FETCH_DELAY * 0.5
+			let result = collation_manager.pick_best_advertisement(
 				now,
 				relay_parent,
 				&[relay_parent],
 				para_id,
-				Score::new(1000).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Left(Some(adv(trusted_peer)))
-		);
+				score(100),
+				&get_rep,
+			);
 
-		// Instant fetch rep: 1000
-		// We shouldn't have any advertisement that can be instantly fetched
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
-				now,
-				relay_parent,
-				&[relay_parent],
-				para_id,
-				Score::new(1000).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Right(small_fetch_delay.duration_since(no_fetch_delay))
-		);
+			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 2));
+		}
 
-		// available advertisements:
-		// - peer 1 (rep: 50), fetch_delay: 1 ms
-		// - peer 1 (rep: 75), fetch_delay: 1 ms
-		// - peer 1 (rep: 99), fetch_delay: 1 ms
-		// - peer 1 (rep: 100), fetch_delay: 1 ms
-		// Instant fetch rep: 50
-		// All the advertisements can be instantly fetched. We should pick the one with the highest
-		// score.
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
-				now,
-				relay_parent,
-				&[relay_parent],
-				para_id,
-				Score::new(50).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Left(Some(adv(peer_4)))
-		);
+		// Multiple advertisements - picks highest score.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let peer_a_clone = peer_a;
+			let peer_b_clone = peer_b;
+			let peer_c_clone = peer_c;
+			let get_rep = move |peer: &PeerId, _: &ParaId| {
+				if *peer == peer_a_clone {
+					Some(score(50))
+				} else if *peer == peer_b_clone {
+					Some(score(100))
+				} else if *peer == peer_c_clone {
+					Some(score(75))
+				} else {
+					None
+				}
+			};
 
-		// available advertisements:
-		// - peer 1 (rep: 50), fetch_delay: 1 ms
-		// - peer 1 (rep: 75), fetch_delay: 1 ms
-		// - peer 1 (rep: 99), fetch_delay: 1 ms
-		// - peer 1 (rep: 100), fetch_delay: 1 ms
-		// Instant fetch rep: 100
-		// Only the advertisement with rep 100 can be fetched.
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
-				now,
-				relay_parent,
-				&[relay_parent],
-				para_id,
-				Score::new(100).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Left(Some(adv(peer_4)))
-		);
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.add_advertisement(make_adv(peer_a), old_timestamp);
+			per_rp.add_advertisement(make_adv(peer_b), old_timestamp);
+			per_rp.add_advertisement(make_adv(peer_c), old_timestamp);
 
-		// available advertisements:
-		// - peer 1 (rep: 50), fetch_delay: 0 ms
-		// - peer 1 (rep: 75), fetch_delay: 1 ms
-		// - peer 1 (rep: 99), fetch_delay: 1 ms
-		// - peer 1 (rep: 100), fetch_delay: 1 ms
-		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-		per_rp.add_advertisement(adv(peer_1), no_fetch_delay);
-		// Instant fetch rep: 1000
-		// Only the advertisement with no fetch delay can be instantly fetched.
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
-				now,
-				relay_parent,
-				&[relay_parent],
-				para_id,
-				Score::new(1000).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Left(Some(adv(peer_1)))
-		);
+			// All have old timestamps, so delay has passed. Should pick peer_b (highest score).
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(Some(make_adv(peer_b)))
+			);
+		}
 
-		// available advertisements:
-		// - peer 1 (rep: 50), fetch_delay: 0 ms
-		// - peer 2 (rep: 75), fetch_delay: 0 ms
-		// - peer 3 (rep: 99), fetch_delay: 1 ms
-		// - peer 4 (rep: 100), fetch_delay: 1 ms
-		let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-		per_rp.add_advertisement(adv(peer_2), no_fetch_delay);
-		// Instant fetch rep: 1000
-		// The advertisement with the highest score out of the 2 with 0 fetch delay should be
-		// fetched.
-		assert_eq!(
-			collation_manager.pick_best_advertisement(
-				now,
-				relay_parent,
-				&[relay_parent],
-				para_id,
-				Score::new(1000).unwrap(),
-				&get_peer_rep,
-			),
-			Either::Left(Some(adv(peer_2)))
-		);
+		// Same score - picks earlier timestamp.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
+
+			let earlier = old_timestamp;
+			let later = old_timestamp + Duration::from_secs(1);
+
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.add_advertisement(make_adv(peer_a), later);
+			per_rp.add_advertisement(make_adv(peer_b), earlier);
+
+			// Same score, peer_b has earlier timestamp.
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(Some(make_adv(peer_b)))
+			);
+		}
+
+		// Unknown peer (get_rep returns None) - advertisement is filtered out.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| -> Option<Score> { None };
+
+			collation_manager
+				.per_relay_parent
+				.get_mut(&relay_parent)
+				.unwrap()
+				.add_advertisement(make_adv(peer_a), old_timestamp);
+
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(None)
+			);
+		}
+
+		// Relay parent not in allowed_rps - no advertisements found.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
+			let other_relay_parent = Hash::random();
+
+			collation_manager
+				.per_relay_parent
+				.get_mut(&relay_parent)
+				.unwrap()
+				.add_advertisement(make_adv(peer_a), old_timestamp);
+
+			// Pass different relay parent in allowed_rps.
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[other_relay_parent], // relay_parent not included
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(None)
+			);
+		}
 	}
 }

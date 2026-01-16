@@ -60,15 +60,9 @@ pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX
 /// Slashing value for an invalid collation.
 pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
 
-/// Minimum reputation threshold that warrants an instant fetch.
-pub const INSTANT_FETCH_REP_THRESHOLD: Score =
-	Score::new(1800).expect("1800 is less than MAX_SCORE");
-
-/// Delay for fetching collations when the reputation score is below the threshold
-/// defined by `INSTANT_FETCH_REP_THRESHOLD`.
-/// This gives us a chance to fetch collations from other peers with higher reputation
-/// before we try to fetch from this peer.
-pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(300);
+/// The maximum acceptable delay which can be applied on an advertisement from a collator with score
+/// less than the maximum score for the parachain.
+pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
 
 /// The minimum interval after which we may want to stop the main loop in order to fetch available
 /// advertised collations.
@@ -97,6 +91,11 @@ impl Score {
 	/// Subtract `val` from the inner value, saturating at 0.
 	pub fn saturating_sub(&mut self, val: u16) {
 		self.0 = self.0.saturating_sub(val);
+	}
+
+	/// Returns the ration (self / rhs) between the current score and rhs.
+	pub fn ratio(&self, rhs: &Self) -> f32 {
+		self.0 as f32 / rhs.0 as f32
 	}
 }
 
