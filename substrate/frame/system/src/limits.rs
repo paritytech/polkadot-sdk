@@ -40,22 +40,39 @@ pub struct BlockLength {
 	/// In the worst case, the total block length is going to be:
 	/// `MAX(max)`
 	pub max: PerDispatchClass<u32>,
+	/// Optional maximum header size in bytes.
+	///
+	/// It is still possible that a header goes above this limit, if the runtime deposits to may
+	/// digests in the header. However, it is assumed that the runtime restricts the access for
+	/// depositing digests in the header.
+	///
+	/// If None, defaults to 20% of max block length.
+	pub max_header_size: Option<u32>,
 }
 
 impl Default for BlockLength {
 	fn default() -> Self {
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, DEFAULT_NORMAL_RATIO)
+		let mut max = PerDispatchClass::new(|_| 5 * 1024 * 1024);
+		*max.get_mut(DispatchClass::Normal) =
+			DEFAULT_NORMAL_RATIO * *max.get_mut(DispatchClass::Normal);
+
+		Self { max, max_header_size: None }
 	}
 }
 
 impl BlockLength {
 	/// Create new `BlockLength` with `max` for every class.
+	#[deprecated(since = "TBD", note = "Use `BlockLength::builder().max(value).build()` instead")]
 	pub fn max(max: u32) -> Self {
-		Self { max: PerDispatchClass::new(|_| max) }
+		Self { max: PerDispatchClass::new(|_| max), max_header_size: None }
 	}
 
 	/// Create new `BlockLength` with `max` for `Operational` & `Mandatory`
 	/// and `normal * max` for `Normal`.
+	#[deprecated(
+		since = "TBD",
+		note = "Use `BlockLength::builder().normal_ratio(value, ratio).build()` instead"
+	)]
 	pub fn max_with_normal_ratio(max: u32, normal: Perbill) -> Self {
 		Self {
 			max: PerDispatchClass::new(|class| {
@@ -65,7 +82,59 @@ impl BlockLength {
 					max
 				}
 			}),
+			max_header_size: None,
 		}
+	}
+
+	/// Returns a builder to build a [`BlockLength`].
+	pub fn builder() -> BlockLengthBuilder {
+		BlockLengthBuilder { length: Default::default() }
+	}
+
+	/// Returns the maximum header size.
+	pub fn max_header_size(&self) -> u32 {
+		self.max_header_size.unwrap_or_else(|| {
+			let max_block_len = *self
+				.max
+				.get(DispatchClass::Normal)
+				.max(self.max.get(DispatchClass::Operational))
+				.max(self.max.get(DispatchClass::Mandatory));
+			max_block_len / 5
+		})
+	}
+}
+
+/// Builder for [`BlockLength`].
+pub struct BlockLengthBuilder {
+	length: BlockLength,
+}
+
+impl BlockLengthBuilder {
+	/// Set max block length for all classes.
+	pub fn max_length(mut self, max: u32) -> Self {
+		self.length.max = PerDispatchClass::new(|_| max);
+		self
+	}
+
+	/// Modify max block length for the given [`DispatchClass`].
+	pub fn modify_max_length_for_class(
+		mut self,
+		class: DispatchClass,
+		modify: impl Fn(&mut u32),
+	) -> Self {
+		modify(self.length.max.get_mut(class));
+		self
+	}
+
+	/// Set the max header size.
+	pub fn max_header_size(mut self, size: u32) -> Self {
+		self.length.max_header_size = Some(size);
+		self
+	}
+
+	/// Build the final [`BlockLength`].
+	pub fn build(self) -> BlockLength {
+		self.length
 	}
 }
 

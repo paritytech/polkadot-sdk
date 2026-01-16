@@ -1054,12 +1054,11 @@ fn deposit_log_updates_all_extrinsics_len() {
 }
 
 #[test]
-#[should_panic(expected = "Inherent digest size")]
-fn inherent_digest_exceeding_20_percent_of_block_length_panics() {
+#[should_panic(expected = "Header size")]
+fn inherent_digest_exceeding_max_header_size_panics() {
 	new_test_ext().execute_with(|| {
-		// Mock has max block length of 1024, so 20% is 204 bytes.
-		// Create a digest larger than that.
-		let large_data = vec![42u8; 250];
+		let max_header_size = RuntimeBlockLength::get().max_header_size();
+		let large_data = vec![42u8; max_header_size as usize + 10];
 		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] };
 
 		System::initialize(&1, &[0u8; 32].into(), &digest);

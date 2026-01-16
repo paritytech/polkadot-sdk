@@ -785,7 +785,8 @@ fn validate_block_rejects_huge_header_single_block() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 
-		let digest_data_exceeding_max_head_data_size = vec![0u8; 1_048_576 + 1024];
+		let digest_data_exceeding_max_head_data_size =
+			vec![0u8; relay_chain::MAX_HEAD_DATA_SIZE as usize + 1024];
 		let pre_digests =
 			vec![DigestItem::PreRuntime(*b"TEST", digest_data_exceeding_max_head_data_size)];
 

@@ -67,11 +67,16 @@ where
 }
 
 const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
+const MAX_BLOCK_LENGTH: u32 = 4 * 1024 * 1024;
 parameter_types! {
 	pub BlockWeights: limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
-	pub BlockLength: limits::BlockLength =
-		limits::BlockLength::max_with_normal_ratio(4 * 1024 * 1024, NORMAL_RATIO);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(MAX_BLOCK_LENGTH)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = NORMAL_RATIO * MAX_BLOCK_LENGTH
+		})
+		.build();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

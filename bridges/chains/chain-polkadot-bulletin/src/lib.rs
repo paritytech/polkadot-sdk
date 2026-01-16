@@ -166,10 +166,12 @@ parameter_types! {
 	// Note: Max transaction size is 8 MB. Set max block size to 10 MB to facilitate data storage.
 	// This is double the "normal" Relay Chain block length limit.
 	/// Maximal block length at Polkadot Bulletin chain.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		10 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(10 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * 10 * 1024 * 1024
+		})
+		.build();
 }
 
 /// Polkadot Bulletin Chain declaration.

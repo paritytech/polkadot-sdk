@@ -1947,12 +1947,11 @@ impl<T: Config> Pallet<T> {
 		let overhead = digest_size.saturating_add(empty_header_size) as u32;
 		AllExtrinsicsLen::<T>::put(overhead);
 
-		// Ensure inherent digests don't exceed 20% of the max block size.
-		let max_block_len = *T::BlockLength::get().max.get(DispatchClass::Mandatory);
-		let max_digest_len = max_block_len / 5;
+		// Ensure inherent digests don't exceed the configured max header size
+		let max_total_header = T::BlockLength::get().max_header_size();
 		assert!(
-			digest_size <= max_digest_len as usize,
-			"Inherent digest size ({digest_size}) exceeds 20% of max block length ({max_digest_len})"
+			overhead <= max_total_header as u32,
+			"Header size ({overhead}) exceeds max header size limit ({max_total_header})"
 		);
 	}
 
@@ -2064,7 +2063,10 @@ impl<T: Config> Pallet<T> {
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
 	}
 
-	/// Deposits a log and ensures it matches the block's log data.
+	/// Deposits a log (digest) in the block's header.
+	///
+	/// Digests should not be directly controllable by external users as they increase the size of
+	/// the header.
 	pub fn deposit_log(item: generic::DigestItem) {
 		AllExtrinsicsLen::<T>::mutate(|len| {
 			*len = Some(len.unwrap_or(0).saturating_add(item.encoded_size() as u32));

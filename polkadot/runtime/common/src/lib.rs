@@ -101,8 +101,12 @@ parameter_types! {
 	/// The maximum amount of the multiplier.
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 	/// Maximum length of block. Up to 5MB.
-	pub BlockLength: limits::BlockLength =
-	limits::BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * 5 * 1024 * 1024
+		})
+		.build();
 }
 
 /// Parameterized slow adjusting fee updated based on

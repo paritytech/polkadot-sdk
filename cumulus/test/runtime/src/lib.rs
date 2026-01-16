@@ -240,7 +240,7 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(12 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+		BlockLength::builder().max_length(10 * 1024 * 1024).max_header_size(5 * 1024 * 1024).build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
