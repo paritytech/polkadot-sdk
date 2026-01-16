@@ -1,0 +1,13 @@
+title: Change EC Hostcalls to use Affine representation
+doc:
+- audience: Runtime Dev
+  description: |-
+	Replace point arguments from projective to affine representation.  
+	The affine representation of a point (i.e., `(x, y)`) is the standard way
+	to encode EC points and is therefore more portable. Additionally, it avoids
+	systematic divisions in the runtime for returned arguments.
+	NOTE: These hostcalls are still under an `experimental` feature.
+crates:
+- name: sp-crypto-ec-utils
+  bump: minor
+
