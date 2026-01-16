@@ -74,10 +74,7 @@ fn create_friend_group<T: Config>(
 	}
 }
 
-fn create_friend_groups<T: Config>(
-	num_friends: u32,
-	seed: u32,
-) -> FriendGroupsOf<T> {
+fn create_friend_groups<T: Config>(num_friends: u32, seed: u32) -> FriendGroupsOf<T> {
 	let mut friend_groups = Vec::new();
 
 	for i in 0..MAX_GROUPS_PER_ACCOUNT {

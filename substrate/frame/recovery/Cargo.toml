@@ -22,15 +22,15 @@ scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
 sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks"
+	"sp-runtime/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
@@ -38,10 +38,10 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-io/std",
-	"sp-runtime/std"
+	"sp-runtime/std",
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime"
+	"sp-runtime/try-runtime",
 ]
