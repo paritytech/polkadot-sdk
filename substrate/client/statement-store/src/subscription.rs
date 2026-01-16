@@ -32,6 +32,10 @@
 // This value is generous to allow for bursts of statements without dropping any or backpressuring
 // too early.
 const MATCHERS_TASK_CHANNEL_BUFFER_SIZE: usize = 80_000;
+
+// Buffer size for individual subscriptions.
+const SUBSCRIPTION_BUFFER_SIZE: usize = 128;
+
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
 
@@ -141,7 +145,7 @@ impl SubscriptionsHandle {
 		topic_filter: CheckedTopicFilter,
 	) -> (async_channel::Sender<Bytes>, SubscriptionStatementsStream) {
 		let next_id = self.next_id();
-		let (tx, rx) = async_channel::bounded(128);
+		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
 		let subscription_info =
 			SubscriptionInfo { topic_filter: topic_filter.clone(), seq_id: next_id, tx };
 

@@ -111,7 +111,7 @@ pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	/// BEEFY specific dependencies.
 	pub beefy: BeefyDeps<AuthorityId>,
 	/// Statement store specific dependencies.
-	pub statement_store: StatementStoreDeps,
+	pub statement_store_deps: StatementStoreDeps,
 	/// The backend used by the node.
 	pub backend: Arc<B>,
 	/// Mixnet API.
@@ -128,7 +128,7 @@ pub fn create_full<C, P, SC, B, AuthorityId>(
 		babe,
 		grandpa,
 		beefy,
-		statement_store,
+		statement_store_deps,
 		backend,
 		mixnet_api,
 	}: FullDeps<C, P, SC, B, AuthorityId>,
@@ -215,8 +215,8 @@ where
 	io.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 	io.merge(Dev::new(client).into_rpc())?;
 	let statement_store_rpc = sc_rpc::statement::StatementStore::new(
-		statement_store.statement_store,
-		statement_store.subscription_executor,
+		statement_store_deps.statement_store,
+		statement_store_deps.subscription_executor,
 	)
 	.into_rpc();
 	io.merge(statement_store_rpc)?;

@@ -358,7 +358,7 @@ pub fn new_partial(
 							.clone(),
 						subscription_executor: subscription_executor.clone(),
 					},
-					statement_store: node_rpc::StatementStoreDeps {
+					statement_store_deps: node_rpc::StatementStoreDeps {
 						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},

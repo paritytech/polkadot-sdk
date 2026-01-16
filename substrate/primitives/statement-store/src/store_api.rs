@@ -15,12 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashSet;
-
-use sp_core::Bytes;
-
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS};
+use sp_core::Bytes;
+use std::collections::HashSet;
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -100,6 +98,9 @@ impl TryInto<CheckedTopicFilter> for TopicFilter {
 			},
 			TopicFilter::MatchAny(topics) => {
 				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				if topics.len() > MAX_ANY_TOPICS {
+					return Err(Error::Decode("Too many topics in MatchAny filter".into()));
+				}
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));
@@ -160,7 +161,7 @@ pub enum InvalidReason {
 		/// The maximum allowed size.
 		max_size: usize,
 	},
-	/// Statement has already expired.
+	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
 }
 

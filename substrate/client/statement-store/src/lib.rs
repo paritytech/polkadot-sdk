@@ -48,11 +48,10 @@
 #![warn(unused_extern_crates)]
 
 mod metrics;
-
-use futures::FutureExt;
-pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
+mod subscription;
 
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
+use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
@@ -68,17 +67,15 @@ use sp_statement_store::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
 	AccountId, BlockHash, Channel, CheckedTopicFilter, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, Proof, RejectionReason, Result, Statement, SubmitResult, Topic, MAX_ANY_TOPICS,
+	InvalidReason, Proof, RejectionReason, Result, Statement, SubmitResult, Topic,
 };
+pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::Arc,
 	time::Instant,
 };
-
 pub use subscription::StatementStoreSubscriptionApi;
-
-mod subscription;
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 1;
@@ -122,12 +119,12 @@ mod col {
 }
 
 #[derive(Eq, PartialEq, Debug, Ord, PartialOrd, Clone, Copy)]
-struct Priority(u64);
+struct Expiry(u64);
 
 #[derive(PartialEq, Eq)]
 struct PriorityKey {
 	hash: Hash,
-	priority: Priority,
+	expiry: Expiry,
 }
 
 impl PartialOrd for PriorityKey {
@@ -138,14 +135,14 @@ impl PartialOrd for PriorityKey {
 
 impl Ord for PriorityKey {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.priority.cmp(&other.priority).then_with(|| self.hash.cmp(&other.hash))
+		self.expiry.cmp(&other.expiry).then_with(|| self.hash.cmp(&other.hash))
 	}
 }
 
 #[derive(PartialEq, Eq)]
 struct ChannelEntry {
 	hash: Hash,
-	priority: Priority,
+	expiry: Expiry,
 }
 
 #[derive(Default)]
@@ -186,7 +183,7 @@ struct Index {
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
-	entries: HashMap<Hash, (AccountId, Priority, usize)>,
+	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
@@ -266,18 +263,18 @@ impl Index {
 		if nt > 0 || key.is_some() {
 			self.topics_and_keys.insert(hash, (all_topics, key));
 		}
-		let priority = Priority(statement.expiry());
-		self.entries.insert(hash, (account, priority, statement.data_len()));
+		let expiry = Expiry(statement.expiry());
+		self.entries.insert(hash, (account, expiry, statement.data_len()));
 		self.recent.insert(hash);
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
 		if let Some(channel) = statement.channel() {
-			account_info.channels.insert(channel, ChannelEntry { hash, priority });
+			account_info.channels.insert(channel, ChannelEntry { hash, expiry });
 		}
 		account_info
 			.by_priority
-			.insert(PriorityKey { hash, priority }, (statement.channel(), statement.data_len()));
+			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
 	}
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
@@ -315,10 +312,6 @@ impl Index {
 		match_any_topics: impl ExactSizeIterator<Item = &'a Topic>,
 		mut f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
-		if match_any_topics.len() > MAX_ANY_TOPICS {
-			return Ok(())
-		}
-
 		let key_set = self.by_dec_key.get(&key);
 		if key_set.map_or(0, |s| s.len()) == 0 {
 			// Key does not exist in the index.
@@ -421,7 +414,7 @@ impl Index {
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
-		if let Some((account, priority, len)) = self.entries.remove(hash) {
+		if let Some((account, expiry, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
 			if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
 				for t in topics.into_iter().flatten() {
@@ -448,7 +441,7 @@ impl Index {
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
 			{
-				let key = PriorityKey { hash: *hash, priority };
+				let key = PriorityKey { hash: *hash, expiry };
 				if let Some((channel, len)) = account_rec.get_mut().by_priority.remove(&key) {
 					account_rec.get_mut().data_size -= len;
 					if let Some(channel) = channel {
@@ -490,7 +483,7 @@ impl Index {
 
 		let mut evicted = HashSet::new();
 		let mut would_free_size = 0;
-		let priority = Priority(statement.expiry());
+		let expiry = Expiry(statement.expiry());
 		let (max_size, max_count) = (validation.max_size as usize, validation.max_count as usize);
 		// It may happen that we can't delete enough lower priority messages
 		// to satisfy size constraints. We check for that before deleting anything,
@@ -498,18 +491,18 @@ impl Index {
 		if let Some(account_rec) = self.accounts.get(account) {
 			if let Some(channel) = statement.channel() {
 				if let Some(channel_record) = account_rec.channels.get(&channel) {
-					if priority <= channel_record.priority {
-						// Trying to replace channel message with lower priority
+					if expiry <= channel_record.expiry {
+						// Trying to replace channel message with lower expiry.
 						log::debug!(
 							target: LOG_TARGET,
 							"Ignored lower priority channel message: {:?} {:?} <= {:?}",
 							HexDisplay::from(&hash),
-							priority,
-							channel_record.priority,
+							expiry,
+							channel_record.expiry,
 						);
 						return Err(RejectionReason::ChannelPriorityTooLow {
-							submitted_expiry: priority.0,
-							min_expiry: channel_record.priority.0,
+							submitted_expiry: expiry.0,
+							min_expiry: channel_record.expiry.0,
 						});
 					} else {
 						// Would replace channel message. Still need to check for size constraints
@@ -518,13 +511,13 @@ impl Index {
 							target: LOG_TARGET,
 							"Replacing higher priority channel message: {:?} ({:?}) > {:?} ({:?})",
 							HexDisplay::from(&hash),
-							priority,
+							expiry,
 							HexDisplay::from(&channel_record.hash),
-							channel_record.priority,
+							channel_record.expiry,
 						);
 						let key = PriorityKey {
 							hash: channel_record.hash,
-							priority: channel_record.priority,
+							expiry: channel_record.expiry,
 						};
 						if let Some((_channel, len)) = account_rec.by_priority.get(&key) {
 							would_free_size += *len;
@@ -545,17 +538,17 @@ impl Index {
 					// Already accounted for above
 					continue
 				}
-				if entry.priority >= priority {
+				if entry.expiry >= expiry {
 					log::debug!(
 						target: LOG_TARGET,
 						"Ignored message due to constraints {:?} {:?} < {:?}",
 						HexDisplay::from(&hash),
-						priority,
-						entry.priority,
+						expiry,
+						entry.expiry,
 					);
 					return Err(RejectionReason::AccountFull {
-						submitted_expiry: priority.0,
-						min_expiry: entry.priority.0,
+						submitted_expiry: expiry.0,
+						min_expiry: entry.expiry.0,
 					});
 				}
 				evicted.insert(entry.hash);
@@ -835,10 +828,10 @@ impl Store {
 						account_rec
 							.by_priority
 							.range(
-								PriorityKey { hash: Hash::default(), priority: Priority(0) }..
+								PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..
 									PriorityKey {
 										hash: Hash::default(),
-										priority: Priority(current_time << 32),
+										expiry: Expiry(current_time << 32),
 									},
 							)
 							.map(|key| key.0.hash),
@@ -2121,8 +2114,8 @@ mod tests {
 	fn check_expiration_expires_statements_past_current_time() {
 		let (mut store, _temp) = test_store();
 
-		// The check_expiration function compares Priority(current_time << 32) against
-		// Priority(expiry) where expiry is the full 64-bit value with timestamp in high 32 bits.
+		// The check_expiration function compares Expiry(current_time << 32) against
+		// Expiry(expiry) where expiry is the full 64-bit value with timestamp in high 32 bits.
 		// Statements with expiration timestamp < current_time will be expired.
 
 		store.set_time(100);
@@ -2430,7 +2423,7 @@ mod tests {
 
 	#[test]
 	fn check_expiration_expires_properly_formatted_statements() {
-		// With the fix (Priority(current_time << 32)), check_expiration properly
+		// With the fix (Expiry(current_time << 32)), check_expiration properly
 		// compares timestamps and can expire statements submitted through normal flow.
 
 		let (mut store, _temp) = test_store();
@@ -2452,7 +2445,7 @@ mod tests {
 		store.check_expiration();
 
 		// Statement SHOULD be expired because check_expiration now compares
-		// Priority(2000 << 32) against Priority(1001 << 32 | 1), and
+		// Expiry(2000 << 32) against Expiry(1001 << 32 | 1), and
 		// (2000 << 32) > (1001 << 32 | 1)
 		let index = store.index.read();
 		assert!(

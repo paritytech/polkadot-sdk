@@ -1152,8 +1152,10 @@ impl_runtime_apis! {
 			_source: StatementSource,
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement> {
-			let account = match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => account.into(),
+			match statement.verify_signature() {
+				SignatureVerificationResult::Valid(account) => {
+					tracing::debug!(target: "runtime", "Valid statement signature from account: {:?}", account);
+				},
 				SignatureVerificationResult::Invalid => {
 					tracing::debug!(target: "runtime", "Bad statement signature.");
 					return Err(InvalidStatement::BadProof)
@@ -1164,19 +1166,14 @@ impl_runtime_apis! {
 				},
 			};
 
-			// For now just allow validators to store some statements.
+			// For now just allow a small quota to everyone to help with testing.
+			// Later we will have more sophisticated checks here.
 			// In the future we will allow people.
-			if pallet_session::Validators::<Runtime>::get().contains(&account) {
-				Ok(ValidStatement {
-					max_count: 2 * 1024,
-					max_size: 1024 * 1024,
-				})
-			} else {
-				Ok(ValidStatement {
-					max_count: 2 * 1024,
-					max_size: 1024 * 1024,
-				})
-			}
+			Ok(ValidStatement {
+				max_count: 2 * 1024,
+				max_size: 1024 * 10,
+			})
+
 		}
 	}
 }

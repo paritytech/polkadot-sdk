@@ -44,7 +44,8 @@ pub type Channel = [u8; 32];
 
 /// Total number of topic fields allowed.
 pub const MAX_TOPICS: usize = 4;
-/// Maximum number of topics allowed in `MatchAny` filter.
+/// `MatchAny` allows to provide a list of topics match against. This is the maximum number of
+/// topics allowed.
 pub const MAX_ANY_TOPICS: usize = 128;
 
 #[cfg(feature = "std")]

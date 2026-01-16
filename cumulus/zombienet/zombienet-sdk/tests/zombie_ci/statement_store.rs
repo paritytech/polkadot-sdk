@@ -39,7 +39,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lparachain=debug".into(),
+					"-linfo,statement-gossip=debug,statement-store=debug".into(),
 					"--enable-statement-store".into(),
 				])
 				.with_collator(|n| n.with_name("charlie"))
@@ -100,5 +100,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
 		.await
 		.is_err());
+	log::info!("Statement store test passed");
+	log::info!("Keeping network alive");
+
+	tokio::time::sleep(Duration::from_hours(24)).await;
 	Ok(())
 }
