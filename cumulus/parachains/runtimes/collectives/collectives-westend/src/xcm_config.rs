@@ -69,6 +69,8 @@ parameter_types! {
 		PalletInstance(<crate::FellowshipSalary as PalletInfoAccess>::index() as u8).into();
 	pub SecretarySalaryLocation: Location =
 		PalletInstance(<crate::SecretarySalary as PalletInfoAccess>::index() as u8).into();
+	pub AmbassadorSalaryLocation: Location =
+		PalletInstance(<crate::AmbassadorSalary as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
@@ -199,6 +201,7 @@ pub type WaivedLocations = (
 	Equals<FellowshipTreasuryLocation>,
 	Equals<FellowshipSalaryLocation>,
 	Equals<SecretarySalaryLocation>,
+	Equals<AmbassadorSalaryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
 );
