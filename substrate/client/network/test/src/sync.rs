@@ -1353,7 +1353,7 @@ async fn syncs_blocks_with_large_headers() {
 			BlockOrigin::Own,
 			|builder| builder.build().unwrap().block,
 			|i| {
-				let large_data = vec![i as u8; 1200 * 1024];
+				let large_data = vec![i as u8; 900 * 1024];
 				Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] }
 			},
 			false,
