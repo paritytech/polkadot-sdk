@@ -33,15 +33,6 @@ use Debug;
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
-/// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
-pub struct ValidStatement {
-	/// Max statement count for this account, as calculated by the runtime.
-	pub max_count: u32,
-	/// Max total data size for this account, as calculated by the runtime.
-	pub max_size: u32,
-}
-
 /// An reason for an invalid statement.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 pub enum InvalidStatement {

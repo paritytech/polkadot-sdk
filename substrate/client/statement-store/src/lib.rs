@@ -182,17 +182,16 @@ where
 	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	fn read_allowance(&self, account_id: &AccountId) -> Result<Option<ValidStatement>> {
-		use sp_storage::well_known_keys;
+		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
 		let block_hash = self.client.info().finalized_hash;
-		let key = well_known_keys::statement_allowance_key(account_id);
+		let key = statement_allowance_key(account_id);
 		let storage_key = StorageKey(key);
 		self.client
 			.storage(block_hash, &storage_key)
 			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?
 			.map(|value| {
-				<(u32, u32)>::decode(&mut &value.0[..])
-					.map(|(max_count, max_size)| ValidStatement { max_count, max_size })
+				StatementAllowance::decode(&mut &value.0[..])
 					.map_err(|e| Error::Decode(format!("Failed to decode allowance: {:?}", e)))
 			})
 			.transpose()
@@ -1126,18 +1125,20 @@ mod tests {
 			_hash: Hash,
 			key: &sc_client_api::StorageKey,
 		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+			use sp_statement_store::StatementAllowance;
+
 			assert_eq!(&key.0[0..21], b":statement-allowance:" as &[u8],);
 
 			// Extract account ID (32 bytes) from the storage key
 			let account_bytes = &key.0[21..53];
 			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
 			let allowance = match account_id {
-				1 => (1u32, 1000u32),
-				2 => (2u32, 1000u32),
-				3 => (3u32, 1000u32),
-				4 => (4u32, 1000u32),
-				42 => (42u32, (42 * crate::MAX_STATEMENT_SIZE) as u32),
-				_ => (100u32, 1000u32), // Default for other accounts
+				1 => StatementAllowance::new(1, 1000),
+				2 => StatementAllowance::new(2, 1000),
+				3 => StatementAllowance::new(3, 1000),
+				4 => StatementAllowance::new(4, 1000),
+				42 => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				_ => StatementAllowance::new(100, 1000),
 			};
 			Ok(Some(sc_client_api::StorageData(allowance.encode())))
 		}

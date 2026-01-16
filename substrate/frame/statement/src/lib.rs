@@ -38,8 +38,6 @@ use sp_statement_store::{Proof, Statement};
 // We do not declare all features used by `construct_runtime`
 #[allow(unexpected_cfgs)]
 mod mock;
-#[cfg(test)]
-mod tests;
 
 pub use pallet::*;
 
@@ -148,16 +146,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			use codec::Encode;
 			use sp_io;
-			use sp_storage::well_known_keys;
+			use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
 			ensure_root(origin)?;
 
 			let account_bytes: [u8; 32] =
 				who.encode().as_slice().try_into().map_err(|_| Error::<T>::InvalidAccountId)?;
 
-			let key = well_known_keys::statement_allowance_key(&account_bytes);
-			let value = (max_count, max_size).encode();
-			sp_io::storage::set(&key, &value);
+			let key = statement_allowance_key(&account_bytes);
+			let allowance = StatementAllowance::new(max_count, max_size);
+			sp_io::storage::set(&key, &allowance.encode());
 
 			log::debug!(
 				target: LOG_TARGET,

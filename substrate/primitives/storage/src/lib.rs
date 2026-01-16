@@ -185,8 +185,6 @@ pub struct StorageChangeSet<Hash> {
 
 /// List of all well known keys and prefixes in storage.
 pub mod well_known_keys {
-	use alloc::vec::Vec;
-
 	/// Wasm code of the runtime.
 	///
 	/// Stored as a raw byte vector. Required by substrate.
@@ -210,26 +208,6 @@ pub mod well_known_keys {
 	///
 	/// Encodes to `0x3a696e747261626c6f636b5f656e74726f7079`.
 	pub const INTRABLOCK_ENTROPY: &[u8] = b":intrablock_entropy";
-
-	/// Statement allowance prefix for per-account allowances.
-	///
-	/// Full key: `":statement-allowance:" ++ account_id` (32 bytes)
-	///
-	/// The value is SCALE-encoded as a tuple of two u32 values: (max_count, max_size).
-	pub const STATEMENT_ALLOWANCE_PREFIX: &[u8] = b":statement-allowance:";
-
-	/// Constructs a per-account statement allowance key.
-	///
-	/// # Arguments
-	/// * `account_id` - 32-byte account identifier
-	///
-	/// # Returns
-	/// Storage key: `":statement-allowance:" ++ account_id`
-	pub fn statement_allowance_key(account_id: &[u8; 32]) -> Vec<u8> {
-		let mut key = STATEMENT_ALLOWANCE_PREFIX.to_vec();
-		key.extend_from_slice(account_id);
-		key
-	}
 
 	/// Prefix of child storage keys.
 	pub const CHILD_STORAGE_KEY_PREFIX: &[u8] = b":child_storage:";

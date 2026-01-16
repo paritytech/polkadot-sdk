@@ -45,6 +45,38 @@ pub type Channel = [u8; 32];
 /// Total number of topic fields allowed.
 pub const MAX_TOPICS: usize = 4;
 
+/// Statement allowance limits for an account.
+#[derive(Encode, Decode, TypeInfo, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StatementAllowance {
+	/// Maximum number of statements allowed
+	pub max_count: u32,
+	/// Maximum total size of statements in bytes
+	pub max_size: u32,
+}
+
+impl StatementAllowance {
+	/// Create a new statement allowance.
+	pub fn new(max_count: u32, max_size: u32) -> Self {
+		Self { max_count, max_size }
+	}
+}
+
+/// Storage key prefix for per-account statement allowances.
+pub const STATEMENT_ALLOWANCE_PREFIX: &[u8] = b":statement-allowance:";
+
+/// Constructs a per-account statement allowance storage key.
+///
+/// # Arguments
+/// * `account_id` - 32-byte account identifier
+///
+/// # Returns
+/// Storage key: `":statement-allowance:" ++ account_id`
+pub fn statement_allowance_key(account_id: &[u8; 32]) -> Vec<u8> {
+	let mut key = STATEMENT_ALLOWANCE_PREFIX.to_vec();
+	key.extend_from_slice(account_id);
+	key
+}
+
 #[cfg(feature = "std")]
 pub use store_api::{
 	Error, FilterDecision, InvalidReason, RejectionReason, Result, StatementSource, StatementStore,
