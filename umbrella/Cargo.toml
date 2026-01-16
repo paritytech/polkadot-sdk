@@ -1011,6 +1011,138 @@ tuples-96 = [
 	"frame-support-procedural?/tuples-96",
 	"frame-support?/tuples-96",
 ]
+cumulus-pallet-parachain-system_experimental-ump-signals = [
+	"cumulus-pallet-parachain-system?/experimental-ump-signals",
+]
+cumulus-pallet-xcmp-queue_bridging = ["cumulus-pallet-xcmp-queue?/bridging"]
+frame-benchmarking-cli_rocksdb = ["frame-benchmarking-cli?/rocksdb"]
+frame-support_no-metadata-docs = ["frame-support?/no-metadata-docs"]
+frame-support_full-metadata-docs = ["frame-support?/full-metadata-docs"]
+frame-support-procedural_no-metadata-docs = [
+	"frame-support-procedural?/no-metadata-docs",
+]
+pallet-balances_insecure_zero_ed = ["pallet-balances?/insecure_zero_ed"]
+pallet-contracts-uapi_scale = ["pallet-contracts-uapi?/scale"]
+pallet-paged-list_frame-metadata = ["pallet-paged-list?/frame-metadata"]
+pallet-revive-uapi_scale = ["pallet-revive-uapi?/scale"]
+pallet-revive-uapi_unstable-hostfn = ["pallet-revive-uapi?/unstable-hostfn"]
+pallet-session_historical = ["pallet-session?/historical"]
+polkadot-cli_db = ["polkadot-cli?/db"]
+polkadot-cli_metadata-hash = ["polkadot-cli?/metadata-hash"]
+polkadot-cli_service = ["polkadot-cli?/service"]
+polkadot-cli_cli = ["polkadot-cli?/cli"]
+polkadot-cli_full-node = ["polkadot-cli?/full-node"]
+polkadot-cli_fast-runtime = ["polkadot-cli?/fast-runtime"]
+polkadot-cli_pyroscope = ["polkadot-cli?/pyroscope"]
+polkadot-cli_westend-native = ["polkadot-cli?/westend-native"]
+polkadot-cli_malus = ["polkadot-cli?/malus"]
+polkadot-cli_runtime-metrics = ["polkadot-cli?/runtime-metrics"]
+polkadot-collator-protocol_experimental-collator-protocol = [
+	"polkadot-collator-protocol?/experimental-collator-protocol",
+]
+polkadot-node-core-dispute-coordinator_disputes = [
+	"polkadot-node-core-dispute-coordinator?/disputes",
+]
+polkadot-node-core-pvf_jemalloc-allocator = [
+	"polkadot-node-core-pvf?/jemalloc-allocator",
+]
+polkadot-node-core-pvf-common_jemalloc-allocator = [
+	"polkadot-node-core-pvf-common?/jemalloc-allocator",
+]
+polkadot-node-core-pvf-execute-worker_builder = [
+	"polkadot-node-core-pvf-execute-worker?/builder",
+]
+polkadot-node-core-pvf-prepare-worker_builder = [
+	"polkadot-node-core-pvf-prepare-worker?/builder",
+]
+polkadot-node-core-pvf-prepare-worker_jemalloc-allocator = [
+	"polkadot-node-core-pvf-prepare-worker?/jemalloc-allocator",
+]
+polkadot-node-metrics_runtime-metrics = [
+	"polkadot-node-metrics?/runtime-metrics",
+]
+polkadot-omni-node-lib_westend-native = [
+	"polkadot-omni-node-lib?/westend-native",
+]
+polkadot-overseer_expand = ["polkadot-overseer?/expand"]
+polkadot-overseer_futures_channel = ["polkadot-overseer?/futures_channel"]
+polkadot-overseer_jemalloc-allocator = ["polkadot-overseer?/jemalloc-allocator"]
+polkadot-parachain-primitives_wasm-api = [
+	"polkadot-parachain-primitives?/wasm-api",
+]
+polkadot-runtime-metrics_runtime-metrics = [
+	"polkadot-runtime-metrics?/runtime-metrics",
+]
+polkadot-runtime-parachains_runtime-metrics = [
+	"polkadot-runtime-parachains?/runtime-metrics",
+]
+polkadot-sdk-frame_runtime = ["polkadot-sdk-frame?/runtime"]
+polkadot-service_db = ["polkadot-service?/db"]
+polkadot-service_full-node = ["polkadot-service?/full-node"]
+polkadot-service_westend-native = ["polkadot-service?/westend-native"]
+polkadot-service_metadata-hash = ["polkadot-service?/metadata-hash"]
+polkadot-service_fast-runtime = ["polkadot-service?/fast-runtime"]
+polkadot-service_malus = ["polkadot-service?/malus"]
+polkadot-service_runtime-metrics = ["polkadot-service?/runtime-metrics"]
+sc-cli_rocksdb = ["sc-cli?/rocksdb"]
+sc-client-db_rocksdb = ["sc-client-db?/rocksdb"]
+sc-consensus-beefy_bls-experimental = ["sc-consensus-beefy?/bls-experimental"]
+sc-executor_wasm-extern-trace = ["sc-executor?/wasm-extern-trace"]
+sc-keystore_bls-experimental = ["sc-keystore?/bls-experimental"]
+sc-keystore_bandersnatch-experimental = [
+	"sc-keystore?/bandersnatch-experimental",
+]
+sc-service_rocksdb = ["sc-service?/rocksdb"]
+sc-utils_metered = ["sc-utils?/metered"]
+sp-api_disable-logging = ["sp-api?/disable-logging"]
+sp-api_no-metadata-docs = ["sp-api?/no-metadata-docs"]
+sp-api_frame-metadata = ["sp-api?/frame-metadata"]
+sp-api-proc-macro_no-metadata-docs = ["sp-api-proc-macro?/no-metadata-docs"]
+sp-application-crypto_full_crypto = ["sp-application-crypto?/full_crypto"]
+sp-application-crypto_bls-experimental = [
+	"sp-application-crypto?/bls-experimental",
+]
+sp-application-crypto_bandersnatch-experimental = [
+	"sp-application-crypto?/bandersnatch-experimental",
+]
+sp-consensus-beefy_bls-experimental = ["sp-consensus-beefy?/bls-experimental"]
+sp-core_full_crypto = ["sp-core?/full_crypto"]
+sp-core_bls-experimental = ["sp-core?/bls-experimental"]
+sp-core_bandersnatch-experimental = ["sp-core?/bandersnatch-experimental"]
+sp-crypto-ec-utils_common = ["sp-crypto-ec-utils?/common"]
+sp-crypto-ec-utils_bls12-377 = ["sp-crypto-ec-utils?/bls12-377"]
+sp-crypto-ec-utils_bls12-381 = ["sp-crypto-ec-utils?/bls12-381"]
+sp-crypto-ec-utils_bw6-761 = ["sp-crypto-ec-utils?/bw6-761"]
+sp-crypto-ec-utils_ed-on-bls12-377 = ["sp-crypto-ec-utils?/ed-on-bls12-377"]
+sp-crypto-ec-utils_ed-on-bls12-381-bandersnatch = [
+	"sp-crypto-ec-utils?/ed-on-bls12-381-bandersnatch",
+]
+sp-crypto-ec-utils_all-curves = ["sp-crypto-ec-utils?/all-curves"]
+sp-io_disable_panic_handler = ["sp-io?/disable_panic_handler"]
+sp-io_disable_oom = ["sp-io?/disable_oom"]
+sp-io_disable_allocator = ["sp-io?/disable_allocator"]
+sp-io_improved_panic_error_reporting = ["sp-io?/improved_panic_error_reporting"]
+sp-io_bls-experimental = ["sp-io?/bls-experimental"]
+sp-io_bandersnatch-experimental = ["sp-io?/bandersnatch-experimental"]
+sp-keyring_bandersnatch-experimental = ["sp-keyring?/bandersnatch-experimental"]
+sp-keystore_bls-experimental = ["sp-keystore?/bls-experimental"]
+sp-keystore_bandersnatch-experimental = [
+	"sp-keystore?/bandersnatch-experimental",
+]
+sp-runtime-interface_disable_target_static_assertions = [
+	"sp-runtime-interface?/disable_target_static_assertions",
+]
+sp-wasm-interface_wasmtime = ["sp-wasm-interface?/wasmtime"]
+sp-weights_full-metadata-docs = ["sp-weights?/full-metadata-docs"]
+sp-weights_json-schema = ["sp-weights?/json-schema"]
+staging-chain-spec-builder_generate-readme = [
+	"staging-chain-spec-builder?/generate-readme",
+]
+staging-xcm_wasm-api = ["staging-xcm?/wasm-api"]
+staging-xcm_json-schema = ["staging-xcm?/json-schema"]
+substrate-wasm-builder_metadata-hash = ["substrate-wasm-builder?/metadata-hash"]
+testnet-parachains-constants_westend = ["testnet-parachains-constants?/westend"]
+tracing-gum-proc-macro_expand = ["tracing-gum-proc-macro?/expand"]
 
 [package.edition]
 workspace = true
