@@ -92,14 +92,16 @@ impl CurveHooks for HostHooks {
 
 	fn msm_g1(bases: &[G1Affine], scalars: &[ScalarField]) -> G1Projective {
 		host_calls::bls12_381_msm_g1(utils::encode(bases), utils::encode(scalars))
-			.and_then(|res| utils::decode_proj_sw(res))
+			.and_then(|res| utils::decode::<G1Affine>(res))
 			.unwrap_or_default()
+			.into()
 	}
 
 	fn msm_g2(bases: &[G2Affine], scalars: &[ScalarField]) -> G2Projective {
 		host_calls::bls12_381_msm_g2(utils::encode(bases), utils::encode(scalars))
-			.and_then(|res| utils::decode_proj_sw(res))
+			.and_then(|res| utils::decode::<G2Affine>(res))
 			.unwrap_or_default()
+			.into()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
@@ -156,7 +158,7 @@ pub trait HostCalls {
 	/// - Receives encoded:
 	///   - `bases`: `Vec<G1Affine>`.
 	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G1Projective`.
+	/// - Returns encoded: `G1Affine`.
 	fn bls12_381_msm_g1(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -169,7 +171,7 @@ pub trait HostCalls {
 	/// - Receives encoded:
 	///   - `bases`: `Vec<G2Affine>`.
 	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G2Projective`.
+	/// - Returns encoded: `G2Affine`.
 	fn bls12_381_msm_g2(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -207,26 +209,34 @@ pub trait HostCalls {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use ark_ec::AffineRepr;
+	use ark_ec::{AffineRepr, VariableBaseMSM};
+	use ark_ff::PrimeField;
 	use ark_std::{test_rng, UniformRand};
 
-	fn mul_affine_works_gen<
+	fn msm_args<P: AffineRepr>(count: usize) -> (Vec<P>, Vec<P::ScalarField>) {
+		let mut rng = test_rng();
+		(0..count).map(|_| (P::rand(&mut rng), P::ScalarField::rand(&mut rng))).unzip()
+	}
+
+	fn mul_args<P: AffineRepr>() -> (P, P::ScalarField) {
+		let (p, s) = msm_args::<P>(1);
+		(p[0], s[0])
+	}
+
+	fn mul<
 		SubAffine: AffineRepr<ScalarField = ScalarField>,
 		ArkAffine: AffineRepr<ScalarField = ScalarField>,
 	>()
 	where
 		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
 	{
-		let mut rng = test_rng();
-		let p = SubAffine::rand(&mut rng);
-		let s = SubAffine::ScalarField::rand(&mut rng);
+		let (p, s) = mul_args::<SubAffine>();
 
-		// This goes through the hostcall
+		// This goes implicitly through the hostcall
 		let r1 = (p * s).into_affine();
 
 		// This directly calls into arkworks
 		let p_enc = utils::encode(p);
-		use ark_ff::PrimeField;
 		let s_enc = utils::encode(s.into_bigint().as_ref());
 		let r2_enc = utils::mul_affine_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
 		let r2 = utils::decode::<SubAffine>(r2_enc).unwrap();
@@ -235,8 +245,43 @@ mod tests {
 	}
 
 	#[test]
-	fn mul_affine_works() {
-		mul_affine_works_gen::<G1Affine, ark_bls12_381::G1Affine>();
-		mul_affine_works_gen::<G2Affine, ark_bls12_381::G2Affine>();
+	fn mul_works_g1() {
+		mul::<G1Affine, ark_bls12_381::G1Affine>();
+	}
+
+	#[test]
+	fn mul_works_g2() {
+		mul::<G2Affine, ark_bls12_381::G2Affine>();
+	}
+
+	fn msm<
+		SubAffine: AffineRepr<ScalarField = ScalarField>,
+		ArkAffine: AffineRepr<ScalarField = ScalarField>,
+	>()
+	where
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let (bases, scalars) = msm_args::<SubAffine>(10);
+
+		// This goes implicitly through the hostcall
+		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
+
+		// This directly calls into arkworks
+		let bases_enc = utils::encode(&bases[..]);
+		let scalars_enc = utils::encode(&scalars[..]);
+		let r2_enc = utils::msm_sw::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
+		let r2 = utils::decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	#[test]
+	fn msm_works_g1() {
+		msm::<G1Affine, ark_bls12_381::G1Affine>();
+	}
+
+	#[test]
+	fn msm_works_g2() {
+		msm::<G2Affine, ark_bls12_381::G2Affine>();
 	}
 }
