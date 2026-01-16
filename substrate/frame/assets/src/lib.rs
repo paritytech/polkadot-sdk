@@ -247,6 +247,31 @@ where
 	}
 }
 
+pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+where
+	T::AssetId: ToAssetIndex,
+{
+	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+		AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
+		AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
+		Ok(())
+	}
+
+	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
+		if !AssetIdToAssetIndex::<T, I>::contains_key(&id) {
+			return Err(());
+		}
+		let index = AssetIdToAssetIndex::<T, I>::get(&id).expect("Checked above; qed");
+		if !AssetIndexToAssetId::<T, I>::contains_key(&index) {
+			return Err(());
+		}
+		AssetIndexToAssetId::<T, I>::remove(&index);
+		AssetIdToAssetIndex::<T, I>::remove(&id);
+		Ok(())
+	}
+}
+
 // Trait to convert various types to u32 asset index used internally by the pallet.
 pub trait ToAssetIndex {
 	fn to_asset_index(&self) -> u32;
@@ -878,14 +903,6 @@ pub mod pallet {
 				owner: admin,
 			});
 
-			ensure!(
-				!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()),
-				Error::<T, I>::InUse
-			);
-			ensure!(!AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::InUse);
-			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
-			AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
-
 			Ok(())
 		}
 
@@ -922,10 +939,6 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
-
-			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
-			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
-			AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
 			Self::do_force_create(id, owner, is_sufficient, min_balance)
 		}
 
@@ -1013,14 +1026,7 @@ pub mod pallet {
 		pub fn finish_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			Self::do_finish_destroy(id.clone())?;
-
-			ensure!(AssetIdToAssetIndex::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
-			let account_id = AssetIdToAssetIndex::<T, I>::get(&id).unwrap();
-			ensure!(AssetIndexToAssetId::<T, I>::contains_key(&account_id), Error::<T, I>::Unknown);
-			AssetIndexToAssetId::<T, I>::remove(&account_id);
-			AssetIdToAssetIndex::<T, I>::remove(&id);
-			Ok(())
+			Self::do_finish_destroy(id.clone())
 		}
 
 		/// Mint assets of a particular class.
