@@ -17,17 +17,17 @@
 use super::*;
 use assert_matches::assert_matches;
 use overseer::FromOrchestra;
-use polkadot_node_subsystem::messages::{
-	AllMessages, RewardsStatisticsCollectorMessage, RuntimeApiMessage,
-	RuntimeApiRequest,
+use polkadot_node_subsystem::{
+	messages::{
+		AllMessages, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest,
+	},
+	ActivatedLeaf,
 };
-use polkadot_primitives::{Block, SessionIndex, SessionInfo};
-use polkadot_node_subsystem::ActivatedLeaf;
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_primitives::{Hash, Header};
+use polkadot_primitives::{Block, Hash, Header, SessionIndex, SessionInfo};
 use sp_application_crypto::Pair as PairT;
-use sp_keyring::Sr25519Keyring;
 use sp_authority_discovery::{AuthorityId, AuthorityPair as AuthorityDiscoveryPair};
+use sp_keyring::Sr25519Keyring;
 use test_helpers::mock::new_leaf;
 
 type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<
@@ -79,10 +79,14 @@ async fn finalize_block(
 	let fin_block_number = finalized.1;
 
 	virtual_overseer
-		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)))
+		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+			fin_block_hash,
+			fin_block_number,
+		)))
 		.await;
 
-	let expected_amt_request_blocks = (fin_block_number.saturating_sub(latest_finalized_block_number) as usize);
+	let expected_amt_request_blocks =
+		(fin_block_number.saturating_sub(latest_finalized_block_number) as usize);
 
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -134,15 +138,10 @@ macro_rules! approvals_stats_assertion {
 			rb_number: BlockNumber,
 			expected: Vec<(ValidatorIndex, u32)>,
 		) {
-			let expected_map = expected
-				.into_iter()
-				.collect::<BTreeMap<ValidatorIndex, u32>>();
+			let expected_map = expected.into_iter().collect::<BTreeMap<ValidatorIndex, u32>>();
 
-			let stats_for = view.per_relay
-				.get(&(rb_hash, rb_number))
-				.unwrap()
-				.approvals_stats
-				.clone();
+			let stats_for =
+				view.per_relay.get(&(rb_hash, rb_number)).unwrap().approvals_stats.clone();
 
 			assert!(stats_for.$field.eq(&expected_map));
 		}
@@ -205,23 +204,14 @@ fn single_candidate_approved() {
 		)
 		.await;
 
-		candidate_approved(
-			&mut virtual_overseer,
-			rb_hash,
-			rb_number,
-			vec![validator_idx.clone()],
-		)
-		.await;
+		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx.clone()])
+			.await;
 		virtual_overseer
 	});
 
 	assert_eq!(view.per_relay.len(), 1);
 
-	assert_votes(
-		&view,
-		rb_hash, rb_number,
-		vec![(validator_idx, 1)],
-	);
+	assert_votes(&view, rb_hash, rb_number, vec![(validator_idx, 1)]);
 }
 
 #[test]
@@ -245,50 +235,26 @@ fn candidate_approved_for_different_forks() {
 			default_header(rb_number),
 			1,
 			Some(default_session_info(1)),
-		).await;
-
-		activate_leaf(
-			&mut virtual_overseer,
-			leaf1.clone(),
-			default_header(rb_number),
-			1,
-			None,
-		).await;
-
-		candidate_approved(
-			&mut virtual_overseer,
-			rb_hash_fork_0,
-			rb_number,
-			vec![validator_idx0],
 		)
 		.await;
 
-		candidate_approved(
-			&mut virtual_overseer,
-			rb_hash_fork_1,
-			rb_number,
-			vec![validator_idx1],
-		)
-		.await;
+		activate_leaf(&mut virtual_overseer, leaf1.clone(), default_header(rb_number), 1, None)
+			.await;
+
+		candidate_approved(&mut virtual_overseer, rb_hash_fork_0, rb_number, vec![validator_idx0])
+			.await;
+
+		candidate_approved(&mut virtual_overseer, rb_hash_fork_1, rb_number, vec![validator_idx1])
+			.await;
 
 		virtual_overseer
 	});
 
 	assert_eq!(view.per_relay.len(), 2);
 
-	assert_votes(
-		&view,
-		rb_hash_fork_0,
-		rb_number,
-		vec![(validator_idx0, 1)],
-	);
+	assert_votes(&view, rb_hash_fork_0, rb_number, vec![(validator_idx0, 1)]);
 
-	assert_votes(
-		&view,
-		rb_hash_fork_1,
-		rb_number,
-		vec![(validator_idx1, 1)],
-	);
+	assert_votes(&view, rb_hash_fork_1, rb_number, vec![(validator_idx1, 1)]);
 }
 
 #[test]
@@ -311,30 +277,15 @@ fn candidate_approval_stats_with_no_shows() {
 		)
 		.await;
 
-		candidate_approved(
-			&mut virtual_overseer,
-			rb_hash,
-			rb_number,
-			approvals_from,
-		).await;
+		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, approvals_from).await;
 
-		no_shows(
-			&mut virtual_overseer,
-			rb_hash,
-			rb_number,
-			no_show_validators,
-		).await;
+		no_shows(&mut virtual_overseer, rb_hash, rb_number, no_show_validators).await;
 
 		virtual_overseer
 	});
 
 	assert_eq!(view.per_relay.len(), 1);
-	assert_votes(
-		&view,
-		rb_hash,
-		rb_number,
-		vec![(ValidatorIndex(0), 1), (ValidatorIndex(3), 1)],
-	);
+	assert_votes(&view, rb_hash, rb_number, vec![(ValidatorIndex(0), 1), (ValidatorIndex(3), 1)]);
 
 	assert_no_shows(
 		&view,
@@ -351,13 +302,10 @@ fn note_chunks_downloaded() {
 	let chunk_downloads = vec![(ValidatorIndex(0), 10u64), (ValidatorIndex(1), 2)];
 
 	let mut view = View::new();
-	let authorities: Vec<sp_authority_discovery::AuthorityId> = vec![
-		Sr25519Keyring::Alice.public().into(),
-		Sr25519Keyring::Bob.public().into(),
-	];
+	let authorities: Vec<sp_authority_discovery::AuthorityId> =
+		vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()];
 
-	view.per_session
-		.insert(session_idx, PerSessionView::new(authorities.clone()));
+	view.per_session.insert(session_idx, PerSessionView::new(authorities.clone()));
 
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		virtual_overseer
@@ -461,9 +409,9 @@ fn note_chunks_uploaded_to_active_validator() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(
-					HashSet::from_iter(vec![validator_idx_auth_id]),
-				),
+				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(HashSet::from_iter(vec![
+					validator_idx_auth_id,
+				])),
 			})
 			.await;
 
@@ -475,12 +423,7 @@ fn note_chunks_uploaded_to_active_validator() {
 	let expected_view = PerSessionView::new(vec![validator_idx_auth_id.clone()]);
 
 	assert_eq!(view.per_session.len(), 1);
-	assert_eq!(view
-				   .per_session
-				   .get(&session_index)
-				   .unwrap(),
-			   &expected_view
-	);
+	assert_eq!(view.per_session.get(&session_index).unwrap(), &expected_view);
 
 	assert_eq!(view.availability_chunks.len(), 1);
 
@@ -589,25 +532,24 @@ fn prune_unfinalized_forks() {
 
 	let expect = vec![
 		(
-			hash_a.clone(), number_a.clone(),
+			hash_a.clone(),
+			number_a.clone(),
 			vec![(ValidatorIndex(2), 1), (ValidatorIndex(3), 1)],
-			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)]
-		),
-		(
-			hash_b.clone(), number_b.clone(),
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
-			vec![]
 		),
 		(
-			hash_c.clone(), number_c,
+			hash_b.clone(),
+			number_b.clone(),
+			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
+			vec![],
+		),
+		(
+			hash_c.clone(),
+			number_c,
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1), (ValidatorIndex(2), 1)],
-			vec![]
+			vec![],
 		),
-		(
-			hash_d.clone(), number_d,
-			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
-			vec![]
-		)
+		(hash_d.clone(), number_d, vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)], vec![]),
 	];
 
 	assert_relay_view_approval_stats(&view, expect.clone());
@@ -622,17 +564,17 @@ fn prune_unfinalized_forks() {
 			0 as BlockNumber,
 			// send the parent hash and the genesis hash (all zeroes)
 			vec![hash_a, Default::default()],
-		).await;
+		)
+		.await;
 		virtual_overseer
 	});
 
-	let expect = vec![
-		(
-			hash_d.clone(), number_d,
-			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
-			vec![]
-		)
-	];
+	let expect = vec![(
+		hash_d.clone(),
+		number_d,
+		vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
+		vec![],
+	)];
 
 	assert_relay_view_approval_stats(&view, expect.clone());
 
@@ -685,43 +627,20 @@ fn prune_unfinalized_forks() {
 			vec![ValidatorIndex(3), ValidatorIndex(1), ValidatorIndex(0)],
 		)
 		.await;
-		no_shows(
-			&mut virtual_overseer,
-			hash_e,
-			number_e,
-			vec![ValidatorIndex(2)],
-		).await;
+		no_shows(&mut virtual_overseer, hash_e, number_e, vec![ValidatorIndex(2)]).await;
 
 		let leaf_f = new_leaf(hash_f.clone(), number_f);
 		let leaf_f_header = header_with_number_and_parent(number_f, hash_e.clone());
 
 		activate_leaf(&mut virtual_overseer, leaf_f, leaf_f_header, session_one, None).await;
-		candidate_approved(
-			&mut virtual_overseer,
-			hash_f,
-			number_f,
-			vec![ValidatorIndex(3)],
-		)
-			.await;
+		candidate_approved(&mut virtual_overseer, hash_f, number_f, vec![ValidatorIndex(3)]).await;
 
 		let leaf_g = new_leaf(hash_g.clone(), number_g);
 		let leaf_g_header = header_with_number_and_parent(number_g, hash_e.clone());
 
 		activate_leaf(&mut virtual_overseer, leaf_g, leaf_g_header, session_one, None).await;
-		candidate_approved(
-			&mut virtual_overseer,
-			hash_g,
-			number_g,
-			vec![ValidatorIndex(0)],
-		)
-			.await;
-		no_shows(
-			&mut virtual_overseer,
-			hash_g,
-			number_g,
-			vec![ValidatorIndex(1)],
-		)
-			.await;
+		candidate_approved(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(0)]).await;
+		no_shows(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(1)]).await;
 
 		// finalizing relay block E
 		finalize_block(
@@ -729,7 +648,8 @@ fn prune_unfinalized_forks() {
 			(hash_e.clone(), number_e),
 			number_c,
 			vec![hash_d, hash_c],
-		).await;
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -738,16 +658,8 @@ fn prune_unfinalized_forks() {
 	// now it should aggregate collected data from block D and E
 	// keeping only blocks F and G on the mapping
 	let expect = vec![
-		(
-			hash_f.clone(), number_f,
-			vec![(ValidatorIndex(3), 1)],
-			vec![]
-		),
-		(
-			hash_g.clone(), number_g,
-			vec![(ValidatorIndex(0), 1)],
-			vec![(ValidatorIndex(1), 1)]
-		)
+		(hash_f.clone(), number_f, vec![(ValidatorIndex(3), 1)], vec![]),
+		(hash_g.clone(), number_g, vec![(ValidatorIndex(0), 1)], vec![(ValidatorIndex(1), 1)]),
 	];
 
 	assert_relay_view_approval_stats(&view, expect);
@@ -783,8 +695,12 @@ fn prune_unfinalized_forks() {
 
 fn assert_relay_view_approval_stats(
 	view: &View,
-	expected_relay_view_stats:
-		Vec<(Hash, BlockNumber, Vec<(ValidatorIndex, u32)>, Vec<(ValidatorIndex, u32)>)>,
+	expected_relay_view_stats: Vec<(
+		Hash,
+		BlockNumber,
+		Vec<(ValidatorIndex, u32)>,
+		Vec<(ValidatorIndex, u32)>,
+	)>,
 ) {
 	assert_eq!(view.per_relay.len(), expected_relay_view_stats.len());
 

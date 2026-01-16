@@ -63,7 +63,7 @@ impl Metrics {
 						.approvals_per_session_per_validator
 						.with_label_values(&[
 							session.to_string().as_str(),
-							validator.0.0.to_string().as_str(),
+							validator.0 .0.to_string().as_str(),
 						])
 						.inc()
 				}
@@ -73,7 +73,7 @@ impl Metrics {
 						.no_shows_per_session_per_validator
 						.with_label_values(&[
 							session.to_string().as_str(),
-							validator.0.0.to_string().as_str(),
+							validator.0 .0.to_string().as_str(),
 						])
 						.inc()
 				}

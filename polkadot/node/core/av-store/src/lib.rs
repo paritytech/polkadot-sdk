@@ -46,7 +46,10 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util as util;
-use polkadot_primitives::{BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, SessionIndex, ValidatorIndex};
+use polkadot_primitives::{
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, Hash, Header, NodeFeatures, SessionIndex, ValidatorIndex,
+};
 use util::availability_chunks::availability_chunk_indices;
 
 mod metrics;
@@ -1117,8 +1120,8 @@ fn process_message(
 					chunk.session_index = chunk_meta.session_index;
 					tx.send(Some(chunk))
 				},
-				(Some(chunk), _)=>  tx.send(Some(chunk)),
-				_ => tx.send(None)
+				(Some(chunk), _) => tx.send(Some(chunk)),
+				_ => tx.send(None),
 			};
 		},
 		AvailabilityStoreMessage::QueryChunkSize(candidate, tx) => {

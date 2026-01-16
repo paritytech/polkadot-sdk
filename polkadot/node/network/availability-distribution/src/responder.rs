@@ -252,11 +252,10 @@ where
 					session_index,
 					authority_ids,
 				));
-			}
-			_ => {}
+			},
+			_ => {},
 		};
 	}
-
 
 	gum::trace!(
 		target: LOG_TARGET,

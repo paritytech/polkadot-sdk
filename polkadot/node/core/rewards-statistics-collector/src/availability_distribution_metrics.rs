@@ -16,10 +16,7 @@
 
 use crate::{View, LOG_TARGET};
 use polkadot_primitives::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex};
-use std::{
-	collections::{HashMap, HashSet},
-};
-use std::collections::{BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailabilityChunks {
@@ -29,16 +26,13 @@ pub struct AvailabilityChunks {
 
 impl AvailabilityChunks {
 	pub fn new() -> Self {
-		Self {
-			downloads: Default::default(),
-			uploads: Default::default(),
-		}
+		Self { downloads: Default::default(), uploads: Default::default() }
 	}
 
 	pub fn new_with_upload(auth_id: AuthorityDiscoveryId, count: u64) -> Self {
 		Self {
 			downloads: Default::default(),
-			uploads: vec![(auth_id, count)].into_iter().collect()
+			uploads: vec![(auth_id, count)].into_iter().collect(),
 		}
 	}
 
@@ -47,12 +41,10 @@ impl AvailabilityChunks {
 		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
-		self
-			.downloads
+		self.downloads
 			.entry(authority_id)
 			.and_modify(|current| *current = current.saturating_add(count))
 			.or_insert(count);
-
 	}
 
 	pub fn note_candidate_chunk_uploaded(
@@ -60,8 +52,7 @@ impl AvailabilityChunks {
 		authority_id: AuthorityDiscoveryId,
 		count: u64,
 	) {
-		self
-			.uploads
+		self.uploads
 			.entry(authority_id)
 			.and_modify(|current| *current = current.saturating_add(count))
 			.or_insert(count);
@@ -82,14 +73,15 @@ pub fn handle_chunks_downloaded(
 		.or_insert(AvailabilityChunks::new());
 
 	for (validator_index, download_count) in downloads {
-		let authority_id = view.per_session
+		let authority_id = view
+			.per_session
 			.get(&session_index)
 			.and_then(|session_view| session_view.authorities_ids.get(validator_index.0 as usize));
 
 		match authority_id {
 			Some(authority_id) => {
 				av_chunks.note_candidate_chunk_downloaded(authority_id.clone(), download_count);
-			}
+			},
 			None => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -98,7 +90,7 @@ pub fn handle_chunks_downloaded(
 					session_idx = ?session_index,
 					"could not find validator authority id"
 				);
-			}
+			},
 		};
 	}
 }
@@ -111,14 +103,11 @@ pub fn handle_chunk_uploaded(
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
 	if let Some(session_info) = view.per_session.get(&session_index) {
-		let validator_authority_id = session_info
-			.authorities_ids
-			.iter()
-			.find(|auth| authority_ids.contains(auth));
+		let validator_authority_id =
+			session_info.authorities_ids.iter().find(|auth| authority_ids.contains(auth));
 
 		if let Some(auth_id) = validator_authority_id {
-			view
-				.availability_chunks
+			view.availability_chunks
 				.entry(session_index)
 				.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
 				.or_insert(AvailabilityChunks::new_with_upload(auth_id.clone(), 1));

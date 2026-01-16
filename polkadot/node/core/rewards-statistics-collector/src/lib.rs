@@ -23,7 +23,10 @@
 
 use crate::error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result};
 use futures::{channel::oneshot, prelude::*};
-use polkadot_node_primitives::{approval::{time::Tick, v1::DelayTranche}, new_session_window_size, SessionWindowSize, DISPUTE_WINDOW};
+use polkadot_node_primitives::{
+	approval::{time::Tick, v1::DelayTranche},
+	new_session_window_size, SessionWindowSize, DISPUTE_WINDOW,
+};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError as RuntimeApiSubsystemError,
 	messages::{
@@ -33,8 +36,8 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlockNumber,
-	Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, CandidateHash
+	AuthorityDiscoveryId, BlockNumber, CandidateHash, Hash, Header, SessionIndex, ValidatorId,
+	ValidatorIndex,
 };
 use sp_keystore::KeystorePtr;
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
@@ -77,10 +80,7 @@ struct PerRelayView {
 
 impl PerRelayView {
 	fn new(session_index: SessionIndex) -> Self {
-		PerRelayView {
-			session_index,
-			approvals_stats: ApprovalsStats::default(),
-		}
+		PerRelayView { session_index, approvals_stats: ApprovalsStats::default() }
 	}
 }
 
@@ -203,7 +203,8 @@ pub(crate) async fn run_iteration<Context>(
 						.map_err(JfyiError::OverseerCommunication)?
 						.map_err(JfyiError::RuntimeApiCallError)?;
 
-					view.per_relay.insert((relay_hash, relay_number), PerRelayView::new(session_idx));
+					view.per_relay
+						.insert((relay_hash, relay_number), PerRelayView::new(session_idx));
 
 					prune_based_on_session_windows(
 						view,
@@ -221,22 +222,27 @@ pub(crate) async fn run_iteration<Context>(
 								.map_err(JfyiError::RuntimeApiCallError)?;
 
 						if let Some(session_info) = session_info {
-							view.per_session
-								.insert(session_idx, PerSessionView::new(
+							view.per_session.insert(
+								session_idx,
+								PerSessionView::new(
 									session_info.discovery_keys.iter().cloned().collect(),
-								));
+								),
+							);
 						}
 					}
 				}
 			},
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)) => {
+			FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+				fin_block_hash,
+				fin_block_number,
+			)) => {
 				// when a block is finalized it performs:
 				// 1. Pruning unneeded forks
 				// 2. Collected statistics that belongs to the finalized chain
 				// 3. After collection of finalized statistics then remove finalized nodes from the
 				//    mapping leaving only the unfinalized blocks after finalization
 				let (tx, rx) = oneshot::channel();
-				let ancestor_req_message = ChainApiMessage::Ancestors{
+				let ancestor_req_message = ChainApiMessage::Ancestors {
 					hash: fin_block_hash,
 					k: fin_block_number.saturating_sub(view.latest_finalized_block.0) as _,
 					response_channel: tx,
@@ -249,7 +255,8 @@ pub(crate) async fn run_iteration<Context>(
 					.map_err(JfyiError::ChainApiCallError)?;
 				finalized_hashes.push(fin_block_hash);
 
-				let (mut before, after) : (HashMap<_, _>, HashMap<_, _>) = view.per_relay
+				let (mut before, after): (HashMap<_, _>, HashMap<_, _>) = view
+					.per_relay
 					.clone()
 					.into_iter()
 					.partition(|((_, relay_number), _)| *relay_number <= fin_block_number);
@@ -267,10 +274,8 @@ pub(crate) async fn run_iteration<Context>(
 				view.latest_finalized_block = (fin_block_number, fin_block_hash);
 			},
 			FromOrchestra::Communication { msg } => match msg {
-				RewardsStatisticsCollectorMessage::ChunksDownloaded(
-					session_index,
-					downloads,
-				) => handle_chunks_downloaded(view, session_index, downloads),
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(session_index, downloads) =>
+					handle_chunks_downloaded(view, session_index, downloads),
 				RewardsStatisticsCollectorMessage::ChunkUploaded(session_index, authority_ids) =>
 					handle_chunk_uploaded(view, session_index, authority_ids),
 				RewardsStatisticsCollectorMessage::CandidateApproved(
@@ -357,8 +362,7 @@ fn log_session_view_general_stats(view: &View) {
 			session_idx = ?session_index,
 			approvals = ?session_tally.0,
 			noshows = ?session_tally.1,
-			"session collected statistics"
+			"session collected statistics",
 		);
 	}
 }
-

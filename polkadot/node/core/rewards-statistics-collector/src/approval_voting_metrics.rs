@@ -30,19 +30,16 @@ pub fn handle_candidate_approved(
 	block_number: BlockNumber,
 	approvals: Vec<ValidatorIndex>,
 ) {
-	view
-		.per_relay
-		.entry((block_hash, block_number))
-		.and_modify(|relay_view| {
-			for validator_index in approvals {
-				relay_view
-					.approvals_stats
-					.votes
-					.entry(validator_index)
-					.and_modify(|count| { *count = count.saturating_add(1) })
-					.or_insert(1);
-			}
-		});
+	view.per_relay.entry((block_hash, block_number)).and_modify(|relay_view| {
+		for validator_index in approvals {
+			relay_view
+				.approvals_stats
+				.votes
+				.entry(validator_index)
+				.and_modify(|count| *count = count.saturating_add(1))
+				.or_insert(1);
+		}
+	});
 }
 
 pub fn handle_observed_no_shows(
@@ -51,17 +48,14 @@ pub fn handle_observed_no_shows(
 	block_number: BlockNumber,
 	no_show_validators: Vec<ValidatorIndex>,
 ) {
-	view
-		.per_relay
-		.entry((block_hash, block_number))
-		.and_modify(|relay_view| {
-			for validator_index in no_show_validators {
-				relay_view
-					.approvals_stats
-					.no_shows
-					.entry(validator_index)
-					.and_modify(|count| { *count = count.saturating_add(1) })
-					.or_insert(1);
-			}
-		});
+	view.per_relay.entry((block_hash, block_number)).and_modify(|relay_view| {
+		for validator_index in no_show_validators {
+			relay_view
+				.approvals_stats
+				.no_shows
+				.entry(validator_index)
+				.and_modify(|count| *count = count.saturating_add(1))
+				.or_insert(1);
+		}
+	});
 }

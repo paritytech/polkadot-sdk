@@ -3246,27 +3246,23 @@ where
 				"Candidate newly approved, collecting useful approvals..."
 			);
 
-			collect_useful_approvals(
-				sender,
-				&status,
-				block_hash,
-				block_number,
-				&candidate_entry,
-			);
+			collect_useful_approvals(sender, &status, block_hash, block_number, &candidate_entry);
 
 			if status.no_show_validators.len() > 0 {
-				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
-					block_hash,
-					block_number,
-					status.no_show_validators,
-				)).map_err(|_| {
-					gum::warn!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						?block_hash,
-						"Failed to send no shows to reward statistics subsystem",
-					);
-				});
+				_ = sender
+					.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
+						block_hash,
+						block_number,
+						status.no_show_validators,
+					))
+					.map_err(|_| {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							?block_hash,
+							"Failed to send no shows to reward statistics subsystem",
+						);
+					});
 			}
 		}
 
