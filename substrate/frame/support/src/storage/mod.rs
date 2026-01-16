@@ -48,6 +48,7 @@ pub mod child;
 pub mod generator;
 pub mod hashed;
 pub mod migration;
+pub mod state_diff_guard;
 pub mod storage_noop_guard;
 mod stream_iter;
 pub mod transactional;
