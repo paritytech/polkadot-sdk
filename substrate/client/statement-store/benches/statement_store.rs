@@ -19,10 +19,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use sc_statement_store::Store;
 use sp_core::Pair;
+use sp_runtime::codec::Encode;
 use sp_statement_store::{
-	runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-	DecryptionKey, Proof, SignatureVerificationResult, Statement, StatementSource, StatementStore,
-	SubmitResult, Topic,
+	DecryptionKey, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 };
 use std::sync::Arc;
 
@@ -51,7 +50,7 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_hash: Hash,
 		_key: &sc_client_api::StorageKey,
 	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
-		Ok(sc_client_api::StorageData::new((100_000, 1_000_000).encode()))
+		Ok(Some(sc_client_api::StorageData((100_000, 1_000_000).encode())))
 	}
 
 	fn storage_hash(
