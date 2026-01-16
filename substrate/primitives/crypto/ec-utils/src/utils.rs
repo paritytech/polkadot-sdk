@@ -38,6 +38,9 @@ const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
 type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
+/// Convenience alias
+pub type BigInteger = Vec<u64>;
+
 #[inline(always)]
 #[allow(unused)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
@@ -116,7 +119,7 @@ pub fn mul_projective_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Re
 #[allow(unused)]
 pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode_proj_te::<T>(base)?;
-	let scalar = decode::<Vec<u64>>(scalar)?;
+	let scalar = decode::<BigInteger>(scalar)?;
 	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
 	Ok(encode_proj_te(&res))
 }
@@ -124,7 +127,7 @@ pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Re
 #[allow(unused)]
 pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode::<SWAffine<T>>(base)?;
-	let scalar = decode::<Vec<u64>>(scalar)?;
+	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
 	Ok(encode::<SWAffine<T>>(res))
 }

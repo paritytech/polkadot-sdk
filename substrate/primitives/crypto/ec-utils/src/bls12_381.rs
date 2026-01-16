@@ -181,7 +181,7 @@ pub trait HostCalls {
 	///
 	/// - Receives encoded:
 	///   - `base`: `G1Affine`.
-	///   - `scalar`: `BitInt`.
+	///   - `scalar`: `BigInteger`.
 	/// - Returns encoded: `G1Affine`.
 	fn bls12_381_mul_affine_g1(
 		base: PassFatPointerAndRead<Vec<u8>>,
@@ -194,7 +194,7 @@ pub trait HostCalls {
 	///
 	/// - Receives encoded:
 	///   - `base`: `G2Affine`.
-	///   - `scalar`: `BigInt`.
+	///   - `scalar`: `BigInteger`.
 	/// - Returns encoded: `G2Affine`.
 	fn bls12_381_mul_affine_g2(
 		base: PassFatPointerAndRead<Vec<u8>>,
