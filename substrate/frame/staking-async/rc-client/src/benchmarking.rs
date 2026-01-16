@@ -82,7 +82,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, proof, None, None);
+		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, proof, None);
 
 		Ok(())
 	}
@@ -104,7 +104,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		crate::Pallet::<T>::purge_keys(RawOrigin::Signed(caller), None, None);
+		crate::Pallet::<T>::purge_keys(RawOrigin::Signed(caller), None);
 
 		Ok(())
 	}

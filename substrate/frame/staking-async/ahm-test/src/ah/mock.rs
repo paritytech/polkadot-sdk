@@ -513,11 +513,13 @@ impl pallet_dap::Config for Runtime {
 parameter_types! {
 	pub static NextRelayDeliveryFails: bool = false;
 	/// XCM delivery fees charged for set_keys/purge_keys.
-	/// This is the amount that will be withdrawn from the user's balance.
 	pub static XcmDeliveryFee: u128 = 10;
-	/// Simulated weight cost for remote execution on relay chain.
-	/// Used to test max_remote_weight limit enforcement.
-	pub static RemoteExecutionWeight: Weight = Weight::zero();
+	/// Execution cost for set_keys on relay chain.
+	/// This is charged on AH even though RC uses UnpaidExecution.
+	pub static SetKeysExecutionCost: u128 = 5;
+	/// Execution cost for purge_keys on relay chain.
+	/// This is charged on AH even though RC uses UnpaidExecution.
+	pub static PurgeKeysExecutionCost: u128 = 3;
 }
 
 /// Converts an AccountId to an XCM Location.
@@ -627,107 +629,91 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		stash: Self::AccountId,
 		keys: Vec<u8>,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
 
-		// Calculate delivery fees
-		let fees = delivery_fees();
-		let fee_amount = fees
-			.inner()
-			.first()
-			.and_then(|a| match &a.fun {
-				Fungibility::Fungible(amount) => Some(*amount),
-				_ => None,
-			})
-			.unwrap_or(0);
+		// Calculate total fee = delivery + execution
+		let delivery_fee = XcmDeliveryFee::get();
+		let execution_cost = SetKeysExecutionCost::get();
+		let total_fee = delivery_fee.saturating_add(execution_cost);
 
 		// Check max fee limit before charging
 		if let Some(max) = max_fee {
-			if fee_amount > max {
-				return Err(SendKeysError::FeesExceededMax { required: fee_amount, max });
+			if total_fee > max {
+				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
 			}
 		}
 
+		// Charge total fee from user
+		let fees = Assets::from(Asset {
+			id: AssetId(Location::here()),
+			fun: Fungibility::Fungible(total_fee),
+		});
 		let payer_location = AccountIdToLocation::convert(stash);
 		MockXcmExecutor::charge_fees(payer_location, fees)
 			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
 
 		if LocalQueue::get().is_some() {
-			return Ok(fee_amount);
+			return Ok(total_fee);
 		}
 
-		// Check if remote weight limit allows execution
-		let required_weight = RemoteExecutionWeight::get();
-		let weight_ok =
-			max_remote_weight.map(|limit| limit.all_gte(required_weight)).unwrap_or(true); // None = Unlimited
+		// Forward to RC (uses UnpaidExecution, so no fees charged there)
+		shared::in_rc(|| {
+			let origin = crate::rc::RuntimeOrigin::root();
+			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
+				origin,
+				stash,
+				keys.clone(),
+			)
+			.unwrap();
+		});
 
-		if weight_ok {
-			shared::in_rc(|| {
-				let origin = crate::rc::RuntimeOrigin::root();
-				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
-					origin,
-					stash,
-					keys.clone(),
-				)
-				.unwrap();
-			});
-		}
-		// Note: the message was "sent" and fees charged regardless of remote execution success
-		Ok(fee_amount)
+		Ok(total_fee)
 	}
 
 	fn purge_keys(
 		stash: Self::AccountId,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
 
-		// Calculate delivery fees
-		let fees = delivery_fees();
-		let fee_amount = fees
-			.inner()
-			.first()
-			.and_then(|a| match &a.fun {
-				Fungibility::Fungible(amount) => Some(*amount),
-				_ => None,
-			})
-			.unwrap_or(0);
+		// Calculate total fee = delivery + execution
+		let delivery_fee = XcmDeliveryFee::get();
+		let execution_cost = PurgeKeysExecutionCost::get();
+		let total_fee = delivery_fee.saturating_add(execution_cost);
 
 		// Check max fee limit before charging
 		if let Some(max) = max_fee {
-			if fee_amount > max {
-				return Err(SendKeysError::FeesExceededMax { required: fee_amount, max });
+			if total_fee > max {
+				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
 			}
 		}
 
+		// Charge total fee from user
+		let fees = Assets::from(Asset {
+			id: AssetId(Location::here()),
+			fun: Fungibility::Fungible(total_fee),
+		});
 		let payer_location = AccountIdToLocation::convert(stash);
 		MockXcmExecutor::charge_fees(payer_location, fees)
 			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
 
 		if LocalQueue::get().is_some() {
-			return Ok(fee_amount);
+			return Ok(total_fee);
 		}
 
-		// Check if remote weight limit allows execution
-		let required_weight = RemoteExecutionWeight::get();
-		let weight_ok =
-			max_remote_weight.map(|limit| limit.all_gte(required_weight)).unwrap_or(true); // None = Unlimited
+		// Forward to RC (uses UnpaidExecution, so no fees charged there)
+		shared::in_rc(|| {
+			let origin = crate::rc::RuntimeOrigin::root();
+			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
+				origin, stash,
+			)
+			.unwrap();
+		});
 
-		if weight_ok {
-			shared::in_rc(|| {
-				let origin = crate::rc::RuntimeOrigin::root();
-				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
-					origin, stash,
-				)
-				.unwrap();
-			});
-		}
-		// Note: the message was "sent" and fees charged regardless of remote execution success
-		Ok(fee_amount)
+		Ok(total_fee)
 	}
 }
 

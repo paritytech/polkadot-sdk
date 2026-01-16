@@ -19,10 +19,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::{
-	traits::{ConstU128, EitherOf},
-	weights::Weight,
-};
+use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -555,7 +552,6 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		_stash: Self::AccountId,
 		_keys: Vec<u8>,
 		_max_fee: Option<Self::Balance>,
-		_max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		// Stub implementation for test runtime - no actual fees charged
 		Ok(Default::default())
@@ -564,7 +560,6 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	fn purge_keys(
 		_stash: Self::AccountId,
 		_max_fee: Option<Self::Balance>,
-		_max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		// Stub implementation for test runtime - no actual fees charged
 		Ok(Default::default())

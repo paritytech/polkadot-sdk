@@ -210,34 +210,40 @@ pub trait SendToRelayChain {
 	/// The keys are forwarded to `pallet-staking-async-ah-client::set_keys_from_ah` on the RC.
 	/// Note: proof is validated on AH side, so only validated keys are sent.
 	///
+	/// The relay chain uses `UnpaidExecution`, so no fees are charged there. Instead, the total
+	/// fee (delivery + remote execution cost) is charged on AssetHub.
+	///
 	/// - `stash`: The validator stash account.
 	/// - `keys`: The encoded session keys.
-	/// - `max_fee`: Optional maximum delivery fee the user is willing to pay. If the actual fee
-	///   exceeds this, the operation fails with [`SendKeysError::FeesExceededMax`].
-	/// - `max_remote_weight`: Optional maximum weight for remote execution. `None` means unlimited.
+	/// - `max_fee`: Optional maximum total fee the user is willing to pay. This includes both the
+	///   XCM delivery fee and the remote execution cost. If the actual total fee exceeds this, the
+	///   operation fails with [`SendKeysError::FeesExceededMax`]. Pass `None` for unlimited (no
+	///   cap).
 	///
-	/// Returns the delivery fees charged on success.
+	/// Returns the total fees charged on success (delivery + execution).
 	fn set_keys(
 		stash: Self::AccountId,
 		keys: Vec<u8>,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>>;
 
 	/// Send a request to purge session keys on the relay chain.
 	///
 	/// The request is forwarded to `pallet-staking-async-ah-client::purge_keys_from_ah` on the RC.
 	///
-	/// - `stash`: The validator stash account.
-	/// - `max_fee`: Optional maximum delivery fee the user is willing to pay. If the actual fee
-	///   exceeds this, the operation fails with [`SendKeysError::FeesExceededMax`].
-	/// - `max_remote_weight`: Optional maximum weight for remote execution. `None` means unlimited.
+	/// The relay chain uses `UnpaidExecution`, so no fees are charged there. Instead, the total
+	/// fee (delivery + remote execution cost) is charged on AssetHub.
 	///
-	/// Returns the delivery fees charged on success.
+	/// - `stash`: The validator stash account.
+	/// - `max_fee`: Optional maximum total fee the user is willing to pay. This includes both the
+	///   XCM delivery fee and the remote execution cost. If the actual total fee exceeds this, the
+	///   operation fails with [`SendKeysError::FeesExceededMax`]. Pass `None` for unlimited (no
+	///   cap).
+	///
+	/// Returns the total fees charged on success (delivery + execution).
 	fn purge_keys(
 		stash: Self::AccountId,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>>;
 }
 
@@ -252,14 +258,12 @@ impl SendToRelayChain for () {
 		_stash: Self::AccountId,
 		_keys: Vec<u8>,
 		_max_fee: Option<Self::Balance>,
-		_max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		unimplemented!();
 	}
 	fn purge_keys(
 		_stash: Self::AccountId,
 		_max_fee: Option<Self::Balance>,
-		_max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		unimplemented!();
 	}
@@ -546,13 +550,17 @@ where
 
 	/// Send the message with fee charging and optional max fee limit.
 	///
-	/// This method validates the XCM message first, optionally checks if fees exceed the
-	/// specified maximum, charges delivery fees from the payer, and only then delivers
-	/// the message. This ensures fees are collected before the message is sent.
+	/// This method validates the XCM message first, calculates the total fee (delivery +
+	/// execution), optionally checks if the total exceeds the specified maximum, charges
+	/// the total from the payer, and then delivers the message.
+	///
+	/// The relay chain uses `UnpaidExecution`, so no fees are charged there. Instead, the
+	/// total cost (delivery + remote execution) is charged upfront on AssetHub.
 	///
 	/// - `message`: The message to send
-	/// - `payer`: The account paying delivery fees
-	/// - `max_fee`: Optional maximum fee the user is willing to pay
+	/// - `payer`: The account paying fees
+	/// - `max_fee`: Optional maximum total fee the user is willing to pay
+	/// - `execution_cost`: The relay chain execution cost to include in the total
 	///
 	/// Generic parameters:
 	/// - `XcmExec`: The XCM executor that implements `charge_fees`
@@ -561,16 +569,22 @@ where
 	/// - `AccountToLoc`: Converter from AccountId to XCM Location
 	/// - `Balance`: The balance type for fee limits
 	///
-	/// Returns the fees charged on success (as Balance, not XCM Assets).
+	/// Returns the total fees charged on success (delivery + execution).
 	pub fn send_with_fees<XcmExec, Call, AccountId, AccountToLoc, Balance>(
 		message: Message,
 		payer: AccountId,
 		max_fee: Option<Balance>,
+		execution_cost: Balance,
 	) -> Result<Balance, SendKeysError<Balance>>
 	where
 		XcmExec: ExecuteXcm<Call>,
 		AccountToLoc: Convert<AccountId, Location>,
-		Balance: TryFrom<u128> + PartialOrd + Copy + Default,
+		Balance: TryFrom<u128>
+			+ Into<u128>
+			+ PartialOrd
+			+ Copy
+			+ Default
+			+ core::ops::Add<Output = Balance>,
 	{
 		let payer_location = AccountToLoc::convert(payer);
 		let xcm = ToXcm::convert(message);
@@ -587,14 +601,7 @@ where
 		// fungible asset. This is based on `ExponentialPrice::price_for_delivery` in
 		// `polkadot/runtime/common/src/xcm_sender.rs` which returns `(AssetId, amount).into()`,
 		// converting to a single-element `Assets` via `impl<T: Into<Asset>> From<T> for Assets`.
-		//
-		// We extract the fee amount to:
-		// 1. Check against the user's max_fee limit before charging
-		// 2. Report the actual fee paid in the event
-		//
-		// If the price structure unexpectedly differs (empty, multiple assets, or non-fungible),
-		// we fail rather than silently proceeding with incorrect fee reporting.
-		let fee_amount: Balance = price
+		let delivery_fee: Balance = price
 			.inner()
 			.first()
 			.and_then(|asset| match &asset.fun {
@@ -610,15 +617,24 @@ where
 				SendKeysError::Send(SendOperationError::ValidationFailed)
 			})?;
 
+		// Calculate total fee = delivery + execution
+		let total_fee = delivery_fee + execution_cost;
+
 		// Check max fee before charging
 		if let Some(max) = max_fee {
-			if fee_amount > max {
-				return Err(SendKeysError::FeesExceededMax { required: fee_amount, max });
+			if total_fee > max {
+				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
 			}
 		}
 
-		XcmExec::charge_fees(payer_location, price).map_err(|e| {
-			log::error!(target: LOG_TARGET, "Failed to charge XCM fees: {:?}", e);
+		// Charge the total fee from the payer
+		let total_assets = xcm::latest::Assets::from(xcm::latest::Asset {
+			id: xcm::latest::AssetId(Location::here()),
+			fun: Fungible(total_fee.into()),
+		});
+
+		XcmExec::charge_fees(payer_location, total_assets).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to charge fees: {:?}", e);
 			SendKeysError::Send(SendOperationError::ChargeFeesFailed)
 		})?;
 
@@ -627,7 +643,7 @@ where
 			SendKeysError::Send(SendOperationError::DeliveryFailed)
 		})?;
 
-		Ok(fee_amount)
+		Ok(total_fee)
 	}
 }
 
@@ -1011,8 +1027,10 @@ pub mod pallet {
 		},
 		/// A new offence was reported.
 		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
-		/// Delivery fees were charged for a user operation (set_keys or purge_keys).
-		DeliveryFeesPaid { who: T::AccountId, fees: BalanceOf<T> },
+		/// Fees were charged for a user operation (set_keys or purge_keys).
+		///
+		/// The fee includes both XCM delivery fee and relay chain execution cost.
+		FeesPaid { who: T::AccountId, fees: BalanceOf<T> },
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1183,19 +1201,18 @@ pub mod pallet {
 		/// reasonable not to require a deposit.
 		///
 		/// **Fees:**
-		/// The stash account must have sufficient balance to pay XCM delivery fees.
+		/// The stash account must have sufficient balance to pay the total fee, which includes
+		/// both XCM delivery fees and the relay chain execution cost. The relay chain uses
+		/// `UnpaidExecution`, so no fees are charged there; instead, the full cost is charged
+		/// upfront on AssetHub.
+		///
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
-		/// while the stash (delegating account) pays the XCM delivery fee.
+		/// while the stash (delegating account) pays the total XCM fee (delivery + execution).
 		///
 		/// **Max Fee Limit:**
-		/// Users can optionally specify `max_delivery_fee` to limit the maximum delivery fee
-		/// they are willing to pay. If the actual fee exceeds this limit, the operation fails
-		/// with `FeesExceededMax`. Pass `None` for unlimited (no cap).
-		///
-		/// **Max Remote Weight:**
-		/// Users can specify `max_remote_weight` to limit the execution weight on the Relay
-		/// Chain. This follows the pattern of `limited_reserve_transfer_assets` in pallet-xcm.
-		/// Pass `None` for no cap.
+		/// Users can optionally specify `max_fee` to limit the maximum total fee they are
+		/// willing to pay. If the actual fee exceeds this limit, the operation fails with
+		/// `FeesExceededMax`. Pass `None` for unlimited (no cap).
 		///
 		/// NOTE: unlike the current flow for new validators on RC (bond -> set_keys -> validate),
 		/// users on Asset Hub MUST call bond and validate BEFORE calling set_keys. Attempting to
@@ -1206,8 +1223,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
 			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
-			max_delivery_fee: Option<BalanceOf<T>>,
-			max_remote_weight: Option<Weight>,
+			max_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
@@ -1225,17 +1241,12 @@ pub mod pallet {
 			);
 
 			// Forward validated keys to RC (no proof needed, already validated)
-			let fees = T::SendToRelayChain::set_keys(
-				stash.clone(),
-				keys.into_inner(),
-				max_delivery_fee,
-				max_remote_weight,
-			)
-			.map_err(|e| match e {
-				SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
-				SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
-			})?;
-			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
+			let fees = T::SendToRelayChain::set_keys(stash.clone(), keys.into_inner(), max_fee)
+				.map_err(|e| match e {
+					SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
+					SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
+				})?;
+			Self::deposit_event(Event::FeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys validated and set for {stash:?}, forwarded to RC");
 
@@ -1255,19 +1266,18 @@ pub mod pallet {
 		/// keys set.
 		///
 		/// **Fees:**
-		/// The caller must have sufficient balance to pay XCM delivery fees.
+		/// The caller must have sufficient balance to pay the total fee, which includes both
+		/// XCM delivery fees and the relay chain execution cost. The relay chain uses
+		/// `UnpaidExecution`, so no fees are charged there; instead, the full cost is charged
+		/// upfront on AssetHub.
+		///
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
-		/// while the delegating account pays the XCM delivery fee.
+		/// while the delegating account pays the total XCM fee (delivery + execution).
 		///
 		/// **Max Fee Limit:**
-		/// Users can optionally specify `max_delivery_fee` to limit the maximum delivery fee
-		/// they are willing to pay. If the actual fee exceeds this limit, the operation fails
-		/// with `FeesExceededMax`. Pass `None` for unlimited (no cap).
-		///
-		/// **Max Remote Weight:**
-		/// Users can specify `max_remote_weight` to limit the execution weight on the Relay
-		/// Chain. This follows the pattern of `limited_reserve_transfer_assets` in pallet-xcm.
-		/// Pass `None` for no cap.
+		/// Users can optionally specify `max_fee` to limit the maximum total fee they are
+		/// willing to pay. If the actual fee exceeds this limit, the operation fails with
+		/// `FeesExceededMax`. Pass `None` for unlimited (no cap).
 		//
 		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		// (storage item) to track accounts that have called set_keys. We will also need to perform
@@ -1276,22 +1286,17 @@ pub mod pallet {
 		// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
-		pub fn purge_keys(
-			origin: OriginFor<T>,
-			max_delivery_fee: Option<BalanceOf<T>>,
-			max_remote_weight: Option<Weight>,
-		) -> DispatchResult {
+		pub fn purge_keys(origin: OriginFor<T>, max_fee: Option<BalanceOf<T>>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
 			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
 			let fees =
-				T::SendToRelayChain::purge_keys(stash.clone(), max_delivery_fee, max_remote_weight)
-					.map_err(|e| match e {
-						SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
-						SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
-					})?;
-			Self::deposit_event(Event::DeliveryFeesPaid { who: stash.clone(), fees });
+				T::SendToRelayChain::purge_keys(stash.clone(), max_fee).map_err(|e| match e {
+					SendKeysError::Send(_) => Error::<T>::XcmSendFailed,
+					SendKeysError::FeesExceededMax { .. } => Error::<T>::FeesExceededMax,
+				})?;
+			Self::deposit_event(Event::FeesPaid { who: stash.clone(), fees });
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
 

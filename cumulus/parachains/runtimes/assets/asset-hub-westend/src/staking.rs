@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::{traits::EitherOf, weights::Weight};
+use frame_support::traits::EitherOf;
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -401,14 +401,16 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 pub struct SetKeysMessage {
 	pub stash: AccountId,
 	pub keys: Vec<u8>,
-	pub weight_limit: WeightLimit,
 }
 
 pub struct SetKeysToXcm;
 impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 	fn convert(msg: SetKeysMessage) -> Xcm<()> {
 		Xcm(vec![
-			Instruction::UnpaidExecution { weight_limit: msg.weight_limit, check_origin: None },
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
@@ -427,14 +429,16 @@ impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 #[derive(Encode, Decode, Clone)]
 pub struct PurgeKeysMessage {
 	pub stash: AccountId,
-	pub weight_limit: WeightLimit,
 }
 
 pub struct PurgeKeysToXcm;
 impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
 	fn convert(msg: PurgeKeysMessage) -> Xcm<()> {
 		Xcm(vec![
-			Instruction::UnpaidExecution { weight_limit: msg.weight_limit, check_origin: None },
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
@@ -450,6 +454,12 @@ impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
+	/// Execution weight for set_keys on relay chain (from Westend session pallet benchmarks).
+	/// Used to calculate execution cost charged on AH via WeightToFee.
+	pub SetKeysRemoteWeight: Weight = Weight::from_parts(101_461_000, 16_994);
+	/// Execution weight for purge_keys on relay chain (from Westend session pallet benchmarks).
+	/// Used to calculate execution cost charged on AH via WeightToFee.
+	pub PurgeKeysRemoteWeight: Weight = Weight::from_parts(74_310_000, 4_606);
 }
 
 /// Converts an AccountId to an XCM Location for fee charging.
@@ -479,10 +489,11 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		stash: Self::AccountId,
 		keys: Vec<u8>,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		let weight_limit =
-			max_remote_weight.map(WeightLimit::Limited).unwrap_or(WeightLimit::Unlimited);
+		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
+			&SetKeysRemoteWeight::get(),
+		);
+
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
@@ -495,19 +506,21 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			AccountIdToLocation,
 			Self::Balance,
 		>(
-			SetKeysMessage { stash: stash.clone(), keys, weight_limit },
+			SetKeysMessage { stash: stash.clone(), keys },
 			stash,
 			max_fee,
+			execution_cost,
 		)
 	}
 
 	fn purge_keys(
 		stash: Self::AccountId,
 		max_fee: Option<Self::Balance>,
-		max_remote_weight: Option<Weight>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		let weight_limit =
-			max_remote_weight.map(WeightLimit::Limited).unwrap_or(WeightLimit::Unlimited);
+		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
+			&PurgeKeysRemoteWeight::get(),
+		);
+
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
@@ -520,9 +533,10 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			AccountIdToLocation,
 			Self::Balance,
 		>(
-			PurgeKeysMessage { stash: stash.clone(), weight_limit },
+			PurgeKeysMessage { stash: stash.clone() },
 			stash,
 			max_fee,
+			execution_cost,
 		)
 	}
 }

@@ -1414,7 +1414,7 @@ mod poll_operations {
 
 mod session_keys {
 	use super::*;
-	use crate::ah::mock::{Balances, ProxyType};
+	use crate::ah::mock::{Balances, ProxyType, PurgeKeysExecutionCost, SetKeysExecutionCost};
 	use codec::Encode;
 	use frame_support::{assert_noop, BoundedVec};
 	use rc_client::AHStakingInterface;
@@ -1434,8 +1434,10 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let fee_amount: u128 = 50;
-			XcmDeliveryFee::set(fee_amount);
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = SetKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
 			let balance_before = Balances::free_balance(validator);
 
 			// WHEN: Validator sets session keys
@@ -1444,16 +1446,15 @@ mod session_keys {
 				keys,
 				proof,
 				None,
-				None,
 			));
 
-			// THEN: DeliveryFeesPaid event is emitted with the fees
+			// THEN: FeesPaid event is emitted with total fees (delivery + execution)
 			System::assert_has_event(
-				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: fee_amount }.into(),
+				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - fee_amount);
+			// AND: Validator's balance is reduced by the total fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
 		});
 	}
 
@@ -1471,7 +1472,6 @@ mod session_keys {
 					RuntimeOrigin::signed(nominator),
 					keys,
 					proof,
-					None,
 					None,
 				),
 				rc_client::Error::<T>::NotValidator
@@ -1494,7 +1494,6 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					proof,
-					None,
 					None,
 				),
 				rc_client::Error::<T>::XcmSendFailed
@@ -1519,7 +1518,6 @@ mod session_keys {
 					invalid_keys,
 					proof,
 					None,
-					None,
 				),
 				rc_client::Error::<T>::InvalidKeys
 			);
@@ -1541,7 +1539,6 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					wrong_proof,
-					None,
 					None,
 				),
 				rc_client::Error::<T>::InvalidProof
@@ -1565,7 +1562,6 @@ mod session_keys {
 					keys,
 					empty_proof,
 					None,
-					None,
 				),
 				rc_client::Error::<T>::InvalidProof
 			);
@@ -1587,7 +1583,6 @@ mod session_keys {
 					RuntimeOrigin::signed(validator),
 					keys,
 					malformed_proof,
-					None,
 					None,
 				),
 				rc_client::Error::<T>::InvalidProof
@@ -1618,8 +1613,7 @@ mod session_keys {
 			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys {
 				keys: keys.clone(),
 				proof,
-				max_delivery_fee: None,
-				max_remote_weight: None,
+				max_fee: None,
 			});
 
 			// THEN: The call succeeds (keys forwarded to RC via XCM)
@@ -1631,10 +1625,8 @@ mod session_keys {
 			));
 
 			// WHEN: Proxy calls purge_keys on behalf of stash
-			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {
-				max_delivery_fee: None,
-				max_remote_weight: None,
-			});
+			let purge_keys_call =
+				RuntimeCall::RcClient(rc_client::Call::purge_keys { max_fee: None });
 
 			// THEN: The call succeeds
 			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
@@ -1649,7 +1641,7 @@ mod session_keys {
 	#[test]
 	fn set_keys_fails_with_insufficient_balance() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Validator with insufficient balance to pay delivery fees
+			// GIVEN: Validator with insufficient balance to pay total fees
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
 
@@ -1665,15 +1657,14 @@ mod session_keys {
 					keys,
 					proof,
 					None,
-					None,
 				),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 
-			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			// AND: No FeesPaid event is emitted (transaction reverted)
 			assert!(System::events().iter().all(|e| !matches!(
 				e.event,
-				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+				RuntimeEvent::RcClient(rc_client::Event::FeesPaid { .. })
 			)));
 
 			// AND: Balance unchanged (fees were not charged)
@@ -1686,58 +1677,57 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let actual_fee: u128 = 50;
-			XcmDeliveryFee::set(actual_fee);
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = SetKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
 			let balance_before = Balances::free_balance(validator);
 
-			// max_fee > actual: succeeds, charges actual fee
+			// max_fee > total: succeeds, charges total fee
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
 					proof.clone(),
-					Some(actual_fee + 100),
-					None,
+					Some(total_fee + 100),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - actual_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
 			});
 
-			// max_fee == actual: succeeds
+			// max_fee == total: succeeds
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
 					proof.clone(),
-					Some(actual_fee),
-					None,
+					Some(total_fee),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - actual_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
 			});
 
-			// max_fee < actual: fails with FeesExceededMax
+			// max_fee < total: fails with FeesExceededMax
 			hypothetically!({
 				assert_noop!(
 					rc_client::Pallet::<T>::set_keys(
 						RuntimeOrigin::signed(validator),
 						keys.clone(),
 						proof.clone(),
-						Some(actual_fee - 1),
-						None,
+						Some(total_fee - 1),
 					),
 					rc_client::Error::<T>::FeesExceededMax
 				);
 				assert_eq!(Balances::free_balance(validator), balance_before);
 			});
 
-			// max_fee = 0, actual = 0: succeeds
+			// max_fee = 0, total = 0: succeeds (both delivery and execution cost are 0)
 			hypothetically!({
 				XcmDeliveryFee::set(0);
+				SetKeysExecutionCost::set(0);
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
 					proof.clone(),
 					Some(0),
-					None,
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before);
 			});
@@ -1749,24 +1739,22 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator with delivery fees configured
 			let validator: AccountId = 3;
-			let fee_amount: u128 = 50;
-			XcmDeliveryFee::set(fee_amount);
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = PurgeKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
 			let balance_before = Balances::free_balance(validator);
 
 			// WHEN: Validator purges session keys
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(
-				RuntimeOrigin::signed(validator),
-				None,
-				None,
-			));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
 
-			// THEN: DeliveryFeesPaid event is emitted with the fees
+			// THEN: FeesPaid event is emitted with total fees (delivery + execution)
 			System::assert_has_event(
-				rc_client::Event::<T>::DeliveryFeesPaid { who: validator, fees: fee_amount }.into(),
+				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - fee_amount);
+			// AND: Validator's balance is reduced by the total fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
 		});
 	}
 
@@ -1783,11 +1771,7 @@ mod session_keys {
 
 			// WHEN: Non-validator calls purge_keys
 			// THEN: Call succeeds - XCM is sent to RC (RC will validate if keys exist)
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(
-				RuntimeOrigin::signed(nominator),
-				None,
-				None,
-			));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator), None,));
 		});
 	}
 
@@ -1807,11 +1791,7 @@ mod session_keys {
 			);
 
 			// THEN: Chilled account can still purge their session keys
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(
-				RuntimeOrigin::signed(validator),
-				None,
-				None,
-			));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
 		});
 	}
 
@@ -1825,7 +1805,7 @@ mod session_keys {
 			// WHEN: Validator purges sesion keys
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None, None,),
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1834,7 +1814,7 @@ mod session_keys {
 	#[test]
 	fn purge_keys_fails_with_insufficient_balance() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account with insufficient balance to pay delivery fees
+			// GIVEN: Account with insufficient balance to pay total fees
 			let account: AccountId = 3;
 
 			// Set delivery fee higher than account's free balance
@@ -1844,14 +1824,14 @@ mod session_keys {
 			// WHEN: Account tries to purge keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
 			assert_noop!(
-				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account), None, None),
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account), None),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 
-			// AND: No DeliveryFeesPaid event is emitted (transaction reverted)
+			// AND: No FeesPaid event is emitted (transaction reverted)
 			assert!(System::events().iter().all(|e| !matches!(
 				e.event,
-				RuntimeEvent::RcClient(rc_client::Event::DeliveryFeesPaid { .. })
+				RuntimeEvent::RcClient(rc_client::Event::FeesPaid { .. })
 			)));
 
 			// AND: Balance unchanged (fees were not charged)
@@ -1863,37 +1843,36 @@ mod session_keys {
 	fn purge_keys_max_fee_scenarios() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let account: AccountId = 3;
-			let actual_fee: u128 = 50;
-			XcmDeliveryFee::set(actual_fee);
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = PurgeKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
 			let balance_before = Balances::free_balance(account);
 
-			// max_fee > actual: succeeds
+			// max_fee > total: succeeds
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::purge_keys(
 					RuntimeOrigin::signed(account),
-					Some(actual_fee + 100),
-					None,
+					Some(total_fee + 100),
 				));
-				assert_eq!(Balances::free_balance(account), balance_before - actual_fee);
+				assert_eq!(Balances::free_balance(account), balance_before - total_fee);
 			});
 
-			// max_fee == actual: succeeds
+			// max_fee == total: succeeds
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::purge_keys(
 					RuntimeOrigin::signed(account),
-					Some(actual_fee),
-					None,
+					Some(total_fee),
 				));
-				assert_eq!(Balances::free_balance(account), balance_before - actual_fee);
+				assert_eq!(Balances::free_balance(account), balance_before - total_fee);
 			});
 
-			// max_fee < actual: fails with FeesExceededMax
+			// max_fee < total: fails with FeesExceededMax
 			hypothetically!({
 				assert_noop!(
 					rc_client::Pallet::<T>::purge_keys(
 						RuntimeOrigin::signed(account),
-						Some(actual_fee - 1),
-						None,
+						Some(total_fee - 1),
 					),
 					rc_client::Error::<T>::FeesExceededMax
 				);
@@ -1921,7 +1900,6 @@ mod session_keys {
 				encoded_keys.clone(),
 				proof.clone(),
 				None,
-				None,
 			));
 		});
 
@@ -1933,11 +1911,7 @@ mod session_keys {
 
 		// WHEN: Validator purges keys on AH
 		shared::in_ah(|| {
-			assert_ok!(rc_client::Pallet::<T>::purge_keys(
-				RuntimeOrigin::signed(validator),
-				None,
-				None,
-			));
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
 		});
 
 		// THEN: Keys are purged on RC
