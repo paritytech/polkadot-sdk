@@ -375,6 +375,33 @@ What stops a provider from storing nothing and fetching from other providers whe
 
 **Isolation mode** (future): Admin temporarily blocks providers B and C from serving, then challenges A. If A can't respond without fetching from B/C, A is caught.
 
+### Collusion Resistance
+
+What about multiple providers colluding to reduce physical redundancy or coordinate service degradation?
+
+**Technical collusion (reducing storage):** Providers A, B, C coordinate—only A stores data, B and C proxy from A. This fails because:
+- Latency measurements detect proxying (see [Latency-Based Selection](#latency-based-selection-and-geographic-redundancy))
+- Each provider still needs full stake at risk
+- Savings minimal (~$20/month) vs. risk (thousands in stake)
+
+**Service degradation collusion (hostage scenario):** More subtle attack—providers store data but deliberately provide poor service to extort payments. They respond to challenges (avoiding slashing) but refuse normal reads unless paid extra.
+
+Why this fails:
+- **Client migration**: Poor service → clients pick different providers for future buckets
+- **Reputation damage**: On-chain record shows provider has many non-renewed agreements
+- **Limited leverage**: With 3+ providers, at least one likely defects to capture more business
+- **Latency optimization**: Clients automatically shift traffic to responsive providers (see [Latency-Based Selection](#latency-based-selection-and-geographic-redundancy))
+- **Challenge cost ceiling**: Can't charge more than challenge cost—client would just challenge instead
+
+It's not binary (serve/don't serve). Providers can "barely serve"—responding only to challenges while degrading normal service. But this is self-defeating long-term as clients migrate to better providers, and short-term gains are capped by challenge costs.
+
+**Organizational collusion (censorship):** Single entity runs providers globally, receives government pressure to censor. Protection through economics:
+- Censoring all replicas = all stakes slashed (3 providers × 1000 DOT = ~$450,000)
+- Pressure must exceed economic penalty to force compliance
+- Permissionless replicas can't be controlled by original provider
+
+We don't prevent collusion cryptographically. We make it economically irrational through stake requirements, practically difficult through latency-based verification, and strategically unstable through client optionality and provider competition.
+
 ---
 
 ## Proof-of-DOT and Read Incentives
