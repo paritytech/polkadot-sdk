@@ -25,8 +25,8 @@ use frame_support::{
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
 	test_utils::{
-		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-		TestBroadcastHandler, TestSubscriptionService, TestUniversalAliases,
+		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestBroadcastHandler,
+		TestSubscriptionService, TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
 	FrameTransactionalProcessor,

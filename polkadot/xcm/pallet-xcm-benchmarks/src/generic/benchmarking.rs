@@ -970,18 +970,16 @@ mod benchmarks {
 		// Calculate value size to fit within a conservative 2KB total storage budget
 		const KEY_SIZE: usize = 32;
 		let conservative_total_storage = 2048usize;
-		let value_size = ((conservative_total_storage / n.max(1) as usize).saturating_sub(KEY_SIZE))
-			.min(max_value_len)
-			.max(1);
+		let value_size = ((conservative_total_storage / n.max(1) as usize)
+			.saturating_sub(KEY_SIZE))
+		.min(max_value_len)
+		.max(1);
 
 		let data_vec: Vec<_> = (0..n)
 			.map(|i| {
 				let mut key = [0u8; KEY_SIZE];
 				key[0] = i as u8;
-				(
-					key,
-					BoundedVec::try_from(vec![i as u8; value_size]).unwrap(),
-				)
+				(key, BoundedVec::try_from(vec![i as u8; value_size]).unwrap())
 			})
 			.collect();
 

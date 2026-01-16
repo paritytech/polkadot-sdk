@@ -80,11 +80,7 @@ pub trait OnNewSessionOutgoing<N> {
 }
 
 impl<N> OnNewSessionOutgoing<N> for () {
-	fn on_new_session_outgoing(
-		_: &SessionChangeNotification<N>,
-		_: &[polkadot_primitives::Id],
-	) {
-	}
+	fn on_new_session_outgoing(_: &SessionChangeNotification<N>, _: &[polkadot_primitives::Id]) {}
 }
 
 /// Number of validators (not only parachain) in a session.

@@ -20,15 +20,14 @@
 //!
 //! This pallet is heavily opinionated toward a parachain-to-parachain publish-subscribe model.
 //! It assumes ParaId as the identifier for each child trie and is designed specifically for
-//! extracting published data from relay chain proofs that were stored in child tries in a pubsub mechanism.
+//! extracting published data from relay chain proofs that were stored in child tries in a pubsub
+//! mechanism.
 
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Decode;
-use cumulus_pallet_parachain_system::relay_state_snapshot::{
-	ProcessRelayProofKeys, RelayChainStateProof,
-};
+use cumulus_pallet_parachain_system::{relay_state_snapshot::RelayChainStateProof, OnSystemEvent};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	defensive,
@@ -36,17 +35,16 @@ use frame_support::{
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{Get, StorageVersion},
 };
-use sp_std::vec;
 
 pub use pallet::*;
-pub use weights::{WeightInfo, SubstrateWeight};
+pub use weights::{SubstrateWeight, WeightInfo};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-mod test_util;
 #[cfg(test)]
 mod mock;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod test_util;
 #[cfg(test)]
 mod tests;
 pub mod weights;
@@ -96,11 +94,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Data was received and processed from a publisher.
-		DataProcessed {
-			publisher: ParaId,
-			key: Vec<u8>,
-			value_size: u32,
-		},
+		DataProcessed { publisher: ParaId, key: Vec<u8>, value_size: u32 },
 		/// A stored publisher root was cleared.
 		PublisherRootCleared { publisher: ParaId },
 	}
@@ -122,10 +116,7 @@ pub mod pallet {
 		/// - `publisher`: The ParaId of the publisher whose root should be cleared.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::clear_stored_roots())]
-		pub fn clear_stored_roots(
-			origin: OriginFor<T>,
-			publisher: ParaId,
-		) -> DispatchResult {
+		pub fn clear_stored_roots(origin: OriginFor<T>, publisher: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
 
 			<PreviousPublishedDataRoots<T>>::try_mutate(|roots| -> DispatchResult {
@@ -148,12 +139,12 @@ pub mod pallet {
 				.into_iter()
 				.flat_map(|(para_id, data_keys)| {
 					let storage_key = Self::derive_storage_key(para_id);
-				data_keys.into_iter().map(move |key| {
-					cumulus_primitives_core::RelayStorageKey::Child {
-						storage_key: storage_key.clone(),
-						key,
-					}
-				})
+					data_keys.into_iter().map(move |key| {
+						cumulus_primitives_core::RelayStorageKey::Child {
+							storage_key: storage_key.clone(),
+							key,
+						}
+					})
 				})
 				.collect();
 
@@ -227,19 +218,22 @@ pub mod pallet {
 							match relay_state_proof.read_child_storage(&child_info, key) {
 								Ok(Some(encoded_value)) => {
 									let encoded_size = encoded_value.len() as u32;
-									total_bytes_decoded = total_bytes_decoded.saturating_add(encoded_size);
+									total_bytes_decoded =
+										total_bytes_decoded.saturating_add(encoded_size);
 
 									match Vec::<u8>::decode(&mut &encoded_value[..]) {
 										Ok(value) => {
 											let value_size = value.len() as u32;
 
 											// Notify handler of new data.
-											let handler_weight = T::SubscriptionHandler::on_data_updated(
-												*publisher,
-												key.clone(),
-												value.clone(),
-											);
-											total_handler_weight = total_handler_weight.saturating_add(handler_weight);
+											let handler_weight =
+												T::SubscriptionHandler::on_data_updated(
+													*publisher,
+													key.clone(),
+													value.clone(),
+												);
+											total_handler_weight =
+												total_handler_weight.saturating_add(handler_weight);
 
 											Self::deposit_event(Event::DataProcessed {
 												publisher: *publisher,
@@ -256,7 +250,9 @@ pub mod pallet {
 									// Key not published yet - expected.
 								},
 								Err(_) => {
-									defensive!("Failed to read child storage from relay chain proof");
+									defensive!(
+										"Failed to read child storage from relay chain proof"
+									);
 								},
 							}
 						}
@@ -265,38 +261,47 @@ pub mod pallet {
 			}
 
 			// Store current roots for next block's comparison.
-			let bounded_roots: BoundedBTreeMap<ParaId, BoundedVec<u8, ConstU32<32>>, T::MaxPublishers> =
-				current_roots
-					.iter()
-					.filter_map(|(para_id, root)| {
-						BoundedVec::try_from(root.clone()).ok().map(|bounded_root| (*para_id, bounded_root))
-					})
-					.collect::<BTreeMap<_, _>>()
-					.try_into()
-					.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
+			let bounded_roots: BoundedBTreeMap<
+				ParaId,
+				BoundedVec<u8, ConstU32<32>>,
+				T::MaxPublishers,
+			> = current_roots
+				.iter()
+				.filter_map(|(para_id, root)| {
+					BoundedVec::try_from(root.clone())
+						.ok()
+						.map(|bounded_root| (*para_id, bounded_root))
+				})
+				.collect::<BTreeMap<_, _>>()
+				.try_into()
+				.expect("MaxPublishers limit enforced in collect_publisher_roots; qed");
 			<PreviousPublishedDataRoots<T>>::put(bounded_roots);
 
 			(total_handler_weight, total_bytes_decoded)
 		}
 	}
 
-	impl<T: Config> ProcessRelayProofKeys for Pallet<T> {
-		/// Process child trie data from the relay proof.
-		///
-		/// This implementation only processes child trie keys (pubsub data).
-		/// Main trie keys in the proof are intentionally ignored.
-		fn process_relay_proof_keys(verified_proof: &RelayChainStateProof) -> Weight {
+	impl<T: Config> OnSystemEvent for Pallet<T> {
+		fn on_validation_data(_data: &cumulus_primitives_core::PersistedValidationData) {}
+
+		fn on_validation_code_applied() {}
+
+		fn on_relay_state_proof(relay_state_proof: &RelayChainStateProof) -> Weight {
 			let (subscriptions, subscriptions_weight) = T::SubscriptionHandler::subscriptions();
 			let num_publishers = subscriptions.len() as u32;
 			let total_keys = subscriptions.iter().map(|(_, keys)| keys.len() as u32).sum();
 
-			let current_roots = Self::collect_publisher_roots(verified_proof, &subscriptions);
-			let (handler_weight, total_bytes_decoded) = Self::process_published_data(verified_proof, &current_roots, &subscriptions);
+			let current_roots = Self::collect_publisher_roots(relay_state_proof, &subscriptions);
+			let (handler_weight, total_bytes_decoded) =
+				Self::process_published_data(relay_state_proof, &current_roots, &subscriptions);
 
-			// Return total weight for all operations
-			subscriptions_weight
-				.saturating_add(handler_weight)
-				.saturating_add(T::WeightInfo::process_proof_excluding_handler(num_publishers, total_keys, total_bytes_decoded))
+			subscriptions_weight.saturating_add(handler_weight).saturating_add(
+				T::WeightInfo::process_proof_excluding_handler(
+					num_publishers,
+					total_keys,
+					total_bytes_decoded,
+				),
+			)
 		}
 	}
 }

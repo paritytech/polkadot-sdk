@@ -188,10 +188,9 @@ pub mod prelude {
 			Junctions::{self, Here},
 			Location, MaxAssetTransferFilters, MaxPublishItems, MaybeErrorCode,
 			NetworkId::{self, *},
-			PublishData, PublishKey,
-			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
-			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
-			SendXcm, Weight,
+			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, PublishData,
+			PublishKey, QueryId, QueryResponseInfo, Reanchorable, Response, Result as XcmResult,
+			SendError, SendResult, SendXcm, Weight,
 			WeightLimit::{self, *},
 			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
@@ -219,10 +218,8 @@ parameter_types! {
 /// Key type for published data - a 32-byte hash
 pub type PublishKey = [u8; 32];
 
-pub type PublishData = BoundedVec<
-	(PublishKey, BoundedVec<u8, MaxPublishValueLength>),
-	MaxPublishItems,
->;
+pub type PublishData =
+	BoundedVec<(PublishKey, BoundedVec<u8, MaxPublishValueLength>), MaxPublishItems>;
 
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
@@ -1157,7 +1154,7 @@ pub enum Instruction<Call> {
 	/// which are stored in child tries on the relay chain indexed by the publisher's ParaId.
 	///
 	/// - `data`: The key-value pairs to be published, bounded by MaxPublishItems
-	///   - Keys: 32-byte hashes 
+	///   - Keys: 32-byte hashes
 	///   - Values: Bounded by MaxPublishValueLength
 	///
 	/// Safety: Origin must be a parachain (Sovereign Account). The relay chain will validate
@@ -1168,7 +1165,7 @@ pub enum Instruction<Call> {
 	/// Errors:
 	/// - NoPermission: If origin is not authorized by the configured filter
 	/// - BadOrigin: If origin is not a valid parachain
-	/// - PublishFailed: If the underlying handler fails 
+	/// - PublishFailed: If the underlying handler fails
 	Publish { data: PublishData },
 }
 

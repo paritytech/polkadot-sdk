@@ -25,12 +25,7 @@ use xcm::latest::{MaxPublishValueLength, PublishKey};
 fn test_publish_data(items: Vec<(PublishKey, &[u8])>) -> PublishData {
 	items
 		.into_iter()
-		.map(|(k, v)| {
-			(
-				k,
-				BoundedVec::<u8, MaxPublishValueLength>::try_from(v.to_vec()).unwrap(),
-			)
-		})
+		.map(|(k, v)| (k, BoundedVec::<u8, MaxPublishValueLength>::try_from(v.to_vec()).unwrap()))
 		.collect::<Vec<_>>()
 		.try_into()
 		.unwrap()
@@ -130,10 +125,7 @@ fn publish_multiple_items_works() {
 
 	let key1 = [5u8; 32];
 	let key2 = [6u8; 32];
-	let data = test_publish_data(vec![
-		(key1, b"value1"),
-		(key2, b"value2"),
-	]);
+	let data = test_publish_data(vec![(key1, b"value1"), (key2, b"value2")]);
 
 	let message = Xcm::<TestCall>(vec![Publish { data: data.clone() }]);
 	let mut hash = fake_message_hash(&message);

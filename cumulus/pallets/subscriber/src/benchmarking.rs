@@ -53,9 +53,7 @@ mod benchmarks {
 	///
 	/// Cost scales with the number of publishers `n`.
 	#[benchmark]
-	fn collect_publisher_roots(
-		n: Linear<1, { T::MaxPublishers::get() }>,
-	) {
+	fn collect_publisher_roots(n: Linear<1, { T::MaxPublishers::get() }>) {
 		let subscriptions = create_subscriptions(n, 1);
 		let publishers: Vec<_> = (0..n)
 			.map(|i| (ParaId::from(1000 + i), vec![(vec![i as u8], vec![25u8])]))
@@ -84,7 +82,8 @@ mod benchmarks {
 		s: Linear<1, 2048>,
 	) {
 		let subscriptions = create_subscriptions(n, k);
-		// SCALE encoding overhead (1-4 bytes) ignored as negligible compared to data benchmark ranges
+		// SCALE encoding overhead (1-4 bytes) ignored as negligible compared to data benchmark
+		// ranges
 		let value_size_per_key = (s / k.max(1)) as usize;
 		let publishers: Vec<_> = (0..n)
 			.map(|i| {

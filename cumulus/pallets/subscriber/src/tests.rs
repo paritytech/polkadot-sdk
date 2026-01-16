@@ -6,6 +6,7 @@
 use super::*;
 use crate::{mock::*, test_util::build_sproof_with_child_data};
 use codec::Encode;
+use cumulus_pallet_parachain_system::OnSystemEvent;
 use cumulus_primitives_core::ParaId;
 use frame_support::assert_ok;
 
@@ -29,7 +30,7 @@ fn process_relay_proof_keys_with_new_data_calls_handler() {
 
 		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
 
-		Pallet::<Test>::process_relay_proof_keys(&proof);
+		Pallet::<Test>::on_relay_state_proof(&proof);
 
 		let received = ReceivedData::get();
 		assert_eq!(received.len(), 1);
@@ -47,7 +48,7 @@ fn process_empty_subscriptions() {
 
 		let proof = build_test_proof(ParaId::from(1000), vec![]);
 
-		Pallet::<Test>::process_relay_proof_keys(&proof);
+		Pallet::<Test>::on_relay_state_proof(&proof);
 
 		assert_eq!(ReceivedData::get().len(), 0);
 	});
@@ -66,13 +67,13 @@ fn root_change_triggers_processing() {
 
 		// First block
 		let proof1 = build_test_proof(publisher, vec![(key.clone(), value1.clone())]);
-		Pallet::<Test>::process_relay_proof_keys(&proof1);
+		Pallet::<Test>::on_relay_state_proof(&proof1);
 		assert_eq!(ReceivedData::get().len(), 1);
 
 		// Second block with different value
 		ReceivedData::set(vec![]);
 		let proof2 = build_test_proof(publisher, vec![(key.clone(), value2.clone())]);
-		Pallet::<Test>::process_relay_proof_keys(&proof2);
+		Pallet::<Test>::on_relay_state_proof(&proof2);
 
 		assert_eq!(ReceivedData::get().len(), 1);
 		assert_eq!(ReceivedData::get()[0].2, Vec::<u8>::decode(&mut &value2[..]).unwrap());
@@ -91,13 +92,13 @@ fn unchanged_root_skips_processing() {
 
 		// First block
 		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
-		Pallet::<Test>::process_relay_proof_keys(&proof);
+		Pallet::<Test>::on_relay_state_proof(&proof);
 		assert_eq!(ReceivedData::get().len(), 1);
 
 		// Second block with same data
 		ReceivedData::set(vec![]);
 		let proof2 = build_test_proof(publisher, vec![(key.clone(), value)]);
-		Pallet::<Test>::process_relay_proof_keys(&proof2);
+		Pallet::<Test>::on_relay_state_proof(&proof2);
 
 		assert_eq!(ReceivedData::get().len(), 0, "Handler should not be called for unchanged root");
 	});
@@ -111,7 +112,7 @@ fn clear_stored_roots_extrinsic() {
 
 		// Store a root for the publisher
 		let proof = build_test_proof(publisher, vec![(vec![0x01], vec![0x11].encode())]);
-		Pallet::<Test>::process_relay_proof_keys(&proof);
+		Pallet::<Test>::on_relay_state_proof(&proof);
 
 		// Verify root is stored
 		assert!(PreviousPublishedDataRoots::<Test>::get().contains_key(&publisher));
@@ -135,8 +136,12 @@ fn clear_stored_roots_only_clears_specified_publisher() {
 
 		// Manually set up storage with 2 publisher roots
 		let mut roots = BoundedBTreeMap::new();
-		roots.try_insert(publisher1, BoundedVec::try_from(vec![0u8; 32]).unwrap()).unwrap();
-		roots.try_insert(publisher2, BoundedVec::try_from(vec![1u8; 32]).unwrap()).unwrap();
+		roots
+			.try_insert(publisher1, BoundedVec::try_from(vec![0u8; 32]).unwrap())
+			.unwrap();
+		roots
+			.try_insert(publisher2, BoundedVec::try_from(vec![1u8; 32]).unwrap())
+			.unwrap();
 		PreviousPublishedDataRoots::<Test>::put(roots);
 
 		assert_eq!(PreviousPublishedDataRoots::<Test>::get().len(), 2);
@@ -182,7 +187,7 @@ fn data_processed_event_emitted() {
 		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
 
 		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
-		Pallet::<Test>::process_relay_proof_keys(&proof);
+		Pallet::<Test>::on_relay_state_proof(&proof);
 
 		// value_size is the decoded Vec<u8> length, not the encoded length
 		let decoded_len = Vec::<u8>::decode(&mut &value[..]).unwrap().len() as u32;

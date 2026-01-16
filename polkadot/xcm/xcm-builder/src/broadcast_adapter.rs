@@ -21,8 +21,7 @@ use core::marker::PhantomData;
 use frame_support::traits::Contains;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::broadcaster::Publish;
-use xcm::latest::prelude::XcmError;
-use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
+use xcm::latest::{prelude::XcmError, Junction, Location, PublishData, Result as XcmResult};
 use xcm_executor::traits::BroadcastHandler;
 
 /// Configurable broadcast adapter that validates parachain origins.
@@ -47,11 +46,8 @@ where
 		};
 
 		// Call the actual handler
-		let data_vec: Vec<([u8; 32], Vec<u8>)> = data
-			.into_inner()
-			.into_iter()
-			.map(|(k, v)| (k, v.into_inner()))
-			.collect();
+		let data_vec: Vec<([u8; 32], Vec<u8>)> =
+			data.into_inner().into_iter().map(|(k, v)| (k, v.into_inner())).collect();
 		Handler::publish_data(para_id, data_vec).map_err(|_| XcmError::PublishFailed)
 	}
 }
@@ -70,9 +66,8 @@ mod tests {
 	use frame_support::parameter_types;
 	use polkadot_runtime_parachains::broadcaster::Publish;
 	use sp_runtime::BoundedVec;
-	use xcm::latest::prelude::XcmError;
 	use xcm::latest::{
-		Junction, Location, MaxPublishValueLength, PublishData, PublishKey,
+		prelude::XcmError, Junction, Location, MaxPublishValueLength, PublishData, PublishKey,
 	};
 
 	// Mock handler that tracks calls
@@ -85,10 +80,7 @@ mod tests {
 		items
 			.into_iter()
 			.map(|(k, v)| {
-				(
-					k,
-					BoundedVec::<u8, MaxPublishValueLength>::try_from(v.to_vec()).unwrap(),
-				)
+				(k, BoundedVec::<u8, MaxPublishValueLength>::try_from(v.to_vec()).unwrap())
 			})
 			.collect::<Vec<_>>()
 			.try_into()
@@ -115,10 +107,11 @@ mod tests {
 		let key1 = [1u8; 32];
 		let data = test_publish_data(vec![(key1, b"value1")]);
 
-		let result = ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_publish(
-			&origin,
-			data.clone(),
-		);
+		let result =
+			ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_publish(
+				&origin,
+				data.clone(),
+			);
 
 		assert!(result.is_ok());
 		let calls = PublishCalls::get();
@@ -137,10 +130,11 @@ mod tests {
 		let key1 = [2u8; 32];
 		let data = test_publish_data(vec![(key1, b"value1")]);
 
-		let result = ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_publish(
-			&origin,
-			data.clone(),
-		);
+		let result =
+			ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_publish(
+				&origin,
+				data.clone(),
+			);
 
 		assert!(matches!(result, Err(XcmError::NoPermission)));
 		assert!(PublishCalls::get().is_empty());

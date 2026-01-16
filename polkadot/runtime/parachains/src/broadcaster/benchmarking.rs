@@ -64,8 +64,7 @@ mod benchmarks {
 		let deposit = T::PublisherDeposit::get();
 
 		T::Currency::set_balance(&caller, deposit * 2u32.into());
-		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller).into(), para_id)
-			.unwrap();
+		Broadcaster::<T>::register_publisher(RawOrigin::Signed(caller).into(), para_id).unwrap();
 
 		// Calculate max value size to stay within MaxTotalStorageSize and MaxValueLength
 		// Total size = sum of (32 bytes key + value_len) for all keys

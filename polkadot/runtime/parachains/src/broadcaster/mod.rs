@@ -23,8 +23,8 @@
 //!
 //! Parachains must register before they can publish data:
 //!
-//! - System parachains (ID < 2000): Registered via `force_register_publisher` (Root origin)
-//!   with custom deposit amounts (typically zero).
+//! - System parachains (ID < 2000): Registered via `force_register_publisher` (Root origin) with
+//!   custom deposit amounts (typically zero).
 //! - Public parachains (ID >= 2000): Registered via `register_publisher` requiring a deposit.
 //!
 //! The deposit is held using the native fungible traits with the `PublisherDeposit` hold reason.
@@ -38,7 +38,7 @@
 //! Published data uses:
 //! - Keys: 32-byte hashes (fixed size)
 //! - Values: Bounded by `MaxValueLength`
-//! - Total storage limit: `MaxTotalStorageSize` per publisher 
+//! - Total storage limit: `MaxTotalStorageSize` per publisher
 //!
 //! The total storage size is calculated as the sum of all (32-byte key + value length) pairs.
 //!
@@ -94,7 +94,6 @@ pub struct PublisherInfo<AccountId, Balance> {
 	/// The amount held as deposit for registration.
 	pub deposit: Balance,
 }
-
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -183,26 +182,15 @@ pub mod pallet {
 	/// Parachains must be registered before they can publish data. The registration includes
 	/// information about the managing account and the deposit held for the registration.
 	#[pallet::storage]
-	pub type RegisteredPublishers<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		PublisherInfo<T::AccountId, BalanceOf<T>>,
-		OptionQuery,
-	>;
+	pub type RegisteredPublishers<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, PublisherInfo<T::AccountId, BalanceOf<T>>, OptionQuery>;
 
 	/// Tracks which parachains have published data.
 	///
 	/// Maps parachain ID to a boolean indicating whether they have a child trie.
 	/// The actual child trie info is derived deterministically from the ParaId.
 	#[pallet::storage]
-	pub type PublisherExists<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		bool,
-		ValueQuery,
-	>;
+	pub type PublisherExists<T: Config> = StorageMap<_, Twox64Concat, ParaId, bool, ValueQuery>;
 
 	/// Tracks all published keys per parachain.
 	#[pallet::storage]
@@ -218,14 +206,7 @@ pub mod pallet {
 	///
 	/// Calculated as the sum of all (32-byte key + value length) pairs.
 	#[pallet::storage]
-	pub type TotalStorageSize<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		u32,
-		ValueQuery,
-	>;
-
+	pub type TotalStorageSize<T: Config> = StorageMap<_, Twox64Concat, ParaId, u32, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -287,10 +268,7 @@ pub mod pallet {
 		/// - `PublisherRegistered`
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::register_publisher())]
-		pub fn register_publisher(
-			origin: OriginFor<T>,
-			para_id: ParaId,
-		) -> DispatchResult {
+		pub fn register_publisher(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_register_publisher(who, para_id, T::PublisherDeposit::get())
 		}
@@ -349,8 +327,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let info = RegisteredPublishers::<T>::get(para_id)
-				.ok_or(Error::<T>::NotRegistered)?;
+			let info = RegisteredPublishers::<T>::get(para_id).ok_or(Error::<T>::NotRegistered)?;
 
 			ensure!(who == info.manager, Error::<T>::NotAuthorized);
 			ensure!(PublisherExists::<T>::get(para_id), Error::<T>::NoDataToCleanup);
@@ -362,8 +339,9 @@ pub mod pallet {
 
 			Ok(Some(
 				<T as Config>::WeightInfo::do_cleanup_publisher(actual_keys)
-					.saturating_add(T::DbWeight::get().reads(2))
-			).into())
+					.saturating_add(T::DbWeight::get().reads(2)),
+			)
+			.into())
 		}
 
 		/// Deregister a publisher and release their deposit.
@@ -383,14 +361,10 @@ pub mod pallet {
 		/// - `PublisherDeregistered`
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
-		pub fn deregister_publisher(
-			origin: OriginFor<T>,
-			para_id: ParaId,
-		) -> DispatchResult {
+		pub fn deregister_publisher(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let info = RegisteredPublishers::<T>::get(para_id)
-				.ok_or(Error::<T>::NotRegistered)?;
+			let info = RegisteredPublishers::<T>::get(para_id).ok_or(Error::<T>::NotRegistered)?;
 
 			ensure!(who == info.manager, Error::<T>::NotAuthorized);
 			ensure!(!PublisherExists::<T>::get(para_id), Error::<T>::MustCleanupDataFirst);
@@ -420,14 +394,10 @@ pub mod pallet {
 			<T as Config>::WeightInfo::do_cleanup_publisher(T::MaxStoredKeys::get())
 				.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 		)]
-		pub fn force_deregister_publisher(
-			origin: OriginFor<T>,
-			para_id: ParaId,
-		) -> DispatchResult {
+		pub fn force_deregister_publisher(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let info = RegisteredPublishers::<T>::get(para_id)
-				.ok_or(Error::<T>::NotRegistered)?;
+			let info = RegisteredPublishers::<T>::get(para_id).ok_or(Error::<T>::NotRegistered)?;
 
 			// Clean up data if it exists
 			if PublisherExists::<T>::get(para_id) {
@@ -506,10 +476,7 @@ pub mod pallet {
 					Exact,
 				)?;
 
-				defensive_assert!(
-					released == info.deposit,
-					"deposit should be fully released"
-				);
+				defensive_assert!(released == info.deposit, "deposit should be fully released");
 			}
 
 			// Remove registration
@@ -530,7 +497,8 @@ pub mod pallet {
 		fn cleanup_outgoing_publishers(outgoing: &[ParaId]) -> Weight {
 			let mut total_weight = Weight::zero();
 			for outgoing_para in outgoing {
-				total_weight = total_weight.saturating_add(Self::cleanup_outgoing_publisher(outgoing_para));
+				total_weight =
+					total_weight.saturating_add(Self::cleanup_outgoing_publisher(outgoing_para));
 			}
 			total_weight
 		}
@@ -587,10 +555,7 @@ pub mod pallet {
 
 			// Validate all values before creating publisher entry
 			for (_key, value) in &data {
-				ensure!(
-					value.len() <= T::MaxValueLength::get() as usize,
-					Error::<T>::ValueTooLong
-				);
+				ensure!(value.len() <= T::MaxValueLength::get() as usize, Error::<T>::ValueTooLong);
 			}
 
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
@@ -619,9 +584,12 @@ pub mod pallet {
 				let new_size = 32u32.saturating_add(value.len() as u32);
 
 				// If key already exists, subtract old value size
-				if let Some(old_value) = frame_support::storage::child::get::<Vec<u8>>(&child_info, key) {
+				if let Some(old_value) =
+					frame_support::storage::child::get::<Vec<u8>>(&child_info, key)
+				{
 					let old_size = 32u32.saturating_add(old_value.len() as u32);
-					size_delta = size_delta.saturating_add(new_size as i64).saturating_sub(old_size as i64);
+					size_delta =
+						size_delta.saturating_add(new_size as i64).saturating_sub(old_size as i64);
 				} else {
 					size_delta = size_delta.saturating_add(new_size as i64);
 				}
@@ -701,8 +669,7 @@ pub mod pallet {
 			published_keys
 				.into_iter()
 				.filter_map(|key| {
-					frame_support::storage::child::get(&child_info, &key)
-						.map(|value| (key, value))
+					frame_support::storage::child::get(&child_info, &key).map(|value| (key, value))
 				})
 				.collect()
 		}

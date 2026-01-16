@@ -18,7 +18,8 @@ mod std_proof_builder {
 	) -> RelayChainStateProof {
 		use sp_runtime::traits::HashingFor;
 
-		let (db, root) = PrefixedMemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
+		let (db, root) =
+			PrefixedMemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
 		let state_version = StateVersion::default();
 		let mut backend = TrieBackendBuilder::new(db, root).build();
 
@@ -27,22 +28,29 @@ mod std_proof_builder {
 
 		// Process each publisher
 		for (publisher_para_id, child_data) in publishers {
-			let child_info = sp_core::storage::ChildInfo::new_default(&(b"pubsub", *publisher_para_id).encode());
+			let child_info =
+				sp_core::storage::ChildInfo::new_default(&(b"pubsub", *publisher_para_id).encode());
 
 			// Insert child trie data
-			let child_kv: Vec<_> = child_data.iter().map(|(k, v)| (k.clone(), Some(v.clone()))).collect();
+			let child_kv: Vec<_> =
+				child_data.iter().map(|(k, v)| (k.clone(), Some(v.clone()))).collect();
 			backend.insert(vec![(Some(child_info.clone()), child_kv)], state_version);
 
 			// Get child trie root and prepare to insert it in main trie
-			let child_root = backend.child_storage_root(&child_info, core::iter::empty(), state_version).0;
+			let child_root =
+				backend.child_storage_root(&child_info, core::iter::empty(), state_version).0;
 			let prefixed_key = child_info.prefixed_storage_key();
 			main_trie_updates.push((prefixed_key.to_vec(), Some(child_root.encode())));
 
 			// Prove child trie keys
 			let child_keys: Vec<_> = child_data.iter().map(|(k, _)| k.clone()).collect();
 			if !child_keys.is_empty() {
-				let child_proof = sp_state_machine::prove_child_read_on_trie_backend(&backend, &child_info, child_keys)
-					.expect("prove child read");
+				let child_proof = sp_state_machine::prove_child_read_on_trie_backend(
+					&backend,
+					&child_info,
+					child_keys,
+				)
+				.expect("prove child read");
 				all_proofs.push(child_proof);
 			}
 		}
@@ -53,8 +61,8 @@ mod std_proof_builder {
 
 		// Prove all child roots in main trie
 		let main_keys: Vec<_> = main_trie_updates.iter().map(|(k, _)| k.clone()).collect();
-		let main_proof = sp_state_machine::prove_read_on_trie_backend(&backend, main_keys)
-			.expect("prove read");
+		let main_proof =
+			sp_state_machine::prove_read_on_trie_backend(&backend, main_keys).expect("prove read");
 		all_proofs.push(main_proof);
 
 		// Merge all proofs
@@ -74,10 +82,13 @@ pub mod bench_proof_builder {
 	use alloc::vec::Vec;
 	use cumulus_pallet_parachain_system::RelayChainStateProof;
 	use sp_runtime::traits::BlakeTwo256;
-	use sp_trie::{trie_types::TrieDBMutBuilderV1, recorder_ext::RecorderExt, LayoutV1, MemoryDB, Recorder, StorageProof, TrieDBBuilder, TrieMut};
+	use sp_trie::{
+		recorder_ext::RecorderExt, trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder,
+		StorageProof, TrieDBBuilder, TrieMut,
+	};
 	use trie_db::Trie;
 
-	/// Record all trie keys 
+	/// Record all trie keys
 	fn record_all_trie_keys<L: trie_db::TrieConfiguration, DB>(
 		db: &DB,
 		root: &sp_trie::TrieHash<L>,
@@ -115,19 +126,22 @@ pub mod bench_proof_builder {
 			child_mdb.insert(EMPTY_PREFIX, &[0u8]);
 
 			{
-				let mut child_trie = TrieDBMutBuilderV1::<BlakeTwo256>::new(&mut child_mdb, &mut child_root).build();
+				let mut child_trie =
+					TrieDBMutBuilderV1::<BlakeTwo256>::new(&mut child_mdb, &mut child_root).build();
 				for (key, value) in child_data {
 					child_trie.insert(key, value).expect("insert in bench");
 				}
 			}
 
 			// Collect child trie nodes
-			let child_nodes = record_all_trie_keys::<LayoutV1<BlakeTwo256>, _>(&child_mdb, &child_root)
-				.expect("record child trie");
+			let child_nodes =
+				record_all_trie_keys::<LayoutV1<BlakeTwo256>, _>(&child_mdb, &child_root)
+					.expect("record child trie");
 			all_nodes.extend(child_nodes);
 
 			// Store child root for main trie
-			let child_info = sp_core::storage::ChildInfo::new_default(&(b"pubsub", *publisher_para_id).encode());
+			let child_info =
+				sp_core::storage::ChildInfo::new_default(&(b"pubsub", *publisher_para_id).encode());
 			let prefixed_key = child_info.prefixed_storage_key();
 			child_roots.push((prefixed_key.to_vec(), child_root.encode()));
 		}
@@ -142,7 +156,8 @@ pub mod bench_proof_builder {
 		main_mdb.insert(EMPTY_PREFIX, &[0u8]);
 
 		{
-			let mut main_trie = TrieDBMutBuilderV1::<BlakeTwo256>::new(&mut main_mdb, &mut main_root).build();
+			let mut main_trie =
+				TrieDBMutBuilderV1::<BlakeTwo256>::new(&mut main_mdb, &mut main_root).build();
 			for (key, value) in &child_roots {
 				main_trie.insert(key, value).expect("insert in bench");
 			}
