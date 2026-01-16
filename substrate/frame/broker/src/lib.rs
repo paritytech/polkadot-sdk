@@ -1033,6 +1033,21 @@ pub mod pallet {
 			Self::do_remove_assignment(region_id)
 		}
 
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: Core which the target potential renewal record refers to.
+		/// - `when`: Timeslice which the target potential renewal record refers to.
+		#[pallet::call_index(27)]
+		pub fn remove_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_potential_renewal(core, when)
+		}
+
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
 		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {

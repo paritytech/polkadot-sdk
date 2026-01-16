@@ -19,7 +19,7 @@
 
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
@@ -2798,5 +2798,34 @@ fn force_reserve_works() {
 				),
 			]
 		);
+	});
+}
+
+#[test]
+fn remove_potential_renewal_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = Regions::<Test>::get(region_id).unwrap();
+
+		const TASK_ID: TaskId = 1111;
+		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
+
+		// When assigning task to the region it's expected that the potential renewal with the
+		// `when` field equal to the `region.end` will appear if the assignment is final.
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+
+		Broker::do_remove_potential_renewal(region_id.core, region.end).unwrap();
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
+
+		assert_err!(
+			Broker::do_remove_potential_renewal(region_id.core, region.end),
+			Error::<Test>::UnknownRenewal
+		)
 	});
 }
