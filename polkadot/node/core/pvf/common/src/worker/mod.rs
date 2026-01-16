@@ -457,20 +457,13 @@ fn sandbox_worker(worker_info: &mut WorkerInfo, security_status: &SecurityStatus
 		use crate::worker::security::landlock::{LANDLOCK_ABI_FS, LANDLOCK_ABI_NET};
 
 		// Use the ABI corresponding to the largest supported landlock security feature.
-		let abi =
-			if security_status.can_enable_landlock_fs && security_status.can_enable_landlock_net {
-				Some(if (LANDLOCK_ABI_FS as u32) > (LANDLOCK_ABI_NET as u32) {
-					LANDLOCK_ABI_FS
-				} else {
-					LANDLOCK_ABI_NET
-				})
-			} else if security_status.can_enable_landlock_fs {
-				Some(LANDLOCK_ABI_FS)
-			} else if security_status.can_enable_landlock_net {
-				Some(LANDLOCK_ABI_NET)
-			} else {
-				None
-			};
+		let abi = [
+			security_status.can_enable_landlock_fs.then_some(LANDLOCK_ABI_FS),
+			security_status.can_enable_landlock_net.then_some(LANDLOCK_ABI_NET),
+		]
+		.into_iter()
+		.flatten()
+		.max();
 
 		if let Some(abi) = abi {
 			if let Err(err) = security::landlock::enable_for_worker(worker_info, abi) {
