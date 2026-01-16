@@ -618,7 +618,7 @@ fn execution_tracing_works_for_evm() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: true,
-			enable_syscall_details: false,
+			disable_syscall_details: true,
 			limit: Some(5),
 			memory_word_limit: 16,
 		};
@@ -748,7 +748,6 @@ fn execution_tracing_works_for_pvm() {
 
 		let config = ExecutionTracerConfig {
 			enable_return_data: true,
-			enable_syscall_details: true,
 			limit: Some(5),
 			..Default::default()
 		};

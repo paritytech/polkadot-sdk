@@ -78,37 +78,24 @@ doc:
     }
     ```
 
-    For a PVM execution the response will look like this
+    For PVM execution, each step includes additional fields not present in Geth:
+
+    - `args`: Array of syscall arguments (register values a0-a5) as hex strings
+    - `returned`: The syscall return value
+
+    These fields are enabled by default. To disable them, use `disableSyscallDetails: true`.
+
+    Example output with syscall details:
 
     ```json
     {
-      "gas": 97945,
-      "weight_consumed": { "ref_time": 2938350000, "proof_size": 97 },
-      "base_call_weight": { "ref_time": 9000000000, "proof_size": 3000 },
-      "failed": false,
-      "returnValue": "0x",
-      "structLogs": [
-        {
-          "gas": 97108,
-          "gasCost": 131,
-          "weight_cost": { "ref_time": 3930000, "proof_size": 0 },
-          "depth": 1,
-          "op": "call_data_size"
-        },
-        {
-          "gas": 96977,
-          "gasCost": 20,
-          "weight_cost": { "ref_time": 600000, "proof_size": 0 },
-          "depth": 1,
-          "op": "call_data_load"
-        },
-        {
-          "gas": 96957,
-          "gasCost": 7,
-          "weight_cost": { "ref_time": 210000, "proof_size": 0 },
-          "depth": 1,
-          "op": "value_transferred"
-        }]
+      "gas": 97108,
+      "gasCost": 131,
+      "weight_cost": { "ref_time": 3930000, "proof_size": 0 },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": ["0x0", "0x4"],
+      "returned": "0x2a"
     }
     ```
 crates:

@@ -171,7 +171,7 @@ impl Tracing for ExecutionTracer {
 
 		// Extract syscall args if enabled
 		let syscall_args =
-			if self.config.enable_syscall_details { args.to_vec() } else { Vec::new() };
+			if !self.config.disable_syscall_details { args.to_vec() } else { Vec::new() };
 
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
@@ -195,7 +195,7 @@ impl Tracing for ExecutionTracer {
 		if let Some(step) = self.steps.last_mut() {
 			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
 			step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
-			if self.config.enable_syscall_details {
+			if !self.config.disable_syscall_details {
 				if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
 					*ret = returned;
 				}
