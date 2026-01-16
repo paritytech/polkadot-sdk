@@ -1,0 +1,11 @@
+title: '[integration-tests] OpenGov on Asset Hub via Relay Chain'
+doc:
+- audience: Runtime Dev
+  description: Additional scenario to verify if Governance on AH can execute as root
+    on other parachain but leveraging relay chain as intermediate hop. That may be
+    the case when some parachain trusts Relay as root, but was not updated to also
+    trust Asset Hub (conisdering post-AHM world, where Governance is moved out from
+    Relay to Asset Hub, parachains should start to trust AH as root as well)
+crates:
+- name: emulated-integration-tests-common
+  bump: minor
