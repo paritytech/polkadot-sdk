@@ -255,9 +255,7 @@ where
 				continue;
 			}
 
-			// Ignore errors since this can only fail if the receiver does not exist on the
-			// first iteration. The ED of the native asset should be transferred in the second
-			// iteration at last and the successive transfers succeed.
+			// Ignore errors since this can only fail if the receiver does not exist.
 			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
 		}
 		Ok(())
