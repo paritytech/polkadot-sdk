@@ -406,56 +406,77 @@ We don't prevent collusion cryptographically. We make it economically irrational
 
 ## Proof-of-DOT and Read Incentives
 
-Storage guarantees that data *exists*. But what makes providers *serve* it?
+### Why Isn't Slashing Enough?
 
-### Identity and Sybil Resistance
+Storage agreements and slashing ensure data *exists*. If a provider deletes data and can't respond to a challenge, they lose their entire stake. This creates strong incentives to keep data stored.
 
-Before anything else, we need identity. Without it, reputation is meaningless, spam is free, and accountability is impossible.
+But slashing doesn't guarantee **quality of service**. A provider can technically fulfill their agreement while providing terrible service:
+- Serve data at 1kb/s (slow but not slashable)
+- Randomly drop 50% of requests (frustrating but not slashable)
+- Prioritize arbitrary clients over paying customers (unfair but not slashable)
 
-Proof-of-DOT (detailed in the [Proof-of-DOT Infrastructure Strategy](https://docs.google.com/document/d/1fNv75FCEBFkFoG__s_Xu10UZd0QsGIE9AKnrouzz-U8/)) provides this foundation:
+**Example scenario:** Provider has 1000 simultaneous requests but only 100MB/s bandwidth:
+- **Without payment incentives**: Serve all at 100KB/s each. Everyone slow, no slashing.
+- **With payment incentives**: 100 paying clients get 800KB/s each, 900 free clients share remaining bandwidth.
 
-**For clients:**
-- Lock DOT against a PeerID
-- Providers can lookup PeerIDs on connection establishment
-- Enables reputation: providers remember past interactions
-- Prevents spam: creating identities costs money
+Slashing ensures data CAN be retrieved. Payments ensure it's retrieved QUICKLY and RELIABLY.
 
-**For providers:**
-- Same Proof-of-DOT mechanism (sybil resistance, identity)
-- Separately: providers lock collateral for storage agreements
-- Collateral stake-per-byte ratio signals commitment level
+### The Solution: Payment-Based Prioritization
 
-### Payment Priority
+Providers allocate scarce resources (bandwidth, IOPS, CPU) based on cumulative payment history. This creates natural quality differentiation:
 
-Providers track cumulative payments received from each client. Clients who have paid more get priority in serving queues.
+| Client type | Service quality |
+|------------|-----------------|
+| New client | Good (attract customers) |
+| Occasional free user | Decent (avoid slashing) |
+| Heavy free user | Degraded (incentivize payment) |
+| Paying client | Best (retain revenue) |
 
-Example scheme: Providers serve paying clients the best they can (maybe even rank them, if resources get low). Non-paying new clients get also served well, but if they keep coming back, demanding service for free - priority degrades, incentivizing payments. Clients will thus spread the load amoung providers, but will eventually pay to maintain a good service for a resource they use regularly.
+Non-paying clients still get served (provider must avoid slashing), but paying clients get priority. This motivates providers to upgrade infrastructure and provide good service.
 
-On viral content, where even the original visit can't be served well, because of load, the client software can suggest to the user to pay for faster access - because of huge demand. (Cents)
+### Identity Through Proof-of-DOT
 
-**The key distinction:** This is *payment history*, not stake amount. A client with 1 DOT staked who has paid 100 DOT over time gets better service than a client with 100 DOT staked who has never paid. Stake is about identity; payment history is about priority.
+To enable sustainable free tiers and prevent unbounded resource consumption, we need sybil-resistant identity.
 
-Distinction to proof of personhood: Proof-of-DOT is a weaker sybil resistance for network-level operations where fast sieving matters—quickly filter requests without investing resources. Proof of personhood protects scarce resources (votes, airdrops, free transactions); Proof-of-DOT protects cheap resources (read requests, connection slots). One person can have multiple identities if they pay—that's fine. In practice they complement each other: proven persons could get DOT for Proof-of-DOT registration for free.
+**The problem with anonymous free tiers:**
+- Attacker creates unlimited identities, exhausts resources
+- IP-based rate limiting fails with IPv6 (each user has 2^64 addresses)
+- Reputation tracking becomes unbounded (memory exhaustion)
+- Honest free users get crowded out by sybil attacks
 
-### Why Providers Serve Data
+Proof-of-DOT (detailed in [issue #6173](https://github.com/paritytech/polkadot-sdk/issues/6173)) solves this:
+- **Registration cost**: Lock DOT to create identity. Cost grows exponentially: nth participant pays base_price × 2^(n/step)
+- **Parameters for storage**: Set for global scale (billions of expected participants), allowing normal growth while preventing attack-scale registration
+- **Graceful degradation**: Serve anonymous users when capacity available, drop them first under load
+- **Bounded reputation**: Can track reputation for all registered users without memory exhaustion
 
-Competition drives quality. The feedback loop is natural:
+**Service tiers emerge naturally:**
+1. **Anonymous** (no Proof-of-DOT): Served only when spare capacity exists, no reputation tracking
+2. **Registered** (Proof-of-DOT): Always get basic service, reputation tracked, can build payment history
+3. **Paying** (Proof-of-DOT + payments): Premium service based on payment history
 
-- Client feels mistreated? Switch providers or stop paying.
-- Provider wants revenue? Treat paying clients well.
+**Important:** The DOT locked for identity is separate from payment priority. A client who locked DOT for identity but paid 100 DOT in fees gets better service than one who locked 100 DOT but never paid. Identity enables participation; payments determine service quality.
 
-Clients connect to multiple providers, experience service quality directly, and vote with their feet. No complex monitoring required—just "did this work well for me?"
+**Distinction from Proof of Personhood:** Proof-of-DOT allows multiple identities per person (if they pay for each). It's designed for abundant resources (bandwidth, connections) where we want sustainable economics, not scarcity. Proof of Personhood is for truly scarce resources (votes, airdrops) where one-per-human matters. They complement each other: proven persons could get DOT for Proof-of-DOT registration for free.
+
+### How Competition Drives Quality
+
+The feedback loop is natural:
+1. Clients experience service quality directly
+2. Good service → continued payments
+3. Poor service → switch providers or stop paying
+4. Providers compete for paying clients
+
+Example: A viral video receives 10,000 requests. Paying users stream instantly, free users buffer. Client software suggests: "High demand content. Pay 5 cents for instant access?"
 
 ### Challenge as Price Ceiling
 
-The challenge mechanism creates a ceiling that protects clients even against monopolistic providers.
+If a provider demands more than the challenge cost to serve data, clients can challenge on-chain instead. This caps extortion attempts—rational providers price below the challenge threshold to avoid:
+- Paying challenge costs
+- Getting no payment
+- Reputation damage
 
-If a provider demands more than the challenge cost to serve data, the rational client simply challenges on-chain and recovers the data via the proof. The provider:
-- Gets no payment
-- Pays challenge costs
-- Loses reputation
-
-So rational providers price *below* the challenge threshold. Most of the time, competition drives prices well below this ceiling anyway—it only matters for the edge case of a single provider attempting ransom - which should be avoided to begin with.
+Most competition drives prices well below this ceiling. It's a safety net against monopolistic behavior.
 
 ---
 
