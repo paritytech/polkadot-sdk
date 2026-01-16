@@ -184,6 +184,9 @@ pub struct ExecutionTracerConfig {
 	/// Whether to enable return data capture
 	pub enable_return_data: bool,
 
+	/// Whether to enable syscall details capture, including arguments and return value (PVM only)
+	pub enable_syscall_details: bool,
+
 	/// Limit number of steps captured
 	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
 	pub limit: Option<u64>,
@@ -199,6 +202,7 @@ impl Default for ExecutionTracerConfig {
 			disable_stack: false,
 			disable_storage: false,
 			enable_return_data: false,
+			enable_syscall_details: false,
 			limit: None,
 			memory_word_limit: 16,
 		}
@@ -232,6 +236,7 @@ fn test_tracer_config_serialization() {
 					disable_stack: false,
 					disable_storage: false,
 					enable_return_data: true,
+					enable_syscall_details: false,
 					limit: None,
 					memory_word_limit: 16,
 				})),
@@ -551,6 +556,14 @@ pub enum ExecutionStepKind {
 		/// The executed syscall.
 		#[serde(serialize_with = "serialize_syscall_op")]
 		op: u8,
+		/// The syscall arguments (register values a0-a5).
+		/// Only populated when `enable_syscall_details` is true in ExecutionTracerConfig.
+		#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_syscall_args")]
+		args: Vec<u64>,
+		/// The syscall return value.
+		/// Only populated when `enable_syscall_details` is true in ExecutionTracerConfig.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		returned: Option<u64>,
 	},
 }
 
@@ -752,6 +765,19 @@ where
 	};
 	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
 	serializer.serialize_str(name)
+}
+
+/// Serialize syscall arguments as hex values
+fn serialize_syscall_args<S>(args: &Vec<u64>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	use serde::ser::SerializeSeq;
+	let mut seq = serializer.serialize_seq(Some(args.len()))?;
+	for arg in args {
+		seq.serialize_element(&alloc::format!("0x{:x}", arg))?;
+	}
+	seq.end()
 }
 
 /// Deserialize opcode from string using reverse lookup table

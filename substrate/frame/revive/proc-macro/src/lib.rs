@@ -88,6 +88,15 @@ impl HostFnReturn {
 			Self::ReturnCode => parse_quote! { -> ReturnErrorCode },
 		}
 	}
+
+	fn trace_return_value(&self) -> TokenStream2 {
+		match self {
+			Self::Unit => quote! { None },
+			Self::U32 => quote! { result.as_ref().ok().map(|r| *r as u64) },
+			Self::ReturnCode => quote! { result.as_ref().ok().copied().map(u64::from) },
+			Self::U64 => quote! { result.as_ref().ok().copied() },
+		}
+	}
 }
 
 impl EnvDef {
@@ -384,10 +393,10 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let syscall_symbol = Literal::byte_string(name.as_bytes());
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
+		let trace_return = f.returns.trace_return_value();
 		let output = &f.item.sig.output;
 
 		// wrapped host function body call with host function traces
-		// see https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts#host-function-tracing
 		let wrapped_body_with_trace = {
 			let trace_fmt_args = params.clone().filter_map(|arg| match arg {
 				syn::FnArg::Receiver(_) => None,
@@ -403,15 +412,18 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				.collect::<Vec<_>>()
 				.join(", ");
 			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
+			let trace_args_for_tracer: Vec<_> = trace_fmt_args.clone().collect();
 
 			quote! {
-				crate::tracing::if_tracing(|tracer| tracer.enter_ecall(#name, self));
+				crate::tracing::if_tracing(|tracer| {
+					tracer.enter_ecall(#name, &[#( #trace_args_for_tracer as u64 ),*], self)
+				});
 
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
 				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
 
-				crate::tracing::if_tracing(|tracer| tracer.exit_step(self));
+				crate::tracing::if_tracing(|tracer| tracer.exit_step(self, #trace_return));
 				result
 			}
 		};

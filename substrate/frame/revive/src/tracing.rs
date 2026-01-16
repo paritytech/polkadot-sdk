@@ -136,14 +136,22 @@ pub trait Tracing {
 	///
 	/// # Parameters
 	/// - `ecall`: The name of the syscall being executed.
+	/// - `args`: The syscall arguments (register values).
 	/// - `trace_info`: Information about the current execution frame.
-	fn enter_ecall(&mut self, _ecall: &'static str, _trace_info: &dyn FrameTraceInfo) {}
+	fn enter_ecall(
+		&mut self,
+		_ecall: &'static str,
+		_args: &[u64],
+		_trace_info: &dyn FrameTraceInfo,
+	) {
+	}
 
 	/// Called after an EVM opcode or PVM syscall is executed to record the gas cost.
 	///
 	/// # Parameters
 	/// - `trace_info`: Information about the current execution frame.
-	fn exit_step(&mut self, _trace_info: &dyn FrameTraceInfo) {}
+	/// - `returned`: The syscall return value (PVM only, `None` for EVM opcodes).
+	fn exit_step(&mut self, _trace_info: &dyn FrameTraceInfo, _returned: Option<u64>) {}
 
 	/// Called once the transaction completes to report the gas consumed by the meter.
 	///

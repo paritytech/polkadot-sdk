@@ -157,7 +157,7 @@ impl Tracing for ExecutionTracer {
 		self.step_count += 1;
 	}
 
-	fn enter_ecall(&mut self, ecall: &'static str, trace_info: &dyn FrameTraceInfo) {
+	fn enter_ecall(&mut self, ecall: &'static str, args: &[u64], trace_info: &dyn FrameTraceInfo) {
 		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
 			return;
 		}
@@ -169,6 +169,10 @@ impl Tracing for ExecutionTracer {
 			crate::evm::Bytes::default()
 		};
 
+		// Extract syscall args if enabled
+		let syscall_args =
+			if self.config.enable_syscall_details { args.to_vec() } else { Vec::new() };
+
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
 			gas_cost: Default::default(),
@@ -178,6 +182,8 @@ impl Tracing for ExecutionTracer {
 			error: None,
 			kind: ExecutionStepKind::PVMSyscall {
 				op: lookup_syscall_index(ecall).unwrap_or_default(),
+				args: syscall_args,
+				returned: None,
 			},
 		};
 
@@ -185,10 +191,15 @@ impl Tracing for ExecutionTracer {
 		self.step_count += 1;
 	}
 
-	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo) {
+	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo, returned: Option<u64>) {
 		if let Some(step) = self.steps.last_mut() {
 			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
 			step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
+			if self.config.enable_syscall_details {
+				if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
+					*ret = returned;
+				}
+			}
 		}
 	}
 

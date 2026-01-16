@@ -161,7 +161,7 @@ fn run_plain_with_tracing<E: Ext>(
 		interpreter.bytecode.relative_jump(1);
 		let res = exec_instruction(interpreter, opcode);
 
-		tracing::if_tracing(|tracer| tracer.exit_step(interpreter));
+		tracing::if_tracing(|tracer| tracer.exit_step(interpreter, None));
 
 		res?;
 	}

@@ -618,6 +618,7 @@ fn execution_tracing_works_for_evm() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: true,
+			enable_syscall_details: false,
 			limit: Some(5),
 			memory_word_limit: 16,
 		};
@@ -747,6 +748,7 @@ fn execution_tracing_works_for_pvm() {
 
 		let config = ExecutionTracerConfig {
 			enable_return_data: true,
+			enable_syscall_details: true,
 			limit: Some(5),
 			..Default::default()
 		};
@@ -763,6 +765,10 @@ fn execution_tracing_works_for_pvm() {
 			step.gas = Default::default();
 			step.gas_cost = Default::default();
 			step.weight_cost = Default::default();
+			// Replace args with 42 as they contain memory addresses that may vary between runs
+			if let ExecutionStepKind::PVMSyscall { args, .. } = &mut step.kind {
+				args.iter_mut().for_each(|arg| *arg = 42);
+			}
 		});
 
 		let expected_trace = ExecutionTrace {
@@ -781,6 +787,8 @@ fn execution_tracing_works_for_pvm() {
 					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
+						args: vec![],
+						returned: Some(36),
 					},
 				},
 				ExecutionStep {
@@ -792,6 +800,8 @@ fn execution_tracing_works_for_pvm() {
 					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
 					},
 				},
 				ExecutionStep {
@@ -803,6 +813,8 @@ fn execution_tracing_works_for_pvm() {
 					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
+						args: vec![42],
+						returned: None,
 					},
 				},
 				ExecutionStep {
@@ -814,6 +826,8 @@ fn execution_tracing_works_for_pvm() {
 					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
 					},
 				},
 				ExecutionStep {
@@ -825,6 +839,8 @@ fn execution_tracing_works_for_pvm() {
 					weight_cost: Default::default(),
 					kind: ExecutionStepKind::PVMSyscall {
 						op: lookup_syscall_index("seal_return").unwrap_or_default(),
+						args: vec![42, 42, 42],
+						returned: None,
 					},
 				},
 			],
