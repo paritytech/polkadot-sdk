@@ -248,7 +248,12 @@ pub fn worker_entrypoint(
 				};
 				let mut encoded_params = params.encode();
 
-				// Append V3+ extension based on descriptor version
+				// Append V3+ extension based on descriptor version.
+				// SAFETY: ValidationParams is the complete message passed to the PVF.
+				// TrailingOption is safe here because:
+				// 1. ValidationParams is not embedded in any larger struct
+				// 2. The extension bytes are the ONLY thing after ValidationParams
+				// 3. The PVF will decode ValidationParams + optional extension as the entire input
 				use polkadot_parachain_primitives::primitives::{
 					TrailingOption, ValidationParamsExtension,
 				};
