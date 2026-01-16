@@ -1829,7 +1829,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
 pub struct InternalVersion(pub u8);
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
 	///
 	/// with deprecated collator id and collator signature.
@@ -2179,7 +2179,7 @@ where
 }
 
 impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
-	/// Constructor
+	/// Constructor for V2 candidate descriptor (scheduling_parent = zero).
 	pub fn new(
 		para_id: Id,
 		relay_parent: H,
@@ -2206,6 +2206,41 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			pov_hash,
 			erasure_root,
 			scheduling_parent: H::default(),
+			reserved2: [0; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
+	/// Constructor for V3 candidate descriptor with explicit scheduling_parent.
+	///
+	/// V3 descriptors are identified by `version == 1` and have a non-zero scheduling_parent
+	/// field, which indicates the relay chain block that was used for scheduling (may differ
+	/// from relay_parent). V3 descriptors require UMP signals to be present.
+	pub fn new_v3(
+		para_id: Id,
+		relay_parent: H,
+		core_index: CoreIndex,
+		session_index: SessionIndex,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+		scheduling_parent: H,
+	) -> Self {
+		Self {
+			para_id,
+			relay_parent,
+			version: 1,
+			core_index: core_index.0 as u16,
+			session_index,
+			scheduling_session_offset: 0,
+			reserved1: [0; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent,
 			reserved2: [0; 32],
 			para_head,
 			validation_code_hash,

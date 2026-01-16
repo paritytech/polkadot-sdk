@@ -293,7 +293,9 @@ pub fn dummy_candidate_receipt<H: AsRef<[u8]>>(relay_parent: H) -> CandidateRece
 }
 
 /// Creates a v2 candidate receipt with filler data.
-pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(relay_parent: H) -> CandidateReceiptV2<H> {
+pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy + Default>(
+	relay_parent: H,
+) -> CandidateReceiptV2<H> {
 	CandidateReceiptV2::<H> {
 		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
 		descriptor: dummy_candidate_descriptor_v2(relay_parent),
@@ -311,7 +313,7 @@ pub fn dummy_committed_candidate_receipt<H: AsRef<[u8]>>(
 }
 
 /// Creates a v2 committed candidate receipt with filler data.
-pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(
+pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy + Default>(
 	relay_parent: H,
 ) -> CommittedCandidateReceiptV2<H> {
 	CommittedCandidateReceiptV2 {
@@ -410,7 +412,7 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 }
 
 /// Create a v2 candidate descriptor with filler data.
-pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy + Default>(
 	relay_parent: H,
 ) -> CandidateDescriptorV2<H> {
 	let invalid = Hash::zero();
@@ -573,7 +575,7 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 }
 
 /// Create a v2 candidate descriptor.
-pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy + Default>(
 	para_id: ParaId,
 	relay_parent: H,
 	core_index: CoreIndex,
@@ -600,6 +602,39 @@ pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
 
 	descriptor
 }
+
+/// Create a v3 candidate descriptor with explicit scheduling_parent.
+///
+/// V3 descriptors are identified by `version=1` and have a non-zero scheduling_parent field.
+/// V3 candidates require UMP signals to be present.
+pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
+	para_id: ParaId,
+	relay_parent: H,
+	core_index: CoreIndex,
+	session_index: SessionIndex,
+	persisted_validation_data_hash: Hash,
+	pov_hash: Hash,
+	validation_code_hash: impl Into<ValidationCodeHash>,
+	para_head: Hash,
+	erasure_root: Hash,
+	scheduling_parent: H,
+) -> CandidateDescriptorV2<H> {
+	let validation_code_hash = validation_code_hash.into();
+
+	CandidateDescriptorV2::new_v3(
+		para_id,
+		relay_parent,
+		core_index,
+		session_index,
+		persisted_validation_data_hash,
+		pov_hash,
+		erasure_root,
+		para_head,
+		validation_code_hash,
+		scheduling_parent,
+	)
+}
+
 /// After manually modifying the candidate descriptor, resign with a defined collator key.
 pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor: &mut CandidateDescriptor<H>,
@@ -693,7 +728,7 @@ mod candidate_receipt_tests {
 	use polkadot_primitives::{
 		transpose_claim_queue, v9::CandidateUMPSignals, BackedCandidate,
 		CandidateDescriptorVersion, ClaimQueueOffset, CommittedCandidateReceiptError, CoreSelector,
-		InternalVersion, UMPSignal, UMP_SEPARATOR,
+		UMPSignal, UMP_SEPARATOR,
 	};
 	use std::collections::BTreeMap;
 
@@ -743,7 +778,7 @@ mod candidate_receipt_tests {
 		// We get same candidate hash.
 		assert_eq!(old_ccr.hash(), new_ccr.hash());
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::V1);
 		assert_eq!(old_ccr.descriptor.collator, new_ccr.descriptor.collator().unwrap());
 		assert_eq!(old_ccr.descriptor.signature, new_ccr.descriptor.signature().unwrap());
 	}
@@ -751,18 +786,18 @@ mod candidate_receipt_tests {
 	#[test]
 	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2(Hash::default());
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::V2);
 		// Put some unknown version.
-		new_ccr.descriptor.set_version(InternalVersion(100));
+		new_ccr.descriptor.set_version(100);
 
 		// Deserialize as V1.
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
 			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new(), false),
-			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
+			Err(CommittedCandidateReceiptError::UnknownVersion(100))
 		);
 	}
 
@@ -835,7 +870,7 @@ mod candidate_receipt_tests {
 		let v1_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
-		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(v1_ccr.descriptor.version(false), CandidateDescriptorVersion::V1);
 		assert!(!v1_ccr.commitments.ump_signals().unwrap().is_empty());
 
 		let mut cq = BTreeMap::new();
@@ -1067,7 +1102,7 @@ mod candidate_receipt_tests {
 
 			// No assignments.
 			assert_eq!(
-				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default())),
+				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default()), false),
 				Err(CommittedCandidateReceiptError::NoAssignment)
 			);
 

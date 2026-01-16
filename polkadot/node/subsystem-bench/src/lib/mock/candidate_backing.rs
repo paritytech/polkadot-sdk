@@ -150,7 +150,10 @@ impl MockCandidateBacking {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
-						CandidateBackingMessage::Statement(relay_parent, statement) => {
+						CandidateBackingMessage::Statement {
+							scheduling_parent: relay_parent,
+							statement: statement,
+						} => {
 							let messages = self.handle_statement(
 								relay_parent,
 								statement,

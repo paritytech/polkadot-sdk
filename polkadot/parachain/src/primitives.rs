@@ -405,6 +405,89 @@ impl XcmpMessageHandler for () {
 	}
 }
 
+/// Extension to ValidationParams for V3+ candidates.
+/// Versioned enum where the variant index serves as the version number.
+///
+/// When introducing a new candidate descriptor version, add a new variant here.
+/// PVFs that don't understand the new variant will fail to decode, which is
+/// expected - parachains must upgrade their PVF to use new features.
+#[derive(Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum ValidationParamsExtension {
+	/// V3 extension - contains relay_parent and scheduling_parent hashes.
+	#[codec(index = 3)]
+	V3 {
+		/// The relay parent block hash.
+		relay_parent: Hash,
+		/// The scheduling parent block hash (may differ from relay_parent in V3).
+		scheduling_parent: Hash,
+	},
+	// Future versions would add new variants:
+	// #[codec(index = 4)]
+	// V4 {
+	//     relay_parent: Hash,
+	//     scheduling_parent: Hash,
+	//     new_field: SomeType,
+	// },
+}
+
+/// A wrapper that decodes `T` if bytes remain after prior fields, or returns
+/// `None` if at EOF. Unlike `Option<T>`, this does NOT expect a 0x00/0x01
+/// discriminant byte - it simply checks whether there is remaining input.
+///
+/// This is used to guarantee no breakage for existing chains with v1/v2
+/// descriptors. For v1/v2, no extension bytes are sent at all, and
+/// TrailingOption gracefully returns None instead of failing to decode.
+///
+/// # ⚠️ DANGER - Do Not Use This as a General-Purpose Utility! ⚠️
+///
+/// **CRITICAL ASSUMPTIONS:**
+/// - The type containing `TrailingOption<T>` MUST be the final/top-level struct being decoded
+/// - There MUST NOT be any fields after the `TrailingOption<T>` field
+/// - There MUST NOT be any legitimate trailing data except `T`
+///
+/// **Why this is dangerous:**
+/// `TrailingOption` greedily consumes ALL remaining bytes and attempts to decode them as `T`.
+/// If your struct is embedded in a larger message, or if you add fields after it,
+/// `TrailingOption` will incorrectly steal bytes belonging to those fields.
+///
+/// **Current safe usage:**
+/// - `ValidationParams` is encoded as a complete standalone message
+/// - `ValidationParamsExtension` is manually appended as trailing bytes
+/// - The PVF receives this as the entire input (no wrapper struct)
+///
+/// If you're considering using this elsewhere, you probably want `Option<T>` instead.
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct TrailingOption<T>(pub Option<T>);
+
+impl<T: Decode> Decode for TrailingOption<T> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		// Check if input is exhausted - return None instead of failing
+		if input.remaining_len()? == Some(0) {
+			return Ok(TrailingOption(None));
+		}
+		// Bytes remain - decode T (the ValidationParamsExtension enum)
+		Ok(TrailingOption(Some(T::decode(input)?)))
+	}
+}
+
+impl<T: Encode> Encode for TrailingOption<T> {
+	fn encode(&self) -> Vec<u8> {
+		match &self.0 {
+			Some(inner) => inner.encode(),
+			None => Vec::new(), // Encode nothing for None
+		}
+	}
+}
+
+impl<T> TrailingOption<T> {
+	/// Extract the inner Option<T>.
+	pub fn into_inner(self) -> Option<T> {
+		self.0
+	}
+}
+
 /// Validation parameters for evaluating the parachain validity function.
 // TODO: balance downloads (https://github.com/paritytech/polkadot/issues/220)
 #[derive(PartialEq, Eq, Decode, Clone)]

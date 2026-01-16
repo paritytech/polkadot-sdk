@@ -29,7 +29,6 @@ use sc_network::config::{
 use polkadot_primitives::{
 	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 };
-use rstest::rstest;
 
 #[test]
 fn cluster_peer_allowed_to_send_incomplete_statements() {
@@ -65,9 +64,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -666,9 +665,9 @@ fn peer_reported_for_duplicate_statements() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -816,9 +815,9 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -945,9 +944,9 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1231,9 +1230,9 @@ fn approved_peer_ump_signal() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1373,9 +1372,9 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		let v_a = other_group_validators[0];
 		let v_c = next_group_validators[0];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1499,8 +1498,8 @@ fn disabled_validators_added_to_unwanted_mask() {
 		);
 		let candidate_hash = candidate.hash();
 
-		// peer A is in group, has relay parent in view and disabled.
-		// peer B is in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view and disabled.
+		// peer B is in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1852,9 +1851,9 @@ fn local_node_sanity_checks_incoming_requests() {
 		);
 		let candidate_hash = candidate.hash();
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			let other_group_validators = state.group_validators(local_group_index, true);
 
@@ -2251,10 +2250,10 @@ fn local_node_respects_statement_mask() {
 		let v_c = target_group_validators[0];
 		let v_d = target_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
