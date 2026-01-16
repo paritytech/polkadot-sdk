@@ -88,8 +88,6 @@ pub trait Config: frame_system::Config {
     type RuntimeHoldReason: From<HoldReason>;
     type WeightInfo: WeightInfo;
     
-    #[pallet::constant]
-    type MaxPublishItems: Get<u32>;         // Max items per publish (≤100)
     
     #[pallet::constant]
     type MaxValueLength: Get<u32>;          // Max bytes per value (≤2048)
@@ -117,14 +115,18 @@ register_publisher(para_id: ParaId) -> DispatchResult
 // System parachains (Root only)
 force_register_publisher(manager: AccountId, deposit: Balance, para_id: ParaId)
 
-// Cleanup before deregistration
-cleanup_published_data(para_id: ParaId) -> DispatchResult
 
 // Deregister and reclaim deposit
 deregister_publisher(para_id: ParaId) -> DispatchResult
 
 // Force cleanup and deregister (Root only)
 force_deregister_publisher(para_id: ParaId) -> DispatchResult
+
+// Delete specific keys (parachain self-service)
+delete_keys(keys: Vec<[u8; 32]>) -> DispatchResult
+
+// Force delete any parachain's keys (Root only)
+force_delete_keys(para_id: ParaId, keys: Vec<[u8; 32]>) -> DispatchResult
 ```
 
 #### Key Methods
@@ -133,21 +135,11 @@ force_deregister_publisher(para_id: ParaId) -> DispatchResult
 // Called by XCM executor when Publish instruction is processed
 fn handle_publish(
     origin_para_id: ParaId,
-    data: Vec<PublishItem>,  // PublishItem { key, value, ttl }
+    key: [u8; 32],
+    value: BoundedVec<u8, MaxPublishValueLength>,
+    ttl: u32,
 ) -> DispatchResult
 
-// Get child trie root for proof verification
-fn get_publisher_child_root(para_id: ParaId) -> Option<Vec<u8>>
-
-// Query published data (returns PublishedEntry with TTL metadata)
-fn get_published_value(para_id: ParaId, key: &[u8]) -> Option<PublishedEntry>
-fn get_all_published_data(para_id: ParaId) -> Vec<([u8; 32], PublishedEntry)>
-
-// Delete keys immediately (parachain self-service)
-fn delete_keys(origin: OriginFor<T>, keys: Vec<[u8; 32]>) -> DispatchResult
-
-// Force delete any parachain's keys (root only)
-fn force_delete_keys(origin: OriginFor<T>, para_id: ParaId, keys: Vec<[u8; 32]>) -> DispatchResult
 ```
 
 ---
@@ -187,19 +179,84 @@ pub struct PublishedEntry<BlockNumber> {
     pub when_inserted: BlockNumber,
 }
 
-pub trait SubscriptionHandler {
-    /// Return subscriptions: (ParaId, keys)
-    /// Weight is the cost of computing subscriptions
-    fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight);
+/// A subscription key, stored as its Blake2-256 hash (H256)
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+pub struct SubscribedKey(pub H256);
+
+impl SubscribedKey {
+    /// Create from pre-computed hash
+    pub const fn from_hash(hash: [u8; 32]) -> Self {
+        Self(H256::from(hash))
+    }
     
-    /// Called when subscribed data is updated
-    /// Entry is None if key was deleted/expired
+    /// Create from runtime data (hashes at runtime)
+    pub fn from_data(data: &[u8]) -> Self {
+        Self(H256::from(blake2_256(data)))
+    }
+}
+
+/// Macro to create compile-time hashed subscription keys
+/// 
+/// # Example
+/// ```rust
+/// // Hash is computed at compile time
+/// const MY_KEY: SubscribedKey = subscribed_key!("my_static_key");
+/// 
+/// impl SubscriptionHandler for MyHandler {
+///     fn subscriptions() -> (Vec<(ParaId, Vec<SubscribedKey>)>, Weight) {
+///         (vec![
+///             (ParaId::from(1000), vec![
+///                 subscribed_key!("pop_ring_root"),
+///                 subscribed_key!("another_key"),
+///             ]),
+///         ], Weight::zero())
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! subscribed_key {
+    ($key:expr) => {
+        $crate::SubscribedKey::from_hash(
+            sp_crypto_hashing::blake2_256($key.as_bytes())
+        )
+    };
+}
+
+/// TTL state of published data
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+pub enum TtlState {
+    /// Data never expires (ttl = 0)
+    Infinite,
+    /// Data is valid for N relay chain blocks from when it was inserted
+    ValidFor(u32), // Relay chain blocks remaining until expiration
+    /// Data has expired (only sent in edge cases where cleanup hasn't happened yet)
+    TimedOut,
+}
+
+pub trait SubscriptionHandler {
+    /// Return subscriptions: (ParaId, keys as H256 hashes)
+    /// Keys should be Blake2-256 hashes computed at compile time via subscribed_key! macro
+    /// Weight is the cost of computing subscriptions
+    fn subscriptions() -> (Vec<(ParaId, Vec<SubscribedKey>)>, Weight);
+    
+    /// Called when a subscribed key is updated
+    /// Value is the raw published data
+    /// TTL indicates the expiration state of the data
     fn on_data_updated(
         publisher: ParaId,
-        data: Vec<([u8; 32], Option<PublishedEntry<BlockNumber>>)>,
+        key: SubscribedKey,
+        value: &[u8],
+        ttl: TtlState,
     ) -> Weight;
 }
 ```
+
+**Benefits of `SubscribedKey` approach:**
+- ✅ **Zero runtime hashing cost** for static keys (computed at compile time)
+- ✅ **Type safety** - prevents accidentally passing unhashed keys
+- ✅ **Ergonomic API** - `subscribed_key!("my_key")` macro for compile-time hashing
+- ✅ **Consistent key format** - all keys stored as `H256` (32 bytes)
+- ✅ **Dynamic keys supported** - use `SubscribedKey::from_data()` for runtime-computed keys
 
 #### Change Detection Optimization
 
@@ -230,27 +287,23 @@ pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 pub enum Instruction<Call> {
     // ... existing instructions
     
-    /// Publish key-value pairs to relay chain with TTL.
+    /// Publish a single key-value pair to relay chain with TTL.
     ///
     /// Origin must be a Parachain junction.
     /// Data is stored in the origin parachain's child trie.
-    Publish { data: BoundedVec<PublishItem, MaxPublishItems> },
-}
-
-/// Single item to publish
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct PublishItem {
-    pub key: [u8; 32],
-    pub value: BoundedVec<u8, MaxPublishValueLength>,
-    pub ttl: u32,  // 0 = infinite, N = expire after N blocks (capped at MAX_TTL)
+    /// 
+    /// To publish multiple items, batch multiple Publish instructions in a single XCM message.
+    Publish {
+        key: [u8; 32],
+        value: BoundedVec<u8, MaxPublishValueLength>,
+        ttl: u32,  // 0 = infinite, N = expire after N blocks (capped at MAX_TTL)
+    },
 }
 
 parameter_types! {
-    pub const MaxPublishItems: u32 = 100;
     pub const MaxPublishValueLength: u32 = 2048;
     pub const MaxTTL: u32 = 432_000;  // ~30 days @ 6s blocks
 }
-```
 
 #### XCM Executor Integration
 
@@ -260,7 +313,7 @@ The executor validates the origin is a parachain and calls the broadcaster palle
 impl XcmExecutor {
     fn execute_instruction(&mut self, instruction: Instruction) -> Result<(), XcmError> {
         match instruction {
-            Publish { data } => {
+            Publish { key, value, ttl } => {
                 // Extract ParaId from origin
                 let para_id = self.origin.as_ref()
                     .and_then(|loc| {
@@ -273,7 +326,7 @@ impl XcmExecutor {
                     .ok_or(XcmError::BadOrigin)?;
                 
                 // Delegate to broadcaster pallet
-                Config::Broadcaster::publish_data(para_id, data)?;
+                Config::Broadcaster::publish_data(para_id, key, value, ttl)?;
                 Ok(())
             }
         }
