@@ -321,6 +321,7 @@ members = [
 	"substrate/frame/asset-rate",
 	"substrate/frame/asset-rewards",
 	"substrate/frame/assets",
+	"substrate/frame/assets-foreign",
 	"substrate/frame/assets-freezer",
 	"substrate/frame/assets-holder",
 	"substrate/frame/assets/precompiles",
