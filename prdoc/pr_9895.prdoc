@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Auction Pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces `pallet-auction`, a new FRAME pallet that provides a generic framework for on-chain auctions. The pallet allows for the creation and management of auctions for any type of asset, with customizable logic through the `AuctionHandler` trait.
+
+crates:
+  - name: kitchensink-runtime
+    bump: none
+  - name: pallet-auction
+    bump: major
+  - name: frame-support
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor

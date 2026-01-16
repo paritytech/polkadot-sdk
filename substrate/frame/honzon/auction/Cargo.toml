@@ -1,0 +1,47 @@
+[package]
+name = "pallet-auction"
+version = "1.0.0"
+license = "Apache-2.0"
+authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME auction pallet that implements `Auction` trait."
+readme = "README.md"
+
+[dependencies]
+codec = { workspace = true }
+scale-info = { workspace = true }
+
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
