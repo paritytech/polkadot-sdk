@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768503621543,
+  "lastUpdate": 1768602801951,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c405dda71db4463f55b26a037484274f3ab2e646",
-          "message": "[pallet-revive] fix call-trace create calls (#8781)\n\nFix call-traces for CREATE calls.\n\nthese types of calls have a \"CREATE\" and \"CREATE2\" type see\nhttps://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#call-tracer\n\nThe input of these trace, should also contain the bytecode or code hash.\n\nfixes https://github.com/paritytech/contract-issues/issues/96\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-15T21:55:13Z",
-          "tree_id": "8a6f09d132c61e9bf5e856cf2e7a4aac082610e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c405dda71db4463f55b26a037484274f3ab2e646"
-        },
-        "date": 1750028215649,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013081894186666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008771682606666753,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02244975536666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15629330996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14314866509333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95b6ca351d5dabf1bec08624fcd01f6e76f03410",
+          "message": "[FRAME] Closed Bounties Return Balance And Assets (#10729)\n\nEnsures that bounties that got closed with `close_bounty` will return\nthe maximal possible amount of Native balance and specific relevant\nAssets.\nThis fixes an issue where closed bounties would not refund any balance\nto the treasury because assets were blocking the withdrawal through\naccount references.\n\n**Changes:**\n- Add config items to Bounty pallet: `TransferAllAssets` to withdraw all\nassets\n- Add trait `TransferAllFungibles` for generic funds transfer\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-16T21:18:32Z",
+          "tree_id": "c49a352bf103c30b18f8e6324173e6d64e1d059f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95b6ca351d5dabf1bec08624fcd01f6e76f03410"
+        },
+        "date": 1768602777596,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14320930774666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009735242693333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006975785200000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022994016273333327,
             "unit": "seconds"
           }
         ]
