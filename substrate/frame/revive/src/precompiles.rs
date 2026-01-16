@@ -100,7 +100,8 @@ pub enum AddressMatcher {
 
 /// Same as `AddressMatcher` but for builtin pre-compiles.
 ///
-/// It works in the same way as `AddressMatcher` but allows setting the full 4 byte prefix.
+/// It works in the same way as `AddressMatcher` but allows setting the highest bytes (bytes 19 and
+/// 20) of the address reserved for builtin precompiles.
 /// Builtin pre-compiles must only use values `<= u16::MAX` to prevent collisions with
 /// external pre-compiles.
 pub(crate) enum BuiltinAddressMatcher {
