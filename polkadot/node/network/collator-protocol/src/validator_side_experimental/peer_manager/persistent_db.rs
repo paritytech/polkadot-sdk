@@ -104,7 +104,7 @@ const LAST_FINALIZED_KEY: &[u8] = b"last_finalized";
 pub struct PersistentDb {
 	db: Arc<dyn Database>,
 	reputation_column: u32,
-	stored_limit_per_para: u8,
+	stored_limit_per_para: u16,
 }
 
 #[async_trait]
@@ -187,7 +187,7 @@ impl Backend for PersistentDb {
 }
 
 impl PersistentDb {
-	pub fn new(db: Arc<dyn Database>, col: u32, stored_limit_per_para: u8) -> Self {
+	pub fn new(db: Arc<dyn Database>, col: u32, stored_limit_per_para: u16) -> Self {
 		Self { db, reputation_column: col, stored_limit_per_para }
 	}
 

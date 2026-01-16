@@ -33,7 +33,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
-	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal,
+	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
@@ -90,7 +90,6 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		//let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
 		let backend = PersistentDb::new(db.clone(), reputation_col, MAX_STORED_SCORES_PER_PARA);
 
 		match PeerManager::startup(
@@ -150,12 +149,17 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<PersistentDb>) ->
 	let mut timer = create_timer(None);
 	loop {
 		select! {
+			// Calling `fuse()` here is useless, because the termination state of the resulting
+			// fused future is discarded after each iteration. But we need to do it in order to
+			// make the compiler happy.
+			// However, we actually need `ctx.recv()` to poll for received messages/signals during
+			// each loop iteration, so the resulting behavior is the desired one.
 			res = ctx.recv().fuse() => {
 				match res {
 					Ok(FromOrchestra::Communication { msg }) => {
 						gum::trace!(target: LOG_TARGET, msg = ?msg, "received a message");
 						process_msg(
-							&mut ctx,
+							ctx.sender(),
 							&mut state,
 							msg,
 						).await;
@@ -191,9 +195,8 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<PersistentDb>) ->
 }
 
 /// The main message receiver switch.
-#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn process_msg<Context>(
-	ctx: &mut Context,
+async fn process_msg<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
 	state: &mut State<PersistentDb>,
 	msg: CollatorProtocolMessage,
 ) {
@@ -216,7 +219,7 @@ async fn process_msg<Context>(
 			);
 		},
 		NetworkBridgeUpdate(event) =>
-			if let Err(e) = handle_network_msg(ctx, state, event).await {
+			if let Err(e) = handle_network_msg(sender, state, event).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					err = ?e,
@@ -224,7 +227,7 @@ async fn process_msg<Context>(
 				);
 			},
 		Seconded(_parent, stmt) => {
-			state.handle_seconded_collation(ctx.sender(), stmt).await;
+			state.handle_seconded_collation(sender, stmt).await;
 		},
 		Invalid(_parent, candidate_receipt) => {
 			state.handle_invalid_collation(candidate_receipt).await;
@@ -245,9 +248,8 @@ async fn process_msg<Context>(
 }
 
 /// Bridge event switch.
-#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn handle_network_msg<Context>(
-	ctx: &mut Context,
+async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
 	state: &mut State<PersistentDb>,
 	bridge_message: NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>,
 ) -> Result<()> {
@@ -269,7 +271,7 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
-			state.handle_peer_connected(ctx.sender(), peer_id, version).await;
+			state.handle_peer_connected(sender, peer_id, version).await;
 		},
 		PeerDisconnected(peer_id) => {
 			state.handle_peer_disconnected(peer_id).await;
@@ -281,10 +283,10 @@ async fn handle_network_msg<Context>(
 			// We don't really care about a peer's view.
 		},
 		OurViewChange(view) => {
-			state.handle_our_view_change(ctx.sender(), view).await?;
+			state.handle_our_view_change(sender, view).await?;
 		},
 		PeerMessage(remote, msg) => {
-			process_incoming_peer_message(ctx, state, remote, msg).await;
+			process_incoming_peer_message(sender, state, remote, msg).await;
 		},
 		UpdatedAuthorityIds { .. } => {
 			// The validator side doesn't deal with `AuthorityDiscoveryId`s.
@@ -294,9 +296,8 @@ async fn handle_network_msg<Context>(
 	Ok(())
 }
 
-#[overseer::contextbounds(CollatorProtocol, prefix = overseer)]
-async fn process_incoming_peer_message<Context>(
-	ctx: &mut Context,
+async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
 	state: &mut State<PersistentDb>,
 	origin: PeerId,
 	msg: CollationProtocols<
@@ -310,7 +311,7 @@ async fn process_incoming_peer_message<Context>(
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
 		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) => {
-			state.handle_declare(ctx.sender(), origin, para_id).await;
+			state.handle_declare(sender, origin, para_id).await;
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) => {
@@ -321,7 +322,7 @@ async fn process_incoming_peer_message<Context>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(ctx.sender(), origin, relay_parent, None).await;
+			state.handle_advertisement(sender, origin, relay_parent, None).await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			relay_parent,
@@ -330,7 +331,7 @@ async fn process_incoming_peer_message<Context>(
 		}) => {
 			state
 				.handle_advertisement(
-					ctx.sender(),
+					sender,
 					origin,
 					relay_parent,
 					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
