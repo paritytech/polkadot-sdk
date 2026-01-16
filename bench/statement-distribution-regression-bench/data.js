@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768503689883,
+  "lastUpdate": 1768602869929,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ludovic.domingues96@gmail.com",
-            "name": "Ludovic Domingues",
-            "username": "Krayt78"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ffee63df61d45b9c7b2c53afb10a9495bee792e",
-          "message": "Fix calling nominate on a validator that doesn’t exist silently succeeds (#8436)\n\n# Description\nThis PR fixes a bug where calling nominate on a validator that doesn’t\nexist silently succeeds.\nIt also updates all the tests that had an incorrect setup - they were\nsimulating elections with unregistered validators.\n\npolkadot address: 14AgwoPjcRiEEJgjfHmvAqkjdERCG26WEvQUoGLuBzcXKMS2\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>",
-          "timestamp": "2025-06-14T16:47:26Z",
-          "tree_id": "0293d0c7a9f22add7fbdf28e59c8ca843c037003",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ffee63df61d45b9c7b2c53afb10a9495bee792e"
-        },
-        "date": 1749923370110,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94399999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04513340473399997,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03431584200199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03805436944,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95b6ca351d5dabf1bec08624fcd01f6e76f03410",
+          "message": "[FRAME] Closed Bounties Return Balance And Assets (#10729)\n\nEnsures that bounties that got closed with `close_bounty` will return\nthe maximal possible amount of Native balance and specific relevant\nAssets.\nThis fixes an issue where closed bounties would not refund any balance\nto the treasury because assets were blocking the withdrawal through\naccount references.\n\n**Changes:**\n- Add config items to Bounty pallet: `TransferAllAssets` to withdraw all\nassets\n- Add trait `TransferAllFungibles` for generic funds transfer\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-16T21:18:32Z",
+          "tree_id": "c49a352bf103c30b18f8e6324173e6d64e1d059f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95b6ca351d5dabf1bec08624fcd01f6e76f03410"
+        },
+        "date": 1768602845073,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.02999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0629577416159999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038124139428,
             "unit": "seconds"
           }
         ]
