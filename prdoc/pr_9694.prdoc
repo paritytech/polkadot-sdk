@@ -1,0 +1,8 @@
+title: align `DiscoveryBehaviour::add_known_address` with its docs
+doc:
+- audience: Runtime Dev
+  description: |-
+   The given address should be permanent for the peer as explained by the docs.
+crates:
+- name: sc-network
+  bump: patch
