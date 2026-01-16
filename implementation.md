@@ -13,17 +13,12 @@ This document outlines the remaining work needed to complete the pub-sub mechani
 
 ### Remaining Work
 
-1. **TTL & data expiration** - Per-key TTL with automatic cleanup via `on_idle`
-2. **Manual deletion APIs** - Parachain self-deletion and root force-deletion
-3. **Prefix-based key reading** - Support dynamic key ranges (e.g., `pop_ring_root_{NUMBER}`)
-4. **PoV constraints** - Enforce ~1 MiB per block limit with size estimation
-5. **Runtime API extensions** - Additional methods for proof size estimation
-6. **Documentation and testing** - Comprehensive guides and integration tests
+1. **PoV constraints & caching** - Prune proofs in `provide_inherent` using on-chain trie node cache
+2. **TTL & data expiration** - Per-key TTL with automatic cleanup via `on_idle`
+3. **Manual deletion APIs** - Parachain self-deletion and root force-deletion
+4. **Documentation and testing** - Comprehensive guides and integration tests
 
-### Future Optimizations (Deferred)
-
-- **Trie node caching for diff proofs** - Requires Substrate API changes (see Appendix A)
-- TTL-based expiration works with current full proofs; caching would further reduce PoV
+**Note:** Prefix-based key reading removed - subscribers must know exact keys to subscribe to.
 
 ---
 
@@ -338,13 +333,13 @@ impl XcmExecutor {
 
 ## Remaining Implementation Tasks
 
-### Phase 1: Prefix-Based Key Reading (HIGH PRIORITY)
+### Phase 1: Exact Key Reading (IMPLEMENTED)
 
-**Goal:** Support dynamic key ranges like `pop_ring_root_{NUMBER}` for both top and child tries.
+**Goal:** Support exact key subscriptions for both top and child tries.
 
-**Status:** Partially implemented (exact keys work, prefix enumeration missing)
+**Status:** Implemented
 
-#### 1.1 Extend RelayStorageKey
+#### 1.1 RelayStorageKey Enum
 
 **File:** `cumulus/primitives/core/src/lib.rs`
 
@@ -359,144 +354,33 @@ pub enum RelayStorageKey {
         storage_key: Vec<u8>,
         key: Vec<u8>,
     },
-    
-    /// Top-level trie prefix query (enumerate all keys with prefix)
-    TopPrefix(Vec<u8>),
-    
-    /// Child trie prefix query (enumerate all keys with prefix)
-    ChildPrefix {
-        storage_key: Vec<u8>,
-        prefix: Vec<u8>,
-    },
 }
 ```
 
-#### 1.2 Add Key Enumeration Methods to RelayChainInterface
+**Note:** Subscribers must know the exact keys they want to subscribe to. Prefix enumeration is not supported - this keeps the implementation simple and predictable.
 
-**File:** `cumulus/client/relay-chain-interface/src/lib.rs`
+#### 1.2 SubscriptionHandler Trait
+
+**File:** `cumulus/pallets/subscriber/src/lib.rs`
+
+See section "2. Subscriber Pallet" for the complete `SubscribedKey` type definition with H256-based hashing and the `subscribed_key!` macro.
 
 ```rust
-#[async_trait::async_trait]
-pub trait RelayChainInterface: Send + Sync {
-    // ... existing methods ...
+pub trait SubscriptionHandler {
+    /// Return subscriptions: (ParaId, keys as H256 hashes)
+    fn subscriptions() -> (Vec<(ParaId, Vec<SubscribedKey>)>, Weight);
     
-    /// Enumerate top-level storage keys matching a prefix
-    async fn storage_keys(
-        &self,
-        hash: PHash,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>>;
-    
-    /// Enumerate child storage keys matching a prefix
-    async fn child_storage_keys(
-        &self,
-        hash: PHash,
-        child_info: &ChildInfo,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>>;
+    /// Called when subscribed data is updated
+    fn on_data_updated(
+        publisher: ParaId, 
+        key: SubscribedKey, 
+        value: &[u8],
+        ttl: TtlState,
+    ) -> Weight;
 }
 ```
 
-#### 1.3 Implement in Inprocess Interface
-
-**File:** `cumulus/client/relay-chain-inprocess-interface/src/lib.rs`
-
-```rust
-impl RelayChainInterface for RelayChainInProcessInterface {
-    async fn storage_keys(
-        &self,
-        hash: PHash,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>> {
-        let state = self.backend.state_at(hash)?;
-        
-        let iter = state.keys(prefix.unwrap_or(&[]))?;
-        let keys: Vec<Vec<u8>> = if let Some(start) = start_key {
-            iter.skip_while(|k| k.as_ref().map(|k| k.as_slice() < start).unwrap_or(false))
-                .take(1000)  // Limit for safety
-                .filter_map(|k| k.ok())
-                .collect()
-        } else {
-            iter.take(1000).filter_map(|k| k.ok()).collect()
-        };
-        
-        Ok(keys)
-    }
-    
-    async fn child_storage_keys(
-        &self,
-        hash: PHash,
-        child_info: &ChildInfo,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>> {
-        let state = self.backend.state_at(hash)?;
-        
-        let iter = state.child_keys(child_info, prefix.unwrap_or(&[]))?;
-        let keys: Vec<Vec<u8>> = if let Some(start) = start_key {
-            iter.skip_while(|k| k.as_ref().map(|k| k.as_slice() < start).unwrap_or(false))
-                .take(1000)
-                .filter_map(|k| k.ok())
-                .collect()
-        } else {
-            iter.take(1000).filter_map(|k| k.ok()).collect()
-        };
-        
-        Ok(keys)
-    }
-}
-```
-
-#### 1.4 Implement in RPC Interface
-
-**File:** `cumulus/client/relay-chain-rpc-interface/src/lib.rs`
-
-```rust
-impl RelayChainInterface for RelayChainRpcInterface {
-    async fn storage_keys(
-        &self,
-        hash: PHash,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>> {
-        self.rpc_client
-            .state_get_keys_paged(
-                prefix.map(|p| StorageKey(p.to_vec())),
-                1000,
-                start_key.map(|k| StorageKey(k.to_vec())),
-                Some(hash),
-            )
-            .await
-            .map(|keys| keys.into_iter().map(|k| k.0).collect())
-            .map_err(|e| RelayChainError::RpcCallError(e.to_string()))
-    }
-    
-    async fn child_storage_keys(
-        &self,
-        hash: PHash,
-        child_info: &ChildInfo,
-        prefix: Option<&[u8]>,
-        start_key: Option<&[u8]>,
-    ) -> RelayChainResult<Vec<Vec<u8>>> {
-        self.rpc_client
-            .childstate_get_keys_paged(
-                PrefixedStorageKey::new(child_info.prefixed_storage_key()),
-                prefix.map(|p| StorageKey(p.to_vec())),
-                1000,
-                start_key.map(|k| StorageKey(k.to_vec())),
-                Some(hash),
-            )
-            .await
-            .map(|keys| keys.into_iter().map(|k| k.0).collect())
-            .map_err(|e| RelayChainError::RpcCallError(e.to_string()))
-    }
-}
-```
-
-#### 1.5 Handle Prefix in Proof Collection (Enumerate-First Approach)
+#### 1.3 Proof Collection
 
 **File:** `cumulus/client/parachain-inherent/src/lib.rs`
 
@@ -505,12 +389,8 @@ async fn collect_relay_storage_proof(
     relay_chain_interface: &impl RelayChainInterface,
     para_id: ParaId,
     relay_parent: PHash,
-    // ... other params
     relay_proof_request: RelayProofRequest,
 ) -> Option<StorageProof> {
-    // ... existing static keys collection ...
-    
-    // Process requested keys, expanding prefixes
     let RelayProofRequest { keys } = relay_proof_request;
     let mut child_keys: BTreeMap<Vec<u8>, Vec<Vec<u8>>> = BTreeMap::new();
     
@@ -521,188 +401,558 @@ async fn collect_relay_storage_proof(
                     all_top_keys.push(k);
                 }
             },
-            RelayStorageKey::TopPrefix(prefix) => {
-                // Enumerate all keys matching the prefix
-                let matching_keys = relay_chain_interface
-                    .storage_keys(relay_parent, Some(&prefix), None)
-                    .await
-                    .ok()?;
-                
-                for k in matching_keys {
-                    if !all_top_keys.contains(&k) {
-                        all_top_keys.push(k);
-                    }
-                }
-            },
             RelayStorageKey::Child { storage_key, key } => {
                 child_keys.entry(storage_key).or_default().push(key);
             },
-            RelayStorageKey::ChildPrefix { storage_key, prefix } => {
-                let child_info = ChildInfo::new_default(&storage_key);
-                
-                // Enumerate all child keys matching the prefix
-                let matching_keys = relay_chain_interface
-                    .child_storage_keys(relay_parent, &child_info, Some(&prefix), None)
-                    .await
-                    .ok()?;
-                
-                child_keys.entry(storage_key).or_default().extend(matching_keys);
-            },
         }
     }
     
-    // ... continue with proof generation for collected keys ...
+    // Generate proof for collected keys
+    // ...
 }
 ```
-
-#### 1.6 Update SubscriptionHandler Trait for Prefix Support
-
-**File:** `cumulus/pallets/subscriber/src/lib.rs`
-
-```rust
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum SubscriptionKey {
-    /// Subscribe to a specific key
-    Exact(BoundedVec<u8, ConstU32<1024>>),
-    /// Subscribe to all keys with this prefix
-    Prefix(BoundedVec<u8, ConstU32<256>>),
-}
-
-pub trait SubscriptionHandler {
-    /// Return subscriptions with optional prefixes
-    fn subscriptions() -> (Vec<(ParaId, Vec<SubscriptionKey>)>, Weight);
-    
-    /// Called when subscribed data is updated
-    fn on_data_updated(publisher: ParaId, key: Vec<u8>, value: Vec<u8>) -> Weight;
-}
-```
-
-**Note:** The current implementation uses `Vec<Vec<u8>>` for keys. To support prefixes, we need to change this to `Vec<SubscriptionKey>` enum.
 
 ---
 
-### Phase 2: PoV Constraints (MEDIUM PRIORITY)
+### Phase 2: PoV Constraints & Proof Pruning (MEDIUM PRIORITY)
 
-**Goal:** Limit pub-sub data per block to ~1 MiB to fit within PoV budget.
+**Goal:** Prune pub-sub child tries from relay state proof in `provide_inherent`, using remaining budget after messages.
 
 **Status:** Not implemented
 
-#### 2.1 Add Configuration Constants
+**Key Principle:** Follow the same pattern as message filtering with `size_limit`. Messages are filtered first using `into_abridged(&mut size_limit)`, then pub-sub uses the remaining `size_limit` to prune unnecessary data from the relay state proof.
 
-**File:** `cumulus/primitives/core/src/lib.rs`
+#### 2.1 Integration with Message Filtering
 
+**File:** `cumulus/pallets/parachain-system/src/lib.rs`
+
+The existing message filtering pattern:
 ```rust
-/// Maximum pub-sub proof size per block (1 MiB)
-pub const MAX_PUBSUB_PROOF_SIZE: u32 = 1024 * 1024;
+fn messages_collection_size_limit() -> usize {
+    let max_block_pov = max_block_weight.proof_size();
+    (max_block_pov / 6).saturated_into()  // Each channel gets 1/6 of PoV
+}
+
+fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
+    // DMQ filtering
+    let mut size_limit = messages_collection_size_limit;
+    let downward_messages = downward_messages.into_abridged(&mut size_limit);
+    
+    // HRMP filtering  
+    size_limit = size_limit.saturating_add(messages_collection_size_limit);
+    let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
+    
+    // size_limit now contains remaining budget for pub-sub
+    // ...
+}
 ```
 
-#### 2.2 Implement Proof Size Estimation
+#### 2.2 Add Pub-Sub Proof Pruning to `provide_inherent`
+
+**File:** `cumulus/pallets/parachain-system/src/lib.rs`
+
+```rust
+fn do_create_inherent(mut data: ParachainInherentData) -> Call<T> {
+    let (vfp, mut downward_messages, mut horizontal_messages) =
+        deconstruct_parachain_inherent_data(data);
+    
+    let messages_collection_size_limit = Self::messages_collection_size_limit();
+    
+    // DMQ filtering
+    let mut size_limit = messages_collection_size_limit;
+    let downward_messages = downward_messages.into_abridged(&mut size_limit);
+    
+    // HRMP filtering
+    size_limit = size_limit.saturating_add(messages_collection_size_limit);
+    let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
+    
+    // size_limit now contains remaining budget for pub-sub
+    // Prune pub-sub child tries from relay_chain_state proof
+    let pruned_relay_state = T::PubSubProofPruner::prune_pubsub_proofs(
+        data.relay_chain_state,
+        vfp.relay_parent_storage_root,
+        &mut size_limit,
+    );
+    // size_limit now contains remaining bytes after pub-sub pruning
+    
+    log::debug!(
+        "PoV budget: messages used, pub-sub budget {} bytes remaining",
+        size_limit
+    );
+    
+    let inbound_messages_data =
+        InboundMessagesData::new(downward_messages, horizontal_messages);
+    
+    Call::set_validation_data { 
+        data: ParachainInherentData {
+            validation_data: vfp,
+            relay_chain_state: pruned_relay_state,
+            downward_messages: vec![],
+            horizontal_messages: BTreeMap::new(),
+            relay_parent_descendants: data.relay_parent_descendants,
+            collator_peer_id: data.collator_peer_id,
+        },
+        inbound_messages_data 
+    }
+}
+```
+
+#### 2.3 Pub-Sub Proof Pruner Trait
 
 **File:** `cumulus/pallets/subscriber/src/lib.rs`
 
 ```rust
-impl<T: Config> Pallet<T> {
-    /// Estimate proof size for a given set of keys
-    fn estimate_proof_size(
-        para_id: ParaId,
-        keys: &[SubscriptionKey],
-    ) -> u32 {
-        let mut total = 0u32;
-        
-        for key in keys {
-            match key {
-                SubscriptionKey::Exact(k) => {
-                    // Estimate: key + value + trie overhead
-                    // Typical trie overhead: 32 bytes per level × ~4 levels = 128 bytes
-                    let value_size = 384u32; // Default estimate for ring root
-                    let trie_overhead = 32 * 4; // ~4 levels deep
-                    total = total.saturating_add(
-                        k.len() as u32 + value_size + trie_overhead
-                    );
-                },
-                SubscriptionKey::Prefix(p) => {
-                    // Estimate based on average key count for this prefix
-                    // This requires caching discovered key counts
-                    let estimated_keys = Self::get_cached_key_count(para_id, p)
-                        .unwrap_or(10); // Conservative default
-                    let per_key = 384 + 32 * 4; // value + trie path
-                    total = total.saturating_add(estimated_keys * per_key);
-                },
-            }
-        }
-        
-        total
-    }
-    
-    /// Get relay proof requests with PoV limits
-    pub fn get_relay_proof_requests() -> cumulus_primitives_core::RelayProofRequest {
-        let (subscriptions, _weight) = T::SubscriptionHandler::subscriptions();
-        
-        let mut total_estimated_size = 0u32;
-        let mut limited_subscriptions = Vec::new();
-        
-        for (para_id, keys) in subscriptions {
-            let publisher_size = Self::estimate_proof_size(para_id, &keys);
-            
-            if total_estimated_size.saturating_add(publisher_size) <= MAX_PUBSUB_PROOF_SIZE {
-                limited_subscriptions.push((para_id, keys));
-                total_estimated_size = total_estimated_size.saturating_add(publisher_size);
-            } else {
-                // Log warning: publisher skipped due to PoV limit
-                log::warn!(
-                    target: "subscriber",
-                    "Publisher {:?} skipped due to PoV limit. Estimated size: {} bytes",
-                    para_id,
-                    publisher_size
-                );
-            }
-        }
-        
-        // Build request from limited subscriptions
-        let storage_keys = limited_subscriptions
-            .into_iter()
-            .flat_map(|(para_id, keys)| {
-                let storage_key = Self::derive_storage_key(para_id);
-                keys.into_iter().map(move |key| {
-                    match key {
-                        SubscriptionKey::Exact(k) => {
-                            cumulus_primitives_core::RelayStorageKey::Child {
-                                storage_key: storage_key.clone(),
-                                key: k.into_inner(),
-                            }
-                        },
-                        SubscriptionKey::Prefix(p) => {
-                            cumulus_primitives_core::RelayStorageKey::ChildPrefix {
-                                storage_key: storage_key.clone(),
-                                prefix: p.into_inner(),
-                            }
-                        },
-                    }
-                })
-            })
-            .collect();
-        
-        cumulus_primitives_core::RelayProofRequest { keys: storage_keys }
-    }
+pub trait PubSubProofPruner {
+    /// Prune pub-sub child tries from relay state proof
+    /// 
+    /// - Removes child tries where root hasn't changed
+    /// - Includes only new nodes (not in cache) for changed tries
+    /// - Respects size_limit (decremented as nodes added)
+    fn prune_pubsub_proofs(
+        original_proof: StorageProof,
+        relay_storage_root: H256,
+        size_limit: &mut usize,
+    ) -> StorageProof;
 }
 ```
 
-#### 2.3 Add Runtime API for Size Estimation
+#### 2.4 Custom HashDB for Cache-Aware Pruning
 
-**File:** `cumulus/primitives/core/src/lib.rs`
+**File:** `cumulus/pallets/subscriber/src/lib.rs`
+
+The pruning uses a custom `HashDB` that checks cache before including nodes:
 
 ```rust
-sp_api::decl_runtime_apis! {
-    #[api_version(2)]
-    pub trait KeyToIncludeInRelayProofApi {
-        /// Returns relay chain storage proof requests
-        fn keys_to_prove() -> RelayProofRequest;
+use hash_db::{HashDB, Hasher, Prefix};
+
+/// Custom HashDB that checks cache first, only includes new nodes in output
+struct CachedHashDB<'a, T: Config, H: Hasher> {
+    para_id: ParaId,
+    original_proof: &'a StorageProof,
+    nodes_to_include: &'a mut Vec<(H::Out, Vec<u8>)>,
+    size_limit: &'a mut usize,
+    budget_exhausted: bool,
+    _phantom: PhantomData<(T, H)>,
+}
+
+impl<'a, T: Config, H: Hasher<Out = H256>> HashDB<H, Vec<u8>> for CachedHashDB<'a, T, H> {
+    fn get(&self, key: &H256, _prefix: Prefix) -> Option<Vec<u8>> {
+        // Check cache first
+        if let Some(cached_node) = CachedTrieNodes::<T>::get(self.para_id, *key) {
+            // Node in cache - return it but don't add to output
+            return Some(cached_node.into_inner());
+        }
         
-        /// Estimate proof size for given keys (for PoV budget)
-        fn estimate_proof_size(request: RelayProofRequest) -> u32;
+        // Not in cache - must be in original proof
+        self.original_proof.read_node(*key)
+    }
+    
+    fn contains(&self, key: &H256, _prefix: Prefix) -> bool {
+        CachedTrieNodes::<T>::contains_key(self.para_id, *key) ||
+            self.original_proof.contains_node(*key)
+    }
+    
+    // Read-only - panic on write operations
+    fn insert(&mut self, _prefix: Prefix, _value: &[u8]) -> H256 {
+        panic!("CachedHashDB is read-only")
+    }
+    fn emplace(&mut self, _key: H256, _prefix: Prefix, _value: Vec<u8>) {
+        panic!("CachedHashDB is read-only")
+    }
+    fn remove(&mut self, _key: &H256, _prefix: Prefix) {
+        panic!("CachedHashDB is read-only")
+    }
+}
+
+impl<'a, T: Config, H: Hasher<Out = H256>> CachedHashDB<'a, T, H> {
+    /// Get node and track for inclusion if not cached
+    fn get_and_maybe_include(&mut self, key: &H256) -> Option<Vec<u8>> {
+        // Check cache first
+        if let Some(cached_node) = CachedTrieNodes::<T>::get(self.para_id, *key) {
+            // Node in cache - return without adding to output
+            return Some(cached_node.into_inner());
+        }
+        
+        // Not in cache - get from original proof
+        if let Some(node_data) = self.original_proof.read_node(*key) {
+            // Check budget before adding to output
+            if !self.budget_exhausted {
+                let node_size = node_data.len();
+                
+                if node_size <= *self.size_limit {
+                    // Budget available - add to output
+                    self.nodes_to_include.push((*key, node_data.clone()));
+                    *self.size_limit = self.size_limit.saturating_sub(node_size);
+                } else {
+                    // Hit budget limit - stop including new nodes
+                    self.budget_exhausted = true;
+                }
+            }
+            
+            // Always return node data so trie traversal can continue
+            Some(node_data)
+        } else {
+            None
+        }
+    }
+    
+    fn is_budget_exhausted(&self) -> bool {
+        self.budget_exhausted
     }
 }
 ```
+
+#### 2.5 Dual-Trie Traversal for Cache Synchronization
+
+During block execution, we traverse the new trie and synchronize the cache:
+- **New node found** → Add to cache
+- **Cached node not in new trie** → Remove from cache (outdated)  
+- **Node in cache matches new trie** → Stop traversal on this branch (subtree unchanged)
+
+```rust
+impl<T: Config> Pallet<T> {
+    /// Traverse new trie and synchronize cache
+    fn traverse_and_sync_cache(
+        para_id: ParaId,
+        new_proof: &StorageProof,
+        new_root: H256,
+        subscribed_keys: &[SubscribedKey],
+        size_limit: &mut usize,
+    ) -> Result<Vec<(H256, Vec<u8>)>, ()> {
+        let mut nodes_to_include = Vec::new();
+        let mut nodes_to_remove = Vec::new();
+        let mut budget_exhausted = false;
+        
+        for subscribed_key in subscribed_keys {
+            if budget_exhausted {
+                break;
+            }
+            
+            let result = Self::traverse_key_path(
+                para_id,
+                new_proof,
+                new_root,
+                subscribed_key,
+                &mut nodes_to_include,
+                &mut nodes_to_remove,
+                size_limit,
+            );
+            
+            if result.is_err() {
+                budget_exhausted = true;
+                break;
+            }
+        }
+        
+        // Remove outdated nodes from cache
+        for node_hash in nodes_to_remove {
+            CachedTrieNodes::<T>::remove(para_id, node_hash);
+        }
+        
+        Ok(nodes_to_include)
+    }
+    
+    /// Traverse path to a specific key, comparing with cached nodes
+    fn traverse_key_path(
+        para_id: ParaId,
+        new_proof: &StorageProof,
+        current_node_hash: H256,
+        key: &[u8],
+        nodes_to_include: &mut Vec<(H256, Vec<u8>)>,
+        nodes_to_remove: &mut Vec<H256>,
+        size_limit: &mut usize,
+    ) -> Result<(), ()> {
+        let mut current_hash = current_node_hash;
+        let mut key_nibbles = Self::key_to_nibbles(key);
+        let mut nibble_idx = 0;
+        
+        loop {
+            // Check if we have this node in cache
+            let cached_node = CachedTrieNodes::<T>::get(para_id, current_hash);
+            
+            // Get node from new proof
+            let new_node_data = new_proof.read_node(current_hash).ok_or(())?;
+            
+            match cached_node {
+                Some(cached_data) if cached_data.as_slice() == new_node_data.as_slice() => {
+                    // Node unchanged - entire subtree is the same
+                    // Stop traversal here, no need to go deeper
+                    return Ok(());
+                }
+                Some(_) => {
+                    // Node changed - mark old one for removal
+                    nodes_to_remove.push(current_hash);
+                    
+                    // Include new node in proof
+                    let node_size = new_node_data.len();
+                    if node_size > *size_limit {
+                        return Err(()); // Budget exhausted
+                    }
+                    
+                    nodes_to_include.push((current_hash, new_node_data.clone()));
+                    *size_limit = size_limit.saturating_sub(node_size);
+                }
+                None => {
+                    // Not in cache - new node, must include
+                    let node_size = new_node_data.len();
+                    if node_size > *size_limit {
+                        return Err(()); // Budget exhausted
+                    }
+                    
+                    nodes_to_include.push((current_hash, new_node_data.clone()));
+                    *size_limit = size_limit.saturating_sub(node_size);
+                }
+            }
+            
+            // Decode node and get next hash in path
+            match Self::decode_and_get_next(&new_node_data, &key_nibbles, nibble_idx)? {
+                Some((next_hash, new_nibble_idx)) => {
+                    current_hash = next_hash;
+                    nibble_idx = new_nibble_idx;
+                }
+                None => return Ok(()), // Reached leaf or key doesn't exist
+            }
+        }
+    }
+}
+```
+
+#### 2.6 Block Execution: Verification & Cursor Management
+
+During block execution, verify the collator included all required keys:
+
+```rust
+impl<T: Config> Pallet<T> {
+    pub fn process_pubsub_data(
+        relay_state_proof: &RelayChainStateProof,
+        pubsub_size_limit: usize,
+    ) -> Weight {
+        let (subscriptions, _) = T::SubscriptionHandler::subscriptions();
+        let mut proof_size_used = 0usize;
+        let resume_from = PubSubProcessingCursor::<T>::get();
+        
+        for (para_id, subscribed_keys) in subscriptions {
+            // Check if root changed
+            let current_root = relay_state_proof.read_child_trie_root(para_id);
+            let last_root = LastProcessedRoot::<T>::get(para_id);
+            
+            if current_root == last_root {
+                continue;
+            }
+            
+            for subscribed_key in subscribed_keys {
+                let mut key_proof_size = 0usize;
+                let mut nodes_to_remove = Vec::new();
+                let mut nodes_to_cache = Vec::new();
+                
+                let result = Self::traverse_and_verify_key(
+                    para_id,
+                    relay_state_proof,
+                    current_root,
+                    &subscribed_key,
+                    &mut key_proof_size,
+                    &mut nodes_to_remove,
+                    &mut nodes_to_cache,
+                );
+                
+                match result {
+                    Ok(Some(value)) => {
+                        // Verify budget
+                        if proof_size_used + key_proof_size > pubsub_size_limit {
+                            // Budget exhausted - set cursor and return
+                            PubSubProcessingCursor::<T>::put((para_id, subscribed_key));
+                            return /* weight */;
+                        }
+                        
+                        proof_size_used += key_proof_size;
+                        
+                        // Update cache: remove old, add new
+                        for old_hash in nodes_to_remove {
+                            CachedTrieNodes::<T>::remove(para_id, old_hash);
+                        }
+                        for (new_hash, new_data) in nodes_to_cache {
+                            if let Ok(bounded) = BoundedVec::try_from(new_data) {
+                                CachedTrieNodes::<T>::insert(para_id, new_hash, bounded);
+                            }
+                        }
+                        
+                        // Call handler with SubscribedKey and TtlState
+                        let ttl_state = Self::compute_ttl_state(&value);
+                        T::SubscriptionHandler::on_data_updated(
+                            para_id,
+                            subscribed_key,
+                            &value,
+                            ttl_state,
+                        );
+                    }
+                    Ok(None) => continue, // Key doesn't exist
+                    Err(_) => {
+                        // Missing node - check if budget exhausted
+                        if proof_size_used < pubsub_size_limit {
+                            // Budget available but node missing - collator cheating!
+                            panic!(
+                                "Missing node for key {:?}:{:?} with {} bytes available",
+                                para_id, subscribed_key,
+                                pubsub_size_limit - proof_size_used
+                            );
+                        } else {
+                            // Budget exhausted - set cursor
+                            PubSubProcessingCursor::<T>::put((para_id, subscribed_key));
+                            return /* weight */;
+                        }
+                    }
+                }
+            }
+            
+            // Update root
+            LastProcessedRoot::<T>::insert(para_id, current_root);
+        }
+        
+        // All processed - clear cursor
+        PubSubProcessingCursor::<T>::kill();
+        /* return weight */
+    }
+}
+```
+
+#### 2.7 Storage for Proof Processing
+
+```rust
+/// Cursor tracking which key to resume from next block
+#[pallet::storage]
+pub type PubSubProcessingCursor<T: Config> = StorageValue<
+    _,
+    (ParaId, SubscribedKey),
+    OptionQuery,
+>;
+
+/// Last processed child trie root for each publisher
+#[pallet::storage]
+pub type LastProcessedRoot<T: Config> = StorageMap<
+    _,
+    Blake2_128Concat,
+    ParaId,
+    H256,
+    OptionQuery,
+>;
+
+/// Cached trie nodes per publisher
+#[pallet::storage]
+pub type CachedTrieNodes<T: Config> = StorageDoubleMap<
+    _,
+    Blake2_128Concat,
+    ParaId,
+    Blake2_128Concat,
+    H256,
+    BoundedVec<u8, ConstU32<4096>>,
+>;
+```
+
+#### 2.8 Key Points
+
+1. **`size_limit` pattern** - Same as `into_abridged(&mut size_limit)` for messages
+2. **Pruning in `provide_inherent`** - Before block execution, not in collator
+3. **Cache-first lookup** - Only include nodes not already cached
+4. **Early termination** - Stop at unchanged nodes (entire subtree same)
+5. **Dual traversal** - Remove outdated nodes, add new nodes
+6. **Cursor on-chain** - Set during block execution when budget exhausted
+7. **Collator verification** - Panic if keys missing when budget available
+
+#### 2.9 Testing Requirements
+
+```rust
+#[test]
+fn pubsub_uses_remaining_message_budget() {
+    // Messages get 1/6 + 1/6 = 1/3 of PoV
+    // If messages don't use full allocation, pub-sub gets remainder
+    let messages_limit = messages_collection_size_limit();  // 1/6 of PoV
+    
+    // Simulate DMQ using half its allocation
+    let mut size_limit = messages_limit;
+    let _ = small_dmq_messages.into_abridged(&mut size_limit);
+    assert!(size_limit > 0);  // Some budget remaining
+    
+    // HRMP uses none
+    size_limit = size_limit.saturating_add(messages_limit);
+    let _ = empty_hrmp.into_abridged(&mut size_limit);
+    
+    // size_limit now available for pub-sub
+    assert!(size_limit > messages_limit);  // More than 1/6 available
+    
+    // Light block (small, few messages)
+    let light_block_size = 500_000usize;  // 500 KB
+    let budget = calculate_remaining_pov_budget(allowed_pov_size, light_block_size);
+    assert_eq!(budget, 3_750_000);  // 3.75 MB available for pub-sub
+    
+    // Heavy block (large, many HRMP messages)
+    let heavy_block_size = 4_000_000usize;  // 4 MB
+    let budget = calculate_remaining_pov_budget(allowed_pov_size, heavy_block_size);
+    assert_eq!(budget, 250_000);  // Only 250 KB left for pub-sub
+    
+    // Block at limit
+    let full_block_size = 4_250_000usize;
+    let budget = calculate_remaining_pov_budget(allowed_pov_size, full_block_size);
+    assert_eq!(budget, 0);  // No space for pub-sub
+}
+
+#[test]
+fn subscriber_respects_dynamic_budget() {
+    // Subscribe to 5000 keys (would be ~13.5 MB unbound)
+    MockHandler::set_subscriptions(vec![
+        (ParaId::from(1000), vec![SubscribedKey::from_hash([0u8; 32]); 5000]),
+    ]);
+    
+    // Limited budget
+    let request = Subscriber::get_relay_proof_requests(1_000_000);  // 1 MB
+    let keys_count = count_keys_in_request(&request);
+    
+    // Should limit to ~370 keys
+    assert!(keys_count >= 370 && keys_count <= 380);
+}
+
+#[test]
+fn partial_publisher_inclusion() {
+    // Two publishers with many keys each
+    MockHandler::set_subscriptions(vec![
+        (ParaId::from(1000), vec![key(); 1000]),  // ~2.7 MB
+        (ParaId::from(2000), vec![key(); 1000]),  // ~2.7 MB
+    ]);
+    
+    // Budget fits first publisher + partial second
+    let request = Subscriber::get_relay_proof_requests(3_500_000);  // 3.5 MB
+    
+    let para1_keys = count_keys_for_para(&request, ParaId::from(1000));
+    let para2_keys = count_keys_for_para(&request, ParaId::from(2000));
+    
+    assert_eq!(para1_keys, 1000);  // All keys from para 1000
+    assert!(para2_keys > 0 && para2_keys < 1000);  // Partial from 2000
+}
+```
+
+#### 2.7 Edge Cases
+
+**Case 1: Heavy block (many HRMP messages)** (5 MB max_pov_size, 85% = 4.25 MB allowed)
+```
+Block PoV after HRMP: 4 MB
+Remaining for pub-sub: 250 KB
+Result: ~93 keys can be included
+```
+
+**Case 2: Light block (few messages)** (5 MB max_pov_size, 85% = 4.25 MB allowed)
+```
+Block PoV after HRMP: 500 KB
+Remaining for pub-sub: 3.75 MB
+Result: ~1,389 keys can be included
+```
+
+**Case 3: Block at limit (no space for pub-sub)**
+```
+Block PoV after HRMP: 4.25 MB (full 85%)
+Remaining for pub-sub: 0 KB
+Result: No pub-sub data this block, retry next block
+```
+
+**Note:** Pub-sub gracefully handles zero budget - it simply includes no keys that block.
 
 ---
 
@@ -753,10 +1003,10 @@ fn publish_and_subscribe_works() {
     
     // 4. Subscriber receives data in next block
     Subscriber::execute_with(|| {
-        // Configure subscription
+        // Configure subscription using SubscribedKey (H256 hash)
         MockSubscriptionHandler::set_subscriptions(vec![
             (ParaId::from(1000), vec![
-                SubscriptionKey::Exact(vec![1u8; 32].try_into().unwrap()),
+                SubscribedKey::from_hash([1u8; 32]),
             ]),
         ]);
         
@@ -766,7 +1016,7 @@ fn publish_and_subscribe_works() {
         // Verify handler was called
         assert_eq!(
             MockSubscriptionHandler::received_data(),
-            vec![(ParaId::from(1000), vec![1u8; 32], b"value1".to_vec())]
+            vec![(ParaId::from(1000), SubscribedKey::from_hash([1u8; 32]), b"value1".to_vec())]
         );
     });
 }
@@ -834,11 +1084,13 @@ let key = blake2_256(b"my_application_data");
 ### 1. Implement SubscriptionHandler
 
 \`\`\`rust
+use subscriber::{SubscribedKey, subscribed_key, TtlState};
+
 impl SubscriptionHandler for MyPallet {
-    fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight) {
+    fn subscriptions() -> (Vec<(ParaId, Vec<SubscribedKey>)>, Weight) {
         let subs = vec![
             (ParaId::from(1000), vec![
-                vec![0u8; 32],  // Subscribe to specific key
+                subscribed_key!("my_key"),  // Compile-time hashed key
             ]),
         ];
         (subs, Weight::zero())
@@ -846,11 +1098,12 @@ impl SubscriptionHandler for MyPallet {
     
     fn on_data_updated(
         publisher: ParaId,
-        key: Vec<u8>,
-        value: Vec<u8>,
+        key: SubscribedKey,
+        value: &[u8],
+        ttl: TtlState,
     ) -> Weight {
         // Process received data
-        MyStorage::insert(publisher, key, value);
+        MyStorage::insert(publisher, key.0, value.to_vec());
         Weight::from_parts(10_000, 0)
     }
 }
@@ -874,7 +1127,7 @@ impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
         Subscriber::get_relay_proof_requests()
     }
 }
-\`\`\`
+```
 ```
 
 ---
@@ -902,9 +1155,24 @@ parameter_types! {
 ```rust
 parameter_types! {
     pub const MaxPublishers: u32 = 100;  // Max publishers to subscribe to
-    pub const MAX_PUBSUB_PROOF_SIZE: u32 = 1024 * 1024;  // 1 MiB PoV limit
 }
 ```
+
+#### PoV Budget for Pub-Sub
+
+**No custom constants needed.** Pub-sub uses whatever PoV space remains after block building.
+
+```
+allowed_pov_size = validation_data.max_pov_size * 85%  (existing HRMP limit)
+block_pov_size = actual PoV after block built (HRMP, inherents, extrinsics)
+available_for_pubsub = allowed_pov_size - block_pov_size
+```
+
+**Key points:**
+- HRMP already uses 85% of `max_pov_size` (see `lookahead.rs:434-442`)
+- Pub-sub simply uses the remaining space after block is built
+- No minimum/maximum constants - pub-sub gets what's left
+- If block fills the PoV, pub-sub gets nothing that block (retry next block)
 
 #### TTL & Expiration Constants
 
@@ -929,7 +1197,6 @@ parameter_types! {
 - **MaxStoredKeys (4000):** Sufficient for POP use case (ring roots)
 - **MaxTotalStorageSize (2 MB):** 4000 keys × 512 bytes average (key + value)
 - **PublisherDeposit (100 units):** High enough to deter spam, accessible for legitimate chains
-- **MAX_PUBSUB_PROOF_SIZE (1 MiB):** Leaves 4 MiB for other relay proof data in 5 MiB PoV limit
 
 ---
 
@@ -944,18 +1211,22 @@ Keys must be exactly 32 bytes (hash output). This is enforced to:
 
 **Workaround:** Use a hash function to derive 32-byte keys from arbitrary data.
 
-### 2. No Diff Proofs (PoV Optimization Deferred)
+### 2. Trie Node Caching for PoV Reduction
 
-Current implementation generates complete Merkle proofs for all subscribed keys every block. The subscriber's change detection (root comparison) avoids redundant processing but does NOT reduce PoV size.
+The implementation uses on-chain trie node caching to reduce PoV overhead:
 
-**Future:** Requires Substrate API changes to support differential proofs (see Appendix A).
+- **First block:** Full proof received, all nodes cached
+- **Subsequent blocks:** Only new/changed nodes included in proof (cached nodes excluded)
+- **Cache synchronization:** Dual-trie traversal detects and removes stale nodes
 
-### 3. Prefix Enumeration Limits
+This achieves significant PoV reduction without requiring Substrate API changes.
 
-When using prefix subscriptions, key enumeration is limited to 1000 keys per query to prevent RPC timeouts. For prefixes with more keys:
-- Implement pagination in your runtime
-- Use multiple narrower prefixes
-- Consider exact key subscriptions for known keys
+### 3. Exact Key Subscriptions Only
+
+Prefix-based key subscriptions are not supported. Subscribers must know the exact storage keys they want to subscribe to. This design choice:
+- Simplifies implementation and predictability
+- Prevents PoV budget overruns from unbounded key enumeration
+- Requires publishers and subscribers to coordinate on key formats
 
 ### 4. PoV Size Estimation is Approximate
 
@@ -970,25 +1241,29 @@ Estimates may be off by ±20%. Publishers may be skipped if estimates are too co
 
 System parachains can publish without registration/deposit but still respect storage limits. This assumes governance ensures system chains are well-behaved.
 
-### 6. Current PoV Reality (No Caching Yet)
+### 6. PoV Optimization via Trie Node Caching
 
-**Important:** The trie node caching optimization described in Appendix A is DEFERRED. The current implementation works as follows:
+**Important:** The implementation includes trie node caching (Phase 2) to reduce PoV overhead significantly.
 
 ```
-Current behavior (without caching):
-  - Collator generates FULL proof for all subscribed keys
+Without caching (initial state):
+  - Full proof for all subscribed keys
   - Proof size: ~4.7 MB for 5,000 keys (94% of PoV limit!)
-  - Subscriber receives full proof in PoV every block
-  - Subscriber extracts values and discards proof
-  - No caching - next block requires full proof again
+  
+With caching (after initial sync):
+  - On-chain cache stores previously seen trie nodes
+  - provide_inherent prunes proof to exclude cached nodes
+  - Proof size: ~50-100 KB for typical updates (15-30× reduction)
 ```
 
 **Implications:**
 
-1. **PoV Budget is Critical**
+1. **PoV Budget Depends on Block Size**
    - Full proof for 5,000 keys = 4.7 MB
-   - With 1 MB pub-sub limit: requires 5 blocks to fully sync
-   - Each block can include ~1,063 keys worth of proof data
+   - Pub-sub uses whatever space remains after block is built
+   - Light blocks (few HRMP messages): 3+ MB available for pub-sub
+   - Heavy blocks (many HRMP messages): Little or no space for pub-sub
+   - If block fills the 85% PoV limit, pub-sub gets nothing that block
 
 2. **Update Efficiency Varies by Batch Size**
    
@@ -1007,15 +1282,15 @@ Current behavior (without caching):
    - **Optimal:** Batch 500+ keys per update (~69% overhead)
    - Path sharing in the trie makes bulk updates much more efficient
 
-4. **Future with Caching (Appendix A)**
-   - With diff proofs: only send changed nodes
+4. **With Caching**
+   - Only new/changed nodes included in proof
    - 10% update (500 keys): 612 KB → ~100 KB (6× reduction)
-   - But requires Substrate API changes first
+   - Cache synchronized via dual-trie traversal
 
-**Current Workaround:** If you have many keys that update infrequently:
-- Don't subscribe to all keys at once
-- Rotate subscriptions across blocks
+**Optimization Tips:**
+- Caching is automatic once Phase 2 is implemented
 - Batch keys that update together
+- Avoid single-key updates (high overhead)
 
 ---
 
@@ -1327,7 +1602,29 @@ for i in 0..100 {
 
 ## Implementation Order
 
-### Phase 1: TTL & Deletion (3-4 weeks)
+### Phase 1: Exact Key Reading (DONE)
+
+- [x] `RelayStorageKey` enum with `Top` and `Child` variants
+- [x] `SubscribedKey` H256-based type with `subscribed_key!` macro
+- [x] `SubscriptionHandler` trait
+- [x] Basic proof collection in collator
+
+### Phase 2: PoV Constraints & Caching (4-5 weeks)
+
+- [ ] Integrate `PubSubProofPruner` in `provide_inherent`
+- [ ] Implement `CachedHashDB` for cache-aware proof pruning
+- [ ] Add `CachedTrieNodes` storage for trie node cache
+- [ ] Implement dual-trie traversal for cache synchronization
+- [ ] Add `PubSubProcessingCursor` for resumption across blocks
+- [ ] Implement budget-constrained key selection
+- [ ] Add publisher prioritization (system parachains first)
+- [ ] Implement cache eviction (when limit exceeded)
+- [ ] Implement `clear_cache_for_publisher()` on subscription change
+- [ ] Add logging and metrics for PoV usage
+- [ ] Unit tests for budget allocation and caching
+- [ ] Integration tests for cache sync
+
+### Phase 3: TTL & Deletion (3-4 weeks)
 
 - [ ] Update `PublishItem` struct with `ttl: u32` field
 - [ ] Create `PublishedEntry` struct with `(value, ttl, when_inserted)`
@@ -1342,91 +1639,18 @@ for i in 0..100 {
 - [ ] Integration tests for expiration
 - [ ] Benchmarks for `on_idle` and deletion
 
-### Phase 2: Prefix Support (2-3 weeks)
-
-- [ ] Add `TopPrefix` and `ChildPrefix` to `RelayStorageKey`
-- [ ] Extend `RelayChainInterface` with key enumeration methods
-- [ ] Implement in inprocess and RPC interfaces
-- [ ] Update proof collection to enumerate-then-prove
-- [ ] Add `SubscriptionKey` enum to subscriber
-- [ ] Update `SubscriptionHandler` trait for prefix subscriptions
-- [ ] Unit tests for prefix enumeration
-- [ ] Integration test for end-to-end prefix subscription
-
-### Phase 3: PoV Limits (1-2 weeks)
-
-- [ ] Add `MAX_PUBSUB_PROOF_SIZE` constant
-- [ ] Implement `estimate_proof_size()` in subscriber
-- [ ] Add size tracking in `get_relay_proof_requests()`
-- [ ] Extend runtime API with `estimate_proof_size()`
-- [ ] Add logging for skipped publishers
-- [ ] Benchmarks for estimation accuracy
-
-### Phase 4: Documentation (1 week)
+### Phase 4: Documentation & Testing (2-3 weeks)
 
 - [ ] User guide for publishers (with TTL examples)
-- [ ] User guide for subscribers (handling TTL metadata)
+- [ ] User guide for subscribers (handling TTL metadata, caching)
 - [ ] Integration test examples
-- [ ] Configuration reference
-- [ ] Troubleshooting guide
-- [ ] RPC/Runtime API documentation
-
-### Phase 5: Testing & Refinement (2 weeks)
-
 - [ ] Zombienet test scenarios
 - [ ] Load testing (many publishers/subscribers)
 - [ ] TTL stress testing (many simultaneous expirations)
-- [ ] PoV size validation
-- [ ] Performance benchmarking
+- [ ] Performance benchmarking (cache efficiency)
 - [ ] Documentation review
 
 **Total Estimated Effort:** 9-12 weeks
-
----
-
-## Appendix A: Trie Node Caching (Future Optimization)
-
-**Note:** TTL-based expiration (described above) is IMPLEMENTED and works with current full proofs. The caching optimization described in this appendix is DEFERRED and would further reduce PoV overhead for updates.
-
-### Why Deferred
-
-The current `sp_state_machine::prove_read()` API generates complete Merkle proofs without the ability to exclude nodes that the verifier already has. To enable differential proofs:
-
-**Option 1:** Extend Substrate APIs
-- Add `prove_read_with_exclusions(keys, cached_node_hashes)` to `sp_state_machine`
-- Proof generator skips nodes in the exclusion set
-- Requires coordination with Substrate team
-
-**Option 2:** Custom Proof Format
-- Design a custom diff proof format outside `sp_state_machine`
-- Collator generates base proof + diff
-- Parachain runtime verifies custom format
-- More complex, but doesn't require Substrate changes
-
-### Estimated Impact
-
-For 4000 keys with typical updates:
-- **Current:** ~1.5 MB proof per block (full trie)
-- **With caching:** ~50-100 KB proof per block (only changed nodes)
-- **Benefit:** 15-30× reduction in PoV usage for pub-sub
-
-### Storage Requirements
-
-Subscriber would need to cache:
-- ~347 KB in trie nodes per publisher
-- 10 publishers = ~3.5 MB additional state
-
-### Implementation Sketch
-
-When this becomes unblocked:
-
-1. **Add storage for cached nodes** (DoubleMap: ParaId × NodeHash → NodeData)
-2. **Merkle diff traversal** to detect changed keys by comparing node hashes
-3. **Runtime API** to expose cached nodes to collator
-4. **Collator** generates diff proofs excluding cached nodes
-5. **Cache eviction** policy based on subscription changes
-
-**Note:** This is a significant optimization but requires upstream Substrate changes first.
 
 ---
 
@@ -1454,9 +1678,8 @@ When this becomes unblocked:
 - [x] Broadcaster: Registration, publishing, deregistration
 - [x] Subscriber: Subscription handling, change detection
 - [x] XCM: Publish instruction execution
-- [ ] Prefix enumeration (top and child tries)
-- [ ] PoV size estimation accuracy
 - [ ] Publisher skipping when PoV limit exceeded
+- [ ] Budget calculation using validation_data.max_pov_size
 - [ ] **TTL: ttl=0 (infinite), ttl=100 (finite), ttl>MAX_TTL (capped)**
 - [ ] **TTL: Reset on key update**
 - [ ] **TTL: Change finite → infinite**
@@ -1484,7 +1707,6 @@ When this becomes unblocked:
 
 - [x] Basic publish and subscribe flow
 - [ ] Multiple publishers and subscribers
-- [ ] Prefix subscriptions with many keys
 - [ ] PoV limit enforcement
 - [ ] Publisher cleanup on offboarding
 - [ ] System parachain zero-deposit registration
@@ -1514,12 +1736,38 @@ When this becomes unblocked:
   - Verify: New cache nodes for [1001-2000] are added
   - Verify: Total cache size remains bounded
 
+### PoV Budget Tests
+
+- [ ] **Light block → large pub-sub budget**
+  - Small block PoV (500 KB)
+  - Verify: ~3.75 MB available for pub-sub
+- [ ] **Heavy block → small pub-sub budget**
+  - Large block PoV (4 MB with many HRMP messages)
+  - Verify: ~250 KB available for pub-sub
+- [ ] **Full block → no pub-sub**
+  - Block uses full 85% PoV limit
+  - Verify: Pub-sub gracefully skips, retries next block
+- [ ] **Subscriber respects budget constraint**
+  - Subscribe to 5000 keys
+  - Limit budget to 1 MB
+  - Verify: Only ~370 keys included
+- [ ] **Partial publisher inclusion**
+  - Two publishers with 1000 keys each
+  - Budget fits one full + partial second
+  - Verify: First publisher fully included, second partially
+- [ ] **Publisher prioritization**
+  - System parachain (< 2000) vs. regular parachain
+  - Verify: System parachain included first when budget limited
+
 ### Zombienet Tests
 
 - [ ] Two relay nodes + one publisher + one subscriber
 - [ ] Publish-subscribe with multiple blocks
 - [ ] Network disruption recovery
 - [ ] Large data sets (approaching limits)
+- [ ] **PoV budget under load**
+  - High HRMP message volume + pub-sub subscriptions
+  - Verify: HRMP messages delivered, pub-sub uses remaining space
 
 ### Performance Benchmarks
 
@@ -1527,6 +1775,7 @@ When this becomes unblocked:
 - [ ] Subscription processing (varying key counts)
 - [ ] Change detection overhead
 - [ ] Proof size vs. estimated size correlation
+- [ ] **PoV budget calculation overhead**
 
 ---
 
@@ -1586,10 +1835,10 @@ If you have a fork/branch based on earlier designs:
 **A:** Yes, return multiple entries in `SubscriptionHandler::subscriptions()`:
 
 ```rust
-fn subscriptions() -> (Vec<(ParaId, Vec<Vec<u8>>)>, Weight) {
+fn subscriptions() -> (Vec<(ParaId, Vec<SubscribedKey>)>, Weight) {
     (vec![
-        (ParaId::from(1000), vec![key1]),
-        (ParaId::from(2000), vec![key2, key3]),
+        (ParaId::from(1000), vec![subscribed_key!("key1")]),
+        (ParaId::from(2000), vec![subscribed_key!("key2"), subscribed_key!("key3")]),
     ], Weight::zero())
 }
 ```
@@ -1637,6 +1886,36 @@ fn on_finalize() {
     }
 }
 ```
+
+### Q: How does PoV budget sharing work between messages and pub-sub?
+
+**A:** Pub-sub uses whatever space remains after block building. No custom constants needed.
+
+**How it works:**
+```
+allowed_pov_size = validation_data.max_pov_size * 85%  (existing HRMP limit)
+block_pov_size = actual PoV after block built (HRMP messages, inherents, extrinsics)
+available_for_pubsub = allowed_pov_size - block_pov_size
+```
+
+**Example scenarios (assuming 5 MB max_pov_size, 85% = 4.25 MB allowed):**
+
+| Block PoV | Pub-sub Budget | ~Keys Possible |
+|-----------|----------------|----------------|
+| 500 KB | 3.75 MB | ~1,389 keys |
+| 2 MB | 2.25 MB | ~833 keys |
+| 3 MB | 1.25 MB | ~463 keys |
+| 4 MB | 250 KB | ~93 keys |
+| 4.25 MB (full) | 0 KB | 0 keys (retry next block) |
+
+**Key points:**
+- HRMP already applies the 85% limit (see `lookahead.rs:434-442`)
+- Pub-sub simply uses the remaining space - no additional caps
+- If block is full, pub-sub gracefully skips that block
+- Subscriber pallet fits as many keys as possible within remaining budget
+- Publishers may be partially included (some keys) if budget limited
+
+**Monitoring:** Check logs for `pov_metrics` to track actual usage.
 
 ### Q: How do I handle keys that are deleted or expired?
 
@@ -1768,5 +2047,5 @@ if entry.ttl != 0 {
 
 ---
 
-**Document Version:** 3.0 (Added TTL & Deletion)  
+**Document Version:** 5.0 (Simplified: no prefix support, caching integrated into Phase 2)  
 **Last Updated:** January 2026
