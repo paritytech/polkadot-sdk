@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768503588111,
+  "lastUpdate": 1768602768748,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "andrew.ahlers@parity.io",
-            "name": "andrew-ifrita",
-            "username": "andrew-ifrita"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9fbf243c57939ecadc89b82ed42249703203874",
-          "message": "docs: fix XCM docs for AlwaysV4 and AlwaysV5 (#8862)\n\n✄\n-----------------------------------------------------------------------------\n\nThank you for your Pull Request! 🙏 Please make sure it follows the\ncontribution guidelines outlined in [this\n\ndocument](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md)\nand fill out the\nsections below. Once you're ready to submit your PR for review, please\ndelete this section and leave only the text under\nthe \"Description\" heading.\n\n# Description\n\nFix docstrings for `AlwaysV4` and `AlwaysV5` in XCM code, both of which\nwrongly stated V3\n\n## Integration\n\nOnly docs are changed.\n\n## Review Notes\n\nNone\n\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] (N/A) I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nYou can remove the \"Checklist\" section once all have been checked. Thank\nyou for your contribution!\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2025-06-16T10:02:04Z",
-          "tree_id": "c198cb761726325b836a171b765efa7a6ac7fad5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9fbf243c57939ecadc89b82ed42249703203874"
-        },
-        "date": 1750071704982,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20220844120000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.42273205396667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.277878897633332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95b6ca351d5dabf1bec08624fcd01f6e76f03410",
+          "message": "[FRAME] Closed Bounties Return Balance And Assets (#10729)\n\nEnsures that bounties that got closed with `close_bounty` will return\nthe maximal possible amount of Native balance and specific relevant\nAssets.\nThis fixes an issue where closed bounties would not refund any balance\nto the treasury because assets were blocking the withdrawal through\naccount references.\n\n**Changes:**\n- Add config items to Bounty pallet: `TransferAllAssets` to withdraw all\nassets\n- Add trait `TransferAllFungibles` for generic funds transfer\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-16T21:18:32Z",
+          "tree_id": "c49a352bf103c30b18f8e6324173e6d64e1d059f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95b6ca351d5dabf1bec08624fcd01f6e76f03410"
+        },
+        "date": 1768602744246,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1259931669,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.136501789433332,
             "unit": "seconds"
           }
         ]
