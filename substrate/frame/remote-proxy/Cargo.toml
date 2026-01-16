@@ -1,0 +1,55 @@
+[package]
+name = "pallet-remote-proxy"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+repository.workspace = true
+
+[dependencies]
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
+
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+pallet-proxy = { workspace = true }
+sp-trie = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true }
+pallet-utility = { workspace = true }
+sp-io = { workspace = true }
+sp-state-machine = { workspace = true }
+
+[features]
+default = ["std"]
+
+std = [
+    "codec/std",
+    "cumulus-pallet-parachain-system/std",
+    "cumulus-primitives-core/std",
+    "pallet-balances/std",
+    "pallet-proxy/std",
+    "pallet-utility/std",
+    "scale-info/std",
+    "sp-state-machine/std",
+    "sp-trie/std",
+]
+
+try-runtime = [
+    "cumulus-pallet-parachain-system/try-runtime",
+    "frame/try-runtime",
+    "pallet-balances/try-runtime",
+    "pallet-proxy/try-runtime",
+    "pallet-utility/try-runtime",
+]
+
+runtime-benchmarks = [
+    "cumulus-pallet-parachain-system/runtime-benchmarks",
+    "cumulus-primitives-core/runtime-benchmarks",
+    "frame/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
+    "pallet-proxy/runtime-benchmarks",
+    "pallet-utility/runtime-benchmarks",
+]

@@ -47,6 +47,7 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_nomination_pools::PoolId;
+use pallet_proxy::ProxyDefinition;
 use pallet_session::historical as session_historical;
 use pallet_staking::UseValidatorsMap;
 use pallet_staking_async_ah_client as ah_client;
@@ -104,7 +105,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		Keccak256, OpaqueKeys, SaturatedConversion, Verify, Convert
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent,
@@ -1634,6 +1635,176 @@ impl paras_registrar::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
 
+pub mod proxy {
+	use pallet_remote_proxy::ProxyDefinition;
+	use polkadot_primitives::{AccountId, BlakeTwo256, BlockNumber, Hash};
+	use sp_runtime::traits::Convert;
+
+	/// The type used to represent the kinds of proxying allowed.
+	#[derive(
+		Copy,
+		Clone,
+		Eq,
+		PartialEq,
+		Ord,
+		PartialOrd,
+		codec::Encode,
+		codec::Decode,
+		codec::DecodeWithMemTracking,
+		codec::MaxEncodedLen,
+		core::fmt::Debug,
+		scale_info::TypeInfo,
+		Default,
+	)]
+	pub enum ProxyType {
+		#[codec(index = 0)]
+		#[default]
+		Any,
+		#[codec(index = 1)]
+		NonTransfer,
+		#[codec(index = 2)]
+		Governance,
+		#[codec(index = 3)]
+		Staking,
+		// Index 4 skipped. Formerly `IdentityJudgement`.
+		#[codec(index = 5)]
+		CancelProxy,
+		#[codec(index = 6)]
+		Auction,
+		#[codec(index = 7)]
+		Society,
+		#[codec(index = 8)]
+		NominationPools,
+		#[codec(index = 9)]
+		Spokesperson,
+		#[codec(index = 10)]
+		ParaRegistration,
+	}
+
+	/// Remote proxy interface that uses the relay chain as remote location.
+	pub struct RemoteProxyInterface<LocalProxyType, ProxyDefinitionConverter>(
+		core::marker::PhantomData<(LocalProxyType, ProxyDefinitionConverter)>,
+	);
+
+	impl<
+		LocalProxyType,
+		ProxyDefinitionConverter: Convert<
+			ProxyDefinition<AccountId, ProxyType, BlockNumber>,
+			Option<ProxyDefinition<AccountId, LocalProxyType, BlockNumber>>,
+		>,
+	> pallet_remote_proxy::RemoteProxyInterface<AccountId, LocalProxyType, BlockNumber>
+	for RemoteProxyInterface<LocalProxyType, ProxyDefinitionConverter>
+	{
+		type RemoteAccountId = AccountId;
+
+		type RemoteProxyType = ProxyType;
+
+		type RemoteBlockNumber = BlockNumber;
+
+		type RemoteHash = Hash;
+
+		type RemoteHasher = BlakeTwo256;
+
+		fn block_to_storage_root(
+			validation_data: &polkadot_primitives::PersistedValidationData,
+		) -> Option<(Self::RemoteBlockNumber, <Self::RemoteHasher as sp_core::Hasher>::Out)> {
+			Some((validation_data.relay_parent_number, validation_data.relay_parent_storage_root))
+		}
+
+		fn local_to_remote_account_id(local: &AccountId) -> Option<Self::RemoteAccountId> {
+			Some(local.clone())
+		}
+
+		fn remote_to_local_proxy_defintion(
+			remote: ProxyDefinition<
+				Self::RemoteAccountId,
+				Self::RemoteProxyType,
+				Self::RemoteBlockNumber,
+			>,
+		) -> Option<ProxyDefinition<AccountId, LocalProxyType, BlockNumber>> {
+			ProxyDefinitionConverter::convert(remote)
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn create_remote_proxy_proof(
+			caller: &AccountId,
+			proxy: &AccountId,
+		) -> (pallet_remote_proxy::RemoteProxyProof<Self::RemoteBlockNumber>, BlockNumber, Hash) {
+			use codec::Encode;
+			use sp_trie::TrieMut;
+
+			let (mut db, mut root) = sp_trie::MemoryDB::<BlakeTwo256>::default_with_root();
+			let mut trie =
+				sp_trie::TrieDBMutBuilder::<sp_trie::LayoutV1<_>>::new(&mut db, &mut root).build();
+
+			let proxy_definition =
+				alloc::vec![ProxyDefinition::<AccountId, ProxyType, BlockNumber> {
+					delegate: caller.clone(),
+					proxy_type: ProxyType::default(),
+					delay: 0,
+				}];
+
+			trie.insert(&Self::proxy_definition_storage_key(proxy), &proxy_definition.encode())
+				.unwrap();
+			drop(trie);
+
+			(
+				pallet_remote_proxy::RemoteProxyProof::RelayChain {
+					proof: db.drain().into_values().map(|d| d.0).collect(),
+					block: 1,
+				},
+				1,
+				root,
+			)
+		}
+	}
+}
+
+pub struct RelayChainToLocalProxyTypeConverter;
+
+impl
+Convert<
+	ProxyDefinition<AccountId, proxy::ProxyType, BlockNumber>,
+	Option<ProxyDefinition<AccountId, ProxyType, BlockNumber>>,
+> for RelayChainToLocalProxyTypeConverter
+{
+	fn convert(
+		a: ProxyDefinition<AccountId, proxy::ProxyType, BlockNumber>,
+	) -> Option<ProxyDefinition<AccountId, ProxyType, BlockNumber>> {
+		let proxy_type = match a.proxy_type {
+			proxy::ProxyType::Any => ProxyType::Any,
+			proxy::ProxyType::NonTransfer => ProxyType::NonTransfer,
+			proxy::ProxyType::CancelProxy => ProxyType::CancelProxy,
+			// Proxy types that are not supported on AH.
+			proxy::ProxyType::Governance |
+			proxy::ProxyType::Staking |
+			proxy::ProxyType::Auction |
+			proxy::ProxyType::Spokesperson |
+			proxy::ProxyType::NominationPools |
+			proxy::ProxyType::Society |
+			proxy::ProxyType::ParaRegistration => return None,
+		};
+
+		Some(ProxyDefinition {
+			delegate: a.delegate,
+			proxy_type,
+			// Delays are currently not supported by the remote proxy pallet, but should be
+			// converted in the future to the block time used by the local proxy pallet.
+			delay: a.delay,
+		})
+	}
+}
+
+impl pallet_remote_proxy::Config for Runtime {
+	// The time between creating a proof and using the proof in a transaction.
+	type MaxStorageRootsToKeep = ConstU32<{ MINUTES }>;
+	type RemoteProxy = proxy::RemoteProxyInterface<
+		ProxyType,
+		RelayChainToLocalProxyTypeConverter,
+	>;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 28 * DAYS;
 }
@@ -2039,6 +2210,8 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
+	#[runtime::pallet_index(249)]
+	pub type RemoteProxy = pallet_remote_proxy;
 }
 
 /// The address format for describing accounts.
@@ -2162,6 +2335,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_recovery, Recovery]
 		[pallet_referenda, Referenda]
+		[pallet_remote_proxy, RemoteProxy]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
