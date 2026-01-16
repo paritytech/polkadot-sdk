@@ -284,7 +284,7 @@ pub trait Benchmarking {
 
 	/// Reset the trie database to the genesis state.
 	fn wipe_db(&mut self) {
-		self.wipe();
+		self.wipe()
 	}
 
 	/// Commit pending storage changes to the trie database and clear the database cache.
