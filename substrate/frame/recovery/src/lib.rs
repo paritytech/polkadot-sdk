@@ -191,6 +191,7 @@ pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PE
 #[scale_info(skip_type_params(MaxEntries))]
 pub struct Bitfield<MaxEntries: Get<u32>>(pub BoundedVec<u16, BitfieldLenOf<MaxEntries>>);
 
+/// Calculates the length of the bitfield in u128 words.
 pub type BitfieldLenOf<MaxEntries> = ConstDivCeil<MaxEntries, ConstU32<16>, u32, u32>;
 
 pub struct ConstDivCeil<Dividend, Divisor, R, T>(
@@ -221,9 +222,8 @@ impl<MaxEntries: Get<u32>> Default for Bitfield<MaxEntries> {
 		Self(
 			vec![0u16; BitfieldLenOf::<MaxEntries>::get() as usize]
 				.try_into()
-				.defensive()
-				.unwrap_or_default(),
-		) // todo error
+				.expect("Bitfield construction checked in integrity test; qed."),
+		)
 	}
 }
 
@@ -625,7 +625,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// todo bin search todo copy call filters
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::control_inherited_account())]
 		pub fn control_inherited_account(
@@ -715,7 +714,6 @@ pub mod pallet {
 		/// The friend group is passed in as witness to ensure that the recoverer is not operating
 		/// on stale friend group data and is making wrong assumptions about the delay or deposit
 		/// amounts.
-		// TODO event
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::initiate_attempt())]
 		pub fn initiate_attempt(
@@ -753,7 +751,7 @@ pub mod pallet {
 			let deposit = T::SecurityDeposit::get();
 			let () = T::Currency::hold(&HoldReason::SecurityDeposit.into(), &initiator, deposit)?;
 
-			let ticket = AttemptTicketOf::<T>::new(&initiator, Self::attempt_footprint(&attempt))?;
+			let ticket = AttemptTicketOf::<T>::new(&initiator, Self::attempt_footprint())?;
 			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket, &deposit));
 
 			Self::deposit_event(Event::<T>::AttemptInitiated {
@@ -966,6 +964,9 @@ pub mod pallet {
 				T::MaxFriendsPerConfig::get() > 0,
 				"MaxFriendsPerConfig must be greater than 0"
 			);
+
+			let bitfield = ApprovalBitfieldOf::<T>::default();
+			assert!(bitfield.0.len() >= 1, "Default works");
 		}
 	}
 }
@@ -979,9 +980,8 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_encodable(friend_groups)
 	}
 
-	pub fn attempt_footprint(attempt: &AttemptOf<T>) -> Option<Footprint> {
-		// TODO think about this. maybe we just use items_count * item_mel
-		Some(Footprint::from_encodable(attempt))
+	pub fn attempt_footprint() -> Option<Footprint> {
+		Some(Footprint::from_mel::<AttemptOf<T>>())
 	}
 
 	pub fn inheritor_footprint() -> Footprint {

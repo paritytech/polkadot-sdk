@@ -91,9 +91,6 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-pub type BalancesCall = pallet_balances::Call<Test>;
-pub type RecoveryCall = super::Call<Test>;
-
 pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
 pub const CHARLIE: u64 = 3;

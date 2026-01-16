@@ -21,7 +21,6 @@ extern crate alloc;
 
 use super::*;
 use crate::Pallet;
-use alloc::vec;
 use frame::{benchmarking::prelude::*, traits::fungible::Mutate};
 
 const SEED: u32 = 0;
@@ -31,8 +30,8 @@ fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 }
 
 fn fund_account<T: Config>(who: &T::AccountId) {
-	let balance = BalanceOf::<T>::max_value() / 100u32.into();
-	let _ = T::Currency::mint_into(who, balance);
+	let balance = BalanceOf::<T>::max_value() / 100000u32.into();
+	T::Currency::mint_into(who, balance).expect("funding account");
 }
 
 fn generate_friends<T: Config>(seed: u32, num: u32) -> Vec<T::AccountId> {
@@ -44,6 +43,12 @@ fn generate_friends<T: Config>(seed: u32, num: u32) -> Vec<T::AccountId> {
 	}
 
 	friends
+}
+
+/// Returns the last friend in the sorted friends list (worst case for O(n) lookups).
+fn last_friend<T: Config>(seed: u32, num: u32) -> T::AccountId {
+	let friends = generate_friends::<T>(seed, num);
+	friends.into_iter().last().expect("at least one friend")
 }
 
 fn create_friend_group<T: Config>(
@@ -70,7 +75,6 @@ fn create_friend_group<T: Config>(
 }
 
 fn create_friend_groups<T: Config>(
-	lost: &T::AccountId,
 	num_friends: u32,
 	seed: u32,
 ) -> FriendGroupsOf<T> {
@@ -95,42 +99,13 @@ fn setup_friend_groups<T: Config>(
 	num_friends: u32,
 	seed: u32,
 ) -> FriendGroupsOf<T> {
-	let friend_groups = create_friend_groups::<T>(lost, num_friends, seed);
+	let friend_groups = create_friend_groups::<T>(num_friends, seed);
 
 	let footprint = Pallet::<T>::friend_group_footprint(&friend_groups);
 	let ticket = T::FriendGroupsConsideration::new(lost, footprint).unwrap();
 	FriendGroups::<T>::insert(lost, (&friend_groups, ticket));
 
 	friend_groups
-}
-
-fn setup_attempt<T: Config>(
-	lost: &T::AccountId,
-	initiator: &T::AccountId,
-	friend_group_index: FriendGroupIndex,
-	num_approvals: u32,
-) {
-	let now = T::BlockNumberProvider::current_block_number();
-	let mut approvals = ApprovalBitfield::default();
-
-	for i in 0..num_approvals {
-		approvals.set_if_not_set(i as usize).unwrap();
-	}
-
-	let attempt = AttemptOf::<T> {
-		friend_group_index,
-		initiator: initiator.clone(),
-		init_block: now,
-		last_approval_block: now,
-		approvals,
-	};
-
-	let deposit = T::SecurityDeposit::get();
-	T::Currency::hold(&HoldReason::SecurityDeposit.into(), initiator, deposit).unwrap();
-
-	let ticket =
-		AttemptTicketOf::<T>::new(initiator, Pallet::<T>::attempt_footprint(&attempt)).unwrap();
-	crate::pallet::Attempt::<T>::insert(lost, friend_group_index, (&attempt, &ticket, &deposit));
 }
 
 #[benchmarks]
@@ -172,7 +147,7 @@ mod benchmarks {
 		fund_account::<T>(&lost);
 
 		let old_friend_groups = setup_friend_groups::<T>(&lost, f, 0);
-		let new_friend_groups = create_friend_groups::<T>(&lost, f, 1).into_inner();
+		let new_friend_groups = create_friend_groups::<T>(f, 1).into_inner();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(lost.clone()), new_friend_groups);
@@ -184,10 +159,10 @@ mod benchmarks {
 	fn initiate_attempt() {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
-		let initiator: T::AccountId = account("friend", 0, 1);
+		// Use last friend for worst case O(n) lookup in friends.contains()
+		let initiator: T::AccountId = last_friend::<T>(1, T::MaxFriendsPerConfig::get());
 
 		fund_account::<T>(&lost);
-		fund_account::<T>(&initiator);
 
 		let friend_groups =
 			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
@@ -210,10 +185,10 @@ mod benchmarks {
 	fn approve_attempt() {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
-		let initiator: T::AccountId = account("friend", 0, 1);
+		// Use last friend for worst case O(n) lookup in friends.iter().position()
+		let friend: T::AccountId = last_friend::<T>(1, T::MaxFriendsPerConfig::get());
 
 		fund_account::<T>(&lost);
-		fund_account::<T>(&initiator);
 
 		let friend_groups =
 			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
@@ -223,17 +198,17 @@ mod benchmarks {
 		)
 		.unwrap();
 		crate::pallet::Pallet::<T>::initiate_attempt(
-			RawOrigin::Signed(initiator.clone()).into(),
+			RawOrigin::Signed(friend.clone()).into(),
 			lost_lookup.clone(),
 			0,
 		)
 		.unwrap();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
+		_(RawOrigin::Signed(friend.clone()), lost_lookup, 0);
 
 		assert_last_event::<T>(
-			Event::<T>::AttemptApproved { lost, friend_group_index: 0, friend: initiator }.into(),
+			Event::<T>::AttemptApproved { lost, friend_group_index: 0, friend }.into(),
 		);
 	}
 
@@ -241,12 +216,19 @@ mod benchmarks {
 	fn finish_attempt() {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
-		let initiator: T::AccountId = account("friend", 0, 1);
+		// Use last friend for worst case O(n) lookup
+		let initiator: T::AccountId = last_friend::<T>(1, T::MaxFriendsPerConfig::get());
 		let inheritor: T::AccountId = account("inheritor", 0, SEED);
+		let previous_inheritor: T::AccountId = account("old_inheritor", 0, SEED);
 
 		fund_account::<T>(&lost);
-		fund_account::<T>(&initiator);
+		fund_account::<T>(&previous_inheritor);
 
+		// Set up existing inheritor with higher order (1) to trigger replacement path
+		let ticket = Pallet::<T>::inheritor_ticket(&previous_inheritor).unwrap();
+		Inheritor::<T>::insert(&lost, (1u32, &previous_inheritor, ticket));
+
+		// Friend groups have order 0, which is lower than existing order 1
 		let friend_groups =
 			setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0).into_inner();
 		crate::pallet::Pallet::<T>::set_friend_groups(
@@ -276,7 +258,7 @@ mod benchmarks {
 				lost,
 				friend_group_index: 0,
 				inheritor,
-				previous_inheritor: None,
+				previous_inheritor: Some(previous_inheritor),
 			}
 			.into(),
 		);
