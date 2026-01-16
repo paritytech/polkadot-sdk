@@ -1,0 +1,19 @@
+title: Take the header size into account for the total block size
+
+doc:
+- audience: Runtime Dev
+  description: |
+    The `AllExtrinsicsLen` in `frame-system` now includes the header overhead (digest size and
+    empty header size) in addition to the extrinsic lengths. This ensures that block size limits
+    accurately account for the full block size, not just the extrinsics. Additionally, inherent
+    digests are now limited to 20% of the maximum block size to prevent oversized headers.
+
+crates:
+- name: frame-system
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: sc-network-sync
+  bump: patch
+- name: frame-executive
+  bump: patch
