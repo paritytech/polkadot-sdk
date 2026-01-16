@@ -595,27 +595,27 @@ where
 			SendKeysError::Send(SendOperationError::ValidationFailed)
 		})?;
 
-		// Extract the delivery fee amount from the price.
+		// Extract the delivery fee asset from the price.
 		//
 		// For parachain→relay chain messages, delivery fees are returned as a single
 		// fungible asset. This is based on `ExponentialPrice::price_for_delivery` in
 		// `polkadot/runtime/common/src/xcm_sender.rs` which returns `(AssetId, amount).into()`,
 		// converting to a single-element `Assets` via `impl<T: Into<Asset>> From<T> for Assets`.
-		let delivery_fee: Balance = price
-			.inner()
-			.first()
-			.and_then(|asset| match &asset.fun {
-				Fungible(amount) => Balance::try_from(*amount).ok(),
-				_ => None,
-			})
-			.ok_or_else(|| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to extract delivery fee from price: {:?}",
-					price
-				);
+		let fee_asset = price.inner().first().ok_or_else(|| {
+			log::error!(target: LOG_TARGET, "Empty price returned from validate_send");
+			SendKeysError::Send(SendOperationError::ValidationFailed)
+		})?;
+
+		let delivery_fee: Balance = match &fee_asset.fun {
+			Fungible(amount) => Balance::try_from(*amount).map_err(|_| {
+				log::error!(target: LOG_TARGET, "Failed to convert delivery fee amount");
 				SendKeysError::Send(SendOperationError::ValidationFailed)
-			})?;
+			})?,
+			_ => {
+				log::error!(target: LOG_TARGET, "Non-fungible fee asset not supported");
+				return Err(SendKeysError::Send(SendOperationError::ValidationFailed));
+			},
+		};
 
 		// Calculate total fee = delivery + execution
 		let total_fee = delivery_fee + execution_cost;
@@ -627,9 +627,9 @@ where
 			}
 		}
 
-		// Charge the total fee from the payer
+		// Charge the total fee from the payer using the same asset as delivery fees
 		let total_assets = xcm::latest::Assets::from(xcm::latest::Asset {
-			id: xcm::latest::AssetId(Location::here()),
+			id: fee_asset.id.clone(),
 			fun: Fungible(total_fee.into()),
 		});
 
