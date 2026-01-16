@@ -9,11 +9,14 @@ default_args = [
 	"--pool-kbytes 2048000",
 	"--pool-limit 500000",
 	"--pool-type=fork-aware",
+
 	"--rpc-max-connections 15000",
 	"--rpc-max-response-size 1500",
 	"--rpc-max-subscriptions-per-connection=128000",
+
 	"--state-pruning=1024",
-	"-lsync=info",
+	"-lsync=trace",
+	"-lsub-libp2p=trace",
 	"-ltxpool=debug",
 ]
 [relaychain.genesis.runtimeGenesis.patch.balances]

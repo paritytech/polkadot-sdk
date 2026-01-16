@@ -194,6 +194,7 @@ impl TransactionsHandlerPrototype {
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
 			pending_transactions: FuturesUnordered::new(),
+			sending_transactions: FuturesUnordered::new(),
 			pending_transactions_peers: HashMap::new(),
 			network,
 			sync,
@@ -232,14 +233,14 @@ impl<H: ExHashT> TransactionsHandlerController<H> {
 	///
 	/// This transaction will be fetched from the `TransactionPool` that was passed at
 	/// initialization as part of the configuration and propagated to peers.
-	pub fn propagate_transaction(&self, hash: H) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
+	pub fn propagate_transaction(&self, hashes: Vec<H>) {
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hashes));
 	}
 }
 
 enum ToHandler<H: ExHashT> {
 	PropagateTransactions,
-	PropagateTransaction(H),
+	PropagateTransaction(Vec<H>),
 }
 
 /// Handler for transactions. Call [`TransactionsHandler::run`] to start the processing.
@@ -254,6 +255,8 @@ pub struct TransactionsHandler<
 	propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
 	/// Pending transactions verification tasks.
 	pending_transactions: FuturesUnordered<PendingTransaction<H>>,
+	/// Futures that will propagate all transactions in the background, ensuring backpressure.
+	sending_transactions: FuturesUnordered<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
 	/// As multiple peers can send us the same transaction, we group
 	/// these peers using the transaction hash while the transaction is
 	/// imported. This prevents that we import the same transaction
@@ -294,11 +297,16 @@ where
 	/// interrupted.
 	pub async fn run(mut self) {
 		loop {
-			futures::select! {
+			tokio::select! {
 				_ = self.propagate_timeout.next() => {
 					self.propagate_transactions();
 				},
-				(tx_hash, result) = self.pending_transactions.select_next_some() => {
+				_ = self.sending_transactions.next(), if !self.sending_transactions.is_empty() => {
+					// We don't need to do anything here, as the sending transactions are
+					// handled in the `do_propagate_transactions` method.
+				},
+
+				(tx_hash, result) = self.pending_transactions.select_next_some(), if !self.pending_transactions.is_empty() => {
 					if let Some(peers) = self.pending_transactions_peers.remove(&tx_hash) {
 						peers.into_iter().for_each(|p| self.on_handle_transaction_import(p, result));
 					} else {
@@ -315,7 +323,7 @@ where
 				}
 				message = self.from_controller.select_next_some() => {
 					match message {
-						ToHandler::PropagateTransaction(hash) => self.propagate_transaction(&hash),
+						ToHandler::PropagateTransaction(hashes) => self.propagate_transaction(hashes),
 						ToHandler::PropagateTransactions => self.propagate_transactions(),
 					}
 				},
@@ -452,19 +460,27 @@ where
 	}
 
 	/// Propagate one transaction.
-	pub fn propagate_transaction(&mut self, hash: &H) {
+	pub fn propagate_transaction(&mut self, hashes: Vec<H>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
-		if let Some(transaction) = self.transaction_pool.transaction(hash) {
-			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
-			self.transaction_pool.on_broadcasted(propagated_to);
-		} else {
-			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
-		}
+		let transactions = hashes
+			.into_iter()
+			.filter_map(|hash| self.transaction_pool.transaction(&hash).map(|tx| (hash, tx)))
+			.collect::<Vec<_>>();
+
+		let propagated_to = self.do_propagate_transactions(&transactions);
+		self.transaction_pool.on_broadcasted(propagated_to);
+
+		// debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
+		// if let Some(transaction) = self.transaction_pool.transaction(hash) {
+		// 	let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
+		// 	self.transaction_pool.on_broadcasted(propagated_to);
+		// } else {
+		// 	debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
+		// }
 	}
 
 	fn do_propagate_transactions(
@@ -493,19 +509,47 @@ where
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
 				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
-				// Historically, the format of a notification of the transactions protocol
-				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
-				// After RFC 56, the format was modified in a backwards-compatible way to be
-				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same encoding
-				// as a `Vec` of length one. This is no coincidence, as the change was
-				// intentionally done in a backwards-compatible way.
-				// In other words, the `Vec` that is sent below **must** always have only a single
-				// element in it.
-				// See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
-				for to_send in to_send {
-					let _ = self
-						.notification_service
-						.send_sync_notification(who, vec![to_send].encode());
+
+				// Workaround number 1: initial PoC.
+				// let _ = self.notification_service.send_sync_notification(who, to_send.encode());
+
+				// Workaround number 2: send transactions via background task and backpressure.
+				let to_send = to_send.into_iter().map(|tx| vec![tx].encode()).collect::<Vec<_>>();
+
+				if let Some(peer_sink) = self.notification_service.message_sink(who) {
+					trace!(target: "sync", "Sending transactions to {who} via background task");
+
+					let peer = *who;
+					self.sending_transactions.push(Box::pin(async move {
+						let now = std::time::Instant::now();
+						let to_propagate = to_send.len();
+
+						for encoded in to_send {
+							if let Err(e) = peer_sink.send_async_notification(encoded).await {
+								warn!(target: "sync", "Failed to send transaction to {peer:?}: {e}");
+							}
+						}
+
+						debug!(target: "sync", "Sent {to_propagate} transactions to {peer:?} in {:?}", now.elapsed());
+					}));
+				} else {
+					// panic!("OPS");
+					// warn!(target: "sync", "Failed to get notification sink for {who}");
+					// // Historically, the format of a notification of the transactions protocol
+					// // consisted in a (SCALE-encoded) `Vec<Transaction>`.
+					// // After RFC 56, the format was modified in a backwards-compatible way to be
+					// // a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same
+					// // encoding as a `Vec` of length one. This is no coincidence, as the change
+					// // was intentionally done in a backwards-compatible way.
+					// // In other words, the `Vec` that is sent below **must** always have only a
+					// // single element in it.
+					// // See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
+					// for to_send in to_send {
+					// 	let _ = self
+					// 		.notification_service
+					// 		.send_sync_notification(who, vec![to_send].encode());
+					// }
+					// continue
 				}
 			}
 		}
