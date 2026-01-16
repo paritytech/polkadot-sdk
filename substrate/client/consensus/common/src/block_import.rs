@@ -232,6 +232,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
+	/// Optional metadata to be sent with block announcements.
+	pub metadata: Option<Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -252,6 +254,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			import_existing: false,
 			create_gap: true,
 			post_hash: None,
+			metadata: None,
 		}
 	}
 

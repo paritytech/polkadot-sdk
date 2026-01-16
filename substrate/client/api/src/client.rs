@@ -363,6 +363,8 @@ pub struct BlockImportNotification<Block: BlockT> {
 	///
 	/// If `None`, there was no re-org while importing.
 	pub tree_route: Option<Arc<sp_blockchain::TreeRoute<Block>>>,
+	/// Optional metadata to be sent with block announcements.
+	pub metadata: Option<Vec<u8>>,
 	/// Handle to unpin the block this notification is for
 	unpin_handle: UnpinHandle<Block>,
 }
@@ -377,12 +379,34 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 		tree_route: Option<Arc<sp_blockchain::TreeRoute<Block>>>,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> Self {
+		Self::new_with_metadata(
+			hash,
+			origin,
+			header,
+			is_new_best,
+			tree_route,
+			None,
+			unpin_worker_sender,
+		)
+	}
+
+	/// Create new notification with optional metadata
+	pub fn new_with_metadata(
+		hash: Block::Hash,
+		origin: BlockOrigin,
+		header: Block::Header,
+		is_new_best: bool,
+		tree_route: Option<Arc<sp_blockchain::TreeRoute<Block>>>,
+		metadata: Option<Vec<u8>>,
+		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+	) -> Self {
 		Self {
 			hash,
 			origin,
 			header,
 			is_new_best,
 			tree_route,
+			metadata,
 			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
 		}
 	}
@@ -462,13 +486,25 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 		summary: ImportSummary<Block>,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> BlockImportNotification<Block> {
+		Self::from_summary_with_metadata(summary, None, unpin_worker_sender)
+	}
+
+	/// Create finality notification from finality summary with optional metadata.
+	pub fn from_summary_with_metadata(
+		summary: ImportSummary<Block>,
+		metadata: Option<Vec<u8>>,
+		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+	) -> BlockImportNotification<Block> {
 		let hash = summary.hash;
+		// Use metadata from summary if provided, otherwise use the parameter
+		let metadata = summary.metadata.or(metadata);
 		BlockImportNotification {
 			hash,
 			origin: summary.origin,
 			header: summary.header,
 			is_new_best: summary.is_new_best,
 			tree_route: summary.tree_route.map(Arc::new),
+			metadata,
 			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
 		}
 	}

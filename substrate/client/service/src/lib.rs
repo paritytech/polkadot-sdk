@@ -217,7 +217,7 @@ async fn build_network_future<
 				};
 
 				if announce_imported_blocks {
-					sync_service.announce_block(notification.hash, None);
+					sync_service.announce_block(notification.hash, notification.metadata.clone());
 				}
 
 				if notification.is_new_best {

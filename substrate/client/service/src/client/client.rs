@@ -478,6 +478,7 @@ where
 			intermediates,
 			import_existing,
 			create_gap,
+			metadata,
 			..
 		} = import_block;
 
@@ -517,6 +518,7 @@ where
 			auxiliary,
 			fork_choice,
 			import_existing,
+			metadata,
 		);
 
 		if let Ok(ImportResult::Imported(ref aux)) = result {
@@ -554,6 +556,7 @@ where
 		aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 		fork_choice: ForkChoiceStrategy,
 		import_existing: bool,
+		metadata: Option<Vec<u8>>,
 	) -> sp_blockchain::Result<ImportResult>
 	where
 		Self: ProvideRuntimeApi<Block>,
@@ -777,6 +780,7 @@ where
 				storage_changes,
 				tree_route,
 				import_notification_action,
+				metadata,
 			})
 		}
 

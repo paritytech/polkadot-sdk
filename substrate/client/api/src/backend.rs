@@ -77,6 +77,8 @@ pub struct ImportSummary<Block: BlockT> {
 	pub tree_route: Option<sp_blockchain::TreeRoute<Block>>,
 	/// What notify action to take for this import.
 	pub import_notification_action: ImportNotificationAction,
+	/// Optional metadata to be sent with block announcements.
+	pub metadata: Option<Vec<u8>>,
 }
 
 /// A stale block.
