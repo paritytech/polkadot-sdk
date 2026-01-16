@@ -506,6 +506,8 @@ members = [
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
+	"substrate/primitives/facade/apis",
+	"substrate/primitives/facade/apis-macro",
 	"substrate/primitives/genesis-builder",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
@@ -1348,6 +1350,8 @@ sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/pro
 sp-database = { path = "substrate/primitives/database", default-features = false }
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
+sp-facade-apis = { path = "substrate/primitives/facade/apis", default-features = false }
+sp-facade-apis-macro = { path = "substrate/primitives/facade/apis-macro", default-features = false }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }

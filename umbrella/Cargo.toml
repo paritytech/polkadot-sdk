@@ -202,6 +202,7 @@ std = [
 	"sp-crypto-hashing?/std",
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
+	"sp-facade-apis?/std",
 	"sp-genesis-builder?/std",
 	"sp-inherents?/std",
 	"sp-io?/std",
@@ -831,6 +832,7 @@ runtime = [
 	"sp-crypto-hashing-proc-macro",
 	"sp-debug-derive",
 	"sp-externalities",
+	"sp-facade-apis/decl-runtime-apis",
 	"sp-genesis-builder",
 	"sp-inherents",
 	"sp-io",
@@ -2018,6 +2020,11 @@ path = "../substrate/primitives/debug-derive"
 default-features = false
 optional = true
 path = "../substrate/primitives/externalities"
+
+[dependencies.sp-facade-apis]
+path = "../substrate/primitives/facade/apis"
+default-features = false
+optional = true
 
 [dependencies.sp-genesis-builder]
 default-features = false
