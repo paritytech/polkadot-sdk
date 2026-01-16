@@ -26,7 +26,7 @@ use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
 	short_weierstrass::{Affine as SWAffine, Projective as SWProjective, SWCurveConfig},
 	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
-	CurveConfig, VariableBaseMSM,
+	CurveConfig, CurveGroup, VariableBaseMSM,
 };
 use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
@@ -92,7 +92,7 @@ pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> 
 #[allow(unused)]
 pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let bases = decode::<Vec<SWAffine<T>>>(bases)?;
-	let scalars = decode::<Vec<<T as CurveConfig>::ScalarField>>(scalars)?;
+	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
 	let res = <SWProjective<T> as VariableBaseMSM>::msm(&bases, &scalars).map_err(|_| ())?;
 	Ok(encode_proj_sw(&res))
 }
@@ -119,4 +119,12 @@ pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Re
 	let scalar = decode::<Vec<u64>>(scalar)?;
 	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
 	Ok(encode_proj_te(&res))
+}
+
+#[allow(unused)]
+pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let base = decode::<SWAffine<T>>(base)?;
+	let scalar = decode::<Vec<u64>>(scalar)?;
+	let res = T::mul_affine(&base, &scalar).into_affine();
+	Ok(encode::<SWAffine<T>>(res))
 }

@@ -20,7 +20,7 @@
 use crate::utils;
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
-use ark_ec::{pairing::Pairing, CurveConfig};
+use ark_ec::{pairing::Pairing, CurveConfig, CurveGroup};
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
@@ -30,7 +30,7 @@ use sp_runtime_interface::{
 pub mod g1 {
 	pub use ark_bls12_381_ext::g1::{BETA, G1_GENERATOR_X, G1_GENERATOR_Y};
 	/// Group configuration.
-	pub type Config = ark_bls12_381_ext::g1::Config<super::HostHooks>;
+	pub type G1Config = ark_bls12_381_ext::g1::Config<super::HostHooks>;
 	/// Short Weierstrass form point affine representation.
 	pub type G1Affine = ark_bls12_381_ext::g1::G1Affine<super::HostHooks>;
 	/// Short Weierstrass form point projective representation.
@@ -44,7 +44,7 @@ pub mod g2 {
 		G2_GENERATOR_Y_C1,
 	};
 	/// Group configuration.
-	pub type Config = ark_bls12_381_ext::g2::Config<super::HostHooks>;
+	pub type G2Config = ark_bls12_381_ext::g2::Config<super::HostHooks>;
 	/// Short Weierstrass form point affine representation.
 	pub type G2Affine = ark_bls12_381_ext::g2::G2Affine<super::HostHooks>;
 	/// Short Weierstrass form point projective representation.
@@ -52,13 +52,9 @@ pub mod g2 {
 }
 
 pub use self::{
-	g1::{Config as G1Config, G1Affine, G1Projective},
-	g2::{Config as G2Config, G2Affine, G2Projective},
+	g1::{G1Affine, G1Config, G1Projective},
+	g2::{G2Affine, G2Config, G2Projective},
 };
-
-/// Curve hooks jumping into [`host_calls`] host functions.
-#[derive(Copy, Clone)]
-pub struct HostHooks;
 
 /// Configuration for *BLS12-381* curve.
 pub type Config = ark_bls12_381_ext::Config<HostHooks>;
@@ -67,6 +63,16 @@ pub type Config = ark_bls12_381_ext::Config<HostHooks>;
 ///
 /// A generic *BLS12* model specialized with *BLS12-381* configuration.
 pub type Bls12_381 = ark_bls12_381_ext::Bls12_381<HostHooks>;
+
+/// G1 and G2 scalar field (Fr).
+pub type ScalarField = <G1Config as CurveConfig>::ScalarField;
+
+/// Bls12-381 pairing target field.
+pub type TargetField = <Bls12_381 as Pairing>::TargetField;
+
+/// Curve hooks jumping into [`host_calls`] host functions.
+#[derive(Copy, Clone)]
+pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn multi_miller_loop(
@@ -78,50 +84,45 @@ impl CurveHooks for HostHooks {
 			.unwrap_or_default()
 	}
 
-	fn final_exponentiation(
-		target: <Bls12_381 as Pairing>::TargetField,
-	) -> <Bls12_381 as Pairing>::TargetField {
+	fn final_exponentiation(target: TargetField) -> TargetField {
 		host_calls::bls12_381_final_exponentiation(utils::encode(target))
 			.and_then(|res| utils::decode(res))
 			.unwrap_or_default()
 	}
 
-	fn msm_g1(
-		bases: &[G1Affine],
-		scalars: &[<G1Config as CurveConfig>::ScalarField],
-	) -> G1Projective {
+	fn msm_g1(bases: &[G1Affine], scalars: &[ScalarField]) -> G1Projective {
 		host_calls::bls12_381_msm_g1(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 
-	fn msm_g2(
-		bases: &[G2Affine],
-		scalars: &[<G2Config as CurveConfig>::ScalarField],
-	) -> G2Projective {
+	fn msm_g2(bases: &[G2Affine], scalars: &[ScalarField]) -> G2Projective {
 		host_calls::bls12_381_msm_g2(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		host_calls::bls12_381_mul_projective_g1(utils::encode_proj_sw(base), utils::encode(scalar))
-			.and_then(|res| utils::decode_proj_sw(res))
+		let base = base.into_affine();
+		host_calls::bls12_381_mul_affine_g1(utils::encode(base), utils::encode(scalar))
+			.and_then(|res| utils::decode::<G1Affine>(res))
 			.unwrap_or_default()
+			.into()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		host_calls::bls12_381_mul_projective_g2(utils::encode_proj_sw(base), utils::encode(scalar))
-			.and_then(|res| utils::decode_proj_sw(res))
+		let base = base.into_affine();
+		host_calls::bls12_381_mul_affine_g2(utils::encode(base), utils::encode(scalar))
+			.and_then(|res| utils::decode::<G2Affine>(res))
 			.unwrap_or_default()
+			.into()
 	}
 }
 
 /// Interfaces for working with *Arkworks* *BLS12-381* elliptic curve related types
 /// from within the runtime.
 ///
-/// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
-/// with `ark_scale::{ArkScale, ArkScaleProjective}`.
+/// All types are (de-)serialized through the wrapper types from `ark-scale`.
 ///
 /// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
 /// and "not-compressed".
@@ -130,9 +131,9 @@ pub trait HostCalls {
 	/// Pairing multi Miller loop for *BLS12-381*.
 	///
 	/// - Receives encoded:
-	///   - `a`: `ArkScale<Vec<G1Affine>>`.
-	///   - `b`: `ArkScale<Vec<G2Affine>>`.
-	/// - Returns encoded: `ArkScale<Bls12_381::TargetField>`.
+	///   - `a`: `Vec<G1Affine>`.
+	///   - `b`: `Vec<G2Affine>`.
+	/// - Returns encoded: `TargetField`.
 	fn bls12_381_multi_miller_loop(
 		a: PassFatPointerAndRead<Vec<u8>>,
 		b: PassFatPointerAndRead<Vec<u8>>,
@@ -142,8 +143,8 @@ pub trait HostCalls {
 
 	/// Pairing final exponentiation for *BLS12-381*.
 	///
-	/// - Receives encoded: `ArkScale<<Bls12_377::TargetField>`.
-	/// - Returns encoded: `ArkScale<<Bls12_377::TargetField>`
+	/// - Receives encoded: `TargetField`.
+	/// - Returns encoded: `TargetField`
 	fn bls12_381_final_exponentiation(
 		f: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -153,9 +154,9 @@ pub trait HostCalls {
 	/// Multi scalar multiplication on *G1* for *BLS12-381*
 	///
 	/// - Receives encoded:
-	///   - `bases`: `ArkScale<Vec<G1Affine>>`.
-	///   - `scalars`: `ArkScale<Vec<G1Config::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
+	///   - `bases`: `Vec<G1Affine>`.
+	///   - `scalars`: `Vec<ScalarField>`.
+	/// - Returns encoded: `G1Projective`.
 	fn bls12_381_msm_g1(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -166,9 +167,9 @@ pub trait HostCalls {
 	/// Multi scalar multiplication on *G2* for *BLS12-381*
 	///
 	/// - Receives encoded:
-	///   - `bases`: `ArkScale<Vec<G2Affine>>`.
-	///   - `scalars`: `ArkScale<Vec<G2Config::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
+	///   - `bases`: `Vec<G2Affine>`.
+	///   - `scalars`: `Vec<ScalarField>`.
+	/// - Returns encoded: `G2Projective`.
 	fn bls12_381_msm_g2(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -176,29 +177,66 @@ pub trait HostCalls {
 		utils::msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
 	}
 
-	/// Projective multiplication on *G1* for *BLS12-381*.
+	/// Affine multiplication on *G1* for *BLS12-381*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<G1Projective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
-	fn bls12_381_mul_projective_g1(
+	///   - `base`: `G1Affine`.
+	///   - `scalar`: `BitInt`.
+	/// - Returns encoded: `G1Affine`.
+	fn bls12_381_mul_affine_g1(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_sw::<ark_bls12_381::g1::Config>(base, scalar)
+		utils::mul_affine_sw::<ark_bls12_381::g1::Config>(base, scalar)
 	}
 
-	/// Projective multiplication on *G2* for *BLS12-381*
+	/// Affine multiplication on *G2* for *BLS12-381*
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<G2Projective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
-	fn bls12_381_mul_projective_g2(
+	///   - `base`: `G2Affine`.
+	///   - `scalar`: `BigInt`.
+	/// - Returns encoded: `G2Affine`.
+	fn bls12_381_mul_affine_g2(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_sw::<ark_bls12_381::g2::Config>(base, scalar)
+		utils::mul_affine_sw::<ark_bls12_381::g2::Config>(base, scalar)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use ark_ec::AffineRepr;
+	use ark_std::{test_rng, UniformRand};
+
+	fn mul_affine_works_gen<
+		SubAffine: AffineRepr<ScalarField = ScalarField>,
+		ArkAffine: AffineRepr<ScalarField = ScalarField>,
+	>()
+	where
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let mut rng = test_rng();
+		let p = SubAffine::rand(&mut rng);
+		let s = SubAffine::ScalarField::rand(&mut rng);
+
+		// This goes through the hostcall
+		let r1 = (p * s).into_affine();
+
+		// This directly calls into arkworks
+		let p_enc = utils::encode(p);
+		use ark_ff::PrimeField;
+		let s_enc = utils::encode(s.into_bigint().as_ref());
+		let r2_enc = utils::mul_affine_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
+		let r2 = utils::decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	#[test]
+	fn mul_affine_works() {
+		mul_affine_works_gen::<G1Affine, ark_bls12_381::G1Affine>();
+		mul_affine_works_gen::<G2Affine, ark_bls12_381::G2Affine>();
 	}
 }
