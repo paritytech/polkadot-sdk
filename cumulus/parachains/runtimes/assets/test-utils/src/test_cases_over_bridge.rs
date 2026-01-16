@@ -414,7 +414,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 						foreign_asset_owner
 					),
 					foreign_asset_id_location.clone().into(),
-					vec![foreign_asset_reserve_data],
+					vec![foreign_asset_reserve_data].try_into().unwrap(),
 				)
 			);
 
