@@ -24,8 +24,8 @@
 use alloc::vec::Vec;
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
-	short_weierstrass::{Affine as SWAffine, Projective as SWProjective, SWCurveConfig},
-	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
+	short_weierstrass::{Affine as SWAffine, SWCurveConfig},
+	twisted_edwards::{Affine as TEAffine, TECurveConfig},
 	CurveGroup,
 };
 use ark_scale::{
@@ -36,7 +36,6 @@ use ark_scale::{
 // SCALE encoding parameters shared by all the enabled modules
 const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
 type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
-type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
@@ -55,26 +54,6 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 #[inline(always)]
 pub fn decode<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
 	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
-}
-
-#[inline(always)]
-pub fn encode_proj_sw<T: SWCurveConfig>(val: &SWProjective<T>) -> Vec<u8> {
-	ArkScaleProjective::from(val).encode()
-}
-
-#[inline(always)]
-pub fn decode_proj_sw<T: SWCurveConfig>(buf: Vec<u8>) -> Result<SWProjective<T>, ()> {
-	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
-}
-
-#[inline(always)]
-pub fn encode_proj_te<T: TECurveConfig>(val: &TEProjective<T>) -> Vec<u8> {
-	ArkScaleProjective::from(val).encode()
-}
-
-#[inline(always)]
-pub fn decode_proj_te<T: TECurveConfig>(buf: Vec<u8>) -> Result<TEProjective<T>, ()> {
-	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
 }
 
 #[allow(unused)]
@@ -107,38 +86,7 @@ pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 	Ok(encode::<SWAffine<T>>(res))
 }
 
-/// Twisted Edwards multi scalar multiplication.
-///
-/// Expects encoded:
-/// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
-/// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-///
-/// Returns encoded: `TEAffine<TECurveConfig>`.
-#[allow(unused)]
-pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
-	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
-	let res = T::msm(&bases, &scalars).map_err(|_| ())?;
-	Ok(encode_proj_te(&res))
-}
-
-#[allow(unused)]
-pub fn mul_projective_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let base = decode_proj_sw::<T>(base)?;
-	let scalar = decode::<Vec<u64>>(scalar)?;
-	let res = <T as SWCurveConfig>::mul_projective(&base, &scalar);
-	Ok(encode_proj_sw(&res))
-}
-
-#[allow(unused)]
-pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let base = decode_proj_te::<T>(base)?;
-	let scalar = decode::<BigInteger>(scalar)?;
-	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
-	Ok(encode_proj_te(&res))
-}
-
-/// Affine multiplication.
+/// Short Weierstrass affine multiplication.
 ///
 /// Expects encoded:
 /// - `base`: `SWAffine<SWCurveConfig>`.
@@ -151,4 +99,34 @@ pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
 	Ok(encode::<SWAffine<T>>(res))
+}
+
+/// Twisted Edwards multi scalar multiplication.
+///
+/// Expects encoded:
+/// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
+/// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
+///
+/// Returns encoded: `TEAffine<TECurveConfig>`.
+#[allow(unused)]
+pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
+	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
+	let res = T::msm(&bases, &scalars).map_err(|_| ())?.into_affine();
+	Ok(encode::<TEAffine<T>>(res))
+}
+
+/// Twisted Edwards affine multiplication.
+///
+/// Expects encoded:
+/// - `base`: `TEAffine<TECurveConfig>`.
+/// - `scalar`: `BigInteger`.
+///
+/// Returns encoded: `TEAffine<TECurveConfig>`.
+#[allow(unused)]
+pub fn mul_affine_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let base = decode::<TEAffine<T>>(base)?;
+	let scalar = decode::<BigInteger>(scalar)?;
+	let res = T::mul_affine(&base, &scalar).into_affine();
+	Ok(encode::<TEAffine<T>>(res))
 }
