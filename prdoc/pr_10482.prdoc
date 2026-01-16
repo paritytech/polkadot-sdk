@@ -1,0 +1,97 @@
+title: Recovery pallet modernization
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Recovery Pallet
+
+     Pallet Recovery allows you to have friends or family recover access to your account if you lose
+     your seed phrase or private key.
+
+     ## Terminology
+
+     - `lost`: An account that has lost access to its private key and needs to be recovered.
+     - `friend`: A befriended account that can approve a recovery process.
+     - `initiator`: An account that initiated a recovery attempt.
+     - `recovered`: An account that has been successfully recovered.
+     - `inheritor`: An account that is inheriting access to a lost account after recovery.
+     - `attempt`: An attempt to recover a lost account by an initiator.
+     - `order`: The level of trust that an account has in a friend group.
+     - `deposit`: The amount that a friends of this group needs to reserve to initiate an attempt.
+     - `threshold`: The number of friends that need to approve an attempt.
+     - `inheritance delay`: How long an attempt will be delayed before it can succeed.
+     - `provided block`: The blocks that are *provided* by the `T::BlockNumberProvider`.
+
+     ## Scenario: Recovering a lost account
+
+     Story of how the user Alice user loses access and is recovered by her friends.
+
+     1. Alice uses the recovery pallet to configure one or more friends groups:
+       - Alice picks a suitable `inheritor` account that will inherit the access to her account for
+         each friend group. This could be a multisig.
+       - Alice configures all groups with via `set_friend_groups`.
+     2. Alice loses access to her account and becomes a `lost` account.
+     3. Any member (aka `initiator`) of Alice's friend groups become aware of the situation and
+        starts a recovery `attempt` via `initiate_attempt`.
+     4. The friend group self-organizes and one-by-one approve the ongoing attempt via
+        `approve_attempt`.
+     5. Exactly `threshold` friends approve the attempt (further approvals will fail since they are
+        useless).
+     6. Any account finishes the attempt via `finish_attempt` after at least *inheritance delay*
+        blocks since the initiation have passed.
+     7. Alice's account is now officially `recovered` and accessible by the `inheritor` account.
+     8. The `inheritor` may call `control_inherited_account` at any point to transfer Alice's funds
+        to her new account.
+
+     ## Scenario: Multiple friend group try to recover an account
+
+     Alice may have configured multiple friend groups that all try to recover her account at the same
+     time. This can lead to a conflict of which friend group should eventually inherit the access.
+
+     1. Alice configures groups *Family* (delay 10d, order 0) and *Friends* (delay 20d, order 1).
+     1. Day 0: Alice loses access to her account.
+     1. Day 6: *Friends* initiate a recovery attempt for Alice.
+     1. Day 15: *Family* finally understands Polkadot and initiates an attempt as well.
+     1. Day 25: *Family* inherits access to Alice account.
+     1. Day 26: *Friends* group gets nothing since inheritance order is higher the one from *Family*.
+
+     In the case above you see how the *Friends* group is now unable to recover Alice account since
+     the *Family* group already did it and has a higher inheritance order.
+     Now, imagine the case that the *Friends* group would have started on day 4 and would have
+     already recovered the account on day 24. Two days later, the *Family* group can take access back
+     and will replace the inheritor account with their own. The *Friends* group had access for two
+     days since they were faster.
+     If Alice account has most balance locked in 28 day staking this would not make a big difference,
+     since only the free balance would be immediately transferable.
+
+     After a recovery attempt was completed, friend groups with a higher inheritance order cannot
+     open a new attempt to recover the account.
+
+     ## Data Structures
+
+     The pallet has three storage items, see the in-code docs [`FriendGroups`], [`Attempts`] and
+     [`Inheritor`]. Storage items may contain deposit "tickets" or similar noise and should therefore
+     not be read directly but only through the API.
+
+     ## API
+
+     *Reading* data can be done through the view functions:
+
+     - `provided_block_number`: The block number that will be used to measure time.
+     - `friend_groups`: The friend groups of an account that can initiate recovery attempts.
+     - `attempts`: Ongoing recovery attempts for a lost account.
+     - `inheritor`: The account that inherited full access to the lost account.
+     - `inheritance`: All the recovered accounts that an account inherited access to.
+
+    ## TODO
+
+    - [ ] Create migration from old format for Kusama
+    - [ ] Weights
+crates:
+- name: pallet-recovery
+  bump: major
+- name: frame-support
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
