@@ -11,7 +11,7 @@ crates:
 - name: parachains-common
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: frame-support
   bump: minor
 - name: kitchensink-runtime
