@@ -205,7 +205,10 @@ fn pay_over_xcm_fails_when_delivery_fees_cannot_be_paid() {
 
 		// Verify no message was delivered - this is the key regression check
 		// The old buggy code would have delivered the message despite not being able to pay fees
-		assert!(sent_xcm().is_empty(), "No message should be sent when delivery fees cannot be paid");
+		assert!(
+			sent_xcm().is_empty(),
+			"No message should be sent when delivery fees cannot be paid"
+		);
 	});
 }
 
