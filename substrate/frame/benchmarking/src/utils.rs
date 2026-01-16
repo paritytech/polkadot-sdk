@@ -292,9 +292,8 @@ pub trait Benchmarking {
 		self.commit();
 
 		// Warmup the memory allocator after bulk deallocation.
-		// After draining the overlay with many entries, the first new allocation
-		// can trigger memory defragmentation. Do a dummy write/clear cycle to
-		// absorb this overhead before timing starts.
+		// After draining the overlay with many entries, the first new allocation can trigger memory
+		// defragmentation.
 		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
 		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
 		self.place_storage(WARMUP_KEY.to_vec(), None);
