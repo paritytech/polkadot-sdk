@@ -51,6 +51,21 @@ impl ToAssetIndex for xcm::v5::Location {
 	}
 }
 
+pub fn insert_asset_mapping<T: crate::pallet::Config>(
+	asset_index: u32,
+	asset_id: T::AssetId,
+) {
+	crate::pallet::AssetIndexToAssetId::<T>::insert(asset_index, asset_id.clone());
+	crate::pallet::AssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
+}
+
+pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: T::AssetId) {
+	if let Some(asset_index) = crate::pallet::AssetIdToAssetIndex::<T>::get(&asset_id) {
+		crate::pallet::AssetIndexToAssetId::<T>::remove(asset_index);
+		crate::pallet::AssetIdToAssetIndex::<T>::remove(asset_id);
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

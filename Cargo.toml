@@ -947,6 +947,7 @@ pallet-asset-rate = { path = "substrate/frame/asset-rate", default-features = fa
 pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-features = false }
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
+pallet-assets-foreign = { path = "substrate/frame/assets-foreign", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
 pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }

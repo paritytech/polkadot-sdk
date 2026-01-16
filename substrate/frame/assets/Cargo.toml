@@ -28,6 +28,7 @@ frame-support = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
+pallet-assets-foreign = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }

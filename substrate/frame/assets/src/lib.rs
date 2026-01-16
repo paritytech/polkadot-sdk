@@ -177,6 +177,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, TokenError,
 };
 
+use pallet_assets_foreign::{insert_asset_mapping, ToAssetIndex, remove_asset_mapping};
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -243,6 +244,22 @@ where
 		};
 		let next_id = next_id.increment().ok_or(())?;
 		NextAssetId::<T, I>::put(next_id);
+		Ok(())
+	}
+}
+
+pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I> + pallet_assets_foreign::pallet::Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+where
+	T::AssetId: ToAssetIndex,
+{
+	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+		insert_asset_mapping::<T>(id.to_asset_index(), id);
+		Ok(())
+	}
+
+	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
+		remove_asset_mapping::<T>(id);
 		Ok(())
 	}
 }
@@ -318,7 +335,7 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	/// The module configuration trait.
-	pub trait Config<I: 'static = ()>: frame_system::Config {
+	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets_foreign::pallet::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
 		#[allow(deprecated)]
