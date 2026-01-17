@@ -946,6 +946,11 @@ pub use polkadot_node_core_pvf_checker;
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
 
+/// The Statistics Collector subsystem. Collects Approval Voting and Approvals Distributions
+/// stats.
+#[cfg(feature = "polkadot-node-core-rewards-statistics-collector")]
+pub use polkadot_node_core_rewards_statistics_collector;
+
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
