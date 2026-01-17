@@ -10,3 +10,5 @@ doc:
 crates:
 - name: frame-benchmarking-cli
   bump: major
+- name: frame-omni-bencher
+  bump: minor
