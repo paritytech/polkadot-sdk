@@ -696,7 +696,7 @@ pub mod pallet {
 						current_migration: cursor.index,
 						total_migrations: T::Migrations::len(),
 						current_migration_steps: estimated_steps,
-						current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)??,
+						current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)?,
 					})
 				},
 				_ => None,
@@ -856,7 +856,7 @@ impl<T: Config> Pallet<T> {
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
 			meter,
 		);
-		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
+		let Some((_, next_cursor)) = max_steps.zip(next_cursor) else {
 			defensive!("integrity_test ensures that the tuple is valid; qed");
 			Self::upgrade_failed(Some(cursor.index));
 			return None

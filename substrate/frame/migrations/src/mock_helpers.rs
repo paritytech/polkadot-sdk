@@ -119,8 +119,8 @@ impl SteppedMigrations for MockedMigrations {
 		Self::nth_step(n, cursor, meter)
 	}
 
-	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
-		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
+	fn nth_max_steps(n: u32) -> Option<u32> {
+		MIGRATIONS::get().get(n as usize).map(|(_, s)| *s)
 	}
 
 	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {

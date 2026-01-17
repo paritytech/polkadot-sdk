@@ -701,7 +701,7 @@ pub trait SteppedMigrations {
 	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
 	///
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
-	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
+	fn nth_max_steps(n: u32) -> Option<u32>;
 
 	/// Do a [`SteppedMigration::step`] on the `n`th migration.
 	///
@@ -756,8 +756,7 @@ pub trait SteppedMigrations {
 
 		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
-			ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
-
+			// ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
 			// The cursor that we use does not matter. Hence use empty.
 			ensure!(
 				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
@@ -782,7 +781,7 @@ impl SteppedMigrations for () {
 		None
 	}
 
-	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
+	fn nth_max_steps(_n: u32) -> Option<u32> {
 		None
 	}
 
@@ -840,11 +839,8 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 			.defensive_proof("nth_id should only be called with n==0")
 	}
 
-	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
-		// It should be generally fine to call with n>0, but the code should not attempt to.
-		n.is_zero()
-			.then(|| T::max_steps())
-			.defensive_proof("nth_max_steps should only be called with n==0")
+	fn nth_max_steps(n: u32) -> Option<u32> {
+		n.is_zero().then(|| T::max_steps())?
 	}
 
 	fn nth_step(
@@ -1021,7 +1017,7 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
-	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+	fn nth_max_steps(n: u32) -> Option<u32> {
 		let mut i = 0;
 
 		for_tuples!( #(
@@ -1161,8 +1157,6 @@ mod tests {
 			log::info!("M3");
 			Ok(None)
 		}
-
-		// Default implementation returns empty iterator
 	}
 
 	pub struct F0;
@@ -1195,9 +1189,9 @@ mod tests {
 		assert_eq!(M1::max_steps(), Some(1));
 		assert_eq!(M2::max_steps(), Some(2));
 
-		assert_eq!(<(M0, M1)>::nth_max_steps(0), Some(None));
-		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(Some(1)));
-		assert_eq!(<(M0, M1, M2)>::nth_max_steps(2), Some(Some(2)));
+		assert_eq!(<(M0, M1)>::nth_max_steps(0), None);
+		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(1));
+		assert_eq!(<(M0, M1, M2)>::nth_max_steps(2), Some(2));
 
 		assert_eq!(<(M0, M1)>::nth_max_steps(2), None);
 	}
