@@ -814,11 +814,24 @@ struct SchedulingProof {
     /// Length is defined by the parachain runtime config.
     header_chain: Vec<RelayChainHeader>,
 
-    /// Signed scheduling info for core selection override (required for resubmission).
+    /// Signed scheduling info for core selection override.
+    /// MUST be `Some` when relay_parent != internal_scheduling_parent (resubmission).
+    /// May be `None` only for initial submission (relay_parent == internal_scheduling_parent).
     signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
 /// Signed scheduling information for candidate resubmission.
+///
+/// Key concept: The `internal_scheduling_parent` (derived from header_chain) determines
+/// which collator may perform resubmission. This is distinct from the `relay_parent`,
+/// which determines the original block author's slot:
+///
+/// - **Initial submission**: `relay_parent == internal_scheduling_parent`
+///   The same collator authored the block and is submitting it.
+///
+/// - **Resubmission**: `relay_parent != internal_scheduling_parent` (relay_parent is older)
+///   A different collator (eligible at internal_scheduling_parent) is resubmitting
+///   a block that was originally authored by someone else (eligible at relay_parent).
 struct SignedSchedulingInfo {
     /// Which core to use (indexes into the parachain's assigned cores).
     /// Note: the claim queue offset is determined by the runtime and is not
@@ -830,6 +843,7 @@ struct SignedSchedulingInfo {
     /// block author who failed to deliver.
     peer_id: PeerId,
     /// Signature by the eligible collator for the slot at internal_scheduling_parent.
+    /// This is the RESUBMITTING collator, not the original block author.
     signature: CollatorSignature,
 }
 ```
@@ -845,25 +859,33 @@ The PVF then:
 
 1. Verifies the header chain, in particular that it has the expected fixed
    length
-2. Looks up the eligible block producer based on the internal scheduling parent
-3. Verifies the signature of the scheduling information (if provided)
-4. Checks that the relay parent is either equal to the internal scheduling
+2. Looks up the eligible collator based on the internal scheduling parent
+   (this is the collator authorized to resubmit, if resubmission is occurring)
+3. Checks that the relay parent is either equal to the internal scheduling
    parent or otherwise not part of the header chain from scheduling parent to
    internal scheduling parent
-5. Outputs the verified scheduling information for incorporating into candidate
+4. **If `relay_parent != internal_scheduling_parent` (resubmission case):**
+   `signed_scheduling_info` MUST be `Some`. This prevents unauthorized parties
+   from resubmitting candidates. The signature must be valid for the collator
+   eligible at `internal_scheduling_parent`.
+5. If `signed_scheduling_info` is provided, verifies the signature against the
+   eligible collator from step 2
+6. Outputs the verified scheduling information for incorporating into candidate
    commitments, including the `peer_id` for the collator protocol to use for
    reputation
 
 The `signed_scheduling_info` field determines the submission mode:
 
-- **`None` usually with `relay_parent == internal_scheduling_parent`**: Initial
-  submission. Core selection comes from the parachain block's UMP signals.
+- **`None` (only valid when `relay_parent == internal_scheduling_parent`)**: Initial
+  submission by the original block author. Core selection comes from the
+  parachain block's UMP signals.
 
-- **`Some` usually with `relay_parent != internal_scheduling_parent`**: Resubmission.
-  The resubmitting collator signs the core selection, overriding the block's
+- **`Some` (required when `relay_parent != internal_scheduling_parent`)**: Resubmission
+  by a different collator. The resubmitting collator (eligible at
+  `internal_scheduling_parent`) signs the core selection, overriding the block's
   UMP signals. The `peer_id` field ensures the resubmitting collator receives
   the reputation credit for successful delivery, rather than the original block
-  author who failed to submit.
+  author (who was eligible at `relay_parent`) who failed to submit.
 
 If input for the separate entry point is provided, the provided core by the last
 block gets overridden. The PVF should still reject any POV that is not "sealed"
