@@ -323,13 +323,16 @@ When a provider doesn't serve data, clients can challenge on-chain:
 1. Challenger initiates
    - Specifies: bucket, provider, leaf_index, chunk_index
    - Deposits: estimated challenge cost
+   - Pays: Transaction fee
 
 2. Challenge window opens (~48 hours)
    - Provider must respond with chunk data + Merkle proofs
+   - Challenger can cancel anytime (gets full deposit back, pays cancel tx fee)
    - Cost split based on response time
 
 3. Resolution
    - Valid proof: Challenge rejected, cost split by response speed
+   - Cancelled by challenger: Full deposit refunded (only paid tx fees)
    - Invalid/no proof: Provider's full stake slashed
 ```
 

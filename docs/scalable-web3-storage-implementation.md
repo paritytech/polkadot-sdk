@@ -1100,6 +1100,19 @@ impl<T: Config> Pallet<T> {
         chunk_index: u64,
     ) -> DispatchResult;
 
+    /// Cancel an active challenge.
+    ///
+    /// Allows challenger to cancel if they received the data off-chain.
+    /// Full deposit is refunded (only transaction fees are lost).
+    /// This prevents unnecessary on-chain data submission when the
+    /// issue was resolved off-chain.
+    ///
+    /// Can only be called by the original challenger.
+    pub fn cancel_challenge(
+        origin: OriginFor<T>,
+        challenge_id: ChallengeId,
+    ) -> DispatchResult;
+
     // ─────────────────────────────────────────────────────────────
     // Replica sync
     // ─────────────────────────────────────────────────────────────
