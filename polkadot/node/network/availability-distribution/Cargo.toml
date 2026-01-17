@@ -18,6 +18,7 @@ harness = false
 required-features = ["subsystem-benchmarks"]
 
 [dependencies]
+async-trait = { workspace = true }
 codec = { features = ["std"], workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
@@ -35,7 +36,6 @@ schnellru = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-async-trait = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

@@ -172,13 +172,13 @@ members = [
 	"polkadot/node/core/dispute-coordinator",
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
-	"polkadot/node/core/rewards-statistics-collector",
 	"polkadot/node/core/provisioner",
 	"polkadot/node/core/pvf",
 	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/pvf/common",
 	"polkadot/node/core/pvf/execute-worker",
 	"polkadot/node/core/pvf/prepare-worker",
+	"polkadot/node/core/rewards-statistics-collector",
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
@@ -1133,13 +1133,13 @@ polkadot-node-core-chain-selection = { path = "polkadot/node/core/chain-selectio
 polkadot-node-core-dispute-coordinator = { path = "polkadot/node/core/dispute-coordinator", default-features = false }
 polkadot-node-core-parachains-inherent = { path = "polkadot/node/core/parachains-inherent", default-features = false }
 polkadot-node-core-prospective-parachains = { path = "polkadot/node/core/prospective-parachains", default-features = false }
-polkadot-node-core-rewards-statistics-collector = { path = "polkadot/node/core/rewards-statistics-collector", default-features = false }
 polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", default-features = false }
 polkadot-node-core-pvf = { path = "polkadot/node/core/pvf", default-features = false }
 polkadot-node-core-pvf-checker = { path = "polkadot/node/core/pvf-checker", default-features = false }
 polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", default-features = false }
 polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false }
 polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false }
+polkadot-node-core-rewards-statistics-collector = { path = "polkadot/node/core/rewards-statistics-collector", default-features = false }
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false }
