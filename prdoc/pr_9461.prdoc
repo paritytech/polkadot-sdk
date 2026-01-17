@@ -1,4 +1,7 @@
-title: "Expose migrating keys"
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expose migrating keys
 
 doc:
   - audience: Runtime Dev
@@ -10,7 +13,7 @@ doc:
       For migration collections, use `nth_migrating_prefixes()` to retrieve prefixes by index.
 
 crates:
-- name: frame-support
-  bump: major
-- name: pallet-migrations
-  bump: major
+  - name: frame-support
+    bump: major
+  - name: pallet-migrations
+    bump: major
