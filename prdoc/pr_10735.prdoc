@@ -1,14 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
 title: Genesis Patch Support for Frame Omni-Bencher
+
 doc:
-- audience: runtime_dev
-  description: |-
-    This update adds a --genesis-patch CLI option to frame-omni-bencher,
-    allowing users to apply custom JSON patches to genesis state during
-    benchmarking. This enables advanced testing scenarios like stress
-    testing with many accounts without modifying chain specifications.
+  - audience: Runtime Dev
+    description: |
+      This update adds a --genesis-patch CLI option to frame-omni-bencher,
+      allowing users to apply custom JSON patches to genesis state during
+      benchmarking. This enables advanced testing scenarios like stress
+      testing with many accounts without modifying chain specifications.
 
 crates:
-- name: frame-benchmarking-cli
-  bump: major
-- name: frame-omni-bencher
-  bump: minor
+ - name: frame-benchmarking-cli
+   bump: major
+ - name: frame-omni-bencher
+   bump: minor
