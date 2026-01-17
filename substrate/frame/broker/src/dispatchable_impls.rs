@@ -671,14 +671,6 @@ impl<T: Config> Pallet<T> {
 		// Emit Renewable event so users know they can renew
 		Self::deposit_event(Event::Renewable { core, price, begin: when, workload });
 
-		log::info!(
-			target: LOG_TARGET,
-			"Added potential renewal for core {} at timeslice {} with price {:?}",
-			core,
-			when,
-			price
-		);
-
 		Ok(())
 	}
 }
