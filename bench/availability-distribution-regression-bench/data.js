@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768602801951,
+  "lastUpdate": 1768656197489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "andrew.ahlers@parity.io",
-            "name": "andrew-ifrita",
-            "username": "andrew-ifrita"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9fbf243c57939ecadc89b82ed42249703203874",
-          "message": "docs: fix XCM docs for AlwaysV4 and AlwaysV5 (#8862)\n\n✄\n-----------------------------------------------------------------------------\n\nThank you for your Pull Request! 🙏 Please make sure it follows the\ncontribution guidelines outlined in [this\n\ndocument](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md)\nand fill out the\nsections below. Once you're ready to submit your PR for review, please\ndelete this section and leave only the text under\nthe \"Description\" heading.\n\n# Description\n\nFix docstrings for `AlwaysV4` and `AlwaysV5` in XCM code, both of which\nwrongly stated V3\n\n## Integration\n\nOnly docs are changed.\n\n## Review Notes\n\nNone\n\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] (N/A) I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nYou can remove the \"Checklist\" section once all have been checked. Thank\nyou for your contribution!\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2025-06-16T10:02:04Z",
-          "tree_id": "c198cb761726325b836a171b765efa7a6ac7fad5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9fbf243c57939ecadc89b82ed42249703203874"
-        },
-        "date": 1750071731511,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1564953169866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00906141341333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01302507745333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022474368246666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022994016273333327,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "46d4223052a663c40fd7e0580997cd5ba1ac25fc",
+          "message": "Add `genesis-patch` support to frame-omni-bencher (#10735)\n\nresolves #7433\n\n### Summary\nThis PR adds a `--genesis-patch` CLI option to `frame-omni-bencher`,\nenabling users customize genesis states for advanced benchmarking\nscenarios like stress testing with many accounts, merging user-provided\nJSON patches with existing genesis configurations, including parachain\nID patches in overhead benchmarking.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-17T12:10:31Z",
+          "tree_id": "5cf964126cc9b0dcc8db19bafa14b48ce5391f31",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/46d4223052a663c40fd7e0580997cd5ba1ac25fc"
+        },
+        "date": 1768656173569,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006758291799999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009427418093333351,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14339631284000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022972901986666665,
             "unit": "seconds"
           }
         ]
