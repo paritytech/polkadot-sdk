@@ -297,6 +297,9 @@ pub trait Benchmarking {
 		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
 		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
 		self.place_storage(WARMUP_KEY.to_vec(), None);
+
+		// Reset tracking so warmup operations don't appear in benchmark results.
+		self.reset_read_write_count();
 	}
 
 	/// Get the read/write count.
