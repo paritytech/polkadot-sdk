@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768602768748,
+  "lastUpdate": 1768656164297,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "noreply@reusable.software",
-            "name": "ordian",
-            "username": "ordian"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da75e7db67ee4a08f3821ef552dc0ca47975cf66",
-          "message": "paras_inherent: fix overweight warn (#8861)\n\nFixes #8859 \n\nLong-term fix would be addressing #5520.",
-          "timestamp": "2025-06-16T13:28:13Z",
-          "tree_id": "3ea47a6d56b14f3ce033d5e3083f9f0b27d40f74",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/da75e7db67ee4a08f3821ef552dc0ca47975cf66"
-        },
-        "date": 1750085827625,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3283356306,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2021114248,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.136501789433332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "46d4223052a663c40fd7e0580997cd5ba1ac25fc",
+          "message": "Add `genesis-patch` support to frame-omni-bencher (#10735)\n\nresolves #7433\n\n### Summary\nThis PR adds a `--genesis-patch` CLI option to `frame-omni-bencher`,\nenabling users customize genesis states for advanced benchmarking\nscenarios like stress testing with many accounts, merging user-provided\nJSON patches with existing genesis configurations, including parachain\nID patches in overhead benchmarking.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-17T12:10:31Z",
+          "tree_id": "5cf964126cc9b0dcc8db19bafa14b48ce5391f31",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/46d4223052a663c40fd7e0580997cd5ba1ac25fc"
+        },
+        "date": 1768656140026,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.501893443766665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1302289213666667,
             "unit": "seconds"
           }
         ]
