@@ -649,17 +649,6 @@ impl<T: Config> Pallet<T> {
 
 		let renewal_id = PotentialRenewalId { core, when };
 
-		// Check if a renewal already exists for this core and timeslice
-		if PotentialRenewals::<T>::contains_key(renewal_id) {
-			// If it exists, we should update it
-			log::debug!(
-				target: LOG_TARGET,
-				"Updating existing potential renewal for core {} at timeslice {}",
-				core,
-				when
-			);
-		}
-
 		let record = PotentialRenewalRecord {
 			price,
 			completion: CompletionStatus::Complete(workload.clone()),
