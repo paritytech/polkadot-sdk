@@ -112,7 +112,7 @@ where
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
 		let Self {
 			mut runtime,
-			mut authority_discovery_service,
+			authority_discovery_service,
 			recvs,
 			metrics,
 			req_protocol_names,

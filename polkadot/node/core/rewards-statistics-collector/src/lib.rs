@@ -21,10 +21,9 @@
 //! Its primary responsibility is to collect and track data reflecting each node’s perspective
 //! on the approval work carried out by all session validators.
 
-use crate::error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result};
+use crate::error::{FatalError, FatalResult, JfyiError, Result};
 use futures::{channel::oneshot, prelude::*};
 use polkadot_node_primitives::{
-	approval::{time::Tick, v1::DelayTranche},
 	new_session_window_size, SessionWindowSize, DISPUTE_WINDOW,
 };
 use polkadot_node_subsystem::{
