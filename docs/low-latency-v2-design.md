@@ -836,9 +836,9 @@ struct SignedSchedulingInfo {
 
 The PVF entry point also receives:
 
-- Access to the state of the parachain—at the same block height as the included
-  block, or in case of multiple blocks, the block height of the first block in
-  the POV
+- Access to the parachain's state at the parent of the first block in the POV
+  (i.e., the state before executing any blocks). This is the same state used
+  for verifying block authorship via Aura authorities.
 - The scheduling parent and relay parent from the candidate descriptor
 
 The PVF then:
