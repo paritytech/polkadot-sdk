@@ -41,7 +41,6 @@ extern crate alloc;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	sp_runtime::{Perbill, Saturating},
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::Preservation,
@@ -49,6 +48,7 @@ use frame_support::{
 	},
 	PalletId,
 };
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
 
 pub use pallet::*;
@@ -100,14 +100,25 @@ pub mod pallet {
 		/// This is typically implemented in the runtime to provide the inflation curve logic.
 		/// Called by DAP to determine how much to mint for each era.
 		type EraPayout: EraPayoutV2<BalanceOf<Self>>;
-
-		/// Percentage of total era payout allocated to staker rewards.
-		///
-		/// This is the portion that goes into the staker era pot for distribution
-		/// to validators and nominators based on their stake.
-		#[pallet::constant]
-		type StakerRewardRate: Get<Perbill>;
 	}
+
+	/// Budget allocation rate for staker rewards.
+	///
+	/// Percentage of total era inflation allocated to staker rewards.
+	#[pallet::storage]
+	pub type StakerRewardRate<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// Budget allocation rate for validator self-stake incentives.
+	///
+	/// Percentage of total era inflation allocated to validator self-stake incentives.
+	#[pallet::storage]
+	pub type ValidatorIncentiveRate<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// Budget allocation rate for treasury.
+	///
+	/// Percentage of total era inflation allocated to treasury.
+	#[pallet::storage]
+	pub type TreasuryRate<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -308,48 +319,40 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 			era_duration_millis,
 		);
 
-		// Split according to configured rates
-		let to_stakers = T::StakerRewardRate::get() * total_payout;
-		let to_treasury = total_payout.saturating_sub(to_stakers);
+		// Calculate staker allocation based on configured rate
+		let to_stakers = StakerRewardRate::<T>::get() * total_payout;
+		let to_buffer = total_payout.saturating_sub(to_stakers);
 
 		log::info!(
 			target: LOG_TARGET,
-			"💰 Era {era} allocation: total={total_payout:?}, to_stakers={to_stakers:?}, to_treasury={to_treasury:?}"
+			"💰 Era {era} allocation: total={total_payout:?}, to_stakers={to_stakers:?}, to_buffer={to_buffer:?}"
 		);
 
-		// Create and fund the era pot account for stakers
+		// Mint staker portion into the era pot
 		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
-
-		// Mint `to_stakers` into the era pot
 		if let Err(_e) = T::Currency::mint_into(&pot_account, to_stakers) {
 			// fail in tests, log in prod
 			defensive!("Era Mint should never fail");
-			// trigger unexpected event for observability
 			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-			// can't do much here, just return!
 			return Default::default();
 		}
 
 		// Explicitly add provider to prevent premature reaping when balance < ED.
-		// Note: Only increment after successful mint to avoid inconsistent state.
-		// It's reasonable to assume both minted amounts would be greater than ED.
 		// This is decremented and account is reaped when era is cleaned up.
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 
-		// Mint treasury portion into the buffer account
+		// Mint remainder (treasury, validator incentives, etc.) into buffer
 		let buffer = Self::buffer_account();
-		if let Err(_e) = T::Currency::mint_into(&buffer, to_treasury) {
-			// fail in tests, log in prod.
-			defensive!("Era Mint should never fail");
-			// trigger unexpected event for observability.
+		if let Err(_e) = T::Currency::mint_into(&buffer, to_buffer) {
+			// fail in tests, log in prod
+			defensive!("Buffer mint should never fail");
 			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-			// move on as we were able to mint staker reward
 		}
 
 		Self::deposit_event(Event::EraRewardsAllocated {
 			era,
 			staker_rewards: to_stakers,
-			treasury_rewards: to_treasury,
+			treasury_rewards: to_buffer,
 		});
 
 		// Return the amount allocated to stakers

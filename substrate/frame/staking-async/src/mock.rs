@@ -115,14 +115,12 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-	pub const StakerRewardRate: Perbill = Perbill::from_percent(50);
 }
 
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type EraPayout = OneTokenPerMillisecond;
-	type StakerRewardRate = StakerRewardRate;
 }
 
 parameter_types! {
@@ -721,6 +719,11 @@ impl ExtBuilder {
 		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			// Initialize DAP budget rates: 50% stakers, 50% treasury
+			pallet_dap::StakerRewardRate::<Test>::put(Perbill::from_percent(50));
+			pallet_dap::TreasuryRate::<Test>::put(Perbill::from_percent(50));
+			pallet_dap::ValidatorIncentiveRate::<Test>::put(Perbill::from_percent(0));
+
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 			// Disable legacy minting from era 0 in tests to catch missing era pots early
 			crate::DisableLegacyMintingEra::<Test>::put(0);

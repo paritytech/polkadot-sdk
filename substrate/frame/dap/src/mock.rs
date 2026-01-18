@@ -64,15 +64,10 @@ impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
 	}
 }
 
-parameter_types! {
-	pub const StakerRewardRate: Perbill = Perbill::from_percent(85);
-}
-
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type EraPayout = TestEraPayout;
-	type StakerRewardRate = StakerRewardRate;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -86,5 +81,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	crate::pallet::GenesisConfig::<Test>::default()
 		.assimilate_storage(&mut t)
 		.unwrap();
-	t.into()
+
+	let mut ext = sp_io::TestExternalities::from(t);
+	ext.execute_with(|| {
+		// Initialize budget rates: 85% stakers, 15% treasury
+		crate::StakerRewardRate::<Test>::put(Perbill::from_percent(85));
+		crate::TreasuryRate::<Test>::put(Perbill::from_percent(15));
+		crate::ValidatorIncentiveRate::<Test>::put(Perbill::from_percent(0));
+	});
+	ext
 }
