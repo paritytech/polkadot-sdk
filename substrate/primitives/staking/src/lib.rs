@@ -725,6 +725,69 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
+/// Trait for managing staking rewards across eras.
+///
+/// The provider is responsible for computing inflation, minting rewards, and managing era pot
+/// accounts.
+pub trait StakingRewardProvider<AccountId, Balance> {
+	/// Allocate rewards for a new era based on staking state and duration.
+	///
+	/// # Parameters
+	/// - `era`: The era index being finalized
+	/// - `total_staked`: Total amount staked in this era
+	/// - `era_duration_millis`: Duration of the era in milliseconds
+	///
+	/// # Returns
+	/// The amount allocated to stakers
+	fn allocate_era_rewards(era: EraIndex, total_staked: Balance, era_duration_millis: u64) -> Balance;
+
+	/// Check if an era has a pre-allocated reward pot.
+	///
+	/// Returns true if rewards for this era have been allocated via `allocate_era_rewards`.
+	/// Used by staking to distinguish between new eras (use provider) and old eras (legacy).
+	fn has_era_pot(era: EraIndex) -> bool;
+
+	/// Transfer reward from an era pot to a beneficiary.
+	///
+	/// Called by staking during staker payouts.
+	/// Returns error if the era pot doesn't exist.
+	fn transfer_era_reward(
+		era: EraIndex,
+		to: &AccountId,
+		amount: Balance,
+	) -> DispatchResult;
+
+	/// Clean up old era pot beyond history depth.
+	///
+	/// Called by staking at era start to clean up expired pots. Any unclaimed funds are moved to dap buffer pot.
+	fn cleanup_old_era_pot(era: EraIndex);
+}
+
+/// Default implementation that indicates no reward provider is configured.
+///
+/// This allows runtimes without a reward provider to continue using legacy on-demand minting.
+impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for () {
+	fn allocate_era_rewards(_era: EraIndex, _total_staked: Balance, _era_duration_millis: u64) -> Balance {
+		Default::default()
+	}
+
+	fn has_era_pot(_era: EraIndex) -> bool {
+		false
+	}
+
+	fn transfer_era_reward(
+		_era: EraIndex,
+		_to: &AccountId,
+		_amount: Balance,
+	) -> DispatchResult {
+		Err(DispatchError::Other("No reward provider configured"))
+	}
+
+	fn cleanup_old_era_pot(_era: EraIndex) {
+		// No-op for default implementation
+	}
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
 
 #[cfg(test)]
