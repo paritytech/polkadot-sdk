@@ -39,7 +39,7 @@ use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, EraPayout, OnStakingUpdate, SessionIndex,
+	currency_to_vote::SaturatingCurrencyToVote, EraPayoutV2, OnStakingUpdate, SessionIndex,
 	StakingAccount,
 };
 use std::collections::BTreeMap;
@@ -426,16 +426,13 @@ parameter_types! {
 	pub const MaxPruningItems: u32 = 100;
 }
 pub struct OneTokenPerMillisecond;
-impl EraPayout<Balance> for OneTokenPerMillisecond {
-	fn era_payout(
+impl EraPayoutV2<Balance> for OneTokenPerMillisecond {
+	fn era_payout_total(
 		_total_staked: Balance,
 		_total_issuance: Balance,
 		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		let total = era_duration_millis as Balance;
-		let remainder = RemainderRatio::get() * total;
-		let stakers = total - remainder;
-		(stakers, remainder)
+	) -> Balance {
+		era_duration_millis as Balance
 	}
 }
 
@@ -781,22 +778,23 @@ pub(crate) fn bond_virtual_nominator(
 }
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
-	let (payout, _rest) = OneTokenPerMillisecond::era_payout(
+	let total = OneTokenPerMillisecond::era_payout_total(
 		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
+	// DAP splits 85% to stakers (matching the hardcoded split in pallet-dap)
+	let payout = (total * 85) / 100;
 	assert!(payout > 0);
 	payout
 }
 
 pub(crate) fn total_payout_for(duration: u64) -> Balance {
-	let (payout, rest) = OneTokenPerMillisecond::era_payout(
+	OneTokenPerMillisecond::era_payout_total(
 		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
-	);
-	payout + rest
+	)
 }
 
 /// Time it takes to finish a session.

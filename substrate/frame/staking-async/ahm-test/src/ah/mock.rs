@@ -483,20 +483,19 @@ parameter_types! {
 }
 
 pub struct TestEraPayout;
-impl sp_staking::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
+impl sp_staking::EraPayoutV2<Balance> for TestEraPayout {
+	fn era_payout_total(
 		_total_staked: Balance,
 		_total_issuance: Balance,
 		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+	) -> Balance {
 		// Simple test implementation: return a fixed amount for testing
 		// If era_duration is 0 (e.g., activation_timestamp is None), use a default amount
-		let total = if era_duration_millis == 0 {
+		if era_duration_millis == 0 {
 			10_000 // Default test amount when duration is unknown
 		} else {
 			era_duration_millis as Balance
-		};
-		(total / 2, total / 2)
+		}
 	}
 }
 
