@@ -361,7 +361,7 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 		T::Currency::transfer(&pot_account, to, amount, Preservation::Expendable).inspect_err(
 			|e| {
 				// this will fail in test, log error in prod
-				defensive!("Transfer from era pot should never fail");
+				defensive!("Transfer from era pot failed with err: {:?}", e);
 				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraRewardTransferFailed {
 					era,
 					amount,
