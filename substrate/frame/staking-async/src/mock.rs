@@ -39,7 +39,8 @@ use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
+	currency_to_vote::SaturatingCurrencyToVote, EraPayout, OnStakingUpdate, SessionIndex,
+	StakingAccount,
 };
 use std::collections::BTreeMap;
 
@@ -119,6 +120,7 @@ parameter_types! {
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type EraPayout = OneTokenPerMillisecond;
 }
 
 parameter_types! {
@@ -446,7 +448,6 @@ impl crate::pallet::pallet::Config for Test {
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
-	type EraPayout = OneTokenPerMillisecond;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
 	type ElectionProvider = TestElectionProvider;
@@ -467,6 +468,7 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
+	type RewardProvider = Dap;
 	type WeightInfo = ();
 }
 
@@ -777,7 +779,7 @@ pub(crate) fn bond_virtual_nominator(
 }
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
-	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
+	let (payout, _rest) = OneTokenPerMillisecond::era_payout(
 		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
@@ -787,7 +789,7 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 }
 
 pub(crate) fn total_payout_for(duration: u64) -> Balance {
-	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
+	let (payout, rest) = OneTokenPerMillisecond::era_payout(
 		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
@@ -998,6 +1000,7 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
+	static DapEventsIndex: usize = 0;
 }
 
 pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
@@ -1007,6 +1010,16 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 		.collect();
 	let seen = StakingEventsIndex::get();
 	StakingEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub(crate) fn dap_events_since_last_call() -> Vec<pallet_dap::Event<Test>> {
+	let all: Vec<_> = System::events()
+		.into_iter()
+		.filter_map(|r| if let RuntimeEvent::Dap(inner) = r.event { Some(inner) } else { None })
+		.collect();
+	let seen = DapEventsIndex::get();
+	DapEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
 }
 

@@ -81,11 +81,11 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -736,6 +736,11 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Cleanup old era pot beyond history depth
+		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			T::RewardProvider::cleanup_old_era_pot(era_to_cleanup);
+		}
+
 		// Snapshot the current nominators slashable setting for this era.
 		// Cleanup will happen via lazy pruning at HistoryDepth.
 		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
@@ -827,7 +832,6 @@ impl<T: Config> Rotator<T> {
 
 	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
 		let staked = ErasTotalStake::<T>::get(ending_era.index);
-		let issuance = asset::total_issuance::<T>();
 
 		log!(
 			debug,
@@ -835,25 +839,20 @@ impl<T: Config> Rotator<T> {
 			ending_era.index,
 			era_duration
 		);
-		let (validator_payout, remainder) =
-			T::EraPayout::era_payout(staked, issuance, era_duration);
 
-		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		// Ask RewardProvider to allocate era rewards.
+		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
+		let validator_payout = T::RewardProvider::allocate_era_rewards(
+			ending_era.index,
+			staked,
+			era_duration,
+		);
 
-		// apply cap to validators payout and add difference to remainder.
-		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-		let remainder = total_payout.saturating_sub(validator_payout);
+		// Provider must return non-zero for new eras.
+		defensive_assert!(!validator_payout.is_zero(), "Reward provider must allocate non-zero reward");
 
-		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
-			era_index: ending_era.index,
-			validator_payout,
-			remainder,
-		});
-
-		// Set ending era reward.
+		// Set ending era reward (needed for payout calculation)
 		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
-		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
 	/// Plans a new era by kicking off the election process.

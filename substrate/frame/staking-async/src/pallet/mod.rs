@@ -1111,6 +1111,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
+		// Deprecated: Only emitted for `HistoryDepth` eras while transitioning to RewardProvider.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
