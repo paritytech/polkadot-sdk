@@ -977,33 +977,10 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	}
 }
 
-/// Handler for determining how much of a balance should be paid out on the current era.
-pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
-}
-
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
-
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
+impl<Balance, T> sp_staking::EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
 	T: Get<&'static PiecewiseLinear<'static>>,

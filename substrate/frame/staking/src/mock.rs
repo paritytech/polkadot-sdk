@@ -36,7 +36,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate, StakingAccount,
+	EraPayout, OnStakingUpdate, StakingAccount,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
