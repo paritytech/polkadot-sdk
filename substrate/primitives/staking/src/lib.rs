@@ -788,6 +788,30 @@ impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for 
 	}
 }
 
+/// Handler for determining how much of a balance should be paid out on the current era.
+pub trait EraPayout<Balance> {
+	/// Determine the payout for this era.
+	///
+	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
+	/// paid out ("the rest").
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance);
+}
+
+/// Default implementation that returns zero rewards.
+impl<Balance: Default> EraPayout<Balance> for () {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(Default::default(), Default::default())
+	}
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
 
 #[cfg(test)]
