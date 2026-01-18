@@ -455,9 +455,7 @@ impl<T: Config> Pallet<T> {
 				if era >= disable_era {
 					// This should never happen in production. It indicates a bug where an era
 					// pot wasn't created when it should have been.
-					defensive!(
-						"Era has no reward pot but legacy minting is disabled!"
-					);
+					defensive!("Era has no reward pot but legacy minting is disabled!");
 
 					return Err(Error::<T>::LegacyMintingDisabled.into());
 				}

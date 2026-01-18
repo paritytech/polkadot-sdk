@@ -1374,8 +1374,8 @@ pub mod pallet {
 		CancelledSlash,
 		/// Era reward pot not found and legacy minting is disabled.
 		///
-		/// This is an internal error caused by a potential bug. If observed, please create an issue
-		/// in `https://github.com/paritytech/polkadot-sdk/issues`.
+		/// This is an internal error caused by a potential bug. If observed, please create an
+		/// issue in `https://github.com/paritytech/polkadot-sdk/issues`.
 		LegacyMintingDisabled,
 	}
 

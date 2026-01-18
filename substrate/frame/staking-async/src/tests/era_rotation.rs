@@ -691,4 +691,3 @@ fn disable_legacy_minting_era_write_once_semantics() {
 		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(1));
 	});
 }
-
