@@ -37,7 +37,7 @@ use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
-use sp_runtime::{traits::Zero, BuildStorage, Weight};
+use sp_runtime::{traits::Zero, BuildStorage, Perbill, Weight};
 use sp_staking::{
 	currency_to_vote::SaturatingCurrencyToVote, EraPayoutV2, OnStakingUpdate, SessionIndex,
 	StakingAccount,
@@ -115,12 +115,14 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const StakerRewardRate: Perbill = Perbill::from_percent(50);
 }
 
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type EraPayout = OneTokenPerMillisecond;
+	type StakerRewardRate = StakerRewardRate;
 }
 
 parameter_types! {
@@ -783,8 +785,8 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
-	// DAP splits 85% to stakers (matching the hardcoded split in pallet-dap)
-	let payout = (total * 85) / 100;
+	// DAP allocates 50% of inflation to stakers
+	let payout = (total * 50) / 100;
 	assert!(payout > 0);
 	payout
 }

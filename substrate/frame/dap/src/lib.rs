@@ -38,10 +38,11 @@ mod tests;
 
 extern crate alloc;
 
+use frame_support::sp_runtime::Saturating;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	sp_runtime::{Perbill, Saturating},
+	sp_runtime::Perbill,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::Preservation,
@@ -100,6 +101,13 @@ pub mod pallet {
 		/// This is typically implemented in the runtime to provide the inflation curve logic.
 		/// Called by DAP to determine how much to mint for each era.
 		type EraPayout: EraPayoutV2<BalanceOf<Self>>;
+
+		/// Percentage of total era payout allocated to staker rewards.
+		///
+		/// This is the portion that goes into the staker era pot for distribution
+		/// to validators and nominators based on their stake.
+		#[pallet::constant]
+		type StakerRewardRate: Get<Perbill>;
 	}
 
 	#[pallet::event]
@@ -301,9 +309,8 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 			era_duration_millis,
 		);
 
-		// For now, keep the same 85/15 split as before
-		// TODO: This will be replaced with configurable rates (StakerRewardRate, ValidatorIncentiveRate, etc.)
-		let to_stakers = Perbill::from_percent(85) * total_payout;
+		// Split according to configured rates
+		let to_stakers = T::StakerRewardRate::get() * total_payout;
 		let to_treasury = total_payout.saturating_sub(to_stakers);
 
 		log::info!(

@@ -499,10 +499,15 @@ impl sp_staking::EraPayoutV2<Balance> for TestEraPayout {
 	}
 }
 
+parameter_types! {
+	pub const StakerRewardRate: sp_runtime::Perbill = sp_runtime::Perbill::from_percent(85);
+}
+
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type EraPayout = TestEraPayout;
+	type StakerRewardRate = StakerRewardRate;
 }
 
 parameter_types! {

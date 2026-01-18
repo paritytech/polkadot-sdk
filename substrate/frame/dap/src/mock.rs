@@ -19,7 +19,7 @@
 
 use crate::{self as pallet_dap, Config};
 use frame_support::{derive_impl, parameter_types, PalletId};
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = u128;
@@ -64,10 +64,15 @@ impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
 	}
 }
 
+parameter_types! {
+	pub const StakerRewardRate: Perbill = Perbill::from_percent(85);
+}
+
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type EraPayout = TestEraPayout;
+	type StakerRewardRate = StakerRewardRate;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
