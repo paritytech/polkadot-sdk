@@ -739,7 +739,11 @@ pub trait StakingRewardProvider<AccountId, Balance> {
 	///
 	/// # Returns
 	/// The amount allocated to stakers
-	fn allocate_era_rewards(era: EraIndex, total_staked: Balance, era_duration_millis: u64) -> Balance;
+	fn allocate_era_rewards(
+		era: EraIndex,
+		total_staked: Balance,
+		era_duration_millis: u64,
+	) -> Balance;
 
 	/// Check if an era has a pre-allocated reward pot.
 	///
@@ -751,15 +755,12 @@ pub trait StakingRewardProvider<AccountId, Balance> {
 	///
 	/// Called by staking during staker payouts.
 	/// Returns error if the era pot doesn't exist.
-	fn transfer_era_reward(
-		era: EraIndex,
-		to: &AccountId,
-		amount: Balance,
-	) -> DispatchResult;
+	fn transfer_era_reward(era: EraIndex, to: &AccountId, amount: Balance) -> DispatchResult;
 
 	/// Clean up old era pot beyond history depth.
 	///
-	/// Called by staking at era start to clean up expired pots. Any unclaimed funds are moved to dap buffer pot.
+	/// Called by staking at era start to clean up expired pots. Any unclaimed funds are moved to
+	/// dap buffer pot.
 	fn cleanup_old_era_pot(era: EraIndex);
 }
 
@@ -767,7 +768,11 @@ pub trait StakingRewardProvider<AccountId, Balance> {
 ///
 /// This allows runtimes without a reward provider to continue using legacy on-demand minting.
 impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for () {
-	fn allocate_era_rewards(_era: EraIndex, _total_staked: Balance, _era_duration_millis: u64) -> Balance {
+	fn allocate_era_rewards(
+		_era: EraIndex,
+		_total_staked: Balance,
+		_era_duration_millis: u64,
+	) -> Balance {
 		Default::default()
 	}
 
@@ -775,11 +780,7 @@ impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for 
 		false
 	}
 
-	fn transfer_era_reward(
-		_era: EraIndex,
-		_to: &AccountId,
-		_amount: Balance,
-	) -> DispatchResult {
+	fn transfer_era_reward(_era: EraIndex, _to: &AccountId, _amount: Balance) -> DispatchResult {
 		Err(DispatchError::Other("No reward provider configured"))
 	}
 

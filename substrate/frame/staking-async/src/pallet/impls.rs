@@ -439,7 +439,13 @@ impl<T: Config> Pallet<T> {
 		// out, so we do not need to count their payout op.
 		let nominator_payout_count: u32 = if T::RewardProvider::has_era_pot(era) {
 			// Transfer from reward provider pot
-			Self::payout_from_provider(era, &stash, validator_total, &exposure, validator_leftover_payout)
+			Self::payout_from_provider(
+				era,
+				&stash,
+				validator_total,
+				&exposure,
+				validator_leftover_payout,
+			)
 		} else {
 			// LEGACY: Only used to support old (History Depth) eras which are already finalised
 			// without reward provider impl.
@@ -464,11 +470,8 @@ impl<T: Config> Pallet<T> {
 		let mut nominator_payout_count: u32 = 0;
 
 		// Payout validator
-		if let Some((amount, dest)) = Self::make_payout_from_provider(
-			era,
-			&stash,
-			validator_payout,
-		) {
+		if let Some((amount, dest)) = Self::make_payout_from_provider(era, &stash, validator_payout)
+		{
 			Self::deposit_event(Event::<T>::RewardedFromProvider {
 				era,
 				stash: stash.clone(),
@@ -479,10 +482,8 @@ impl<T: Config> Pallet<T> {
 
 		// Payout nominators
 		for nominator in exposure.others().iter() {
-			let nominator_exposure_part =
-				Perbill::from_rational(nominator.value, exposure.total());
-			let nominator_reward: BalanceOf<T> =
-				nominator_exposure_part * total_nominator_payout;
+			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+			let nominator_reward: BalanceOf<T> = nominator_exposure_part * total_nominator_payout;
 
 			if let Some((amount, dest)) =
 				Self::make_payout_from_provider(era, &nominator.who, nominator_reward)
@@ -515,10 +516,7 @@ impl<T: Config> Pallet<T> {
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
 		// Payout validator
-		if let Some((imbalance, dest)) = Self::make_payout_legacy(
-			&stash,
-			validator_payout,
-		) {
+		if let Some((imbalance, dest)) = Self::make_payout_legacy(&stash, validator_payout) {
 			Self::deposit_event(Event::<T>::Rewarded {
 				stash: stash.clone(),
 				dest,
@@ -529,10 +527,8 @@ impl<T: Config> Pallet<T> {
 
 		// Payout nominators
 		for nominator in exposure.others().iter() {
-			let nominator_exposure_part =
-				Perbill::from_rational(nominator.value, exposure.total());
-			let nominator_reward: BalanceOf<T> =
-				nominator_exposure_part * total_nominator_payout;
+			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+			let nominator_reward: BalanceOf<T> = nominator_exposure_part * total_nominator_payout;
 
 			if let Some((imbalance, dest)) =
 				Self::make_payout_legacy(&nominator.who, nominator_reward)

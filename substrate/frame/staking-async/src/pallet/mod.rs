@@ -19,10 +19,9 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -257,7 +256,8 @@ pub mod pallet {
 
 		/// Provider for era reward allocation and transfers.
 		///
-		/// This handles allocating rewards at era start and pulling/transferring them during payouts.
+		/// This handles allocating rewards at era start and pulling/transferring them during
+		/// payouts.
 		#[pallet::no_default_bounds]
 		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
 
@@ -1119,8 +1119,8 @@ pub mod pallet {
 		},
 		/// The nominator has been rewarded by this amount to this destination.
 		///
-		/// NOTE: This event is emitted for legacy payouts (old eras where staking used to mint rewards).
-		/// For new eras that are paid via provider, see `RewardedFromProvider`.
+		/// NOTE: This event is emitted for legacy payouts (old eras where staking used to mint
+		/// rewards). For new eras that are paid via provider, see `RewardedFromProvider`.
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,

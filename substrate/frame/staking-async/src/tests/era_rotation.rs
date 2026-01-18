@@ -316,7 +316,14 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		// DAP emits EraRewardsAllocated for era 78
 		assert!(matches!(
 			&dap_events_since_last_call()[..],
-			&[.., pallet_dap::Event::EraRewardsAllocated { era: 78, staker_rewards: 7500, treasury_rewards: 7500 }]
+			&[
+				..,
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 78,
+					staker_rewards: 7500,
+					treasury_rewards: 7500
+				}
+			]
 		));
 		// All eras from 1 to current still present
 		assert_ok!(Eras::<T>::era_fully_present(1));
@@ -365,9 +372,21 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&dap_events_since_last_call()[..],
 			&[
 				..,
-				pallet_dap::Event::EraRewardsAllocated { era: 79, staker_rewards: 7500, treasury_rewards: 7500 },
-				pallet_dap::Event::EraRewardsAllocated { era: 80, staker_rewards: 7500, treasury_rewards: 7500 },
-				pallet_dap::Event::EraRewardsAllocated { era: 81, staker_rewards: 7500, treasury_rewards: 7500 }
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 79,
+					staker_rewards: 7500,
+					treasury_rewards: 7500
+				},
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 80,
+					staker_rewards: 7500,
+					treasury_rewards: 7500
+				},
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 81,
+					staker_rewards: 7500,
+					treasury_rewards: 7500
+				}
 			]
 		));
 
@@ -590,5 +609,4 @@ mod inflation {
 			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 		});
 	}
-
 }

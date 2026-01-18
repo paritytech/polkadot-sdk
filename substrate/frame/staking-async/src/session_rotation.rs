@@ -842,14 +842,14 @@ impl<T: Config> Rotator<T> {
 
 		// Ask RewardProvider to allocate era rewards.
 		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let validator_payout = T::RewardProvider::allocate_era_rewards(
-			ending_era.index,
-			staked,
-			era_duration,
-		);
+		let validator_payout =
+			T::RewardProvider::allocate_era_rewards(ending_era.index, staked, era_duration);
 
 		// Provider must return non-zero for new eras.
-		defensive_assert!(!validator_payout.is_zero(), "Reward provider must allocate non-zero reward");
+		defensive_assert!(
+			!validator_payout.is_zero(),
+			"Reward provider must allocate non-zero reward"
+		);
 
 		// Set ending era reward (needed for payout calculation)
 		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
