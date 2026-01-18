@@ -790,6 +790,18 @@ impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for 
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// # Deprecated
+///
+/// This trait is deprecated in favor of [`EraPayoutV2`]. The split between staker rewards
+/// and other payouts (validator incentives, treasury, etc.) should be handled by the reward
+/// provider (e.g., DAP pallet) rather than by the inflation calculation.
+///
+/// New implementations should use [`EraPayoutV2`] instead.
+#[deprecated(
+	note = "Use `EraPayoutV2` instead. Reward splitting should be handled by the reward provider, not the inflation
+	calculation."
+)]
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -803,6 +815,7 @@ pub trait EraPayout<Balance> {
 }
 
 /// Default implementation that returns zero rewards.
+#[allow(deprecated)]
 impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
@@ -810,6 +823,35 @@ impl<Balance: Default> EraPayout<Balance> for () {
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
+	}
+}
+
+/// V2 handler for determining era payouts.
+///
+/// This is the new version of [`EraPayout`] that returns a single total payout amount.
+/// The distribution between stakers, validator incentives, and other pots is handled
+/// by the reward provider (e.g., DAP pallet).
+///
+pub trait EraPayoutV2<Balance> {
+	/// Determine the total payout for this era.
+	///
+	/// Returns the total amount to be minted and distributed for this era.
+	/// The distribution logic (stakers vs treasury) is handled by the consumer of this trait.
+	fn era_payout_total(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> Balance;
+}
+
+/// Default implementation that returns zero rewards.
+impl<Balance: Default> EraPayoutV2<Balance> for () {
+	fn era_payout_total(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> Balance {
+		Default::default()
 	}
 }
 
