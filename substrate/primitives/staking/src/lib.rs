@@ -831,7 +831,6 @@ impl<Balance: Default> EraPayout<Balance> for () {
 /// This is the new version of [`EraPayout`] that returns a single total payout amount.
 /// The distribution between stakers, validator incentives, and other pots is handled
 /// by the reward provider (e.g., DAP pallet).
-///
 pub trait EraPayoutV2<Balance> {
 	/// Determine the total payout for this era.
 	///

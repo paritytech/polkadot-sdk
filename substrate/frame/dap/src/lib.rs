@@ -38,11 +38,10 @@ mod tests;
 
 extern crate alloc;
 
-use frame_support::sp_runtime::Saturating;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	sp_runtime::Perbill,
+	sp_runtime::{Perbill, Saturating},
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::Preservation,
