@@ -19,7 +19,7 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
 	ValidatorPrefs,
@@ -255,10 +255,11 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The payout for validators and the system for the current era.
-		/// See [Era payout](./index.html#era-payout).
-		#[pallet::no_default]
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		/// Provider for era reward allocation and transfers.
+		///
+		/// This handles allocating rewards at era start and pulling/transferring them during payouts.
+		#[pallet::no_default_bounds]
+		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -413,6 +414,7 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
+			type RewardProvider = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -1115,6 +1117,9 @@ pub mod pallet {
 			remainder: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.
+		///
+		/// NOTE: This event is emitted for legacy payouts (old eras where staking used to mint rewards).
+		/// For new eras that are paid via provider, see `RewardedFromProvider`.
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
@@ -1249,6 +1254,14 @@ pub mod pallet {
 		/// An old era with the given index was pruned.
 		EraPruned {
 			index: EraIndex,
+		},
+		/// The staker has been rewarded from a pre-allocated reward provider pot.
+		// This is essentially `RewardedV2`.
+		RewardedFromProvider {
+			era: EraIndex,
+			stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
 		},
 	}
 
