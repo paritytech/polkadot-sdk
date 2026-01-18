@@ -47,6 +47,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
@@ -631,6 +632,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 						sp_transaction_storage_proof::registration::new_data_provider(
 							&*client_clone,
 							&parent,
+							// Use `unwrap_or` in case the runtime api is not available.
+							client_clone.runtime_api().retention_period(parent).unwrap_or(100800),
 						)?;
 
 					Ok((slot, timestamp, storage_proof))
@@ -1018,10 +1021,14 @@ mod tests {
 					let proposer = proposer_factory.init(&parent_header).await.unwrap();
 					Proposer::propose(
 						proposer,
-						inherent_data,
-						digest,
-						std::time::Duration::from_secs(1),
-						None,
+						sp_consensus::ProposeArgs {
+							inherent_data,
+							inherent_digests: digest,
+							max_duration: std::time::Duration::from_secs(1),
+							block_size_limit: None,
+							storage_proof_recorder: None,
+							extra_extensions: Default::default(),
+						},
 					)
 					.await
 				})

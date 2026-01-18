@@ -72,7 +72,6 @@ use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::RelayParentOffsetApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -82,12 +81,14 @@ use polkadot_primitives::{
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, traits::SpawnNamed};
+use sp_core::{crypto::Pair, traits::SpawnEssentialNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member};
@@ -122,9 +123,11 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -169,13 +172,13 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	Spawner: SpawnNamed + Clone + 'static,
+	Spawner: SpawnEssentialNamed + Clone + 'static,
 {
 	let Params {
 		create_inherent_data_providers,
@@ -186,6 +189,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		code_hash_provider,
 		keystore,
 		collator_key,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,
@@ -221,6 +225,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_client,
 		code_hash_provider,
 		keystore,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,
@@ -234,12 +239,12 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	let block_builder_fut =
 		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
-	spawner.spawn_blocking(
+	spawner.spawn_essential_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),
 		block_builder_fut.boxed(),
 	);
-	spawner.spawn_blocking(
+	spawner.spawn_essential_blocking(
 		"slot-based-collation",
 		Some("slot-based-collator"),
 		collation_task_fut.boxed(),

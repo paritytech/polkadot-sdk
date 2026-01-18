@@ -80,7 +80,7 @@ pub trait ChainApi: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
 	/// Error type.
-	type Error: From<error::Error> + error::IntoPoolError;
+	type Error: From<error::Error> + error::IntoPoolError + error::IntoMetricsLabel;
 
 	/// Asynchronously verify extrinsic at given block.
 	async fn validate_transaction(

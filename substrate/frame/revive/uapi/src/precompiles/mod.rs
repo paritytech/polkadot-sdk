@@ -15,3 +15,6 @@
 pub mod storage;
 pub mod system;
 pub mod utils;
+
+/// The directory with all the precompile interface files.
+pub const INTERFACE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/sol/");

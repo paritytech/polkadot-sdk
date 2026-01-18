@@ -28,7 +28,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Cargo fmt
         id: required
         run: cargo +nightly fmt --all -- --check
@@ -43,7 +43,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: check dependency rules
         run: |
           cd substrate/
@@ -55,7 +55,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: fetch deps
         run: |
           # Pull all dependencies eagerly:
@@ -74,7 +74,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
@@ -84,7 +84,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: check toml format
         run: |
           taplo format --check --config .config/taplo.toml
@@ -94,7 +94,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
@@ -113,9 +113,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -138,7 +138,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: install python deps
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: Install newer Zepter
@@ -157,7 +157,7 @@ jobs:
 
           # Extract the umbrella crate version dynamically from cargo metadata
           UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.manifest_path | endswith("umbrella/Cargo.toml")) | .version')
-          
+
           if [ -z "$UMBRELLA_VERSION" ]; then
             echo "Warning: Could not determine umbrella version from cargo metadata, using fallback version 0.1.0"
             UMBRELLA_VERSION="0.1.0"
@@ -192,7 +192,7 @@ jobs:
       options: --user root
     steps:
       - name: Fetch latest code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Check
         run: |
           set +e
@@ -212,7 +212,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install prerequisites
         run: |
@@ -254,7 +254,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

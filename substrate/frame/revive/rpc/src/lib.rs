@@ -59,17 +59,26 @@ pub struct EthRpcServerImpl {
 
 	/// The accounts managed by the server.
 	accounts: Vec<Account>,
+
+	/// Controls if unprotected txs are allowed or not.
+	allow_unprotected_txs: bool,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
 	pub fn new(client: client::Client) -> Self {
-		Self { client, accounts: vec![] }
+		Self { client, accounts: vec![], allow_unprotected_txs: false }
 	}
 
 	/// Sets the accounts managed by the server.
 	pub fn with_accounts(mut self, accounts: Vec<Account>) -> Self {
 		self.accounts = accounts;
+		self
+	}
+
+	/// Sets whether unprotected transactions are allowed or not.
+	pub fn with_allow_unprotected_txs(mut self, allow_unprotected_txs: bool) -> Self {
+		self.allow_unprotected_txs = allow_unprotected_txs;
 		self
 	}
 }
@@ -145,9 +154,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
 	}
@@ -157,34 +167,70 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block).await?;
 		Ok(dry_run.data.into())
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
 		log::trace!(target: LOG_TARGET, "send_raw_transaction transaction: {transaction:?} ethereum_hash: {hash:?}");
+
+		if !self.allow_unprotected_txs {
+			let signed_transaction = TransactionSigned::decode(transaction.0.as_slice())
+				.map_err(|err| {
+					log::trace!(target: LOG_TARGET, "Transaction decoding failed. ethereum_hash: {hash:?}, error: {err:?}");
+					EthRpcError::InvalidTransaction
+				})?;
+
+			let is_chain_id_provided = match signed_transaction {
+				TransactionSigned::Transaction7702Signed(tx) =>
+					tx.transaction_7702_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction4844Signed(tx) =>
+					tx.transaction_4844_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction1559Signed(tx) =>
+					tx.transaction_1559_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction2930Signed(tx) =>
+					tx.transaction_2930_unsigned.chain_id != U256::zero(),
+				TransactionSigned::TransactionLegacySigned(tx) =>
+					tx.transaction_legacy_unsigned.chain_id.is_some(),
+			};
+
+			if !is_chain_id_provided {
+				log::trace!(target: LOG_TARGET, "Invalid Transaction: transaction doesn't include a chain-id. ethereum_hash: {hash:?}");
+				Err(EthRpcError::InvalidTransaction)?;
+			}
+		}
+
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to new block only when automine is enabled.
-		let receiver = self.client.tx_notifier().map(|sender| sender.subscribe());
+		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
-		let substrate_hash = self.client.submit(call).await.map_err(|err| {
+		self.client.submit(call).await.map_err(|err| {
 			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
 
-		log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} substrate_hash: {substrate_hash:?}");
+		log::trace!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
 			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
 				loop {
-					if let Ok(mined_hash) = receiver.recv().await {
-						if mined_hash == hash {
+					if let Ok(block_hash) = receiver.recv().await {
+						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+							log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
+							continue
+						};
+						let Some(evm_block) = self.client.evm_block(block, false).await else {
+							log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
+							continue
+						};
+						if evm_block.transactions.contains_tx(hash) {
 							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
 							break;
 						}
@@ -342,7 +388,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or_default().into())
+		Ok(bytes.unwrap_or([0u8; 32].into()).into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
@@ -430,7 +476,7 @@ impl EthRpcServerImpl {
 			)
 			.await
 		else {
-			return Ok(None)
+			return Ok(None);
 		};
 		let Some(signed_tx) = self.client.signed_tx_by_hash(&receipt.transaction_hash).await else {
 			return Ok(None);

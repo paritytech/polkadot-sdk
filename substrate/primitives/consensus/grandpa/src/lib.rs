@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
-	ConsensusEngineId, OpaqueValue, RuntimeDebug,
+	ConsensusEngineId, Debug, OpaqueValue,
 };
 
 /// The log target to be used by client code.
@@ -137,7 +137,7 @@ pub struct GrandpaJustification<Header: HeaderT> {
 }
 
 /// A scheduled change of authority set.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ScheduledChange<N> {
 	/// The new authorities after the change, along with their respective weights.
@@ -147,7 +147,7 @@ pub struct ScheduledChange<N> {
 }
 
 /// An consensus log item for GRANDPA.
-#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ConsensusLog<N: Codec> {
 	/// Schedule an authority set change.

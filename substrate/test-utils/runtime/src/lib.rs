@@ -54,7 +54,7 @@ use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
 
-use sp_core::{OpaqueMetadata, RuntimeDebug};
+use sp_core::OpaqueMetadata;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
 	PrefixedMemoryDB, StorageProof,
@@ -140,7 +140,7 @@ pub fn native_version() -> NativeVersion {
 }
 
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct TransferData {
 	pub from: AccountId,
 	pub to: AccountId,
@@ -275,9 +275,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-#[derive(
-	Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
 
 impl sp_runtime::traits::Printable for CheckSubstrateCall {
@@ -742,12 +740,13 @@ impl_runtime_apis! {
 				}.into(),
 			);
 			sp_io::offchain::submit_transaction(ext.encode()).unwrap();
+			Executive::offchain_worker(header);
 		}
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(None)
+		fn generate_session_keys(owner: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, None).into()
 		}
 
 		fn decode_session_keys(
@@ -821,6 +820,23 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<PresetId> {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
+		}
+	}
+
+	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+		fn validate_statement(
+			_source: sp_statement_store::runtime_api::StatementSource,
+			statement: sp_statement_store::Statement,
+		) -> Result<
+			sp_statement_store::runtime_api::ValidStatement,
+			sp_statement_store::runtime_api::InvalidStatement,
+		> {
+			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
+
+			match statement.verify_signature() {
+				sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
+			}
 		}
 	}
 }

@@ -44,10 +44,6 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-	use polkadot_primitives::{ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal};
-	use rstest::rstest;
-	use sp_core::ByteArray;
-
 	use crate::{
 		builder::{Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
@@ -62,10 +58,14 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		AvailabilityBitfield, CandidateDescriptorV2, CollatorId, CollatorSignature,
-		CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2, UncheckedSigned,
+		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, ClaimQueueOffset, CollatorId,
+		CollatorSignature, CommittedCandidateReceiptV2, CoreSelector, InternalVersion,
+		MutateDescriptorV2, UMPSignal, UncheckedSigned,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
+	use pretty_assertions::assert_eq;
+	use rstest::rstest;
+	use sp_core::ByteArray;
 	use sp_runtime::Perbill;
 
 	struct TestConfig {

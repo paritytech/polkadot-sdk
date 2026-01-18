@@ -677,6 +677,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
 		(**self).has_keys(public_keys)
 	}
+
+	fn sign_with(
+		&self,
+		id: KeyTypeId,
+		crypto_id: CryptoTypeId,
+		public: &[u8],
+		msg: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		(**self).sign_with(id, crypto_id, public, msg)
+	}
 }
 
 /// A shared pointer to a keystore implementation.

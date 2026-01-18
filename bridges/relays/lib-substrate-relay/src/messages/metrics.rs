@@ -51,12 +51,12 @@ where
 		.token_decimals()
 		.await?
 		.inspect(|token_decimals| {
-			log::info!(target: "bridge", "Read `tokenDecimals` for {}: {}", C::NAME, token_decimals);
+			tracing::info!(target: "bridge", node=%C::NAME, %token_decimals, "Read `tokenDecimals`");
 		})
 		.unwrap_or_else(|| {
 			// turns out it is normal not to have this property - e.g. when polkadot binary is
 			// started using `polkadot-local` chain. Let's use minimal nominal here
-			log::info!(target: "bridge", "Using default (zero) `tokenDecimals` value for {}", C::NAME);
+			tracing::info!(target: "bridge", node=%C::NAME, "Using default (zero) `tokenDecimals`");
 			0
 		});
 	let token_decimals = u32::try_from(token_decimals).map_err(|e| {

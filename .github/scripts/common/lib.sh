@@ -237,6 +237,38 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch rpm package from S3.
+fetch_rpm_package_from_s3() {
+  BINARY=$1
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  
+  echo "--- Preparing to fetch RPM package ---"
+  echo "Git Tag (VERSION):           $VERSION"
+  echo "Code Version (NODE_VERSION): $NODE_VERSION"
+  
+  URL_BASE=$(get_s3_url_base $BINARY)
+  
+  # CORRECTED FILENAME: Changed underscore to hyphen to match the uploaded file.
+  FILENAME="${BINARY}-${NODE_VERSION}-1.x86_64.rpm"
+  
+  URL="${URL_BASE}/${VERSION}/x86_64-unknown-linux-gnu/${FILENAME}"
+  
+  echo "Constructed URL:             $URL"
+  echo "------------------------------------"
+
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching rpm package..."
+
+  # This curl command will now succeed because the URL is correct.
+  curl --fail --progress-bar -LO "$URL"
+
+  echo "Download successful."
+  ls -al
+  popd > /dev/null
+}
+
 # Fetch deb package from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
