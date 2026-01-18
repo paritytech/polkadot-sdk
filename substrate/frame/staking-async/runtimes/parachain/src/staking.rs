@@ -445,7 +445,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type RewardProvider = Dap;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -480,6 +480,7 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type EraPayout = EraPayout;
 }
 
 parameter_types! {
