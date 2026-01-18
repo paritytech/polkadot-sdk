@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768695901400,
+  "lastUpdate": 1768778304535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bd646008920111d1dd5698dc73f45428f3227d31",
-          "message": "[Zombienet] changes for new runners (#8864)\n\nChanges for new CI runners.",
-          "timestamp": "2025-06-16T15:40:28Z",
-          "tree_id": "0e3bf0f3fe5df49c96e9a110573057454184745d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd646008920111d1dd5698dc73f45428f3227d31"
-        },
-        "date": 1750092016282,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012966870066666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022525918180000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1573487249866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008695628446666753,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1440461913533333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
+          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-18T22:09:56Z",
+          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
+        },
+        "date": 1768778280147,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987329793333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14331505650666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02307377845333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006867043533333331,
             "unit": "seconds"
           }
         ]
