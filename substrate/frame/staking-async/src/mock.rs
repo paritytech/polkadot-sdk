@@ -723,6 +723,8 @@ impl ExtBuilder {
 
 		ext.execute_with(|| {
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
+			// Disable legacy minting from era 0 in tests to catch missing era pots early
+			crate::DisableLegacyMintingEra::<Test>::put(0);
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {

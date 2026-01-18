@@ -853,6 +853,18 @@ impl<T: Config> Rotator<T> {
 
 		// Set ending era reward (needed for payout calculation)
 		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
+
+		// Update DisableLegacyMintingEra to prevent legacy minting.
+		// This only updates if the new value is lower than the existing one (write-once semantics)
+		// or if it hasn't been set yet. This ensures that once set in production, it can't be
+		// rolled back to re-enable legacy minting for future eras.
+		if !validator_payout.is_zero() {
+			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
+				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
+					*maybe_era = Some(ending_era.index);
+				}
+			});
+		}
 	}
 
 	/// Plans a new era by kicking off the election process.

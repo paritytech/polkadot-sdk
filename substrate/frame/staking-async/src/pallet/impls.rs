@@ -448,7 +448,21 @@ impl<T: Config> Pallet<T> {
 			)
 		} else {
 			// LEGACY: Only used to support old (History Depth) eras which are already finalised
-			// without reward provider impl.
+			// before reward provider impl.
+
+			// Check if legacy minting is disabled for this era
+			if let Some(disable_era) = DisableLegacyMintingEra::<T>::get() {
+				if era >= disable_era {
+					// This should never happen in production. It indicates a bug where an era
+					// pot wasn't created when it should have been.
+					defensive!(
+						"Era has no reward pot but legacy minting is disabled!"
+					);
+
+					return Err(Error::<T>::LegacyMintingDisabled.into());
+				}
+			}
+
 			Self::payout_legacy_mint(&stash, validator_total, &exposure, validator_leftover_payout)
 		};
 

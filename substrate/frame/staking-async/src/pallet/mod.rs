@@ -897,6 +897,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
 
+	/// Era after which legacy minting is permanently disabled.
+	///
+	/// Set to the first era where reward provider is active. Once set, this value can only be
+	/// updated to a lower value (ensuring write-once semantics in production).
+	///
+	/// We use this as a way to hard deprecate minting tokens in this pallet and depend on
+	/// [`Config::RewardProvider`] to transfer staking rewards.
+	#[pallet::storage]
+	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1362,6 +1372,11 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// Era reward pot not found and legacy minting is disabled.
+		///
+		/// This is an internal error caused by a potential bug. If observed, please create an issue
+		/// in `https://github.com/paritytech/polkadot-sdk/issues`.
+		LegacyMintingDisabled,
 	}
 
 	impl<T: Config> Pallet<T> {

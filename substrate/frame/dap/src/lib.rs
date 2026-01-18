@@ -308,10 +308,6 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 		// Create and fund the era pot account for stakers
 		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
 
-		// Explicitly add provider to prevent premature reaping when balance < ED
-		// Note: this is decremented and account is reaped when era is cleaned up.
-		frame_system::Pallet::<T>::inc_providers(&pot_account);
-
 		// Mint `to_stakers` into the era pot
 		if let Err(_e) = T::Currency::mint_into(&pot_account, to_stakers) {
 			// fail in tests, log in prod
@@ -321,6 +317,12 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 			// can't do much here, just return!
 			return Default::default();
 		}
+
+		// Explicitly add provider to prevent premature reaping when balance < ED.
+		// Note: Only increment after successful mint to avoid inconsistent state.
+		// It's reasonable to assume both minted amounts would be greater than ED.
+		// This is decremented and account is reaped when era is cleaned up.
+		frame_system::Pallet::<T>::inc_providers(&pot_account);
 
 		// Mint treasury portion into the buffer account
 		let buffer = Self::buffer_account();

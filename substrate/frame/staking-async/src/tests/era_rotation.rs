@@ -653,3 +653,42 @@ fn era_pot_cleanup_after_history_depth() {
 		assert_eq!(cleanup_events, 1);
 	});
 }
+
+#[test]
+fn disable_legacy_minting_era_updates_correctly() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: DisableLegacyMintingEra is set to 0 in test genesis
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(0));
+
+		// WHEN: Era 1 ends with non-zero reward allocation
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra remains at 0
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(0));
+	});
+}
+
+#[test]
+fn disable_legacy_minting_era_write_once_semantics() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Clear DisableLegacyMintingEra to simulate pre-migration state
+		DisableLegacyMintingEra::<Test>::kill();
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), None);
+
+		// WHEN: First era ends with rewards
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra is set to era 1
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(1));
+
+		// WHEN: More eras end
+		Session::roll_until_active_era(5);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra stays at 1 (not updated to higher values)
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(1));
+	});
+}
+
