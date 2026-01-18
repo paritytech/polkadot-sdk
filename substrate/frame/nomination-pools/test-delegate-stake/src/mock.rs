@@ -96,7 +96,7 @@ parameter_types! {
 
 /// A simple EraPayout implementation for testing that returns fixed values.
 pub struct TestEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+impl sp_staking::EraPayout<Balance> for TestEraPayout {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
