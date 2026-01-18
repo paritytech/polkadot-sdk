@@ -34,7 +34,6 @@ sp-staking = { features = ["serde"], workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
-pallet-dap = { optional = true, workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -60,7 +59,6 @@ std = [
 	"log/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
-	"pallet-dap?/std",
 	"pallet-staking-async-rc-client/std",
 	"rand/std",
 	"rand_chacha/std",
