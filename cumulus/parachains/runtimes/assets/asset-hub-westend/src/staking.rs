@@ -229,12 +229,12 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct EraPayout;
-impl sp_staking::EraPayout<Balance> for EraPayout {
-	fn era_payout(
+impl sp_staking::EraPayoutV2<Balance> for EraPayout {
+	fn era_payout_total(
 		_total_staked: Balance,
 		_total_issuance: Balance,
 		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+	) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		// A normal-sized era will have 1 / 365.25 here:
 		let relative_era_len =
@@ -246,11 +246,7 @@ impl sp_staking::EraPayout<Balance> for EraPayout {
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
 		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		era_emission.saturated_into()
 	}
 }
 
