@@ -58,9 +58,9 @@ impl KeyRange {
 		Self { start_key, end_key, prefix, page_size: DEFAULT_PAGE_SIZE, exclude_start_key: true }
 	}
 
-	/// Returns a new KeyRange with halved page size (minimum 10).
+	/// Returns a new KeyRange with halved page size (minimum 1).
 	pub(crate) fn with_halved_page_size(&self) -> Self {
-		Self { page_size: (self.page_size / 2).max(10), ..self.clone() }
+		Self { page_size: (self.page_size / 2).max(1), ..self.clone() }
 	}
 
 	/// Filter keys returned from RPC to only include keys within this range.
@@ -99,18 +99,24 @@ pub(crate) type WorkQueue = Arc<Mutex<VecDeque<KeyRange>>>;
 /// Generate 16 key ranges for parallel fetching by dividing the key space.
 ///
 /// Creates ranges by appending one nibble (4 bits) to the prefix.
-/// This gives us: 0x00, 0x10, 0x20, ..., 0xF0
+/// The first range starts at the prefix itself (to include the key at prefix),
+/// then continues with 0x10, 0x20, ..., 0xF0.
 pub(crate) fn gen_key_ranges(prefix: &StorageKey) -> Vec<KeyRange> {
 	let prefix_bytes = prefix.as_ref().to_vec();
 	let mut ranges = Vec::with_capacity(16);
 
 	for i in 0u8..16u8 {
-		let mut start_key = prefix_bytes.clone();
-		start_key.push(i << 4); // Shift nibble to upper 4 bits
+		let start_key = if i == 0 {
+			prefix_bytes.clone()
+		} else {
+			let mut start = prefix_bytes.clone();
+			start.push(i << 4);
+			start
+		};
 
 		let end_key = if i < 15 {
 			let mut end = prefix_bytes.clone();
-			end.push((i + 1) << 4); // Next nibble
+			end.push((i + 1) << 4);
 			Some(StorageKey(end))
 		} else {
 			None
@@ -231,10 +237,14 @@ mod tests {
 
 		assert_eq!(ranges.len(), 16);
 
-		// Check first range
-		assert_eq!(ranges[0].start_key, key(&[0xAB, 0xCD, 0x00]));
+		// First range starts at prefix itself to include key at prefix
+		assert_eq!(ranges[0].start_key, key(&[0xAB, 0xCD]));
 		assert_eq!(ranges[0].end_key, Some(key(&[0xAB, 0xCD, 0x10])));
 		assert!(!ranges[0].exclude_start_key);
+
+		// Second range starts at 0x10
+		assert_eq!(ranges[1].start_key, key(&[0xAB, 0xCD, 0x10]));
+		assert_eq!(ranges[1].end_key, Some(key(&[0xAB, 0xCD, 0x20])));
 
 		// Check middle range
 		assert_eq!(ranges[8].start_key, key(&[0xAB, 0xCD, 0x80]));
@@ -245,7 +255,7 @@ mod tests {
 		assert_eq!(ranges[15].end_key, None);
 
 		// Verify ranges are contiguous (no gaps, no overlaps)
-		for i in 0..15 {
+		for i in 1..15 {
 			assert_eq!(ranges[i].end_key, Some(ranges[i + 1].start_key.clone()));
 		}
 	}
@@ -256,7 +266,8 @@ mod tests {
 		let ranges = gen_key_ranges(&prefix);
 
 		assert_eq!(ranges.len(), 16);
-		assert_eq!(ranges[0].start_key, key(&[0x00]));
+		// First range starts at empty prefix to include root key
+		assert_eq!(ranges[0].start_key, key(&[]));
 		assert_eq!(ranges[0].end_key, Some(key(&[0x10])));
 		assert_eq!(ranges[15].start_key, key(&[0xF0]));
 		assert_eq!(ranges[15].end_key, None);
@@ -444,5 +455,61 @@ mod tests {
 
 		assert_eq!(filtered.len(), 3);
 		assert!(is_full_batch, "should be a full batch when page_size keys returned");
+	}
+
+	#[test]
+	fn subdivide_does_not_skip_keys_after_last_key() {
+		// Test that subdividing from 0x35 creates ranges that cover ALL keys from 0x35 onwards
+		// The concern is that we don't skip keys like 0x36, 0x37, 0x38, 0x39, 0x3A...0x3F
+		let prefix = key(&[0xAB]);
+		let second_last = key(&[0xAB, 0x12, 0x34]);
+		let last = key(&[0xAB, 0x12, 0x35]);
+
+		let ranges = subdivide_remaining_range(&second_last, &last, None, &prefix);
+
+		assert!(!ranges.is_empty(), "Should create at least one range");
+
+		// First range must start from last_key (or be a continuation that excludes it)
+		assert_eq!(ranges[0].start_key, last, "First range should start from last_key");
+		assert!(ranges[0].exclude_start_key, "First range should be a continuation");
+
+		// Verify the first range end key covers the gap to next nibble boundary
+		// If last_key is 0x35, the first range should extend to at least 0x40 to cover 0x36-0x3F
+		if let Some(first_end) = &ranges[0].end_key {
+			let last_byte = last.0.last().unwrap();
+			let next_upper_nibble = ((last_byte >> 4) + 1) << 4;
+
+			let mut expected_end = last.0[..last.0.len() - 1].to_vec();
+			expected_end.push(next_upper_nibble);
+
+			assert_eq!(
+				first_end.0, expected_end,
+				"First range should extend to next upper nibble boundary to avoid skipping keys"
+			);
+		}
+
+		// Verify all subsequent ranges are contiguous (no gaps)
+		for i in 0..ranges.len() - 1 {
+			if let Some(end) = &ranges[i].end_key {
+				assert_eq!(
+					*end,
+					ranges[i + 1].start_key,
+					"Ranges {} and {} should be contiguous (no gap)",
+					i,
+					i + 1
+				);
+			}
+		}
+
+		// Verify that a hypothetical key between last_key and next nibble boundary
+		// would fall within the first range
+		let test_key = key(&[0xAB, 0x12, 0x38]); // Should be covered by first range
+		assert!(test_key >= ranges[0].start_key, "Test key 0x38 should be >= first range start");
+		if let Some(first_end) = &ranges[0].end_key {
+			assert!(
+				test_key < *first_end,
+				"Test key 0x38 should be < first range end to ensure it's covered"
+			);
+		}
 	}
 }

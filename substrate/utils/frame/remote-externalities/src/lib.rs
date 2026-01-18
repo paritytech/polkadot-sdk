@@ -204,28 +204,13 @@ where
 
 	/// Fetch the state version from the runtime. Tries each client until one succeeds.
 	async fn fetch_state_version(&self) -> Result<StateVersion> {
-		let conn_manager = self.conn_manager()?;
-
-		for i in 0..conn_manager.num_clients() {
-			let client = conn_manager.get(i).await;
-			let result = with_timeout(
-				StateApi::<B::Hash>::runtime_version(client.ws_client.as_ref(), None),
-				RPC_TIMEOUT,
-			)
-			.await;
-
-			match result {
-				Ok(Ok(version)) => return Ok(version.state_version()),
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "Client {i}: runtime_version RPC error: {e:?}");
-				},
-				Err(()) => {
-					debug!(target: LOG_TARGET, "Client {i}: runtime_version timeout");
-				},
-			}
-		}
-
-		Err("rpc runtime_version failed on all clients")
+		self.with_any_client("runtime_version", |client| async move {
+			StateApi::<B::Hash>::runtime_version(&*client, None)
+				.await
+				.map(|v| v.state_version())
+		})
+		.await
+		.map_err(|_| "rpc runtime_version failed on all clients")
 	}
 
 	/// Get the latest finalized head. Tries each client until one succeeds.

@@ -107,7 +107,6 @@ pub(crate) async fn run_workers<W, F, Fut>(
 				};
 
 				let Some(work) = work else {
-					// Prevent creating a busy loop.
 					sleep(Duration::from_millis(100)).await;
 
 					let queue_len = work_queue.lock().unwrap().len();

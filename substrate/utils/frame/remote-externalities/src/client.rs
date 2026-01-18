@@ -34,11 +34,12 @@ pub(crate) async fn with_timeout<T, F: Future<Output = T>>(
 	tokio::time::timeout(timeout, future).await.map_err(|_| ())
 }
 
-/// A WebSocket client with version tracking for reconnection.
+/// A WebSocket client with reconnection tracking.
 #[derive(Debug, Clone)]
 pub(crate) struct Client {
 	pub(crate) ws_client: Arc<WsClient>,
-	pub(crate) version: u64,
+	/// Monotonically increasing counter to track reconnections and prevent redundant ones.
+	pub(crate) reconnection_count: u64,
 	uri: String,
 }
 
@@ -71,7 +72,8 @@ impl Client {
 		let result = with_timeout(Self::create_ws_client(&uri), RPC_TIMEOUT).await;
 
 		match result {
-			Ok(Ok(ws_client)) => Some(Self { ws_client: Arc::new(ws_client), version: 0, uri }),
+			Ok(Ok(ws_client)) =>
+				Some(Self { ws_client: Arc::new(ws_client), reconnection_count: 0, uri }),
 			Ok(Err(e)) => {
 				warn!(target: LOG_TARGET, "Connection to {uri} failed: {e}. Ignoring this URI.");
 				None
@@ -83,10 +85,9 @@ impl Client {
 		}
 	}
 
-	/// Recreate the WebSocket client using the stored URI if the version matches.
-	pub(crate) async fn recreate(&mut self, expected_version: u64) {
-		// Only recreate if version matches (prevents redundant reconnections)
-		if self.version > expected_version {
+	/// Recreate the WebSocket client using the stored URI if the reconnection_count matches.
+	pub(crate) async fn recreate(&mut self, expected_reconnection_count: u64) {
+		if self.reconnection_count > expected_reconnection_count {
 			return;
 		}
 
@@ -96,7 +97,7 @@ impl Client {
 		match result {
 			Ok(Ok(ws_client)) => {
 				self.ws_client = Arc::new(ws_client);
-				self.version = expected_version + 1;
+				self.reconnection_count = expected_reconnection_count + 1;
 			},
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Failed to recreate client for `{}`: {e}", self.uri);
@@ -109,6 +110,9 @@ impl Client {
 }
 
 /// Manages WebSocket client connections for parallel workers.
+///
+/// The number of clients is fixed at construction time and cannot change during operation,
+/// as workers are assigned to clients based on their index modulo the number of clients.
 #[derive(Clone)]
 pub(crate) struct ConnectionManager {
 	clients: Vec<Arc<tokio::sync::Mutex<Client>>>,
@@ -135,10 +139,10 @@ impl ConnectionManager {
 		client.clone()
 	}
 
-	/// Called when a request fails. Triggers client recreation if version matches.
+	/// Called when a request fails. Triggers client recreation if reconnection_count matches.
 	pub(crate) async fn recreate_client(&self, worker_index: usize, failed: Client) {
 		let client_index = worker_index % self.clients.len();
 		let mut client = self.clients[client_index].lock().await;
-		client.recreate(failed.version).await;
+		client.recreate(failed.reconnection_count).await;
 	}
 }
