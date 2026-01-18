@@ -120,6 +120,8 @@ fn cleanup_old_era_pot_transfers_to_buffer_and_removes_provider() {
 		assert_eq!(Balances::balance(&buffer), buffer_before + unclaimed);
 		// Cleanup removes all providers (minus 2)
 		assert_eq!(System::providers(&pot), 0);
+		// EraPotCleaned event is emitted with unclaimed amount
+		System::assert_has_event(Event::EraPotCleaned { era, unclaimed_rewards: unclaimed }.into());
 	});
 }
 

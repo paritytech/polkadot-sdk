@@ -19,6 +19,7 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	tests::session_mock::{CurrentIndex, Timestamp},
 };
+use frame_support::traits::fungible::Inspect as FungibleInspect;
 
 use super::*;
 
@@ -609,4 +610,48 @@ mod inflation {
 			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 		});
 	}
+}
+
+#[test]
+fn era_pot_cleanup_after_history_depth() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Start at era 2
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// Verify era-1 rewards were allocated
+		let dap_events = dap_events_since_last_call();
+		assert!(dap_events
+			.iter()
+			.any(|e| matches!(e, pallet_dap::Event::EraRewardsAllocated { era: 1, .. })));
+		// Track buffer balance before cleanup
+		let buffer = Dap::buffer_account();
+		let buffer_balance_before = Balances::balance(&buffer);
+
+		// era we expect to be cleaned up
+		let cleanup_era = 1;
+
+		// WHEN: Advance past HistoryDepth
+		// At era (1 + HistoryDepth + 1), era 1 should be cleaned up
+		// For HistoryDepth = 80: cleanup happens at era 82
+		let target_era = cleanup_era + HistoryDepth::get() + 1;
+		Session::roll_until_active_era(target_era);
+		let _ = staking_events_since_last_call();
+		let dap_events_after = dap_events_since_last_call();
+
+		// Verify many eras of rewards were allocated
+		let era_allocated_count = dap_events_after
+			.iter()
+			.filter(|e| matches!(e, pallet_dap::Event::EraRewardsAllocated { .. }))
+			.count();
+		assert_eq!(era_allocated_count as u32, HistoryDepth::get());
+
+		// THEN: era 1 is cleaned up and unclaimed rewards moved to buffer
+		let cleanup_events = dap_events_after
+			.iter()
+			.filter(|e| matches!(e, pallet_dap::Event::EraPotCleaned { era: 1, .. }))
+			.count();
+
+		assert_eq!(cleanup_events, 1);
+	});
 }

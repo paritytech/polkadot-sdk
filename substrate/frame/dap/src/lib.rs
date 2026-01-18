@@ -115,6 +115,15 @@ pub mod pallet {
 			/// Amount minted for treasury (deposited into buffer).
 			treasury_rewards: BalanceOf<T>,
 		},
+		/// Era pot cleaned up and unclaimed rewards moved to buffer.
+		///
+		/// Emitted when an old era pot with leftover balance is cleaned up.
+		EraPotCleaned {
+			/// Era index that was cleaned up.
+			era: EraIndex,
+			/// Amount of unclaimed rewards transferred to buffer.
+			unclaimed_rewards: BalanceOf<T>,
+		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind<T>),
 	}
@@ -395,6 +404,9 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 			let _ =
 				T::Currency::transfer(&pot_account, &buffer, remaining, Preservation::Expendable)
 					.defensive();
+
+			// Emit event only when there were actual unclaimed rewards
+			Self::deposit_event(Event::EraPotCleaned { era, unclaimed_rewards: remaining });
 		}
 
 		// Explicitly remove provider to allow account to be reaped
