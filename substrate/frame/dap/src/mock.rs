@@ -19,9 +19,10 @@
 
 use crate::{self as pallet_dap, Config};
 use frame_support::{derive_impl, parameter_types, PalletId};
-use sp_runtime::BuildStorage;
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+type AccountId = u128;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -34,6 +35,8 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 

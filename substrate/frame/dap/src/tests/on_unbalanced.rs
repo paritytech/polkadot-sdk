@@ -32,26 +32,26 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
 		// Given: buffer has ED (funded at genesis)
-		assert_eq!(Balances::free_balance(buffer), ed);
+		assert_eq!(Balances::free_balance(&buffer), ed);
 
 		// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
-		let credit1 = <Balances as Balanced<u64>>::issue(30);
+		let credit1 = Balances::issue(30);
 		DapPallet::on_unbalanced(credit1);
 
-		let credit2 = <Balances as Balanced<u64>>::issue(20);
+		let credit2 = Balances::issue(20);
 		DapPallet::on_unbalanced(credit2);
 
-		let credit3 = <Balances as Balanced<u64>>::issue(50);
+		let credit3 = Balances::issue(50);
 		DapPallet::on_unbalanced(credit3);
 
 		// Then: buffer has ED + all slashes (1 + 30 + 20 + 50 = 101)
-		assert_eq!(Balances::free_balance(buffer), ed + 100);
+		assert_eq!(Balances::free_balance(&buffer), ed + 100);
 
 		// When: slash with zero amount (no-op)
-		let credit = <Balances as Balanced<u64>>::issue(0);
+		let credit = Balances::issue(0);
 		DapPallet::on_unbalanced(credit);
 
 		// Then: buffer unchanged (still ED + 100)
-		assert_eq!(Balances::free_balance(buffer), ed + 100);
+		assert_eq!(Balances::free_balance(&buffer), ed + 100);
 	});
 }

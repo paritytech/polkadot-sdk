@@ -20,3 +20,4 @@
 mod genesis;
 mod migrations;
 mod on_unbalanced;
+mod reward_provider;
