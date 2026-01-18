@@ -248,12 +248,23 @@ fn max_era_duration_safety_guard() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid {
-					era_index: 1,
-					validator_payout: ideal_validator_payout,
-					remainder: ideal_treasury_payout
-				},
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
+			]
+		);
+		// DAP emits EraRewardsAllocated instead of staking's EraPaid
+		assert_eq!(
+			dap_events_since_last_call(),
+			vec![
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 0,
+					staker_rewards: ideal_validator_payout,
+					treasury_rewards: ideal_treasury_payout
+				},
+				pallet_dap::Event::EraRewardsAllocated {
+					era: 1,
+					staker_rewards: ideal_validator_payout,
+					treasury_rewards: ideal_treasury_payout
+				}
 			]
 		);
 
@@ -272,14 +283,17 @@ fn max_era_duration_safety_guard() {
 				// an event is emitted to indicate something unexpected happened, i.e. the era
 				// duration exceeded the `MaxEraDuration` limit.
 				Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded),
-				// the payouts are capped to the max values.
-				Event::EraPaid {
-					era_index: 2,
-					validator_payout: max_validator_payout,
-					remainder: max_treasury_payout
-				},
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
+		);
+		// DAP emits EraRewardsAllocated with capped values
+		assert_eq!(
+			dap_events_since_last_call(),
+			vec![pallet_dap::Event::EraRewardsAllocated {
+				era: 2,
+				staker_rewards: max_validator_payout,
+				treasury_rewards: max_treasury_payout
+			}]
 		);
 	});
 }
@@ -296,9 +310,13 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&[
 				..,
 				Event::SessionRotated { starting_session: 236, active_era: 78, planned_era: 79 },
-				Event::EraPaid { era_index: 78, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
+		));
+		// DAP emits EraRewardsAllocated for era 78
+		assert!(matches!(
+			&dap_events_since_last_call()[..],
+			&[.., pallet_dap::Event::EraRewardsAllocated { era: 78, staker_rewards: 7500, treasury_rewards: 7500 }]
 		));
 		// All eras from 1 to current still present
 		assert_ok!(Eras::<T>::era_fully_present(1));
@@ -322,7 +340,6 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&staking_events_since_last_call()[..],
 			&[
 				..,
-				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 7500 },
 				// NO EraPruned event - pruning is now manual
 				Event::SessionRotated { starting_session: 243, active_era: 81, planned_era: 81 }
 			]
@@ -339,9 +356,18 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&staking_events_since_last_call()[..],
 			&[
 				..,
-				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 7500 },
 				// NO EraPruned event - pruning is now manual
 				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
+			]
+		));
+		// DAP emits EraRewardsAllocated for eras 79, 80, 81
+		assert!(matches!(
+			&dap_events_since_last_call()[..],
+			&[
+				..,
+				pallet_dap::Event::EraRewardsAllocated { era: 79, staker_rewards: 7500, treasury_rewards: 7500 },
+				pallet_dap::Event::EraRewardsAllocated { era: 80, staker_rewards: 7500, treasury_rewards: 7500 },
+				pallet_dap::Event::EraRewardsAllocated { era: 81, staker_rewards: 7500, treasury_rewards: 7500 }
 			]
 		));
 

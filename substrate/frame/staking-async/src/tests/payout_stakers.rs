@@ -39,7 +39,6 @@ fn rewards_with_nominator_should_work() {
 
 		// Compute total payout now for whole duration of the session.
 		let validator_payout_0 = validator_payout_for(time_per_era());
-		let maximum_payout = total_payout_for(time_per_era());
 
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -877,7 +876,6 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
-		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
@@ -957,7 +955,6 @@ fn test_multi_page_payout_stakers_by_page() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-			let payout = validator_payout_for(time_per_era());
 			let total_payout = total_payout_for(time_per_era());
 			let pre_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
 
@@ -1075,7 +1072,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
-		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
@@ -1144,7 +1140,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-			let payout = validator_payout_for(time_per_era());
 			let total_payout = total_payout_for(time_per_era());
 			let pre_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
 
