@@ -82,7 +82,7 @@ mod benchmarks {
 			for i in 0..p {
 				T::Consideration::ensure_successful(&caller, i);
 				// Proposals should be different so that different proposal hashes are generated
-				let proposal: ProposalOf<T, I> =
+				let proposal: ProposalOf<T> =
 					SystemCall::<T>::remark { remark: id_to_remark_data(i, length) }.into();
 				Collective::<T, I>::propose(
 					SystemOrigin::Signed(caller.clone()).into(),
@@ -151,7 +151,7 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let proposal: ProposalOf<T, I> =
+		let proposal: ProposalOf<T> =
 			SystemCall::<T>::remark { remark: id_to_remark_data(1, b as usize) }.into();
 
 		#[extrinsic_call]
@@ -188,7 +188,7 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let proposal: ProposalOf<T, I> =
+		let proposal: ProposalOf<T> =
 			SystemCall::<T>::remark { remark: id_to_remark_data(1, b as usize) }.into();
 		let threshold = 1;
 
@@ -235,7 +235,7 @@ mod benchmarks {
 		for i in 0..p - 1 {
 			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -249,7 +249,7 @@ mod benchmarks {
 
 		T::Consideration::ensure_successful(&caller, p);
 
-		let proposal: ProposalOf<T, I> =
+		let proposal: ProposalOf<T> =
 			SystemCall::<T>::remark { remark: id_to_remark_data(p, b as usize) }.into();
 		#[extrinsic_call]
 		propose(
@@ -301,7 +301,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&proposer, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
@@ -387,7 +387,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&proposer, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
@@ -475,7 +475,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -570,7 +570,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -658,7 +658,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -734,7 +734,7 @@ mod benchmarks {
 		for i in 0..p {
 			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -793,7 +793,7 @@ mod benchmarks {
 			T::Consideration::ensure_successful(&caller, i);
 
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
@@ -857,7 +857,7 @@ mod benchmarks {
 			T::Consideration::ensure_successful(&caller, i);
 
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: ProposalOf<T, I> =
+			let proposal: ProposalOf<T> =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),

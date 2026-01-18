@@ -133,7 +133,6 @@ type CollectiveDeposit =
 
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -153,7 +152,6 @@ type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBas
 
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -181,7 +179,6 @@ type DefaultCollectiveDeposit =
 	deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;

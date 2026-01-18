@@ -327,7 +327,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -335,23 +335,19 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	/// A type alias for the runtime call type.
-	pub type ProposalOf<T, I> = <T as Config<I>>::RuntimeCall;
+	pub type ProposalOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
-		/// The runtime origin type.
-		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
-
-		/// The runtime call dispatch type.
-		///
-		/// This is the same as `frame_system::Config::RuntimeCall` but with explicit bounds
-		/// required by this pallet.
-		type RuntimeCall: Parameter
-			+ Dispatchable<
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config<
+			RuntimeCall: Dispatchable<
 				RuntimeOrigin = <Self as Config<I>>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
-			> + From<frame_system::Call<Self>>
-			+ GetDispatchInfo;
+			>,
+		>
+	{
+		/// The runtime origin type.
+		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
 
 		/// The runtime event type.
 		#[allow(deprecated)]
@@ -405,6 +401,10 @@ pub mod pallet {
 		/// balance under the `runtime-benchmarks` feature.
 		type Consideration: MaybeConsideration<Self::AccountId, u32>;
 
+		/// The preimage provider used to look up and store call preimages for proposals.
+		///
+		/// This enables the pallet to store proposal data using the preimage pallet, which
+		/// allows for efficient storage and retrieval of proposal call data.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
@@ -648,7 +648,7 @@ pub mod pallet {
 		))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			proposal: Box<ProposalOf<T, I>>,
+			proposal: Box<ProposalOf<T>>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -708,7 +708,7 @@ pub mod pallet {
 		pub fn propose(
 			origin: OriginFor<T>,
 			#[pallet::compact] threshold: MemberCount,
-			proposal: Box<ProposalOf<T, I>>,
+			proposal: Box<ProposalOf<T>>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -918,7 +918,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Execute immediately when adding a new proposal.
 	pub fn do_propose_execute(
-		proposal: Box<ProposalOf<T, I>>,
+		proposal: Box<ProposalOf<T>>,
 		length_bound: MemberCount,
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
 		let proposal_len = proposal.encoded_size();
@@ -945,7 +945,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn do_propose_proposed(
 		who: T::AccountId,
 		threshold: MemberCount,
-		proposal: Box<ProposalOf<T, I>>,
+		proposal: Box<ProposalOf<T>>,
 		length_bound: MemberCount,
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
@@ -1136,13 +1136,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		hash: &T::Hash,
 		length_bound: u32,
 		weight_bound: Weight,
-	) -> Result<(ProposalOf<T, I>, usize), DispatchError> {
+	) -> Result<(ProposalOf<T>, usize), DispatchError> {
 		let proposal_len = T::Preimages::len(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 
 		let bytes = T::Preimages::fetch(hash, Some(proposal_len))
 			.map_err(|_| Error::<T, I>::ProposalMissing)?;
-		let proposal = ProposalOf::<T, I>::decode(&mut &bytes[..])
+		let proposal = ProposalOf::<T>::decode(&mut &bytes[..])
 			.map_err(|_| Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
@@ -1167,7 +1167,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		seats: MemberCount,
 		yes_votes: MemberCount,
 		proposal_hash: T::Hash,
-		proposal: ProposalOf<T, I>,
+		proposal: ProposalOf<T>,
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
 
