@@ -19,7 +19,6 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	tests::session_mock::{CurrentIndex, Timestamp},
 };
-use frame_support::traits::fungible::Inspect as FungibleInspect;
 
 use super::*;
 
@@ -383,11 +382,13 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					staker_rewards: 7500,
 					treasury_rewards: 7500
 				},
+				pallet_dap::Event::EraPotCleaned { era: 0, .. },
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 81,
 					staker_rewards: 7500,
 					treasury_rewards: 7500
-				}
+				},
+				pallet_dap::Event::EraPotCleaned { era: 1, .. }
 			]
 		));
 
@@ -624,9 +625,6 @@ fn era_pot_cleanup_after_history_depth() {
 		assert!(dap_events
 			.iter()
 			.any(|e| matches!(e, pallet_dap::Event::EraRewardsAllocated { era: 1, .. })));
-		// Track buffer balance before cleanup
-		let buffer = Dap::buffer_account();
-		let buffer_balance_before = Balances::balance(&buffer);
 
 		// era we expect to be cleaned up
 		let cleanup_era = 1;
