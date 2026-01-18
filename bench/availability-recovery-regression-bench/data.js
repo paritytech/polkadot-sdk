@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768695872468,
+  "lastUpdate": 1768778270709,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "fdd9b43a9b9ca28c68f04b7f8cae9db5b2c04687",
-          "message": "Add doc for DHT bootnodes mechanism (#8865)\n\nAdd description of the RFC-8 \"DHT bootnodes\" implementation.\n\nRendered:\nhttps://github.com/paritytech/polkadot-sdk/blob/dm-dht-bootnodes-doc/docs/sdk/src/guides/dht_bootnodes.md",
-          "timestamp": "2025-06-17T08:45:58Z",
-          "tree_id": "89091993c5374d1cea4506ee415a5e7c832ac85a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fdd9b43a9b9ca28c68f04b7f8cae9db5b2c04687"
-        },
-        "date": 1750153418240,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19653708333333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.234130930666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.260889913466666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
+          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-18T22:09:56Z",
+          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
+        },
+        "date": 1768778245231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.509813719666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1311388004,
             "unit": "seconds"
           }
         ]
