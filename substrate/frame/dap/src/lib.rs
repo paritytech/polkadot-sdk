@@ -17,17 +17,17 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account is created at genesis with a provider reference
-//! and funded with the existential deposit (ED) to ensure it can receive deposits of any size.
+//! This pallet manages issuance and distribution of staking rewards through era pot accounts.
+//!
+//! ## Key Responsibilities:
+//!
+//! - **Slash Collection**: Implements `OnUnbalanced` to collect slashed funds into a buffer account
+//!   instead of burning them.
+//! - **Era Reward Management**: Implements `StakingRewardProvider` to mint and manage era reward
+//!   pot accounts that the staking implementation can pull for staker payouts.
 //!
 //! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
 //! migrations tuple.
-//!
-//! Future phases will add:
-//! - `FundingSource` (request_funds) for pulling funds
-//! - Issuance curve and minting logic
-//! - Distribution rules and scheduling
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,10 +43,12 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
-		Imbalance, OnUnbalanced,
+		tokens::Preservation,
+		Defensive, Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
+use sp_staking::{EraIndex, EraPayout, StakingRewardProvider};
 
 pub use pallet::*;
 
@@ -55,6 +57,16 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Type alias for balance.
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+/// Types of era-specific pot accounts.
+///
+/// Each variant represents a different category of era rewards.
+/// Note: The buffer account is global (not era-specific) and managed separately.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo)]
+pub enum EraPotType {
+	/// Staker rewards pot - pays validators and nominators proportionally based on stake.
+	Staker,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -69,7 +81,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
@@ -81,14 +93,60 @@ pub mod pallet {
 		/// DAP instances are used.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// Era payout implementation.
+		///
+		/// This is typically implemented in the runtime to provide the inflation curve logic.
+		/// Called by DAP to determine how much to mint for each era.
+		type EraPayout: EraPayout<BalanceOf<Self>>;
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Era rewards allocated and minted.
+		///
+		/// Emitted when a new era's rewards are computed and minted into the respective accounts.
+		EraRewardsAllocated {
+			/// Era index for which rewards were allocated.
+			era: EraIndex,
+			/// Amount minted for staker rewards (deposited into era pot).
+			staker_rewards: BalanceOf<T>,
+			/// Amount minted for treasury (deposited into buffer).
+			treasury_rewards: BalanceOf<T>,
+		},
+		/// An unexpected/defensive event was triggered.
+		Unexpected(UnexpectedKind<T>),
+	}
+
+	/// Defensive/unexpected errors/events.
+	///
+	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
+	pub enum UnexpectedKind<T: Config> {
+		/// Failed to mint era inflation.
+		EraMintFailed { era: EraIndex },
+		/// Insufficient funds in era pot to reward the beneficiary with `amount`.
+		EraRewardTransferFailed { era: EraIndex, amount: BalanceOf<T> },
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the DAP buffer account
-		/// NOTE: We may need more accounts in the future, for instance, to manage the strategic
-		/// reserve. We will add them as necessary, generating them with additional seed.
+		/// Get the DAP buffer account.
+		///
+		/// The buffer account collects:
+		/// - Slashed funds and other burns.
+		/// - Treasury portion of era rewards
+		/// - Unclaimed staker rewards
+		/// - Future strategic reserves
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Generate a pot account ID for a specific era and pot type.
+		///
+		/// Each era gets its own pot accounts derived from the pallet ID + era index + pot type.
+		pub fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating((era, pot_type))
 		}
 
 		/// Create the buffer account with a provider reference and fund it with ED.
@@ -212,5 +270,139 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+	}
+}
+
+/// Implementation of StakingRewardProvider for pallet-dap.
+impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn allocate_era_rewards(
+		era: EraIndex,
+		total_staked: BalanceOf<T>,
+		era_duration_millis: u64,
+	) -> BalanceOf<T> {
+		// Look up total issuance
+		let total_issuance = T::Currency::total_issuance();
+
+		// Compute era payout
+		let (to_stakers, to_treasury) = T::EraPayout::era_payout(
+			total_staked,
+			total_issuance,
+			// note: era_duration_millis already is defensively capped by staking implementation
+			era_duration_millis,
+		);
+
+		log::info!(
+			target: LOG_TARGET,
+			"💰 Era {era} allocation: to_stakers={to_stakers:?}, to_treasury={to_treasury:?}"
+		);
+
+		// Create and fund the era pot account for stakers
+		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
+
+		// Explicitly add provider to prevent premature reaping when balance < ED
+		// Note: this is decremented and account is reaped when era is cleaned up.
+		frame_system::Pallet::<T>::inc_providers(&pot_account);
+
+		// Mint `to_stakers` into the era pot
+		if let Err(_e) = T::Currency::mint_into(&pot_account, to_stakers) {
+			// fail in tests, log in prod
+			defensive!("Era Mint should never fail");
+			// trigger unexpected event for observability
+			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
+			// can't do much here, just return!
+			return Default::default();
+		}
+
+		// Mint treasury portion into the buffer account
+		let buffer = Self::buffer_account();
+		if let Err(_e) = T::Currency::mint_into(&buffer, to_treasury) {
+			// fail in tests, log in prod.
+			defensive!("Era Mint should never fail");
+			// trigger unexpected event for observability.
+			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
+			// move on as we were able to mint staker reward
+		}
+
+		Self::deposit_event(Event::EraRewardsAllocated {
+			era,
+			staker_rewards: to_stakers,
+			treasury_rewards: to_treasury,
+		});
+
+		// Return the amount allocated to stakers
+		to_stakers
+	}
+
+	fn has_era_pot(era: EraIndex) -> bool {
+		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
+		// Pot exists if it has providers
+		// (we add this explicitly at time of allocation, and remove at time of cleanup)
+		frame_system::Pallet::<T>::providers(&pot_account) > 0
+	}
+
+	fn transfer_era_reward(
+		era: EraIndex,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		// ensure pot exists
+		if !Self::has_era_pot(era) {
+			log::error!(
+				target: LOG_TARGET,
+				"🚨 Era {era} pot account not found or already cleaned up"
+			);
+
+			return Err(DispatchError::Other("Era pot not found"));
+		}
+
+		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
+
+		// Transfer from pot to beneficiary
+		T::Currency::transfer(&pot_account, to, amount, Preservation::Expendable).map_err(|e| {
+			// this will fail in test, log error in prod
+			defensive!("Transfer from era pot should never fail");
+			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraRewardTransferFailed {
+				era,
+				amount,
+			}));
+			e
+		})?;
+
+		log::debug!(
+			target: LOG_TARGET,
+			"💸 Transferred {amount:?} from era {era} pot to {to:?}"
+		);
+
+		Ok(())
+	}
+
+	fn cleanup_old_era_pot(era: EraIndex) {
+		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
+
+		// Check if pot exists
+		if !Self::has_era_pot(era) {
+			// Already cleaned up or never existed
+			return;
+		}
+
+		// Get remaining balance in pot (unclaimed rewards for the era)
+		let remaining = T::Currency::balance(&pot_account);
+
+		// Transfer any remaining funds to buffer (even if < ED)
+		if !remaining.is_zero() {
+			let buffer = Self::buffer_account();
+			let _ =
+				T::Currency::transfer(&pot_account, &buffer, remaining, Preservation::Expendable)
+					.defensive();
+		}
+
+		// Explicitly remove provider to allow account to be reaped
+		let _ = frame_system::Pallet::<T>::dec_providers(&pot_account)
+			.defensive_proof("Provider was added in allocate_era_rewards; qed");
+
+		log::debug!(
+			target: LOG_TARGET,
+			"✅ Cleaned up era {era} pot account (removed provider)"
+		);
 	}
 }

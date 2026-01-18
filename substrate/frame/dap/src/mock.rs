@@ -46,9 +46,25 @@ parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
 }
 
+/// Simple test EraPayout implementation.
+///
+/// Returns fixed amounts: 85% to stakers, 15% to treasury.
+pub struct TestEraPayout;
+impl sp_staking::EraPayout<u64> for TestEraPayout {
+	fn era_payout(
+		_total_staked: u64,
+		_total_issuance: u64,
+		_era_duration_millis: u64,
+	) -> (u64, u64) {
+		// Simple test: mint 100 total (85 to stakers, 15 to treasury)
+		(85, 15)
+	}
+}
+
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type EraPayout = TestEraPayout;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
