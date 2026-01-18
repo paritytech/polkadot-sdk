@@ -229,7 +229,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
+impl sp_staking::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
@@ -282,6 +282,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = Dap;
 	type Reward = ();
+	type RewardProvider = Dap;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -321,6 +322,7 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type EraPayout = EraPayout;
 }
 
 #[derive(Encode, Decode)]
