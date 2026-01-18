@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768656262596,
+  "lastUpdate": 1768695957696,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "donal.murray@parity.io",
-            "name": "Dónal Murray",
-            "username": "seadanda"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "20452a838f4f1970a407aea9e15ba7321684a704",
-          "message": "Allow RelaychainDataProvider set_block_number to be used in tests (#8537)\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-15T15:07:24Z",
-          "tree_id": "1c14e417a3e086902c0e82202b2ef5f749766a47",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20452a838f4f1970a407aea9e15ba7321684a704"
-        },
-        "date": 1750003688782,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044124132065999945,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033595933069999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038243584152,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b34ecf1ddd5d278147808df92e4f84ae19256d28",
+          "message": "Fix fee handling of pay-over-xcm trait(s) (#10831)\n\nChanged how pay-over-xcm is handling delivery fees. The old behavior was\neffectively allowing free delivery for any origin, and it was either\nburning innexistent tokens (noop at the end of the day), or it was\nminting \"protocol fees\" into the treasury account out of thin air.\n\nIn practice, the traits were always used with waived fees configuration\nso this bug was never exploitable in production, but it was there\nnonetheless.\n\nChanged transfer-over-xcm and pay-over-xcm implementations to use the\nruntime's XCM config, rather than custom Router and FeeHandler. This\nreduces the opportunity for misconfiguration since it relies on the\nmessage delivery and fee handling configurations consolidated at the\nruntime configuration level.\n\nWaived locations for some system pallets were also correctly configured\nto explicitly allow what was previously implicitly allowed by the buggy\ncode.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-01-17T23:14:48Z",
+          "tree_id": "533f00ea7490aa67f5f37b1f97e195797eaeb772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34ecf1ddd5d278147808df92e4f84ae19256d28"
+        },
+        "date": 1768695935731,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.03799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03832455967000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06549990828599994,
             "unit": "seconds"
           }
         ]
