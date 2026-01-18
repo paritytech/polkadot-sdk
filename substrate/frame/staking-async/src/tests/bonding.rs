@@ -1013,11 +1013,11 @@ fn bond_with_little_staked_value_bounded() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
+				Event::RewardedFromProvider { era: 1, stash: 11, dest: RewardDestination::Stash, amount: 2500 },
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 },
+				Event::RewardedFromProvider { era: 1, stash: 21, dest: RewardDestination::Staked, amount: 2500 },
 				Event::PayoutStarted { era_index: 1, validator_stash: 31, page: 0, next: None },
-				Event::Rewarded { stash: 31, dest: RewardDestination::Staked, amount: 2500 }
+				Event::RewardedFromProvider { era: 1, stash: 31, dest: RewardDestination::Staked, amount: 2500 }
 			]
 		);
 
@@ -1032,11 +1032,11 @@ fn bond_with_little_staked_value_bounded() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 2, validator_stash: 1, page: 0, next: None },
-				Event::Rewarded { stash: 1, dest: RewardDestination::Account(1), amount: 2500 },
+				Event::RewardedFromProvider { era: 2, stash: 1, dest: RewardDestination::Account(1), amount: 2500 },
 				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
+				Event::RewardedFromProvider { era: 2, stash: 11, dest: RewardDestination::Stash, amount: 2500 },
 				Event::PayoutStarted { era_index: 2, validator_stash: 21, page: 0, next: None },
-				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 }
+				Event::RewardedFromProvider { era: 2, stash: 21, dest: RewardDestination::Staked, amount: 2500 }
 			]
 		);
 

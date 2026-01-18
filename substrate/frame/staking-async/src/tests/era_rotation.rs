@@ -72,7 +72,6 @@ fn forcing_no_forcing_default() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -95,7 +94,6 @@ fn forcing_force_always() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -112,7 +110,6 @@ fn forcing_force_always() {
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					// by now it is given to mock session, and is buffered
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less. Note that we immediately plan the next era as well.
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 3 }
@@ -137,7 +134,6 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -155,7 +151,6 @@ fn forcing_force_new() {
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					// by now it is given to mock session, and is buffered
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less.
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
@@ -173,7 +168,6 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 13, active_era: 2, planned_era: 3 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 14, active_era: 2, planned_era: 3 },
-					Event::EraPaid { era_index: 2, validator_payout: 15000, remainder: 15000 },
 					Event::SessionRotated { starting_session: 15, active_era: 3, planned_era: 3 }
 				]
 			);
@@ -538,7 +532,6 @@ mod inflation {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -563,7 +556,6 @@ mod inflation {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -573,53 +565,4 @@ mod inflation {
 		});
 	}
 
-	#[test]
-	fn max_staked_rewards_works() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			// sets new max staked rewards through set_staking_configs.
-			assert_ok!(Staking::set_staking_configs(
-				RuntimeOrigin::root(),
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Set(Percent::from_percent(10)),
-				ConfigOp::Noop,
-			));
-
-			assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
-
-			// check validators account state.
-			assert_eq!(Session::validators().len(), 2);
-			assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
-
-			// balance of the mock treasury account is 0
-			assert_eq!(RewardRemainderUnbalanced::get(), 0);
-
-			Session::roll_until_active_era(2);
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
-					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
-					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 1500, remainder: 13500 },
-					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
-				]
-			);
-
-			let treasury_payout = RewardRemainderUnbalanced::get();
-			let validators_payout = ErasValidatorReward::<Test>::get(1).unwrap();
-			let total_payout = treasury_payout + validators_payout;
-
-			// total payout is the same
-			assert_eq!(total_payout, total_payout_for(time_per_era()));
-			// validators get only 10%
-			assert_eq!(validators_payout, Percent::from_percent(10) * total_payout);
-			// treasury gets 90%
-			assert_eq!(treasury_payout, Percent::from_percent(90) * total_payout);
-		})
-	}
 }

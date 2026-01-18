@@ -203,7 +203,6 @@ fn basic_setup_works() {
 				Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 1 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 1 },
-				Event::EraPaid { era_index: 0, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 3, active_era: 1, planned_era: 1 }
 			]
 		);
@@ -255,7 +254,6 @@ fn basic_setup_sessions_per_era() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -275,7 +273,6 @@ fn basic_setup_sessions_per_era() {
 					Event::SessionRotated { starting_session: 10, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 11, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 15000, remainder: 15000 },
 					Event::SessionRotated { starting_session: 12, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -1214,7 +1211,6 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 				vec![
 					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
-					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::OffenceReported {
 						validator: 11,
 						fraction: Perbill::from_percent(10),

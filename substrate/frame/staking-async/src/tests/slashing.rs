@@ -356,7 +356,6 @@ fn deferred_slashes_are_deferred() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -372,7 +371,6 @@ fn deferred_slashes_are_deferred() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -431,7 +429,6 @@ fn retroactive_deferred_slashes_two_eras_before() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 7500 },
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -490,7 +487,6 @@ fn retroactive_deferred_slashes_one_before() {
 					Event::SessionRotated { starting_session: 10, active_era: 3, planned_era: 4 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 11, active_era: 3, planned_era: 4 },
-					Event::EraPaid { era_index: 3, validator_payout: 7500, remainder: 7500 },
 					Event::SessionRotated { starting_session: 12, active_era: 4, planned_era: 4 }
 				]
 			);
