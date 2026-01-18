@@ -1482,12 +1482,18 @@ mod session_keys {
 	#[test]
 	fn set_keys_xcm_send_fails() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Validator and XCM delivery set to fail
+			// GIVEN: Validator with sufficient balance and XCM delivery set to fail
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
+
+			// Set a non-zero delivery fee to verify rollback
+			let delivery_fee: u128 = 100;
+			XcmDeliveryFee::set(delivery_fee);
+			let balance_before = Balances::free_balance(validator);
+
 			NextRelayDeliveryFails::set(true);
 
-			// WHEN: set_keys fails with XcmSendFailed
+			// WHEN: set_keys fails due to delivery failure
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
 				rc_client::Pallet::<T>::set_keys(
@@ -1497,6 +1503,13 @@ mod session_keys {
 					None,
 				),
 				rc_client::Error::<T>::XcmSendFailed
+			);
+
+			// AND: Balance is unchanged (fees were rolled back after delivery failure)
+			assert_eq!(
+				Balances::free_balance(validator),
+				balance_before,
+				"Fees should be rolled back when XCM delivery fails"
 			);
 		});
 	}
@@ -1798,15 +1811,28 @@ mod session_keys {
 	#[test]
 	fn purge_keys_xcm_send_fails() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Validator and XCM delivery set to fail
+			// GIVEN: Validator with sufficient balance and XCM delivery set to fail
 			let validator: AccountId = 5;
+
+			// Set a non-zero delivery fee to verify rollback
+			let delivery_fee: u128 = 100;
+			XcmDeliveryFee::set(delivery_fee);
+			let balance_before = Balances::free_balance(validator);
+
 			NextRelayDeliveryFails::set(true);
 
-			// WHEN: Validator purges sesion keys
+			// WHEN: Validator purges session keys
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
 				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
 				rc_client::Error::<T>::XcmSendFailed
+			);
+
+			// AND: Balance is unchanged (fees were rolled back after delivery failure)
+			assert_eq!(
+				Balances::free_balance(validator),
+				balance_before,
+				"Fees should be rolled back when XCM delivery fails"
 			);
 		});
 	}
