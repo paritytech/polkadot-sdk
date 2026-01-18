@@ -358,15 +358,16 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 		let pot_account = Self::era_pot_account(era, EraPotType::Staker);
 
 		// Transfer from pot to beneficiary
-		T::Currency::transfer(&pot_account, to, amount, Preservation::Expendable).map_err(|e| {
-			// this will fail in test, log error in prod
-			defensive!("Transfer from era pot should never fail");
-			Self::deposit_event(Event::Unexpected(UnexpectedKind::EraRewardTransferFailed {
-				era,
-				amount,
-			}));
-			e
-		})?;
+		T::Currency::transfer(&pot_account, to, amount, Preservation::Expendable).inspect_err(
+			|e| {
+				// this will fail in test, log error in prod
+				defensive!("Transfer from era pot should never fail");
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraRewardTransferFailed {
+					era,
+					amount,
+				}));
+			},
+		)?;
 
 		log::debug!(
 			target: LOG_TARGET,

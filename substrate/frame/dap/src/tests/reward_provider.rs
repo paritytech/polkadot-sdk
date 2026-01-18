@@ -53,12 +53,7 @@ fn allocate_era_rewards_creates_pot_with_provider() {
 		assert!(Dap::has_era_pot(era));
 		// EraRewardsAllocated event is emitted
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards, treasury_rewards: 15 }.into(),
 		);
 	});
 }
@@ -73,12 +68,8 @@ fn transfer_era_reward_depletes_pot() {
 
 		let total_rewards = Dap::allocate_era_rewards(era, 1000, 60_000);
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards: total_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards: total_rewards, treasury_rewards: 15 }
+				.into(),
 		);
 
 		let pot = Dap::era_pot_account(era, EraPotType::Staker);
@@ -106,12 +97,8 @@ fn cleanup_old_era_pot_transfers_to_buffer_and_removes_provider() {
 
 		let total_rewards = Dap::allocate_era_rewards(era, 1000, 60_000);
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards: total_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards: total_rewards, treasury_rewards: 15 }
+				.into(),
 		);
 
 		let pot = Dap::era_pot_account(era, EraPotType::Staker);
@@ -147,12 +134,7 @@ fn pot_account_preserved_below_ed() {
 
 		let staker_rewards = Dap::allocate_era_rewards(era, 1000, 60_000);
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards, treasury_rewards: 15 }.into(),
 		);
 
 		let pot = Dap::era_pot_account(era, EraPotType::Staker);
@@ -191,12 +173,8 @@ fn cleanup_zero_balance_pot() {
 
 		let total_rewards = Dap::allocate_era_rewards(era, 1000, 60_000);
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards: total_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards: total_rewards, treasury_rewards: 15 }
+				.into(),
 		);
 
 		let pot = Dap::era_pot_account(era, EraPotType::Staker);
@@ -229,12 +207,7 @@ fn treasury_rewards_go_to_buffer() {
 		assert_eq!(buffer_after - buffer_before, 15);
 		// EraRewardsAllocated event is emitted
 		System::assert_has_event(
-			Event::EraRewardsAllocated {
-				era,
-				staker_rewards,
-				treasury_rewards: 15,
-			}
-			.into(),
+			Event::EraRewardsAllocated { era, staker_rewards, treasury_rewards: 15 }.into(),
 		);
 	});
 }
@@ -247,7 +220,7 @@ fn cleanup_nonexistent_pot_is_noop() {
 		let pot = Dap::era_pot_account(era, EraPotType::Staker);
 		let providers_before = System::providers(&pot);
 
-		// WHEN: Attempting to cleanup nonexistent pot
+		// WHEN: Attempting to clean up nonexistent pot
 		Dap::cleanup_old_era_pot(era);
 
 		// THEN: Operation is a no-op (providers unchanged, no panic)
