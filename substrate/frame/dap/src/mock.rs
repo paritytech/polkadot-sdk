@@ -51,16 +51,16 @@ parameter_types! {
 
 /// Simple test EraPayout implementation.
 ///
-/// Returns fixed amounts: 85% to stakers, 15% to treasury.
+/// Returns fixed amount: 100 total.
 pub struct TestEraPayout;
-impl sp_staking::EraPayout<u64> for TestEraPayout {
-	fn era_payout(
+impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
+	fn era_payout_total(
 		_total_staked: u64,
 		_total_issuance: u64,
 		_era_duration_millis: u64,
-	) -> (u64, u64) {
-		// Simple test: mint 100 total (85 to stakers, 15 to treasury)
-		(85, 15)
+	) -> u64 {
+		// Simple test: mint 100 total
+		100
 	}
 }
 
