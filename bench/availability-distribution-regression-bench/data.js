@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768656197489,
+  "lastUpdate": 1768695901400,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "noreply@reusable.software",
-            "name": "ordian",
-            "username": "ordian"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da75e7db67ee4a08f3821ef552dc0ca47975cf66",
-          "message": "paras_inherent: fix overweight warn (#8861)\n\nFixes #8859 \n\nLong-term fix would be addressing #5520.",
-          "timestamp": "2025-06-16T13:28:13Z",
-          "tree_id": "3ea47a6d56b14f3ce033d5e3083f9f0b27d40f74",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/da75e7db67ee4a08f3821ef552dc0ca47975cf66"
-        },
-        "date": 1750085855104,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022674180573333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012974149320000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008779786546666751,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1576952955733334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022972901986666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b34ecf1ddd5d278147808df92e4f84ae19256d28",
+          "message": "Fix fee handling of pay-over-xcm trait(s) (#10831)\n\nChanged how pay-over-xcm is handling delivery fees. The old behavior was\neffectively allowing free delivery for any origin, and it was either\nburning innexistent tokens (noop at the end of the day), or it was\nminting \"protocol fees\" into the treasury account out of thin air.\n\nIn practice, the traits were always used with waived fees configuration\nso this bug was never exploitable in production, but it was there\nnonetheless.\n\nChanged transfer-over-xcm and pay-over-xcm implementations to use the\nruntime's XCM config, rather than custom Router and FeeHandler. This\nreduces the opportunity for misconfiguration since it relies on the\nmessage delivery and fee handling configurations consolidated at the\nruntime configuration level.\n\nWaived locations for some system pallets were also correctly configured\nto explicitly allow what was previously implicitly allowed by the buggy\ncode.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-01-17T23:14:48Z",
+          "tree_id": "533f00ea7490aa67f5f37b1f97e195797eaeb772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34ecf1ddd5d278147808df92e4f84ae19256d28"
+        },
+        "date": 1768695879040,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022954032446666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007018845959999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009843370799999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1440461913533333,
             "unit": "seconds"
           }
         ]
