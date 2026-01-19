@@ -252,28 +252,38 @@ pub trait EraPotAccountProvider<AccountId> {
 	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
 }
 
-/// Default implementation that panics - a proper implementation must be provided.
-impl<AccountId> EraPotAccountProvider<AccountId> for () {
-	fn era_pot_account(_era: EraIndex, _pot_type: EraPotType) -> AccountId {
-		panic!("No EraPotAccountProvider configured")
-	}
-}
-
-// CLAUDE: I think this can be just default implementation. Wdyt?
-/// Hash-based era pot account provider using a pallet ID.
+/// Seed-based pot account provider for production use.
 ///
-/// This is a generic implementation that runtimes can use by providing a `PalletId`.
-/// Account IDs are derived using `PalletId.into_sub_account_truncating(("erapot", era, pot_type))`.
-pub struct HashBasedEraPotAccountProvider<P>(core::marker::PhantomData<P>);
+/// Generates deterministic account IDs using a seed (typically a pallet ID).
+pub struct Seed<S>(core::marker::PhantomData<S>);
 
-impl<AccountId, P> EraPotAccountProvider<AccountId> for HashBasedEraPotAccountProvider<P>
+impl<AccountId, S> EraPotAccountProvider<AccountId> for Seed<S>
 where
 	AccountId: codec::FullCodec,
-	P: frame_support::traits::Get<frame_support::PalletId>,
+	S: Get<frame_support::PalletId>,
 {
 	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
 		use sp_runtime::traits::AccountIdConversion;
-		P::get().into_sub_account_truncating(("erapot", era, pot_type))
+		S::get().into_sub_account_truncating((era, pot_type))
+	}
+}
+
+/// Sequential pot account provider for testing.
+///
+/// Generates simple sequential account IDs for predictable testing.
+/// Base 100_000: era 0 → 100000, 100001; era 1 → 100010, 100011, etc.
+pub struct SequentialTest;
+
+impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		let pot_type_offset = match pot_type {
+			EraPotType::StakerRewards => 0,
+			EraPotType::ValidatorSelfStake => 1,
+		};
+		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
 	}
 }
 

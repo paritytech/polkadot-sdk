@@ -267,9 +267,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
 
-		/// The pallet ID used for deriving pot accounts for this pallet.
-		#[pallet::constant]
-		type PalletId: Get<frame_support::PalletId>;
+		/// Provider for generating era pot account IDs.
+		///
+		/// Use [`crate::Seed`] in production with a pallet ID.
+		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
+		#[pallet::no_default_bounds]
+		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -378,13 +381,6 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 		>;
 
-		/// Provider for generating era pot account IDs.
-		///
-		/// Defaults to hash-based derivation using `PalletId`.
-		/// Can be overridden for testing with predictable account IDs.
-		#[pallet::no_default_bounds]
-		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
-
 		#[pallet::no_default_bounds]
 		/// Filter some accounts from participating in staking.
 		///
@@ -434,8 +430,7 @@ pub mod pallet {
 			type Reward = ();
 			type RewardProvider = ();
 			type UnclaimedRewardSink = ();
-			type PalletId = StakingAsyncPalletId;
-			type EraPotAccountProvider = crate::DefaultEraPotAccountProvider<Self>;
+			type EraPotAccountProvider = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
