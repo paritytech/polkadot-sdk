@@ -8,10 +8,12 @@ doc:
 crates:
 - name: pallet-multi-asset-bounties
   bump: major
+  validate: false
 - name: parachains-common
   bump: minor
 - name: asset-hub-westend-runtime
   bump: patch
+  validate: false
 - name: frame-support
   bump: minor
 - name: kitchensink-runtime
