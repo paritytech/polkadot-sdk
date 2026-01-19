@@ -725,29 +725,40 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
+/// Allocation breakdown for era rewards among stakers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EraRewardAllocation<Balance> {
+	/// Amount allocated to stakers (nominators + validator stake rewards).
+	pub staker_rewards: Balance,
+	/// Amount allocated to validator self-stake incentive.
+	pub validator_incentive: Balance,
+}
+
 /// Trait for managing staking rewards across eras.
 ///
-/// The provider is responsible for computing inflation, minting rewards, and funding the
-/// staking system account for each era.
+/// The provider is responsible for computing inflation, minting rewards, and funding
+/// separate pot accounts for different reward categories.
 pub trait StakingRewardProvider<AccountId, Balance> {
 	/// Allocate rewards for a new era based on staking state and duration.
 	///
-	/// The provider should mint the computed rewards and fund the provided `system_account`.
+	/// The provider should mint the computed rewards and fund the provided pot accounts.
 	///
 	/// # Parameters
-    /// - `era`: The era index being finalized
+	/// - `era`: The era index being finalized
 	/// - `total_staked`: Total amount staked in this era
 	/// - `era_duration_millis`: Duration of the era in milliseconds
-	/// - `system_account`: The staking system account to fund with staker rewards
+	/// - `staker_pot`: The pot account to fund with staker rewards
+	/// - `validator_incentive_pot`: The pot account to fund with validator self-stake incentive
 	///
 	/// # Returns
-	/// The amount allocated to stakers (funded into `system_account`)
+	/// The allocation breakdown showing amounts minted into each pot
 	fn allocate_era_rewards(
 		era: EraIndex,
 		total_staked: Balance,
 		era_duration_millis: u64,
-		system_account: &AccountId,
-	) -> Balance;
+		staker_pot: &AccountId,
+		validator_incentive_pot: &AccountId,
+	) -> EraRewardAllocation<Balance>;
 }
 
 /// Trait for receiving unclaimed staking rewards.
@@ -763,6 +774,14 @@ pub trait UnclaimedRewardSink<AccountId> {
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// **Deprecated**: Use [`EraPayoutV2`] instead. This trait returns a tuple where the second value
+/// (remainder) is no longer used by latest DAP implementations. The new `EraPayoutV2` trait
+/// returns only the total era inflation, with the distribution handled by the reward provider.
+#[deprecated(
+	note = "Use `EraPayoutV2` instead. The remainder value is no longer used; reward distribution \
+	is handled by the reward provider."
+)]
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -776,6 +795,7 @@ pub trait EraPayout<Balance> {
 }
 
 /// Default implementation that returns zero rewards.
+#[allow(deprecated)]
 impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
@@ -783,6 +803,57 @@ impl<Balance: Default> EraPayout<Balance> for () {
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
+	}
+}
+
+/// Handler for determining the total era inflation.
+///
+/// This replaces `EraPayout`. Instead of returning a pre-split staker/remainder tuple, this trait
+/// returns only the total era inflation amount.
+///
+/// The reward provider (e.g., pallet-dap) is responsible for splitting this amount according to
+/// configured budget allocations.
+pub trait EraPayoutV2<Balance> {
+	/// Determine the total inflation for this era.
+	///
+	/// Returns the total amount to be minted for this era. The distribution of this amount
+	/// (e.g., to stakers, validators, treasury) is handled by the reward provider based on
+	/// its configured budget allocation.
+	///
+	/// # Parameters
+	/// - `total_staked`: Total amount staked in the network
+	/// - `total_issuance`: Total token issuance
+	/// - `era_duration_millis`: Duration of the era in milliseconds
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> Balance;
+}
+
+/// Backward compatibility adapter: implements `EraPayoutV2` for any type that implements
+/// `EraPayout`.
+///
+/// This adapter sums both values from the old `EraPayout` trait (staker amount + remainder)
+/// to produce the total inflation for `EraPayoutV2`. This allows old `EraPayout` implementations
+/// to work with new code that expects `EraPayoutV2`.
+///
+/// Note: This includes the `()` type, which returns `(Default, Default)` from `EraPayout`,
+/// summing to `Default` for `EraPayoutV2`.
+#[allow(deprecated)]
+impl<T, Balance> EraPayoutV2<Balance> for T
+where
+	T: EraPayout<Balance>,
+	Balance: Add<Output = Balance>,
+{
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> Balance {
+		let (staker_payout, remainder) =
+			<T as EraPayout<Balance>>::era_payout(total_staked, total_issuance, era_duration_millis);
+		staker_payout + remainder
 	}
 }
 
