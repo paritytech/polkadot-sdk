@@ -49,6 +49,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
+use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 
 pub use pallet::*;
 
@@ -106,8 +107,6 @@ impl BudgetConfig {
 	///
 	/// Returns true if the configuration is valid, false otherwise.
 	pub fn is_valid(&self) -> bool {
-		use sp_runtime::traits::CheckedAdd;
-
 		let Some(partial) = self.staker_rewards.checked_add(&self.validator_self_stake_incentive)
 		else {
 			return false;
@@ -180,9 +179,11 @@ pub mod pallet {
 		EraRewardsAllocated {
 			/// Era index for which rewards were allocated.
 			era: EraIndex,
-			/// Amount minted for staker rewards (deposited into era pot).
+			/// Amount minted for staker rewards (nominators + validator stake rewards).
 			staker_rewards: BalanceOf<T>,
-			/// Amount minted for buffer/treasury (includes validator incentive + remainder).
+			/// Amount minted for validator incentive.
+			validator_incentive: BalanceOf<T>,
+			/// Amount minted for buffer (treasury, strategic reserve, operational costs).
 			buffer_rewards: BalanceOf<T>,
 		},
 		/// Budget allocation configuration was updated.
@@ -203,7 +204,6 @@ pub mod pallet {
 		EraMintFailed { era: EraIndex },
 	}
 
-	// claude: what does this do? Can you explain?
 	#[pallet::type_value]
 	pub fn DefaultBudgetConfig() -> BudgetConfig {
 		BudgetConfig::default_config()
@@ -219,7 +219,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Budget allocation configuration is invalid (percentages exceed 100%).
+		/// Budget allocation configuration is invalid (percentages do not add upto 100%).
 		InvalidBudgetConfig,
 	}
 
@@ -228,10 +228,10 @@ pub mod pallet {
 		/// Set the budget allocation configuration.
 		///
 		/// Updates how era emission is distributed across different categories.
-		/// The configuration must be valid (all percentages sum to ≤ 100%).
+		/// The configuration must be valid (all percentages sum to == 100%).
 		///
 		/// # Errors
-		/// - `InvalidBudgetConfig` if percentages sum to > 100%
+		/// - `InvalidBudgetConfig` if percentages sum to != 100%
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
 		pub fn set_budget_allocation(
@@ -257,7 +257,7 @@ pub mod pallet {
 		/// - Slashed funds and other burns.
 		/// - Treasury portion of era rewards
 		/// - Unclaimed staker rewards
-		/// - Future strategic reserves
+		/// - Part of era emission based on [`BudgetConfig`].
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
@@ -310,7 +310,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_phantom: core::marker::PhantomData<T>,
+		_phantom: PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -386,7 +386,6 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-/// Implementation of StakingRewardProvider for pallet-dap.
 impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn allocate_era_rewards(
 		era: EraIndex,
@@ -410,14 +409,18 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 		let budget = BudgetAllocation::<T>::get();
 
 		// Split total inflation according to budget configuration
-		use sp_runtime::traits::Zero;
 		let to_stakers = budget.staker_rewards.mul_floor(total_inflation);
 		let to_validator_incentive = budget.validator_self_stake_incentive.mul_floor(total_inflation);
-		let to_buffer = budget.buffer.mul_floor(total_inflation);
+
+		// Buffer gets the remainder to ensure all inflation is minted (no rounding dust lost)
+		let to_buffer = total_inflation
+			.saturating_sub(to_stakers)
+			.saturating_sub(to_validator_incentive);
 
 		log::info!(
 			target: LOG_TARGET,
-			"💰 Era {era} allocation: total={total_inflation:?}, stakers={to_stakers:?}, validator_incentive={to_validator_incentive:?}, buffer={to_buffer:?}"
+			"💰 Era {era} allocation: total={total_inflation:?}, stakers={to_stakers:?}, \
+			validator_incentive={to_validator_incentive:?}, buffer={to_buffer:?}"
 		);
 
 		// Mint staker rewards into the staker pot
@@ -452,10 +455,10 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 			}
 		}
 
-		// Event now reports buffer_rewards as just the buffer portion (not including validator incentive)
 		Self::deposit_event(Event::EraRewardsAllocated {
 			era,
 			staker_rewards: to_stakers,
+			validator_incentive: to_validator_incentive,
 			buffer_rewards: to_buffer,
 		});
 
