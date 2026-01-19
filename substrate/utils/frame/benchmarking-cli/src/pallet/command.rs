@@ -26,7 +26,6 @@ use crate::{
 		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
 	},
 };
-use std::time::Duration;
 use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
@@ -60,6 +59,7 @@ use std::{
 	fs,
 	str::FromStr,
 	time,
+	time::Duration,
 };
 
 type SubstrateAndExtraHF<T> = (
@@ -430,7 +430,7 @@ impl PalletCmd {
 			};
 
 			// Ensure each benchmark runs for at least 60 seconds.
-			let start = time::Instant::now();					
+			let start = time::Instant::now();
 			let deadline = start + Duration::from_secs(self.min_duration);
 			let mut first = true;
 
@@ -530,7 +530,7 @@ impl PalletCmd {
 					}
 
 					// Finally run a bunch of loops to get extrinsic timing information.
-					let state = &state_without_tracking;					
+					let state = &state_without_tracking;
 					let batch = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
 						_,
@@ -569,7 +569,8 @@ impl PalletCmd {
 						progress_timer = time::SystemTime::now();
 
 						let msg = if first {
-							format!("{}/{}",
+							format!(
+								"{}/{}",
 								s + 1, // s starts at 0.
 								all_components.len()
 							)
