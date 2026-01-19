@@ -308,7 +308,7 @@ where
 			) {
 				Ok(_) => {
 					// Success: migrate to new storage with hold
-					Accounts::<T>::insert(index, (account, reserve_to_migrate, frozen));
+					Accounts::<T>::insert(index, (account, hold_amount, frozen));
 				},
 				Err(_) => {
 					// Failed: preserve index with zero deposit
