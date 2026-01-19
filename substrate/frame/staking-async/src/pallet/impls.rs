@@ -63,6 +63,7 @@ use super::pallet::*;
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
+use crate::reward::EraRewardManager;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
@@ -441,16 +442,9 @@ impl<T: Config> Pallet<T> {
 		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
 		// out, so we do not need to count their payout op.
 
-		// Claude: can you extract it in a single function? Maybe like how we did with Eras in session rotation file
-		// we could create some budget struct that manages all this account. I think that would be great actually because
-		// when we start implementing validator incentive, things will get more complex so lets design it well.
-		// Check if era has a reward pot by checking if the pot account has providers
-		let era_pot_account =
-			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
-		let has_era_pot = frame_system::Pallet::<T>::providers(&era_pot_account) > 0;
-
-		let nominator_payout_count: u32 = if has_era_pot {
-			// Transfer from reward provider pot
+		// Check if this era has a staker rewards pot
+		let nominator_payout_count: u32 = if EraRewardManager::<T>::has_staker_rewards_pot(era) {
+			// Transfer from staker rewards pot
 			Self::payout_from_provider(
 				era,
 				&stash,
@@ -610,21 +604,20 @@ impl<T: Config> Pallet<T> {
 			RewardDestination::Controller => Self::bonded(stash)?,
 		};
 
-		// CLAUDE: lets clearly call it staker era pot or something? So we should use consistent
-		// naming pattern for these two pots. Whats the best name to refer them everywhere?
-		// Transfer from era pot to destination
-		let era_pot_account =
+		// Transfer from staker rewards pot to destination.
+		// This pot holds rewards for both nominators and the validator's staked amount.
+		let staker_rewards_pot =
 			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
 		use frame_support::traits::{fungible::Mutate, tokens::Preservation};
 		if let Err(e) = T::Currency::transfer(
-			&era_pot_account,
+			&staker_rewards_pot,
 			&payout_account,
 			amount,
 			Preservation::Expendable,
 		) {
 			log!(
 				error,
-				"Failed to transfer reward from era pot for era {:?}, stash {:?}: {:?}",
+				"Failed to transfer reward from staker rewards pot for era {:?}, stash {:?}: {:?}",
 				era,
 				stash,
 				e

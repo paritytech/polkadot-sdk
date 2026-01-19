@@ -29,17 +29,15 @@ use frame_support::traits::{
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, UnclaimedRewardSink};
 
-/// Manager for era reward pot accounts.
+/// Manager for era reward allocation and distribution.
 ///
-/// Handles the lifecycle of era pot accounts from creation to cleanup:
-/// - Creates pot accounts with provider references to prevent premature reaping
+/// Handles the lifecycle of era rewards from creation to cleanup:
+/// - Creates reward pot accounts with provider references to prevent premature reaping
 /// - Manages funding through the reward provider
 /// - Cleans up old pots by transferring unclaimed rewards and removing providers
-// CLAUDE: can we name this better? Like it doesn't have to be reward pot, but reward
-// manager or something, and pot details should be abstracted as much as possible.
-pub struct EraRewardPots<T: Config>(core::marker::PhantomData<T>);
+pub struct EraRewardManager<T: Config>(core::marker::PhantomData<T>);
 
-impl<T: Config> EraRewardPots<T> {
+impl<T: Config> EraRewardManager<T> {
 	/// Creates and initializes an era pot account by adding a provider reference.
 	///
 	/// This must be called when creating a new era pot to prevent the account from being
@@ -119,6 +117,15 @@ impl<T: Config> EraRewardPots<T> {
 			era,
 			pot_type
 		);
+	}
+
+	/// Checks if an era has a staker rewards pot by checking if the account has providers.
+	///
+	/// Returns true if the pot exists (has providers), false otherwise.
+	pub fn has_staker_rewards_pot(era: EraIndex) -> bool {
+		let staker_rewards_pot =
+			T::EraPotAccountProvider::era_pot_account(era, EraPotType::StakerRewards);
+		frame_system::Pallet::<T>::providers(&staker_rewards_pot) > 0
 	}
 
 	/// Cleans up all pot accounts for a given era.
