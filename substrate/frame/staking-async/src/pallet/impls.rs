@@ -234,8 +234,12 @@ impl<T: Config> Pallet<T> {
 			// above returns earliest era for which offences are NOT processed yet, so we subtract
 			// one from it which gives us the oldest era for which all offences are processed.
 			.saturating_sub(1)
-			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
-			// We do the same to processed offence era so they can be compared.
+			// Unlock chunks are keyed by the era they were initiated plus their unbond duration.
+			// We use full BondingDuration (validator duration) here because:
+			// - For validators: this is their actual unbond duration
+			// - For nominators: when slashable, they use full duration; when not slashable, their
+			//   chunks already have shorter unlock eras (set during unbond), so this calculation
+			//   still correctly allows their withdrawals.
 			.saturating_add(T::BondingDuration::get());
 
 		// If there are unprocessed offences older than the active era, withdrawals are only
@@ -533,6 +537,9 @@ impl<T: Config> Pallet<T> {
 
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
+
+		// Clean up validator history tracking.
+		LastValidatorEra::<T>::remove(&stash);
 
 		Ok(())
 	}
@@ -1193,16 +1200,9 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1))
 		};
 
-		let invulnerables = Invulnerables::<T>::get();
-
 		for o in offences {
 			let slash_fraction = o.slash_fraction;
 			let validator: <T as frame_system::Config>::AccountId = o.offender.into();
-			// Skip if the validator is invulnerable.
-			if invulnerables.contains(&validator) {
-				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
-				continue
-			}
 
 			// ignore offence if too old to report.
 			if offence_era < oldest_reportable_offence_era {
@@ -1335,6 +1335,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 	fn weigh_on_new_offences(offence_count: u32) -> Weight {
 		T::WeightInfo::rc_on_offence(offence_count)
+	}
+
+	fn active_era_start_session_index() -> SessionIndex {
+		Rotator::<T>::active_era_start_session_index()
 	}
 }
 
@@ -1556,8 +1560,33 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|e| e.into())
 	}
 
+	/// Returns the bonding duration for validators.
+	///
+	/// Validators always need to wait the full [`Config::BondingDuration`] before withdrawing
+	/// unbonded funds, as they may be subject to slashing for offences reported during this period.
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
+	}
+
+	/// Returns the bonding duration for pure nominators.
+	///
+	/// This returns the *potential* fast unbonding duration that pure nominators can use:
+	/// - When [`AreNominatorsSlashable`] is `true`, returns full [`Config::BondingDuration`]
+	/// - When [`AreNominatorsSlashable`] is `false`, returns
+	///   [`Config::NominatorFastUnbondDuration`]
+	///
+	/// **Important**: The actual unbonding duration for a specific account is determined in
+	/// `unbond()` based on validator history (see [`LastValidatorEra`]):
+	/// - Validators always use full [`Config::BondingDuration`]
+	/// - Nominators who were validators in recent eras (within [`Config::BondingDuration`]) use
+	///   full [`Config::BondingDuration`] to ensure they can be slashed for past offences
+	/// - Pure nominators use the value returned by this function
+	fn nominator_bonding_duration() -> EraIndex {
+		if AreNominatorsSlashable::<T>::get() {
+			T::BondingDuration::get()
+		} else {
+			T::NominatorFastUnbondDuration::get()
+		}
 	}
 
 	fn current_era() -> EraIndex {
@@ -1956,10 +1985,23 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
+	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` should be set to the active
+	/// era.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
+				// ensure `LastValidatorEra` is correctly set
+				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+					log!(
+						warn,
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",
+						validator,
+						era,
+						LastValidatorEra::<T>::get(&validator)
+					);
+				}
+
 				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
 					.map(|(_idx, page)| page)
 					.collect::<Vec<_>>();

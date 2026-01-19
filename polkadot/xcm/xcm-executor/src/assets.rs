@@ -19,7 +19,7 @@ use alloc::{
 	vec::Vec,
 };
 use core::mem;
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::traits::Saturating;
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
@@ -29,7 +29,7 @@ use xcm::latest::{
 };
 
 /// Map of non-wildcard fungible and non-fungible assets held in the holding register.
-#[derive(Default, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct AssetsInHolding {
 	/// The fungible assets.
 	pub fungible: BTreeMap<AssetId, u128>,

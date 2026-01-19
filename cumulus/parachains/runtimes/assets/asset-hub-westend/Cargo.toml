@@ -48,6 +48,7 @@ pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-migrations = { workspace = true }
+pallet-multi-asset-bounties = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
@@ -120,6 +121,7 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
+pallet-dap = { workspace = true }
 pallet-message-queue = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
@@ -173,12 +175,14 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-dap/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
@@ -246,12 +250,14 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-dap/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
@@ -326,12 +332,14 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-conviction-voting/std",
+	"pallet-dap/std",
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
+	"pallet-multi-asset-bounties/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",

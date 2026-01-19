@@ -37,7 +37,7 @@ use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
-use sp_runtime::{traits::Zero, BuildStorage};
+use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
 	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
 };
@@ -52,6 +52,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Dap: pallet_dap,
 	}
 );
 
@@ -82,6 +83,7 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
+	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -108,6 +110,15 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
+impl pallet_dap::Config for Test {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {
@@ -194,11 +205,11 @@ impl ElectionProvider for TestElectionProvider {
 	fn duration() -> Self::BlockNumber {
 		InnerElection::duration() + ElectionDelay::get()
 	}
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		let now = System::block_number();
 		match StartReceived::get() {
-			Some(at) if now - at >= ElectionDelay::get() => Ok(true),
-			Some(_) => Ok(false),
+			Some(at) if now - at >= ElectionDelay::get() => Ok(Some(Default::default())),
+			Some(_) => Ok(None),
 			None => Err(()),
 		}
 	}
@@ -243,6 +254,10 @@ impl Contains<AccountId> for MockedRestrictList {
 /// A representation of the session pallet that lives on the relay chain.
 pub mod session_mock {
 	use super::*;
+	use frame_support::{
+		traits::{OnInitialize, OnPoll},
+		weights::WeightMeter,
+	};
 	use pallet_staking_async_rc_client::ValidatorSetReport;
 
 	pub struct Session;
@@ -269,7 +284,12 @@ pub mod session_mock {
 		pub fn roll_next() {
 			let now = System::block_number();
 			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
-			System::run_to_block::<AllPalletsWithSystem>(now + 1);
+			System::set_block_number(now + 1);
+			<AllPalletsWithSystem as OnInitialize<BlockNumber>>::on_initialize(now + 1);
+			<AllPalletsWithSystem as OnPoll<BlockNumber>>::on_poll(
+				now + 1,
+				&mut WeightMeter::new(),
+			);
 			Self::maybe_rotate_session_now();
 		}
 
@@ -436,9 +456,9 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type BondingDuration = BondingDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;
@@ -446,7 +466,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = ();
+	type Slash = Dap;
 	type WeightInfo = ();
 }
 
@@ -477,7 +497,6 @@ parameter_types! {
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
@@ -486,6 +505,7 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
+	nominators_slashable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -494,7 +514,6 @@ impl Default for ExtBuilder {
 			nominate: true,
 			validator_count: 2,
 			balance_factor: 1,
-			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
@@ -502,6 +521,7 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
+			nominators_slashable: true,
 		}
 	}
 }
@@ -548,9 +568,8 @@ impl ExtBuilder {
 		SlashDeferDuration::set(eras);
 		self
 	}
-	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = BoundedVec::try_from(invulnerables)
-			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
+	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
+		self.nominators_slashable = slashable;
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -687,7 +706,6 @@ impl ExtBuilder {
 		let _ = pallet_staking_async::GenesisConfig::<Test> {
 			stakers: maybe_stakers,
 			validator_count: self.validator_count,
-			invulnerables: self.invulnerables,
 			active_era: (0, 0, INIT_TIMESTAMP),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
@@ -696,9 +714,13 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		let _ = pallet_dap::GenesisConfig::<Test>::default().assimilate_storage(&mut storage);
+
 		let mut ext = sp_io::TestExternalities::from(storage);
+		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {
