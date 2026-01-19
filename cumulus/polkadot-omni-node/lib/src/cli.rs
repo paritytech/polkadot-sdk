@@ -226,7 +226,7 @@ pub struct Cli<Config: CliConfig> {
 	/// Number of concurrent workers for statement validation from the network.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, default_value_t = 1, value_parser = clap::value_parser!(usize).range(1..))]
+	#[arg(long, default_value_t = 1)]
 	pub statement_network_workers: usize,
 
 	#[arg(skip)]
