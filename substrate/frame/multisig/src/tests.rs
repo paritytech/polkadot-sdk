@@ -220,6 +220,47 @@ fn timepoint_checking_works() {
 }
 
 #[test]
+fn approve_as_multi_requires_timepoint_after_first_approval() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First approval creates the multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Second approval without timepoint should fail with NoTimepoint
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 3],
+				None, // Missing timepoint
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::NoTimepoint,
+		);
+
+		// With correct timepoint, it should succeed
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+	});
+}
+
+#[test]
 fn multisig_2_of_3_works() {
 	new_test_ext().execute_with(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
