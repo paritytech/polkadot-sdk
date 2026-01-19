@@ -85,11 +85,10 @@ pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
 
 impl<Runtime, Instance: 'static> AssetIdExtractor for ForeignAssetIdExtractor<Runtime, Instance>
 where
-    Runtime: pallet_assets::Config<Instance>
-        + pallet_assets_foreign::pallet::Config<
-            ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId,
-        >
-        + pallet_revive::Config,
+	Runtime: pallet_assets::Config<Instance>
+		+ pallet_assets_foreign::pallet::Config<
+			ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId,
+		> + pallet_revive::Config,
 {
 	type AssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId;
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
@@ -108,11 +107,10 @@ pub struct ForeignIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
 	for ForeignIdConfig<P, Runtime, Instance>
 where
-    Runtime: pallet_assets::Config<Instance>
-        + pallet_assets_foreign::pallet::Config<
-            ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId,
-        >
-         + pallet_revive::Config,
+	Runtime: pallet_assets::Config<Instance>
+		+ pallet_assets_foreign::pallet::Config<
+			ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId,
+		> + pallet_revive::Config,
 {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
 	type AssetIdExtractor = ForeignAssetIdExtractor<Runtime, Instance>;
