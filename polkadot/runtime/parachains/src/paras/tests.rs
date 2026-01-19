@@ -2372,3 +2372,554 @@ fn prune_expired_authorizations_works() {
 		assert!(AuthorizedCodeHash::<Test>::get(&para_b).is_none());
 	})
 }
+
+
+#[test]
+fn code_upgrade_scheduled_at_event_emitted() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		// Check that CodeUpgradeScheduledAt event was emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::CodeUpgradeScheduledAt(id, at))
+			if id == para_id && at == expected_at
+		)));
+	});
+}
+
+#[test]
+fn upgrade_go_ahead_signal_set_event_emitted() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		Paras::note_new_head(para_id, Default::default(), 1);
+
+		// Run to the expected block to trigger go-ahead signal
+		run_to_block(expected_at, None);
+
+		// Check that UpgradeGoAheadSignalSet event was emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeGoAheadSignalSet(id))
+			if id == para_id
+		)));
+	});
+}
+
+#[test]
+fn upgrade_restriction_signal_set_event_emitted() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		// Check that UpgradeRestrictionSignalSet event was emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeRestrictionSignalSet(id))
+			if id == para_id
+		)));
+	});
+}
+
+#[test]
+fn upgrade_restriction_signal_removed_event_emitted() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+		let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		Paras::note_new_head(para_id, Default::default(), 1);
+
+		// Run to expected_at to trigger code upgrade
+		run_to_block(expected_at, None);
+		Paras::note_new_head(para_id, Default::default(), expected_at);
+
+		// Run past the cooldown period
+		run_to_block(next_possible_upgrade_at + 1, None);
+
+		// Check that UpgradeRestrictionSignalRemoved event was emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeRestrictionSignalRemoved(id))
+			if id == para_id
+		)));
+	});
+}
+
+#[test]
+fn future_code_upgrade_removed_event_emitted() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		Paras::note_new_head(para_id, Default::default(), 1);
+
+		// Run to expected_at and trigger the upgrade by noting a new head
+		run_to_block(expected_at, None);
+		Paras::note_new_head(para_id, Default::default(), expected_at);
+
+		// Check that FutureCodeUpgradeRemoved event was emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::FutureCodeUpgradeRemoved(id))
+			if id == para_id
+		)));
+	});
+}
+
+#[test]
+fn pvf_rejection_emits_go_ahead_abort_and_future_code_removed_events() {
+	let a = ParaId::from(111);
+	let old_code = test_validation_code_1();
+	let new_code = test_validation_code_2();
+
+	let paras = vec![(
+		a,
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parathread,
+			genesis_head: Default::default(),
+			validation_code: old_code,
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		// At this point `a` is already onboarded. Run to block 1 performing session change at
+		// the end of block #0.
+		run_to_block(2, Some(vec![1]));
+
+		// Relay parent of the block that schedules the upgrade.
+		const RELAY_PARENT: BlockNumber = 1;
+		// Expected current session index.
+		const EXPECTED_SESSION: SessionIndex = 1;
+
+		Paras::schedule_code_upgrade(
+			a,
+			new_code.clone(),
+			RELAY_PARENT,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// >1/3 of validators vote against `new_code`. PVF should be rejected.
+		sign_and_include_pvf_check_statement(PvfCheckStatement {
+			accept: false,
+			subject: new_code.hash(),
+			session_index: EXPECTED_SESSION,
+			validator_index: 0.into(),
+		});
+
+		sign_and_include_pvf_check_statement(PvfCheckStatement {
+			accept: false,
+			subject: new_code.hash(),
+			session_index: EXPECTED_SESSION,
+			validator_index: 1.into(),
+		});
+
+		// Check that both UpgradeGoAheadSignalSet (with Abort) and FutureCodeUpgradeRemoved
+		// events were emitted
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeGoAheadSignalSet(id))
+			if id == a
+		)));
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::FutureCodeUpgradeRemoved(id))
+			if id == a
+		)));
+	});
+}
+
+#[test]
+fn apply_at_expected_block_strategy_emits_scheduled_event() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		// Check that CodeUpgradeScheduledAt event was emitted for ApplyAtExpectedBlock strategy
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::CodeUpgradeScheduledAt(id, at))
+			if id == para_id && at == expected_at
+		)));
+
+		// Also verify UpgradeRestrictionSignalSet was emitted
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeRestrictionSignalSet(id))
+			if id == para_id
+		)));
+	});
+}
+
+#[test]
+fn multiple_upgrade_events_for_different_paras() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![
+		(
+			0u32.into(),
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parachain,
+				genesis_head: dummy_head_data(),
+				validation_code: original_code.clone(),
+			},
+		),
+		(
+			1u32.into(),
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parachain,
+				genesis_head: dummy_head_data(),
+				validation_code: original_code.clone(),
+			},
+		),
+	];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		let para_id_0 = ParaId::from(0);
+		let para_id_1 = ParaId::from(1);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let expected_at = 1 + validation_upgrade_delay;
+
+		// Schedule upgrades for both paras
+		Paras::schedule_code_upgrade(
+			para_id_0,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		Paras::schedule_code_upgrade(
+			para_id_1,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+		// Check that CodeUpgradeScheduledAt events were emitted for both paras
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::CodeUpgradeScheduledAt(id, at))
+			if id == para_id_0 && at == expected_at
+		)));
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::CodeUpgradeScheduledAt(id, at))
+			if id == para_id_1 && at == expected_at
+		)));
+
+		// Check that UpgradeRestrictionSignalSet events were emitted for both paras
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeRestrictionSignalSet(id))
+			if id == para_id_0
+		)));
+		assert!(events.iter().any(|r| matches!(
+			r.event,
+			crate::mock::RuntimeEvent::Paras(Event::UpgradeRestrictionSignalSet(id))
+			if id == para_id_1
+		)));
+	});
+}
