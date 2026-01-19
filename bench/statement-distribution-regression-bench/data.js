@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768820547544,
+  "lastUpdate": 1768829025824,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bd646008920111d1dd5698dc73f45428f3227d31",
-          "message": "[Zombienet] changes for new runners (#8864)\n\nChanges for new CI runners.",
-          "timestamp": "2025-06-16T15:40:28Z",
-          "tree_id": "0e3bf0f3fe5df49c96e9a110573057454184745d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd646008920111d1dd5698dc73f45428f3227d31"
-        },
-        "date": 1750092069555,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03396620995399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04473962511999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03861977412999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
+          "message": "Forbid invisible characters (#10838)",
+          "timestamp": "2026-01-19T12:12:57Z",
+          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
+        },
+        "date": 1768829001602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.044,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06588496796399991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03879842983,
             "unit": "seconds"
           }
         ]
