@@ -146,7 +146,6 @@ std = [
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
 	"pallet-staking-async-rc-client?/std",
-	"pallet-staking-async-reward-fn?/std",
 	"pallet-staking-async-runtime-api?/std",
 	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
@@ -704,7 +703,6 @@ runtime-full = [
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
-	"pallet-staking-async-reward-fn",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
@@ -1743,11 +1741,6 @@ path = "../substrate/frame/staking-async/ah-client"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/rc-client"
-
-[dependencies.pallet-staking-async-reward-fn]
-default-features = false
-optional = true
-path = "../substrate/frame/staking-async/reward-fn"
 
 [dependencies.pallet-staking-async-runtime-api]
 default-features = false
