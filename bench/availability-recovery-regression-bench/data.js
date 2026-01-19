@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768820448860,
+  "lastUpdate": 1768828925162,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6697fc8ca61a8ac77b42dc1ac1b66e0dcf033197",
-          "message": "[zombienet] fix ci for new runners (#8876)\n\nAdd needed env vars to run with the new runners (polkadot workflow) and\nmove cumulus/substrate to zombienet action.",
-          "timestamp": "2025-06-17T14:49:04Z",
-          "tree_id": "5654c46c22f0eb9cde59441248c7afe3de24a772",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6697fc8ca61a8ac77b42dc1ac1b66e0dcf033197"
-        },
-        "date": 1750176141490,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20175170703333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.343864517100002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.334036668533333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
+          "message": "Forbid invisible characters (#10838)",
+          "timestamp": "2026-01-19T12:12:57Z",
+          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
+        },
+        "date": 1768828900367,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12092639636666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.392950776866666,
             "unit": "seconds"
           }
         ]
