@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768778370575,
+  "lastUpdate": 1768816224706,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "andrew.ahlers@parity.io",
-            "name": "andrew-ifrita",
-            "username": "andrew-ifrita"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9fbf243c57939ecadc89b82ed42249703203874",
-          "message": "docs: fix XCM docs for AlwaysV4 and AlwaysV5 (#8862)\n\n✄\n-----------------------------------------------------------------------------\n\nThank you for your Pull Request! 🙏 Please make sure it follows the\ncontribution guidelines outlined in [this\n\ndocument](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md)\nand fill out the\nsections below. Once you're ready to submit your PR for review, please\ndelete this section and leave only the text under\nthe \"Description\" heading.\n\n# Description\n\nFix docstrings for `AlwaysV4` and `AlwaysV5` in XCM code, both of which\nwrongly stated V3\n\n## Integration\n\nOnly docs are changed.\n\n## Review Notes\n\nNone\n\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] (N/A) I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nYou can remove the \"Checklist\" section once all have been checked. Thank\nyou for your contribution!\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2025-06-16T10:02:04Z",
-          "tree_id": "c198cb761726325b836a171b765efa7a6ac7fad5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9fbf243c57939ecadc89b82ed42249703203874"
-        },
-        "date": 1750071784906,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93999999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03397913302,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04474902569199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03808384861999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202ea0217f44fa1e94e52c77bb42dfc7322926b0",
+          "message": "Fix flaky test `zombienet-polkadot-elastic-scaling-slot-based-3cores` (#10826)\n\nWe had 4 failures in the last 90 runs of\n`zombienet-polkadot-elastic-scaling-slot-based-3cores` test where the\nassetion fails by `1` (34 blocks)\n\n\n\nhttps://paritytech.github.io/zombienet-jobs-monitor/web/?search=based-3cores&mergeQueueOnly=true\n<img width=\"1011\" height=\"183\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/07123449-29a0-4f69-bc2d-9c3bc4b865ae\"\n/>\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21035251168/job/60482637320\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20923519106/job/60116752831\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20432629082/job/58707838790\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20264366293/job/58185559463\n\nAnd since we already have some margin we can adjust to remove this\nflakyness.\n\nping @alindima",
+          "timestamp": "2026-01-19T08:38:05Z",
+          "tree_id": "e46a3578aebcd6daaeff3dbb004faa33cd9a0a01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202ea0217f44fa1e94e52c77bb42dfc7322926b0"
+        },
+        "date": 1768816200578,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.066,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039210404776000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06688379396399992,
             "unit": "seconds"
           }
         ]
