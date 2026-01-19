@@ -24,9 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsQuota, PagedExposure, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
-	StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraPotAccountProvider, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	Nominations, NominationsQuota, PagedExposure, PositiveImbalanceOf, RewardDestination,
+	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -54,7 +54,7 @@ use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface, StakingRewardProvider,
+	StakingInterface,
 };
 
 use super::pallet::*;
@@ -409,20 +409,23 @@ impl<T: Config> Pallet<T> {
 			Perbill::from_rational(validator_reward_points, total_reward_points);
 
 		// This is how much validator + nominators are entitled to.
-		let validator_total_payout = validator_total_reward_part * era_payout;
+		// Use mul_floor to ensure we round down and never exceed era_payout
+		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
 		// total commission validator takes across all nominator pages
-		let validator_total_commission_payout = validator_commission * validator_total_payout;
+		let validator_total_commission_payout =
+			validator_commission.mul_floor(validator_total_payout);
 
 		let validator_leftover_payout =
 			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
 		// Now let's calculate how this is split to the validator.
 		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
-		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+		let validator_staking_payout = validator_exposure_part.mul_floor(validator_leftover_payout);
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
 		// validator commission is paid out in fraction across pages proportional to the page stake.
-		let validator_commission_payout = page_stake_part * validator_total_commission_payout;
+		let validator_commission_payout =
+			page_stake_part.mul_floor(validator_total_commission_payout);
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -437,7 +440,16 @@ impl<T: Config> Pallet<T> {
 		// Track the number of payout ops to nominators. Note:
 		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
 		// out, so we do not need to count their payout op.
-		let nominator_payout_count: u32 = if T::RewardProvider::has_era_pot(era) {
+
+		// Claude: can you extract it in a single function? Maybe like how we did with Eras in session rotation file
+		// we could create some budget struct that manages all this account. I think that would be great actually because
+		// when we start implementing validator incentive, things will get more complex so lets design it well.
+		// Check if era has a reward pot by checking if the pot account has providers
+		let era_pot_account =
+			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
+		let has_era_pot = frame_system::Pallet::<T>::providers(&era_pot_account) > 0;
+
+		let nominator_payout_count: u32 = if has_era_pot {
 			// Transfer from reward provider pot
 			Self::payout_from_provider(
 				era,
@@ -495,7 +507,9 @@ impl<T: Config> Pallet<T> {
 		// Payout nominators
 		for nominator in exposure.others().iter() {
 			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
-			let nominator_reward: BalanceOf<T> = nominator_exposure_part * total_nominator_payout;
+			// Use mul_floor to ensure we round down and never exceed total_nominator_payout
+			let nominator_reward: BalanceOf<T> =
+				nominator_exposure_part.mul_floor(total_nominator_payout);
 
 			if let Some((amount, dest)) =
 				Self::make_payout_from_provider(era, &nominator.who, nominator_reward)
@@ -540,7 +554,9 @@ impl<T: Config> Pallet<T> {
 		// Payout nominators
 		for nominator in exposure.others().iter() {
 			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
-			let nominator_reward: BalanceOf<T> = nominator_exposure_part * total_nominator_payout;
+			// Use mul_floor to ensure we round down and never exceed total_nominator_payout
+			let nominator_reward: BalanceOf<T> =
+				nominator_exposure_part.mul_floor(total_nominator_payout);
 
 			if let Some((imbalance, dest)) =
 				Self::make_payout_legacy(&nominator.who, nominator_reward)
@@ -594,11 +610,21 @@ impl<T: Config> Pallet<T> {
 			RewardDestination::Controller => Self::bonded(stash)?,
 		};
 
-		// Transfer from provider pot to destination
-		if let Err(e) = T::RewardProvider::transfer_era_reward(era, &payout_account, amount) {
+		// CLAUDE: lets clearly call it staker era pot or something? So we should use consistent
+		// naming pattern for these two pots. Whats the best name to refer them everywhere?
+		// Transfer from era pot to destination
+		let era_pot_account =
+			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
+		use frame_support::traits::{fungible::Mutate, tokens::Preservation};
+		if let Err(e) = T::Currency::transfer(
+			&era_pot_account,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
 			log!(
 				error,
-				"Failed to transfer reward from provider for era {:?}, stash {:?}: {:?}",
+				"Failed to transfer reward from era pot for era {:?}, stash {:?}: {:?}",
 				era,
 				stash,
 				e

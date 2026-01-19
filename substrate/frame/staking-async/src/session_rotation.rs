@@ -88,6 +88,7 @@ use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+	UnclaimedRewardSink,
 };
 
 /// A handler for all era-based storage items.
@@ -738,7 +739,7 @@ impl<T: Config> Rotator<T> {
 
 		// Cleanup old era pot beyond history depth
 		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			T::RewardProvider::cleanup_old_era_pot(era_to_cleanup);
+			Self::cleanup_old_era_pot(era_to_cleanup);
 		}
 
 		// Snapshot the current nominators slashable setting for this era.
@@ -840,25 +841,54 @@ impl<T: Config> Rotator<T> {
 			era_duration
 		);
 
-		// Ask RewardProvider to allocate era rewards.
-		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let validator_payout =
-			T::RewardProvider::allocate_era_rewards(ending_era.index, staked, era_duration);
-
-		// Provider must return non-zero for new eras.
-		defensive_assert!(
-			!validator_payout.is_zero(),
-			"Reward provider must allocate non-zero reward"
+		// Generate both era pot accounts (staker rewards and validator incentive)
+		// CLAUDE: maybe we should have a internal generate pot account function
+		// that would just increment providers. Similarly destroy or clean which
+		// will remove provider and transfer out unclaimed rewards. Wdyt? Use your
+		// judgement though, just an idea.
+		let staker_pot_account = T::EraPotAccountProvider::era_pot_account(
+			ending_era.index,
+			EraPotType::StakerRewards,
+		);
+		let validator_incentive_pot_account = T::EraPotAccountProvider::era_pot_account(
+			ending_era.index,
+			EraPotType::ValidatorSelfStake,
 		);
 
+		// Add provider to both era pot accounts to prevent premature reaping.
+		// These are decremented during cleanup after history depth expires.
+		frame_system::Pallet::<T>::inc_providers(&staker_pot_account);
+		frame_system::Pallet::<T>::inc_providers(&validator_incentive_pot_account);
+
+		// Ask RewardProvider to allocate era rewards.
+		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
+		let allocation = T::RewardProvider::allocate_era_rewards(
+			ending_era.index,
+			staked,
+			era_duration,
+			&staker_pot_account,
+			&validator_incentive_pot_account,
+		);
+
+		// Provider should return non-zero for new eras in production.
+		// Zero can happen in edge cases like benchmarks with zero era duration.
+		if allocation.staker_rewards.is_zero() {
+			log!(
+				warn,
+				"Era {:?} allocated zero staker rewards (era_duration: {:?})",
+				ending_era.index,
+				era_duration
+			);
+		}
+
 		// Set ending era reward (needed for payout calculation)
-		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
+		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);
 
 		// Update DisableLegacyMintingEra to prevent legacy minting.
 		// This only updates if the new value is lower than the existing one (write-once semantics)
 		// or if it hasn't been set yet. This ensures that once set in production, it can't be
 		// rolled back to re-enable legacy minting for future eras.
-		if !validator_payout.is_zero() {
+		if !allocation.staker_rewards.is_zero() {
 			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
 				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
 					*maybe_era = Some(ending_era.index);
@@ -896,6 +926,56 @@ impl<T: Config> Rotator<T> {
 			target_plan_era_session
 		);
 		session_progress >= target_plan_era_session
+	}
+
+	/// Clean up old era pot beyond history depth.
+	///
+	/// Transfers any remaining unclaimed rewards to the `UnclaimedRewardSink` and removes
+	/// the provider reference to allow the account to be reaped.
+	fn cleanup_old_era_pot(era: EraIndex) {
+	// claude: please move all these imports on top of the file with above imports.
+		use frame_support::traits::{
+			fungible::{Inspect, Mutate},
+			tokens::Preservation,
+		};
+
+		// Clean up both pot types: StakerRewards and ValidatorSelfStake
+		for pot_type in [EraPotType::StakerRewards, EraPotType::ValidatorSelfStake] {
+			let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
+
+			// Check if pot exists
+			// CLAUDE: I think its more idiomatic to just check balance, no?
+			// but wait, remember some random account can transfer some funds to it
+			// so ensure nothing inconsistent happens then. I think best is to
+			// just check balance at cleanup, and decrement one provider. That's it.
+			if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
+				// Already cleaned up or never existed
+				continue;
+			}
+
+			// Get remaining balance in pot (unclaimed rewards for the era)
+			let remaining = T::Currency::balance(&pot_account);
+
+			// Transfer any remaining funds to unclaimed reward sink (even if < ED)
+			if !remaining.is_zero() {
+				let sink = T::UnclaimedRewardSink::unclaimed_reward_sink();
+				let _ = T::Currency::transfer(&pot_account, &sink, remaining, Preservation::Expendable)
+					.defensive();
+				log!(
+					debug,
+					"Transferred {:?} unclaimed rewards from era {:?} {:?} pot to sink",
+					remaining,
+					era,
+					pot_type
+				);
+			}
+
+			// Explicitly remove provider to allow account to be reaped
+			let _ = frame_system::Pallet::<T>::dec_providers(&pot_account)
+				.defensive_proof("Provider was added in allocate_era_rewards; qed");
+
+			log!(debug, "✅ Cleaned up era {:?} {:?} pot account (removed provider)", era, pot_type);
+		}
 	}
 }
 

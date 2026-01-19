@@ -224,6 +224,58 @@ pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
 
+/// Identifies different types of era pot accounts for reward distribution.
+///
+/// Each era can have multiple pot accounts for different reward purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum EraPotType {
+	/// Pot for staker rewards (nominators + validators).
+	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	ValidatorSelfStake,
+}
+
+/// Trait for generating era pot account IDs.
+///
+/// Implementors define how to generate account IDs for era reward pots.
+/// This trait is local to staking-async and used primarily for testing flexibility.
+pub trait EraPotAccountProvider<AccountId> {
+	/// Generate an era pot account ID for the given era and pot type.
+	///
+	/// # Parameters
+	/// - `era`: The era index
+	/// - `pot_type`: The type of reward pot
+	///
+	/// # Returns
+	/// The account ID for this era's reward pot of the specified type
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
+}
+
+/// Default implementation that panics - a proper implementation must be provided.
+impl<AccountId> EraPotAccountProvider<AccountId> for () {
+	fn era_pot_account(_era: EraIndex, _pot_type: EraPotType) -> AccountId {
+		panic!("No EraPotAccountProvider configured")
+	}
+}
+
+// CLAUDE: I think this can be just default implementation. Wdyt?
+/// Hash-based era pot account provider using a pallet ID.
+///
+/// This is a generic implementation that runtimes can use by providing a `PalletId`.
+/// Account IDs are derived using `PalletId.into_sub_account_truncating(("erapot", era, pot_type))`.
+pub struct HashBasedEraPotAccountProvider<P>(core::marker::PhantomData<P>);
+
+impl<AccountId, P> EraPotAccountProvider<AccountId> for HashBasedEraPotAccountProvider<P>
+where
+	AccountId: codec::FullCodec,
+	P: frame_support::traits::Get<frame_support::PalletId>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		P::get().into_sub_account_truncating(("erapot", era, pot_type))
+	}
+}
+
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {

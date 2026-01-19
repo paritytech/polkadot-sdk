@@ -254,12 +254,27 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Provider for era reward allocation and transfers.
+		/// Provider for era reward allocation.
 		///
-		/// This handles allocating rewards at era start and pulling/transferring them during
-		/// payouts.
+		/// This handles allocating rewards at era start by minting into the era system accounts.
 		#[pallet::no_default_bounds]
 		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
+
+		/// Sink for unclaimed era rewards.
+		///
+		/// When era pot accounts are cleaned up after history depth expires, any remaining
+		/// unclaimed rewards are transferred to this sink.
+		#[pallet::no_default_bounds]
+		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
+
+		// claude: can you make default implementation of it just implementing a hashing based
+		// derivation. So really only tests have to customise it.
+		/// Provider for generating era pot account IDs.
+		///
+		/// This allows customization of how era pot accounts are derived, which is particularly
+		/// useful for testing with predictable account IDs.
+		#[pallet::no_default_bounds]
+		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -415,6 +430,8 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type RewardProvider = ();
+			type UnclaimedRewardSink = ();
+			type EraPotAccountProvider = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
