@@ -713,6 +713,11 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
+			// Record initial state for DAP verification
+			let dap_buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_total_issuance = Balances::total_issuance();
+
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				vec![
@@ -779,6 +784,15 @@ fn on_offence_current_era_instant_apply() {
 					staking_async::Event::Slashed { staker: 3, amount: 50 }
 				]
 			);
+
+			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			let final_dap_balance = Balances::free_balance(&dap_buffer);
+			let final_total_issuance = Balances::total_issuance();
+
+			// DAP buffer should have received all slashed funds
+			assert_eq!(final_dap_balance, initial_dap_balance + 150);
+			// Total issuance should be preserved (funds not burned)
+			assert_eq!(final_total_issuance, initial_total_issuance);
 		});
 }
 
