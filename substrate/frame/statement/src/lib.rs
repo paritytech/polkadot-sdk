@@ -34,11 +34,6 @@ use frame_support::{pallet_prelude::*, traits::fungible::Inspect};
 use frame_system::pallet_prelude::*;
 use sp_statement_store::{Proof, Statement};
 
-#[cfg(test)]
-// We do not declare all features used by `construct_runtime`
-#[allow(unexpected_cfgs)]
-mod mock;
-
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::statement";
