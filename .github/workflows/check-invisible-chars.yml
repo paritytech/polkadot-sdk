@@ -1,0 +1,78 @@
+name: Check invisible characters
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  check-invisible-chars:
+    runs-on: ubuntu-latest
+    needs: isdraft
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Check for invisible Unicode characters
+        run: |
+          # Invisible/dangerous Unicode characters (excluding U+200D ZWJ when used in emoji sequences).
+          # ZWJ is allowed between emoji codepoints but forbidden standalone.
+
+          FOUND=0
+
+          # Pattern 1: All invisible chars EXCEPT ZWJ (U+200D)
+          INVISIBLE_NO_ZWJ='[\x{00AD}\x{034F}\x{061C}\x{180E}\x{200B}\x{200C}\x{200E}\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{206F}\x{FEFF}\x{FFF9}-\x{FFFB}\x{E0001}-\x{E007F}]'
+
+          # Pattern 2: ZWJ NOT surrounded by emoji (bare ZWJ)
+          # Valid emoji ZWJ: emoji + ZWJ + emoji. We catch ZWJ preceded or followed by non-emoji.
+          BARE_ZWJ='(?<![^\x00-\x7F])\x{200D}|\x{200D}(?![^\x00-\x7F])'
+
+          echo "Scanning for invisible Unicode characters..."
+
+          if grep -rPnI --exclude-dir='.git' --exclude-dir='target' "$INVISIBLE_NO_ZWJ" .; then
+            FOUND=1
+          fi
+
+          if grep -rPnI --exclude-dir='.git' --exclude-dir='target' "$BARE_ZWJ" .; then
+            FOUND=1
+          fi
+
+          if [ "$FOUND" -eq 1 ]; then
+            echo ""
+            echo "=========================================="
+            echo "ERROR: Found invisible Unicode characters!"
+            echo "=========================================="
+            echo ""
+            echo "These characters can be used for Trojan Source attacks or cause subtle bugs."
+            echo "Please remove them from your code."
+            echo ""
+            echo "Detected character categories:"
+            echo "  - U+00AD: Soft Hyphen"
+            echo "  - U+034F: Combining Grapheme Joiner"
+            echo "  - U+061C: Arabic Letter Mark"
+            echo "  - U+180E: Mongolian Vowel Separator"
+            echo "  - U+200B: Zero Width Space"
+            echo "  - U+200C: Zero Width Non-Joiner"
+            echo "  - U+200D: Zero Width Joiner (allowed in emoji sequences only)"
+            echo "  - U+200E/F: Left/Right-to-Left Mark"
+            echo "  - U+202A-E: Bidi Embedding/Override (LRE, RLE, PDF, LRO, RLO)"
+            echo "  - U+2060: Word Joiner"
+            echo "  - U+2061-4: Invisible Operators"
+            echo "  - U+2066-9: Bidi Isolates (LRI, RLI, FSI, PDI)"
+            echo "  - U+206A-F: Deprecated Format Characters"
+            echo "  - U+FEFF: Byte Order Mark / Zero Width No-Break Space"
+            echo "  - U+FFF9-B: Interlinear Annotation Characters"
+            echo "  - U+E0001-E007F: Tag Characters (can hide URLs!)"
+            exit 1
+          else
+            echo "No invisible Unicode characters found."
+            exit 0
+          fi
