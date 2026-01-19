@@ -21,4 +21,4 @@ crates:
   - name: pallet-nomination-pools
     bump: patch
   - name: asset-hub-westend-runtime
-    bump: major
+    bump: minor
