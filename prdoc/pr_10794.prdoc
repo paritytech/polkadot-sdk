@@ -1,0 +1,9 @@
+title: '[FRAME] Omni bencher run each benchmark at least 10 secs'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Ensure all benchmarks run for at least 10 seconds. Configurable with `--min-duration <s>`
+    - Turn off runtime logging in bench bot to reduce spam log output
+crates:
+- name: frame-benchmarking-cli
+  bump: minor
