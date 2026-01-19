@@ -78,10 +78,12 @@ impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
 }
 /// An `AssetIdExtractor` that maps a local asset id (4 bytes taken from the address) to a foreign
 /// asset id.
+#[cfg(feature = "foreign-assets")]
 pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
+#[cfg(feature = "foreign-assets")]
 impl<Runtime, Instance: 'static> AssetIdExtractor for ForeignAssetIdExtractor<Runtime, Instance>
 where
 	Runtime: pallet_assets::Config<Instance> + pallet_revive::Config,
@@ -96,10 +98,12 @@ where
 }
 
 /// A precompile configuration that uses a prefix [`AddressMatcher`].
+#[cfg(feature = "foreign-assets")]
 pub struct ForeignIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
+#[cfg(feature = "foreign-assets")]
 impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
 	for ForeignIdConfig<P, Runtime, Instance>
 where

@@ -247,29 +247,30 @@ where
 	}
 }
 
+#[cfg(feature = "foreign-assets")]
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
 	T::AssetId: ToAssetIndex,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		#[cfg(feature = "foreign-assets")]
 		crate::pallet::Pallet::<T, I>::insert_asset_mapping(id);
 		Ok(())
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
-		#[cfg(feature = "foreign-assets")]
 		crate::pallet::Pallet::<T, I>::remove_asset_mapping(id);
 		Ok(())
 	}
 }
 
+#[cfg(feature = "foreign-assets")]
 // Trait to convert various types to u32 asset index used internally by the pallet.
 pub trait ToAssetIndex {
 	fn to_asset_index(&self) -> u32;
 }
 
+#[cfg(feature = "foreign-assets")]
 /// Implemented for trust-backed assets and pool assets.
 impl ToAssetIndex for u32 {
 	fn to_asset_index(&self) -> u32 {
@@ -277,6 +278,7 @@ impl ToAssetIndex for u32 {
 	}
 }
 
+#[cfg(feature = "foreign-assets")]
 /// Implemented for trust-backed assets and pool assets.
 impl ToAssetIndex for u128 {
 	fn to_asset_index(&self) -> u32 {
@@ -286,6 +288,7 @@ impl ToAssetIndex for u128 {
 	}
 }
 
+#[cfg(feature = "foreign-assets")]
 /// Implemented for foreign assets.
 impl ToAssetIndex for xcm::v5::Location {
 	fn to_asset_index(&self) -> u32 {
