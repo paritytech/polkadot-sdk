@@ -171,12 +171,22 @@ pub fn create_validators_with_seed<T: Config>(
 	Ok(validators)
 }
 
-/// Creates validators and nominators for benchmarking. Clears existing state and creates fresh
-/// validators and nominators where nominators randomly nominate `edge_per_nominator` validators
-/// (limited to `to_nominate` if set).
+/// This function generates validators and nominators who are randomly nominating
+/// `edge_per_nominator` random validators (until `to_nominate` if provided).
 ///
-/// Returns the validators chosen to be nominated.
-pub fn setup_validators_with_nominators_for_era<T: Config>(
+/// NOTE: This function will remove any existing validators or nominators to ensure
+/// we are working with a clean state.
+///
+/// Parameters:
+/// - `validators`: number of bonded validators
+/// - `nominators`: number of bonded nominators.
+/// - `edge_per_nominator`: number of edge (vote) per nominator.
+/// - `randomize_stake`: whether to randomize the stakes.
+/// - `to_nominate`: if `Some(n)`, only the first `n` bonded validator are voted upon. Else, all of
+///   them are considered and `edge_per_nominator` random validators are voted for.
+///
+/// Return the validators chosen to be nominated.
+pub fn create_validators_with_nominators_for_era<T: Config>(
 	validators: u32,
 	nominators: u32,
 	edge_per_nominator: usize,
@@ -233,17 +243,12 @@ pub fn setup_validators_with_nominators_for_era<T: Config>(
 	Ok(validator_chosen)
 }
 
-/// Returns a validator with n nominators for benchmarking. Attempts to reuse existing stakers when
-/// a validator with sufficient exposure exists in a claimable era, otherwise creates fresh state.
-///
-/// Used by: `payout_stakers_alive_staked`, `apply_slash`
-///
-/// NOTE: These benchmarks cannot benefit from genesis state reuse because payout/slash require
-/// exposure in a *past* era (era < active_era). Genesis typically starts with active_era = 0,
-/// meaning no past era exists and no exposure can be claimable. This function will always fall
-/// back to creating fresh state in such cases.
+/// This function clears all existing validators and nominators from the set, and generates one new
+/// validator being nominated by n nominators, and returns the validator stash account and the
+/// nominators' stash and controller. It also starts plans a new era with this new stakers, and
+/// returns the planned era index.
 #[cfg(feature = "runtime-benchmarks")]
-pub fn setup_validator_with_nominators<T: Config>(
+pub fn create_validator_with_nominators<T: Config>(
 	n: u32,
 	upper_bound: u32,
 	dead_controller: bool,

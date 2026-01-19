@@ -588,7 +588,7 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
-		let (validator, nominators, current_era) = setup_validator_with_nominators::<T>(
+		let (validator, nominators, current_era) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
@@ -869,7 +869,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
-		let (validator, nominators, _current_era) = setup_validator_with_nominators::<T>(
+		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
 			T::MaxExposurePageSize::get() as u32,
 			T::MaxExposurePageSize::get() as u32,
 			false,
@@ -916,7 +916,7 @@ mod benchmarks {
 		crate::mock::SlashDeferDuration::set(77);
 
 		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
-		let all_validators = crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
+		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			// we create more validators, but all of the nominators will back the first one
 			ValidatorCount::<T>::get().max(1),
 			// create two full exposure pages
@@ -982,7 +982,7 @@ mod benchmarks {
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
 		let initial_era = Rotator::<T>::planned_era();
-		let _ = crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
+		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
 			1000,
@@ -1048,7 +1048,7 @@ mod benchmarks {
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
 		// numbers don't matter.
-		crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
+		crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			10, 50, 2, false, None,
 		)?;
 
@@ -1380,12 +1380,12 @@ mod tests {
 	use frame_support::assert_ok;
 
 	#[test]
-	fn setup_validators_with_nominators_for_era_works() {
+	fn create_validators_with_nominators_for_era_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let v = 10;
 			let n = 100;
 
-			setup_validators_with_nominators_for_era::<Test>(
+			create_validators_with_nominators_for_era::<Test>(
 				v,
 				n,
 				MaxNominationsOf::<Test>::get() as usize,
@@ -1406,12 +1406,12 @@ mod tests {
 	}
 
 	#[test]
-	fn setup_validator_with_nominators_works() {
+	fn create_validator_with_nominators_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
 			let (validator_stash, nominators, current_era) =
-				setup_validator_with_nominators::<Test>(
+				create_validator_with_nominators::<Test>(
 					n,
 					<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 					false,
