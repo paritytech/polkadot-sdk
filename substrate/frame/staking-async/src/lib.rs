@@ -190,6 +190,7 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod reward;
 mod pallet;
 pub mod session_rotation;
 pub mod slashing;

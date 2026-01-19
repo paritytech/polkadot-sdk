@@ -76,7 +76,7 @@
 //! * end 4, start 5, plan 6 // RC::session receives and queues this set.
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
-use crate::*;
+use crate::{reward::EraRewardPots, *};
 use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
@@ -86,10 +86,7 @@ use frame_support::{
 };
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Saturating};
-use sp_staking::{
-	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
-	UnclaimedRewardSink,
-};
+use sp_staking::{currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex};
 
 /// A handler for all era-based storage items.
 ///
@@ -841,33 +838,12 @@ impl<T: Config> Rotator<T> {
 			era_duration
 		);
 
-		// Generate both era pot accounts (staker rewards and validator incentive)
-		// CLAUDE: maybe we should have a internal generate pot account function
-		// that would just increment providers. Similarly destroy or clean which
-		// will remove provider and transfer out unclaimed rewards. Wdyt? Use your
-		// judgement though, just an idea.
-		let staker_pot_account = T::EraPotAccountProvider::era_pot_account(
-			ending_era.index,
-			EraPotType::StakerRewards,
-		);
-		let validator_incentive_pot_account = T::EraPotAccountProvider::era_pot_account(
-			ending_era.index,
-			EraPotType::ValidatorSelfStake,
-		);
-
-		// Add provider to both era pot accounts to prevent premature reaping.
-		// These are decremented during cleanup after history depth expires.
-		frame_system::Pallet::<T>::inc_providers(&staker_pot_account);
-		frame_system::Pallet::<T>::inc_providers(&validator_incentive_pot_account);
-
-		// Ask RewardProvider to allocate era rewards.
+		// Allocate era rewards by creating pots and minting into them.
 		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let allocation = T::RewardProvider::allocate_era_rewards(
+		let allocation = EraRewardPots::<T>::allocate_rewards(
 			ending_era.index,
 			staked,
 			era_duration,
-			&staker_pot_account,
-			&validator_incentive_pot_account,
 		);
 
 		// Provider should return non-zero for new eras in production.
@@ -928,54 +904,13 @@ impl<T: Config> Rotator<T> {
 		session_progress >= target_plan_era_session
 	}
 
-	/// Clean up old era pot beyond history depth.
+	/// Clean up old era pots beyond history depth.
 	///
 	/// Transfers any remaining unclaimed rewards to the `UnclaimedRewardSink` and removes
-	/// the provider reference to allow the account to be reaped.
+	/// the provider reference to allow the accounts to be reaped.
+	// claude: don't need this function at all. Just inline at calling site.
 	fn cleanup_old_era_pot(era: EraIndex) {
-	// claude: please move all these imports on top of the file with above imports.
-		use frame_support::traits::{
-			fungible::{Inspect, Mutate},
-			tokens::Preservation,
-		};
-
-		// Clean up both pot types: StakerRewards and ValidatorSelfStake
-		for pot_type in [EraPotType::StakerRewards, EraPotType::ValidatorSelfStake] {
-			let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
-
-			// Check if pot exists
-			// CLAUDE: I think its more idiomatic to just check balance, no?
-			// but wait, remember some random account can transfer some funds to it
-			// so ensure nothing inconsistent happens then. I think best is to
-			// just check balance at cleanup, and decrement one provider. That's it.
-			if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
-				// Already cleaned up or never existed
-				continue;
-			}
-
-			// Get remaining balance in pot (unclaimed rewards for the era)
-			let remaining = T::Currency::balance(&pot_account);
-
-			// Transfer any remaining funds to unclaimed reward sink (even if < ED)
-			if !remaining.is_zero() {
-				let sink = T::UnclaimedRewardSink::unclaimed_reward_sink();
-				let _ = T::Currency::transfer(&pot_account, &sink, remaining, Preservation::Expendable)
-					.defensive();
-				log!(
-					debug,
-					"Transferred {:?} unclaimed rewards from era {:?} {:?} pot to sink",
-					remaining,
-					era,
-					pot_type
-				);
-			}
-
-			// Explicitly remove provider to allow account to be reaped
-			let _ = frame_system::Pallet::<T>::dec_providers(&pot_account)
-				.defensive_proof("Provider was added in allocate_era_rewards; qed");
-
-			log!(debug, "✅ Cleaned up era {:?} {:?} pot account (removed provider)", era, pot_type);
-		}
+		EraRewardPots::<T>::cleanup_era(era);
 	}
 }
 
