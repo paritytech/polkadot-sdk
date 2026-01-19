@@ -118,11 +118,20 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	ErasRewardPoints::<T>::insert(planned_era, reward);
 
-	// Create reward pool
-	let total_payout = asset::existential_deposit::<T>()
-		.saturating_mul(upper_bound.into())
-		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
+	// Allocate era rewards through the reward manager
+	// Each participant stakes ED * 10, so total_staked = ED * 10 * (1 + upper_bound)
+	let total_staked = asset::existential_deposit::<T>()
+		.saturating_mul(10u32.into())
+		.saturating_mul((1 + upper_bound).into());
+
+	let allocation = crate::reward::EraRewardManager::<T>::allocate_rewards(
+		planned_era,
+		total_staked,
+		100_000_000u64,
+	);
+
+	// Store the staker rewards amount
+	<ErasValidatorReward<T>>::insert(planned_era, allocation.staker_rewards);
 
 	Ok((v_stash, nominators, planned_era))
 }
