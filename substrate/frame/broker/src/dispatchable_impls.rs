@@ -626,6 +626,8 @@ impl<T: Config> Pallet<T> {
 		ensure!(PotentialRenewals::<T>::contains_key(renewal_id), Error::<T>::UnknownRenewal);
 		PotentialRenewals::<T>::remove(renewal_id);
 
+		Self::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
+
 		Ok(())
 	}
 

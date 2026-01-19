@@ -505,6 +505,13 @@ pub mod pallet {
 			/// The schedule that could not be assigned.
 			schedule: Schedule,
 		},
+		/// Potential renewal was forcefully removed.
+		PotentialRenewalRemoved {
+			/// The core associated with the potential renewal that was removed.
+			core: CoreIndex,
+			/// The timeslice associated with the potential renewal that was removed.
+			timeslice: Timeslice,
+		},
 	}
 
 	#[pallet::error]
