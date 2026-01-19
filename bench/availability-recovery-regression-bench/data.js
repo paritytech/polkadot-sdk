@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768828925162,
+  "lastUpdate": 1768861680383,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6b5a1284e83ed52dfc61f7deb920af41ae1efd31",
-          "message": "extend overseer to send priority messages (#8834)\n\nExtend overseer to send priority messages, the new functionality is used\nfor sending messages on the grandpa call path when we call\ndispute-coordinator and approval-voting in\nfinality_target_with_longest_chain to make sure we don't block\nunnecessarily.\n\nDepends on: https://github.com/paritytech/orchestra/pull/87.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-06-17T16:17:36Z",
-          "tree_id": "1bb03dbcc5809a80c347b65df981123f794c92a0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6b5a1284e83ed52dfc61f7deb920af41ae1efd31"
-        },
-        "date": 1750181057340,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.310223199833333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20116646146666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.392950776866666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11be995be95ac1e25a5b2a6dd941006e7097bffc",
+          "message": "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring (#10779)\n\nThis is a major refactoring of `remote-externalities` to improve the\ndownload speed of the state of chain. This is mainly achieved by\ndownload keys + values from multiple RPC servers in parallel. Also the\nkey downloading is done more smartly by dividing downloaded key ranges\ndynamically, instead of having fixed number of key ranges at startup.\n\nBesides this it does a lot more refactoring + clean ups.\n\nAll in all this brings down the download time for PAH from 2h+ to 15min\nwith ~5 RPC servers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T21:20:29Z",
+          "tree_id": "7be942a563d8d5472a48c1744d3921a3b1524e0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11be995be95ac1e25a5b2a6dd941006e7097bffc"
+        },
+        "date": 1768861657914,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.37174159163333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12309206936666668,
             "unit": "seconds"
           }
         ]
