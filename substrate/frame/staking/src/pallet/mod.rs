@@ -231,6 +231,7 @@ pub mod pallet {
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
 		#[pallet::no_default]
+		#[allow(deprecated)]
 		type EraPayout: sp_staking::EraPayout<BalanceOf<Self>>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
