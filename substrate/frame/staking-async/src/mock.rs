@@ -52,6 +52,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Dap: pallet_dap,
 	}
 );
 
@@ -109,6 +110,15 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
+impl pallet_dap::Config for Test {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {
@@ -448,7 +458,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = ();
+	type Slash = Dap;
 	type WeightInfo = ();
 }
 
@@ -703,6 +713,8 @@ impl ExtBuilder {
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
+
+		let _ = pallet_dap::GenesisConfig::<Test>::default().assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 		let nominators_slashable = self.nominators_slashable;
