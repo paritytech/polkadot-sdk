@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768816159145,
+  "lastUpdate": 1768820481152,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "509637a61041196d2620419a74f6c3d7efad92df",
-          "message": "staking-async runtime: extended duration of the signed phase (#8870)\n\nFor the staking-async test runtime, we extend the duration of the signed\nphase from 2 to 4 minutes, in order to give enough time to the staking\nminer to mine, submit the score, verify it's on chain and then submit\nall pages during the signed phase.\n\nWhile testing on CI / locally for a 32-page solution, the miner ends up\nsubmitting pages pretty close to the end of the signed phase itself.\n\nWhereas this is a valuable scenario to test to prove miner's robustness,\nin the main happy path and while testing locally, we want the miner by\ndefault to have enough time to submit the whole solution and to be able\nto handle a re-tx if one/N pages fail to be submitted still within the\nsame Signed phase cycle.",
-          "timestamp": "2025-06-17T09:50:15Z",
-          "tree_id": "197703bee5dc435c40a22264535b88245e00eb8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/509637a61041196d2620419a74f6c3d7efad92df"
-        },
-        "date": 1750157797236,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012837590986666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15671337054666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02254401959333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008974794873333428,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009950968473333315,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64dc02179ba69303191bfeb8df2b00583fc77658",
+          "message": "benchmarking: fix timing leak from bulk setup operations (#10802)\n\nFixes timing leaks in benchmarks with large setup operations (e.g.,\nclearing 27k staking entries). After bulk deletions are committed, the\nfirst new allocation can trigger memory allocator overhead that leaks\ninto benchmark timing.\n\nThe fix adds a memory allocator warmup step in `commit_db()` that\nperforms a dummy write/clear cycle to absorb this overhead before timing\nstarts.\n\nFix https://github.com/paritytech/polkadot-sdk/issues/10798.\n\nAnother related issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/10813 (rework of\nstaking benchmarks to avoid massive bulk deletion if not needed. An\nexample showing the validity of the approach\n[here](https://github.com/paritytech/polkadot-sdk/pull/10822#issuecomment-3757632561)\nwhere we just remove a clear_validators_and_nominators() from one\nbenchmark and that's enough to go down from ms to microsec)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T09:48:15Z",
+          "tree_id": "af9dd3cdcb7f0bc1d7a24f1eed101a0bda7106f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64dc02179ba69303191bfeb8df2b00583fc77658"
+        },
+        "date": 1768820457305,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022907308079999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009595834046666649,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14450256049333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006904531693333334,
             "unit": "seconds"
           }
         ]
