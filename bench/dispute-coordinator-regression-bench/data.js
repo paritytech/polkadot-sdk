@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768816257461,
+  "lastUpdate": 1768820580837,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21363,6 +21363,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006194651309999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64dc02179ba69303191bfeb8df2b00583fc77658",
+          "message": "benchmarking: fix timing leak from bulk setup operations (#10802)\n\nFixes timing leaks in benchmarks with large setup operations (e.g.,\nclearing 27k staking entries). After bulk deletions are committed, the\nfirst new allocation can trigger memory allocator overhead that leaks\ninto benchmark timing.\n\nThe fix adds a memory allocator warmup step in `commit_db()` that\nperforms a dummy write/clear cycle to absorb this overhead before timing\nstarts.\n\nFix https://github.com/paritytech/polkadot-sdk/issues/10798.\n\nAnother related issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/10813 (rework of\nstaking benchmarks to avoid massive bulk deletion if not needed. An\nexample showing the validity of the approach\n[here](https://github.com/paritytech/polkadot-sdk/pull/10822#issuecomment-3757632561)\nwhere we just remove a clear_validators_and_nominators() from one\nbenchmark and that's enough to go down from ms to microsec)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T09:48:15Z",
+          "tree_id": "af9dd3cdcb7f0bc1d7a24f1eed101a0bda7106f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64dc02179ba69303191bfeb8df2b00583fc77658"
+        },
+        "date": 1768820556085,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00906822282999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0062706216999999925,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002679768020000001,
             "unit": "seconds"
           }
         ]
