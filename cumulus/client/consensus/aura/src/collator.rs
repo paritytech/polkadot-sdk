@@ -33,7 +33,7 @@ use cumulus_client_consensus_common::{
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
-	RelayProofRequest,
+	RelayProofRequest, RelayStorageKey,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sc_client_api::BackendTransaction;
@@ -178,9 +178,17 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-		relay_proof_request: RelayProofRequest,
+		mut relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
+		// Add additional_relay_state_keys
+		let additional_relay_state_keys: Vec<Vec<u8>> = Vec::new();
+
+		// Merge collator-side keys with runtime-requested keys
+		relay_proof_request
+			.keys
+			.extend(additional_relay_state_keys.into_iter().map(RelayStorageKey::Top));
+
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
@@ -189,7 +197,6 @@ where
 			relay_parent_descendants
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
-			Vec::new(),
 			relay_proof_request,
 			collator_peer_id,
 		)
