@@ -1,0 +1,35 @@
+title: Add Max Validators To ValidatorSetReport
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    This PR adds compile-time bounds enforcement for the maximum number of validators in `ValidatorSetReport` by making it generic over a `MaxValidators` type parameter and using `BoundedVec` instead of `Vec`.
+
+    Previously, `ValidatorSetReport` used an unbounded `Vec<AccountId>` for the validator set, which could theoretically grow without limit. This change adds type-level enforcement of the maximum validator count, improving type safety and making the bounds explicit in the type system.
+
+    ## Integration
+
+    **Breaking Change**: This PR modifies the `ValidatorSetReport` and `SendToRelayChain` types.
+
+    ### For Runtime Implementers
+
+    If you implement `SendToRelayChain`, you now need to specify a `MaxValidators` associated type:
+
+    ```diff
+    impl SendToRelayChain for YourType {
+        type AccountId = AccountId;
+    +   type MaxValidators = ConstU32<1000>; // or your desired maximum
+
+        fn validator_set(
+    -       report: ValidatorSetReport<Self::AccountId>
+    +       report: ValidatorSetReport<Self::AccountId, Self::MaxValidators>
+        ) -> Result<(), ()> {
+            // ... implementation
+        }
+    }
+crates:
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
