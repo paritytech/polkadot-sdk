@@ -177,7 +177,6 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, TokenError,
 };
 
-use pallet_assets_foreign::{insert_asset_mapping, ToAssetIndex, remove_asset_mapping};
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -196,6 +195,7 @@ use frame_support::{
 	},
 };
 use frame_system::Config as SystemConfig;
+use pallet_assets_foreign::{insert_asset_mapping, remove_asset_mapping, ToAssetIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -249,11 +249,12 @@ where
 }
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I> + pallet_assets_foreign::pallet::Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+impl<T: Config<I> + pallet_assets_foreign::pallet::Config, I>
+	AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
-T: pallet_assets_foreign::pallet::Config<
-    ForeignAssetId = <T as crate::pallet::Config<I>>::AssetId
->
+	T: pallet_assets_foreign::pallet::Config<
+		ForeignAssetId = <T as crate::pallet::Config<I>>::AssetId,
+	>,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
 		insert_asset_mapping::<T>(id.to_asset_index(), id);
@@ -337,7 +338,9 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	/// The module configuration trait.
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets_foreign::pallet::Config {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config + pallet_assets_foreign::pallet::Config
+	{
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
 		#[allow(deprecated)]
@@ -362,7 +365,12 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 
 		/// Identifier for the class of asset.
-		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + pallet_assets_foreign::ToAssetIndex;
+		type AssetId: Member
+			+ Parameter
+			+ Clone
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ pallet_assets_foreign::ToAssetIndex;
 
 		/// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
 		/// of compact encoding in instances of the pallet, which will prevent breaking changes

@@ -312,7 +312,10 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = (pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>, AutoIncAssetId<Runtime, ForeignAssetsInstance>);
+	type CallbackHandle = (
+		pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>,
+		AutoIncAssetId<Runtime, ForeignAssetsInstance>,
+	);
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]

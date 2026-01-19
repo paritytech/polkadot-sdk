@@ -69,7 +69,7 @@ pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: &T::ForeignAsset
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-    use frame_support::{pallet_prelude::*, Blake2_128Concat};
+	use frame_support::{pallet_prelude::*, Blake2_128Concat};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -83,7 +83,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
-
 
 	/// Mapping an asset index (which is used internally by the pallet) to an `ForeignAssetId`.
 	#[pallet::storage]
