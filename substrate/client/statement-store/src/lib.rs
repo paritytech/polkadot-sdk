@@ -60,9 +60,10 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{StatementSource, StatementStoreExt, ValidStatement},
+	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason, Proof,
-	RejectionReason, Result, SignatureVerificationResult, Statement, SubmitResult, Topic,
+	RejectionReason, Result, SignatureVerificationResult, Statement, StatementAllowance,
+	SubmitResult, Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -181,7 +182,7 @@ where
 	BE: Backend<Block> + 'static,
 	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	fn read_allowance(&self, account_id: &AccountId) -> Result<Option<ValidStatement>> {
+	fn read_allowance(&self, account_id: &AccountId) -> Result<Option<StatementAllowance>> {
 		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
 		let block_hash = self.client.info().finalized_hash;
@@ -202,7 +203,7 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<Option<ValidStatement>> + Send + Sync>,
+	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<Option<StatementAllowance>> + Send + Sync>,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
 	time_override: Option<u64>,
@@ -372,7 +373,7 @@ impl Index {
 		hash: Hash,
 		statement: &Statement,
 		account: &AccountId,
-		validation: &ValidStatement,
+		validation: &StatementAllowance,
 		current_time: u64,
 	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();

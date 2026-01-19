@@ -843,13 +843,11 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		.duration_since(std::time::UNIX_EPOCH)
 		.unwrap()
 		.as_micros() as u64;
-	let test_run_id = Arc::new(test_run_id);
 
 	let handles: Vec<_> = (0..config.num_clients)
 		.map(|client_id| {
 			let config = Arc::clone(&config);
 			let barrier = Arc::clone(&barrier);
-			let test_run_id = Arc::clone(&test_run_id);
 			let (keyring, _) = sr25519::Pair::generate();
 			let node_idx = (client_id as usize) % config.num_nodes;
 			let rpc_client = rpc_clients[node_idx].clone();
@@ -879,8 +877,6 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 				let mut rounds_stats = Vec::new();
 				for round in 0..config.num_rounds {
 					let round_start = std::time::Instant::now();
-
-					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
 					if client_id == 0 {
@@ -892,18 +888,18 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							let mut statement = Statement::new();
 
 							let topic_str =
-								format!("{}-{}-{}-{}", *test_run_id, client_id, round, msg_idx);
+								format!("{}-{}-{}-{}", test_run_id, client_id, round, msg_idx);
 							let topic = blake2_256(topic_str.as_bytes());
 							let channel = blake2_256(msg_idx.to_le_bytes().as_ref());
 
 							// Use timestamp for priority
-							let timestamp_micros = std::time::SystemTime::now()
+							let timestamp_ms = std::time::SystemTime::now()
 								.duration_since(std::time::UNIX_EPOCH)
 								.unwrap()
-								.as_micros() as u32;
+								.as_millis() as u32;
 
 							statement.set_channel(channel);
-							statement.set_priority(timestamp_micros);
+							statement.set_priority(timestamp_ms);
 							statement.set_topic(0, topic);
 							statement.set_plain_data(vec![0u8; size]);
 							statement.sign_sr25519_private(&keyring);
@@ -921,7 +917,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					}
 
 					let sent_count = msg_idx;
-					let send_duration = send_start.elapsed();
+					let send_duration = round_start.elapsed();
 
 					let propagation_jitter = (client_id % 1000) as u64;
 					tokio::time::sleep(Duration::from_millis(
@@ -940,7 +936,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					for msg_idx in 0..config.messages_per_client() as u32 {
 						// Use same test run ID for topic lookup
 						let topic_str =
-							format!("{}-{}-{}-{}", *test_run_id, neighbour_id, round, msg_idx);
+							format!("{}-{}-{}-{}", test_run_id, neighbour_id, round, msg_idx);
 						let topic = blake2_256(topic_str.as_bytes());
 
 						for retry in 0..config.max_retries {
