@@ -2,7 +2,7 @@ title: 'staking-async: improve benchmarking'
 doc:
 - audience: Runtime Dev
   description: |-
-    Enable state reuse in benchmarking avoiding bulk deletion of validators/nominators if not needed.
+    Avoid bulk deletion of validators and nominators when not needed.
 crates:
 - name: pallet-staking-async
   bump: none
