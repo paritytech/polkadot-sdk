@@ -1,0 +1,14 @@
+title: '[WIP][pallet-revive] added pallet-assets-foreign'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/polkadot-sdk/issues/8659
+
+    Adds pallet-assets-foreign for mapping `xcm::v5::Location` to `u32`.
+crates:
+- name: pallet-assets-precompiles
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-assets
+  bump: minor
