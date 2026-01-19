@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768820481152,
+  "lastUpdate": 1768828958937,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "310e81d772201491b2a49452adaae7796ac237df",
-          "message": "Check artifact integrity before execution (#8833)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/677\nFixes https://github.com/paritytech/polkadot-sdk/issues/2399 \n\n# Description\n\nTo detect potential corruption of PVF artifacts on disk, we store their\nchecksums and verify if they match before execution. In case of a\nmismatch, we recreate the artifact.\n\n## Integration\n\nIn Candidate Validation, we treat the error similarly to\nPossiblyInvalidError::RuntimeConstruction due to their close nature.\n\n## Review Notes\n\nThe Black3 hashing algorithm has already been used. I believe we can\nswitch to twox, as suggested in the issue, because the checksum does not\nneed to be cryptographically hashed, and we do not reveal the checksum\nin logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-17T13:28:32Z",
-          "tree_id": "40f6f510c55627c250552908018d8d26604c29f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/310e81d772201491b2a49452adaae7796ac237df"
-        },
-        "date": 1750171112282,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01320111556,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02261257342,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008653261700000098,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15778810298666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.006904531693333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
+          "message": "Forbid invisible characters (#10838)",
+          "timestamp": "2026-01-19T12:12:57Z",
+          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
+        },
+        "date": 1768828934459,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14447056776000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023050117073333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009817774406666648,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007476108486666666,
             "unit": "seconds"
           }
         ]
