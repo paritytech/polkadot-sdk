@@ -26,6 +26,7 @@ pallet-authorship.workspace = true
 pallet-balances.workspace = true
 pallet-collator-selection.workspace = true
 pallet-message-queue.workspace = true
+pallet-multi-asset-bounties.workspace = true
 pallet-treasury.workspace = true
 pallet-xcm.workspace = true
 parachain-info.workspace = true
@@ -54,6 +55,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-multi-asset-bounties/std",
 	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -78,6 +80,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -96,6 +99,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
