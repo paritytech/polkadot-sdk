@@ -7,4 +7,6 @@ doc:
     Add an extrinsic allowing to forcefully remove the existing potential renewal from chain without the need to directly manipulate the storage.
 crates:
 - name: pallet-broker
-  bump: patch
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
