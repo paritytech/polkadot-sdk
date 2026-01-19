@@ -1878,7 +1878,7 @@ mod remote_tests_local {
 		let mode = Mode::OfflineOrElseOnline(
 			OfflineConfig { state_snapshot: snap.clone() },
 			OnlineConfig {
-				transports: vec![ws_api],
+				transport_uris: vec![ws_api],
 				state_snapshot: Some(snap),
 				..Default::default()
 			},

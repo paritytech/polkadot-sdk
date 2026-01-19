@@ -1174,7 +1174,7 @@ mod tests {
 mod remote_tests {
 	use super::test_prelude::*;
 	use frame_support::storage::KeyPrefixIterator;
-	use std::{env, os::unix::fs::MetadataExt};
+	use std::{env, os::unix::fs::MetadataExt, path::Path};
 
 	fn endpoint() -> String {
 		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
