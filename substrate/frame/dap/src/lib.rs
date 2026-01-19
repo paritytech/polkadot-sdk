@@ -38,6 +38,7 @@ mod tests;
 
 extern crate alloc;
 
+use codec::DecodeWithMemTracking;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -47,7 +48,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_staking::{EraIndex, EraPayout, StakingRewardProvider};
+use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
 
 pub use pallet::*;
 
@@ -57,10 +58,88 @@ const LOG_TARGET: &str = "runtime::dap";
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+/// Budget allocation configuration for era emission.
+///
+/// Defines how the total era inflation is split across different reward categories.
+/// All allocations must sum to exactly 100% (`Perbill::one()`).
+///
+/// The buffer accumulates funds for multiple purposes:
+/// - Treasury budget
+/// - Strategic reserve
+/// - Funds for acquiring stablecoins for validator/collator operational costs
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
+	Copy,
+)]
+#[codec(mel_bound())]
+#[scale_info(skip_type_params(T))]
+pub struct BudgetConfig {
+	/// Allocation to stakers (nominators + validator stake rewards).
+	///
+	/// This is the traditional staking reward that rewards staker based on their stake.
+	pub staker_rewards: sp_runtime::Perbill,
+
+	/// Allocation to validator self-stake incentive (vested).
+	///
+	/// Extra rewards for validators based on their self-stake, vested over time to encourage
+	/// long-term commitment.
+	pub validator_self_stake_incentive: sp_runtime::Perbill,
+
+	/// Allocation to buffer.
+	///
+	/// The buffer accumulates funds for treasury transfers, stablecoin acquisition, and strategic
+	/// reserve. All allocations must explicitly sum to 100%.
+	pub buffer: sp_runtime::Perbill,
+}
+
+impl BudgetConfig {
+	/// Validates that all budget allocations sum to exactly 100%.
+	///
+	/// Returns true if the configuration is valid, false otherwise.
+	pub fn is_valid(&self) -> bool {
+		use sp_runtime::traits::CheckedAdd;
+
+		let Some(partial) = self.staker_rewards.checked_add(&self.validator_self_stake_incentive)
+		else {
+			return false;
+		};
+
+		let Some(total) = partial.checked_add(&self.buffer) else {
+			return false;
+		};
+
+		total == sp_runtime::Perbill::one()
+	}
+
+	/// Returns the default budget configuration.
+	///
+	/// Maintains backward compatibility with the previous 85%/15% split:
+	/// - 85% to stakers
+	/// - 0% to validator self-stake incentive
+	/// - 15% to buffer for strategic reserve, treasury, operational costs
+	pub fn default_config() -> Self {
+		Self {
+			staker_rewards: sp_runtime::Perbill::from_percent(85),
+			validator_self_stake_incentive: sp_runtime::Perbill::from_percent(0),
+			buffer: sp_runtime::Perbill::from_percent(15),
+		}
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
+	use frame_system::pallet_prelude::OriginFor;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -86,8 +165,10 @@ pub mod pallet {
 		/// Era payout implementation.
 		///
 		/// This is typically implemented in the runtime to provide the inflation curve logic.
-		/// Called by DAP to determine how much to mint for each era.
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		type EraPayout: EraPayoutV2<BalanceOf<Self>>;
+
+		/// Origin that can update budget allocation parameters.
+		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::event]
@@ -101,8 +182,13 @@ pub mod pallet {
 			era: EraIndex,
 			/// Amount minted for staker rewards (deposited into era pot).
 			staker_rewards: BalanceOf<T>,
-			/// Amount minted for treasury (deposited into buffer).
-			treasury_rewards: BalanceOf<T>,
+			/// Amount minted for buffer/treasury (includes validator incentive + remainder).
+			buffer_rewards: BalanceOf<T>,
+		},
+		/// Budget allocation configuration was updated.
+		BudgetAllocationUpdated {
+			/// The new budget configuration.
+			config: BudgetConfig,
 		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
@@ -115,6 +201,53 @@ pub mod pallet {
 	pub enum UnexpectedKind {
 		/// Failed to mint era inflation.
 		EraMintFailed { era: EraIndex },
+	}
+
+	// claude: what does this do? Can you explain?
+	#[pallet::type_value]
+	pub fn DefaultBudgetConfig() -> BudgetConfig {
+		BudgetConfig::default_config()
+	}
+
+	/// Budget allocation configuration storage.
+	///
+	/// Stores the current distribution of era rewards across different categories.
+	/// Defaults to 85% stakers, 0% validator self-stake incentive, 15% treasury.
+	#[pallet::storage]
+	#[pallet::getter(fn budget_allocation)]
+	pub type BudgetAllocation<T> = StorageValue<_, BudgetConfig, ValueQuery, DefaultBudgetConfig>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Budget allocation configuration is invalid (percentages exceed 100%).
+		InvalidBudgetConfig,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Set the budget allocation configuration.
+		///
+		/// Updates how era emission is distributed across different categories.
+		/// The configuration must be valid (all percentages sum to ≤ 100%).
+		///
+		/// # Errors
+		/// - `InvalidBudgetConfig` if percentages sum to > 100%
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
+		pub fn set_budget_allocation(
+			origin: OriginFor<T>,
+			new_config: BudgetConfig,
+		) -> DispatchResult {
+			T::BudgetOrigin::ensure_origin(origin)?;
+
+			ensure!(new_config.is_valid(), Error::<T>::InvalidBudgetConfig);
+
+			BudgetAllocation::<T>::put(new_config);
+
+			Self::deposit_event(Event::BudgetAllocationUpdated { config: new_config });
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -259,57 +392,78 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 		era: EraIndex,
 		total_staked: BalanceOf<T>,
 		era_duration_millis: u64,
-		staking_era_pot: &T::AccountId,
-	) -> BalanceOf<T> {
+		staker_pot: &T::AccountId,
+		validator_incentive_pot: &T::AccountId,
+	) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
 		// Look up total issuance
 		let total_issuance = T::Currency::total_issuance();
 
-		// Compute era payout
-		let (to_stakers, to_treasury) = T::EraPayout::era_payout(
+		// Compute total era inflation using EraPayoutV2
+		let total_inflation = T::EraPayout::era_payout(
 			total_staked,
 			total_issuance,
 			// note: era_duration_millis already is defensively capped by staking implementation
 			era_duration_millis,
 		);
 
+		// Get current budget allocation configuration
+		let budget = BudgetAllocation::<T>::get();
+
+		// Split total inflation according to budget configuration
+		use sp_runtime::traits::Zero;
+		let to_stakers = budget.staker_rewards.mul_floor(total_inflation);
+		let to_validator_incentive = budget.validator_self_stake_incentive.mul_floor(total_inflation);
+		let to_buffer = budget.buffer.mul_floor(total_inflation);
+
 		log::info!(
 			target: LOG_TARGET,
-			"💰 Era {era} allocation: to_stakers={to_stakers:?}, to_treasury={to_treasury:?}"
+			"💰 Era {era} allocation: total={total_inflation:?}, stakers={to_stakers:?}, validator_incentive={to_validator_incentive:?}, buffer={to_buffer:?}"
 		);
 
-		// Mint `to_stakers` into the provided era system account
-		// Skip if zero amount
+		// Mint staker rewards into the staker pot
 		if !to_stakers.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(staking_era_pot, to_stakers) {
-				// fail in tests, log in prod
+			if let Err(_e) = T::Currency::mint_into(staker_pot, to_stakers) {
 				defensive!("Era Mint should never fail");
-				// trigger unexpected event for observability
 				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-				// can't do much here, just return!
-				return Default::default();
+				// Return zero allocation on failure
+				return sp_staking::EraRewardAllocation {
+					staker_rewards: Default::default(),
+					validator_incentive: Default::default(),
+				};
 			}
 		}
 
-		// Mint treasury portion into the buffer account
+		// Mint validator incentive into the validator incentive pot
+		if !to_validator_incentive.is_zero() {
+			if let Err(_e) = T::Currency::mint_into(validator_incentive_pot, to_validator_incentive) {
+				defensive!("Era Mint should never fail");
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
+				// We already minted staker rewards, so continue
+			}
+		}
+
+		// Mint buffer portion into the buffer account
 		let buffer = Self::buffer_account();
-		if !to_treasury.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(&buffer, to_treasury) {
-				// fail in tests, log in prod.
+		if !to_buffer.is_zero() {
+			if let Err(_e) = T::Currency::mint_into(&buffer, to_buffer) {
 				defensive!("Era Mint should never fail");
-				// trigger unexpected event for observability.
 				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-				// move on as we were able to mint staker reward
+				// Continue even if buffer mint fails
 			}
 		}
 
+		// Event now reports buffer_rewards as just the buffer portion (not including validator incentive)
 		Self::deposit_event(Event::EraRewardsAllocated {
 			era,
 			staker_rewards: to_stakers,
-			treasury_rewards: to_treasury,
+			buffer_rewards: to_buffer,
 		});
 
-		// Return the amount allocated to stakers
-		to_stakers
+		// Return the allocation breakdown
+		sp_staking::EraRewardAllocation {
+			staker_rewards: to_stakers,
+			validator_incentive: to_validator_incentive,
+		}
 	}
 }
 
