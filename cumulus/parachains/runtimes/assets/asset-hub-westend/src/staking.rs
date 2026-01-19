@@ -270,6 +270,7 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	pub const StakingPalletId: PalletId = PalletId(*b"py/stkng");
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -283,6 +284,8 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = Dap;
 	type Reward = ();
 	type RewardProvider = Dap;
+	type UnclaimedRewardSink = Dap;
+	type EraPotAccountProvider = pallet_staking_async::Seed<StakingPalletId>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -321,6 +324,7 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type BudgetOrigin = EnsureRoot<AccountId>;
 	type EraPayout = EraPayout;
 }
 

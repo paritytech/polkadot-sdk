@@ -449,6 +449,8 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type RewardRemainder = ();
 	type RewardProvider = Dap;
+	type UnclaimedRewardSink = Dap;
+	type EraPotAccountProvider = pallet_staking_async::SequentialTest;
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
@@ -503,6 +505,7 @@ impl sp_staking::EraPayout<Balance> for TestEraPayout {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type BudgetOrigin = EnsureRoot<AccountId>;
 	type EraPayout = TestEraPayout;
 }
 
