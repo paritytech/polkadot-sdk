@@ -727,66 +727,39 @@ pub trait DelegationMigrator {
 
 /// Trait for managing staking rewards across eras.
 ///
-/// The provider is responsible for computing inflation, minting rewards, and managing era pot
-/// accounts.
+/// The provider is responsible for computing inflation, minting rewards, and funding the
+/// staking system account for each era.
 pub trait StakingRewardProvider<AccountId, Balance> {
 	/// Allocate rewards for a new era based on staking state and duration.
 	///
+	/// The provider should mint the computed rewards and fund the provided `system_account`.
+	///
 	/// # Parameters
-	/// - `era`: The era index being finalized
+    /// - `era`: The era index being finalized
 	/// - `total_staked`: Total amount staked in this era
 	/// - `era_duration_millis`: Duration of the era in milliseconds
+	/// - `system_account`: The staking system account to fund with staker rewards
 	///
 	/// # Returns
-	/// The amount allocated to stakers
+	/// The amount allocated to stakers (funded into `system_account`)
 	fn allocate_era_rewards(
 		era: EraIndex,
 		total_staked: Balance,
 		era_duration_millis: u64,
+		system_account: &AccountId,
 	) -> Balance;
-
-	/// Check if an era has a pre-allocated reward pot.
-	///
-	/// Returns true if rewards for this era have been allocated via `allocate_era_rewards`.
-	/// Used by staking to distinguish between new eras (use provider) and old eras (legacy).
-	fn has_era_pot(era: EraIndex) -> bool;
-
-	/// Transfer reward from an era pot to a beneficiary.
-	///
-	/// Called by staking during staker payouts.
-	/// Returns error if the era pot doesn't exist.
-	fn transfer_era_reward(era: EraIndex, to: &AccountId, amount: Balance) -> DispatchResult;
-
-	/// Clean up old era pot beyond history depth.
-	///
-	/// Called by staking at era start to clean up expired pots. Any unclaimed funds are moved to
-	/// dap buffer pot.
-	fn cleanup_old_era_pot(era: EraIndex);
 }
 
-/// Default implementation that indicates no reward provider is configured.
+/// Trait for receiving unclaimed staking rewards.
 ///
-/// This allows runtimes without a reward provider to continue using legacy on-demand minting.
-impl<AccountId, Balance: Default> StakingRewardProvider<AccountId, Balance> for () {
-	fn allocate_era_rewards(
-		_era: EraIndex,
-		_total_staked: Balance,
-		_era_duration_millis: u64,
-	) -> Balance {
-		Default::default()
-	}
-
-	fn has_era_pot(_era: EraIndex) -> bool {
-		false
-	}
-
-	fn transfer_era_reward(_era: EraIndex, _to: &AccountId, _amount: Balance) -> DispatchResult {
-		Err(DispatchError::Other("No reward provider configured"))
-	}
-
-	fn cleanup_old_era_pot(_era: EraIndex) {
-		// No-op for default implementation
-	}
+/// This specifies where the unclaimed rewards should be transferred when era pot accounts are
+/// cleaned up after the history depth expires.
+pub trait UnclaimedRewardSink<AccountId> {
+	/// Get the account where unclaimed rewards should be sent.
+	///
+	/// This is called by staking when cleaning up old era pot accounts to determine
+	/// where to transfer any remaining unclaimed rewards.
+	fn unclaimed_reward_sink() -> AccountId;
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
