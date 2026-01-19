@@ -111,9 +111,7 @@ mod remote_tests {
 	use super::*;
 	use frame_support::traits::{TryState, TryStateSelect::All};
 	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
+	use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 	use std::env::var;
 
 	#[tokio::test]
@@ -123,21 +121,23 @@ mod remote_tests {
 		}
 
 		sp_tracing::try_init_simple();
-		let transport: Transport =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let mut ext = Builder::<Block>::default()
 			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
 					OnlineConfig {
-						transport,
+						transport_uris: vec![transport_uri.clone()],
 						state_snapshot: Some(state_snapshot),
 						..Default::default()
 					},
 				)
 			} else {
-				Mode::Online(OnlineConfig { transport, ..Default::default() })
+				Mode::Online(OnlineConfig {
+					transport_uris: vec![transport_uri],
+					..Default::default()
+				})
 			})
 			.build()
 			.await
@@ -154,10 +154,10 @@ mod remote_tests {
 		use frame_support::assert_ok;
 		sp_tracing::try_init_simple();
 
-		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let online_config = OnlineConfig {
-			transport,
+			transport_uris: vec![transport_uri],
 			state_snapshot: maybe_state_snapshot.clone(),
 			child_trie: false,
 			pallets: vec![
@@ -257,10 +257,10 @@ mod remote_tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9944".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("ws://127.0.0.1:9944".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let online_config = OnlineConfig {
-			transport,
+			transport_uris: vec![transport_uri],
 			state_snapshot: maybe_state_snapshot.clone(),
 			child_trie: false,
 			pallets: vec![
