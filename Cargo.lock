@@ -11461,7 +11461,6 @@ dependencies = [
 name = "pallet-assets-foreign"
 version = "0.1.0"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -11509,6 +11508,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-assets",
+ "pallet-assets-foreign",
  "pallet-balances",
  "pallet-revive",
  "parity-scale-codec",
