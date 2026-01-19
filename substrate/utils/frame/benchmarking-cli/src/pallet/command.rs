@@ -38,6 +38,7 @@ use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use serde_json::Value;
 use sp_core::{
 	offchain::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
@@ -259,8 +260,23 @@ impl PalletCmd {
 
 		let state_handler =
 			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
-		let genesis_storage =
-			state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
+
+		let genesis_patcher = if let Some(ref patch_path) = self.genesis_patch {
+			let patch_content = fs::read_to_string(patch_path)
+				.map_err(|e| format!("Failed to read genesis patch file: {}", e))?;
+			let patch_value: serde_json::Value = serde_json::from_str(&patch_content)
+				.map_err(|e| format!("Failed to parse genesis patch JSON: {}", e))?;
+
+			Some(Box::new(move |mut value| {
+				sc_chain_spec::json_patch::merge(&mut value, patch_value);
+				value
+			}) as Box<dyn FnOnce(Value) -> Value + 'static>)
+		} else {
+			None
+		};
+
+		let genesis_storage = state_handler
+			.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(genesis_patcher)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -1188,6 +1204,17 @@ mod tests {
 			"path/to/runtime",
 			"--genesis-builder-preset",
 			"preset",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
 		])?;
 		cli_fail(&[
 			"test",
