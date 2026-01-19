@@ -106,8 +106,9 @@ pub mod option {
 	{
 		let opt = Option::<String>::deserialize(deserializer)?;
 		match opt {
-			Some(s) =>
-				T::from_hex(s).map(Some).map_err(|e| serde::de::Error::custom(format!("{:?}", e))),
+			Some(s) => T::from_hex(s)
+				.map(Some)
+				.map_err(|e| serde::de::Error::custom(format!("{:?}", e))),
 			None => Ok(None),
 		}
 	}
