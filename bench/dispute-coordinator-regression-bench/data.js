@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768778403142,
+  "lastUpdate": 1768816257461,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21314,6 +21314,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00275695332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202ea0217f44fa1e94e52c77bb42dfc7322926b0",
+          "message": "Fix flaky test `zombienet-polkadot-elastic-scaling-slot-based-3cores` (#10826)\n\nWe had 4 failures in the last 90 runs of\n`zombienet-polkadot-elastic-scaling-slot-based-3cores` test where the\nassetion fails by `1` (34 blocks)\n\n\n\nhttps://paritytech.github.io/zombienet-jobs-monitor/web/?search=based-3cores&mergeQueueOnly=true\n<img width=\"1011\" height=\"183\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/07123449-29a0-4f69-bc2d-9c3bc4b865ae\"\n/>\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21035251168/job/60482637320\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20923519106/job/60116752831\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20432629082/job/58707838790\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20264366293/job/58185559463\n\nAnd since we already have some margin we can adjust to remove this\nflakyness.\n\nping @alindima",
+          "timestamp": "2026-01-19T08:38:05Z",
+          "tree_id": "e46a3578aebcd6daaeff3dbb004faa33cd9a0a01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202ea0217f44fa1e94e52c77bb42dfc7322926b0"
+        },
+        "date": 1768816233523,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00267754411,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009034700009999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006194651309999998,
             "unit": "seconds"
           }
         ]
