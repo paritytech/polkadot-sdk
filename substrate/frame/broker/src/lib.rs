@@ -141,6 +141,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Reservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
 
+	/// Force reservations that need to be inserted into the workplan at the next sale rotation.
+	///
+	/// They are automatically freed at the next sale rotation.
+	#[pallet::storage]
+	pub type ForceReservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
+
 	/// The Polkadot Core legacy leases.
 	#[pallet::storage]
 	pub type Leases<T> = StorageValue<_, LeasesRecordOf<T>, ValueQuery>;
@@ -499,6 +505,11 @@ pub mod pallet {
 		BasePriceReset {
 			/// The new base/minimum price.
 			new_base_price: BalanceOf<T>,
+    },
+		/// Failed to assign a force reservation due to no free cores available.
+		ForceReservationFailed {
+			/// The schedule that could not be assigned.
+			schedule: Schedule,
 		},
 	}
 
