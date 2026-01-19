@@ -51,7 +51,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 
 		#[extrinsic_call]
@@ -67,13 +68,15 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -92,7 +95,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -111,13 +115,15 @@ mod benchmarks {
 		let original: T::AccountId = account("original", 0, SEED);
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&original,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
@@ -136,7 +142,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -159,7 +166,9 @@ mod benchmarks {
 
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get() + additional_amount,
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				T::Deposit::get() +
+				additional_amount,
 		);
 
 		let original_deposit = T::Deposit::get();
@@ -223,13 +232,12 @@ mod benchmarks {
 		// Give the account some balance (enough for deposit + existential deposit)
 		<T::NativeBalance as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() + deposit + deposit,
+			<T::NativeBalance as FungibleInspect<T::AccountId>>::minimum_balance() +
+				deposit + deposit,
 		);
 
 		// Reserve funds using the old Currency system
-		<T::NativeBalance as ReservableCurrency<T::AccountId>>::reserve(
-			&caller, deposit,
-		)?;
+		<T::NativeBalance as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)?;
 
 		// Insert into the OLD storage (v0) to simulate pre-migration state
 		v0::OldAccounts::<T>::insert(account_index, (caller.clone(), deposit, false));

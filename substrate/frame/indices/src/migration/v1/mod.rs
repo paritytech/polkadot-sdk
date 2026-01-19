@@ -301,11 +301,8 @@ where
 			// This is to avoid trying to hold more than the account can actually hold while
 			// preserving Existential Deposit This case can happen if the account had no
 			// Existential Deposit before the migration but had an Index Deposit
-			match T::NativeBalance::hold(
-				&HoldReason::DepositForIndex.into(),
-				&account,
-				hold_amount,
-			) {
+			match T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &account, hold_amount)
+			{
 				Ok(_) => {
 					// Success: migrate to new storage with hold
 					Accounts::<T>::insert(index, (account, hold_amount, frozen));
