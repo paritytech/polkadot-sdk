@@ -37,6 +37,7 @@ sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+foreign-assets = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

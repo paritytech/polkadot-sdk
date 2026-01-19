@@ -35,7 +35,7 @@ pallet-asset-conversion-ops = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
-pallet-assets = { workspace = true }
+pallet-assets = { workspace = true, features = ["foreign-assets"] }
 pallet-assets-freezer = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
 pallet-aura = { workspace = true }

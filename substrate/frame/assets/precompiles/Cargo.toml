@@ -33,6 +33,7 @@ test-case = { workspace = true }
 
 [features]
 default = ["std"]
+foreign-assets = []
 std = [
 	"codec/std",
 	"frame-support/std",

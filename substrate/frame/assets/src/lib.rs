@@ -253,32 +253,14 @@ where
 	T::AssetId: ToAssetIndex,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
-		AssetIdToAssetIndex::<T, I>::insert(&id, id.to_asset_index());
+		#[cfg(feature = "foreign-assets")]
+		crate::pallet::Pallet::<T, I>::insert_asset_mapping(id);
 		Ok(())
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
-		if !AssetIdToAssetIndex::<T, I>::contains_key(&id) {
-			log::debug!(
-				target: LOG_TARGET,
-				"ForeignAssetId callback: tried to remove asset id {:?} but it does not exist",
-				id
-			);
-			return Err(());
-		}
-		let index = AssetIdToAssetIndex::<T, I>::get(&id).expect("Checked above; qed");
-		if !AssetIndexToAssetId::<T, I>::contains_key(&index) {
-			log::debug!(
-				target: LOG_TARGET,
-				"ForeignAssetId callback: tried to remove asset index {:?} but it does not exist (asset id: {:?})",
-				index,
-				id
-			);
-			return Err(());
-		}
-		AssetIndexToAssetId::<T, I>::remove(&index);
-		AssetIdToAssetIndex::<T, I>::remove(&id);
+		#[cfg(feature = "foreign-assets")]
+		crate::pallet::Pallet::<T, I>::remove_asset_mapping(id);
 		Ok(())
 	}
 }
@@ -571,21 +553,55 @@ pub mod pallet {
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	/// Mapping an asset index (which is used internally by the pallet) to an `AssetId`.
+	#[cfg(feature = "foreign-assets")]
 	#[pallet::storage]
 	pub type AssetIndexToAssetId<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
 
 	/// Mapping an `AssetId` to an asset index (which is used internally by the pallet).
+	#[cfg(feature = "foreign-assets")]
 	#[pallet::storage]
 	pub type AssetIdToAssetIndex<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
 
+	#[cfg(feature = "foreign-assets")]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		pub fn asset_id_of(asset_index: u32) -> Option<T::AssetId> {
 			AssetIndexToAssetId::<T, I>::get(asset_index)
 		}
 		pub fn asset_index_of(asset_id: &T::AssetId) -> Option<u32> {
 			AssetIdToAssetIndex::<T, I>::get(asset_id)
+		}
+		pub(crate) fn insert_asset_mapping(id: &T::AssetId) {
+			assert!(
+				!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()),
+				"Asset index already in use"
+			);
+			assert!(!AssetIdToAssetIndex::<T, I>::contains_key(id), "Asset id already in use");
+			AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
+			AssetIdToAssetIndex::<T, I>::insert(id.clone(), id.to_asset_index());
+		}
+		pub(crate) fn remove_asset_mapping(id: &T::AssetId) {
+			if !AssetIdToAssetIndex::<T, I>::contains_key(&id) {
+				log::debug!(
+					target: LOG_TARGET,
+					"ForeignAssetId callback: tried to remove asset id {:?} but it does not exist",
+					id
+				);
+				return;
+			}
+			let index = AssetIdToAssetIndex::<T, I>::get(&id).expect("Checked above; qed");
+			if !AssetIndexToAssetId::<T, I>::contains_key(&index) {
+				log::debug!(
+					target: LOG_TARGET,
+					"ForeignAssetId callback: tried to remove asset index {:?} but it does not exist (asset id: {:?})",
+					index,
+					id
+				);
+				return;
+			}
+			AssetIndexToAssetId::<T, I>::remove(&index);
+			AssetIdToAssetIndex::<T, I>::remove(&id);
 		}
 	}
 
@@ -633,13 +649,8 @@ pub mod pallet {
 					},
 				);
 				// Insert reverse/forward index mappings for genesis assets.
-				assert!(
-					!AssetIndexToAssetId::<T, I>::contains_key(&id.to_asset_index()),
-					"Asset index already in use"
-				);
-				assert!(!AssetIdToAssetIndex::<T, I>::contains_key(id), "Asset id already in use");
-				AssetIndexToAssetId::<T, I>::insert(&id.to_asset_index(), id.clone());
-				AssetIdToAssetIndex::<T, I>::insert(id.clone(), id.to_asset_index());
+				#[cfg(feature = "foreign-assets")]
+				crate::pallet::Pallet::<T, I>::insert_asset_mapping(id);
 			}
 
 			for (id, name, symbol, decimals) in &self.metadata {
