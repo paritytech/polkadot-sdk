@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768816224706,
+  "lastUpdate": 1768820547544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "noreply@reusable.software",
-            "name": "ordian",
-            "username": "ordian"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da75e7db67ee4a08f3821ef552dc0ca47975cf66",
-          "message": "paras_inherent: fix overweight warn (#8861)\n\nFixes #8859 \n\nLong-term fix would be addressing #5520.",
-          "timestamp": "2025-06-16T13:28:13Z",
-          "tree_id": "3ea47a6d56b14f3ce033d5e3083f9f0b27d40f74",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/da75e7db67ee4a08f3821ef552dc0ca47975cf66"
-        },
-        "date": 1750085910039,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04457712273799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03390223117800001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06688379396399992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64dc02179ba69303191bfeb8df2b00583fc77658",
+          "message": "benchmarking: fix timing leak from bulk setup operations (#10802)\n\nFixes timing leaks in benchmarks with large setup operations (e.g.,\nclearing 27k staking entries). After bulk deletions are committed, the\nfirst new allocation can trigger memory allocator overhead that leaks\ninto benchmark timing.\n\nThe fix adds a memory allocator warmup step in `commit_db()` that\nperforms a dummy write/clear cycle to absorb this overhead before timing\nstarts.\n\nFix https://github.com/paritytech/polkadot-sdk/issues/10798.\n\nAnother related issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/10813 (rework of\nstaking benchmarks to avoid massive bulk deletion if not needed. An\nexample showing the validity of the approach\n[here](https://github.com/paritytech/polkadot-sdk/pull/10822#issuecomment-3757632561)\nwhere we just remove a clear_validators_and_nominators() from one\nbenchmark and that's enough to go down from ms to microsec)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T09:48:15Z",
+          "tree_id": "af9dd3cdcb7f0bc1d7a24f1eed101a0bda7106f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64dc02179ba69303191bfeb8df2b00583fc77658"
+        },
+        "date": 1768820523444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.05199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0685321591239999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03861977412999999,
             "unit": "seconds"
           }
         ]
