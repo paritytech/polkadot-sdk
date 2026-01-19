@@ -471,7 +471,7 @@ fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
 			Weight::zero()
 		));
 		// Try to approve with wrong call hash
-		// Since there's no multisig with this hash and we're passing a timepoint, we get UnexpectedTimepoint
+		// Since there's no multisig with this hash and we're passing a timepoint, we get `UnexpectedTimepoint`
 		let wrong_hash = [0u8; 32];
 		assert_noop!(
 			Multisig::approve_as_multi(
@@ -502,7 +502,7 @@ fn as_multi_unexpected_timepoint_with_wrong_signatories() {
 			Weight::zero()
 		));
 		// Try to execute with non-existent multisig by using wrong signatories
-		// Since there's no multisig with this ID and we're passing a timepoint, we get UnexpectedTimepoint
+		// Since there's no multisig with this ID and we're passing a timepoint, we get `UnexpectedTimepoint`
 		assert_noop!(
 			Multisig::as_multi(
 				RuntimeOrigin::signed(2),
