@@ -281,6 +281,18 @@ fn multisig_2_of_3_works() {
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
+		// Verify that approve_as_multi does not execute even when threshold is reached
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+		assert_eq!(Balances::free_balance(6), 0);
+
+		// as_multi is required to execute the call
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
