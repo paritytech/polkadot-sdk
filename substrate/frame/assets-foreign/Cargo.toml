@@ -26,4 +26,14 @@ sp-core = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
-
+[features]
+default = ["std"]
+std = [
+  "frame-support/std",
+  "frame-system/std",
+  "scale-info/std",
+  "sp-core/std",
+  "log/std",
+  "xcm/std",
+  "xcm-builder/std",
+]
