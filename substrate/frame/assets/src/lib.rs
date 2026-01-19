@@ -251,7 +251,9 @@ where
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config<I> + pallet_assets_foreign::pallet::Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
-	T::AssetId: ToAssetIndex,
+T: pallet_assets_foreign::pallet::Config<
+    ForeignAssetId = <T as crate::pallet::Config<I>>::AssetId
+>
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
 		insert_asset_mapping::<T>(id.to_asset_index(), id);
@@ -360,7 +362,7 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 
 		/// Identifier for the class of asset.
-		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + pallet_assets_foreign::ToAssetIndex;
 
 		/// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
 		/// of compact encoding in instances of the pallet, which will prevent breaking changes

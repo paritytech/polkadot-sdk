@@ -53,16 +53,16 @@ impl ToAssetIndex for xcm::v5::Location {
 
 pub fn insert_asset_mapping<T: crate::pallet::Config>(
 	asset_index: u32,
-	asset_id: T::AssetId,
+	asset_id: &T::ForeignAssetId,
 ) {
-	crate::pallet::AssetIndexToAssetId::<T>::insert(asset_index, asset_id.clone());
-	crate::pallet::AssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
+	crate::pallet::AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
+	crate::pallet::ForeignAssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
 }
 
-pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: T::AssetId) {
-	if let Some(asset_index) = crate::pallet::AssetIdToAssetIndex::<T>::get(&asset_id) {
-		crate::pallet::AssetIndexToAssetId::<T>::remove(asset_index);
-		crate::pallet::AssetIdToAssetIndex::<T>::remove(asset_id);
+pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: &T::ForeignAssetId) {
+	if let Some(asset_index) = crate::pallet::ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
+		crate::pallet::AssetIndexToForeignAssetId::<T>::remove(asset_index);
+		crate::pallet::ForeignAssetIdToAssetIndex::<T>::remove(asset_id);
 	}
 }
 
@@ -73,7 +73,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type AssetId: Member
+		type ForeignAssetId: Member
 			+ Parameter
 			+ Clone
 			+ MaybeSerializeDeserialize
@@ -85,22 +85,22 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 
-	/// Mapping an asset index (which is used internally by the pallet) to an `AssetId`.
+	/// Mapping an asset index (which is used internally by the pallet) to an `ForeignAssetId`.
 	#[pallet::storage]
-	pub type AssetIndexToAssetId<T: Config> =
-		StorageMap<_, Blake2_128Concat, u32, T::AssetId, OptionQuery>;
+	pub type AssetIndexToForeignAssetId<T: Config> =
+		StorageMap<_, Blake2_128Concat, u32, T::ForeignAssetId, OptionQuery>;
 
-	/// Mapping an `AssetId` to an asset index (which is used internally by the pallet).
+	/// Mapping an `ForeignAssetId` to an asset index (which is used internally by the pallet).
 	#[pallet::storage]
-	pub type AssetIdToAssetIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, u32, OptionQuery>;
+	pub type ForeignAssetIdToAssetIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::ForeignAssetId, u32, OptionQuery>;
 
 	impl<T: Config> Pallet<T> {
-		pub fn asset_id_of(asset_index: u32) -> Option<T::AssetId> {
-			AssetIndexToAssetId::<T>::get(asset_index)
+		pub fn asset_id_of(asset_index: u32) -> Option<T::ForeignAssetId> {
+			AssetIndexToForeignAssetId::<T>::get(asset_index)
 		}
-		pub fn asset_index_of(asset_id: &T::AssetId) -> Option<u32> {
-			AssetIdToAssetIndex::<T>::get(asset_id)
+		pub fn asset_index_of(asset_id: &T::ForeignAssetId) -> Option<u32> {
+			ForeignAssetIdToAssetIndex::<T>::get(asset_id)
 		}
 	}
 }
