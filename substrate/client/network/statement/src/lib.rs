@@ -206,12 +206,12 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		num_validation_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		const NUM_VALIDATION_WORKERS: usize = 4;
-		for _ in 0..NUM_VALIDATION_WORKERS {
+		for _ in 0..num_validation_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
 			executor(
