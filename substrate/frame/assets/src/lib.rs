@@ -260,10 +260,21 @@ where
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
 		if !AssetIdToAssetIndex::<T, I>::contains_key(&id) {
+			log::debug!(
+				target: LOG_TARGET,
+				"ForeignAssetId callback: tried to remove asset id {:?} but it does not exist",
+				id
+			);
 			return Err(());
 		}
 		let index = AssetIdToAssetIndex::<T, I>::get(&id).expect("Checked above; qed");
 		if !AssetIndexToAssetId::<T, I>::contains_key(&index) {
+			log::debug!(
+				target: LOG_TARGET,
+				"ForeignAssetId callback: tried to remove asset index {:?} but it does not exist (asset id: {:?})",
+				index,
+				id
+			);
 			return Err(());
 		}
 		AssetIndexToAssetId::<T, I>::remove(&index);
@@ -898,7 +909,7 @@ pub mod pallet {
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
 			Self::deposit_event(Event::Created {
-				asset_id: id.clone(),
+				asset_id: id,
 				creator: owner,
 				owner: admin,
 			});
