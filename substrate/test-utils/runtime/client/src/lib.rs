@@ -33,6 +33,10 @@ pub use self::block_builder_ext::BlockBuilderExt;
 use sp_core::storage::ChildInfo;
 use substrate_test_runtime::genesismap::GenesisStorageBuilder;
 
+/// Host functions for test runtime client including statement store.
+pub type TestHostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
 /// A prelude to import in tests.
 pub mod prelude {
 	// Trait extensions
@@ -55,8 +59,11 @@ pub mod prelude {
 pub type Backend = substrate_test_client::Backend<substrate_test_runtime::Block>;
 
 /// Test client executor.
-pub type ExecutorDispatch =
-	client::LocalCallExecutor<substrate_test_runtime::Block, Backend, WasmExecutor>;
+pub type ExecutorDispatch = client::LocalCallExecutor<
+	substrate_test_runtime::Block,
+	Backend,
+	WasmExecutor<TestHostFunctions>,
+>;
 
 /// Parameters of test-client builder with test-runtime.
 #[derive(Default)]
@@ -99,7 +106,7 @@ pub type TestClientBuilder<E, B> = substrate_test_client::TestClientBuilder<
 /// Test client type with `WasmExecutor` and generic Backend.
 pub type Client<B> = client::Client<
 	B,
-	client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor>,
+	client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor<TestHostFunctions>>,
 	substrate_test_runtime::Block,
 	substrate_test_runtime::RuntimeApi,
 >;
@@ -185,7 +192,14 @@ pub trait TestClientBuilderExt<B>: Sized {
 }
 
 impl<B> TestClientBuilderExt<B>
-	for TestClientBuilder<client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor>, B>
+	for TestClientBuilder<
+		client::LocalCallExecutor<
+			substrate_test_runtime::Block,
+			B,
+			WasmExecutor<TestHostFunctions>,
+		>,
+		B,
+	>
 where
 	B: sc_client_api::backend::Backend<substrate_test_runtime::Block> + 'static,
 {
@@ -211,7 +225,7 @@ pub fn new() -> Client<Backend> {
 }
 
 /// Create a new native executor.
-#[deprecated(note = "Switch to `WasmExecutor:default()`.")]
-pub fn new_native_or_wasm_executor() -> WasmExecutor {
-	WasmExecutor::default()
+#[deprecated(note = "Switch to `WasmExecutor::<TestHostFunctions>::builder().build()`.")]
+pub fn new_native_or_wasm_executor() -> WasmExecutor<TestHostFunctions> {
+	WasmExecutor::<TestHostFunctions>::builder().build()
 }

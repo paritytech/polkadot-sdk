@@ -27,6 +27,7 @@ use sp_wasm_interface::{Pointer, WordSize};
 use wasmtime::{AsContext, AsContextMut, Engine, Instance, InstancePre, Memory};
 
 /// Wasm blob entry point.
+#[derive(Clone)]
 pub struct EntryPoint(wasmtime::TypedFunc<(u32, u32), u64>);
 
 impl EntryPoint {
@@ -122,7 +123,7 @@ pub struct InstanceWrapper {
 }
 
 impl InstanceWrapper {
-	pub(crate) fn new(
+	pub fn new(
 		engine: &Engine,
 		instance_pre: &InstancePre<StoreData>,
 		instance_counter: Arc<InstanceCounter>,
@@ -204,5 +205,22 @@ impl InstanceWrapper {
 
 	pub(crate) fn store_mut(&mut self) -> &mut Store {
 		&mut self.store
+	}
+
+	pub fn reset_heap(&mut self, heap_base: u32) {
+		let memory = self.store.data().memory();
+		let data = memory.data_mut(&mut self.store);
+		let heap_start = heap_base as usize;
+		if heap_start < data.len() {
+			let heap_slice = &mut data[heap_start..];
+			unsafe {
+				rustix::mm::madvise(
+					heap_slice.as_mut_ptr() as *mut std::ffi::c_void,
+					heap_slice.len(),
+					rustix::mm::Advice::DontNeed,
+				)
+				.ok();
+			}
+		}
 	}
 }

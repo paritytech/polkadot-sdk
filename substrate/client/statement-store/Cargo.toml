@@ -31,8 +31,21 @@ sp-statement-store = { workspace = true, default-features = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
+codec = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+sc-allocator = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true, default-features = true }
+sc-executor-wasmtime = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 
 [[bench]]

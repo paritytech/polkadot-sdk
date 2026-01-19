@@ -38,10 +38,12 @@ mod util;
 mod tests;
 
 pub use runtime::{
-	create_runtime, create_runtime_from_artifact, create_runtime_from_artifact_bytes,
+	create_runtime, create_runtime_from_artifact, create_runtime_from_artifact_bytes, perform_call,
 	prepare_runtime_artifact, Config, DeterministicStackLimit, InstantiationStrategy, Semantics,
 	WasmtimeRuntime,
 };
+
+pub use instance_wrapper::{EntryPoint, InstanceWrapper};
 pub use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
 	wasm_runtime::{HeapAllocStrategy, WasmModule},

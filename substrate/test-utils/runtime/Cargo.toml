@@ -24,6 +24,7 @@ frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-statement = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-utility = { workspace = true }
 sc-service = { optional = true, workspace = true }
@@ -87,6 +88,7 @@ std = [
 	"log/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-statement/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"sc-executor/std",

@@ -23,7 +23,9 @@ sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
 substrate-test-client = { workspace = true }
 substrate-test-runtime = { workspace = true }
 

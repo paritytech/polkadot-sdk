@@ -69,6 +69,12 @@ pub(crate) type Store = wasmtime::Store<StoreData>;
 
 enum Strategy {
 	RecreateInstance(InstanceCreator),
+	ReuseInstance(ReuseInstanceState),
+}
+
+struct ReuseInstanceState {
+	instance_wrapper: InstanceWrapper,
+	heap_base: u32,
 }
 
 struct InstanceCreator {
@@ -139,6 +145,12 @@ pub struct WasmtimeRuntime {
 	instance_counter: Arc<InstanceCounter>,
 }
 
+impl WasmtimeRuntime {
+	pub fn create_instance_wrapper(&self) -> Result<InstanceWrapper> {
+		InstanceWrapper::new(&self.engine, &self.instance_pre, self.instance_counter.clone())
+	}
+}
+
 impl WasmModule for WasmtimeRuntime {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>> {
 		let strategy = match self.instantiation_strategy {
@@ -147,6 +159,15 @@ impl WasmModule for WasmtimeRuntime {
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
 			}),
+			InternalInstantiationStrategy::ReuseInstance => {
+				let mut instance_wrapper = InstanceWrapper::new(
+					&self.engine,
+					&self.instance_pre,
+					self.instance_counter.clone(),
+				)?;
+				let heap_base = instance_wrapper.extract_heap_base()?;
+				Strategy::ReuseInstance(ReuseInstanceState { instance_wrapper, heap_base })
+			},
 		};
 
 		Ok(Box::new(WasmtimeInstance { strategy }))
@@ -174,6 +195,19 @@ impl WasmtimeInstance {
 				let allocator = FreeingBumpHeapAllocator::new(heap_base);
 
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
+			},
+			Strategy::ReuseInstance(ref mut state) => {
+				state.instance_wrapper.reset_heap(state.heap_base);
+				let entrypoint = state.instance_wrapper.resolve_entrypoint(method)?;
+				let allocator = FreeingBumpHeapAllocator::new(state.heap_base);
+
+				perform_call(
+					data,
+					&mut state.instance_wrapper,
+					entrypoint,
+					allocator,
+					allocation_stats,
+				)
 			},
 		}
 	}
@@ -268,6 +302,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 		InstantiationStrategy::Pooling => (true, false),
 		InstantiationStrategy::RecreateInstanceCopyOnWrite => (false, true),
 		InstantiationStrategy::RecreateInstance => (false, false),
+		InstantiationStrategy::ReuseInstance => (false, false),
 	};
 
 	const WASM_PAGE_SIZE: u64 = 65536;
@@ -386,10 +421,16 @@ pub enum InstantiationStrategy {
 
 	/// Recreate the instance from scratch on every instantiation. Very slow.
 	RecreateInstance,
+
+	/// Reuse the same instance across calls, only resetting the heap allocator.
+	/// This is the fastest but only safe for read-only operations that don't
+	/// depend on initial memory/global state.
+	ReuseInstance,
 }
 
 enum InternalInstantiationStrategy {
 	Builtin,
+	ReuseInstance,
 }
 
 #[derive(Clone)]
@@ -584,6 +625,8 @@ where
 				InstantiationStrategy::RecreateInstance |
 				InstantiationStrategy::RecreateInstanceCopyOnWrite =>
 					(module, InternalInstantiationStrategy::Builtin),
+				InstantiationStrategy::ReuseInstance =>
+					(module, InternalInstantiationStrategy::ReuseInstance),
 			}
 		},
 		CodeSupplyMode::Precompiled(compiled_artifact_path) => {
@@ -660,7 +703,7 @@ pub fn prepare_runtime_artifact(
 		.map_err(|e| WasmError::Other(format!("cannot precompile module: {:#}", e)))
 }
 
-fn perform_call(
+pub fn perform_call(
 	data: &[u8],
 	instance_wrapper: &mut InstanceWrapper,
 	entrypoint: EntryPoint,

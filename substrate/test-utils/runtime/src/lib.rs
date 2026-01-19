@@ -211,6 +211,8 @@ decl_runtime_apis! {
 	pub trait TestAPI {
 		/// Return the balance of the given account id.
 		fn balance_of(id: AccountId) -> u64;
+		/// Compute statement validation limits for an account (without signature verification).
+		fn statement_account_limits(account: AccountId) -> sp_statement_store::runtime_api::ValidStatement;
 		/// A benchmark function that adds one to the given value and returns the result.
 		fn benchmark_add_one(val: &u64) -> u64;
 		/// A benchmark function that adds one to each value in the given vector and returns the
@@ -345,6 +347,7 @@ construct_runtime!(
 		SubstrateTest: substrate_test_pallet::pallet,
 		Utility: pallet_utility,
 		Balances: pallet_balances,
+		Statement: pallet_statement,
 	}
 );
 
@@ -425,6 +428,27 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+}
+
+parameter_types! {
+	// Low cost so test accounts can hold many statements (10 DOLLARS / 10k statements)
+	pub StatementCost: Balance = currency::DOLLARS / 1000;
+	pub StatementByteCost: Balance = currency::DOLLARS / 100_000;
+	pub const MinAllowedStatements: u32 = 4;
+	pub const MaxAllowedStatements: u32 = 100_000;
+	pub const MinAllowedBytes: u32 = 1024;
+	pub const MaxAllowedBytes: u32 = 10_000_000;
+}
+
+impl pallet_statement::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type StatementCost = StatementCost;
+	type ByteCost = StatementByteCost;
+	type MinAllowedStatements = MinAllowedStatements;
+	type MaxAllowedStatements = MaxAllowedStatements;
+	type MinAllowedBytes = MinAllowedBytes;
+	type MaxAllowedBytes = MaxAllowedBytes;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -576,6 +600,32 @@ impl_runtime_apis! {
 	impl self::TestAPI<Block> for Runtime {
 		fn balance_of(id: AccountId) -> u64 {
 			Balances::free_balance(id)
+		}
+
+		fn statement_account_limits(account: AccountId) -> sp_statement_store::runtime_api::ValidStatement {
+			use frame_support::traits::fungible::Inspect;
+			use sp_runtime::SaturatedConversion;
+
+			let statement_cost = <Runtime as pallet_statement::Config>::StatementCost::get();
+			let byte_cost = <Runtime as pallet_statement::Config>::ByteCost::get();
+			let balance = <Balances as Inspect<AccountId>>::balance(&account);
+			let min_allowed_statements = <Runtime as pallet_statement::Config>::MinAllowedStatements::get();
+			let max_allowed_statements = <Runtime as pallet_statement::Config>::MaxAllowedStatements::get();
+			let min_allowed_bytes = <Runtime as pallet_statement::Config>::MinAllowedBytes::get();
+			let max_allowed_bytes = <Runtime as pallet_statement::Config>::MaxAllowedBytes::get();
+
+			let max_count = balance
+				.checked_div(statement_cost)
+				.unwrap_or_default()
+				.saturated_into::<u32>()
+				.clamp(min_allowed_statements, max_allowed_statements);
+			let max_size = balance
+				.checked_div(byte_cost)
+				.unwrap_or_default()
+				.saturated_into::<u32>()
+				.clamp(min_allowed_bytes, max_allowed_bytes);
+
+			sp_statement_store::runtime_api::ValidStatement { max_count, max_size }
 		}
 
 		fn benchmark_add_one(val: &u64) -> u64 {
@@ -825,18 +875,13 @@ impl_runtime_apis! {
 
 	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
 		fn validate_statement(
-			_source: sp_statement_store::runtime_api::StatementSource,
+			source: sp_statement_store::runtime_api::StatementSource,
 			statement: sp_statement_store::Statement,
 		) -> Result<
 			sp_statement_store::runtime_api::ValidStatement,
 			sp_statement_store::runtime_api::InvalidStatement,
 		> {
-			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
-
-			match statement.verify_signature() {
-				sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-			}
+			Statement::validate_statement(source, statement)
 		}
 	}
 }
