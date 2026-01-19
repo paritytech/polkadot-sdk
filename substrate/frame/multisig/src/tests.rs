@@ -851,8 +851,8 @@ fn cancel_as_multi_with_sender_in_signatories_fails() {
 #[test]
 fn duplicate_approvals_are_ignored() {
 	new_test_ext().execute_with(|| {
-		let call = call_transfer(6, 15).encode();
-		let hash = blake2_256(&call);
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -868,6 +868,18 @@ fn duplicate_approvals_are_ignored() {
 				vec![2, 3],
 				Some(now()),
 				hash,
+				Weight::zero()
+			),
+			Error::<Test>::AlreadyApproved,
+		);
+		// Duplicate approval with `as_multi` also noop.
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![2, 3],
+				Some(now()),
+				call.clone(),
 				Weight::zero()
 			),
 			Error::<Test>::AlreadyApproved,
