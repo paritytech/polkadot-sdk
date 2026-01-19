@@ -164,6 +164,8 @@ where
 	}
 
 	/// Execute an RPC call on any available client. Tries each client until one succeeds.
+	///
+	/// Starts with a random client to distribute load across clients.
 	async fn with_any_client<T, E, F, Fut>(&self, op_name: &'static str, f: F) -> Result<T, ()>
 	where
 		F: Fn(Client) -> Fut,
@@ -171,7 +173,10 @@ where
 		E: std::fmt::Debug,
 	{
 		let conn_manager = self.conn_manager().map_err(|_| ())?;
-		for i in 0..conn_manager.num_clients() {
+		let num_clients = conn_manager.num_clients();
+		let start_offset: usize = rand::random();
+		for j in 0..num_clients {
+			let i = (start_offset + j) % num_clients;
 			let client = conn_manager.get(i).await;
 			let result = with_timeout(f(client), RPC_TIMEOUT).await;
 			match result {

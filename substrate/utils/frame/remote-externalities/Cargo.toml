@@ -29,6 +29,7 @@ sp-state-machine = { workspace = true, default-features = true }
 spinners = { workspace = true }
 substrate-rpc-client = { workspace = true, default-features = true }
 tokio = { features = ["macros", "rt-multi-thread", "sync"], workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 
 [dev-dependencies]
 frame-support = { workspace = true, default-features = true }
