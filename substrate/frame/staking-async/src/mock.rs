@@ -552,14 +552,13 @@ impl ExtBuilder {
 		SlashDeferDuration::set(eras);
 		self
 	}
-<<<<<<< HEAD
 	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
 		self.invulnerables = BoundedVec::try_from(invulnerables)
 			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
-=======
+		self
+	}
 	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
 		self.nominators_slashable = slashable;
->>>>>>> b3bfba61 ([Staking] Allow nominators to be non-slashable and fast unbondable (#10502))
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {

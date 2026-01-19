@@ -68,11 +68,7 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-<<<<<<< HEAD
-	use frame_support::DefaultNoBound;
-=======
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
->>>>>>> b3bfba61 ([Staking] Allow nominators to be non-slashable and fast unbondable (#10502))
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
