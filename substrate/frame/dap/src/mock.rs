@@ -54,11 +54,7 @@ parameter_types! {
 /// Returns total inflation of 100. The split is determined by BudgetConfig.
 pub struct TestEraPayout;
 impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
-	fn era_payout(
-		_total_staked: u64,
-		_total_issuance: u64,
-		_era_duration_millis: u64,
-	) -> u64 {
+	fn era_payout(_total_staked: u64, _total_issuance: u64, _era_duration_millis: u64) -> u64 {
 		// Return total inflation of 100
 		100
 	}

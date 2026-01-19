@@ -59,11 +59,11 @@ use sp_staking::{
 
 use super::pallet::*;
 
+use crate::reward::EraRewardManager;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
-use crate::reward::EraRewardManager;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.

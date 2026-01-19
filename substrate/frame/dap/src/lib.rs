@@ -48,8 +48,8 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
+use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
 
 pub use pallet::*;
 
@@ -410,7 +410,8 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 
 		// Split total inflation according to budget configuration
 		let to_stakers = budget.staker_rewards.mul_floor(total_inflation);
-		let to_validator_incentive = budget.validator_self_stake_incentive.mul_floor(total_inflation);
+		let to_validator_incentive =
+			budget.validator_self_stake_incentive.mul_floor(total_inflation);
 
 		// Buffer gets the remainder to ensure all inflation is minted (no rounding dust lost)
 		let to_buffer = total_inflation
@@ -438,7 +439,8 @@ impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> 
 
 		// Mint validator incentive into the validator incentive pot
 		if !to_validator_incentive.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(validator_incentive_pot, to_validator_incentive) {
+			if let Err(_e) = T::Currency::mint_into(validator_incentive_pot, to_validator_incentive)
+			{
 				defensive!("Era Mint should never fail");
 				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
 				// We already minted staker rewards, so continue

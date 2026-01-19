@@ -37,21 +37,39 @@ fn allocate_era_rewards_funds_pot_account() {
 		let validator_incentive_pot_account = 100_001;
 
 		let staker_balance_before = Balances::balance(&staker_pot_account);
-		let validator_incentive_balance_before = Balances::balance(&validator_incentive_pot_account);
+		let validator_incentive_balance_before =
+			Balances::balance(&validator_incentive_pot_account);
 
 		// WHEN: Allocating era rewards
-		let allocation =
-			Dap::allocate_era_rewards(era, total_staked, era_duration_millis, &staker_pot_account, &validator_incentive_pot_account);
+		let allocation = Dap::allocate_era_rewards(
+			era,
+			total_staked,
+			era_duration_millis,
+			&staker_pot_account,
+			&validator_incentive_pot_account,
+		);
 
 		// THEN: Pot accounts balance increases by their respective allocations
-		assert_eq!(Balances::balance(&staker_pot_account), staker_balance_before + allocation.staker_rewards);
-		assert_eq!(Balances::balance(&validator_incentive_pot_account), validator_incentive_balance_before + allocation.validator_incentive);
+		assert_eq!(
+			Balances::balance(&staker_pot_account),
+			staker_balance_before + allocation.staker_rewards
+		);
+		assert_eq!(
+			Balances::balance(&validator_incentive_pot_account),
+			validator_incentive_balance_before + allocation.validator_incentive
+		);
 		// 85% for stakers, 0% for validator incentive (default BudgetConfig)
 		assert_eq!(allocation.staker_rewards, 85);
 		assert_eq!(allocation.validator_incentive, 0);
 		// EraRewardsAllocated event is emitted (buffer = 15)
 		System::assert_has_event(
-			Event::EraRewardsAllocated { era, staker_rewards: 85, validator_incentive: 0, buffer_rewards: 15 }.into(),
+			Event::EraRewardsAllocated {
+				era,
+				staker_rewards: 85,
+				validator_incentive: 0,
+				buffer_rewards: 15,
+			}
+			.into(),
 		);
 	});
 }
@@ -68,14 +86,26 @@ fn treasury_rewards_go_to_buffer() {
 		let buffer_before = Balances::balance(&buffer);
 
 		// WHEN: Allocating era rewards
-		let allocation = Dap::allocate_era_rewards(era, 1000, 60_000, &staker_pot_account, &validator_incentive_pot_account);
+		let allocation = Dap::allocate_era_rewards(
+			era,
+			1000,
+			60_000,
+			&staker_pot_account,
+			&validator_incentive_pot_account,
+		);
 
 		// THEN: Buffer receives its portion (15 per TestEraPayout)
 		let buffer_after = Balances::balance(&buffer);
 		assert_eq!(buffer_after - buffer_before, 15);
 		// EraRewardsAllocated event is emitted (buffer = 15)
 		System::assert_has_event(
-			Event::EraRewardsAllocated { era, staker_rewards: allocation.staker_rewards, validator_incentive: allocation.validator_incentive, buffer_rewards: 15 }.into(),
+			Event::EraRewardsAllocated {
+				era,
+				staker_rewards: allocation.staker_rewards,
+				validator_incentive: allocation.validator_incentive,
+				buffer_rewards: 15,
+			}
+			.into(),
 		);
 	});
 }

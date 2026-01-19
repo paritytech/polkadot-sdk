@@ -851,8 +851,11 @@ where
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> Balance {
-		let (staker_payout, remainder) =
-			<T as EraPayout<Balance>>::era_payout(total_staked, total_issuance, era_duration_millis);
+		let (staker_payout, remainder) = <T as EraPayout<Balance>>::era_payout(
+			total_staked,
+			total_issuance,
+			era_duration_millis,
+		);
 		staker_payout + remainder
 	}
 }

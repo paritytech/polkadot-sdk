@@ -86,7 +86,9 @@ use frame_support::{
 };
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Saturating};
-use sp_staking::{currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex};
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+};
 
 /// A handler for all era-based storage items.
 ///
@@ -840,11 +842,8 @@ impl<T: Config> Rotator<T> {
 
 		// Allocate era rewards by creating pots and minting into them.
 		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let allocation = EraRewardManager::<T>::allocate_rewards(
-			ending_era.index,
-			staked,
-			era_duration,
-		);
+		let allocation =
+			EraRewardManager::<T>::allocate_rewards(ending_era.index, staked, era_duration);
 
 		// Provider should return non-zero for new eras in production.
 		// Zero can happen in edge cases like benchmarks with zero era duration.
