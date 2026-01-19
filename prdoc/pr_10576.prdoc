@@ -23,8 +23,10 @@ crates:
   bump: minor
 - name: asset-hub-westend-runtime
   bump: minor
+  validate: false
 - name: westend-runtime
   bump: minor
+  validate: false
 - name: pallet-staking-async
   bump: minor
 - name: pallet-staking-async-parachain-runtime
