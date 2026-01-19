@@ -707,6 +707,73 @@ fn too_many_signatories_fails() {
 }
 
 #[test]
+fn as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				call.clone(),
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First create a multisig with proper ordering
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Try to cancel with signatories out of order
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				now(),
+				hash
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
 fn as_multi_with_sender_in_signatories_fails() {
 	new_test_ext().execute_with(|| {
 		let call = call_transfer(6, 15);
