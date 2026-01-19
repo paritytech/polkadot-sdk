@@ -29,103 +29,18 @@ pub use frame_benchmarking::{
 };
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	assert_ok,
-	pallet_prelude::*,
-	storage::bounded_vec::BoundedVec,
-	traits::{fungible::Inspect, TryCollect},
+	assert_ok, pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::fungible::Inspect,
 };
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
-	Perbill, Percent, Saturating,
+	Perbill, Percent,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 use testing_utils::*;
 
 const SEED: u32 = 0;
-
-// This function clears all existing validators and nominators from the set, and generates one new
-// validator being nominated by n nominators, and returns the validator stash account and the
-// nominators' stash and controller. It also starts plans a new era with this new stakers, and
-// returns the planned era index.
-pub(crate) fn create_validator_with_nominators<T: Config>(
-	n: u32,
-	upper_bound: u32,
-	dead_controller: bool,
-	unique_controller: bool,
-	destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>, EraIndex), &'static str> {
-	// TODO: this can be replaced with `testing_utils` version?
-	// Clean up any existing state.
-	clear_validators_and_nominators::<T>();
-	let mut points_total = 0;
-	let mut points_individual = Vec::new();
-
-	let (v_stash, v_controller) = if unique_controller {
-		create_unique_stash_controller::<T>(0, 100, destination.clone(), false)?
-	} else {
-		create_stash_controller::<T>(0, 100, destination.clone())?
-	};
-
-	let validator_prefs =
-		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-	Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
-	let stash_lookup = T::Lookup::unlookup(v_stash.clone());
-
-	points_total += 10;
-	points_individual.push((v_stash.clone(), 10));
-
-	let original_nominator_count = Nominators::<T>::count();
-	let mut nominators = Vec::new();
-
-	// Give the validator n nominators, but keep total users in the system the same.
-	for i in 0..upper_bound {
-		let (n_stash, n_controller) = if !dead_controller {
-			create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?
-		} else {
-			create_unique_stash_controller::<T>(u32::MAX - i, 100, destination.clone(), true)?
-		};
-		if i < n {
-			Staking::<T>::nominate(
-				RawOrigin::Signed(n_controller.clone()).into(),
-				vec![stash_lookup.clone()],
-			)?;
-			nominators.push((n_stash, n_controller));
-		}
-	}
-
-	ValidatorCount::<T>::put(1);
-
-	// Start a new Era
-	let new_validators = Rotator::<T>::legacy_insta_plan_era();
-	let planned_era = CurrentEra::<T>::get().unwrap_or_default();
-
-	assert_eq!(new_validators.len(), 1, "New validators is not 1");
-	assert_eq!(new_validators[0], v_stash, "Our validator was not selected");
-	assert_ne!(Validators::<T>::count(), 0, "New validators count wrong");
-	assert_eq!(
-		Nominators::<T>::count(),
-		original_nominator_count + nominators.len() as u32,
-		"New nominators count wrong"
-	);
-
-	// Give Era Points
-	let reward = EraRewardPoints::<T> {
-		total: points_total,
-		individual: points_individual.into_iter().try_collect()?,
-	};
-
-	ErasRewardPoints::<T>::insert(planned_era, reward);
-
-	// Create reward pool
-	let total_payout = asset::existential_deposit::<T>()
-		.saturating_mul(upper_bound.into())
-		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
-
-	Ok((v_stash, nominators, planned_era))
-}
 
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
@@ -152,6 +67,22 @@ impl<T: Config> ListScenario<T> {
 	/// this may not be true against unknown `VoterList` implementations.
 	fn new(origin_weight: BalanceOf<T>, is_increase: bool) -> Result<Self, &'static str> {
 		ensure!(!origin_weight.is_zero(), "origin weight must be greater than 0");
+
+		// Try to use existing nominator from VoterList if available (runtime benchmarks)
+		if let Some(origin_stash1) = T::VoterList::iter().next() {
+			let origin_controller1 =
+				Bonded::<T>::get(&origin_stash1).ok_or("existing nominator not bonded")?;
+
+			let dest_weight_as_vote =
+				T::VoterList::score_update_worst_case(&origin_stash1, is_increase);
+			let total_issuance = asset::total_issuance::<T>();
+			let dest_weight =
+				T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
+
+			return Ok(ListScenario { origin_stash1, origin_controller1, dest_weight });
+		}
+
+		// Fall back to creating minimal setup if list is empty (unit tests)
 
 		// burn the entire issuance.
 		let i = asset::burn::<T>(asset::total_issuance::<T>());
@@ -240,9 +171,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn bond_extra() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup the worst case list scenario.
@@ -278,9 +206,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unbond() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		// the weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
 		let origin_weight = BalanceOf::<T>::try_from(952_994_955_240_703u128)
@@ -329,9 +254,6 @@ mod benchmarks {
 	#[benchmark]
 	// Worst case scenario, everything is removed after the bonding duration
 	fn withdraw_unbonded_kill() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
@@ -453,9 +375,6 @@ mod benchmarks {
 	#[benchmark]
 	// Worst case scenario, T::MaxNominations::get()
 	fn nominate(n: Linear<1, { MaxNominationsOf::<T>::get() }>) -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
@@ -486,9 +405,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn chill() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
@@ -630,9 +546,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn force_unstake() -> Result<(), BenchmarkError> {
-		// Clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
@@ -691,7 +604,7 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
-		let (validator, nominators, current_era) = create_validator_with_nominators::<T>(
+		let (validator, nominators, current_era) = setup_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
@@ -736,9 +649,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rebond(l: Linear<1, { T::MaxUnlockingChunks::get() as u32 }>) -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Pallet::<T>::min_nominator_bond()
 			// we use 100 to play friendly with the list threshold values in the mock
 			.max(100u32.into());
@@ -782,9 +692,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn reap_stash() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
@@ -863,9 +770,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn chill_other() -> Result<(), BenchmarkError> {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
 		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
@@ -981,7 +885,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
-		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
+		let (validator, nominators, _current_era) = setup_validator_with_nominators::<T>(
 			T::MaxExposurePageSize::get() as u32,
 			T::MaxExposurePageSize::get() as u32,
 			false,
@@ -1028,7 +932,7 @@ mod benchmarks {
 		crate::mock::SlashDeferDuration::set(77);
 
 		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
-		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
+		let all_validators = crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
 			// we create more validators, but all of the nominators will back the first one
 			ValidatorCount::<T>::get().max(1),
 			// create two full exposure pages
@@ -1094,7 +998,7 @@ mod benchmarks {
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
 		let initial_era = Rotator::<T>::planned_era();
-		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
+		let _ = crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
 			1000,
@@ -1160,7 +1064,7 @@ mod benchmarks {
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
 		// numbers don't matter.
-		crate::testing_utils::create_validators_with_nominators_for_era::<T>(
+		crate::testing_utils::setup_validators_with_nominators_for_era::<T>(
 			10, 50, 2, false, None,
 		)?;
 
@@ -1492,12 +1396,12 @@ mod tests {
 	use frame_support::assert_ok;
 
 	#[test]
-	fn create_validators_with_nominators_for_era_works() {
+	fn setup_validators_with_nominators_for_era_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let v = 10;
 			let n = 100;
 
-			create_validators_with_nominators_for_era::<Test>(
+			setup_validators_with_nominators_for_era::<Test>(
 				v,
 				n,
 				MaxNominationsOf::<Test>::get() as usize,
@@ -1518,12 +1422,12 @@ mod tests {
 	}
 
 	#[test]
-	fn create_validator_with_nominators_works() {
+	fn setup_validator_with_nominators_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
 			let (validator_stash, nominators, current_era) =
-				create_validator_with_nominators::<Test>(
+				setup_validator_with_nominators::<Test>(
 					n,
 					<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 					false,
