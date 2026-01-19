@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768816126115,
+  "lastUpdate": 1768820448860,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "310e81d772201491b2a49452adaae7796ac237df",
-          "message": "Check artifact integrity before execution (#8833)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/677\nFixes https://github.com/paritytech/polkadot-sdk/issues/2399 \n\n# Description\n\nTo detect potential corruption of PVF artifacts on disk, we store their\nchecksums and verify if they match before execution. In case of a\nmismatch, we recreate the artifact.\n\n## Integration\n\nIn Candidate Validation, we treat the error similarly to\nPossiblyInvalidError::RuntimeConstruction due to their close nature.\n\n## Review Notes\n\nThe Black3 hashing algorithm has already been used. I believe we can\nswitch to twox, as suggested in the issue, because the checksum does not\nneed to be cryptographically hashed, and we do not reveal the checksum\nin logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-17T13:28:32Z",
-          "tree_id": "40f6f510c55627c250552908018d8d26604c29f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/310e81d772201491b2a49452adaae7796ac237df"
-        },
-        "date": 1750171086061,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20217292599999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.266464559566668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12072068420000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64dc02179ba69303191bfeb8df2b00583fc77658",
+          "message": "benchmarking: fix timing leak from bulk setup operations (#10802)\n\nFixes timing leaks in benchmarks with large setup operations (e.g.,\nclearing 27k staking entries). After bulk deletions are committed, the\nfirst new allocation can trigger memory allocator overhead that leaks\ninto benchmark timing.\n\nThe fix adds a memory allocator warmup step in `commit_db()` that\nperforms a dummy write/clear cycle to absorb this overhead before timing\nstarts.\n\nFix https://github.com/paritytech/polkadot-sdk/issues/10798.\n\nAnother related issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/10813 (rework of\nstaking benchmarks to avoid massive bulk deletion if not needed. An\nexample showing the validity of the approach\n[here](https://github.com/paritytech/polkadot-sdk/pull/10822#issuecomment-3757632561)\nwhere we just remove a clear_validators_and_nominators() from one\nbenchmark and that's enough to go down from ms to microsec)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T09:48:15Z",
+          "tree_id": "af9dd3cdcb7f0bc1d7a24f1eed101a0bda7106f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64dc02179ba69303191bfeb8df2b00583fc77658"
+        },
+        "date": 1768820423074,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1213675711,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.334036668533333,
             "unit": "seconds"
           }
         ]
