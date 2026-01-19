@@ -908,11 +908,7 @@ pub mod pallet {
 				},
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
-			Self::deposit_event(Event::Created {
-				asset_id: id,
-				creator: owner,
-				owner: admin,
-			});
+			Self::deposit_event(Event::Created { asset_id: id, creator: owner, owner: admin });
 
 			Ok(())
 		}
