@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768829025824,
+  "lastUpdate": 1768861763809,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "fdd9b43a9b9ca28c68f04b7f8cae9db5b2c04687",
-          "message": "Add doc for DHT bootnodes mechanism (#8865)\n\nAdd description of the RFC-8 \"DHT bootnodes\" implementation.\n\nRendered:\nhttps://github.com/paritytech/polkadot-sdk/blob/dm-dht-bootnodes-doc/docs/sdk/src/guides/dht_bootnodes.md",
-          "timestamp": "2025-06-17T08:45:58Z",
-          "tree_id": "89091993c5374d1cea4506ee415a5e7c832ac85a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fdd9b43a9b9ca28c68f04b7f8cae9db5b2c04687"
-        },
-        "date": 1750153498423,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.958,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04428909174999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033846231986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03879842983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11be995be95ac1e25a5b2a6dd941006e7097bffc",
+          "message": "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring (#10779)\n\nThis is a major refactoring of `remote-externalities` to improve the\ndownload speed of the state of chain. This is mainly achieved by\ndownload keys + values from multiple RPC servers in parallel. Also the\nkey downloading is done more smartly by dividing downloaded key ranges\ndynamically, instead of having fixed number of key ranges at startup.\n\nBesides this it does a lot more refactoring + clean ups.\n\nAll in all this brings down the download time for PAH from 2h+ to 15min\nwith ~5 RPC servers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-19T21:20:29Z",
+          "tree_id": "7be942a563d8d5472a48c1744d3921a3b1524e0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11be995be95ac1e25a5b2a6dd941006e7097bffc"
+        },
+        "date": 1768861741960,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.07200000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06390515850399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038170208358,
             "unit": "seconds"
           }
         ]
