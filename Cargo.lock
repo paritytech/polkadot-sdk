@@ -9899,8 +9899,7 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 [[package]]
 name = "litep2p"
 version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d903b21d57fae0e8d184c6ea0107fb5303fcab7cd2acaf5d2d9beb2807194b4a"
+source = "git+https://github.com/paritytech/litep2p.git?branch=dm-bitswap-batch#6aa634e529d46de51e80d5a7e56d10de04199528"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10462,6 +10461,7 @@ dependencies = [
  "digest 0.10.7",
  "multihash-derive",
  "sha2 0.10.9",
+ "sha3",
  "unsigned-varint 0.7.2",
 ]
 
