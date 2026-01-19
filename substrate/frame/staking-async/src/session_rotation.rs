@@ -76,7 +76,7 @@
 //! * end 4, start 5, plan 6 // RC::session receives and queues this set.
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
-use crate::{reward::EraRewardPots, *};
+use crate::{reward::EraRewardManager, *};
 use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
@@ -736,7 +736,7 @@ impl<T: Config> Rotator<T> {
 
 		// Cleanup old era pot beyond history depth
 		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			Self::cleanup_old_era_pot(era_to_cleanup);
+			EraRewardManager::<T>::cleanup_era(era_to_cleanup);
 		}
 
 		// Snapshot the current nominators slashable setting for this era.
@@ -840,7 +840,7 @@ impl<T: Config> Rotator<T> {
 
 		// Allocate era rewards by creating pots and minting into them.
 		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let allocation = EraRewardPots::<T>::allocate_rewards(
+		let allocation = EraRewardManager::<T>::allocate_rewards(
 			ending_era.index,
 			staked,
 			era_duration,
@@ -902,15 +902,6 @@ impl<T: Config> Rotator<T> {
 			target_plan_era_session
 		);
 		session_progress >= target_plan_era_session
-	}
-
-	/// Clean up old era pots beyond history depth.
-	///
-	/// Transfers any remaining unclaimed rewards to the `UnclaimedRewardSink` and removes
-	/// the provider reference to allow the accounts to be reaped.
-	// claude: don't need this function at all. Just inline at calling site.
-	fn cleanup_old_era_pot(era: EraIndex) {
-		EraRewardPots::<T>::cleanup_era(era);
 	}
 }
 

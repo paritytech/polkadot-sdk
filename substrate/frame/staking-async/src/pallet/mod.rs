@@ -267,14 +267,9 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
 
-		// claude: can you make default implementation of it just implementing a hashing based
-		// derivation. So really only tests have to customise it.
-		/// Provider for generating era pot account IDs.
-		///
-		/// This allows customization of how era pot accounts are derived, which is particularly
-		/// useful for testing with predictable account IDs.
-		#[pallet::no_default_bounds]
-		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
+		/// The pallet ID used for deriving pot accounts for this pallet.
+		#[pallet::constant]
+		type PalletId: Get<frame_support::PalletId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -383,6 +378,13 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 		>;
 
+		/// Provider for generating era pot account IDs.
+		///
+		/// Defaults to hash-based derivation using `PalletId`.
+		/// Can be overridden for testing with predictable account IDs.
+		#[pallet::no_default_bounds]
+		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
+
 		#[pallet::no_default_bounds]
 		/// Filter some accounts from participating in staking.
 		///
@@ -416,6 +418,7 @@ pub mod pallet {
 			pub const BondingDuration: EraIndex = 3;
 			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
+			pub const StakingAsyncPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stka ");
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -431,7 +434,8 @@ pub mod pallet {
 			type Reward = ();
 			type RewardProvider = ();
 			type UnclaimedRewardSink = ();
-			type EraPotAccountProvider = ();
+			type PalletId = StakingAsyncPalletId;
+			type EraPotAccountProvider = crate::DefaultEraPotAccountProvider<Self>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
