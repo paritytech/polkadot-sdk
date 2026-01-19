@@ -18,7 +18,9 @@
 use crate::{
 	session_rotation::{Eras, Rotator},
 	tests::session_mock::{CurrentIndex, Timestamp},
+	EraPotAccountProvider,
 };
+use frame_support::traits::fungible::Inspect;
 
 use super::*;
 
@@ -258,12 +260,14 @@ fn max_era_duration_safety_guard() {
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 0,
 					staker_rewards: ideal_validator_payout,
-					treasury_rewards: ideal_treasury_payout
+					validator_incentive: 0,
+					buffer_rewards: ideal_treasury_payout
 				},
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 1,
 					staker_rewards: ideal_validator_payout,
-					treasury_rewards: ideal_treasury_payout
+					validator_incentive: 0,
+					buffer_rewards: ideal_treasury_payout
 				}
 			]
 		);
@@ -292,7 +296,8 @@ fn max_era_duration_safety_guard() {
 			vec![pallet_dap::Event::EraRewardsAllocated {
 				era: 2,
 				staker_rewards: max_validator_payout,
-				treasury_rewards: max_treasury_payout
+				validator_incentive: 0,
+				buffer_rewards: max_treasury_payout
 			}]
 		);
 	});
@@ -321,7 +326,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 78,
 					staker_rewards: 7500,
-					treasury_rewards: 7500
+					validator_incentive: 0,
+					buffer_rewards: 7500
 				}
 			]
 		));
@@ -375,20 +381,21 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 79,
 					staker_rewards: 7500,
-					treasury_rewards: 7500
+					validator_incentive: 0,
+					buffer_rewards: 7500
 				},
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 80,
 					staker_rewards: 7500,
-					treasury_rewards: 7500
+					validator_incentive: 0,
+					buffer_rewards: 7500
 				},
-				pallet_dap::Event::EraPotCleaned { era: 0, .. },
 				pallet_dap::Event::EraRewardsAllocated {
 					era: 81,
 					staker_rewards: 7500,
-					treasury_rewards: 7500
+					validator_incentive: 0,
+					buffer_rewards: 7500
 				},
-				pallet_dap::Event::EraPotCleaned { era: 1, .. }
 			]
 		));
 
@@ -644,13 +651,20 @@ fn era_pot_cleanup_after_history_depth() {
 			.count();
 		assert_eq!(era_allocated_count as u32, HistoryDepth::get());
 
-		// THEN: era 1 is cleaned up and unclaimed rewards moved to buffer
-		let cleanup_events = dap_events_after
-			.iter()
-			.filter(|e| matches!(e, pallet_dap::Event::EraPotCleaned { era: 1, .. }))
-			.count();
+		// THEN: Verify era-1 pots have been cleaned up
+		let staker_pot = <Test as Config>::EraPotAccountProvider::era_pot_account(
+			cleanup_era,
+			EraPotType::StakerRewards,
+		);
+		let validator_pot = <Test as Config>::EraPotAccountProvider::era_pot_account(
+			cleanup_era,
+			EraPotType::ValidatorSelfStake,
+		);
 
-		assert_eq!(cleanup_events, 1);
+		assert_eq!(Balances::balance(&staker_pot), 0, "Staker pot should have zero balance");
+		assert_eq!(Balances::balance(&validator_pot), 0, "Validator pot should have zero balance");
+		assert_eq!(System::providers(&staker_pot), 0, "Staker pot should have no providers");
+		assert_eq!(System::providers(&validator_pot), 0, "Validator pot should have no providers");
 	});
 }
 

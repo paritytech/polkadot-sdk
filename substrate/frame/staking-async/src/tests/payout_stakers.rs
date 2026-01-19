@@ -81,26 +81,26 @@ fn rewards_with_nominator_should_work() {
 					era: 1,
 					stash: 11,
 					dest: RewardDestination::Account(11),
-					amount: 4000
+					amount: 3999
 				},
 				Event::RewardedFromProvider {
 					era: 1,
 					stash: 101,
 					dest: RewardDestination::Account(101),
-					amount: 1000
+					amount: 999
 				},
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
 				Event::RewardedFromProvider {
 					era: 1,
 					stash: 21,
 					dest: RewardDestination::Account(21),
-					amount: 2000
+					amount: 1999
 				},
 				Event::RewardedFromProvider {
 					era: 1,
 					stash: 101,
 					dest: RewardDestination::Account(101),
-					amount: 500
+					amount: 499
 				}
 			]
 		);
@@ -320,7 +320,7 @@ fn nominating_and_rewards_should_work() {
 						era: 2,
 						stash: 11,
 						dest: RewardDestination::Staked,
-						amount: 500
+						amount: 499
 					},
 					Event::RewardedFromProvider {
 						era: 2,
@@ -332,20 +332,20 @@ fn nominating_and_rewards_should_work() {
 						era: 2,
 						stash: 3,
 						dest: RewardDestination::Account(333),
-						amount: 2500
+						amount: 2499
 					},
 					Event::PayoutStarted { era_index: 2, validator_stash: 41, page: 0, next: None },
 					Event::RewardedFromProvider {
 						era: 2,
 						stash: 41,
 						dest: RewardDestination::Staked,
-						amount: 2000
+						amount: 1999
 					},
 					Event::RewardedFromProvider {
 						era: 2,
 						stash: 1,
 						dest: RewardDestination::Stash,
-						amount: 1750
+						amount: 1749
 					}
 				]
 			);
@@ -1623,7 +1623,8 @@ fn test_commission_paid_across_pages() {
 			assert!(before_balance < after_balance);
 		}
 
-		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 1,);
+		// Allow error rate of 2 due to floor rounding in payout calculations
+		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 2,);
 	});
 }
 
