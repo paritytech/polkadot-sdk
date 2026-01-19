@@ -171,10 +171,10 @@ pub fn create_validators_with_seed<T: Config>(
 	Ok(validators)
 }
 
-/// Returns validators with nominators for benchmarking. Reuses existing stakers when sufficient
-/// validators and nominators exist in storage, otherwise clears and creates fresh state.
+/// Creates validators and nominators for benchmarking. Clears existing state and creates fresh
+/// validators and nominators where nominators randomly nominate `edge_per_nominator` validators
+/// (limited to `to_nominate` if set).
 ///
-/// Nominators randomly nominate `edge_per_nominator` validators (limited to `to_nominate` if set).
 /// Returns the validators chosen to be nominated.
 pub fn setup_validators_with_nominators_for_era<T: Config>(
 	validators: u32,
@@ -183,25 +183,6 @@ pub fn setup_validators_with_nominators_for_era<T: Config>(
 	randomize_stake: bool,
 	to_nominate: Option<u32>,
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
-	// Check if we have enough existing validators and nominators to reuse
-	let existing_validators = Validators::<T>::count();
-	let existing_nominators = Nominators::<T>::count();
-
-	if existing_validators >= validators && existing_nominators >= nominators {
-		// Reuse existing stakers - collect validator lookups
-		let validators_stash: Vec<AccountIdLookupOf<T>> = Validators::<T>::iter_keys()
-			.take(validators as usize)
-			.map(|v| T::Lookup::unlookup(v))
-			.collect();
-
-		let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
-		let validator_chosen = validators_stash[0..to_nominate].to_vec();
-
-		ValidatorCount::<T>::put(validators);
-		return Ok(validator_chosen);
-	}
-
-	// Fall back to clearing and creating fresh state
 	clear_validators_and_nominators::<T>();
 
 	let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);

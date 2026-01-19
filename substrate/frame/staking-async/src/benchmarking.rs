@@ -68,22 +68,6 @@ impl<T: Config> ListScenario<T> {
 	fn new(origin_weight: BalanceOf<T>, is_increase: bool) -> Result<Self, &'static str> {
 		ensure!(!origin_weight.is_zero(), "origin weight must be greater than 0");
 
-		// Try to use existing nominator from VoterList if available (runtime benchmarks)
-		if let Some(origin_stash1) = T::VoterList::iter().next() {
-			let origin_controller1 =
-				Bonded::<T>::get(&origin_stash1).ok_or("existing nominator not bonded")?;
-
-			let dest_weight_as_vote =
-				T::VoterList::score_update_worst_case(&origin_stash1, is_increase);
-			let total_issuance = asset::total_issuance::<T>();
-			let dest_weight =
-				T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
-
-			return Ok(ListScenario { origin_stash1, origin_controller1, dest_weight });
-		}
-
-		// Fall back to creating minimal setup if list is empty (unit tests)
-
 		// burn the entire issuance.
 		let i = asset::burn::<T>(asset::total_issuance::<T>());
 		core::mem::forget(i);
