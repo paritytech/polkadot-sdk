@@ -143,8 +143,15 @@ impl CollationGenerationSubsystem {
 			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
+				let relay_parent = params.relay_parent;
+				let pov_hash = params.collation.proof_of_validity.clone().into_compressed().hash();
 				if let Err(err) = self.handle_submit_collation(params, ctx).await {
-					gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
+					gum::error!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?pov_hash,
+						?err,
+						"Failed to submit collation");
 				}
 
 				false
