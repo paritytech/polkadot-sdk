@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768778270709,
+  "lastUpdate": 1768816126115,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "509637a61041196d2620419a74f6c3d7efad92df",
-          "message": "staking-async runtime: extended duration of the signed phase (#8870)\n\nFor the staking-async test runtime, we extend the duration of the signed\nphase from 2 to 4 minutes, in order to give enough time to the staking\nminer to mine, submit the score, verify it's on chain and then submit\nall pages during the signed phase.\n\nWhile testing on CI / locally for a 32-page solution, the miner ends up\nsubmitting pages pretty close to the end of the signed phase itself.\n\nWhereas this is a valuable scenario to test to prove miner's robustness,\nin the main happy path and while testing locally, we want the miner by\ndefault to have enough time to submit the whole solution and to be able\nto handle a re-tx if one/N pages fail to be submitted still within the\nsame Signed phase cycle.",
-          "timestamp": "2025-06-17T09:50:15Z",
-          "tree_id": "197703bee5dc435c40a22264535b88245e00eb8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/509637a61041196d2620419a74f6c3d7efad92df"
-        },
-        "date": 1750157770206,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.258667290033335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1996304251,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1311388004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202ea0217f44fa1e94e52c77bb42dfc7322926b0",
+          "message": "Fix flaky test `zombienet-polkadot-elastic-scaling-slot-based-3cores` (#10826)\n\nWe had 4 failures in the last 90 runs of\n`zombienet-polkadot-elastic-scaling-slot-based-3cores` test where the\nassetion fails by `1` (34 blocks)\n\n\n\nhttps://paritytech.github.io/zombienet-jobs-monitor/web/?search=based-3cores&mergeQueueOnly=true\n<img width=\"1011\" height=\"183\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/07123449-29a0-4f69-bc2d-9c3bc4b865ae\"\n/>\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21035251168/job/60482637320\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20923519106/job/60116752831\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20432629082/job/58707838790\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20264366293/job/58185559463\n\nAnd since we already have some margin we can adjust to remove this\nflakyness.\n\nping @alindima",
+          "timestamp": "2026-01-19T08:38:05Z",
+          "tree_id": "e46a3578aebcd6daaeff3dbb004faa33cd9a0a01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202ea0217f44fa1e94e52c77bb42dfc7322926b0"
+        },
+        "date": 1768816102322,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.152276349,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12072068420000001,
             "unit": "seconds"
           }
         ]
