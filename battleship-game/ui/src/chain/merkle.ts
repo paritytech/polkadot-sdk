@@ -30,6 +30,8 @@ export interface MerkleTree {
 
 // Build merkle tree from 100 cells
 // Matches binary_merkle_tree crate: leaves are hashed, then tree is built
+// IMPORTANT: Substrate's binary_merkle_tree PROMOTES odd elements directly,
+// it does NOT duplicate them like some other implementations.
 export function buildMerkleTree(cells: ChainCell[]): MerkleTree {
   if (cells.length !== 100) {
     throw new Error(`Expected 100 cells, got ${cells.length}`);
@@ -51,9 +53,14 @@ export function buildMerkleTree(cells: ChainCell[]): MerkleTree {
 
     for (let i = 0; i < currentLayer.length; i += 2) {
       const left = currentLayer[i];
-      // If odd number of nodes, duplicate the last one
-      const right = i + 1 < currentLayer.length ? currentLayer[i + 1] : left;
-      nextLayer.push(hashPair(left, right));
+      if (i + 1 < currentLayer.length) {
+        // Pair exists - hash them together
+        const right = currentLayer[i + 1];
+        nextLayer.push(hashPair(left, right));
+      } else {
+        // Odd element at end - PROMOTE directly (Substrate behavior)
+        nextLayer.push(left);
+      }
     }
 
     layers.push(nextLayer);
@@ -68,20 +75,28 @@ export function buildMerkleTree(cells: ChainCell[]): MerkleTree {
 
 // Generate proof for leaf at given index
 // Proof consists of sibling hashes from leaf to root
+// When a node has no sibling (odd layer, last element), it gets promoted - NO proof element needed
 export function generateProof(tree: MerkleTree, index: number): Uint8Array[] {
   const proof: Uint8Array[] = [];
   let currentIndex = index;
 
   for (let layerIdx = 0; layerIdx < tree.layers.length - 1; layerIdx++) {
     const layer = tree.layers[layerIdx];
-    const siblingIndex = currentIndex % 2 === 0 ? currentIndex + 1 : currentIndex - 1;
+    const isLastInOddLayer =
+      currentIndex === layer.length - 1 && layer.length % 2 === 1;
 
-    // Get sibling (use current if sibling doesn't exist - odd layer)
-    const sibling =
-      siblingIndex < layer.length ? layer[siblingIndex] : layer[currentIndex];
-    proof.push(sibling);
+    if (isLastInOddLayer) {
+      // Node gets promoted directly - no sibling, no proof element
+      // Position stays the same relative to next layer
+      currentIndex = Math.floor(currentIndex / 2);
+      continue;
+    }
 
-    // Move to parent index
+    // Normal case: get sibling
+    const siblingIndex =
+      currentIndex % 2 === 0 ? currentIndex + 1 : currentIndex - 1;
+    proof.push(layer[siblingIndex]);
+
     currentIndex = Math.floor(currentIndex / 2);
   }
 
@@ -89,22 +104,45 @@ export function generateProof(tree: MerkleTree, index: number): Uint8Array[] {
 }
 
 // Verify a proof (for testing)
+// Matches Substrate's binary_merkle_tree::verify_proof
 export function verifyProof(
   root: Uint8Array,
   proof: Uint8Array[],
+  numberOfLeaves: number,
   leafIndex: number,
   leafHash: Uint8Array
 ): boolean {
-  let currentHash = leafHash;
-  let currentIndex = leafIndex;
+  if (leafIndex >= numberOfLeaves) {
+    return false;
+  }
 
-  for (const sibling of proof) {
-    if (currentIndex % 2 === 0) {
-      currentHash = hashPair(currentHash, sibling);
-    } else {
-      currentHash = hashPair(sibling, currentHash);
+  let currentHash = leafHash;
+  let position = leafIndex;
+  let width = numberOfLeaves;
+  let proofIdx = 0;
+
+  while (width > 1) {
+    // Check if this node gets promoted (last in odd-width layer)
+    if (position + 1 === width && width % 2 === 1) {
+      // Node promoted directly, no sibling, no proof consumption
+      position = Math.floor(position / 2);
+      width = Math.floor((width - 1) / 2) + 1;
+      continue;
     }
-    currentIndex = Math.floor(currentIndex / 2);
+
+    if (proofIdx >= proof.length) {
+      return false;
+    }
+
+    const sibling = proof[proofIdx++];
+    if (position % 2 === 1) {
+      currentHash = hashPair(sibling, currentHash);
+    } else {
+      currentHash = hashPair(currentHash, sibling);
+    }
+
+    position = Math.floor(position / 2);
+    width = Math.floor((width - 1) / 2) + 1;
   }
 
   return arraysEqual(currentHash, root);

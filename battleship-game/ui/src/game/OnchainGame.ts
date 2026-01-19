@@ -2,7 +2,7 @@ import { Board } from "./Board.ts";
 import { getShipCells } from "./Ship.ts";
 import { getChainClient, disconnectClient } from "../chain/client.ts";
 import {
-  getPlayerAccount,
+  getDevPlayerAccount,
   getOpponentAddress,
   type PlayerAccount,
 } from "../chain/accounts.ts";
@@ -22,8 +22,6 @@ import type {
   Orientation,
   ShipDefinition,
 } from "../types/index.ts";
-
-const POT_AMOUNT = 1_000_000_000_000n; // 1 unit
 
 export interface OnchainGameState {
   phase: OnchainPhase;
@@ -45,19 +43,15 @@ export class OnchainGame {
   private player: Player;
   private account: PlayerAccount;
 
-  // Local boards
   private ourBoard: Board;
-  private opponentBoard: Board; // Tracks what we know about opponent
+  private opponentBoard: Board;
 
-  // Chain state
   private gameId: bigint | null = null;
   private battleshipClient: BattleshipClient | null = null;
 
-  // Our secret data (for merkle proofs)
   private ourCells: ChainCell[] = [];
   private merkleTree: MerkleTree | null = null;
 
-  // Game state
   private phase: OnchainPhase = "menu";
   private isOurTurn = false;
   private pendingAttack: Position | null = null;
@@ -66,23 +60,20 @@ export class OnchainGame {
   private winner: Player | null = null;
   private message = "";
 
-  // Callbacks
   private onStateChangeCallback: StateChangeCallback | null = null;
   private onMessageCallback: MessageCallback | null = null;
   private onGameEndCallback: GameEndCallback | null = null;
 
-  // Polling interval
   private pollInterval: number | null = null;
   private lastLoggedPhase: string | null = null;
   private lastOpponentDataHash: string = "";
 
-  // Ship placement state
   private currentShipIndex = 0;
   private placementOrientation: Orientation = "horizontal";
 
-  constructor(player: Player) {
+  constructor(player: Player, account?: PlayerAccount) {
     this.player = player;
-    this.account = getPlayerAccount(player);
+    this.account = account ?? getDevPlayerAccount(player as "alice" | "bob");
     this.ourBoard = new Board();
     this.opponentBoard = new Board();
   }
@@ -234,11 +225,9 @@ export class OnchainGame {
     return false;
   }
 
-  // Game flow - Create/Join
-  async createGame(): Promise<boolean> {
+  async createGame(potAmount: bigint): Promise<boolean> {
     if (!this.battleshipClient) return false;
 
-    // Check if already in a game
     if (await this.checkAndResumeGame()) {
       return true;
     }
@@ -246,10 +235,10 @@ export class OnchainGame {
     this.setPhase("creating");
     this.setMessage("Creating game...");
 
-    console.log(`[${this.player}] Creating new game...`);
+    console.log(`[${this.player}] Creating new game with pot ${potAmount}...`);
     const result = await this.battleshipClient.createGame(
       this.account.signer,
-      POT_AMOUNT
+      potAmount
     );
 
     console.log(`[${this.player}] Create game result:`, result);
@@ -258,7 +247,6 @@ export class OnchainGame {
       if (result.gameId !== undefined) {
         this.gameId = result.gameId;
       } else {
-        // Game created but gameId not in events - query for it
         console.log(`[${this.player}] GameId not in events, querying...`);
         const queriedGameId = await this.battleshipClient.getPlayerGame(this.account.address);
         if (queriedGameId !== null && queriedGameId !== undefined) {
@@ -283,14 +271,12 @@ export class OnchainGame {
   async joinGame(): Promise<boolean> {
     if (!this.battleshipClient) return false;
 
-    // Check if already in a game
     if (await this.checkAndResumeGame()) {
       return true;
     }
 
     this.setMessage("Looking for games...");
 
-    // Find a waiting game (preferably from the opponent)
     const waitingGames = await this.battleshipClient.findWaitingGames();
 
     if (waitingGames.length === 0) {
@@ -298,8 +284,33 @@ export class OnchainGame {
       return false;
     }
 
-    // Try to join the first available game
     const gameId = waitingGames[0];
+    this.setMessage(`Joining game #${gameId}...`);
+
+    const result = await this.battleshipClient.joinGame(
+      this.account.signer,
+      gameId
+    );
+
+    if (result.ok) {
+      this.gameId = gameId;
+      this.setPhase("setup");
+      this.setMessage("Joined! Place your ships.");
+      this.startPolling();
+      return true;
+    }
+
+    this.setMessage("Failed to join game");
+    return false;
+  }
+
+  async joinExistingGame(gameId: bigint): Promise<boolean> {
+    if (!this.battleshipClient) return false;
+
+    if (await this.checkAndResumeGame()) {
+      return true;
+    }
+
     this.setMessage(`Joining game #${gameId}...`);
 
     const result = await this.battleshipClient.joinGame(
@@ -422,7 +433,7 @@ export class OnchainGame {
     // Verify proof locally before sending
     const { verifyProof, getCellLeafHash } = await import("../chain/merkle.ts");
     const leafHash = getCellLeafHash(cell);
-    const localValid = verifyProof(this.merkleTree.root, proof, index, leafHash);
+    const localValid = verifyProof(this.merkleTree.root, proof, 100, index, leafHash);
     console.log(`[${this.player}] Local proof verification:`, localValid);
 
     this.setMessage(`Revealing cell ${String.fromCharCode(65 + coord.x)}${coord.y + 1}...`);
@@ -596,7 +607,7 @@ export class OnchainGame {
       const isPlayer1Turn = currentTurn?.type === "Player1";
       this.isOurTurn = weArePlayer1 === isPlayer1Turn;
 
-      console.log(`[${this.player}] current_turn: ${currentTurn?.type}, pendingAttack:`, pendingAttack, `isOurTurn: ${this.isOurTurn}`);
+      console.log(`[${this.player}] current_turn: ${currentTurn?.type}, pendingAttack:`, pendingAttack, `isOurTurn: ${this.isOurTurn}, isRevealing: ${this.isRevealing}, isAttacking: ${this.isAttacking}`);
 
       if (pendingAttack) {
         // There's a pending attack - store it locally

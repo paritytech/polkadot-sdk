@@ -9,12 +9,14 @@
     "papi": "papi"
   },
   "dependencies": {
-    "polkadot-api": "^1.23.2",
+    "@noble/hashes": "^1.7.1",
     "@polkadot-labs/hdkd": "^0.0.26",
     "@polkadot-labs/hdkd-helpers": "^0.0.26",
-    "@noble/hashes": "^1.7.1"
+    "playwright": "^1.57.0",
+    "polkadot-api": "^1.23.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10"
   }

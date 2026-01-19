@@ -17,6 +17,11 @@ pub use pallet::*;
 pub mod weights;
 pub use weights::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use alloc::{vec, vec::Vec};
 use bitvec::prelude::*;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -301,10 +306,7 @@ pub mod pallet {
 			prize: BalanceOf<T>,
 		},
 		/// Game abandoned due to inactivity - funds burned
-		GameAbandoned {
-			game_id: GameId,
-			burned_amount: BalanceOf<T>,
-		},
+		GameAbandoned { game_id: GameId, burned_amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -613,7 +615,13 @@ pub mod pallet {
 						PlayerRole::Player2 =>
 							(game.player2.clone().unwrap(), game.player1.clone()),
 					};
-					return Self::finalize_game(&mut game, game_id, winner, loser, GameEndReason::Cheating);
+					return Self::finalize_game(
+						&mut game,
+						game_id,
+						winner,
+						loser,
+						GameEndReason::Cheating,
+					);
 				},
 				Err(e) => return Err(e.into()),
 			};
@@ -634,9 +642,7 @@ pub mod pallet {
 					}
 				})
 			} else {
-				PlayerDataStorage::<T>::get(game_id, attacker)
-					.map(|d| d.hits)
-					.unwrap_or(0)
+				PlayerDataStorage::<T>::get(game_id, attacker).map(|d| d.hits).unwrap_or(0)
 			};
 
 			Self::deposit_event(Event::AttackRevealed {
@@ -660,7 +666,13 @@ pub mod pallet {
 					PlayerRole::Player1 => (game.player1.clone(), game.player2.clone().unwrap()),
 					PlayerRole::Player2 => (game.player2.clone().unwrap(), game.player1.clone()),
 				};
-				return Self::finalize_game(&mut game, game_id, winner, loser, GameEndReason::Cheating);
+				return Self::finalize_game(
+					&mut game,
+					game_id,
+					winner,
+					loser,
+					GameEndReason::Cheating,
+				);
 			} else {
 				// Switch turns
 				game.phase = GamePhase::Playing {
@@ -832,32 +844,26 @@ pub mod pallet {
 		pub fn surrender(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
 			let player = ensure_signed(origin)?;
 
-			Games::<T>::try_mutate(game_id, |maybe_game| -> DispatchResult {
-				let game = maybe_game.as_mut().ok_or(Error::<T>::GameNotFound)?;
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
 
-				let is_player1 = game.player1 == player;
-				let is_player2 = game.player2.as_ref() == Some(&player);
-				ensure!(is_player1 || is_player2, Error::<T>::NotGameParticipant);
+			let is_player1 = game.player1 == player;
+			let is_player2 = game.player2.as_ref() == Some(&player);
+			ensure!(is_player1 || is_player2, Error::<T>::NotGameParticipant);
 
-				// Can't surrender if game hasn't started or already finished
-				match &game.phase {
-					GamePhase::WaitingForOpponent | GamePhase::Finished { .. } => {
-						return Err(Error::<T>::InvalidGamePhase.into());
-					},
-					_ => {},
-				}
+			match &game.phase {
+				GamePhase::WaitingForOpponent | GamePhase::Finished { .. } => {
+					return Err(Error::<T>::InvalidGamePhase.into());
+				},
+				_ => {},
+			}
 
-				let (winner, loser) = if is_player1 {
-					(
-						game.player2.clone().ok_or(Error::<T>::InvalidGamePhase)?,
-						game.player1.clone(),
-					)
-				} else {
-					(game.player1.clone(), player)
-				};
+			let (winner, loser) = if is_player1 {
+				(game.player2.clone().ok_or(Error::<T>::InvalidGamePhase)?, game.player1.clone())
+			} else {
+				(game.player1.clone(), player)
+			};
 
-				Self::finalize_game(game, game_id, winner, loser, GameEndReason::Surrender)
-			})
+			Self::finalize_game(&mut game, game_id, winner, loser, GameEndReason::Surrender)
 		}
 	}
 
@@ -1054,7 +1060,8 @@ pub mod pallet {
 
 			// Find abandoned games
 			for (game_id, game) in Games::<T>::iter() {
-				if used_weight.saturating_add(per_game_weight).ref_time() > remaining_weight.ref_time()
+				if used_weight.saturating_add(per_game_weight).ref_time() >
+					remaining_weight.ref_time()
 				{
 					break;
 				}
@@ -1069,7 +1076,8 @@ pub mod pallet {
 
 			// Abort abandoned games
 			for (game_id, game) in games_to_abort {
-				if used_weight.saturating_add(per_game_weight).ref_time() > remaining_weight.ref_time()
+				if used_weight.saturating_add(per_game_weight).ref_time() >
+					remaining_weight.ref_time()
 				{
 					break;
 				}
@@ -1087,34 +1095,47 @@ pub mod pallet {
 			let pot_amount = game.pot_amount;
 			let mut total_burned = BalanceOf::<T>::default();
 
-			// Release and burn player1's pot
-			T::Currency::release(
+			// Release and burn player1's pot (use BestEffort to handle partial/missing holds)
+			let released1 = T::Currency::release(
 				&HoldReason::GamePot.into(),
 				&game.player1,
 				pot_amount,
-				Precision::Exact,
-			)?;
-			// Burn by transferring to a non-existent account (or use Currency::burn if available)
-			let burned1 = T::Currency::burn_from(
-				&game.player1,
-				pot_amount,
 				Precision::BestEffort,
-				frame_support::traits::tokens::Fortitude::Force,
 			)
 			.unwrap_or_default();
-			total_burned = total_burned.saturating_add(burned1);
-
-			// Release and burn player2's pot if they joined
-			if let Some(ref p2) = game.player2 {
-				T::Currency::release(&HoldReason::GamePot.into(), p2, pot_amount, Precision::Exact)?;
-				let burned2 = T::Currency::burn_from(
-					p2,
-					pot_amount,
+			// Burn whatever was released
+			if !released1.is_zero() {
+				let burned1 = T::Currency::burn_from(
+					&game.player1,
+					released1,
+					frame_support::traits::tokens::Preservation::Expendable,
 					Precision::BestEffort,
 					frame_support::traits::tokens::Fortitude::Force,
 				)
 				.unwrap_or_default();
-				total_burned = total_burned.saturating_add(burned2);
+				total_burned = total_burned.saturating_add(burned1);
+			}
+
+			// Release and burn player2's pot if they joined
+			if let Some(ref p2) = game.player2 {
+				let released2 = T::Currency::release(
+					&HoldReason::GamePot.into(),
+					p2,
+					pot_amount,
+					Precision::BestEffort,
+				)
+				.unwrap_or_default();
+				if !released2.is_zero() {
+					let burned2 = T::Currency::burn_from(
+						p2,
+						released2,
+						frame_support::traits::tokens::Preservation::Expendable,
+						Precision::BestEffort,
+						frame_support::traits::tokens::Fortitude::Force,
+					)
+					.unwrap_or_default();
+					total_burned = total_burned.saturating_add(burned2);
+				}
 			}
 
 			// Clean up player mappings

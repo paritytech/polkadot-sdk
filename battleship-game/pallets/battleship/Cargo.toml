@@ -24,7 +24,8 @@ binary-merkle-tree = { workspace = true }
 bitvec = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
+sp-io = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

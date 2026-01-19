@@ -62,8 +62,8 @@ use super::{
 	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
 	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS, MILLICENTS,
-	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
+	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
+	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, MILLICENTS, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
@@ -341,10 +341,10 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	/// Turn timeout: ~3 minutes at 4 blocks/second (24 blocks per 6 seconds)
-	pub const TurnTimeout: BlockNumber = 720;
-	/// Abandon timeout: ~4 minutes at 4 blocks/second - game is aborted and funds burned
-	pub const AbandonTimeout: BlockNumber = 960;
+	/// Turn timeout: 10 blocks for dev testing, increase for production
+	pub const TurnTimeout: BlockNumber = 10;
+	/// Abandon timeout: 20 blocks for dev testing, increase for production
+	pub const AbandonTimeout: BlockNumber = 20;
 }
 
 /// Configure the battleship pallet.

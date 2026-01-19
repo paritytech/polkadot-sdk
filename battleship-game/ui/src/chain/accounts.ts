@@ -11,7 +11,7 @@ import type { Player } from "../types/index.ts";
 export interface PlayerAccount {
   signer: PolkadotSigner;
   address: string;
-  publicKey: Uint8Array;
+  publicKey?: Uint8Array;
 }
 
 const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
@@ -32,10 +32,19 @@ export const bob: PlayerAccount = {
   publicKey: bobKeyPair.publicKey,
 };
 
+export function isDevMode(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("devMode") === "true" || params.has("player");
+}
+
 export function getPlayerFromUrl(): Player {
   const params = new URLSearchParams(window.location.search);
   const player = params.get("player");
   return player === "bob" ? "bob" : "alice";
+}
+
+export function getDevPlayerAccount(player: Player): PlayerAccount {
+  return player === "alice" ? alice : bob;
 }
 
 export function getPlayerAccount(player: Player): PlayerAccount {

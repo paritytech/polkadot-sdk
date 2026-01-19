@@ -2,7 +2,7 @@ import { createClient, type PolkadotClient } from "polkadot-api";
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 
-const WS_URL = "ws://localhost:45115";
+const WS_URL = "ws://localhost:37359";
 
 let clientInstance: PolkadotClient | null = null;
 
