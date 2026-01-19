@@ -175,11 +175,10 @@ async fn collect_relay_storage_proof(
 
 	for key in keys {
 		match key {
-			RelayStorageKey::Top(k) => {
+			RelayStorageKey::Top(k) =>
 				if !all_top_keys.contains(&k) {
 					all_top_keys.push(k);
-				}
-			},
+				},
 			RelayStorageKey::Child { storage_key, key } => {
 				child_keys.entry(storage_key).or_default().push(key);
 			},
@@ -208,7 +207,10 @@ async fn collect_relay_storage_proof(
 	// Collect child trie proofs
 	for (storage_key, data_keys) in child_keys {
 		let child_info = ChildInfo::new_default(&storage_key);
-		match relay_chain_interface.prove_child_read(relay_parent, &child_info, &data_keys).await {
+		match relay_chain_interface
+			.prove_child_read(relay_parent, &child_info, &data_keys)
+			.await
+		{
 			Ok(child_proof) => {
 				all_proofs.push(child_proof);
 			},

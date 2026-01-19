@@ -679,17 +679,14 @@ where
 	Client: ProvideRuntimeApi<Block>,
 	Client::Api: KeyToIncludeInRelayProof<Block>,
 {
-	client
-		.runtime_api()
-		.keys_to_prove(parent_hash)
-		.unwrap_or_else(|e| {
-			tracing::debug!(
-				target: crate::LOG_TARGET,
-				error = ?e,
-				"Failed to fetch relay proof requests from runtime, using empty request"
-			);
-			Default::default()
-		})
+	client.runtime_api().keys_to_prove(parent_hash).unwrap_or_else(|e| {
+		tracing::debug!(
+			target: crate::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay proof requests from runtime, using empty request"
+		);
+		Default::default()
+	})
 }
 
 /// Holds a relay parent and its descendants.

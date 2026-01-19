@@ -1777,7 +1777,9 @@ pub trait OnSystemEvent {
 	/// runtime.
 	fn on_validation_code_applied();
 	/// Called to process keys from the verified relay chain state proof.
-	fn on_relay_state_proof(relay_state_proof: &relay_state_snapshot::RelayChainStateProof) -> Weight;
+	fn on_relay_state_proof(
+		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
+	) -> Weight;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -1790,7 +1792,9 @@ impl OnSystemEvent for Tuple {
 		for_tuples!( #( Tuple::on_validation_code_applied(); )* );
 	}
 
-	fn on_relay_state_proof(relay_state_proof: &relay_state_snapshot::RelayChainStateProof) -> Weight {
+	fn on_relay_state_proof(
+		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
+	) -> Weight {
 		let mut weight = Weight::zero();
 		for_tuples!( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
 		weight
