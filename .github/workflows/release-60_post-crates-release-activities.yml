@@ -165,7 +165,6 @@ jobs:
           done
 
           commit_with_message "Bump spec_version for $([ \"$IS_PATCH_RELEASE\" = \"true\" ] && echo \"patch\" || echo \"stable\") release"
-          fi
 
       - name: Move prdocs to release folder
         shell: bash
