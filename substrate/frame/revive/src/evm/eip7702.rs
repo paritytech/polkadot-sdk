@@ -23,10 +23,9 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{AuthorizationListEntry, rlp},
+	evm::api::{rlp, AuthorizationListEntry},
 	storage::AccountInfo,
-	AccountInfoOf, Config, EIP7702_MAGIC,
-	PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
+	AccountInfoOf, Config, EIP7702_MAGIC, PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 
@@ -78,9 +77,10 @@ pub fn process_authorizations<T: Config>(
 	// First pass: collect all authorizations and track the last valid one per authority
 	for auth in authorization_list.iter() {
 		match process_single_authorization::<T>(auth, chain_id) {
-			AuthorizationResult::Success { authority, .. } => {
+			AuthorizationResult::Success { authority, refund } => {
 				// Track the last valid authorization for this authority
 				last_valid_by_authority.insert(authority, auth.address);
+				total_refund = total_refund.saturating_add(refund);
 			},
 			AuthorizationResult::Failed => continue,
 		}
@@ -91,18 +91,15 @@ pub fn process_authorizations<T: Config>(
 		// Add authority to accessed addresses (EIP-2929)
 		accessed_addresses.insert(*authority);
 
-		// Check if account already exists
-		let account_exists = AccountInfoOf::<T>::contains_key(authority);
-
 		// Set the delegation or clear it
 		if target_address.is_zero() {
 			// Clear delegation (reset to EOA)
 			let _ = AccountInfo::<T>::clear_delegation(authority);
 		} else {
 			// Get current nonce
-			let nonce = frame_system::Pallet::<T>::account_nonce(
-				&T::AddressMapper::to_account_id(authority),
-			);
+			let nonce = frame_system::Pallet::<T>::account_nonce(&T::AddressMapper::to_account_id(
+				authority,
+			));
 
 			// Set delegation indicator
 			if let Err(e) = AccountInfo::<T>::set_delegation(authority, *target_address, nonce) {
@@ -117,15 +114,7 @@ pub fn process_authorizations<T: Config>(
 		}
 
 		// Increment the nonce
-		frame_system::Pallet::<T>::inc_account_nonce(
-			&T::AddressMapper::to_account_id(authority),
-		);
-
-		// Calculate refund if account already existed
-		if account_exists {
-			let refund = PER_EMPTY_ACCOUNT_COST.saturating_sub(PER_AUTH_BASE_COST);
-			total_refund = total_refund.saturating_add(refund);
-		}
+		frame_system::Pallet::<T>::inc_account_nonce(&T::AddressMapper::to_account_id(authority));
 	}
 
 	total_refund
@@ -195,11 +184,8 @@ fn process_single_authorization<T: Config>(
 
 	// Calculate refund
 	let account_exists = AccountInfoOf::<T>::contains_key(&authority);
-	let refund = if account_exists {
-		PER_EMPTY_ACCOUNT_COST.saturating_sub(PER_AUTH_BASE_COST)
-	} else {
-		0
-	};
+	let refund =
+		if account_exists { PER_EMPTY_ACCOUNT_COST.saturating_sub(PER_AUTH_BASE_COST) } else { 0 };
 
 	AuthorizationResult::Success { authority, refund }
 }
