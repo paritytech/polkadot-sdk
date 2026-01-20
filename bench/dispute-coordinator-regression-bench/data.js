@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768920061034,
+  "lastUpdate": 1768945819144,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21657,6 +21657,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009008858079999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92aeeb37e2bb1e1c1cd50e850e56df140d4c9374",
+          "message": "rpc-spec-v2: Fix flaky tests (#10848)\n\nI have seen `ensure_operation_limits_works` failing in CI, because of\n`LimitReached` error failing in [this\nline](https://github.com/paritytech/polkadot-sdk/blob/1fd9be7ffa24ab8f76491000ec028a859298f9eb/substrate/client/rpc-spec-v2/src/chain_head/tests.rs#L3052).\nMy friend brought about the permit being dropped after the response is\nsend. This can lead to race where we send the answer, the context is\nswitched before the permit is freed and then the test fails by calling\nthe rpc again.\n\nTLDR: We increase the allowed operations to not run into potential race\nconditions.",
+          "timestamp": "2026-01-20T20:35:21Z",
+          "tree_id": "757bc6ab73615d5491c79b3ea178ceffbfded639",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92aeeb37e2bb1e1c1cd50e850e56df140d4c9374"
+        },
+        "date": 1768945795459,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006585688800000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009197747689999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002682199419999999,
             "unit": "seconds"
           }
         ]
