@@ -2863,11 +2863,9 @@ fn remove_potential_renewal_works() {
 
 		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 		// Ensure that the correct potential renewal was removed.
-		assert!(PotentialRenewals::<Test>::iter()
-			.find(|renewal| {
-				renewal.0.core == new_region_id.core && renewal.0.when == new_region.end
-			})
-			.is_some());
+		assert!(PotentialRenewals::<Test>::iter().any(|renewal| {
+			renewal.0.core == new_region_id.core && renewal.0.when == new_region.end
+		}));
 
 		assert_noop!(
 			Broker::do_remove_potential_renewal(region_id.core, region.end),
