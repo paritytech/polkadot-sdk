@@ -1213,13 +1213,13 @@ pub mod pallet {
 		/// reasonable not to require a deposit.
 		///
 		/// **Fees:**
-		/// The stash account must have sufficient balance to pay the total fee, which includes
-		/// both XCM delivery fees and the relay chain execution cost. The relay chain uses
-		/// `UnpaidExecution`, so no fees are charged there; instead, the full cost is charged
-		/// upfront on AssetHub.
+		/// The actual cost of this call is higher than what the weight-based fee estimate shows.
+		/// In addition to the local transaction weight fee, the stash account is charged an XCM
+		/// fee (delivery + RC execution cost) via `XcmExecutor::charge_fees`. The relay chain
+		/// uses `UnpaidExecution`, so the full remote cost is charged upfront on AssetHub.
 		///
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
-		/// while the stash (delegating account) pays the total XCM fee (delivery + execution).
+		/// while the stash (delegating account) pays the XCM fee.
 		///
 		/// **Max Fee Limit:**
 		/// Users can optionally specify `max_fee` to limit the XCM fee (delivery + RC execution).
@@ -1278,13 +1278,13 @@ pub mod pallet {
 		/// keys set.
 		///
 		/// **Fees:**
-		/// The caller must have sufficient balance to pay the total fee, which includes both
-		/// XCM delivery fees and the relay chain execution cost. The relay chain uses
-		/// `UnpaidExecution`, so no fees are charged there; instead, the full cost is charged
-		/// upfront on AssetHub.
+		/// The actual cost of this call is higher than what the weight-based fee estimate shows.
+		/// In addition to the local transaction weight fee, the caller is charged an XCM fee
+		/// (delivery + RC execution cost) via `XcmExecutor::charge_fees`. The relay chain uses
+		/// `UnpaidExecution`, so the full remote cost is charged upfront on AssetHub.
 		///
 		/// When called via a staking proxy, the proxy pays the transaction weight fee,
-		/// while the delegating account pays the total XCM fee (delivery + execution).
+		/// while the delegating account pays the XCM fee.
 		///
 		/// **Max Fee Limit:**
 		/// Users can optionally specify `max_fee` to limit the XCM fee (delivery + RC execution).
