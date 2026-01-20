@@ -1457,10 +1457,7 @@ fn receive_hrmp_channel_suddenly_removed_from_relay_state() {
 		})
 		.add(2, || {
 			assert_eq!(
-				LastHrmpMqcHeads::<Test>::get()
-					.into_iter()
-					.map(|(para, _)| para)
-					.collect::<Vec<_>>(),
+				LastHrmpMqcHeads::<Test>::get().into_keys().collect::<Vec<_>>(),
 				vec![],
 				"Channel 300 should be removed"
 			);
@@ -1512,12 +1509,9 @@ fn receive_hrmp_channel_suddenly_removed_from_relay_state2() {
 		})
 		.add(2, || {
 			assert_eq!(
-				LastHrmpMqcHeads::<Test>::get()
-					.into_iter()
-					.map(|(para, _)| para)
-					.collect::<Vec<_>>(),
+				LastHrmpMqcHeads::<Test>::get().into_keys().collect::<Vec<_>>(),
 				vec![ParaId::from(200)],
-				"Channel 300 should be removed but 200 should be present"
+				"Channel 300 should be removed but 200 should be present",
 			);
 		});
 }
