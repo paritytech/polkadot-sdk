@@ -20,6 +20,7 @@
 
 use alloc::{vec, vec::Vec};
 use sp_runtime::traits::{Convert, One, StaticLookup, TrailingZeroInput};
+use sp_staking::offence::OffenceSeverity;
 
 use codec::Decode;
 use frame_benchmarking::v2::*;
@@ -159,16 +160,8 @@ mod benchmarks {
 		// 1. Validator set changed (triggers DisabledValidators::kill())
 		QueuedChanged::<T>::put(true);
 
-		// 2. Maximum validators disabled based on DisablingStrategy limit
-		// With default DISABLING_LIMIT_FACTOR=3, max is (v-1)/3 validators
-		// With DISABLING_LIMIT_FACTOR=2, max is (v-1)/2 validators
-		// We use factor=2 for worst case (up to 50% of validators disabled)
-		let disabled_count = v.saturating_sub(1).saturating_div(2);
-		for i in 0..disabled_count {
-			DisabledValidators::<T>::mutate(|d| {
-				d.push((i, Default::default()));
-			});
-		}
+		// 2. Add one disabled validator to trigger kill() (O(1) operation)
+		DisabledValidators::<T>::put(vec![(0u32, OffenceSeverity::default())]);
 
 		// Benchmark the rotate_session call
 		#[block]

@@ -25,6 +25,7 @@ pallet-staking = { workspace = true }
 rand = { features = ["std_rng"], workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
+sp-staking = { workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
