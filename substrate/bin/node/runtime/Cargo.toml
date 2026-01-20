@@ -51,6 +51,7 @@ std = [
 	"codec/std",
 	"log/std",
 	"node-primitives/std",
+	"pallet-example-custom-benchmarking-config/std",
 	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"polkadot-sdk/std",
