@@ -1202,7 +1202,6 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
-			.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;

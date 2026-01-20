@@ -495,7 +495,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type SessionKeys = AHSessionKeys;
-	type CurrencyBalance = Balance;
+	type Balance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
 	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();

@@ -127,13 +127,19 @@ use codec::Decode;
 use core::fmt::Display;
 #[cfg(feature = "xcm-sender")]
 use frame_support::storage::transactional::with_transaction_opaque_err;
-use frame_support::{pallet_prelude::*, weights::Weight};
+use frame_support::{pallet_prelude::*, traits::tokens::Balance as BalanceTrait, weights::Weight};
 #[cfg(feature = "xcm-sender")]
 use sp_runtime::{traits::Convert, TransactionOutcome};
 use sp_runtime::{traits::OpaqueKeys, Perbill};
 use sp_staking::SessionIndex;
 // XCM imports are only used by the optional XCMSender helper struct for runtimes, not by the
 // pallet's public API. The pallet only uses the abstract SendToRelayChain trait.
+//
+// TODO: Consider relocating `staking-async` pallets to `polkadot/pallets/` or
+// `cumulus/pallets/`. These pallets are Polkadot-specific (AH↔RC communication) and leak XCM
+// types into FRAME, which historically has been chain-agnostic. Alternatively, the `XCMSender`
+// helper could be moved to runtime level, keeping this pallet XCM-agnostic through the
+// `SendToRelayChain` trait abstraction.
 #[cfg(feature = "xcm-sender")]
 use xcm::latest::{
 	send_xcm, validate_send, ExecuteXcm, Fungibility::Fungible, Location, SendError, SendXcm, Xcm,
@@ -144,7 +150,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// Type alias for balance used in this pallet.
-pub type BalanceOf<T> = <T as pallet::Config>::CurrencyBalance;
+pub type BalanceOf<T> = <T as pallet::Config>::Balance;
 
 const LOG_TARGET: &str = "runtime::staking-async::rc-client";
 
@@ -948,7 +954,7 @@ pub mod pallet {
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<
 			AccountId = Self::AccountId,
-			Balance = Self::CurrencyBalance,
+			Balance = Self::Balance,
 		>;
 
 		/// Maximum number of times that we retry sending a validator set to RC, after which, if
@@ -989,14 +995,7 @@ pub mod pallet {
 		type SessionKeys: OpaqueKeys + Decode;
 
 		/// The balance type used for delivery fee limits.
-		type CurrencyBalance: Parameter
-			+ Member
-			+ sp_runtime::traits::AtLeast32BitUnsigned
-			+ Default
-			+ Copy
-			+ sp_runtime::traits::MaybeSerializeDeserialize
-			+ MaxEncodedLen
-			+ TypeInfo;
+		type Balance: BalanceTrait;
 
 		/// Maximum length of encoded session keys.
 		#[pallet::constant]
@@ -1223,9 +1222,9 @@ pub mod pallet {
 		/// while the stash (delegating account) pays the total XCM fee (delivery + execution).
 		///
 		/// **Max Fee Limit:**
-		/// Users can optionally specify `max_fee` to limit the maximum total fee they are
-		/// willing to pay. If the actual fee exceeds this limit, the operation fails with
-		/// `FeesExceededMax`. Pass `None` for unlimited (no cap).
+		/// Users can optionally specify `max_fee` to limit the XCM fee (delivery + RC execution).
+		/// This does not include the local transaction weight fee. If the XCM fee exceeds this
+		/// limit, the operation fails with `FeesExceededMax`. Pass `None` for unlimited (no cap).
 		///
 		/// NOTE: unlike the current flow for new validators on RC (bond -> set_keys -> validate),
 		/// users on Asset Hub MUST call bond and validate BEFORE calling set_keys. Attempting to
@@ -1288,9 +1287,9 @@ pub mod pallet {
 		/// while the delegating account pays the total XCM fee (delivery + execution).
 		///
 		/// **Max Fee Limit:**
-		/// Users can optionally specify `max_fee` to limit the maximum total fee they are
-		/// willing to pay. If the actual fee exceeds this limit, the operation fails with
-		/// `FeesExceededMax`. Pass `None` for unlimited (no cap).
+		/// Users can optionally specify `max_fee` to limit the XCM fee (delivery + RC execution).
+		/// This does not include the local transaction weight fee. If the XCM fee exceeds this
+		/// limit, the operation fails with `FeesExceededMax`. Pass `None` for unlimited (no cap).
 		//
 		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		// (storage item) to track accounts that have called set_keys. We will also need to perform

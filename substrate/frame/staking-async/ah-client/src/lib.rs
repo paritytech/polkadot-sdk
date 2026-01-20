@@ -638,7 +638,7 @@ pub mod pallet {
 					Ok(keys) => keys,
 					Err(e) => {
 						// This should never happen since AH validates keys before forwarding.
-						// Emit event and return Ok (not Err) so the event is observable.
+						// Returning Ok() allows the event to be observed for monitoring.
 						log!(
 							warn,
 							"InvalidKeysFromAssetHub: failed to decode keys for {:?}: {:?}",

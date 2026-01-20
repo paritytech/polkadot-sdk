@@ -327,7 +327,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type SessionKeys = RelayChainSessionKeys;
-	type CurrencyBalance = Balance;
+	type Balance = Balance;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -454,12 +454,10 @@ impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
-	/// Execution weight for set_keys on relay chain (from Westend session pallet benchmarks).
-	/// Used to calculate execution cost charged on AH via WeightToFee.
-	pub SetKeysRemoteWeight: Weight = Weight::from_parts(101_461_000, 16_994);
-	/// Execution weight for purge_keys on relay chain (from Westend session pallet benchmarks).
-	/// Used to calculate execution cost charged on AH via WeightToFee.
-	pub PurgeKeysRemoteWeight: Weight = Weight::from_parts(74_310_000, 4_606);
+	/// Conservative RC execution cost for set/purge keys operations.
+	/// Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
+	/// Slight overpaymennt is the price we pay for maintainability here.
+	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 /// Converts an AccountId to an XCM Location for fee charging.
@@ -491,7 +489,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
-			&SetKeysRemoteWeight::get(),
+			&RemoteKeysExecutionWeight::get(),
 		);
 
 		rc_client::XCMSender::<
@@ -518,7 +516,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
-			&PurgeKeysRemoteWeight::get(),
+			&RemoteKeysExecutionWeight::get(),
 		);
 
 		rc_client::XCMSender::<
