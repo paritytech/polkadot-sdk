@@ -1403,6 +1403,26 @@ susceptible to DOS. E.g. even with the collator protocol revamp \- all collators
 will have a good reputation and could all try to fetch from the backers,
 delaying delivery to the next block author (enough). 
 
+**Note on collator protocol resilience with v3 semantics**: The [collator
+protocol revamp](https://github.com/paritytech/polkadot-sdk/issues/616) improves
+collation fetching by having validators wait briefly before making a fetch
+decision, then selecting the peer with the highest reputation. However, this
+approach has a fundamental flaw with v2/v1 collation protocols: honest collators
+cannot start building their collation until they see the relay parent (which
+serves as both execution and scheduling context), and building a valid ~2s
+collation takes significant time. Malicious nodes, on the other hand, can craft
+garbage almost instantly. This means the first fetch decision is likely to
+select garbage, because honest collators won't have their collation ready yet
+when the wait period expires.
+
+With v3 semantics (scheduling parent), this problem is resolved. The relay
+parent (execution context) can be old/finalized, allowing collators to prepare
+their collation **before** seeing the scheduling parent. At submission time,
+they only need to wrap the pre-built collation with the current scheduling
+parent. This eliminates the speed advantage of malicious nodes—honest collators
+can advertise their valid collations just as quickly as attackers can advertise
+garbage, making reputation-based selection effective.
+
 Mitigations:
 
 - Pre-PVF: Backers can prefer delivering POVs to the next eligible block author
