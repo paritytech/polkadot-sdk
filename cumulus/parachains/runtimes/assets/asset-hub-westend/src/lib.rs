@@ -312,9 +312,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = (
-		pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>,
-	);
+	type CallbackHandle = (pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>,);
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -573,8 +571,8 @@ parameter_types! {
 }
 
 impl pallet_assets_foreign::pallet::Config for Runtime {
-    // must match the AssetId type used by the `ForeignAssets` instance
-    type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
+	// must match the AssetId type used by the `ForeignAssets` instance
+	type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
 }
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
@@ -1380,7 +1378,7 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
-		AssetsForeign2: pallet_assets_foreign = 62,
+		AssetsForeign: pallet_assets_foreign = 62,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 

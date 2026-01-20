@@ -24,6 +24,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use pallet::*;
+
 /// Trait to convert various types to u32 asset index used internally by the pallet.
 pub trait ToAssetIndex {
 	fn to_asset_index(&self) -> u32;

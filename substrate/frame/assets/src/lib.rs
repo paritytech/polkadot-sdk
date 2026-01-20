@@ -249,8 +249,7 @@ where
 }
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I>
-	AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
 	T: pallet_assets_foreign::pallet::Config<
 		ForeignAssetId = <T as crate::pallet::Config<I>>::AssetId,
@@ -338,9 +337,7 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	/// The module configuration trait.
-	pub trait Config<I: 'static = ()>:
-		frame_system::Config
-	{
+	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
 		#[allow(deprecated)]
