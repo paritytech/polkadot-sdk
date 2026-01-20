@@ -27,7 +27,7 @@ use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{
 	traits::{BadOrigin, Get},
-	Perbill, TokenError,
+	DispatchError, Perbill, TokenError,
 };
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -2802,16 +2802,30 @@ fn force_reserve_works() {
 }
 
 #[test]
+fn remove_potential_renewal_rejects_non_admin_origin() {
+	TestExt::new().execute_with(|| {
+		assert_noop!(
+			Broker::remove_potential_renewal(RuntimeOrigin::signed(100), 0, 0),
+			DispatchError::BadOrigin
+		);
+
+		assert_noop!(
+			Broker::remove_potential_renewal(RuntimeOrigin::none(), 0, 0),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
 fn remove_potential_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales(100, 2));
 		advance_to(2);
 
 		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
 
 		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
 		let region = Regions::<Test>::get(region_id).unwrap();
-
 		const TASK_ID: TaskId = 1111;
 		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
 
@@ -2819,13 +2833,73 @@ fn remove_potential_renewal_works() {
 		// `when` field equal to the `region.end` will appear if the assignment is final.
 		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 
+		assert_noop!(
+			Broker::do_remove_potential_renewal(region_id.core + 1, region.end),
+			Error::<Test>::UnknownRenewal
+		);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+
+		assert_noop!(
+			Broker::do_remove_potential_renewal(region_id.core, region.end + 1),
+			Error::<Test>::UnknownRenewal
+		);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+
+		let new_region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let new_region = Regions::<Test>::get(new_region_id).unwrap();
+		const NEW_TASK_ID: TaskId = 2222;
+		Broker::do_assign(new_region_id, None, NEW_TASK_ID, Finality::Final).unwrap();
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 2);
+
+		// Check that target renewal is not expired, so ensure that `do_remove_potential_renewal`
+		// can remove non-expired renewals too.
+		assert_err!(Broker::do_drop_renewal(region_id.core, region.end), Error::<Test>::StillValid);
+
 		Broker::do_remove_potential_renewal(region_id.core, region.end).unwrap();
+		System::assert_has_event(
+			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
+		);
 
-		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+		// Ensure that the correct potential renewal was removed.
+		assert!(PotentialRenewals::<Test>::iter()
+			.find(|renewal| {
+				renewal.0.core == new_region_id.core && renewal.0.when == new_region.end
+			})
+			.is_some());
 
-		assert_err!(
+		assert_noop!(
 			Broker::do_remove_potential_renewal(region_id.core, region.end),
 			Error::<Test>::UnknownRenewal
-		)
+		);
 	});
+}
+
+#[test]
+fn remove_potential_renewal_makes_auto_renewal_die() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		const TASK_ID: TaskId = 1111;
+		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
+
+		advance_to(6);
+
+		Broker::do_enable_auto_renew(1, region_id.core, TASK_ID, None).unwrap();
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
+
+		let renewals: Vec<_> = PotentialRenewals::<Test>::iter_keys().collect();
+		assert_eq!(renewals.len(), 1);
+		assert_ok!(Broker::do_remove_potential_renewal(renewals[0].core, renewals[0].when));
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
+
+		advance_to(12);
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 0);
+	})
 }
