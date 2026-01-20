@@ -38,7 +38,7 @@ where
 
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
-			transport: ws_url.to_string().into(),
+			transport_uris: vec![ws_url.to_string()],
 			// NOTE: we don't scrape pallet-staking, this kinda ensures that the source of the data
 			// is bags-list.
 			pallets: vec![pallet_bags_list::Pallet::<Runtime, pallet_bags_list::Instance1>::name()
