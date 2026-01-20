@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768904650288,
+  "lastUpdate": 1768915202583,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "310e81d772201491b2a49452adaae7796ac237df",
-          "message": "Check artifact integrity before execution (#8833)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/677\nFixes https://github.com/paritytech/polkadot-sdk/issues/2399 \n\n# Description\n\nTo detect potential corruption of PVF artifacts on disk, we store their\nchecksums and verify if they match before execution. In case of a\nmismatch, we recreate the artifact.\n\n## Integration\n\nIn Candidate Validation, we treat the error similarly to\nPossiblyInvalidError::RuntimeConstruction due to their close nature.\n\n## Review Notes\n\nThe Black3 hashing algorithm has already been used. I believe we can\nswitch to twox, as suggested in the issue, because the checksum does not\nneed to be cryptographically hashed, and we do not reveal the checksum\nin logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-17T13:28:32Z",
-          "tree_id": "40f6f510c55627c250552908018d8d26604c29f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/310e81d772201491b2a49452adaae7796ac237df"
-        },
-        "date": 1750171166083,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045144465963999944,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03430311652599999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03816409781199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
+          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-01-20T12:11:14Z",
+          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
+        },
+        "date": 1768915177846,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.04199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038265427952,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06582798994599993,
             "unit": "seconds"
           }
         ]
