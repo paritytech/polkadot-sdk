@@ -714,9 +714,7 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
+	use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 	use std::env::var;
 
 	fn weight_diff(block: Weight, op: Weight) {
@@ -851,8 +849,7 @@ mod tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport: Transport =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 
 		let mut ext = Builder::<Block>::default()
@@ -860,7 +857,7 @@ mod tests {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
 					OnlineConfig {
-						transport,
+						transport_uris: vec![transport_uri.clone()],
 						hashed_prefixes: vec![vec![]],
 						state_snapshot: Some(state_snapshot),
 						..Default::default()
@@ -869,7 +866,7 @@ mod tests {
 			} else {
 				Mode::Online(OnlineConfig {
 					hashed_prefixes: vec![vec![]],
-					transport,
+					transport_uris: vec![transport_uri],
 					..Default::default()
 				})
 			})
