@@ -221,7 +221,6 @@ fn deploy_revert() {
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the
 // INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
-#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
@@ -233,6 +232,9 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
+		// Pass a large gas stipend to the callee
+		let gas_limit = 200_000_000_000u64;
+
 		// Instantiate the callee contract, which can echo a value.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
@@ -241,23 +243,35 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
+		let contract_result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
 					_callee: callee_addr.0.into(),
 					_value: 0,
 					_data: Callee::invalidCall {}.abi_encode().into(),
-					_gas: u64::MAX,
+					_gas: gas_limit,
 				}
 				.abi_encode(),
 			)
-			.build_and_unwrap_result();
-		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			.build();
 
-		assert!(!result.success, "Invalid opcode should propagate as error");
-
-		let data = result.output.as_ref();
-		assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
+		let result = contract_result.result.expect("Outer call should succeed");
+		assert!(
+			contract_result.gas_consumed > gas_limit,
+			"Inner call should consume all forwarded gas. Consumed: {}, Limit: {}",
+			contract_result.gas_consumed,
+			gas_limit
+		);
+		assert!(
+			gas_limit > contract_result.gas_consumed * 99 / 100,
+			"Inner call gas should be most of total gas consumed. Consumed: {}, Limit: {}",
+			contract_result.gas_consumed,
+			gas_limit
+		);
+		let decoded = Caller::normalCall::abi_decode_returns(&result.data)
+			.expect("Should decode return data");
+		assert!(!decoded.success, "INVALID opcode should cause inner call to fail");
+		assert!(decoded.output.is_empty(), "Output should be empty on INVALID opcode");
 	});
 }
 
