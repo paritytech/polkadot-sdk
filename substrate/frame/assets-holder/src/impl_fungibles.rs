@@ -133,9 +133,9 @@ impl<T: Config<I>, I: 'static> InspectHold<T::AccountId> for Pallet<T, I> {
 			.unwrap_or_else(Zero::zero)
 	}
 
-	fn hold_available(asset: Self::AssetId, reason: &Self::Reason, who: &T::AccountId) -> bool {
-		pallet_assets::Account::<T, I>::contains_key(asset.clone(), who)
-	}
+	// fn hold_available(asset: Self::AssetId, reason: &Self::Reason, who: &T::AccountId) -> bool {
+	// 	pallet_assets::Account::<T, I>::contains_key(asset.clone(), who)
+	// }
 }
 
 impl<T: Config<I>, I: 'static> Unbalanced<T::AccountId> for Pallet<T, I> {
