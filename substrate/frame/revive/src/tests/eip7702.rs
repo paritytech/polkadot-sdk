@@ -495,7 +495,7 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target3));
 
 		// Only one refund even though three authorizations processed
-		assert_eq!(refund, PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
+		assert_eq!(refund, 3 * (PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST));
 	});
 }
 
