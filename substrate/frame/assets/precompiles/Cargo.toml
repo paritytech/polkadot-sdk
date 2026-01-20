@@ -24,6 +24,7 @@ pallet-revive = { workspace = true }
 [dev-dependencies]
 codec = { workspace = true }
 frame-system = { workspace = true }
+pallet-assets-foreign = { workspace = true }
 pallet-balances = { workspace = true }
 scale-info = { workspace = true }
 sp-core = { workspace = true }
