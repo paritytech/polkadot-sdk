@@ -15,14 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::approval_voting_metrics::ApprovalsStats;
-use gum::CandidateHash;
-use polkadot_node_subsystem::prometheus::Opts;
 use polkadot_node_subsystem_util::metrics::{
 	self,
-	prometheus::{self, Gauge, GaugeVec, U64},
+	prometheus::{self, U64},
 };
 use polkadot_primitives::SessionIndex;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
@@ -32,7 +29,7 @@ pub(crate) struct MetricsInner {
 	approvals_per_session_per_validator: prometheus::CounterVec<U64>,
 	no_shows_per_session_per_validator: prometheus::CounterVec<U64>,
 
-	submittion_started: prometheus::Counter<U64>,
+	submission_started: prometheus::Counter<U64>,
 }
 
 /// Candidate backing metrics.
@@ -83,7 +80,7 @@ impl Metrics {
 
 	pub fn submit_approvals_tallies(&self, tallies: usize) {
 		self.0.as_ref().map(|metrics| {
-			metrics.submittion_started.inc_by(tallies as u64);
+			metrics.submission_started.inc_by(tallies as u64);
 		});
 	}
 }
@@ -131,7 +128,7 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			submittion_started: prometheus::register(
+			submission_started: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_parachain_rewards_statistics_collector_submittion_started",
 					"The number of rewards tallies submitted"

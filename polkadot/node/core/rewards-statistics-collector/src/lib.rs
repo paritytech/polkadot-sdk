@@ -31,7 +31,6 @@ use polkadot_node_subsystem::{
 		ChainApiMessage, RewardsStatisticsCollectorMessage,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
-	SubsystemSender,
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, BlockNumber, Hash, SessionIndex, ValidatorIndex,
@@ -53,9 +52,8 @@ use crate::{
 	},
 };
 use approval_voting_metrics::ApprovalsStats;
-use polkadot_node_subsystem::RuntimeApiError::{Execution, NotSupported};
 use polkadot_node_subsystem_util::{
-	request_candidate_events, request_session_index_for_child, request_session_info,
+	request_session_index_for_child, request_session_info,
 };
 
 const MAX_SESSION_VIEWS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;

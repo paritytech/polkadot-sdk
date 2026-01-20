@@ -72,7 +72,6 @@ use super::{
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2, dummy_candidate_receipt_v2_bad_sig,
 };
-use sp_core::blake2_512_into;
 
 const SLOT_DURATION_MILLIS: u64 = 5000;
 

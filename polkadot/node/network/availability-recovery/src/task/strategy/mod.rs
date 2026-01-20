@@ -45,8 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use std::{
-	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
-	ops::Add,
+	collections::{BTreeMap, HashMap, VecDeque},
 	time::Duration,
 };
 
@@ -486,8 +485,6 @@ impl State {
 		) -> bool,
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
-
-		let mut received_chunks: HashMap<ValidatorIndex, u64> = HashMap::new();
 
 		let mut total_received_responses = 0;
 		let mut error_count = 0;

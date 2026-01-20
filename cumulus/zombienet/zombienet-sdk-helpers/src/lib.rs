@@ -553,6 +553,10 @@ pub async fn wait_for_runtime_upgrade(
 	Err(anyhow!("Did not find a runtime upgrade"))
 }
 
+/// Builds the prometheus labels
+///
+/// This method receive the label and the attributes the label can have
+/// useful for querying prometheus metrics data for testing
 pub fn report_label_with_attributes(label: &str, attributes: Vec<(&str, &str)>) -> String {
 	let mut attrs: Vec<String> = vec![];
 	for (k, v) in attributes {

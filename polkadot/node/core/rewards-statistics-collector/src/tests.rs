@@ -24,9 +24,9 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_primitives::{Block, Hash, Header, SessionIndex, SessionInfo};
+use polkadot_primitives::{Hash, Header, SessionIndex, SessionInfo};
 use sp_application_crypto::Pair as PairT;
-use sp_authority_discovery::{AuthorityId, AuthorityPair as AuthorityDiscoveryPair};
+use sp_authority_discovery::{AuthorityPair as AuthorityDiscoveryPair};
 use sp_keyring::Sr25519Keyring;
 use test_helpers::mock::new_leaf;
 

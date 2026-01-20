@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{metrics::Metrics, PerRelayView, View};
-use polkadot_primitives::{BlockNumber, CandidateHash, Hash, SessionIndex, ValidatorIndex};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use crate::View;
+use polkadot_primitives::{BlockNumber, Hash, ValidatorIndex};
+use std::collections::{BTreeMap};
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ApprovalsStats {

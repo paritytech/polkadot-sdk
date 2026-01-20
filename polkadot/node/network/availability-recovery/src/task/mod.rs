@@ -33,7 +33,7 @@ use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 use codec::Encode;
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{
-	messages::AvailabilityStoreMessage, overseer, RecoveryError, Subsystem, SubsystemSender,
+	messages::AvailabilityStoreMessage, overseer, RecoveryError, SubsystemSender,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex};
 use sc_network::ProtocolName;

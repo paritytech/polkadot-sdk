@@ -17,9 +17,7 @@
 //! Error types.
 
 use futures::channel::oneshot;
-
 use polkadot_node_subsystem::{ChainApiError, RuntimeApiError, SubsystemError};
-use polkadot_node_subsystem_util::runtime;
 
 use crate::LOG_TARGET;
 use fatality::Nested;
@@ -43,8 +41,7 @@ pub enum Error {
 
 /// General `Result` type.
 pub type Result<R> = std::result::Result<R, Error>;
-/// Result for non-fatal only failures.
-pub type JfyiErrorResult<T> = std::result::Result<T, JfyiError>;
+
 /// Result for fatal only failures.
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
 
