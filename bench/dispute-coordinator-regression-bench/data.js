@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768915236956,
+  "lastUpdate": 1768920061034,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21608,6 +21608,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006342346389999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e30ff0d796751838f18d61101c27636b930e4190",
+          "message": "Make HRMP advancement rule more restrictive (#9086)\n\nRelated to: https://github.com/paritytech/polkadot-sdk/issues/9021\nFollowup for https://github.com/paritytech/polkadot-sdk/pull/8860\n\nLooked some more into this and from what I understand the HRMP max\nmessage size can't be changed dynamically. In order to change it we\nwould need to close the channel and than open it again which would lead\nto clearing all the pending messages. So it's safe to use the current\nhrmp max message size in the advancement rule check.",
+          "timestamp": "2026-01-20T13:32:47Z",
+          "tree_id": "d2d7a3c4ff732df560862607ec0fca1a0e976ec0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30ff0d796751838f18d61101c27636b930e4190"
+        },
+        "date": 1768920036608,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026612028799999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006060687389999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009008858079999998,
             "unit": "seconds"
           }
         ]
