@@ -4,6 +4,6 @@ doc:
   description: null
 crates:
 - name: polkadot-service
-  bump: minor
+  bump: major
 - name: polkadot-collator-protocol
-  bump: minor
+  bump: major

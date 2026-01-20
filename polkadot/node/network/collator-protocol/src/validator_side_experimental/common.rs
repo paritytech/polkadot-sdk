@@ -45,7 +45,7 @@ pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
 /// Reputation bump for getting a valid candidate included in a finalized block.
-pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 100;
 
 /// Reputation slash for peer inactivity (for each included candidate of the para that was not
 /// authored by the peer)
@@ -53,7 +53,7 @@ pub const INACTIVITY_DECAY: u16 = 1;
 
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
-pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
+pub const MAX_STORED_SCORES_PER_PARA: u8 = 1000;
 
 /// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
 pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");
@@ -67,7 +67,7 @@ pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
 
 /// The minimum interval after which we may want to stop the main loop in order to fetch available
 /// advertised collations.
-pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(500);
+pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(150);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Decode, Encode)]
