@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768919922588,
+  "lastUpdate": 1768945690642,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "86f833bff3c434e6fdd202c0521eb1dcaf7fb31e",
-          "message": "[pallet-revive-rpc] fix sqlite in-memory connection pool issue (#8897)\n\nFix in-memory sqlite connection pool issue\nsee https://github.com/launchbadge/sqlx/issues/2510\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T17:09:55Z",
-          "tree_id": "1b66734bfc6368fd978192f62b5adb847f93f0ec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/86f833bff3c434e6fdd202c0521eb1dcaf7fb31e"
-        },
-        "date": 1750270823848,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.45245691403333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19827796606666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.195671452000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92aeeb37e2bb1e1c1cd50e850e56df140d4c9374",
+          "message": "rpc-spec-v2: Fix flaky tests (#10848)\n\nI have seen `ensure_operation_limits_works` failing in CI, because of\n`LimitReached` error failing in [this\nline](https://github.com/paritytech/polkadot-sdk/blob/1fd9be7ffa24ab8f76491000ec028a859298f9eb/substrate/client/rpc-spec-v2/src/chain_head/tests.rs#L3052).\nMy friend brought about the permit being dropped after the response is\nsend. This can lead to race where we send the answer, the context is\nswitched before the permit is freed and then the test fails by calling\nthe rpc again.\n\nTLDR: We increase the allowed operations to not run into potential race\nconditions.",
+          "timestamp": "2026-01-20T20:35:21Z",
+          "tree_id": "757bc6ab73615d5491c79b3ea178ceffbfded639",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92aeeb37e2bb1e1c1cd50e850e56df140d4c9374"
+        },
+        "date": 1768945666714,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.284936234900004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12372983130000004,
             "unit": "seconds"
           }
         ]
