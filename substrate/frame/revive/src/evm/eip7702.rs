@@ -31,7 +31,7 @@ use crate::{
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use sp_core::{H160, U256};
-use sp_io::crypto::secp256k1_ecdsa_recover_compressed;
+use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_runtime::SaturatedConversion;
 
 /// Result of processing an authorization tuple
@@ -253,12 +253,13 @@ fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 	}
 	signature[64] = recovery_id;
 
-	// Recover the public key
-	let pubkey = secp256k1_ecdsa_recover_compressed(&signature, &message_hash).map_err(|_| ())?;
+	// Recover the public key (uncompressed, 64 bytes)
+	let pubkey = secp256k1_ecdsa_recover(&signature, &message_hash).map_err(|_| ())?;
 
 	// Derive Ethereum address from public key
-	// Address = last 20 bytes of keccak256(pubkey[1..])
-	let pubkey_hash = crate::keccak_256(&pubkey[1..]);
+	// Address = last 20 bytes of keccak256(pubkey)
+	// Note: secp256k1_ecdsa_recover returns the 64-byte uncompressed key without the 0x04 prefix
+	let pubkey_hash = crate::keccak_256(&pubkey);
 	let mut address_bytes = [0u8; 20];
 	address_bytes.copy_from_slice(&pubkey_hash[12..]);
 
