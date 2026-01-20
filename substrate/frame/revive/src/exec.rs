@@ -28,7 +28,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
+	Pallet as Contracts, PristineCode, RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -81,6 +81,44 @@ const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None
 /// Code hash of existing account without code (keccak256 hash of empty data).
 pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
+
+/// EIP-7702: Resolve delegation indicator to actual code hash
+///
+/// If the code at the given hash is a delegation indicator (0xef0100 || address),
+/// this function returns the code hash of the delegated contract.
+/// According to EIP-7702, we only follow one level of delegation to prevent loops.
+///
+/// # Parameters
+/// - `code_hash`: The code hash to check and potentially resolve
+///
+/// # Returns
+/// The actual code hash to execute (either the original or the delegated one)
+fn resolve_delegation<T: Config>(code_hash: H256) -> H256 {
+	// Load the code
+	let Some(code) = PristineCode::<T>::get(code_hash) else {
+		return code_hash;
+	};
+
+	// Check if this is a delegation indicator
+	if !AccountInfo::<T>::is_delegation_indicator(&code) {
+		return code_hash;
+	}
+
+	// Extract the delegation target address
+	let Some(target_address) = AccountInfo::<T>::extract_delegation_target(&code) else {
+		return code_hash;
+	};
+
+	// Load the delegated contract's code hash
+	// Per EIP-7702: only follow one level of delegation (no chaining)
+	let Some(delegated_contract) = AccountInfo::<T>::load_contract(&target_address) else {
+		// If target is not a contract, return empty code hash
+		return EMPTY_CODE_HASH;
+	};
+
+	// Return the delegated code hash (don't follow further delegations)
+	delegated_contract.code_hash
+}
 
 /// Combined key type for both fixed and variable sized storage keys.
 #[derive(Debug)]
@@ -1100,7 +1138,9 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = E::from_storage(info.code_hash, meter)?;
+						// EIP-7702: Resolve delegation if code is a delegation indicator
+						let actual_code_hash = resolve_delegation::<T>(info.code_hash);
+						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1110,13 +1150,12 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let executable = E::from_storage(
-							contract
-								.as_contract()
-								.expect("When not a precompile the contract was loaded above; qed")
-								.code_hash,
-							meter,
-						)?;
+						let contract_info = contract
+							.as_contract()
+							.expect("When not a precompile the contract was loaded above; qed");
+						// EIP-7702: Resolve delegation if code is a delegation indicator
+						let actual_code_hash = resolve_delegation::<T>(contract_info.code_hash);
+						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
