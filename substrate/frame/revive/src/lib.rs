@@ -139,6 +139,18 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
+/// EIP-7702: Magic value for authorization signature message
+const EIP7702_MAGIC: u8 = 0x05;
+
+/// EIP-7702: Delegation indicator prefix (0xef0100)
+const DELEGATION_INDICATOR_PREFIX: [u8; 3] = [0xef, 0x01, 0x00];
+
+/// EIP-7702: Base cost for processing each authorization tuple
+const PER_AUTH_BASE_COST: u64 = 12500;
+
+/// EIP-7702: Cost for empty account creation
+const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -1270,6 +1282,7 @@ pub mod pallet {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
+			
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
 				weight_limit,
@@ -1344,11 +1357,19 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
+			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
+			
+			// EIP-7702: Process authorization list before execution (after nonce increment)
+			let mut accessed_addresses = alloc::collections::BTreeSet::new();
+			let _auth_refund = Self::process_eip7702_authorizations(
+				authorization_list,
+				&mut accessed_addresses,
+			);
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
@@ -1358,6 +1379,7 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
+				authorization_list: authorization_list.clone(),
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
@@ -1580,6 +1602,33 @@ fn dispatch_result<R>(
 }
 
 impl<T: Config> Pallet<T> {
+	/// Process EIP-7702 authorization list for a transaction
+	///
+	/// This processes authorization tuples according to EIP-7702, setting delegation
+	/// indicators for EOAs. Returns the total gas refund for existing accounts.
+	///
+	/// # Parameters
+	/// - `authorization_list`: List of authorization tuples to process
+	/// - `accessed_addresses`: Set to track accessed addresses for EIP-2929 gas accounting
+	///
+	/// # Returns
+	/// Total gas refund (in EVM gas units)
+	pub fn process_eip7702_authorizations(
+		authorization_list: Vec<evm::AuthorizationListEntry>,
+		accessed_addresses: &mut alloc::collections::BTreeSet<H160>,
+	) -> u64 {
+		if authorization_list.is_empty() {
+			return 0;
+		}
+
+		let chain_id = T::ChainId::get().into();
+		evm::eip7702::process_authorizations::<T>(
+			authorization_list,
+			chain_id,
+			accessed_addresses,
+		)
+	}
+
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
@@ -2501,7 +2550,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Ensure that the origin is neither a pre-compile nor a contract.
 	///
-	/// This enforces EIP-3607.
+	/// This enforces EIP-3607, with modification per EIP-7702 to allow
+	/// EOAs with delegation indicators to originate transactions.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
 		if DebugSettings::bypass_eip_3607::<T>() {
 			return Ok(())
@@ -2513,17 +2563,32 @@ impl<T: Config> Pallet<T> {
 		else {
 			return Ok(())
 		};
-		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
-			<AccountInfo<T>>::is_contract(&address)
-		{
+		
+		// EIP-7702: Allow EOAs with delegation indicators to originate transactions
+		if <AccountInfo<T>>::is_contract(&address) {
+			// Check if this is a delegation indicator (EIP-7702)
+			if <AccountInfo<T>>::is_delegated(&address) {
+				// Delegation indicators are allowed to originate transactions
+				return Ok(())
+			}
+			// Non-delegation contracts are not allowed
 			log::debug!(
 				target: crate::LOG_TARGET,
-				"EIP-3607: reject tx as pre-compile or account exist at {address:?}",
+				"EIP-3607: reject tx from non-delegation contract at {address:?}",
 			);
-			Err(DispatchError::BadOrigin)
-		} else {
-			Ok(())
+			return Err(DispatchError::BadOrigin)
 		}
+		
+		// Precompiles are not allowed
+		if exec::is_precompile::<T, ContractBlob<T>>(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject tx from pre-compile at {address:?}",
+			);
+			return Err(DispatchError::BadOrigin)
+		}
+		
+		Ok(())
 	}
 }
 
