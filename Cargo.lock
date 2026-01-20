@@ -1332,6 +1332,7 @@ name = "asset-hub-westend-runtime"
 version = "0.15.0"
 dependencies = [
  "alloy-core",
+ "approx",
  "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
@@ -7322,7 +7323,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "num-format",
- "pallet-staking",
+ "pallet-staking-async",
  "sp-staking",
 ]
 
@@ -17209,9 +17210,9 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "7.0.0"
 dependencies = [
+ "asset-hub-westend-runtime",
  "clap",
  "generate-bags",
- "westend-runtime",
 ]
 
 [[package]]
@@ -27257,7 +27258,6 @@ dependencies = [
 name = "westend-runtime"
 version = "7.0.0"
 dependencies = [
- "approx",
  "binary-merkle-tree",
  "bitvec",
  "frame-benchmarking",

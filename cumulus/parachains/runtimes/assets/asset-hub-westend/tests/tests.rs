@@ -22,7 +22,7 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	governance, staking, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
@@ -61,6 +61,7 @@ use pallet_revive::{
 	Code, TransactionLimits,
 };
 use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
+use pallet_staking_async::EraPayout;
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -68,7 +69,11 @@ use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use testnet_parachains_constants::westend::{
+	consensus::*,
+	currency::{CENTS, UNITS},
+};
+use approx::assert_relative_eq;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
@@ -87,6 +92,7 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -1966,6 +1972,22 @@ fn expensive_erc20_runs_out_of_gas() {
 }
 
 #[test]
+fn staking_inflation_correct_single_era() {
+	let (to_stakers, to_treasury) = staking::EraPayout::era_payout(
+		123, // ignored
+		456, // ignored
+		MILLISECONDS_PER_HOUR,
+	);
+
+	assert_relative_eq!(to_stakers as f64, (4_046 * CENTS) as f64, max_relative = 0.01);
+	assert_relative_eq!(to_treasury as f64, (714 * CENTS) as f64, max_relative = 0.01);
+	// Total per hour is ~47.6 WND
+	assert_relative_eq!(
+		(to_stakers as f64 + to_treasury as f64),
+		(4_760 * CENTS) as f64,
+		max_relative = 0.001
+  );
+}
 fn exchange_asset_success() {
 	exchange_asset_on_asset_hub_works::<
 		Runtime,
@@ -1986,6 +2008,76 @@ fn exchange_asset_success() {
 }
 
 #[test]
+fn staking_inflation_correct_longer_era() {
+	// Twice the era duration means twice the emission:
+	let (to_stakers, to_treasury) = staking::EraPayout::era_payout(
+		123, // ignored
+		456, // ignored
+		2 * MILLISECONDS_PER_HOUR,
+	);
+
+	assert_relative_eq!(to_stakers as f64, (4_046 * CENTS) as f64 * 2.0, max_relative = 0.001);
+	assert_relative_eq!(to_treasury as f64, (714 * CENTS) as f64 * 2.0, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_whole_year() {
+	let (to_stakers, to_treasury) = staking::EraPayout::era_payout(
+		123,                                        // ignored
+		456,                                        // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 100, // 1 year
+	);
+
+	// Our yearly emissions is about 417k WND:
+	let yearly_emission = 417_307 * UNITS;
+	assert_relative_eq!(
+		to_stakers as f64 + to_treasury as f64,
+		yearly_emission as f64,
+		max_relative = 0.001
+	);
+
+	assert_relative_eq!(to_stakers as f64, yearly_emission as f64 * 0.85, max_relative = 0.001);
+	assert_relative_eq!(to_treasury as f64, yearly_emission as f64 * 0.15, max_relative = 0.001);
+}
+
+// 10 years into the future, our values do not overflow.
+#[test]
+fn staking_inflation_correct_not_overflow() {
+	let (to_stakers, to_treasury) = staking::EraPayout::era_payout(
+		123,                                       // ignored
+		456,                                       // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 10, // 10 years
+	);
+	let initial_ti: i128 = 5_216_342_402_773_185_773;
+	let projected_total_issuance = (to_stakers as i128 + to_treasury as i128) + initial_ti;
+
+	// In 2034, there will be about 9.39 million WND in existence.
+	assert_relative_eq!(
+		projected_total_issuance as f64,
+		(9_390_000 * UNITS) as f64,
+		max_relative = 0.001
+	);
+}
+
+// Print percent per year, just as convenience.
+#[test]
+fn staking_inflation_correct_print_percent() {
+	let (to_stakers, to_treasury) = staking::EraPayout::era_payout(
+		123,                                        // ignored
+		456,                                        // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 100, // 1 year
+	);
+	let yearly_emission = to_stakers + to_treasury;
+	let mut ti: i128 = 5_216_342_402_773_185_773;
+
+	for y in 0..10 {
+		let new_ti = ti + yearly_emission as i128;
+		let inflation = 100.0 * (new_ti - ti) as f64 / ti as f64;
+		println!("Year {y} inflation: {inflation}%");
+		ti = new_ti;
+
+		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
+	}
 fn exchange_asset_insufficient_liquidity() {
 	let log_capture = capture_test_logs!({
 		exchange_asset_on_asset_hub_works::<

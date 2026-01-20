@@ -120,7 +120,6 @@ xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
-approx = { workspace = true }
 remote-externalities = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
