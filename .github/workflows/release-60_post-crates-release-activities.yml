@@ -140,6 +140,7 @@ jobs:
 
       - name: Bump spec_version
         if: inputs.bump_spec_version == 'yes'
+        shell: bash
         run: |
           . ./.github/scripts/release/release_lib.sh
 
