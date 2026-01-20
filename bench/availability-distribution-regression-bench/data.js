@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768915135730,
+  "lastUpdate": 1768919956886,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb",
-          "message": "Fix `zombienet-substrate-0002-validators-warp-sync` (#8878)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8871\nRelated to #8748\n\nFix `zombienet-substrate-0002-validators-warp-sync`",
-          "timestamp": "2025-06-18T11:08:36Z",
-          "tree_id": "44eecdbe6318c8ce6583340f94006ec98f56792f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb"
-        },
-        "date": 1750249781065,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013227345519999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15682394705333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02234806779333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008954728826666756,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.006979678266666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e30ff0d796751838f18d61101c27636b930e4190",
+          "message": "Make HRMP advancement rule more restrictive (#9086)\n\nRelated to: https://github.com/paritytech/polkadot-sdk/issues/9021\nFollowup for https://github.com/paritytech/polkadot-sdk/pull/8860\n\nLooked some more into this and from what I understand the HRMP max\nmessage size can't be changed dynamically. In order to change it we\nwould need to close the channel and than open it again which would lead\nto clearing all the pending messages. So it's safe to use the current\nhrmp max message size in the advancement rule check.",
+          "timestamp": "2026-01-20T13:32:47Z",
+          "tree_id": "d2d7a3c4ff732df560862607ec0fca1a0e976ec0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30ff0d796751838f18d61101c27636b930e4190"
+        },
+        "date": 1768919932268,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14368752530666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009836624539999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023026002966666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007069766326666667,
             "unit": "seconds"
           }
         ]
