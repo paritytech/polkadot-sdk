@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768915102149,
+  "lastUpdate": 1768919922588,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f10da5373cde92d9fc63ebfc66b9f62f5ad34a11",
-          "message": "[pallet-revive] only record diff if value changed (#8881)\n\nOnly record storage change in diff mode if the value differ from the\ninitial one.\nPrevious implementation would report a diff for example when the old\nvalue was written again.\n\nUpdated tests in https://github.com/paritytech/evm-test-suite/pull/96\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T15:29:50Z",
-          "tree_id": "c3ae3ee372616e288e1b45aa53082dbd2c513d7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f10da5373cde92d9fc63ebfc66b9f62f5ad34a11"
-        },
-        "date": 1750264551205,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20279289006666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.340794259033336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.11878854736666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e30ff0d796751838f18d61101c27636b930e4190",
+          "message": "Make HRMP advancement rule more restrictive (#9086)\n\nRelated to: https://github.com/paritytech/polkadot-sdk/issues/9021\nFollowup for https://github.com/paritytech/polkadot-sdk/pull/8860\n\nLooked some more into this and from what I understand the HRMP max\nmessage size can't be changed dynamically. In order to change it we\nwould need to close the channel and than open it again which would lead\nto clearing all the pending messages. So it's safe to use the current\nhrmp max message size in the advancement rule check.",
+          "timestamp": "2026-01-20T13:32:47Z",
+          "tree_id": "d2d7a3c4ff732df560862607ec0fca1a0e976ec0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30ff0d796751838f18d61101c27636b930e4190"
+        },
+        "date": 1768919897769,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12767908286666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.195671452000003,
             "unit": "seconds"
           }
         ]
