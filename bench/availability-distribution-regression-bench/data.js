@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768904585428,
+  "lastUpdate": 1768915135730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OliverLim818@gmail.com",
-            "name": "cuteolaf",
-            "username": "cuteolaf"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "79c84d47fc30e365488f5926cbea0d00eb6d3c52",
-          "message": "replace `pure` with `create_pure` in comments (#8892)\n\n# Description\n\nFixed some comments in the implementation of proxy pallet.",
-          "timestamp": "2025-06-18T08:40:45Z",
-          "tree_id": "88412a2b037372def5632f5177debada7b5e77ac",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/79c84d47fc30e365488f5926cbea0d00eb6d3c52"
-        },
-        "date": 1750239720072,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01313686371333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009012745346666745,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15640283949333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022436305119999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007013318233333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
+          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-01-20T12:11:14Z",
+          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
+        },
+        "date": 1768915110951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023093191559999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009510517626666656,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1433594544733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006979678266666667,
             "unit": "seconds"
           }
         ]
