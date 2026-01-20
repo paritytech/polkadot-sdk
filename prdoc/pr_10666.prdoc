@@ -13,17 +13,20 @@ doc:
       calling set_keys. Attempting to set keys before declaring intent to validate will fail with NotValidator.
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-session
   bump: minor
 - name: pallet-staking-async-ah-client
   bump: major
+  validate: false # only used for AH<->RC internal communication.
 - name: pallet-staking-async-rc-client
   bump: major
+  validate: false # only used for AH<->RC internal communication.
 - name: pallet-staking-async
   bump: major
+  validate: false # added `is_validator` method to AHStakingInterface trait, which is an internal trait.
 - name: pallet-staking-async-parachain-runtime
   bump: patch
 - name: pallet-ahm-test
