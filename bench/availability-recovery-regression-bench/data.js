@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768904552845,
+  "lastUpdate": 1768915102149,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb",
-          "message": "Fix `zombienet-substrate-0002-validators-warp-sync` (#8878)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8871\nRelated to #8748\n\nFix `zombienet-substrate-0002-validators-warp-sync`",
-          "timestamp": "2025-06-18T11:08:36Z",
-          "tree_id": "44eecdbe6318c8ce6583340f94006ec98f56792f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb"
-        },
-        "date": 1750249754218,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20188901753333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.291194124733334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13186885963333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
+          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-01-20T12:11:14Z",
+          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
+        },
+        "date": 1768915077030,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.361211519533333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.11878854736666666,
             "unit": "seconds"
           }
         ]
