@@ -18,6 +18,7 @@ crates:
     bump: minor
   - name: pallet-staking-async
     bump: major
+    validate: false
   - name: pallet-nomination-pools
     bump: patch
   - name: asset-hub-westend-runtime
