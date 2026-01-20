@@ -134,6 +134,11 @@ mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "serde")]
+use sp_runtime::Vec;
+#[cfg(feature = "serde")]
+use sp_core::serde;
+
 /// The key type of a parameter.
 type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregatedKeyValue>::Key;
 
@@ -151,11 +156,17 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		#[pallet::no_default_bounds]
+		#[cfg(not(feature = "serde"))]
 		/// The overarching KV type of the parameters.
 		///
 		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
-		#[pallet::no_default_bounds]
 		type RuntimeParameters: AggregatedKeyValue;
+		#[cfg(feature = "serde")]
+		/// The overarching KV type of the parameters with serde serialization implemented
+		///
+		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
+		type RuntimeParameters: AggregatedKeyValue + serde::Serialize + serde::de::DeserializeOwned;
 
 		/// The origin which may update a parameter.
 		///
@@ -188,6 +199,49 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Parameters<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyOf<T>, ValueOf<T>, OptionQuery>;
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		/// Default runtime parameters
+		#[cfg(feature = "serde")]
+		pub default_runtime_parameters: Vec<T::RuntimeParameters>,
+
+		#[cfg(not(feature = "serde"))]
+		_phantom: PhantomData<T>
+	}
+
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig {
+				#[cfg(feature = "serde")]
+				default_runtime_parameters: Default::default(),
+
+				#[cfg(not(feature = "serde"))]
+				_phantom: PhantomData
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		#[cfg(feature = "serde")]
+		fn build(&self) {
+			for parameters in self.default_runtime_parameters.iter() {
+				let (key, new) = parameters.clone().into_parts();
+
+				let mut old = None;
+				Parameters::<T>::mutate(&key, |v| {
+					old = v.clone();
+					*v = new.clone();
+				});
+			}
+		}
+
+		#[cfg(not(feature = "serde"))]
+		fn build(&self) {
+
+		}
+	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
