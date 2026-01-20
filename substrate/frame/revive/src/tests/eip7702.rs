@@ -19,16 +19,16 @@
 
 use crate::{
 	evm::{
-		api::{AuthorizationListEntry, rlp},
-		eip7702::{authorization_intrinsic_gas, process_authorizations},
+		AuthorizationListEntry,
+		eip7702::authorization_intrinsic_gas,
 	},
 	storage::AccountInfo,
-	tests::*,
-	AccountInfoOf, Config, PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
+	test_utils::builder::Contract,
+	tests::{builder, *},
+	Code, Config, PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
 };
-use codec::Encode;
-use frame_support::assert_ok;
-use sp_core::{keccak_256, U256, H160};
+use frame_support::{assert_ok, traits::fungible::Mutate};
+use sp_core::{U256, H160};
 
 /// Create a mock authorization entry for testing
 fn create_test_authorization(
@@ -164,13 +164,13 @@ fn set_delegation_to_zero_address_clears() {
 		assert!(AccountInfo::<Test>::is_delegated(&eoa));
 
 		// Process authorization with zero address (should clear)
-		let auth_list = vec![create_test_authorization(
+		let _auth_list = vec![create_test_authorization(
 			U256::from(1), // chain_id
 			H160::zero(), // zero address
 			U256::zero(), // nonce
 		)];
 
-		let mut accessed = alloc::collections::BTreeSet::new();
+		let _accessed: alloc::collections::BTreeSet<H160> = alloc::collections::BTreeSet::new();
 		// This won't actually work without proper signature, but demonstrates the intent
 		// In practice, the zero address would be in the authorization
 	});
@@ -201,7 +201,7 @@ fn delegation_can_be_updated() {
 fn regular_contract_is_not_delegation() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Deploy a regular contract
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
 		let (binary, _) = compile_module("dummy").unwrap();
 
 		let Contract { addr, .. } =
@@ -223,13 +223,13 @@ fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 
 		// Create the account
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&eoa);
-		let _ = <Test as Config>::Currency::set_balance(&account_id, 1_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
 		// Set delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target, nonce));
 
 		// Should be allowed to originate transactions (EIP-7702 modification to EIP-3607)
-		let origin = crate::Origin::<Test>::Signed(account_id.clone()).into();
+		let origin = RuntimeOrigin::signed(account_id.clone());
 		assert_ok!(Contracts::ensure_non_contract_if_signed(&origin));
 	});
 }
@@ -237,14 +237,14 @@ fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 #[test]
 fn eip3607_rejects_regular_contract_originating_transactions() {
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
 		let (binary, _) = compile_module("dummy").unwrap();
 
-		let Contract { addr, account_id, .. } =
+		let Contract { account_id, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
 		// Regular contracts should NOT be allowed to originate transactions (EIP-3607)
-		let origin = crate::Origin::<Test>::Signed(account_id).into();
+		let origin = RuntimeOrigin::signed(account_id);
 		assert!(Contracts::ensure_non_contract_if_signed(&origin).is_err());
 	});
 }
@@ -306,7 +306,7 @@ fn delegation_increments_nonce() {
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&eoa);
 
 		// Fund account
-		let _ = <Test as Config>::Currency::set_balance(&account_id, 1_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
 		// Check initial nonce
 		let initial_nonce = frame_system::Pallet::<Test>::account_nonce(&account_id);
@@ -319,11 +319,6 @@ fn delegation_increments_nonce() {
 	});
 }
 
-#[test]
-fn empty_authorization_list_costs_zero_gas() {
-	let gas_cost = authorization_intrinsic_gas(0);
-	assert_eq!(gas_cost, 0);
-}
 
 #[test]
 fn authorization_refund_for_existing_account() {

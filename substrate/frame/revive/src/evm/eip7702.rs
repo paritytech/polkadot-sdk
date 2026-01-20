@@ -22,23 +22,28 @@
 //! authorization tuples attached to transactions.
 
 use crate::{
+	address::AddressMapper,
 	evm::api::{AuthorizationListEntry, rlp},
 	storage::AccountInfo,
-	AccountInfoOf, Config, EIP7702_MAGIC, DELEGATION_INDICATOR_PREFIX,
+	AccountInfoOf, Config, EIP7702_MAGIC,
 	PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
-use codec::Encode;
-use frame_support::ensure;
-use sp_core::{Get, H160, U256};
+
+use sp_core::{H160, U256};
 use sp_io::crypto::secp256k1_ecdsa_recover_compressed;
-use sp_runtime::{traits::Zero, SaturatedConversion};
+use sp_runtime::SaturatedConversion;
 
 /// Result of processing an authorization tuple
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthorizationResult {
 	/// Authorization was successfully processed
-	Success { authority: H160, refund: u64 },
+	Success {
+		/// The authority address that was authorized
+		authority: H160,
+		/// Gas refund amount for existing accounts
+		refund: u64,
+	},
 	/// Authorization failed validation (continue to next)
 	Failed,
 }
@@ -162,11 +167,10 @@ fn process_single_authorization<T: Config>(
 
 	// 4. Verify the nonce matches the account's current nonce
 	let account_id = T::AddressMapper::to_account_id(&authority);
-	let current_nonce: u64 = frame_system::Pallet::<T>::account_nonce(&account_id)
-		.unique_saturated_into();
-	let expected_nonce: u64 = auth.nonce.saturated_into();
+	let current_nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
+	let expected_nonce = auth.nonce;
 
-	if current_nonce != expected_nonce {
+	if U256::from(current_nonce.saturated_into::<u64>()) != expected_nonce {
 		log::debug!(
 			target: crate::LOG_TARGET,
 			"Nonce mismatch for {:?}: expected {:?}, got {:?}",
@@ -272,7 +276,7 @@ pub fn authorization_intrinsic_gas(authorization_count: usize) -> u64 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::H160;
+	use crate::DELEGATION_INDICATOR_PREFIX;
 
 	#[test]
 	fn test_delegation_indicator_size() {

@@ -109,6 +109,12 @@ fn resolve_delegation<T: Config>(code_hash: H256) -> H256 {
 		return code_hash;
 	};
 
+	// Per EIP-7702: If delegation points to a precompile, return empty code hash
+	// Precompiles should not execute their logic when delegated to
+	if T::Precompiles::code(target_address.as_fixed_bytes()).is_some() {
+		return EMPTY_CODE_HASH;
+	}
+
 	// Load the delegated contract's code hash
 	// Per EIP-7702: only follow one level of delegation (no chaining)
 	let Some(delegated_contract) = AccountInfo::<T>::load_contract(&target_address) else {

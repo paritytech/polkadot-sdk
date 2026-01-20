@@ -109,10 +109,17 @@ impl GenericTransaction {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
 				return Err(InvalidTransaction::Call);
 			}
+			
+			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
+			// Per spec: "The transaction is considered invalid if the length of authorization_list is zero."
+			if authorization_list.is_empty() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
+				return Err(InvalidTransaction::Call);
+			}
 		}
 		
 		// EIP-7702: Calculate intrinsic gas for authorization list processing
-		let auth_intrinsic_gas = authorization_intrinsic_gas(authorization_list.len());
+		let _auth_intrinsic_gas = authorization_intrinsic_gas(authorization_list.len());
 
 		// Currently, effective_gas_price will always be the same as base_fee
 		// Because all callers of `into_call` will prepare `tx` that way. Some of the subsequent
