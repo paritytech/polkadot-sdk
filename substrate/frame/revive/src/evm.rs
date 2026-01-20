@@ -35,4 +35,8 @@ pub use block_hash::ReceiptGasInfo;
 /// Ethereum block storage module.
 pub(crate) mod block_storage;
 
+/// Transfer with dust functionality.
+mod transfer_with_dust;
+pub(crate) use transfer_with_dust::*;
+
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as pallet_transaction_payment::OnChargeTransaction<T>>::Balance;

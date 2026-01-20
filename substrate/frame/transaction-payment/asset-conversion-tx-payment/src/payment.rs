@@ -184,15 +184,8 @@ where
 		if asset_id == A::get() {
 			// The `asset_id` is the target asset, we do not need to swap.
 			match F::can_withdraw(asset_id.clone(), who, fee) {
-				WithdrawConsequence::BalanceLow |
-				WithdrawConsequence::UnknownAsset |
-				WithdrawConsequence::Underflow |
-				WithdrawConsequence::Overflow |
-				WithdrawConsequence::Frozen =>
-					return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-				WithdrawConsequence::Success |
-				WithdrawConsequence::ReducedToZero(_) |
-				WithdrawConsequence::WouldDie => return Ok(()),
+				WithdrawConsequence::Success => return Ok(()),
+				_ => return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
 			}
 		}
 
@@ -202,15 +195,8 @@ where
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
 		match F::can_withdraw(asset_id.clone(), who, asset_fee) {
-			WithdrawConsequence::BalanceLow |
-			WithdrawConsequence::UnknownAsset |
-			WithdrawConsequence::Underflow |
-			WithdrawConsequence::Overflow |
-			WithdrawConsequence::Frozen =>
-				return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-			WithdrawConsequence::Success |
-			WithdrawConsequence::ReducedToZero(_) |
-			WithdrawConsequence::WouldDie => {},
+			WithdrawConsequence::Success => {},
+			_ => return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
 		};
 
 		Ok(())
