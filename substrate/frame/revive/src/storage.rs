@@ -24,7 +24,7 @@ use crate::{
 	tracing::if_tracing,
 	weights::WeightInfo,
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
-	TrieId, SENTINEL,
+	TrieId, SENTINEL, DELEGATION_INDICATOR_PREFIX,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -184,6 +184,86 @@ impl<T: Config> AccountInfo<T> {
 				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
 			}
 		});
+	}
+
+	/// EIP-7702: Check if code is a delegation indicator (starts with 0xef0100)
+	pub fn is_delegation_indicator(code: &[u8]) -> bool {
+		code.len() == 23 && code.starts_with(&DELEGATION_INDICATOR_PREFIX)
+	}
+
+	/// EIP-7702: Extract the delegation target address from delegation indicator code
+	pub fn extract_delegation_target(code: &[u8]) -> Option<H160> {
+		if Self::is_delegation_indicator(code) {
+			let mut address_bytes = [0u8; 20];
+			address_bytes.copy_from_slice(&code[3..23]);
+			Some(H160::from(address_bytes))
+		} else {
+			None
+		}
+	}
+
+	/// EIP-7702: Check if an account has a delegation indicator set
+	pub fn is_delegated(address: &H160) -> bool {
+		if let Some(contract_info) = Self::load_contract(address) {
+			// Check if this is a delegation by examining the code
+			if let Some(code) = crate::PristineCode::<T>::get(contract_info.code_hash) {
+				return Self::is_delegation_indicator(&code);
+			}
+		}
+		false
+	}
+
+	/// EIP-7702: Get the delegation target for an address
+	pub fn get_delegation_target(address: &H160) -> Option<H160> {
+		let contract_info = Self::load_contract(address)?;
+		let code = crate::PristineCode::<T>::get(contract_info.code_hash)?;
+		Self::extract_delegation_target(&code)
+	}
+
+	/// EIP-7702: Set a delegation indicator for an EOA
+	/// Creates a special "contract" with code = 0xef0100 || target_address
+	pub fn set_delegation(
+		address: &H160,
+		target: H160,
+		nonce: T::Nonce,
+	) -> Result<(), DispatchError> {
+		// Create delegation indicator code: 0xef0100 || address (23 bytes total)
+		let mut delegation_code = Vec::with_capacity(23);
+		delegation_code.extend_from_slice(&DELEGATION_INDICATOR_PREFIX);
+		delegation_code.extend_from_slice(target.as_bytes());
+
+		// Store the delegation indicator code
+		// Delegation indicators are stored directly in PristineCode without CodeInfo
+		// since they are ephemeral and don't need refcounting/ownership tracking
+		let code_hash = sp_core::H256::from_slice(crate::keccak_256(&delegation_code).as_slice());
+		crate::PristineCode::<T>::insert(code_hash, delegation_code);
+
+		// Create or update the contract info with the delegation code
+		let contract = if let Some(mut existing) = Self::load_contract(address) {
+			existing.code_hash = code_hash;
+			existing
+		} else {
+			ContractInfo::new(address, nonce, code_hash)?
+		};
+
+		Self::insert_contract(address, contract);
+		Ok(())
+	}
+
+	/// EIP-7702: Clear delegation indicator, resetting account to EOA
+	pub fn clear_delegation(address: &H160) -> Result<(), DispatchError> {
+		if let Some(contract_info) = Self::load_contract(address) {
+			// Remove the delegation code from PristineCode
+			crate::PristineCode::<T>::remove(contract_info.code_hash);
+			
+			// Remove the contract info, converting back to EOA
+			AccountInfoOf::<T>::mutate(address, |account| {
+				if let Some(account) = account {
+					account.account_type = AccountType::EOA;
+				}
+			});
+		}
+		Ok(())
 	}
 }
 
