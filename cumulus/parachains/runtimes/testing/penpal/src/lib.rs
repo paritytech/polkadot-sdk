@@ -778,6 +778,40 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+pub struct UniquesHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_uniques::BenchmarkHelper<Location, AssetInstance> for UniquesHelper {
+	fn collection(i: u16) -> Location {
+		GeneralIndex(i as u128).into()
+	}
+	fn item(i: u16) -> AssetInstance {
+		AssetInstance::Index(i as u128)
+	}
+}
+
+impl pallet_uniques::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = xcm::latest::Location;
+	type ItemId = xcm::latest::AssetInstance;
+	type Currency = Balances;
+	type CreateOrigin =
+		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type CollectionDeposit = frame_support::traits::ConstU128<1_000>;
+	type ItemDeposit = frame_support::traits::ConstU128<1_000>;
+	type MetadataDepositBase = frame_support::traits::ConstU128<1_000>;
+	type AttributeDepositBase = frame_support::traits::ConstU128<1_000>;
+	type DepositPerByte = frame_support::traits::ConstU128<1>;
+	type StringLimit = ConstU32<64>;
+	type KeyLimit = ConstU32<64>;
+	type ValueLimit = ConstU32<128>;
+	type Locker = ();
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = UniquesHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 pub struct AssetTxHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -893,6 +927,7 @@ construct_runtime!(
 		ForeignAssets: pallet_assets::<Instance2> = 51,
 		PoolAssets: pallet_assets::<Instance3> = 52,
 		AssetConversion: pallet_asset_conversion = 53,
+		ForeignUniques: pallet_uniques = 54,
 
 		Revive: pallet_revive = 60,
 
