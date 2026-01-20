@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768904682937,
+  "lastUpdate": 1768915236956,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21559,6 +21559,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006222714729999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
+          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-01-20T12:11:14Z",
+          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
+        },
+        "date": 1768915212213,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026858235600000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009101677489999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006342346389999998,
             "unit": "seconds"
           }
         ]
