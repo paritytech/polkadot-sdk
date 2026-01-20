@@ -59,12 +59,13 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 }
 
 fn create_default_reserves<T: Config<I>, I: 'static>(
+	count: u32,
 ) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveData>) {
 	// create asset
 	let (asset_id, caller, _) = create_default_asset::<T, I>(true);
 	// build max number of reserves
 	let mut reserves = Vec::<T::ReserveData>::new();
-	for i in 0..MAX_RESERVES {
+	for i in 0..count {
 		reserves.push(T::BenchmarkHelper::create_reserve_id_parameter(i));
 	}
 	(asset_id, caller, reserves)
@@ -109,7 +110,7 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 			origin.clone().into(),
 			asset_id.clone(),
 			target_lookup,
-			100u32.into()
+			100u32.into(),
 		)
 		.is_ok());
 	}
@@ -350,11 +351,18 @@ benchmarks_instance_pallet! {
 	}
 
 	set_reserves {
-		let (asset_id, caller, reserves) = create_default_reserves::<T, I>();
+		let n in 0 .. MAX_RESERVES;
+		let (asset_id, caller, reserves) = create_default_reserves::<T, I>(n);
 		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
-	}: _(SystemOrigin::Signed(caller), asset_id.clone(), reserves.clone())
+		let bounded_reserves = reserves.clone().try_into().unwrap();
+	}: _(SystemOrigin::Signed(caller), asset_id.clone(), bounded_reserves)
 	verify {
-		assert_last_event::<T, I>(Event::ReservesUpdated { asset_id: asset_id.into(), reserves: reserves }.into());
+		let expected_event = if reserves.is_empty() {
+			Event::ReservesRemoved { asset_id: asset_id.into() }
+		} else {
+			Event::ReservesUpdated { asset_id: asset_id.into(), reserves: reserves }
+		};
+		assert_last_event::<T, I>(expected_event.into());
 	}
 
 	set_metadata {
@@ -626,7 +634,8 @@ benchmarks_instance_pallet! {
 		let asset_id = Asset::<T, I>::iter_keys().next()
 			.ok_or_else(|| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		assert_eq!(id, asset_id);
-		Pallet::<T, I>::unchecked_update_reserves(asset_id, vec![reserve.clone()]).unwrap();
+		let bounded_reserves = vec![reserve.clone()].try_into().unwrap();
+		Pallet::<T, I>::unchecked_update_reserves(asset_id, bounded_reserves).unwrap();
 	}
 	verify {
 		assert_eq!(Reserves::<T, I>::get(id)[0], reserve);
