@@ -92,6 +92,7 @@ mod tests {
 		type WeightInfo = ();
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
 	impl benchmarking::BenchmarkConfig for Test {
 		type Helper = ();
 	}
