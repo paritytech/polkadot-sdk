@@ -158,8 +158,4 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 
 		Ok(())
 	}
-
-	fn max_steps() -> Option<u32> {
-		Some(128)
-	}
 }

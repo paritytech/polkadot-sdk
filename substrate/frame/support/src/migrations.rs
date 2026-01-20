@@ -756,7 +756,6 @@ pub trait SteppedMigrations {
 
 		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
-			// ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
 			// The cursor that we use does not matter. Hence use empty.
 			ensure!(
 				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),

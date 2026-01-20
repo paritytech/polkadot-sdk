@@ -851,15 +851,17 @@ impl<T: Config> Pallet<T> {
 			PreUpgradeBytes::<T>::insert(&bounded_id, PreUpgradeBytesWrapper(bytes));
 		}
 
-		let next_cursor = T::Migrations::nth_transactional_step(
+		let next_cursor = match T::Migrations::nth_transactional_step(
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
 			meter,
-		);
-		let Some((_, next_cursor)) = max_steps.zip(next_cursor) else {
-			defensive!("integrity_test ensures that the tuple is valid; qed");
-			Self::upgrade_failed(Some(cursor.index));
-			return None
+		) {
+			Some(result) => result,
+			None => {
+				defensive!("integrity_test ensures that cursor is valid; qed");
+				Self::upgrade_failed(Some(cursor.index));
+				return None;
+			},
 		};
 
 		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
