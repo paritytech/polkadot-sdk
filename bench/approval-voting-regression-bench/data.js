@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768919993358,
+  "lastUpdate": 1768945754797,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb",
-          "message": "Fix `zombienet-substrate-0002-validators-warp-sync` (#8878)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8871\nRelated to #8748\n\nFix `zombienet-substrate-0002-validators-warp-sync`",
-          "timestamp": "2025-06-18T11:08:36Z",
-          "tree_id": "44eecdbe6318c8ce6583340f94006ec98f56792f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb"
-        },
-        "date": 1750249809000,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.64999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4592887919500074,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.746570487640017,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.334265250872401,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020007769999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.3792938344900008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3542470421699995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020007769999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.343600824190002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8619662051900072,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021278259999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3424287637600014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005745025890000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021278259999999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.639002742779998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92aeeb37e2bb1e1c1cd50e850e56df140d4c9374",
+          "message": "rpc-spec-v2: Fix flaky tests (#10848)\n\nI have seen `ensure_operation_limits_works` failing in CI, because of\n`LimitReached` error failing in [this\nline](https://github.com/paritytech/polkadot-sdk/blob/1fd9be7ffa24ab8f76491000ec028a859298f9eb/substrate/client/rpc-spec-v2/src/chain_head/tests.rs#L3052).\nMy friend brought about the permit being dropped after the response is\nsend. This can lead to race where we send the answer, the context is\nswitched before the permit is freed and then the test fails by calling\nthe rpc again.\n\nTLDR: We increase the allowed operations to not run into potential race\nconditions.",
+          "timestamp": "2026-01-20T20:35:21Z",
+          "tree_id": "757bc6ab73615d5491c79b3ea178ceffbfded639",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92aeeb37e2bb1e1c1cd50e850e56df140d4c9374"
+        },
+        "date": 1768945730862,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63621.490000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3250812661599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00556940947,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023228290000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001970253,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.663854264400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6832842139399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6526657801300026,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001970253,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7771928586900374,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.655879291252864,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6542895312999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023228290000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.761937324090042,
             "unit": "seconds"
           }
         ]
