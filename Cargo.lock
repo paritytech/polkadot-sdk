@@ -5150,7 +5150,7 @@ dependencies = [
  "anyhow",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "futures",
  "log",
  "parity-scale-codec",
@@ -6061,14 +6061,14 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.11.8"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13c863f0904021b108aa8b2f55046443e6b1ebde8fd4a15c399893aae4fa069f"
+checksum = "38b35839ba51819680ba087cd351788c9a3c476841207e0b8cee0b04722343b9"
 dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
- "jiff",
+ "humantime",
  "log",
 ]
 
@@ -8710,30 +8710,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09985146f40378e13af626964ac9c206d9d9b67c40c70805898d9954f709bcf5"
 dependencies = [
  "proc-macro-crate 3.1.0",
- "proc-macro2 1.0.95",
- "quote 1.0.40",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "jiff"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be1f93b8b1eb69c77f24bbb0afdf66f54b632ee39af40ca21c4365a1d7347e49"
-dependencies = [
- "jiff-static",
- "log",
- "portable-atomic",
- "portable-atomic-util",
- "serde",
-]
-
-[[package]]
-name = "jiff-static"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03343451ff899767262ec32146f6d559dd759fdadf42ff0e227c7c48f72594b4"
-dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -13258,7 +13234,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "futures",
  "git2",
  "hex",
@@ -13545,7 +13521,7 @@ name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -15055,7 +15031,6 @@ name = "polkadot-availability-distribution"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
- "async-trait",
  "fatality",
  "futures",
  "futures-timer",
@@ -15072,7 +15047,6 @@ dependencies = [
  "rand 0.8.5",
  "rstest",
  "sc-network",
- "sc-network-types",
  "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
@@ -15749,27 +15723,6 @@ dependencies = [
  "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
- "tracing-gum",
-]
-
-[[package]]
-name = "polkadot-node-core-rewards-statistics-collector"
-version = "7.0.0"
-dependencies = [
- "assert_matches",
- "fatality",
- "futures",
- "polkadot-node-primitives",
- "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-util",
- "polkadot-primitives",
- "sp-application-crypto",
- "sp-authority-discovery",
- "sp-core 28.0.0",
- "sp-keyring",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -16564,7 +16517,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
- "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
@@ -16924,7 +16876,6 @@ dependencies = [
  "polkadot-node-core-provisioner",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
- "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -17063,7 +17014,6 @@ dependencies = [
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-dispute-coordinator",
- "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -17271,7 +17221,7 @@ dependencies = [
  "anyhow",
  "asset-hub-westend-runtime",
  "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "ethabi-decode",
  "futures",
  "log",
@@ -17476,15 +17426,6 @@ name = "portable-atomic"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
-
-[[package]]
-name = "portable-atomic-util"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a2f0d8d040d7848a709caf78912debcc3f33ee4b3cac47d73d1e1069e83507"
-dependencies = [
- "portable-atomic",
-]
 
 [[package]]
 name = "portpicker"
@@ -20963,7 +20904,7 @@ dependencies = [
  "chrono",
  "criterion",
  "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "indexmap 2.9.0",
@@ -24702,7 +24643,7 @@ name = "substrate-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "log",
  "subxt 0.43.1",
  "subxt-signer 0.43.0",
@@ -25405,7 +25346,7 @@ name = "template-zombienet-tests"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "tokio",
  "zombienet-sdk",
 ]
@@ -25483,7 +25424,7 @@ version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e33b98a582ea0be1168eba097538ee8dd4bbe0f2b01b22ac92ea30054e5be7b"
 dependencies = [
- "env_logger 0.11.8",
+ "env_logger 0.11.3",
  "test-log-macros",
  "tracing-subscriber 0.3.18",
 ]
