@@ -1326,14 +1326,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>,
 	) -> Result<(), DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::NativeBalance::burn_held(
+			let amount_burned = T::NativeBalance::burn_held(
 				&HoldReason::<I>::DecisionDeposit.into(),
 				&who,
 				amount,
-				Precision::Exact,
+				Precision::BestEffort,
 				Fortitude::Force,
 			)?;
-			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
+			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount: amount_burned });
 		}
 		Ok(())
 	}
