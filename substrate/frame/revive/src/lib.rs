@@ -1363,11 +1363,13 @@ pub mod pallet {
 			let origin = OriginFor::<T>::signed(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
-			
+		
 			// EIP-7702: Process authorization list before execution (after nonce increment)
 			let mut accessed_addresses = alloc::collections::BTreeSet::new();
-			let _auth_refund = Self::process_eip7702_authorizations(
-				authorization_list,
+			let chain_id = U256::from(T::ChainId::get());
+			let _auth_refund = evm::eip7702::process_authorizations::<T>(
+				authorization_list.clone(),
+				chain_id,
 				&mut accessed_addresses,
 			);
 			let mut call = Call::<T>::eth_call {
@@ -1379,7 +1381,7 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
-				authorization_list: authorization_list.clone(),
+				authorization_list,
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
