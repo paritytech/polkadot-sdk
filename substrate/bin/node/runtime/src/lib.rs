@@ -3057,6 +3057,7 @@ impl pallet_example_custom_benchmarking_config::Config for Runtime {
 	type WeightInfo = pallet_example_custom_benchmarking_config::weights::SubstrateWeight<Runtime>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_example_custom_benchmarking_config::benchmarking::BenchmarkConfig for Runtime {
 	type Helper = ();
 }
