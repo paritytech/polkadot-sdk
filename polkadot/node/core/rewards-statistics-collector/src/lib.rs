@@ -27,19 +27,16 @@ use polkadot_node_primitives::{
 	new_session_window_size, SessionWindowSize, DISPUTE_WINDOW,
 };
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError as RuntimeApiSubsystemError,
 	messages::{
-		ChainApiMessage, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest,
+		ChainApiMessage, RewardsStatisticsCollectorMessage,
 	},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 	SubsystemSender,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlockNumber, CandidateHash, Hash, Header, SessionIndex, ValidatorId,
-	ValidatorIndex,
+	AuthorityDiscoveryId, BlockNumber, Hash, SessionIndex, ValidatorIndex,
 };
-use sp_keystore::KeystorePtr;
-use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 
 mod approval_voting_metrics;
 mod availability_distribution_metrics;
