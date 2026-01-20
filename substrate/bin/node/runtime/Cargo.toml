@@ -71,6 +71,7 @@ runtime-benchmarks = [
 	"rand_pcg",
 ]
 try-runtime = [
+	"pallet-example-custom-benchmarking-config/try-runtime",
 	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"polkadot-sdk/try-runtime",
