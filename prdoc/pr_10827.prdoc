@@ -1,0 +1,15 @@
+title: Add more buckets to histogram for bitfields sent
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    <img width="858" height="387" alt="image" src="https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a" />
+    On Kusama the chart already goes to infinity, so we need to adjust it to the desired value.
+
+    ## Integration
+
+    Should not affect downstream projects.
+crates:
+- name: polkadot-node-core-provisioner
+  bump: patch
