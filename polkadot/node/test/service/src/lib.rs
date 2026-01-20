@@ -88,6 +88,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		enable_beefy: true,
 		force_authoring_backoff: false,
 		telemetry_worker_handle: None,
+		verbose_approval_metrics: false,
 		node_version: None,
 		secure_validator_mode: false,
 		workers_path,

@@ -201,11 +201,6 @@ struct Chunk {
 	validator_index: ValidatorIndex,
 }
 
-enum ReceivedAvailableData {
-	Chunk(Chunk),
-	Full,
-}
-
 /// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
 /// same `RecoveryTask`.
 pub struct State {
@@ -237,7 +232,7 @@ impl State {
 
 	// increase the counter of received available data of the given validator index
 	fn note_received_available_data(&mut self, sender: ValidatorIndex) {
-		let mut counter = self.received_available_data_by.entry(sender).or_default();
+		let counter = self.received_available_data_by.entry(sender).or_default();
 		*counter += 1;
 	}
 

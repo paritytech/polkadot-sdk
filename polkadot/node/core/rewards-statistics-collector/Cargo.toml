@@ -1,10 +1,10 @@
 [package]
 name = "polkadot-node-core-rewards-statistics-collector"
-version = "6.0.0"
+version = "7.0.0"
+description = "The Statistics Collector subsystem. Collects Approval Voting and Approvals Distributions stats."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The Statistics Collector subsystem. Collects Approval Voting and Approvals Distributions stats."
 homepage.workspace = true
 repository.workspace = true
 
@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-
 fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
