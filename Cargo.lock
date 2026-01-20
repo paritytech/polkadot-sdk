@@ -1365,6 +1365,7 @@ dependencies = [
  "pallet-asset-rate",
  "pallet-asset-rewards",
  "pallet-assets",
+ "pallet-assets-foreign",
  "pallet-assets-freezer",
  "pallet-assets-precompiles",
  "pallet-aura",

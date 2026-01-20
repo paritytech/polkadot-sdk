@@ -33,6 +33,7 @@ pallet-ah-ops = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
+pallet-assets-foreign = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
@@ -323,6 +324,7 @@ std = [
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
 	"pallet-asset-rewards/std",
+	"pallet-assets-foreign/std",
 	"pallet-assets-freezer/std",
 	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
