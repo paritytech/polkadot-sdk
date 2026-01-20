@@ -53,7 +53,7 @@ pub const INACTIVITY_DECAY: u16 = 1;
 
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
-pub const MAX_STORED_SCORES_PER_PARA: u8 = 1000;
+pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
 
 /// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
 pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");

@@ -119,7 +119,21 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
-		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+		let updates = instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+
+		// Verify the DB actually updated the processed block number
+		let new_processed_finalized_block_number =
+			instance.db.processed_finalized_block_number().await.unwrap_or_default();
+
+		if new_processed_finalized_block_number > processed_finalized_block_number {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Reputation DB advanced from block {} to block {} with {} updates",
+				processed_finalized_block_number,
+				new_processed_finalized_block_number,
+				updates.len()
+			);
+		}
 
 		Ok(instance)
 	}
