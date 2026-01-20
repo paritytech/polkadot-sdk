@@ -1446,6 +1446,25 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Benchmark pruning ErasTotalStake (final step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_total_stake() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
+		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
+
+		Ok(())
+	}
+
 	// Benchmark pruning single-entry cleanups (seventh step)
 	#[benchmark(pov_mode = Measured)]
 	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
