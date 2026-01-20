@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768919956886,
+  "lastUpdate": 1768945722418,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f10da5373cde92d9fc63ebfc66b9f62f5ad34a11",
-          "message": "[pallet-revive] only record diff if value changed (#8881)\n\nOnly record storage change in diff mode if the value differ from the\ninitial one.\nPrevious implementation would report a diff for example when the old\nvalue was written again.\n\nUpdated tests in https://github.com/paritytech/evm-test-suite/pull/96\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T15:29:50Z",
-          "tree_id": "c3ae3ee372616e288e1b45aa53082dbd2c513d7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f10da5373cde92d9fc63ebfc66b9f62f5ad34a11"
-        },
-        "date": 1750264577770,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012994434773333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008978941406666757,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15629523175333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022418708986666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007069766326666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92aeeb37e2bb1e1c1cd50e850e56df140d4c9374",
+          "message": "rpc-spec-v2: Fix flaky tests (#10848)\n\nI have seen `ensure_operation_limits_works` failing in CI, because of\n`LimitReached` error failing in [this\nline](https://github.com/paritytech/polkadot-sdk/blob/1fd9be7ffa24ab8f76491000ec028a859298f9eb/substrate/client/rpc-spec-v2/src/chain_head/tests.rs#L3052).\nMy friend brought about the permit being dropped after the response is\nsend. This can lead to race where we send the answer, the context is\nswitched before the permit is freed and then the test fails by calling\nthe rpc again.\n\nTLDR: We increase the allowed operations to not run into potential race\nconditions.",
+          "timestamp": "2026-01-20T20:35:21Z",
+          "tree_id": "757bc6ab73615d5491c79b3ea178ceffbfded639",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92aeeb37e2bb1e1c1cd50e850e56df140d4c9374"
+        },
+        "date": 1768945699162,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022978683899999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14344461974666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007139726113333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00979255922000001,
             "unit": "seconds"
           }
         ]
