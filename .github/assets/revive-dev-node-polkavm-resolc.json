@@ -1,8 +1,6 @@
 {
-  "fixtures/solidity/complex/create/create2_many/test.json::1::Y M3": "Failed",
   "fixtures/solidity/complex/create/create_in_library/test.json::0::Y M0": "Failed",
   "fixtures/solidity/complex/create/create_in_library/test.json::0::Y M3": "Failed",
-  "fixtures/solidity/complex/create/create_many/test.json::1::Y M3": "Failed",
   "fixtures/solidity/complex/library_call_tuple/test.json::0::Y M0": "Failed",
   "fixtures/solidity/complex/library_call_tuple/test.json::0::Y M3": "Failed",
   "fixtures/solidity/complex/solidity_by_example/applications/iterable_mapping/test.json::0::Y M0 >=0.8.1": "Failed",
