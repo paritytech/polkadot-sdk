@@ -18,7 +18,6 @@ harness = false
 required-features = ["subsystem-benchmarks"]
 
 [dependencies]
-async-trait = { workspace = true }
 codec = { features = ["std"], workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
@@ -31,7 +30,6 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
