@@ -697,7 +697,7 @@ impl CollationManager {
 				?max_score_for_para,
 				"Collator score exceeds recorded max score for para"
 			);
-			
+
 			return Duration::ZERO;
 		}
 
