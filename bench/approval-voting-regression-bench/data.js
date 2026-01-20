@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768915168796,
+  "lastUpdate": 1768919993358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OliverLim818@gmail.com",
-            "name": "cuteolaf",
-            "username": "cuteolaf"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "79c84d47fc30e365488f5926cbea0d00eb6d3c52",
-          "message": "replace `pure` with `create_pure` in comments (#8892)\n\n# Description\n\nFixed some comments in the implementation of proxy pallet.",
-          "timestamp": "2025-06-18T08:40:45Z",
-          "tree_id": "88412a2b037372def5632f5177debada7b5e77ac",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/79c84d47fc30e365488f5926cbea0d00eb6d3c52"
-        },
-        "date": 1750239747477,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63634.090000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3890046119000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005610367990000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3935013205299986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.383858770509999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.954206222950043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4196009938200005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3270711679726355,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001850049,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001822614,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001850049,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001822614,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8996438051600109,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.46298635304003444,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.273054604709999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e30ff0d796751838f18d61101c27636b930e4190",
+          "message": "Make HRMP advancement rule more restrictive (#9086)\n\nRelated to: https://github.com/paritytech/polkadot-sdk/issues/9021\nFollowup for https://github.com/paritytech/polkadot-sdk/pull/8860\n\nLooked some more into this and from what I understand the HRMP max\nmessage size can't be changed dynamically. In order to change it we\nwould need to close the channel and than open it again which would lead\nto clearing all the pending messages. So it's safe to use the current\nhrmp max message size in the advancement rule check.",
+          "timestamp": "2026-01-20T13:32:47Z",
+          "tree_id": "d2d7a3c4ff732df560862607ec0fca1a0e976ec0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30ff0d796751838f18d61101c27636b930e4190"
+        },
+        "date": 1768919965882,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63633.33,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52946,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3608996585099935,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.864583962683012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8352742106000081,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002543194,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.847695972900002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000025423760000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002543194,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6458083289000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0055087547,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6777266464000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6834756310100003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000025423760000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.639002742779998,
             "unit": "seconds"
           }
         ]
