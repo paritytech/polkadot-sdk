@@ -1032,7 +1032,7 @@ pub mod pallet {
 		///
 		/// The type must implement `OpaqueKeys` for ownership proof validation and `Decode`
 		/// to verify the keys can be properly decoded.
-		type SessionKeys: OpaqueKeys + Decode;
+		type RelayChainSessionKeys: OpaqueKeys + Decode;
 
 		/// The balance type used for delivery fee limits.
 		type Balance: BalanceTrait;
@@ -1059,7 +1059,7 @@ pub mod pallet {
 		/// via a staking proxy, the origin is the delegating account (stash), which must be a
 		/// registered validator.
 		NotValidator,
-		/// The session keys could not be decoded as the expected SessionKeys type.
+		/// The session keys could not be decoded as the expected RelayChainSessionKeys type.
 		InvalidKeys,
 		/// Invalid ownership proof for the session keys.
 		InvalidProof,
@@ -1242,7 +1242,8 @@ pub mod pallet {
 		/// Set session keys for a validator. Keys are validated on AssetHub and forwarded to RC.
 		///
 		/// **Validation on AssetHub:**
-		/// - Keys are decoded as `T::SessionKeys` to ensure they match RC's expected format.
+		/// - Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
+		///   format.
 		/// - Ownership proof is validated using `OpaqueKeys::ownership_proof_is_valid`.
 		///
 		/// If validation passes, only the validated keys are sent to RC (with empty proof),
@@ -1283,9 +1284,9 @@ pub mod pallet {
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
-			// Validate keys: decode as SessionKeys to ensure correct format
-			let session_keys =
-				T::SessionKeys::decode(&mut &keys[..]).map_err(|_| Error::<T>::InvalidKeys)?;
+			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
+			let session_keys = T::RelayChainSessionKeys::decode(&mut &keys[..])
+				.map_err(|_| Error::<T>::InvalidKeys)?;
 
 			// Validate ownership proof
 			ensure!(

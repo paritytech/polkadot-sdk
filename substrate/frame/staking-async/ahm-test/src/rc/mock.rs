@@ -265,7 +265,7 @@ impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SendToAssetHub = DeliverToAH;
-	type AssetHubOrigin = EnsureSigned<AccountId>;
+	type AssetHubOrigin = EnsureRoot<AccountId>;
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type MaximumValidatorsWithPoints = MaximumValidatorsWithPoints;

@@ -1476,14 +1476,12 @@ mod session_keys {
 			.build()
 			.execute_with(|| {
 				// GIVEN: A valid validator stash account.
-				// In mock, AssetHubOrigin = EnsureSigned, so any signed origin works.
-				// In production, this would be restricted to XCM from AssetHub.
 				let stash: AccountId = 1;
 				let keys1 = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 
 				// WHEN: Setting initial keys from AH.
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
-					RuntimeOrigin::signed(99),
+					RuntimeOrigin::root(),
 					stash,
 					keys1.encode(),
 				));
@@ -1497,7 +1495,7 @@ mod session_keys {
 				// WHEN: Updating to different keys.
 				let keys2 = frame::deps::sp_runtime::testing::UintAuthorityId(99);
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
-					RuntimeOrigin::signed(99),
+					RuntimeOrigin::root(),
 					stash,
 					keys2.encode(),
 				));
@@ -1510,7 +1508,7 @@ mod session_keys {
 
 				// WHEN: Purging keys.
 				assert_ok!(ah_client::Pallet::<Runtime>::purge_keys_from_ah(
-					RuntimeOrigin::signed(99),
+					RuntimeOrigin::root(),
 					stash,
 				));
 
@@ -1529,7 +1527,7 @@ mod session_keys {
 			// WHEN: Setting invalid keys.
 			// THEN: Returns Ok (defensive - this should never happen since AH validates).
 			assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::root(),
 				stash,
 				invalid_keys,
 			));
@@ -1557,7 +1555,7 @@ mod session_keys {
 				let keys = frame::deps::sp_runtime::testing::UintAuthorityId(42);
 				let encoded_keys = keys.encode();
 
-				// WHEN: Using RuntimeOrigin::none() which is neither AssetHubOrigin nor root.
+				// WHEN: Using RuntimeOrigin::none().
 				// THEN: Fails with BadOrigin.
 				assert_noop!(
 					ah_client::Pallet::<Runtime>::set_keys_from_ah(
@@ -1582,17 +1580,13 @@ mod session_keys {
 			.local_queue()
 			.build()
 			.execute_with(|| {
-				// GIVEN: Account 99 is a valid validator (ValidatorIdOf converts any AccountId)
-				// but has never set session keys.
+				// GIVEN: A stash that has never set session keys.
 				let stash: AccountId = 99;
 
 				// WHEN: Purging keys for an account that has none.
 				// THEN: Fails with NoKeys.
 				assert_noop!(
-					ah_client::Pallet::<Runtime>::purge_keys_from_ah(
-						RuntimeOrigin::signed(1),
-						stash,
-					),
+					ah_client::Pallet::<Runtime>::purge_keys_from_ah(RuntimeOrigin::root(), stash,),
 					pallet_session::Error::<Runtime>::NoKeys
 				);
 			})
@@ -1614,7 +1608,7 @@ mod session_keys {
 				// WHEN: Setting keys via ah-client (privileged path).
 				// THEN: Succeeds because SessionInterface::set_keys bypasses provider checks.
 				assert_ok!(ah_client::Pallet::<Runtime>::set_keys_from_ah(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::root(),
 					stash,
 					encoded_keys,
 				));

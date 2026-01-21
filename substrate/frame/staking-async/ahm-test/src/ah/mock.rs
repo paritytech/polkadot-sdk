@@ -494,7 +494,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
-	type SessionKeys = RCSessionKeys;
+	type RelayChainSessionKeys = RCSessionKeys;
 	type Balance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
 	type MaxSessionKeysProofLength = ConstU32<512>;
@@ -588,6 +588,32 @@ impl DeliverToRelay {
 			Ok(())
 		}
 	}
+
+	/// Calculates and charges XCM fees for a keys operation.
+	fn charge_keys_fees(
+		stash: AccountId,
+		execution_cost: Balance,
+		max_fee: Option<Balance>,
+	) -> Result<Balance, SendKeysError<Balance>> {
+		let delivery_fee = XcmDeliveryFee::get();
+		let total_fee = delivery_fee.saturating_add(execution_cost);
+
+		if let Some(max) = max_fee {
+			if total_fee > max {
+				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
+			}
+		}
+
+		let fees = Assets::from(Asset {
+			id: AssetId(Location::here()),
+			fun: Fungibility::Fungible(total_fee),
+		});
+		let payer_location = AccountIdToLocation::convert(stash);
+		MockXcmExecutor::charge_fees(payer_location, fees)
+			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
+
+		Ok(total_fee)
+	}
 }
 
 impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
@@ -623,41 +649,27 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
 
-		// Calculate total fee = delivery + execution
-		let delivery_fee = XcmDeliveryFee::get();
-		let execution_cost = SetKeysExecutionCost::get();
-		let total_fee = delivery_fee.saturating_add(execution_cost);
+		let total_fee = Self::charge_keys_fees(
+			stash,
+			SetKeysExecutionCost::get(),
+			max_delivery_and_remote_execution_fee,
+		)?;
 
-		// Check max fee limit before charging
-		if let Some(max) = max_delivery_and_remote_execution_fee {
-			if total_fee > max {
-				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
-			}
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue.push((System::block_number(), OutgoingMessages::SetKeys { stash, keys }));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			// Forward to RC (uses UnpaidExecution, so no fees charged there)
+			shared::in_rc(|| {
+				let origin = crate::rc::RuntimeOrigin::root();
+				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
+					origin,
+					stash,
+					keys.clone(),
+				)
+				.unwrap();
+			});
 		}
-
-		// Charge total fee from user
-		let fees = Assets::from(Asset {
-			id: AssetId(Location::here()),
-			fun: Fungibility::Fungible(total_fee),
-		});
-		let payer_location = AccountIdToLocation::convert(stash);
-		MockXcmExecutor::charge_fees(payer_location, fees)
-			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
-
-		if LocalQueue::get().is_some() {
-			return Ok(total_fee);
-		}
-
-		// Forward to RC (uses UnpaidExecution, so no fees charged there)
-		shared::in_rc(|| {
-			let origin = crate::rc::RuntimeOrigin::root();
-			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
-				origin,
-				stash,
-				keys.clone(),
-			)
-			.unwrap();
-		});
 
 		Ok(total_fee)
 	}
@@ -669,39 +681,25 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
 
-		// Calculate total fee = delivery + execution
-		let delivery_fee = XcmDeliveryFee::get();
-		let execution_cost = PurgeKeysExecutionCost::get();
-		let total_fee = delivery_fee.saturating_add(execution_cost);
+		let total_fee = Self::charge_keys_fees(
+			stash,
+			PurgeKeysExecutionCost::get(),
+			max_delivery_and_remote_execution_fee,
+		)?;
 
-		// Check max fee limit before charging
-		if let Some(max) = max_delivery_and_remote_execution_fee {
-			if total_fee > max {
-				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
-			}
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue.push((System::block_number(), OutgoingMessages::PurgeKeys { stash }));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			// Forward to RC (uses UnpaidExecution, so no fees charged there)
+			shared::in_rc(|| {
+				let origin = crate::rc::RuntimeOrigin::root();
+				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
+					origin, stash,
+				)
+				.unwrap();
+			});
 		}
-
-		// Charge total fee from user
-		let fees = Assets::from(Asset {
-			id: AssetId(Location::here()),
-			fun: Fungibility::Fungible(total_fee),
-		});
-		let payer_location = AccountIdToLocation::convert(stash);
-		MockXcmExecutor::charge_fees(payer_location, fees)
-			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
-
-		if LocalQueue::get().is_some() {
-			return Ok(total_fee);
-		}
-
-		// Forward to RC (uses UnpaidExecution, so no fees charged there)
-		shared::in_rc(|| {
-			let origin = crate::rc::RuntimeOrigin::root();
-			pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
-				origin, stash,
-			)
-			.unwrap();
-		});
 
 		Ok(total_fee)
 	}
@@ -713,6 +711,8 @@ const INITIAL_STAKE: Balance = 100;
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	ValidatorSet(pallet_staking_async_rc_client::ValidatorSetReport<AccountId>),
+	SetKeys { stash: AccountId, keys: Vec<u8> },
+	PurgeKeys { stash: AccountId },
 }
 
 parameter_types! {
