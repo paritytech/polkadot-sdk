@@ -212,7 +212,7 @@ impl metrics::Metrics for Metrics {
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_provisioner_inherent_data_response_bitfields_sent",
 						"Number of inherent bitfields sent in response to `ProvisionerMessage::RequestInherentData`.",
-					).buckets(vec![0.0, 25.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 400.0, 500.0, 600.0]),
+					).buckets(vec![0.0, 25.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0]),
 				)?,
 				registry,
 			)?,
