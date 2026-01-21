@@ -72,7 +72,7 @@ pub enum EnactmentAction<Block: BlockT> {
 	HandleEnactment(TreeRoute<Block>),
 	/// Enactment phase of maintenance shall be skipped
 	HandleFinalization,
-	/// Chain reversion shall be handled.
+	/// Chain reversion to an older block shall be handled.
 	HandleReversion { new_head: Block::Hash },
 }
 
@@ -109,8 +109,9 @@ where
 		if let ChainEvent::Reverted { new_head } = event {
 			trace!(target: LOG_TARGET, "handle_enactment: chain is reverted.");
 			self.force_update(event);
-			return Ok(EnactmentAction::HandleReversion { new_head: *new_head })
+			return Ok(EnactmentAction::HandleReversion { new_head: *new_head });
 		}
+
 		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_best_block)) {

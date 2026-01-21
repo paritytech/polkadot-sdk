@@ -2724,6 +2724,13 @@ fn fatp_revert_multiple_blocks_does_not_resubmit() {
 	let event = new_revert_event(header01.hash());
 	block_on(pool.maintain(event));
 
+	// After revert, verify view state:
+	// - Pool should have a view at the reverted-to block
+	// - Views at reverted blocks should be removed
+	assert!(pool.has_view(&header01.hash()), "should have view at new head after revert");
+	assert!(!pool.has_view(&header02.hash()), "view at reverted block header02 should be removed");
+	assert!(!pool.has_view(&header03.hash()), "view at reverted block header03 should be removed");
+
 	// After revert:
 	// - xt0, xt1 should NOT be resubmitted (were in retracted blocks)
 	// - xt2 should still be there (was pending)

@@ -391,12 +391,9 @@ pub enum ChainEvent<B: BlockT> {
 	},
 	/// The chain has been reverted to an earlier state.
 	///
-	/// The hash passed in this event updates the pool’s internal record of the finalized block.
-	/// Handling of this event will result in removal of all included transactions.
-	///
-	/// This event is expected to be used in development and testing environments.
+	/// This event is expected to be used in development and testing environments only.
 	Reverted {
-		/// Hash of the new head
+		/// Hash of the block we reverted to.
 		new_head: B::Hash,
 	},
 }
@@ -405,8 +402,9 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
-			Self::Reverted { new_head } => *new_head,
+			Self::NewBestBlock { hash, .. } |
+			Self::Finalized { hash, .. } |
+			Self::Reverted { new_head: hash, .. } => *hash,
 		}
 	}
 
